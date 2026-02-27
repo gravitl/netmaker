@@ -100,11 +100,11 @@ func migrateUsers(ctx context.Context) error {
 		platformRoleID := user.PlatformRoleID
 		if user.PlatformRoleID == "" {
 			if user.IsSuperAdmin {
-				platformRoleID = models.SuperAdminRole
+				platformRoleID = schema.SuperAdminRole
 			} else if user.IsAdmin {
-				platformRoleID = models.AdminRole
+				platformRoleID = schema.AdminRole
 			} else {
-				platformRoleID = models.ServiceUser
+				platformRoleID = schema.ServiceUser
 			}
 		}
 

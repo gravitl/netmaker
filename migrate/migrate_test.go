@@ -24,7 +24,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,21 +57,21 @@ func TestSyncUsersLargeScale(t *testing.T) {
 			Username:       "testuser" + uuid.New().String()[:8],
 			Password:       "testpassword123",
 			DisplayName:    "Test User " + uuid.New().String()[:8],
-			PlatformRoleID: models.ServiceUser, // Most are service users
+			PlatformRoleID: schema.ServiceUser, // Most are service users
 		}
 
 		// Assign different platform roles
 		if i%100 == 0 {
-			user.PlatformRoleID = models.SuperAdminRole
+			user.PlatformRoleID = schema.SuperAdminRole
 		} else if i%10 == 0 {
-			user.PlatformRoleID = models.AdminRole
+			user.PlatformRoleID = schema.AdminRole
 		} else if i%5 == 0 {
-			user.PlatformRoleID = models.PlatformUser
+			user.PlatformRoleID = schema.PlatformUser
 		}
 
 		// Some users have user groups
 		if i%4 == 0 {
-			user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
+			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 		}
 
 		err := logic.UpsertUser(user)
@@ -152,8 +151,8 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 			Username:       "testuser" + uuid.New().String()[:8],
 			Password:       "testpassword123",
 			DisplayName:    "Test User " + uuid.New().String()[:8],
-			PlatformRoleID: models.ServiceUser,
-			UserGroups:     datatypes.NewJSONType(make(map[models.UserGroupID]struct{})),
+			PlatformRoleID: schema.ServiceUser,
+			UserGroups:     datatypes.NewJSONType(make(map[schema.UserGroupID]struct{})),
 		}
 
 		// Add some user groups with non-UUID IDs (to trigger migration)
@@ -198,10 +197,10 @@ func BenchmarkSyncUsers(b *testing.B) {
 		user := schema.User{
 			Username:       "benchuser" + uuid.New().String()[:8],
 			Password:       "password",
-			PlatformRoleID: models.ServiceUser,
+			PlatformRoleID: schema.ServiceUser,
 		}
 		if i%10 == 0 {
-			user.PlatformRoleID = models.AdminRole
+			user.PlatformRoleID = schema.AdminRole
 		}
 		_ = logic.UpsertUser(user)
 	}

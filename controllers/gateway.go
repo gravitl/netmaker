@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -143,19 +144,19 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	logic.GetNodeStatus(&relayNode, false)
 	apiNode := relayNode.ConvertToAPINode()
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   node.ID.String(),
 			Name: host.Name,
-			Type: models.GatewaySub,
+			Type: schema.GatewaySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	host.IsStaticPort = true
 	logic.UpsertHost(host)
@@ -283,19 +284,19 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   node.ID.String(),
 			Name: host.Name,
-			Type: models.GatewaySub,
+			Type: schema.GatewaySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: node,
 			New: node,
@@ -416,19 +417,19 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 			nodeid, netid))
 
 	logic.LogEvent(&models.Event{
-		Action: models.GatewayAssign,
+		Action: schema.GatewayAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   node.ID.String(),
 			Name: host.Name,
-			Type: models.GatewaySub,
+			Type: schema.GatewaySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 
 	logic.GetNodeStatus(&node, false)
@@ -536,19 +537,19 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 			nodeid, netid))
 
 	logic.LogEvent(&models.Event{
-		Action: models.GatewayUnAssign,
+		Action: schema.GatewayUnAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   node.ID.String(),
 			Name: host.Name,
-			Type: models.GatewaySub,
+			Type: schema.GatewaySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 
 	logic.GetNodeStatus(&node, false)

@@ -686,7 +686,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode.PostureChecksViolations,
 		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
-		models.NetworkID(newNode.Network))
+		schema.NetworkID(newNode.Network))
 	newNode.LastEvaluatedAt = time.Now().UTC()
 	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
@@ -701,23 +701,23 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Network,
 	)
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   newNode.ID.String(),
 			Name: host.Name,
-			Type: models.NodeSub,
+			Type: schema.NodeSub,
 		},
 		Diff: models.Diff{
 			Old: currentNode,
 			New: newNode,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)

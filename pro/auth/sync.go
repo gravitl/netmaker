@@ -181,8 +181,8 @@ func syncUsers(idpUsers []idp.User) error {
 				DisplayName:                user.DisplayName,
 				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
-				AuthType:                   models.OAuth,
-				PlatformRoleID:             models.ServiceUser,
+				AuthType:                   schema.OAuth,
+				PlatformRoleID:             schema.ServiceUser,
 			})
 			if err != nil {
 				return err
@@ -194,7 +194,7 @@ func syncUsers(idpUsers []idp.User) error {
 			// created. Now, since the user is created, the pending user
 			// can be deleted.
 			_ = logic.DeletePendingUser(user.Username)
-		} else if dbUser.AuthType == models.OAuth {
+		} else if dbUser.AuthType == schema.OAuth {
 			if dbUser.AccountDisabled != user.AccountDisabled ||
 				dbUser.DisplayName != user.DisplayName ||
 				dbUser.ExternalIdentityProviderID != user.ID {
@@ -272,7 +272,7 @@ func syncGroups(idpGroups []idp.Group) error {
 	var aclsUpdated bool
 	var acls []models.Acl
 	for _, network := range networks {
-		aclID := fmt.Sprintf("%s.%s-grp", network.Name, models.NetworkUser)
+		aclID := fmt.Sprintf("%s.%s-grp", network.Name, schema.NetworkUser)
 		acl, err := logic.GetAcl(aclID)
 		if err == nil {
 			acls = append(acls, acl)
@@ -299,7 +299,7 @@ func syncGroups(idpGroups []idp.Group) error {
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
 			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{
-				models.AllNetworks: {
+				schema.AllNetworks: {
 					proLogic.GetDefaultGlobalUserRoleID(): {},
 				},
 			})

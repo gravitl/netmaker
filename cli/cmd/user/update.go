@@ -2,7 +2,6 @@ package user
 
 import (
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/spf13/cobra"
 	"gorm.io/datatypes"
@@ -16,12 +15,12 @@ var userUpdateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		user := &schema.User{Username: args[0]}
 		if platformID != "" {
-			user.PlatformRoleID = models.UserRoleID(platformID)
+			user.PlatformRoleID = schema.UserRoleID(platformID)
 		}
 		if len(groups) > 0 {
-			grMap := make(map[models.UserGroupID]struct{})
+			grMap := make(map[schema.UserGroupID]struct{})
 			for _, groupID := range groups {
-				grMap[models.UserGroupID(groupID)] = struct{}{}
+				grMap[schema.UserGroupID(groupID)] = struct{}{}
 			}
 			user.UserGroups = datatypes.NewJSONType(grMap)
 		}

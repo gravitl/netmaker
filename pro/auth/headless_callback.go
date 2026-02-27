@@ -69,7 +69,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 			err = logic.InsertPendingUser(&models.User{
 				UserName:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
-				AuthType:                   models.OAuth,
+				AuthType:                   schema.OAuth,
 			})
 			if err != nil {
 				handleSomethingWentWrong(w)

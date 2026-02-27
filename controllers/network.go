@@ -502,7 +502,7 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(schema.NetworkID(netname))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -547,8 +547,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteAllNetworkTags(models.NetworkID(network))
-	go logic.DeleteNetworkPolicies(models.NetworkID(network))
+	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
+	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
@@ -570,19 +570,19 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   network,
 			Name: network,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: network,
 			New: nil,
@@ -688,9 +688,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.Name))
-	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.Name))
-	logic.CreateDefaultTags(models.NetworkID(network.Name))
+	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
+	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
+	logic.CreateDefaultTags(schema.NetworkID(network.Name))
 	logic.AddNetworkToAllocatedIpMap(network.Name)
 	logic.CreateFallbackNameserver(network.Name)
 	if featureFlags.EnableOverlappingEgressRanges {
@@ -766,20 +766,20 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   network.Name,
 			Name: network.Name,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 			Info: network,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(1, r.Header.Get("user"), "created network", network.Name)
 	w.WriteHeader(http.StatusOK)

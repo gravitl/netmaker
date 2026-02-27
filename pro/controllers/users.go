@@ -128,9 +128,9 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
-	user.PlatformRoleID = models.UserRoleID(in.PlatformRoleID)
+	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
-		user.PlatformRoleID = models.ServiceUser
+		user.PlatformRoleID = schema.ServiceUser
 	}
 	err = logic.CreateUser(&user)
 	if err != nil {
@@ -190,7 +190,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 			return
 		}
-		if inviteReq.PlatformRoleID == models.SuperAdminRole.String() {
+		if inviteReq.PlatformRoleID == schema.SuperAdminRole.String() {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
 			return
 		}
@@ -198,8 +198,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
 			return
 		}
-		if (inviteReq.PlatformRoleID == models.AdminRole.String() ||
-			inviteReq.PlatformRoleID == models.SuperAdminRole.String()) && caller.PlatformRoleID != models.SuperAdminRole {
+		if (inviteReq.PlatformRoleID == schema.AdminRole.String() ||
+			inviteReq.PlatformRoleID == schema.SuperAdminRole.String()) && caller.PlatformRoleID != schema.SuperAdminRole {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
 			return
 		}
@@ -218,7 +218,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check platform role
-	roleCheck := &schema.UserRole{ID: models.UserRoleID(inviteReq.PlatformRoleID)}
+	roleCheck := &schema.UserRole{ID: schema.UserRoleID(inviteReq.PlatformRoleID)}
 	err = roleCheck.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -268,20 +268,20 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
 		logic.LogEvent(&models.Event{
-			Action: models.Create,
+			Action: schema.Create,
 			Source: models.Subject{
 				ID:   callerUserName,
 				Name: callerUserName,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 				Info: invite,
 			},
 			TriggeredBy: callerUserName,
 			Target: models.Subject{
 				ID:   inviteeEmail,
 				Name: inviteeEmail,
-				Type: models.UserInviteSub,
+				Type: schema.UserInviteSub,
 			},
-			Origin: models.Dashboard,
+			Origin: schema.Dashboard,
 		})
 		// notify user with magic link
 		go func(invite models.UserInvite) {
@@ -339,19 +339,19 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   email,
 			Name: email,
-			Type: models.UserInviteSub,
+			Type: schema.UserInviteSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: models.UserInvite{
 				Email: email,
@@ -376,19 +376,19 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.DeleteAll,
+		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   "All Invites",
 			Name: "All Invites",
-			Type: models.UserInviteSub,
+			Type: schema.UserInviteSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending user invites")
 }
@@ -427,7 +427,7 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	group, err := proLogic.GetUserGroup(models.UserGroupID(gid))
+	group, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -480,25 +480,25 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if len(user.UserGroups.Data()) == 0 {
-			user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
+			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 		}
 		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
 		logic.UpsertUser(*user)
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userGroupReq.Group.ID.String(),
 			Name: userGroupReq.Group.Name,
-			Type: models.UserGroupSub,
+			Type: schema.UserGroupSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
@@ -547,28 +547,28 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userGroup.ID.String(),
 			Name: userGroup.Name,
-			Type: models.UserGroupSub,
+			Type: schema.UserGroupSub,
 		},
 		Diff: models.Diff{
 			Old: currUserG,
 			New: userGroup,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	replacePeers := false
 	go func() {
-		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles.Data()[models.AllNetworks]
-		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles.Data()[models.AllNetworks]
+		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles.Data()[schema.AllNetworks]
+		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles.Data()[schema.AllNetworks]
 
 		var removeAllNetworksCurrRoleAcls bool
 		var addAllNetworksNewRoleAcls bool
@@ -590,11 +590,11 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		networksAdded := make([]models.NetworkID, 0)
-		networksRemoved := make([]models.NetworkID, 0)
+		networksAdded := make([]schema.NetworkID, 0)
+		networksRemoved := make([]schema.NetworkID, 0)
 
 		for networkID := range userGroup.NetworkRoles.Data() {
-			if networkID == models.AllNetworks {
+			if networkID == schema.AllNetworks {
 				continue
 			}
 
@@ -604,7 +604,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for networkID := range currUserG.NetworkRoles.Data() {
-			if networkID == models.AllNetworks {
+			if networkID == schema.AllNetworks {
 				continue
 			}
 
@@ -618,10 +618,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 			networks, _ := (&schema.Network{}).ListAll(r.Context())
 			for _, network := range networks {
 				if removeAllNetworksCurrRoleAcls {
-					currRole := models.NetworkUser
+					currRole := schema.NetworkUser
 					_, ok := currAllNetworksRole[globalNetworkAdmin]
 					if ok {
-						currRole = models.NetworkAdmin
+						currRole = schema.NetworkAdmin
 					}
 
 					aclID := fmt.Sprintf("%s.%s-grp", network.Name, currRole)
@@ -645,10 +645,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if addAllNetworksNewRoleAcls {
-					newRole := models.NetworkUser
+					newRole := schema.NetworkUser
 					_, ok := newAllNetworksRole[globalNetworkAdmin]
 					if ok {
-						newRole = models.NetworkAdmin
+						newRole = schema.NetworkAdmin
 					}
 
 					aclID := fmt.Sprintf("%s.%s-grp", network.Name, newRole)
@@ -689,7 +689,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 					MetaData:    "This Policy allows user group to communicate with all gateways",
 					Default:     false,
 					ServiceType: models.Any,
-					NetworkID:   models.NetworkID(network.Name),
+					NetworkID:   schema.NetworkID(network.Name),
 					Proto:       models.ALL,
 					RuleType:    models.UserPolicy,
 					Src: []models.AclPolicyTag{
@@ -701,7 +701,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 					Dst: []models.AclPolicyTag{
 						{
 							ID:    models.NodeTagID,
-							Value: fmt.Sprintf("%s.%s", models.NetworkID(network.Name), models.GwTagName),
+							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
 						}},
 					AllowedDirection: models.TrafficDirectionUni,
 					Enabled:          true,
@@ -771,7 +771,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 	var unassignedUsers []models.ReturnUser
 	users, _ := logic.GetUsers()
 	for _, user := range users {
-		if user.PlatformRoleID != models.ServiceUser {
+		if user.PlatformRoleID != schema.ServiceUser {
 			continue
 		}
 		skipUser := false
@@ -780,7 +780,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			if _, ok := userG.NetworkRoles.Data()[models.NetworkID(netID)]; ok {
+			if _, ok := userG.NetworkRoles.Data()[schema.NetworkID(netID)]; ok {
 				skipUser = true
 				break
 			}
@@ -819,31 +819,31 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != models.ServiceUser {
+	if user.PlatformRoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
 	oldUser := *user
-	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID))] = struct{}{}
+	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
 	logic.UpsertUser(*user)
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
 			Old: oldUser,
 			New: user,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
@@ -875,31 +875,31 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != models.ServiceUser {
+	if user.PlatformRoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
 	oldUser := *user
-	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID)))
+	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
 	logic.UpsertUser(*user)
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
 			Old: oldUser,
 			New: user,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
@@ -921,7 +921,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
+	userG, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
@@ -938,19 +938,19 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userG.ID.String(),
 			Name: userG.Name,
-			Type: models.UserGroupSub,
+			Type: schema.UserGroupSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: userG,
 			New: nil,
@@ -1002,7 +1002,7 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role := &schema.UserRole{ID: models.UserRoleID(rid)}
+	role := &schema.UserRole{ID: schema.UserRoleID(rid)}
 	err := role.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
@@ -1046,19 +1046,19 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userRole.ID.String(),
 			Name: userRole.Name,
-			Type: models.UserRoleSub,
+			Type: schema.UserRoleSub,
 		},
-		Origin: models.ClientApp,
+		Origin: schema.ClientApp,
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
@@ -1100,23 +1100,23 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userRole.ID.String(),
 			Name: userRole.Name,
-			Type: models.UserRoleSub,
+			Type: schema.UserRoleSub,
 		},
 		Diff: models.Diff{
 			Old: currRole,
 			New: userRole,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
@@ -1139,37 +1139,37 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role := &schema.UserRole{ID: models.UserRoleID(rid)}
+	role := &schema.UserRole{ID: schema.UserRoleID(rid)}
 	err := role.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteRole(models.UserRoleID(rid), false)
+	err = proLogic.DeleteRole(schema.UserRoleID(rid), false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   role.ID.String(),
 			Name: role.Name,
-			Type: models.UserRoleSub,
+			Type: schema.UserRoleSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: role,
 			New: nil,
 		},
 	})
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -1216,7 +1216,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
+	if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
 		return
 	}
@@ -1708,7 +1708,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
@@ -1766,7 +1766,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
@@ -1950,7 +1950,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 				Password:                   newPass,
 				AuthType:                   user.AuthType,
-				PlatformRoleID:             models.ServiceUser,
+				PlatformRoleID:             schema.ServiceUser,
 			}); err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
 				return
@@ -1964,19 +1964,19 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   username,
 			Name: username,
-			Type: models.PendingUserSub,
+			Type: schema.PendingUserSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logic.ReturnSuccessResponse(w, r, "approved "+username)
 }
@@ -2012,19 +2012,19 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   username,
 			Name: username,
-			Type: models.PendingUserSub,
+			Type: schema.PendingUserSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: schema.User{
 				Username: username,
@@ -2050,19 +2050,19 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.DeleteAll,
+		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.PendingUserSub,
+			Type: schema.PendingUserSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
 }
@@ -2165,7 +2165,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if superAdmin.AuthType == models.OAuth {
+	if superAdmin.AuthType == schema.OAuth {
 		err := fmt.Errorf(
 			"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 		)

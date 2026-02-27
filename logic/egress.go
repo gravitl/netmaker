@@ -25,7 +25,7 @@ func validateEgressReq(e *schema.Egress) error {
 		return errors.New("network id is empty")
 	}
 	if e.Nat {
-		e.Mode = models.DirectNAT
+		e.Mode = schema.DirectNAT
 	} else {
 		e.Mode = ""
 		e.VirtualRange = ""
@@ -68,7 +68,7 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 					return true
 				} else if srcAcl.ID == models.UserGroupAclID {
 					// fetch all users in the group
-					if _, ok := user.UserGroups.Data()[models.UserGroupID(srcAcl.Value)]; ok {
+					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}
 				}
@@ -253,7 +253,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *schema.User, network models.NetworkID) (domains []string) {
+func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
 	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
@@ -276,9 +276,9 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network models.NetworkID
 }
 
 func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(models.NetworkID(node.Network))
+	acls := ListDevicePolicies(schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
@@ -458,7 +458,7 @@ func RemoveNodeFromEgress(node models.Node) {
 	}
 }
 
-func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
+func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)

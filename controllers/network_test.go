@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	logic.CreateSuperAdmin(&schema.User{
 		Username:       "admin",
 		Password:       "password",
-		PlatformRoleID: models.SuperAdminRole,
+		PlatformRoleID: schema.SuperAdminRole,
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background())

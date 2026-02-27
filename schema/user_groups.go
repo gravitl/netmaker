@@ -6,15 +6,20 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
-type NetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}
+type NetworkRoles map[NetworkID]map[UserRoleID]struct{}
+
+type UserGroupID string
+
+func (g UserGroupID) String() string {
+	return string(g)
+}
 
 type UserGroup struct {
-	ID                         models.UserGroupID               `gorm:"primaryKey" json:"id"`
+	ID                         UserGroupID                      `gorm:"primaryKey" json:"id"`
 	Name                       string                           `json:"name"`
 	Default                    bool                             `json:"default"`
 	ExternalIdentityProviderID string                           `json:"external_identity_provider_id"`

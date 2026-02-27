@@ -317,7 +317,7 @@ func assignSuperAdmin() {
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.PlatformRoleID = models.SuperAdminRole
+		user.PlatformRoleID = schema.SuperAdminRole
 		err = logic.UpsertUser(*user)
 		if err != nil {
 			log.Fatal(
@@ -332,7 +332,7 @@ func assignSuperAdmin() {
 	}
 	for _, u := range users {
 		var isAdmin bool
-		if u.PlatformRoleID == models.AdminRole {
+		if u.PlatformRoleID == schema.AdminRole {
 			isAdmin = true
 		}
 		if u.PlatformRoleID == "" && u.IsAdmin {
@@ -346,7 +346,7 @@ func assignSuperAdmin() {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
 			}
-			user.PlatformRoleID = models.SuperAdminRole
+			user.PlatformRoleID = schema.SuperAdminRole
 			err = logic.UpsertUser(*user)
 			if err != nil {
 				slog.Error(
@@ -656,7 +656,7 @@ func updateAcls() {
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-		userGroupMap := make(map[models.UserGroupID]schema.UserGroup)
+		userGroupMap := make(map[schema.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
 			userGroupMap[userGroup.ID] = userGroup
 		}
@@ -666,12 +666,12 @@ func updateNewAcls() {
 			aclSrc := make([]models.AclPolicyTag, 0)
 			for _, src := range acl.Src {
 				if src.ID == models.UserGroupAclID {
-					userGroup, ok := userGroupMap[models.UserGroupID(src.Value)]
+					userGroup, ok := userGroupMap[schema.UserGroupID(src.Value)]
 					if !ok {
 						// if the group doesn't exist, don't add it to the acl's src.
 						continue
 					} else {
-						_, allNetworkAccess := userGroup.NetworkRoles.Data()[models.AllNetworks]
+						_, allNetworkAccess := userGroup.NetworkRoles.Data()[schema.AllNetworks]
 						if !allNetworkAccess {
 							_, ok := userGroup.NetworkRoles.Data()[acl.NetworkID]
 							if !ok {
@@ -721,7 +721,7 @@ func syncUsers() {
 	if servercfg.IsPro {
 		networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.Name))
+			logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(netI.Name))
 		}
 	}
 
@@ -729,12 +729,12 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
-			user.AuthType = models.BasicAuth
+			user.AuthType = schema.BasicAuth
 			if logic.IsOauthUser(&user) == nil {
-				user.AuthType = models.OAuth
+				user.AuthType = schema.OAuth
 			}
 			if len(user.UserGroups.Data()) == 0 {
-				user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
+				user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 			}
 
 			logic.AddGlobalNetRolesToAdmins(&user)
@@ -750,8 +750,8 @@ func createDefaultTagsAndPolicies() {
 		return
 	}
 	for _, network := range networks {
-		logic.CreateDefaultTags(models.NetworkID(network.Name))
-		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.Name))
+		logic.CreateDefaultTags(schema.NetworkID(network.Name))
+		logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 		// delete old remote access gws policy
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
 	}
@@ -810,7 +810,7 @@ func migrateToEgressV1() {
 						MetaData:    "",
 						Default:     false,
 						ServiceType: models.Any,
-						NetworkID:   models.NetworkID(node.Network),
+						NetworkID:   schema.NetworkID(node.Network),
 						Proto:       models.ALL,
 						RuleType:    models.DevicePolicy,
 						Src: []models.AclPolicyTag{
@@ -839,7 +839,7 @@ func migrateToEgressV1() {
 						MetaData:    "",
 						Default:     false,
 						ServiceType: models.Any,
-						NetworkID:   models.NetworkID(node.Network),
+						NetworkID:   schema.NetworkID(node.Network),
 						Proto:       models.ALL,
 						RuleType:    models.UserPolicy,
 						Src: []models.AclPolicyTag{

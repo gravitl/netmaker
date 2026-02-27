@@ -118,7 +118,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 				err = logic.InsertPendingUser(&models.User{
 					UserName:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-					AuthType:                   models.OAuth,
+					AuthType:                   schema.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -134,7 +134,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// if user exists, then ensure user's auth type is
 		// oauth before proceeding.
-		if user.AuthType == models.BasicAuth {
+		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
 			handleAuthTypeMismatch(w)
 			return
@@ -179,20 +179,20 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Login,
+		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   models.DashboardSub.String(),
-			Name: models.DashboardSub.String(),
-			Type: models.DashboardSub,
+			ID:   schema.DashboardSub.String(),
+			Name: schema.DashboardSub.String(),
+			Type: schema.DashboardSub,
 			Info: user,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(1, "completed azure OAuth sigin in for", user.Username)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)

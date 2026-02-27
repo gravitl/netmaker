@@ -21,7 +21,6 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -259,7 +258,7 @@ func GetClientIP(r *http.Request) string {
 }
 
 // CompareIfaceSlices compares two slices of Iface for deep equality (order-sensitive)
-func CompareIfaceSlices(a, b []models.Iface) bool {
+func CompareIfaceSlices(a, b []schema.Iface) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -270,7 +269,7 @@ func CompareIfaceSlices(a, b []models.Iface) bool {
 	}
 	return true
 }
-func compareIface(a, b models.Iface) bool {
+func compareIface(a, b schema.Iface) bool {
 	return a.Name == b.Name &&
 		a.Address.IP.Equal(b.Address.IP) &&
 		a.Address.Mask.String() == b.Address.Mask.String() &&

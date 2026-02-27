@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
@@ -222,15 +221,15 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	err := user.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		// Check platform role (super admin or admin)
-		if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 			// Super admin or admin - bypass JIT check
 			return true, nil, nil
 		}
-		if user.PlatformRoleID == models.PlatformUser {
+		if user.PlatformRoleID == schema.PlatformUser {
 			// Check network admin roles
-			networkIDModel := models.NetworkID(networkID)
-			allNetworksID := models.AllNetworks
-			globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
+			networkIDModel := schema.NetworkID(networkID)
+			allNetworksID := schema.AllNetworks
+			globalNetworksAdminRoleID := schema.UserRoleID(fmt.Sprintf("global-%s", schema.NetworkAdmin))
 
 			// Check user groups for network admin roles
 			for groupID := range user.UserGroups.Data() {
@@ -245,7 +244,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 				// Check if group has network admin role for this network
 				if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 					for roleID := range roles {
-						if roleID == models.NetworkAdmin {
+						if roleID == schema.NetworkAdmin {
 							// User is in group with network admin role for this network - bypass JIT check
 							return true, nil, nil
 						}
@@ -255,7 +254,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 				// Check if group has global network admin role
 				if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 					for roleID := range roles {
-						if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
+						if roleID == schema.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 							// User is in group with global network admin role - bypass JIT check
 							return true, nil, nil
 						}
@@ -460,15 +459,15 @@ type UserJITNetworkStatus struct {
 // isUserAdminForNetwork - checks if user is super admin, admin, network admin, or global network admin
 func isUserAdminForNetwork(user *schema.User, networkID string) bool {
 	// Check platform role (super admin or admin)
-	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+	if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 		return true
 	}
-	if user.PlatformRoleID != models.PlatformUser {
+	if user.PlatformRoleID != schema.PlatformUser {
 		return false
 	}
-	networkIDModel := models.NetworkID(networkID)
-	allNetworksID := models.AllNetworks
-	globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
+	networkIDModel := schema.NetworkID(networkID)
+	allNetworksID := schema.AllNetworks
+	globalNetworksAdminRoleID := schema.UserRoleID(fmt.Sprintf("global-%s", schema.NetworkAdmin))
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {
@@ -483,7 +482,7 @@ func isUserAdminForNetwork(user *schema.User, networkID string) bool {
 		// Check if group has network admin role for this network
 		if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 			for roleID := range roles {
-				if roleID == models.NetworkAdmin {
+				if roleID == schema.NetworkAdmin {
 					return true
 				}
 			}
@@ -492,7 +491,7 @@ func isUserAdminForNetwork(user *schema.User, networkID string) bool {
 		// Check if group has global network admin role
 		if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 			for roleID := range roles {
-				if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
+				if roleID == schema.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 					return true
 				}
 			}
@@ -646,14 +645,14 @@ func GetNetworkAdmins(networkID string) ([]schema.User, error) {
 		return admins, fmt.Errorf("failed to get users: %w", err)
 	}
 
-	networkIDModel := models.NetworkID(networkID)
-	allNetworksID := models.AllNetworks
+	networkIDModel := schema.NetworkID(networkID)
+	allNetworksID := schema.AllNetworks
 
 	for _, user := range users {
 		isAdmin := false
 
 		// Check platform role (super admin or admin)
-		if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 			isAdmin = true
 		}
 
@@ -670,7 +669,7 @@ func GetNetworkAdmins(networkID string) ([]schema.User, error) {
 			// Check if group has network admin role for this network
 			if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 				for roleID := range roles {
-					if roleID == models.NetworkAdmin {
+					if roleID == schema.NetworkAdmin {
 						isAdmin = true
 						break
 					}
@@ -679,7 +678,7 @@ func GetNetworkAdmins(networkID string) ([]schema.User, error) {
 
 			if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 				for roleID := range roles {
-					if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
+					if roleID == schema.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 						isAdmin = true
 						break
 					}

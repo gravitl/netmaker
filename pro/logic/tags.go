@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -90,7 +91,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
-func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
+func ListTagsWithNodes(netID schema.NetworkID) ([]models.TagListResp, error) {
 	tags, err := ListNetworkTags(netID)
 	if err != nil {
 		return []models.TagListResp{}, err
@@ -107,7 +108,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	}
 	return resp, nil
 }
-func DeleteAllNetworkTags(networkID models.NetworkID) {
+func DeleteAllNetworkTags(networkID schema.NetworkID) {
 	tags, _ := ListNetworkTags(networkID)
 	for _, tagI := range tags {
 		DeleteTag(tagI.ID, false)
@@ -135,7 +136,7 @@ func ListTags() ([]models.Tag, error) {
 }
 
 // ListTags - lists all tags from DB
-func ListNetworkTags(netID models.NetworkID) ([]models.Tag, error) {
+func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
@@ -285,7 +286,7 @@ func CheckIDSyntax(id string) error {
 	return nil
 }
 
-func CreateDefaultTags(netID models.NetworkID) {
+func CreateDefaultTags(netID schema.NetworkID) {
 	// create tag for gws in the network
 	tag := models.Tag{
 		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),

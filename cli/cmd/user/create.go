@@ -2,7 +2,6 @@ package user
 
 import (
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/spf13/cobra"
 	"gorm.io/datatypes"
@@ -14,11 +13,11 @@ var userCreateCmd = &cobra.Command{
 	Short: "Create a new user",
 	Long:  `Create a new user`,
 	Run: func(cmd *cobra.Command, args []string) {
-		user := &schema.User{Username: username, Password: password, PlatformRoleID: models.UserRoleID(platformID)}
+		user := &schema.User{Username: username, Password: password, PlatformRoleID: schema.UserRoleID(platformID)}
 		if len(groups) > 0 {
-			grMap := make(map[models.UserGroupID]struct{})
+			grMap := make(map[schema.UserGroupID]struct{})
 			for _, groupID := range groups {
-				grMap[models.UserGroupID(groupID)] = struct{}{}
+				grMap[schema.UserGroupID(groupID)] = struct{}{}
 			}
 			user.UserGroups = datatypes.NewJSONType(grMap)
 		}
@@ -31,7 +30,7 @@ func init() {
 
 	userCreateCmd.Flags().StringVar(&username, "name", "", "Name of the user")
 	userCreateCmd.Flags().StringVar(&password, "password", "", "Password of the user")
-	userCreateCmd.Flags().StringVarP(&platformID, "platform-role", "r", models.ServiceUser.String(),
+	userCreateCmd.Flags().StringVarP(&platformID, "platform-role", "r", schema.ServiceUser.String(),
 		"Platform Role of the user; run `nmctl roles list` to see available user roles")
 	userCreateCmd.MarkFlagRequired("name")
 	userCreateCmd.MarkFlagRequired("password")

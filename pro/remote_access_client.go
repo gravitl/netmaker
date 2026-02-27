@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -43,8 +44,8 @@ func unauthorisedUserNodeHook() error {
 	currentTime := time.Now()
 	validityDuration := logic.GetJwtValidityDuration()
 	for _, user := range users {
-		if user.PlatformRoleID == models.AdminRole ||
-			user.PlatformRoleID == models.SuperAdminRole {
+		if user.PlatformRoleID == schema.AdminRole ||
+			user.PlatformRoleID == schema.SuperAdminRole {
 			continue
 		}
 		if !currentTime.After(user.LastLoginTime.Add(validityDuration)) {

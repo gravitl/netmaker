@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -34,8 +35,8 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network models.NetworkID) (v []models.Violation, level models.Severity) {
-	return []models.Violation{}, models.SeverityUnknown
+var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schema.NetworkID) (v []models.Violation, level schema.Severity) {
+	return []models.Violation{}, schema.SeverityUnknown
 }
 
 var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
@@ -183,7 +184,7 @@ func GetHostsMap() (map[string]models.Host, error) {
 	return currHostMap, nil
 }
 
-func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+func DoesHostExistinTheNetworkAlready(h *models.Host, network schema.NetworkID) bool {
 	if len(h.Nodes) > 0 {
 		for _, nodeID := range h.Nodes {
 			node, err := GetNodeByID(nodeID)

@@ -236,7 +236,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		node.Tags = make(map[models.TagID]struct{})
 	}
 	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
 	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
@@ -258,7 +258,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 		return gwUsers, err
 	}
 	for _, user := range users {
-		if user.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID != models.AdminRole {
+		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
 			gwUsers.Users = append(gwUsers.Users, user)
 		}
 	}
@@ -289,7 +289,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
 	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {

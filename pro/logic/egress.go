@@ -23,18 +23,18 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
-	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == models.VirtualNAT {
+	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}
-	if e.Nat && (e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT) {
-		return fmt.Errorf("invalid NAT type: must be %s or %s", string(models.DirectNAT), string(models.VirtualNAT))
+	if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
+		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
 	if !e.Nat {
 		e.Mode = ""
 		e.VirtualRange = ""
 	}
 	if e.Domain != "" && e.Nat {
-		e.Mode = models.DirectNAT
+		e.Mode = schema.DirectNAT
 	}
 	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -65,7 +65,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func RemoveTagFromEgress(net models.NetworkID, tagID models.TagID) {
+func RemoveTagFromEgress(net schema.NetworkID, tagID models.TagID) {
 	eli, _ := (&schema.Egress{Network: net.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, eI := range eli {
 		if _, ok := eI.Tags[tagID.String()]; ok {
@@ -88,7 +88,7 @@ func AssignVirtualRangeToEgress(nw *schema.Network, eg *schema.Egress) error {
 	}
 
 	// v1: only allocate for virtual NAT mode
-	if eg.Mode != models.VirtualNAT {
+	if eg.Mode != schema.VirtualNAT {
 		logger.Log(2, "AssignVirtualRangeToEgress: mode is not VirtualNAT, skipping. Mode:", string(eg.Mode))
 		return nil
 	}

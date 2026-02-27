@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
 )
 
 type Attribute string
 type Values string
+type Severity int
 
 const (
 	OS             Attribute = "os"
@@ -20,6 +20,14 @@ const (
 	AutoUpdate     Attribute = "auto_update"
 	ClientVersion  Attribute = "client_version"
 	ClientLocation Attribute = "client_location"
+)
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
 )
 
 var PostureCheckAttrs = []Attribute{
@@ -83,11 +91,11 @@ var PostureCheckAttrValues = map[Attribute][]string{
 type PostureCheck struct {
 	ID          string                      `gorm:"primaryKey" json:"id"`
 	Name        string                      `gorm:"name" json:"name"`
-	NetworkID   models.NetworkID            `gorm:"network_id" json:"network_id"`
+	NetworkID   NetworkID                   `gorm:"network_id" json:"network_id"`
 	Description string                      `gorm:"description" json:"description"`
 	Attribute   Attribute                   `gorm:"attribute" json:"attribute"`
 	Values      datatypes.JSONSlice[string] `gorm:"values" json:"values"`
-	Severity    models.Severity             `gorm:"severity" json:"severity"`
+	Severity    Severity                    `gorm:"severity" json:"severity"`
 	Tags        datatypes.JSONMap           `gorm:"tags" json:"tags"`
 	UserGroups  datatypes.JSONMap           `gorm:"user_groups" json:"user_groups"`
 	Status      bool                        `gorm:"status" json:"status"`

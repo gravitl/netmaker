@@ -105,19 +105,19 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.UpgradeAll,
+		Action: schema.UpgradeAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   "All Hosts",
 			Name: "All Hosts",
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	slog.Info("upgrade all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "upgrade all hosts request received")
@@ -343,23 +343,23 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   currHost.ID.String(),
 			Name: newHost.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
 		Diff: models.Diff{
 			Old: currHost,
 			New: newHost,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
@@ -512,19 +512,19 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		HostID: currHost.ID.String(),
 	}).DeleteAllPendingHosts(db.WithContext(r.Context()))
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   currHost.ID.String(),
 			Name: currHost.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: currHost,
 			New: nil,
@@ -573,7 +573,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		OSVersion:      currHost.OSVersion,
 		KernelVersion:  currHost.KernelVersion,
 		AutoUpdate:     currHost.AutoUpdate,
-	}, models.NetworkID(network))
+	}, schema.NetworkID(network))
 	if len(violations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
@@ -619,20 +619,20 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
 	)
 	logic.LogEvent(&models.Event{
-		Action: models.JoinHostToNet,
+		Action: schema.JoinHostToNet,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   currHost.ID.String(),
 			Name: currHost.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		NetworkID: models.NetworkID(network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(network),
+		Origin:    schema.Dashboard,
 	})
 	w.WriteHeader(http.StatusOK)
 }
@@ -762,20 +762,20 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.RemoveHostFromNet,
+		Action: schema.RemoveHostFromNet,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   currHost.ID.String(),
 			Name: currHost.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		NetworkID: models.NetworkID(network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(network),
+		Origin:    schema.Dashboard,
 	})
 	logger.Log(
 		2,
@@ -984,19 +984,19 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.RefreshAllKeys,
+		Action: schema.RefreshAllKeys,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   "All Devices",
 			Name: "All Devices",
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(2, r.Header.Get("user"), "updated keys for all hosts")
 	w.WriteHeader(http.StatusOK)
@@ -1034,19 +1034,19 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.RefreshKey,
+		Action: schema.RefreshKey,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   host.ID.String(),
 			Name: host.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
 	w.WriteHeader(http.StatusOK)
@@ -1087,19 +1087,19 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.SyncAll,
+		Action: schema.SyncAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   "All Devices",
 			Name: "All Devices",
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	slog.Info("sync all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "sync all hosts request received")
@@ -1137,19 +1137,19 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Sync,
+		Action: schema.Sync,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   host.ID.String(),
 			Name: host.Name,
-			Type: models.DeviceSub,
+			Type: schema.DeviceSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
 	w.WriteHeader(http.StatusOK)

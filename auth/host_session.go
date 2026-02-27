@@ -247,7 +247,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err == nil {
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
+				if logic.DoesHostExistinTheNetworkAlready(h, schema.NetworkID(netID)) {
 					continue
 				}
 				if err := (&schema.PendingHost{
@@ -276,37 +276,37 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 
 			if len(username) > 0 {
 				logic.LogEvent(&models.Event{
-					Action: models.JoinHostToNet,
+					Action: schema.JoinHostToNet,
 					Source: models.Subject{
 						ID:   username,
 						Name: username,
-						Type: models.UserSub,
+						Type: schema.UserSub,
 					},
 					TriggeredBy: username,
 					Target: models.Subject{
 						ID:   h.ID.String(),
 						Name: h.Name,
-						Type: models.DeviceSub,
+						Type: schema.DeviceSub,
 					},
-					NetworkID: models.NetworkID(netID),
-					Origin:    models.Dashboard,
+					NetworkID: schema.NetworkID(netID),
+					Origin:    schema.Dashboard,
 				})
 			} else {
 				logic.LogEvent(&models.Event{
-					Action: models.JoinHostToNet,
+					Action: schema.JoinHostToNet,
 					Source: models.Subject{
 						ID:   key.Value,
 						Name: key.Tags[0],
-						Type: models.EnrollmentKeySub,
+						Type: schema.EnrollmentKeySub,
 					},
 					TriggeredBy: username,
 					Target: models.Subject{
 						ID:   h.ID.String(),
 						Name: h.Name,
-						Type: models.DeviceSub,
+						Type: schema.DeviceSub,
 					},
-					NetworkID: models.NetworkID(netID),
-					Origin:    models.Dashboard,
+					NetworkID: schema.NetworkID(netID),
+					Origin:    schema.Dashboard,
 				})
 			}
 

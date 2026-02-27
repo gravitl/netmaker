@@ -122,20 +122,20 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 	})
 	// for nodeID := range e.Nodes {
 	// 	node, err := logic.GetNodeByID(nodeID)
@@ -273,8 +273,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 	// Update mode and NAT before calling AssignVirtualRangeToEgress
 	// This ensures the function sees the new values
-	if req.Mode != models.VirtualNAT || !req.Nat {
-		e.Mode = models.DirectNAT
+	if req.Mode != schema.VirtualNAT || !req.Nat {
+		e.Mode = schema.DirectNAT
 		if !req.Nat {
 			e.Mode = ""
 		}
@@ -286,7 +286,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		e.Nat = req.Nat
 		// Assign virtual range if switching to virtual NAT mode from a different mode,
 		// or if already in virtual NAT mode but virtual range is empty
-		if (oldMode != models.VirtualNAT) || (e.VirtualRange == "") {
+		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
 			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -295,23 +295,23 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	event := &models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
 		Diff: models.Diff{
 			Old: e,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
@@ -428,20 +428,20 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: e,
 			New: nil,

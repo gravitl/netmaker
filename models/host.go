@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -63,7 +64,7 @@ type Host struct {
 	MacAddress          net.HardwareAddr `json:"macaddress"              yaml:"macaddress"`
 	TrafficKeyPublic    []byte           `json:"traffickeypublic"        yaml:"traffickeypublic"`
 	Nodes               []string         `json:"nodes"                   yaml:"nodes"`
-	Interfaces          []Iface          `json:"interfaces"              yaml:"interfaces"`
+	Interfaces          []schema.Iface   `json:"interfaces"              yaml:"interfaces"`
 	DefaultInterface    string           `json:"defaultinterface"        yaml:"defaultinterface"`
 	EndpointIP          net.IP           `json:"endpointip"              yaml:"endpointip"`
 	EndpointIPv6        net.IP           `json:"endpointipv6"            yaml:"endpointipv6"`
