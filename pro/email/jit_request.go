@@ -25,12 +25,6 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 		return err
 	}
 
-	mail := JITRequestMail{
-		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
-		Request:     request,
-		Network:     network,
-	}
-
 	for _, admin := range admins {
 		if admin.UserName == "" {
 			continue
@@ -40,6 +34,14 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 		if !IsValid(admin.UserName) {
 			logger.Log(2, "skipping JIT request email for admin with non-email username", "admin", admin.UserName)
 			continue
+		}
+
+		// Create a fresh mail struct per admin to avoid BodyBuilder state accumulation
+		// (EmailBodyBuilderWithH1HeadlineAndImage mutates internal state on each GetBody call)
+		mail := JITRequestMail{
+			BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
+			Request:     request,
+			Network:     network,
 		}
 
 		notification := Notification{
