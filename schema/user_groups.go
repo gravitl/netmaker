@@ -2,12 +2,10 @@ package schema
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type NetworkRoles map[NetworkID]map[UserRoleID]struct{}
@@ -67,22 +65,7 @@ func (u *UserGroup) Update(ctx context.Context) error {
 }
 
 func (u *UserGroup) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var currUserGroup UserGroup
-		err := tx.Model(&UserGroup{}).
-			Where("id = ?", u.ID).
-			First(&currUserGroup).
-			Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return tx.Create(u).Error
-			}
-
-			return err
-		}
-
-		return tx.Model(&UserGroup{}).Updates(u).Error
-	})
+	return db.FromContext(ctx).Save(u).Error
 }
 
 func (u *UserGroup) Delete(ctx context.Context) error {

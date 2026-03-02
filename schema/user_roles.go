@@ -2,11 +2,9 @@ package schema
 
 import (
 	"context"
-	"errors"
 
 	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type UserRoleID string
@@ -164,22 +162,7 @@ func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
 }
 
 func (u *UserRole) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var currUserRole UserRole
-		err := tx.Model(&UserRole{}).
-			Where("id = ?", u.ID).
-			First(&currUserRole).
-			Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return tx.Create(u).Error
-			}
-
-			return err
-		}
-
-		return tx.Model(&UserRole{}).Updates(u).Error
-	})
+	return db.FromContext(ctx).Save(u).Error
 }
 
 func (u *UserRole) Update(ctx context.Context) error {
