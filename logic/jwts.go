@@ -262,6 +262,12 @@ func VerifyHostToken(tokenString string) (hostID string, mac string, network str
 	})
 
 	if token != nil && token.Valid {
+		if !strings.HasPrefix(claims.Subject, "node|") {
+			return "", "", "", errors.New("not a host token")
+		}
+		if claims.ID == "" {
+			return "", "", "", errors.New("invalid host token: missing host ID")
+		}
 		return claims.ID, claims.MacAddress, claims.Network, nil
 	}
 	return "", "", "", err
