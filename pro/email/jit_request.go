@@ -68,8 +68,8 @@ func (mail JITRequestMail) GetBody(info Notification) string {
 	dashboardURL := fmt.Sprintf("https://dashboard.%s/networks/%s/jit-requests?jit_req_id=%s", servercfg.GetNmBaseDomain(),
 		mail.Network.NetID, mail.Request.ID)
 	if servercfg.DeployedByOperator() {
-		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s&network=%s&jit_req_id=%s",
-			proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID(), mail.Network.NetID, mail.Request.ID)
+		dashboardURL = fmt.Sprintf("%s/networks/%s/jit-requests?jit_req_id=%s",
+			proLogic.GetSaaSNMUIHostWithVersion(), mail.Network.NetID, mail.Request.ID)
 	}
 
 	reasonText := mail.Request.Reason
