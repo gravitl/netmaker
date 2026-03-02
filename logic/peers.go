@@ -292,7 +292,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				continue
 			}
 			peerConfig := wgtypes.PeerConfig{
-				PublicKey:                   peerHost.PublicKey,
+				PublicKey:                   peerHost.PublicKey.Key,
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
@@ -642,7 +642,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		if err == nil && host.ID != peerHost.ID {
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
-					PublicKey: peerHost.PublicKey,
+					PublicKey: peerHost.PublicKey.Key,
 					Remove:    true,
 				})
 			}

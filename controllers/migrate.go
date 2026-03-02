@@ -140,7 +140,8 @@ func convertLegacyHostNode(legacy models.LegacyNode) (schema.Host, models.Node) 
 		host.ListenPort = 51821
 	}
 	host.MTU = int(legacy.MTU)
-	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
+	pubKey, _ := wgtypes.ParseKey(legacy.PublicKey)
+	host.PublicKey = schema.WgKey{Key: pubKey}
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
 	host.TrafficKeyPublic = legacy.TrafficKeys.Mine
 	host.Nodes = append([]string{}, legacy.ID)

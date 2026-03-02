@@ -244,7 +244,7 @@ func createNetHost() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
 	netHost = schema.Host{
 		ID:        uuid.New(),
-		PublicKey: k.PublicKey(),
+		PublicKey: schema.WgKey{Key: k.PublicKey()},
 		HostPass:  "password",
 		OS:        "linux",
 		Name:      "nethost",

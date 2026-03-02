@@ -2,7 +2,10 @@ package schema
 
 import (
 	"context"
+	"database/sql/driver"
+	"fmt"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +19,54 @@ type Iface struct {
 	Name          string    `json:"name"`
 	Address       net.IPNet `json:"address"`
 	AddressString string    `json:"addressString"`
+}
+
+type WgKey struct {
+	wgtypes.Key
+}
+
+func (k WgKey) Value() (driver.Value, error) {
+	return k.Key.String(), nil
+}
+
+func (k *WgKey) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("expected string for WgKey, got %T", value)
+	}
+	key, err := wgtypes.ParseKey(str)
+	if err != nil {
+		return err
+	}
+	k.Key = key
+	return nil
+}
+
+type AddrPort struct {
+	netip.AddrPort
+}
+
+func (a AddrPort) Value() (driver.Value, error) {
+	if !a.IsValid() {
+		return nil, nil
+	}
+	return a.String(), nil
+}
+
+func (a *AddrPort) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("expected string for AddrPort, got %T", value)
+	}
+	ap, err := netip.ParseAddrPort(str)
+	if err != nil {
+		return err
+	}
+	a.AddrPort = ap
+	return nil
 }
 
 type Host struct {
@@ -37,7 +88,7 @@ type Host struct {
 	ListenPort          int                         `json:"listenport" yaml:"listenport"`
 	WgPublicListenPort  int                         `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
 	MTU                 int                         `json:"mtu" yaml:"mtu"`
-	PublicKey           wgtypes.Key                 `json:"publickey" yaml:"publickey"`
+	PublicKey           WgKey                       `json:"publickey" yaml:"publickey"`
 	MacAddress          net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
 	TrafficKeyPublic    datatypes.JSONSlice[byte]   `json:"traffickeypublic" yaml:"traffickeypublic"`
 	Nodes               datatypes.JSONSlice[string] `json:"nodes" yaml:"nodes"`
@@ -52,7 +103,7 @@ type Host struct {
 	IsDefault           bool                        `json:"isdefault" yaml:"isdefault"`
 	DNS                 string                      `json:"dns_status" yaml:"dns_status"`
 	NatType             string                      `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
-	TurnEndpoint        string                      `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+	TurnEndpoint        *AddrPort                   `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration               `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
 	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode         string                      `json:"country_code" yaml:"country_code"`

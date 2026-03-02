@@ -548,7 +548,8 @@ func (ln *LegacyNode) ConvertToNewNode() (*schema.Host, *Node) {
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
 		host.MTU = int(ln.MTU)
-		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
+		pubkey, _ := wgtypes.ParseKey(ln.PublicKey)
+		host.PublicKey = schema.WgKey{Key: pubkey}
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
 		host.TrafficKeyPublic = ln.TrafficKeys.Mine
 		id, _ := uuid.Parse(ln.ID)

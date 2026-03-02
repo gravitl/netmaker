@@ -101,7 +101,7 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 func CreateHost(h *schema.Host) error {
 	hosts, hErr := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	clients, cErr := GetAllExtClients()
-	if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
+	if (hErr != nil) ||
 		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
 		len(hosts)+len(clients) >= MachinesLimit {
 		return errors.New("free tier limits exceeded on machines")
