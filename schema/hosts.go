@@ -2,7 +2,6 @@ package schema
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/netip"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // Iface struct for local interfaces of a node
@@ -90,22 +88,7 @@ func (h *Host) ListAll(ctx context.Context) ([]Host, error) {
 }
 
 func (h *Host) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var host Host
-		err := tx.Model(&Host{}).
-			Where("id = ?", h.ID).
-			First(&host).
-			Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return tx.Create(h).Error
-			}
-
-			return err
-		}
-
-		return tx.Model(&Host{}).Updates(h).Error
-	})
+	return db.FromContext(ctx).Save(h).Error
 }
 
 func (h *Host) Delete(ctx context.Context) error {
