@@ -3,7 +3,6 @@ package schema
 import (
 	"context"
 	"net"
-	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,7 +52,7 @@ type Host struct {
 	IsDefault           bool                        `json:"isdefault" yaml:"isdefault"`
 	DNS                 string                      `json:"dns_status" yaml:"dns_status"`
 	NatType             string                      `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
-	TurnEndpoint        netip.AddrPort              `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+	TurnEndpoint        string                      `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration               `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
 	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode         string                      `json:"country_code" yaml:"country_code"`
