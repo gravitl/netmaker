@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -107,7 +108,7 @@ func CreateHost(h *schema.Host) error {
 	}
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
+	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {
 		return ErrHostExists
 	}
 
