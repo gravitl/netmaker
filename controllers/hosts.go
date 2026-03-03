@@ -36,7 +36,11 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).
 		Methods(http.MethodPut)
+		// used by netclient
 	r.HandleFunc("/api/hosts/{hostid}", AuthorizeHost(http.HandlerFunc(deleteHost))).
+		Methods(http.MethodDelete)
+		// used by UI
+	r.HandleFunc("/api/v1/ui/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).
 		Methods(http.MethodPut)
@@ -535,8 +539,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHostData)
+	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
 
 // @Summary     To Add Host To Network

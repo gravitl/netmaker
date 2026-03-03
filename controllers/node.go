@@ -139,12 +139,12 @@ func AuthorizeHost(
 	next http.Handler,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		var forbiddenResponse = models.ErrorResponse{
+			Code: http.StatusForbidden, Message: logic.Forbidden_Msg,
+		}
 		w.Header().Set("Content-Type", "application/json")
 
-		//get the auth token
 		bearerToken := r.Header.Get("Authorization")
-
 		var tokenSplit = strings.Split(bearerToken, " ")
 		var authToken = ""
 
@@ -155,12 +155,33 @@ func AuthorizeHost(
 			authToken = tokenSplit[1]
 		}
 
-		if hostID, _, _, err := logic.VerifyHostToken(authToken); err == nil {
-			r.Header.Set(hostIDHeader, hostID)
-			next.ServeHTTP(w, r)
+		hostID, _, _, err := logic.VerifyHostToken(authToken)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
 		}
-		logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
+
+		// master key bypasses ownership checks
+		if hostID != logic.MasterUser {
+			params := mux.Vars(r)
+			if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+				logic.ReturnErrorResponse(w, r, forbiddenResponse)
+				return
+			}
+			if nodeID := params["nodeid"]; nodeID != "" {
+				node, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+					return
+				}
+				if node.HostID.String() != hostID {
+					logic.ReturnErrorResponse(w, r, forbiddenResponse)
+					return
+				}
+			}
+		}
+		r.Header.Set(hostIDHeader, hostID)
+		next.ServeHTTP(w, r)
 	}
 }
 
