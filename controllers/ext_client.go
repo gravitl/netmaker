@@ -842,6 +842,24 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		"clientid",
 		extclient.ClientID,
 	)
+
+	if extclient.DeviceID != "" {
+		err = logic.CleanupOtherExtclients(&extclient)
+		if err != nil {
+			slog.Error(
+				"failed to clean up older extclients",
+				"user",
+				r.Header.Get("user"),
+				"network",
+				extclient.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
 	if extclient.RemoteAccessClientID != "" {
 		// if created by user from client app, log event
 		logic.LogEvent(&models.Event{
@@ -1021,6 +1039,24 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
+
+	if newclient.DeviceID != "" && newclient.Enabled && !oldExtClient.Enabled {
+		err = logic.CleanupOtherExtclients(&newclient)
+		if err != nil {
+			slog.Error(
+				"failed to clean up older extclients",
+				"user",
+				r.Header.Get("user"),
+				"network",
+				oldExtClient.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
