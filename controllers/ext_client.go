@@ -424,7 +424,7 @@ Endpoint = %s
 // @Success     200 {string} string "WireGuard config file"
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
-func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
+func GetExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	networkid := params["network"]
