@@ -25,12 +25,6 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 		return err
 	}
 
-	mail := JITRequestMail{
-		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
-		Request:     request,
-		Network:     network,
-	}
-
 	for _, admin := range admins {
 		if admin.UserName == "" {
 			continue
@@ -40,6 +34,14 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 		if !IsValid(admin.UserName) {
 			logger.Log(2, "skipping JIT request email for admin with non-email username", "admin", admin.UserName)
 			continue
+		}
+
+		// Create a fresh mail struct per admin to avoid BodyBuilder state accumulation
+		// (EmailBodyBuilderWithH1HeadlineAndImage mutates internal state on each GetBody call)
+		mail := JITRequestMail{
+			BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
+			Request:     request,
+			Network:     network,
 		}
 
 		notification := Notification{
@@ -66,8 +68,8 @@ func (mail JITRequestMail) GetBody(info Notification) string {
 	dashboardURL := fmt.Sprintf("https://dashboard.%s/networks/%s/jit-requests?jit_req_id=%s", servercfg.GetNmBaseDomain(),
 		mail.Network.NetID, mail.Request.ID)
 	if servercfg.DeployedByOperator() {
-		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s&network=%s&jit_req_id=%s",
-			proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID(), mail.Network.NetID, mail.Request.ID)
+		dashboardURL = fmt.Sprintf("%s/networks/%s/jit-requests?jit_req_id=%s",
+			proLogic.GetSaaSNMUIHostWithVersion(), mail.Network.NetID, mail.Request.ID)
 	}
 
 	reasonText := mail.Request.Reason

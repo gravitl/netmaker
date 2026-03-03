@@ -106,9 +106,8 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			user.UserName = content.Email
 			user.ExternalIdentityProviderID = content.Login
-			database.DeleteRecord(database.USERS_TABLE_NAME, content.Login)
-			d, _ := json.Marshal(user)
-			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
+			_ = logic.DeleteUser(content.Login)
+			_ = logic.UpsertUser(*user)
 		}
 
 	}

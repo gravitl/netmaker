@@ -268,7 +268,7 @@ func expireJITGrantsWithEmail() error {
 
 	// Then, send email notifications for the grants we tracked
 	for _, item := range grantsToEmail {
-		if err := email.SendJITExpirationEmail(&item.Grant, &item.Request, item.Network, false); err != nil {
+		if err := email.SendJITExpirationEmail(&item.Grant, &item.Request, item.Network, false, ""); err != nil {
 			slog.Warn("failed to send expiration email", "grant_id", item.Grant.ID, "user", item.Request.UserName, "error", err)
 		}
 	}

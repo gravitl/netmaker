@@ -502,7 +502,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if currentNode.IsAutoRelay && !newNode.IsAutoRelay {
+	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
 		logic.ResetAutoRelay(newNode)
 	}
 

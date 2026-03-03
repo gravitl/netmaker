@@ -17,16 +17,19 @@ type JITExpiredMail struct {
 	Request     *schema.JITRequest
 	Network     models.Network
 	IsRevoked   bool
+	RevokedBy   string // set when IsRevoked is true
 }
 
-// SendJITExpirationEmail - sends email notification to user when JIT grant expires
-func SendJITExpirationEmail(grant *schema.JITGrant, request *schema.JITRequest, network models.Network, isRevoked bool) error {
+// SendJITExpirationEmail - sends email notification to user when JIT grant expires or is revoked
+// revokedBy is the username of the admin who revoked the grant; empty when grant expired naturally
+func SendJITExpirationEmail(grant *schema.JITGrant, request *schema.JITRequest, network models.Network, isRevoked bool, revokedBy string) error {
 	mail := JITExpiredMail{
 		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
 		Grant:       grant,
 		Request:     request,
 		Network:     network,
 		IsRevoked:   isRevoked,
+		RevokedBy:   revokedBy,
 	}
 	// Skip sending email if username is not a valid email address
 	if !IsValid(request.UserName) {
@@ -60,15 +63,18 @@ func (mail JITExpiredMail) GetBody(info Notification) string {
 		message = fmt.Sprintf("Your Just-In-Time access to network <strong>%s</strong> has expired.", mail.Network.NetID)
 	}
 
-	content := mail.BodyBuilder.
+	builder := mail.BodyBuilder.
 		WithHeadline(headline).
 		WithParagraph(message).
 		WithParagraph("Access Details:").
 		WithHtml("<ul>").
 		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
 		WithHtml(fmt.Sprintf("<li><strong>Granted At:</strong> %s</li>", formatUTCTime(mail.Grant.GrantedAt))).
-		WithHtml(fmt.Sprintf("<li><strong>Expired At:</strong> %s</li>", formatUTCTime(mail.Grant.ExpiresAt))).
-		WithHtml("</ul>").
+		WithHtml(fmt.Sprintf("<li><strong>Expired At:</strong> %s</li>", formatUTCTime(mail.Grant.ExpiresAt)))
+	if mail.IsRevoked && mail.RevokedBy != "" {
+		builder = builder.WithHtml(fmt.Sprintf("<li><strong>Revoked By:</strong> %s</li>", mail.RevokedBy))
+	}
+	content := builder.WithHtml("</ul>").
 		WithParagraph("Your access to this network has been terminated. If you need access again, please submit a new JIT access request.").
 		WithParagraph("Best Regards,").
 		WithParagraph("The Netmaker Team").
