@@ -2,11 +2,12 @@ package db
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/servercfg"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
+	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -30,9 +31,23 @@ func (pg *postgresConnector) connect() (*gorm.DB, error) {
 		pgConf.SSLMode,
 	)
 
-	return gorm.Open(postgres.Open(dsn), &gorm.Config{
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return gormDB, err
+	}
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(2 * time.Minute)
+
+	return gormDB, nil
 }
 
 func GetSQLConf() config.SQLConfig {

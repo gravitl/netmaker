@@ -30,6 +30,13 @@ const (
 	accountsUIHostStaging = "https://account.staging.netmaker.io"
 	// accountsUIHostProduction is the accounts UI host for production environment
 	accountsUIHostProduction = "https://account.netmaker.io"
+
+	// saasNMUIHostDevelopment is the SaaS NMUI host for development environment
+	saasNMUIHostDevelopment = "https://app.dev.netmaker.io"
+	// saasNMUIHostStaging is the SaaS NMUI host for staging environment
+	saasNMUIHostStaging = "https://app.staging.netmaker.io"
+	// saasNMUIHostProduction is the SaaS NMUI host for production environment
+	saasNMUIHostProduction = "https://app.netmaker.io"
 )
 
 func NetworkPermissionsCheck(username string, r *http.Request) error {
@@ -276,4 +283,19 @@ func GetAccountsUIHost() string {
 	default:
 		return accountsUIHostProduction
 	}
+}
+
+func GetSaaSNMUIHost() string {
+	switch servercfg.GetEnvironment() {
+	case "dev":
+		return saasNMUIHostDevelopment
+	case "staging":
+		return saasNMUIHostStaging
+	default:
+		return saasNMUIHostProduction
+	}
+}
+
+func GetSaaSNMUIHostWithVersion() string {
+	return fmt.Sprintf("%s/%s", GetSaaSNMUIHost(), servercfg.GetVersion())
 }

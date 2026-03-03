@@ -336,6 +336,9 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	go func() {
+		if newHost.IsDefault && !currHost.IsDefault {
+			addDefaultHostToNetworks(newHost)
+		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
@@ -596,9 +599,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
 	if currHost.IsDefault {
-		// make  host failover
-		logic.CreateFailOver(*newNode)
-		// make host remote access gateway
+		// make host gateway
 		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
 		logic.CreateRelay(models.RelayRequest{
 			NodeID: newNode.ID.String(),
@@ -1318,9 +1319,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		Node:   *newNode,
 	})
 	if h.IsDefault {
-		// make  host failover
-		logic.CreateFailOver(*newNode)
-		// make host remote access gateway
+		// make host gateway
 		logic.CreateIngressGateway(p.Network, newNode.ID.String(), models.IngressRequest{})
 		logic.CreateRelay(models.RelayRequest{
 			NodeID: newNode.ID.String(),
@@ -1360,4 +1359,44 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, p, "deleted pending host from "+p.Network)
+}
+
+// addDefaultHostToNetworks enrolls a newly-made-default host into every
+// existing network it is not already part of, applying the standard default
+// host operations for each network.
+func addDefaultHostToNetworks(host *models.Host) {
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(0, "failed to get networks for default host ops:", err.Error())
+		return
+	}
+	for _, network := range networks {
+		if network.AutoJoin != "true" {
+			continue
+		}
+		newNode, err := logic.UpdateHostNetwork(host, network.NetID, true)
+		if err != nil {
+			logger.Log(2, "skipping network", network.NetID, "for default host", host.Name, ":", err.Error())
+			continue
+		}
+		logger.Log(1, "added default host", host.Name, "to network", network.NetID)
+		if len(host.Nodes) == 1 {
+			mq.HostUpdate(&models.HostUpdate{
+				Action: models.RequestPull,
+				Host:   *host,
+				Node:   *newNode,
+			})
+		} else {
+			mq.HostUpdate(&models.HostUpdate{
+				Action: models.JoinHostToNetwork,
+				Host:   *host,
+				Node:   *newNode,
+			})
+		}
+		logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
+		logic.CreateRelay(models.RelayRequest{
+			NodeID: newNode.ID.String(),
+			NetID:  network.NetID,
+		})
+	}
 }

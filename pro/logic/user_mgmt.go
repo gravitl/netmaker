@@ -1609,3 +1609,44 @@ func GetUserGrpMap() map[models.UserGroupID]map[string]struct{} {
 
 	return grpUsersMap
 }
+
+// IsNetworkAdmin - checks if user is a network admin via user groups
+func IsNetworkAdmin(user *models.User, networkID string) bool {
+	networkIDModel := models.NetworkID(networkID)
+	allNetworksID := models.AllNetworks
+
+	// Check platform role
+	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+		return true
+	}
+
+	// Check user groups for network admin roles
+	for groupID := range user.UserGroups {
+		group, err := logic.GetUserGroup(groupID)
+		if err != nil {
+			continue
+		}
+		if groupID == globalNetworksAdminGroupID {
+			return true
+		}
+		// Check if group has network admin role for this network
+		if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+			for roleID := range roles {
+				if roleID == GetDefaultNetworkAdminRoleID(networkIDModel) {
+					return true
+				}
+			}
+		}
+
+		// Check if group has global network admin role
+		if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+			for roleID := range roles {
+				if roleID == GetDefaultNetworkAdminRoleID(networkIDModel) || roleID == globalNetworksAdminRoleID {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
