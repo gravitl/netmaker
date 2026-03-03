@@ -1040,7 +1040,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
 
-	if newclient.DeviceID != "" && newclient.Enabled && !oldExtClient.Enabled {
+	if newclient.DeviceID != "" && update.Enabled {
+		// user wants to enable this extclient, so delete all the other extclients.
 		err = logic.CleanupOtherExtclients(&newclient)
 		if err != nil {
 			slog.Error(
