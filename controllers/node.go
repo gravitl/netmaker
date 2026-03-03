@@ -155,26 +155,32 @@ func AuthorizeHost(
 			authToken = tokenSplit[1]
 		}
 
-		id, _, _, err := logic.VerifyHostToken(authToken)
+		hostID, _, _, err := logic.VerifyHostToken(authToken)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
 		}
 
 		// master key bypasses ownership checks
-		if id != logic.MasterUser {
+		if hostID != logic.MasterUser {
 			params := mux.Vars(r)
-			if paramHostID := params["hostid"]; paramHostID != "" && id != paramHostID {
+			if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
 				logic.ReturnErrorResponse(w, r, forbiddenResponse)
 				return
 			}
-			if paramNodeID := params["nodeid"]; paramNodeID != "" && id != paramNodeID {
-				logic.ReturnErrorResponse(w, r, forbiddenResponse)
-				return
+			if nodeID := params["nodeid"]; nodeID != "" {
+				node, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+					return
+				}
+				if node.HostID.String() != hostID {
+					logic.ReturnErrorResponse(w, r, forbiddenResponse)
+					return
+				}
 			}
 		}
-
-		r.Header.Set(hostIDHeader, id)
+		r.Header.Set(hostIDHeader, hostID)
 		next.ServeHTTP(w, r)
 	}
 }
