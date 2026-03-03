@@ -48,7 +48,8 @@ func extClientHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
+	// unused API
+	//r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
 }
 
 func checkIngressExists(nodeID string) bool {
