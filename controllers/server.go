@@ -36,7 +36,14 @@ func serverHandlers(r *mux.Router) {
 	).Methods(http.MethodGet)
 	r.HandleFunc(
 		"/api/server/shutdown", logic.SecurityCheck(true,
-			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("ismaster") != "yes" {
+					caller, err := logic.GetUser(r.Header.Get("user"))
+					if err != nil || caller.PlatformRoleID != models.SuperAdminRole {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only a super-admin can shut down the server"), "forbidden"))
+						return
+					}
+				}
 				msg := "received api call to shutdown server, sending interruption..."
 				slog.Warn(msg)
 				_, _ = w.Write([]byte(msg))
