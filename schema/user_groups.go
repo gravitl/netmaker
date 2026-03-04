@@ -53,7 +53,7 @@ func (u *UserGroup) GetByName(ctx context.Context) error {
 
 func (u *UserGroup) ListAll(ctx context.Context) ([]UserGroup, error) {
 	var userGroups []UserGroup
-	err := db.FromContext(ctx).Model(&UserGroup{}).Find(&userGroups).Error
+	err := db.FromContext(ctx).Model(&UserGroup{}).Find(&userGroups).Order("name ASC").Error
 	return userGroups, err
 }
 

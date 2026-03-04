@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -394,14 +396,19 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     List all user groups
-// @Router      /api/v1/users/groups [get]
+// @Router      /api/v1/users/groups/list [get]
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func listUserGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := (&schema.UserGroup{}).ListAll(r.Context())
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+
+	groups, err := (&schema.UserGroup{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
