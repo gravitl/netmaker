@@ -48,7 +48,8 @@ func extClientHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
+	// unused API
+	//r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -82,7 +83,32 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Returns all the extclients in JSON format
+	username := r.Header.Get("user")
+	if r.Header.Get("ismaster") != "yes" {
+		user := &schema.User{
+			Username: username,
+		}
+		err := user.Get(r.Context())
+		if err == nil {
+			userRole := &schema.UserRole{
+				ID: user.PlatformRoleID,
+			}
+			err := userRole.Get(r.Context())
+			if err != nil || !userRole.FullAccess {
+				filtered := []models.ExtClient{}
+				for _, ec := range extclients {
+					if logic.IsUserAllowedAccessToExtClient(username, ec) {
+						filtered = append(filtered, ec)
+					}
+				}
+				extclients = filtered
+			}
+		}
+	}
+	for i := range extclients {
+		extclients[i].PrivateKey = ""
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclients)
 }
@@ -104,7 +130,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	//Return all the extclients in JSON format
+	for i := range clients {
+		clients[i].PrivateKey = ""
+	}
 	logic.SortExtClient(clients[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(clients)
@@ -406,7 +434,7 @@ Endpoint = %s
 // @Success     200 {string} string "WireGuard config file"
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
-func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
+func GetExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	networkid := params["network"]

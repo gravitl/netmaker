@@ -3,7 +3,13 @@
 CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
-CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
+# all netmaker assets (configs, compose files, etc.) go into netmaker subfolder
+if [ "$(basename "$SCRIPT_DIR")" = "netmaker" ]; then
+	INSTALL_DIR="$SCRIPT_DIR"
+else
+	INSTALL_DIR="$SCRIPT_DIR/netmaker"
+fi
+CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 LATEST=v1.5.0
@@ -126,9 +132,10 @@ setup_netclient() {
 	fi
 	set -e
 
-	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
-	chmod +x netclient
-	./netclient install
+	mkdir -p "$INSTALL_DIR"
+	wget -qO "$INSTALL_DIR/netclient" https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
+	chmod +x "$INSTALL_DIR/netclient"
+	"$INSTALL_DIR/netclient" install
 	echo "Register token: $TOKEN"
 	sleep 2
 	netclient join -t $TOKEN
@@ -248,11 +255,9 @@ save_config() { (
 		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
-		save_config_item PROMETHEUS "on"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
-		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
@@ -261,7 +266,7 @@ save_config() { (
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
 		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_RESTRICT_TO_SINGLE_NETWORK" "CACHING_ENABLED" "ENDPOINT_DETECTION"
-		"SMTP_HOST" "SMTP_PORT" "EMAIL_SENDER_ADDR" "EMAIL_SENDER_USER" "EMAIL_SENDER_PASSWORD")
+		"SMTP_HOST" "SMTP_PORT" "EMAIL_SENDER_ADDR" "EMAIL_SENDER_USER" "EMAIL_SENDER_PASSWORD" "METRICS_SECRET" "PROMETHEUS_HOST" "NETMAKER_METRICS_TARGET")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
@@ -282,8 +287,12 @@ save_config_item() { (
 	local VALUE="$2"
 	#echo "$NAME=$VALUE"
 	if test -z "$VALUE"; then
-		# load the default for empty values
-		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}"  "$SCRIPT_DIR/netmaker.default.env")
+		# load the default for empty values (check install dir first, then legacy)
+		local defaults_file="$INSTALL_DIR/netmaker.default.env"
+		[ -f "$defaults_file" ] || defaults_file="$SCRIPT_DIR/netmaker.default.env"
+		if [ -f "$defaults_file" ]; then
+			VALUE=$(awk -F'=' "/^$NAME/ { print \$2}"  "$defaults_file")
+		fi
 		# trim quotes for docker
 		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
 		#echo "Default for $NAME=$VALUE"
@@ -593,7 +602,10 @@ set_install_vars() {
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 			echo ''
 		)
-	
+	METRICS_SECRET=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
 
 	wait_seconds 2
 
@@ -621,34 +633,47 @@ install_netmaker() {
 
 	echo "Pulling config files..."
 
+	mkdir -p "$INSTALL_DIR"
+
 	local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BRANCH"
 	local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 	local CADDY_URL="$BASE_URL/docker/Caddyfile"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
     local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
-    wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+    wget -qO "$INSTALL_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
     local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
-		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
+    # download Grafana assets (dashboards, datasource, config)
+    mkdir -p "$INSTALL_DIR/grafana"
+    local GRAFANA_BASE="https://downloads.netmaker.io/assests/grafana"
+    wget -qO "$INSTALL_DIR/grafana/dashboard-config.yaml" "$GRAFANA_BASE/dashboard-config.yaml"
+    wget -qO "$INSTALL_DIR/grafana/dashboard.json" "$GRAFANA_BASE/dashboard.json"
+    wget -qO "$INSTALL_DIR/grafana/datasource.yaml" "$GRAFANA_BASE/datasource.yaml"
+    wget -qO "$INSTALL_DIR/grafana/grafana.ini" "$GRAFANA_BASE/grafana.ini"
+    # download Prometheus config
+    mkdir -p "$INSTALL_DIR/prometheus"
+    wget -qO "$INSTALL_DIR/prometheus/prometheus.yml" "https://downloads.netmaker.io/assests/prometheus/prometheus.yml"
+	elif [ -a "$INSTALL_DIR"/docker-compose.override.yml ]; then
+		rm -f "$INSTALL_DIR"/docker-compose.override.yml
 	fi
-	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+	wget -qO "$INSTALL_DIR"/docker-compose.yml $COMPOSE_URL
 
-	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
-	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
-	wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
-	wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
+	wget -qO "$INSTALL_DIR"/Caddyfile "$CADDY_URL"
+	wget -qO "$INSTALL_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
+	wget -qO "$INSTALL_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
+	wget -qO "$INSTALL_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 
-	chmod +x "$SCRIPT_DIR"/wait.sh
+	chmod +x "$INSTALL_DIR"/wait.sh
 	mkdir -p /etc/netmaker
 
 	# link .env to the user config
-	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
+	ln -fs "$INSTALL_DIR/netmaker.env" "$INSTALL_DIR/.env"
+	CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 	save_config
 
 	echo "Starting containers..."
 
 	# start docker and rebuild containers / networks
-	cd "${SCRIPT_DIR}"
+	cd "${INSTALL_DIR}"
 	if [ -f /etc/debian_version ]; then
 		docker compose up -d --force-recreate
 	elif [ -f /etc/fedora-release ]; then
@@ -724,6 +749,8 @@ print_success() {
 	echo "-----------------------------------------------------------------"
 	echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
 	echo "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
+	echo ""
+	echo "Installation files are located in: $INSTALL_DIR"
 	echo "-----------------------------------------------------------------"
 	echo "-----------------------------------------------------------------"
 }
@@ -786,6 +813,12 @@ upgrade() {
 	while [ -z ${NETMAKER_TENANT_ID} ]; do
 		read -p "Tenant ID: " NETMAKER_TENANT_ID
 	done
+	mkdir -p "$INSTALL_DIR"
+	CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
+	# migrate config from legacy location if needed
+	if [ ! -f "$CONFIG_PATH" ] && [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+		cp "$SCRIPT_DIR/$CONFIG_FILE" "$CONFIG_PATH"
+	fi
 	save_config
 	# start docker and rebuild containers / networks
 	stop_services
@@ -804,9 +837,15 @@ downgrade () {
 	else
 		BUILD_TAG=$UI_IMAGE_TAG
   	fi
+	mkdir -p "$INSTALL_DIR"
+	CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
+	# migrate config from legacy location if needed
+	if [ ! -f "$CONFIG_PATH" ] && [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+		cp "$SCRIPT_DIR/$CONFIG_FILE" "$CONFIG_PATH"
+	fi
 	save_config
-	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
-		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
+	if [ -a "$INSTALL_DIR"/docker-compose.override.yml ]; then
+		rm -f "$INSTALL_DIR"/docker-compose.override.yml
 	fi
 	# start docker and rebuild containers / networks
 	stop_services
@@ -833,9 +872,14 @@ function chsv_check_version_ex() {
 
 main (){
 
-	# read the config
-	if [ -f "$CONFIG_PATH" ]; then
+	# read the config (check netmaker folder first, then legacy script dir for upgrades)
+	if [ -f "$INSTALL_DIR/$CONFIG_FILE" ]; then
+		CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 		echo "Using config: $CONFIG_PATH"
+		source "$CONFIG_PATH"
+	elif [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+		CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
+		echo "Using config: $CONFIG_PATH (legacy location)"
 		source "$CONFIG_PATH"
 	fi
 

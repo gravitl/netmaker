@@ -90,7 +90,19 @@ func (n *Network) Update(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&Network{}).
 		Where("id = ? OR name = ?", n.ID, n.Name).
-		Updates(n).
+		Updates(map[string]interface{}{
+			"default_keep_alive":               n.DefaultKeepAlive,
+			"default_acl":                      n.DefaultACL,
+			"default_mtu":                      n.DefaultMTU,
+			"auto_join":                        n.AutoJoin,
+			"auto_remove":                      n.AutoRemove,
+			"auto_remove_tags":                 n.AutoRemoveTags,
+			"auto_remove_threshold":            n.AutoRemoveThreshold,
+			"jit_enabled":                      n.JITEnabled,
+			"virtual_nat_pool_ipv4":            n.VirtualNATPoolIPv4,
+			"virtual_nat_site_prefix_len_ipv4": n.VirtualNATSitePrefixLenIPv4,
+			"nodes_updated_at":                 n.NodesUpdatedAt,
+		}).
 		Error
 }
 

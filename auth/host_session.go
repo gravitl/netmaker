@@ -360,9 +360,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username
 				Node:   *newNode,
 			})
 			if h.IsDefault {
-				// make  host failover
-				logic.CreateFailOver(*newNode)
-				// make host remote access gateway
+				// make host gateway
 				logic.CreateIngressGateway(netID, newNode.ID.String(), models.IngressRequest{})
 				logic.CreateRelay(models.RelayRequest{
 					NodeID: newNode.ID.String(),

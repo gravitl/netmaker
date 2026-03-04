@@ -22,7 +22,7 @@ import (
 
 // FailOverHandlers - handlers for FailOver
 func FailOverHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/failover", controller.Authorize(true, false, "host", http.HandlerFunc(getfailOver))).
+	r.HandleFunc("/api/v1/node/{nodeid}/failover", controller.AuthorizeHost(http.HandlerFunc(getfailOver))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).
 		Methods(http.MethodPost)
@@ -30,9 +30,9 @@ func FailOverHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/node/{network}/failover/reset", logic.SecurityCheck(true, http.HandlerFunc(resetFailOver))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).
+	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.AuthorizeHost(http.HandlerFunc(failOverME))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/failover_check", controller.Authorize(true, false, "host", http.HandlerFunc(checkfailOverCtx))).
+	r.HandleFunc("/api/v1/node/{nodeid}/failover_check", controller.AuthorizeHost(http.HandlerFunc(checkfailOverCtx))).
 		Methods(http.MethodGet)
 }
 

@@ -135,6 +135,7 @@ func initialize() { // Client Mode Prereq Check
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
+	_ = logic.CleanExpiredSSOStates()
 
 	migrate.Run()
 
@@ -198,6 +199,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
 	logic.InitNetworkHooks()
+	logic.AddSSOStateCleanupHook()
 }
 
 // Should we be using a context vice a waitgroup????????????

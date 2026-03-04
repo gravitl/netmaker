@@ -106,6 +106,14 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 	}
+	if req.Fallback {
+		for _, domain := range req.Domains {
+			if domain.IsADDomain {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot configure ad domain for fallback nameservers"), "badrequest"))
+				return
+			}
+		}
+	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -208,6 +216,16 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	if updateNs.Fallback {
+		for _, domain := range updateNs.Domains {
+			if domain.IsADDomain {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot configure ad domain for fallback nameservers"), "badrequest"))
+				return
+			}
+		}
+	}
+
 	if updateNs.Tags == nil {
 		updateNs.Tags = make(datatypes.JSONMap)
 	}

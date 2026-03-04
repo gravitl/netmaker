@@ -1265,6 +1265,20 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if userchange.PlatformRoleID == schema.SuperAdminRole {
+		err = errors.New("only a super-admin can assign the super-admin role to another user via transferSuperAdmin method")
+		slog.Error(
+			"failed to update user",
+			"caller",
+			caller.Username,
+			"attempted to assign super-admin role to user",
+			username,
+			"error",
+			err,
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
 	selfUpdate := false
 	if !ismaster && caller.Username == user.Username {
 		selfUpdate = true

@@ -541,3 +541,35 @@ func IsStateValid(state string) (string, bool) {
 func delState(state string) error {
 	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
 }
+
+// CleanExpiredSSOStates removes expired SSO state entries from the database
+// to prevent unbounded table growth that degrades FetchRecord performance.
+func CleanExpiredSSOStates() error {
+	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+	for key, value := range records {
+		var s models.SsoState
+		if err := json.Unmarshal([]byte(value), &s); err != nil {
+			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			continue
+		}
+		if s.IsExpired() {
+			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+		}
+	}
+	return nil
+}
+
+// AddSSOStateCleanupHook registers a periodic cleanup of expired SSO states
+func AddSSOStateCleanupHook() {
+	HookManagerCh <- models.HookDetails{
+		ID:       "sso-state-cleanup",
+		Hook:     WrapHook(CleanExpiredSSOStates),
+		Interval: 15 * time.Minute,
+	}
+}

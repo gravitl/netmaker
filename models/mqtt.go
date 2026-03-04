@@ -65,6 +65,7 @@ type Nameserver struct {
 	MatchDomain    string   `json:"match_domain"`
 	IsSearchDomain bool     `json:"is_search_domain"`
 	IsFallback     bool     `json:"is_fallback"`
+	IsADDomain     bool     `json:"is_ad_domain"`
 }
 
 type OldPeerUpdateFields struct {
