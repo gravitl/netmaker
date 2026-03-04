@@ -396,7 +396,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     List all user groups
-// @Router      /api/v1/users/groups/list [get]
+// @Router      /api/v1/users/groups [get]
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
