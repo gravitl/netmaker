@@ -31,6 +31,7 @@ type Nameserver struct {
 type NameserverDomain struct {
 	Domain         string `json:"domain"`
 	IsSearchDomain bool   `json:"is_search_domain"`
+	IsADDomain     bool   `json:"is_ad_domain"`
 }
 
 func (ns *Nameserver) Get(ctx context.Context) error {

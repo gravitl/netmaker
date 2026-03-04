@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,11 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).
+	// used by netclient
+	r.HandleFunc("/api/hosts/{hostid}", AuthorizeHost(http.HandlerFunc(deleteHost))).
+		Methods(http.MethodDelete)
+	// used by UI
+	r.HandleFunc("/api/v1/ui/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).
 		Methods(http.MethodPut)
@@ -45,13 +50,13 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).
+	r.HandleFunc("/api/v1/host", AuthorizeHost(http.HandlerFunc(pull))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", AuthorizeHost(http.HandlerFunc(signalPeer))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", AuthorizeHost(http.HandlerFunc(hostUpdateFallback))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/host/{hostid}/peer_info", Authorize(true, false, "host", http.HandlerFunc(getHostPeerInfo))).
+	r.HandleFunc("/api/v1/host/{hostid}/peer_info", AuthorizeHost(http.HandlerFunc(getHostPeerInfo))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts))).
 		Methods(http.MethodGet)
@@ -332,6 +337,9 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	go func() {
+		if newHost.IsDefault && !currHost.IsDefault {
+			addDefaultHostToNetworks(newHost)
+		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
@@ -532,8 +540,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHostData)
+	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
 
 // @Summary     To Add Host To Network
@@ -593,9 +600,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
 	if currHost.IsDefault {
-		// make  host failover
-		logic.CreateFailOver(*newNode)
-		// make host remote access gateway
+		// make host gateway
 		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
 		logic.CreateRelay(models.RelayRequest{
 			NodeID: newNode.ID.String(),
@@ -1315,9 +1320,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		Node:   *newNode,
 	})
 	if h.IsDefault {
-		// make  host failover
-		logic.CreateFailOver(*newNode)
-		// make host remote access gateway
+		// make host gateway
 		logic.CreateIngressGateway(p.Network, newNode.ID.String(), models.IngressRequest{})
 		logic.CreateRelay(models.RelayRequest{
 			NodeID: newNode.ID.String(),
@@ -1357,4 +1360,44 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, p, "deleted pending host from "+p.Network)
+}
+
+// addDefaultHostToNetworks enrolls a newly-made-default host into every
+// existing network it is not already part of, applying the standard default
+// host operations for each network.
+func addDefaultHostToNetworks(host *models.Host) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, "failed to get networks for default host ops:", err.Error())
+		return
+	}
+	for _, network := range networks {
+		if !network.AutoJoin {
+			continue
+		}
+		newNode, err := logic.UpdateHostNetwork(host, network.Name, true)
+		if err != nil {
+			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ":", err.Error())
+			continue
+		}
+		logger.Log(1, "added default host", host.Name, "to network", network.Name)
+		if len(host.Nodes) == 1 {
+			mq.HostUpdate(&models.HostUpdate{
+				Action: models.RequestPull,
+				Host:   *host,
+				Node:   *newNode,
+			})
+		} else {
+			mq.HostUpdate(&models.HostUpdate{
+				Action: models.JoinHostToNetwork,
+				Host:   *host,
+				Node:   *newNode,
+			})
+		}
+		logic.CreateIngressGateway(network.Name, newNode.ID.String(), models.IngressRequest{})
+		logic.CreateRelay(models.RelayRequest{
+			NodeID: newNode.ID.String(),
+			NetID:  network.Name,
+		})
+	}
 }

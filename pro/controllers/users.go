@@ -91,9 +91,9 @@ func UserHandlers(r *mux.Router) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
-	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
+	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	in, err := logic.GetUserInvite(email)
+	in, err := logic.GetUserInvite(emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -104,7 +104,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if user already exists
-	userCheck := &schema.User{Username: email}
+	userCheck := &schema.User{Username: emailID}
 	err = userCheck.Get(r.Context())
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
@@ -118,7 +118,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if user.Username != email {
+	if user.Username != emailID {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username not matching with invite"), "badrequest"))
 		return
 	}
@@ -138,10 +138,10 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// delete invite
-	logic.DeleteUserInvite(email)
-	logic.DeletePendingUser(email)
+	logic.DeleteUserInvite(emailID)
+	logic.DeletePendingUser(emailID)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	logic.ReturnSuccessResponse(w, r, "created user successfully "+email)
+	logic.ReturnSuccessResponse(w, r, "created user successfully "+emailID)
 }
 
 // @Summary     Verify user invite
@@ -1703,6 +1703,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				// skip fallback nameservers for user remote access gws.
 				continue
 			}
+			gw.Nameservers = append(gw.Nameservers, nsI)
 			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 			if nsI.IsSearchDomain {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
@@ -1761,6 +1762,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				// skip fallback nameservers for user remote access gws.
 				continue
 			}
+			gw.Nameservers = append(gw.Nameservers, nsI)
 			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 			if nsI.IsSearchDomain {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)

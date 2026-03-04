@@ -566,6 +566,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsADDomain:     domain.IsADDomain,
 					})
 				}
 			}
@@ -584,6 +585,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsADDomain:     domain.IsADDomain,
 					})
 				}
 			}
@@ -639,6 +641,7 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 							IPs:            filteredIps,
 							MatchDomain:    domain.Domain,
 							IsSearchDomain: domain.IsSearchDomain,
+							IsADDomain:     domain.IsADDomain,
 						})
 					}
 				}
@@ -657,6 +660,7 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 							IPs:            filteredIps,
 							MatchDomain:    domain.Domain,
 							IsSearchDomain: domain.IsSearchDomain,
+							IsADDomain:     domain.IsADDomain,
 						})
 					}
 				}

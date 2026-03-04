@@ -20,6 +20,7 @@ var PG_FUNCTIONS = map[string]interface{}{
 	DELETE:       pgDeleteRecord,
 	DELETE_ALL:   pgDeleteAllRecords,
 	FETCH_ALL:    pgFetchRecords,
+	FETCH_ONE:    pgFetchRecord,
 	CLOSE_DB:     pgCloseDB,
 	isConnected:  pgIsConnected,
 }
@@ -103,6 +104,18 @@ func pgDeleteAllRecords(tableName string) error {
 		return err
 	}
 	return nil
+}
+
+func pgFetchRecord(tableName string, key string) (string, error) {
+	var value string
+	err := PGDB.QueryRow("SELECT value FROM "+tableName+" WHERE key = $1", key).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New(NO_RECORD)
+		}
+		return "", err
+	}
+	return value, nil
 }
 
 func pgFetchRecords(tableName string) (map[string]string, error) {

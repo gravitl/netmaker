@@ -25,9 +25,9 @@ func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", logic.SecurityCheck(true, http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
@@ -134,123 +134,55 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// The middleware for most requests to the API
-// They all pass  through here first
-// This will validate the JWT (or check for master token)
-// This will also check against the authNetwork and make sure the node should be accessing that endpoint,
-// even if it's technically ok
-// This is kind of a poor man's RBAC. There's probably a better/smarter way.
-// TODO: Consider better RBAC implementations
-func Authorize(
-	hostAllowed, networkCheck bool,
-	authNetwork string,
+// AuthorizeHost - middleware that authenticates a host via JWT and ensures
+// the host is only operating on its own resources (matched by hostid/nodeid path params).
+func AuthorizeHost(
 	next http.Handler,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse = models.ErrorResponse{
+		var forbiddenResponse = models.ErrorResponse{
 			Code: http.StatusForbidden, Message: logic.Forbidden_Msg,
 		}
+		w.Header().Set("Content-Type", "application/json")
 
-		var params = mux.Vars(r)
+		bearerToken := r.Header.Get("Authorization")
+		var tokenSplit = strings.Split(bearerToken, " ")
+		var authToken = ""
 
-		networkexists, _ := logic.NetworkExists(params["network"])
-		//check that the request is for a valid network
-		//if (networkCheck && !networkexists) || err != nil {
-		if networkCheck && !networkexists {
-			logic.ReturnErrorResponse(w, r, errorResponse)
+		if len(tokenSplit) < 2 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
 		} else {
-			w.Header().Set("Content-Type", "application/json")
+			authToken = tokenSplit[1]
+		}
 
-			//get the auth token
-			bearerToken := r.Header.Get("Authorization")
+		hostID, _, _, err := logic.VerifyHostToken(authToken)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
+			return
+		}
 
-			var tokenSplit = strings.Split(bearerToken, " ")
-
-			//I put this in in case the user doesn't put in a token at all (in which case it's empty)
-			//There's probably a smarter way of handling this.
-			var authToken = "928rt238tghgwe@TY@$Y@#WQAEGB2FC#@HG#@$Hddd"
-
-			if len(tokenSplit) > 1 {
-				authToken = tokenSplit[1]
-			} else {
-				logic.ReturnErrorResponse(w, r, errorResponse)
+		// master key bypasses ownership checks
+		if hostID != logic.MasterUser {
+			params := mux.Vars(r)
+			if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+				logic.ReturnErrorResponse(w, r, forbiddenResponse)
 				return
 			}
-			// check if host instead of user
-			if hostAllowed {
-				// TODO --- should ensure that node is only operating on itself
-				if hostID, _, _, err := logic.VerifyHostToken(authToken); err == nil {
-					r.Header.Set(hostIDHeader, hostID)
-					// this indicates request is from a node
-					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
-					next.ServeHTTP(w, r)
+			if nodeID := params["nodeid"]; nodeID != "" {
+				node, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+					return
+				}
+				if node.HostID.String() != hostID {
+					logic.ReturnErrorResponse(w, r, forbiddenResponse)
 					return
 				}
 			}
-
-			var isAuthorized = false
-			var nodeID = ""
-			username, issuperadmin, isadmin, errN := logic.VerifyUserToken(authToken)
-			if errN != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errN, logic.Unauthorized_Msg))
-				return
-			}
-
-			isnetadmin := issuperadmin || isadmin
-			if issuperadmin || isadmin {
-				nodeID = "mastermac"
-				isAuthorized = true
-				r.Header.Set("ismasterkey", "yes")
-			}
-			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
-			if nodeID == "mastermac" {
-				isAuthorized = true
-				r.Header.Set("ismasterkey", "yes")
-				//for everyone else, there's poor man's RBAC. The "cases" are defined in the routes in the handlers
-				//So each route defines which access network should be allowed to access it
-			} else {
-				switch authNetwork {
-				case "all":
-					isAuthorized = true
-				case "nodes":
-					isAuthorized = (nodeID != "") || isnetadmin
-				case "network":
-					if isnetadmin {
-						isAuthorized = true
-					} else {
-						node, err := logic.GetNodeByID(nodeID)
-						if err != nil {
-							logic.ReturnErrorResponse(w, r, errorResponse)
-							return
-						}
-						isAuthorized = (node.Network == params["network"])
-					}
-				case "node":
-					if isnetadmin {
-						isAuthorized = true
-					} else {
-						isAuthorized = (nodeID == params["netid"])
-					}
-				case "host":
-				case "user":
-					isAuthorized = true
-				default:
-					isAuthorized = false
-				}
-			}
-			if !isAuthorized {
-				logic.ReturnErrorResponse(w, r, errorResponse)
-				return
-			} else {
-				//If authorized, this function passes along it's request and output to the appropriate route function.
-				if username == "" {
-					username = "(user not found)"
-				}
-				r.Header.Set("user", username)
-				next.ServeHTTP(w, r)
-			}
 		}
+		r.Header.Set(hostIDHeader, hostID)
+		next.ServeHTTP(w, r)
 	}
 }
 
@@ -277,6 +209,9 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
+	for i := range apiNodes {
+		apiNodes[i].StaticNode.PrivateKey = ""
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
@@ -319,6 +254,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
+	for i := range apiNodes {
+		apiNodes[i].StaticNode.PrivateKey = ""
+	}
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)

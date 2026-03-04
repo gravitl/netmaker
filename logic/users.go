@@ -151,7 +151,7 @@ func GetUserMap() (map[string]schema.User, error) {
 		return nil, err
 	}
 
-	userMap := make(map[string]schema.User)
+	userMap := make(map[string]schema.User, len(users))
 	for _, user := range users {
 		userMap[user.Username] = user
 	}
