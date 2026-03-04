@@ -9,8 +9,10 @@ import (
 	"image/png"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
 
@@ -54,6 +56,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/list", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -1009,6 +1012,41 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched users")
 	json.NewEncoder(w).Encode(users)
+}
+
+// @Summary     List all users
+// @Router      /api/v1/users/list [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ReturnUser
+// @Failure     500 {object} models.ErrorResponse
+func listUsers(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+
+	_users, err := (&schema.User{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	users := make([]models.ReturnUser, len(_users))
+	for i, _user := range _users {
+		users[i] = logic.ToReturnUser(&_user)
+	}
+
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched users")
+	logic.ReturnSuccessResponseWithJson(w, r, users, "fetched users")
 }
 
 // @Summary     Create a super admin

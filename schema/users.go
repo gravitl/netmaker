@@ -88,7 +88,7 @@ func (u *User) Count(ctx context.Context) (int, error) {
 
 func (u *User) ListAll(ctx context.Context) ([]User, error) {
 	var users []User
-	err := db.FromContext(ctx).Model(&User{}).Find(&users).Error
+	err := db.FromContext(ctx).Model(&User{}).Find(&users).Order("username ASC").Error
 	return users, err
 }
 
