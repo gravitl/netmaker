@@ -1,48 +1,59 @@
-version: "3.4"
-
 services:
 
   prometheus:
     container_name: prometheus
-    image: gravitl/netmaker-prometheus:latest
-    env_file: ./netmaker.env
+    image: prom/prometheus:latest
     environment:
-      # config-dependant vars
-      - NETMAKER_METRICS_TARGET=netmaker-exporter.${NM_DOMAIN}
-    restart: always
+      - METRICS_SECRET=${METRICS_SECRET}
+      - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET:-http://netmaker-exporter:8085}
+      - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-15d}
+      - PROMETHEUS_RETENTION_SIZE=${PROMETHEUS_RETENTION_SIZE:-0}
     volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tmpl:ro
       - prometheus_data:/prometheus
-    depends_on:
-      - netmaker
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        cp /etc/prometheus/prometheus.yml.tmpl /tmp/prometheus.yml
+        url="$${NETMAKER_METRICS_TARGET}"
+        if echo "$${url}" | grep -q '://'; then
+          scheme="$${url%%://*}"; target="$${url#*://}"
+        else
+          scheme="https"; target="$${url}"
+        fi
+        sed -i "s~NETMAKER_METRICS_TARGET~$${target}~g" /tmp/prometheus.yml
+        sed -i "s~__SCHEME__~$${scheme}~g" /tmp/prometheus.yml
+        sed -i "s~METRICS_SECRET~$${METRICS_SECRET}~g" /tmp/prometheus.yml
+        exec /bin/prometheus \
+          --config.file=/tmp/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=$${PROMETHEUS_RETENTION_TIME:-15d} \
+          --storage.tsdb.retention.size=$${PROMETHEUS_RETENTION_SIZE:-0}
+    restart: unless-stopped
 
   grafana:
     container_name: grafana
-    image: gravitl/netmaker-grafana:latest
-    env_file: ./netmaker.env
+    image: grafana/grafana:latest
     environment:
-      # config-dependant vars
-      # TODO unify with netmaker-exporter
-      - PROMETHEUS_HOST=prometheus.${NM_DOMAIN}
-      - NETMAKER_METRICS_TARGET=netmaker-exporter.${NM_DOMAIN}
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}
     volumes:
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./grafana/dashboard-config.yaml:/etc/grafana/provisioning/dashboards/dashboard-config.yaml:ro
+      - ./grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json:ro
       - grafana_data:/var/lib/grafana
-    restart: always
-    links:
-      - prometheus
-    depends_on:
-      - prometheus
-      - netmaker
+    restart: unless-stopped
+
 
   netmaker-exporter:
     container_name: netmaker-exporter
     image: gravitl/netmaker-exporter:latest
     env_file: ./netmaker.env
     environment:
-      # config-dependant vars
-      # TODO unify with grafana
-      - PROMETHEUS_HOST=https://prometheus.${NM_DOMAIN}
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}
       # The domain/host IP indicating the mq broker address
-      - BROKER_ENDPOINT=wss://broker.${NM_DOMAIN}
+      - BROKER_ENDPOINT=ws://mq:1883  #wss://broker.${NM_DOMAIN}
       - API_PORT=${EXPORTER_API_PORT}
       - SERVER_NAME=${NM_DOMAIN}
     restart: always

@@ -142,6 +142,8 @@ func initialize() { // Client Mode Prereq Check
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
+	_, _ = logic.GetUsersDB()
+	_ = logic.CleanExpiredSSOStates()
 
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
@@ -211,6 +213,8 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	if servercfg.IsMasterPod() {
 		logic.InitNetworkHooks()
 	}
+	logic.InitNetworkHooks()
+	logic.AddSSOStateCleanupHook()
 }
 
 // Should we be using a context vice a waitgroup????????????

@@ -745,7 +745,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		return
 	}
 	for _, extPeer := range extPeers {
-		if len(extPeer.ExtraAllowedIPs) == 0 {
+		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
 		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
