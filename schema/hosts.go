@@ -133,7 +133,7 @@ func (h *Host) Count(ctx context.Context) (int, error) {
 
 func (h *Host) ListAll(ctx context.Context) ([]Host, error) {
 	var hosts []Host
-	err := db.FromContext(ctx).Model(&Host{}).Find(&hosts).Error
+	err := db.FromContext(ctx).Model(&Host{}).Find(&hosts).Order("name ASC").Error
 	return hosts, err
 }
 

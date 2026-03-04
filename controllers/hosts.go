@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +25,8 @@ import (
 
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/hosts", logic.SecurityCheck(true, http.HandlerFunc(listHosts))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).
 		Methods(http.MethodPut)
@@ -184,6 +187,32 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
+}
+
+// @Summary     List all hosts
+// @Router      /api/v1/hosts [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
+func listHosts(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+
+	currentHosts, err := (&schema.Host{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+
+	logic.ReturnSuccessResponseWithJson(w, r, apiHosts, "fetched hosts")
 }
 
 // @Summary     Used by clients for "pull" command
