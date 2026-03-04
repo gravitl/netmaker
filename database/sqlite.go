@@ -20,6 +20,7 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 	DELETE:       sqliteDeleteRecord,
 	DELETE_ALL:   sqliteDeleteAllRecords,
 	FETCH_ALL:    sqliteFetchRecords,
+	FETCH_ONE:    sqliteFetchRecord,
 	CLOSE_DB:     sqliteCloseDB,
 	isConnected:  sqliteConnected,
 }
@@ -78,13 +79,13 @@ func sqliteInsertPeer(key string, value string) error {
 }
 
 func sqliteDeleteRecord(tableName string, key string) error {
-	deleteSQL := "DELETE FROM " + tableName + " WHERE key = \"" + key + "\""
+	deleteSQL := "DELETE FROM " + tableName + " WHERE key = ?"
 	statement, err := SqliteDB.Prepare(deleteSQL)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
-	if _, err = statement.Exec(); err != nil {
+	if _, err = statement.Exec(key); err != nil {
 		return err
 	}
 	return nil
@@ -101,6 +102,18 @@ func sqliteDeleteAllRecords(tableName string) error {
 		return err
 	}
 	return nil
+}
+
+func sqliteFetchRecord(tableName string, key string) (string, error) {
+	var value string
+	err := SqliteDB.QueryRow("SELECT value FROM "+tableName+" WHERE key = ?", key).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New(NO_RECORD)
+		}
+		return "", err
+	}
+	return value, nil
 }
 
 func sqliteFetchRecords(tableName string) (map[string]string, error) {
