@@ -2,7 +2,6 @@ package mq
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -11,11 +10,13 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/klauspost/compress/gzip"
 	"golang.org/x/exp/slog"
 )
 
@@ -72,14 +73,37 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 	return batches
 }
 
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+		return w
+	},
+}
+
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
 func compressPayload(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(buf)
+	defer gzipWriterPool.Put(zw)
+
 	if _, err := zw.Write(data); err != nil {
 		return nil, err
 	}
-	zw.Close()
-	return buf.Bytes(), nil
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
 func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	// Create AES block cipher
