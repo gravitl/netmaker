@@ -265,10 +265,59 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	for _, record := range records {
-		var _host schema.Host
-		err = json.Unmarshal([]byte(record), &_host)
+		var host models.Host
+		err = json.Unmarshal([]byte(record), &host)
 		if err != nil {
 			return err
+		}
+
+		_host := &schema.Host{
+			ID:                 host.ID,
+			Verbosity:          host.Verbosity,
+			FirewallInUse:      host.FirewallInUse,
+			Version:            host.Version,
+			IPForwarding:       host.IPForwarding,
+			DaemonInstalled:    host.DaemonInstalled,
+			AutoUpdate:         host.AutoUpdate,
+			HostPass:           host.HostPass,
+			Name:               host.Name,
+			OS:                 host.OS,
+			OSFamily:           host.OSFamily,
+			OSVersion:          host.OSVersion,
+			KernelVersion:      host.KernelVersion,
+			Interface:          host.Interface,
+			Debug:              host.Debug,
+			ListenPort:         host.ListenPort,
+			WgPublicListenPort: host.WgPublicListenPort,
+			MTU:                host.MTU,
+			PublicKey: schema.WgKey{
+				Key: host.PublicKey,
+			},
+			MacAddress:          host.MacAddress,
+			TrafficKeyPublic:    host.TrafficKeyPublic,
+			Nodes:               host.Nodes,
+			Interfaces:          host.Interfaces,
+			DefaultInterface:    host.DefaultInterface,
+			EndpointIP:          host.EndpointIP,
+			EndpointIPv6:        host.EndpointIPv6,
+			IsDocker:            host.IsDocker,
+			IsK8S:               host.IsK8S,
+			IsStaticPort:        host.IsStaticPort,
+			IsStatic:            host.IsStatic,
+			IsDefault:           host.IsDefault,
+			DNS:                 host.DNS,
+			NatType:             host.NatType,
+			TurnEndpoint:        nil,
+			PersistentKeepalive: host.PersistentKeepalive,
+			Location:            host.Location,
+			CountryCode:         host.CountryCode,
+			EnableFlowLogs:      host.EnableFlowLogs,
+		}
+
+		if host.TurnEndpoint != nil {
+			_host.TurnEndpoint = &schema.AddrPort{
+				AddrPort: *host.TurnEndpoint,
+			}
 		}
 
 		if _host.PersistentKeepalive == 0 {
