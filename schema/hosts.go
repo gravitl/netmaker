@@ -25,6 +25,20 @@ type WgKey struct {
 	wgtypes.Key
 }
 
+func (k WgKey) MarshalText() ([]byte, error) {
+	return []byte(k.Key.String()), nil
+}
+
+func (k *WgKey) UnmarshalText(text []byte) error {
+	key, err := wgtypes.ParseKey(string(text))
+	if err != nil {
+		return err
+	}
+
+	k.Key = key
+	return nil
+}
+
 func (k WgKey) Value() (driver.Value, error) {
 	return k.Key.String(), nil
 }
@@ -44,6 +58,20 @@ func (k *WgKey) Scan(value interface{}) error {
 
 type AddrPort struct {
 	netip.AddrPort
+}
+
+func (a AddrPort) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
+}
+
+func (a *AddrPort) UnmarshalText(text []byte) error {
+	ap, err := netip.ParseAddrPort(string(text))
+	if err != nil {
+		return err
+	}
+
+	a.AddrPort = ap
+	return nil
 }
 
 func (a AddrPort) Value() (driver.Value, error) {
