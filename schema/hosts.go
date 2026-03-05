@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
@@ -42,6 +43,21 @@ func (k *WgKey) Scan(value interface{}) error {
 	return nil
 }
 
+func (k WgKey) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.Key)
+}
+
+func (k *WgKey) UnmarshalJSON(data []byte) error {
+	var key wgtypes.Key
+	err := json.Unmarshal(data, &key)
+	if err != nil {
+		return err
+	}
+
+	k.Key = key
+	return nil
+}
+
 type AddrPort struct {
 	netip.AddrPort
 }
@@ -62,6 +78,29 @@ func (a *AddrPort) Scan(value interface{}) error {
 		return fmt.Errorf("expected string for AddrPort, got %T", value)
 	}
 	ap, err := netip.ParseAddrPort(str)
+	if err != nil {
+		return err
+	}
+	a.AddrPort = ap
+	return nil
+}
+
+func (a AddrPort) MarshalJSON() ([]byte, error) {
+	if !a.IsValid() {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(a.String())
+}
+
+func (a *AddrPort) UnmarshalJSON(data []byte) error {
+	var s *string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	if s == nil {
+		return nil
+	}
+	ap, err := netip.ParseAddrPort(*s)
 	if err != nil {
 		return err
 	}
