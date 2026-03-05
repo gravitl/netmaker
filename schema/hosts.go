@@ -3,7 +3,6 @@ package schema
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
@@ -26,22 +25,6 @@ type WgKey struct {
 	wgtypes.Key
 }
 
-func (k WgKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(k.Key.String())
-}
-
-func (k *WgKey) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	key, err := wgtypes.ParseKey(s)
-	if err != nil {
-		return err
-	}
-	k.Key = key
-	return nil
-}
 func (k WgKey) Value() (driver.Value, error) {
 	return k.Key.String(), nil
 }
@@ -61,30 +44,6 @@ func (k *WgKey) Scan(value interface{}) error {
 
 type AddrPort struct {
 	netip.AddrPort
-}
-
-func (a AddrPort) MarshalJSON() ([]byte, error) {
-	if !a.IsValid() {
-		return json.Marshal(nil)
-	}
-
-	return json.Marshal(a.String())
-}
-
-func (a *AddrPort) UnmarshalJSON(data []byte) error {
-	var s *string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	if s == nil {
-		return nil
-	}
-	ap, err := netip.ParseAddrPort(*s)
-	if err != nil {
-		return err
-	}
-	a.AddrPort = ap
-	return nil
 }
 
 func (a AddrPort) Value() (driver.Value, error) {
