@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -37,9 +39,9 @@ func CleanupFlows() error {
 	rows, err := conn.Query(ctx, `
 SELECT DISTINCT parts.partition
 FROM system.parts
-WHERE parts.database = 'netmaker' AND parts.table = 'flows'
+WHERE parts.database = {database:String} AND parts.table = 'flows'
 ORDER BY parts.partition ASC
-`)
+`, clickhouse.Named("database", servercfg.GetClickHouseDB()))
 	if err != nil {
 		return err
 	}
@@ -63,7 +65,12 @@ ORDER BY parts.partition ASC
 		}
 
 		if partition.Before(cutoff) {
-			err = conn.Exec(ctx, fmt.Sprintf("ALTER TABLE netmaker.flows DROP partition %s", partitionID))
+			err = conn.Exec(
+				ctx,
+				"ALTER TABLE {database:Identifier}.flows DROP partition {partitionID:String}",
+				clickhouse.Named("database", servercfg.GetClickHouseDB()),
+				clickhouse.Named("partitionID", partitionID),
+			)
 			if err != nil {
 				cleanErr = errors.Join(cleanErr, err)
 				continue
