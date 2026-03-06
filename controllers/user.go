@@ -1045,8 +1045,28 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		}).CountByUser(r.Context())
 	}
 
+	total, err := (&schema.User{}).Count(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched users")
-	logic.ReturnSuccessResponseWithJson(w, r, users, "fetched users")
+
+	response := models.PaginatedResponse{
+		Data:       users,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched users")
 }
 
 // @Summary     Create a super admin

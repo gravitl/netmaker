@@ -141,6 +141,14 @@ type SuccessResponse struct {
 	Response interface{}
 }
 
+type PaginatedResponse struct {
+	Data       interface{} `json:"data"`
+	Page       int         `json:"page"`
+	PerPage    int         `json:"per_page"`
+	Total      int         `json:"total"`
+	TotalPages int         `json:"total_pages"`
+}
+
 // DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`

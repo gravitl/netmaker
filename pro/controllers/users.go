@@ -48,7 +48,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(deleteRole))).Methods(http.MethodDelete)
 
 	// User Group Handlers
-	r.HandleFunc("/api/v1/users/groups", logic.SecurityCheck(true, http.HandlerFunc(listUserGroups))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/groups", logic.SecurityCheck(true, http.HandlerFunc(getUserGroups))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/groups/list", logic.SecurityCheck(true, http.HandlerFunc(listUserGroups))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(getUserGroup))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
@@ -400,6 +401,23 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
+// @Success     200 {array} models.UserGroup
+// @Failure     500 {object} models.ErrorResponse
+func getUserGroups(w http.ResponseWriter, r *http.Request) {
+	groups, err := (&schema.UserGroup{}).ListAll(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, groups, "successfully fetched user groups")
+}
+
+// @Summary     List all user groups
+// @Router      /api/v1/users/groups/list [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.UserGroup
@@ -410,13 +428,30 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 
 	groups, err := (&schema.UserGroup{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
-			Code:    http.StatusInternalServerError,
-			Message: err.Error(),
-		})
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, groups, "successfully fetched user groups")
+
+	total, err := (&schema.UserGroup{}).Count(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       groups,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "successfully fetched user groups")
 }
 
 // @Summary     Get a user group

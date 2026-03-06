@@ -212,7 +212,26 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 
-	logic.ReturnSuccessResponseWithJson(w, r, apiHosts, "fetched hosts")
+	total, err := (&schema.Host{}).Count(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       apiHosts,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched hosts")
 }
 
 // @Summary     Used by clients for "pull" command

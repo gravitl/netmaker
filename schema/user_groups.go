@@ -51,6 +51,12 @@ func (u *UserGroup) GetByName(ctx context.Context) error {
 		Error
 }
 
+func (u *UserGroup) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&UserGroup{}).Count(&count).Error
+	return int(count), err
+}
+
 func (u *UserGroup) ListAll(ctx context.Context) ([]UserGroup, error) {
 	var userGroups []UserGroup
 	err := db.FromContext(ctx).Model(&UserGroup{}).Find(&userGroups).Order("name ASC").Error
