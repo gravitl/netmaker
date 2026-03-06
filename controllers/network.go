@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -27,8 +25,6 @@ import (
 
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/networks", logic.SecurityCheck(true, http.HandlerFunc(listNetworks))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats))).
 		Methods(http.MethodGet)
@@ -83,42 +79,6 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
-}
-
-// @Summary     Lists all networks
-// @Router      /api/v1/networks [get]
-// @Tags        Networks
-// @Security    oauth
-// @Produce     json
-// @Param       page query int false "Page number"
-// @Param       per_page query int false "Items per page"
-// @Success     200 {array} schema.Network
-// @Failure     500 {object} models.ErrorResponse
-func listNetworks(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
-
-	networks, err := (&schema.Network{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
-	if err != nil {
-		slog.Error("failed to fetch networks", "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	if r.Header.Get("ismaster") != "yes" {
-		username := r.Header.Get("user")
-		user := &schema.User{Username: username}
-		err = user.Get(r.Context())
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-
-		networks = logic.FilterNetworksByRole(networks, user)
-	}
-
-	logger.Log(2, r.Header.Get("user"), "fetched networks.")
-	logic.ReturnSuccessResponseWithJson(w, r, networks, "successfully fetched networks")
 }
 
 // @Summary     Lists all networks with stats

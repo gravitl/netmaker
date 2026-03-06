@@ -79,7 +79,7 @@ func (n *Network) Count(ctx context.Context) (int, error) {
 
 func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 	var networks []Network
-	err := db.FromContext(ctx).Model(&Network{}).Find(&networks).Order("name ASC").Error
+	err := db.FromContext(ctx).Model(&Network{}).Find(&networks).Error
 	return networks, err
 }
 
