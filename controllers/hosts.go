@@ -226,17 +226,20 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logger.Log(0, "failed to get nodes: ", hostID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
-	if err != nil {
-		logger.Log(0, "could not pull peers for host", hostID, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	hPU, ok := logic.GetCachedHostPeerUpdate(hostID)
+	if !ok {
+		allNodes, err := logic.GetAllNodes()
+		if err != nil {
+			logger.Log(0, "failed to get nodes: ", hostID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+		if err != nil {
+			logger.Log(0, "could not pull peers for host", hostID, err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 
 	portChanged := logic.CheckHostPorts(host)

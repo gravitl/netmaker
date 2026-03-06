@@ -91,11 +91,7 @@ func SetupMQTT(fatal bool) {
 		opts.SetResumeSubs(true)
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		slog.Warn("detected broker connection lost", "err", e.Error())
-		c.Disconnect(250)
-		slog.Info("re-initiating MQ connection")
-		SetupMQTT(false)
-
+		slog.Warn("detected broker connection lost, auto-reconnect will retry", "err", e.Error())
 	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
@@ -125,6 +121,8 @@ func SetupMQTT(fatal bool) {
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
+	warmPeerCaches()
+	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
 	for {
 		select {

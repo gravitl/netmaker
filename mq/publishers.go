@@ -1,10 +1,12 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,8 +17,106 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
+var (
+	peerUpdateSignal  = make(chan struct{}, 1)
+	peerUpdateReplace atomic.Bool
+)
+
+const (
+	peerUpdateDebounce     = 500 * time.Millisecond
+	peerUpdateMaxWait      = 3 * time.Second
+	maxConcurrentPublishes = 5
+)
+
+// PublishPeerUpdate --- queues a peer update that will be coalesced with other
+// rapid-fire updates via a debounce window (500ms) capped by a max-wait (3s).
 func PublishPeerUpdate(replacePeers bool) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	if replacePeers {
+		peerUpdateReplace.Store(true)
+	}
+	select {
+	case peerUpdateSignal <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+// StartPeerUpdateWorker --- runs a background goroutine that coalesces peer
+// update signals using a resettable debounce timer capped by an absolute
+// max-wait deadline. This ensures rapid-fire PublishPeerUpdate calls result
+// in a single broadcast, while guaranteeing peers never wait longer than
+// peerUpdateMaxWait from the first signal.
+func StartPeerUpdateWorker(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-peerUpdateSignal:
+				maxWait := time.After(peerUpdateMaxWait)
+				debounce := time.After(peerUpdateDebounce)
+			wait:
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-maxWait:
+						break wait
+					case <-debounce:
+						break wait
+					case <-peerUpdateSignal:
+						debounce = time.After(peerUpdateDebounce)
+					}
+				}
+			drain:
+				for {
+					select {
+					case <-peerUpdateSignal:
+					default:
+						break drain
+					}
+				}
+				replacePeers := peerUpdateReplace.Swap(false)
+				logic.RefreshHostPeerInfoCache()
+				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
+					slog.Error("error publishing peer update", "error", err)
+				}
+			}
+		}
+	}()
+}
+
+// warmPeerCaches pre-computes HostPeerInfo and HostPeerUpdate caches so that
+// pull requests arriving before the first debounced broadcast are served
+// instantly from cache instead of triggering expensive on-demand computation.
+func warmPeerCaches() {
+	logic.RefreshHostPeerInfoCache()
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		slog.Error("warmPeerCaches: failed to get hosts", "error", err)
+		return
+	}
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		slog.Error("warmPeerCaches: failed to get nodes", "error", err)
+		return
+	}
+	for i := range hosts {
+		peerUpdate, err := logic.GetPeerUpdateForHost("", &hosts[i], allNodes, nil, nil)
+		if err != nil {
+			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
+			continue
+		}
+		logic.StoreHostPeerUpdate(hosts[i].ID.String(), peerUpdate)
+	}
+	slog.Info("peer update caches warmed", "hosts", len(hosts))
+}
+
+// publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts
+func publishPeerUpdateImmediate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -35,11 +135,15 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return err
 	}
 
+	sem := make(chan struct{}, maxConcurrentPublishes)
+	var wg sync.WaitGroup
 	for _, host := range hosts {
 		host := host
-		time.Sleep(5 * time.Millisecond)
+		sem <- struct{}{}
+		wg.Add(1)
 		go func(host models.Host) {
-			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+			defer func() { <-sem; wg.Done() }()
+			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -48,6 +152,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 			}
 		}(host)
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -127,6 +232,9 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
+	if deletedNode == nil && len(deletedClients) == 0 {
+		logic.StoreHostPeerUpdate(host.ID.String(), peerUpdate)
+	}
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
