@@ -54,12 +54,12 @@ func TraceCaller() {
 	// Skip 1 frame to get the caller of this function
 	pc, file, line, ok := runtime.Caller(2)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	tracePc, _, _, ok := runtime.Caller(1)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	traceFuncName := runtime.FuncForPC(tracePc).Name()
@@ -67,8 +67,8 @@ func TraceCaller() {
 	funcName := runtime.FuncForPC(pc).Name()
 
 	// Print trace details
-	slog.Debug("## TRACE -> Called from function: ", "tracing-func-name", traceFuncName, "caller-func-name", funcName)
-	slog.Debug("## TRACE -> Caller File Info", "file", file, "line-no", line)
+	slog.Error("## TRACE -> Called from function: ", "tracing-func-name", traceFuncName, "caller-func-name", funcName)
+	slog.Error("## TRACE -> Caller File Info", "file", file, "line-no", line)
 }
 
 // NoEmptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string

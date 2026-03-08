@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
@@ -28,6 +29,8 @@ var (
 var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
+var serverSettingsCache atomic.Value
+
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
 	Theme:         models.Dark,
@@ -35,6 +38,15 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s models.ServerSettings) {
+	if cached, ok := serverSettingsCache.Load().(models.ServerSettings); ok {
+		return cached
+	}
+	s = getServerSettingsFromDB()
+	serverSettingsCache.Store(s)
+	return
+}
+
+func getServerSettingsFromDB() (s models.ServerSettings) {
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
 		return
@@ -44,8 +56,8 @@ func GetServerSettings() (s models.ServerSettings) {
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
-	// get curr settings
-	currSettings := GetServerSettings()
+	// get curr settings from DB directly (not cache) for accurate comparison
+	currSettings := getServerSettingsFromDB()
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -83,6 +95,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
+	serverSettingsCache.Store(s)
 	return nil
 }
 

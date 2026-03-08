@@ -182,29 +182,35 @@ func publish(host *models.Host, dest string, msg []byte) error {
 		}
 	}
 
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
-		ok := false
-		for i := 0; i < 5; i++ {
-			time.Sleep(time.Second)
-			if mqclient != nil && mqclient.IsConnectionOpen() {
-				ok = true
-				break
+	for attempt := 0; attempt < 2; attempt++ {
+		if mqclient == nil || !mqclient.IsConnectionOpen() {
+			ok := false
+			for i := 0; i < 5; i++ {
+				time.Sleep(time.Second)
+				if mqclient != nil && mqclient.IsConnectionOpen() {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return errors.New("cannot publish ... mqclient not connected")
 			}
 		}
-		if !ok {
-			return errors.New("cannot publish ... mqclient not connected")
-		}
-	}
 
-	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connection timeout")
-		} else {
-			slog.Error("publish to mq error", "error", token.Error().Error())
-			err = token.Error()
+		token := mqclient.Publish(dest, 0, true, encrypted)
+		if token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() == nil {
+			return nil
 		}
-		return err
+		if attempt == 0 {
+			slog.Warn("publish failed, retrying after reconnect", "dest", dest)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if token.Error() != nil {
+			slog.Error("publish to mq error", "error", token.Error().Error())
+			return token.Error()
+		}
+		return errors.New("connection timeout")
 	}
 	return nil
 }

@@ -163,6 +163,9 @@ func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
 
 // ResetAutoRelayedPeer - removes auto relayed over node from network peers
 func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
+	if len(autoRelayedNode.AutoRelayedPeers) == 0 {
+		return nil
+	}
 	nodes, err := logic.GetNetworkNodes(autoRelayedNode.Network)
 	if err != nil {
 		return err
@@ -172,11 +175,15 @@ func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	nodeIDStr := autoRelayedNode.ID.String()
 	for _, node := range nodes {
 		if node.AutoRelayedPeers == nil || node.ID == autoRelayedNode.ID {
 			continue
 		}
-		delete(node.AutoRelayedPeers, autoRelayedNode.ID.String())
+		if _, exists := node.AutoRelayedPeers[nodeIDStr]; !exists {
+			continue
+		}
+		delete(node.AutoRelayedPeers, nodeIDStr)
 		logic.UpsertNode(&node)
 	}
 	return nil

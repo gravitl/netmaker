@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -31,6 +32,7 @@ const (
 // PublishPeerUpdate --- queues a peer update that will be coalesced with other
 // rapid-fire updates via a debounce window (500ms) capped by a max-wait (3s).
 func PublishPeerUpdate(replacePeers bool) error {
+	utils.TraceCaller()
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}

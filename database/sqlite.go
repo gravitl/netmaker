@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/gravitl/netmaker/db"
-	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
 // SqliteDB is the db object for sqlite database connections
