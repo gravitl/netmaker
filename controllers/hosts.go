@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -194,11 +195,17 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Tags        Hosts
 // @Security    oauth
 // @Produce     json
+// @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func listHosts(w http.ResponseWriter, r *http.Request) {
+	var osFilters []interface{}
+	for _, filter := range r.URL.Query()["os"] {
+		osFilters = append(osFilters, filter)
+	}
+
 	var page, pageSize int
 
 	if !r.URL.Query().Has("page") {
@@ -213,7 +220,11 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
 	}
 
-	currentHosts, err := (&schema.Host{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
+	currentHosts, err := (&schema.Host{}).ListAll(
+		db.SetPagination(r.Context(), page, pageSize),
+		dbtypes.WithFilter("os", osFilters...),
+		dbtypes.InAscOrder("name"),
+	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

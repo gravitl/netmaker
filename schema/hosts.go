@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
 )
@@ -170,9 +171,15 @@ func (h *Host) Count(ctx context.Context) (int, error) {
 	return int(count), err
 }
 
-func (h *Host) ListAll(ctx context.Context) ([]Host, error) {
+func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, error) {
 	var hosts []Host
-	err := db.FromContext(ctx).Model(&Host{}).Find(&hosts).Order("name ASC").Error
+	query := db.FromContext(ctx).Model(&Host{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Find(&hosts).Error
 	return hosts, err
 }
 

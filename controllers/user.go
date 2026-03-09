@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
 
@@ -1019,11 +1020,54 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
+// @Param       account_status query string false "Filter by Account Status" Enums(enabled, disabled)
+// @Param       mfa_status query string false "Filter by MFA Status" Enums(enabled, disabled)
+// @Param       role query []string false "Filter by Role" Enums(all, super-admin, admin, platform-user, service-user, auditor)
+// @Param       auth_type query string false "Filter by Auth Type" Enums(basic, oauth)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ReturnUser
 // @Failure     500 {object} models.ErrorResponse
 func listUsers(w http.ResponseWriter, r *http.Request) {
+	var accountStatusFilter, mfaStatusFilter, roleFilter, authTypeFilter []interface{}
+	for _, filter := range r.URL.Query()["account_status"] {
+		var value bool
+		if filter == "enabled" {
+			value = false
+		}
+
+		if filter == "disabled" {
+			value = true
+		}
+
+		accountStatusFilter = append(accountStatusFilter, value)
+	}
+
+	for _, filter := range r.URL.Query()["mfa_status"] {
+		var value bool
+		if filter == "enabled" {
+			value = true
+		}
+
+		if filter == "disabled" {
+			value = false
+		}
+
+		mfaStatusFilter = append(mfaStatusFilter, value)
+	}
+
+	for _, filter := range r.URL.Query()["role"] {
+		roleFilter = append(roleFilter, filter)
+	}
+
+	for _, filter := range r.URL.Query()["auth_type"] {
+		if filter == "basic" {
+			filter = string(schema.BasicAuth)
+		}
+
+		authTypeFilter = append(authTypeFilter, filter)
+	}
+
 	var page, pageSize int
 
 	if !r.URL.Query().Has("page") {
@@ -1038,7 +1082,14 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
 	}
 
-	_users, err := (&schema.User{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
+	_users, err := (&schema.User{}).ListAll(
+		db.SetPagination(r.Context(), page, pageSize),
+		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
+		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
+		dbtypes.WithFilter("platform_role_id", roleFilter...),
+		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.InAscOrder("username"),
+	)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

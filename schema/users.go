@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
 
@@ -86,9 +87,15 @@ func (u *User) Count(ctx context.Context) (int, error) {
 	return int(count), err
 }
 
-func (u *User) ListAll(ctx context.Context) ([]User, error) {
+func (u *User) ListAll(ctx context.Context, options ...dbtypes.Option) ([]User, error) {
 	var users []User
-	err := db.FromContext(ctx).Model(&User{}).Find(&users).Order("username ASC").Error
+	query := db.FromContext(ctx).Model(&User{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Find(&users).Error
 	return users, err
 }
 
