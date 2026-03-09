@@ -1024,8 +1024,19 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.ReturnUser
 // @Failure     500 {object} models.ErrorResponse
 func listUsers(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	var page, pageSize int
+
+	if !r.URL.Query().Has("page") {
+		page = 1
+	} else {
+		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	}
+
+	if !r.URL.Query().Has("per_page") {
+		pageSize = 10
+	} else {
+		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	}
 
 	_users, err := (&schema.User{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
 	if err != nil {

@@ -199,8 +199,19 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func listHosts(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	var page, pageSize int
+
+	if !r.URL.Query().Has("page") {
+		page = 1
+	} else {
+		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	}
+
+	if !r.URL.Query().Has("per_page") {
+		pageSize = 10
+	} else {
+		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	}
 
 	currentHosts, err := (&schema.Host{}).ListAll(db.SetPagination(r.Context(), page, pageSize))
 	if err != nil {
