@@ -1,11 +1,10 @@
 #first stage - builder
 FROM gravitl/go-builder:1.25.3 AS builder
-ENV GOFIPS140=off
 ARG tags 
 WORKDIR /app
 COPY . .
 
-RUN GOOS=linux CGO_ENABLED=0 go build -ldflags="-s -w " -tags ${tags} .
+RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
 # RUN go build -tags=ee . -o netmaker main.go
 FROM alpine:3.23.2
 

@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/glebarez/sqlite"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -49,7 +49,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		}
 	}
 
-	dsn := dbFilePath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	dsn := dbFilePath + "?_journal_mode=WAL&_busy_timeout=5000"
 	return gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
