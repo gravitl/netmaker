@@ -115,7 +115,6 @@ var Tables = []string{
 	METRICS_TABLE_NAME,
 	NETWORK_USER_TABLE_NAME,
 	CACHE_TABLE_NAME,
-	HOSTS_TABLE_NAME,
 	ENROLLMENT_KEYS_TABLE_NAME,
 	HOST_ACTIONS_TABLE_NAME,
 	PENDING_USERS_TABLE_NAME,
@@ -124,6 +123,13 @@ var Tables = []string{
 	ACLS_TABLE_NAME,
 	PEER_ACK_TABLE,
 	SERVER_SETTINGS,
+	// The following tables are to be migrated, but we still need them so that the migration function
+	// doesn't fail with table does not exist.
+	USERS_TABLE_NAME,
+	USER_GROUPS_TABLE_NAME,
+	USER_PERMISSIONS_TABLE_NAME,
+	NETWORKS_TABLE_NAME,
+	HOSTS_TABLE_NAME,
 }
 
 func getCurrentDB() map[string]interface{} {

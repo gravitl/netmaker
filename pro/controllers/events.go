@@ -66,7 +66,7 @@ func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 	ctx := db.WithContext(r.Context())
-	netActivity, err := (&schema.Event{NetworkID: models.NetworkID(netID)}).ListByNetwork(db.SetPagination(ctx, page, pageSize), fromDate, toDate)
+	netActivity, err := (&schema.Event{NetworkID: schema.NetworkID(netID)}).ListByNetwork(db.SetPagination(ctx, page, pageSize), fromDate, toDate)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -106,7 +106,7 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if caller.Username != username && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+	if caller.Username != username && caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusForbidden,
 			Message: "you are not authorized to view this user's activity",
@@ -191,7 +191,7 @@ func listActivity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var events []schema.Event
-	e := &schema.Event{TriggeredBy: username, NetworkID: models.NetworkID(network)}
+	e := &schema.Event{TriggeredBy: username, NetworkID: schema.NetworkID(network)}
 	if username != "" && network != "" {
 		events, err = e.ListByUserAndNetwork(db.SetPagination(ctx, page, pageSize), fromDate, toDate)
 	} else if username != "" && network == "" {

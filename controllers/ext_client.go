@@ -224,9 +224,12 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(client.Network))
+	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(client.Network))
 	logic.GetNodeEgressInfo(&gwnode, eli, acls)
-	host, err := logic.GetHost(gwnode.HostID.String())
+	host := &schema.Host{
+		ID: gwnode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -449,7 +452,7 @@ func GetExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	}
 	// fetch client based on availability
 	nodes, _ := logic.GetNetworkNodes(networkid)
-	defaultPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(networkid), models.DevicePolicy)
+	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(networkid), models.DevicePolicy)
 	var targetGwID string
 	var connectionCnt int = -1
 	for _, nodeI := range nodes {
@@ -483,7 +486,10 @@ func GetExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	host, err := logic.GetHost(gwnode.HostID.String())
+	host := &schema.Host{
+		ID: gwnode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", gwnode.ID, err))
@@ -803,7 +809,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		dns := gwDNS
 		extclient.DNS = dns
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
@@ -846,7 +855,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
 		staticNode := extclient.ConvertToStaticNode()
-		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(extclient.Network))
+		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(extclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
 			return
@@ -878,21 +887,21 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if extclient.RemoteAccessClientID != "" {
 		// if created by user from client app, log event
 		logic.LogEvent(&models.Event{
-			Action: models.Connect,
+			Action: schema.Connect,
 			Source: models.Subject{
 				ID:   userName,
 				Name: userName,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: userName,
 			Target: models.Subject{
 				ID:   extclient.Network,
 				Name: extclient.Network,
-				Type: models.NetworkSub,
+				Type: schema.NetworkSub,
 				Info: extclient,
 			},
-			NetworkID: models.NetworkID(extclient.Network),
-			Origin:    models.ClientApp,
+			NetworkID: schema.NetworkID(extclient.Network),
+			Origin:    schema.ClientApp,
 		})
 	}
 
@@ -1001,7 +1010,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
 		staticNode := newclient.ConvertToStaticNode()
-		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(newclient.Network))
+		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
 			return

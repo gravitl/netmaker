@@ -10,6 +10,14 @@ import (
 	"gorm.io/datatypes"
 )
 
+type NetworkID string
+
+func (n NetworkID) String() string {
+	return string(n)
+}
+
+const AllNetworks NetworkID = "all_networks"
+
 var (
 	ErrNetworkIdentifiersNotProvided = errors.New("network identifiers not provided")
 )

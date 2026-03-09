@@ -1,10 +1,13 @@
 package logic
 
 import (
+	"context"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 func getNodeStatusOld(node *models.Node) {
@@ -75,7 +78,10 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 		node.Status = models.OfflineSt
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		node.Status = models.UnKnown
 		return

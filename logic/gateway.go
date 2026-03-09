@@ -81,7 +81,10 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -188,7 +191,10 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.IsRelayed {
 		return models.Node{}, errors.New("gateway cannot be created on a relayed node")
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -236,7 +242,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		node.Tags = make(map[models.TagID]struct{})
 	}
 	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
 	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
@@ -258,7 +264,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 		return gwUsers, err
 	}
 	for _, user := range users {
-		if user.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID != models.AdminRole {
+		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
 			gwUsers.Users = append(gwUsers.Users, user)
 		}
 	}
@@ -289,7 +295,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
 	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
@@ -336,7 +342,10 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 }
 
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
-	inetHost, err := GetHost(inetNode.HostID.String())
+	inetHost := &schema.Host{
+		ID: inetNode.HostID,
+	}
+	err := inetHost.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -358,7 +367,10 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if clientNode.IsFailOver || clientNode.IsAutoRelay {
 			return errors.New("failover node cannot be set to use internet gateway")
 		}
-		clientHost, err := GetHost(clientNode.HostID.String())
+		clientHost := &schema.Host{
+			ID: clientNode.HostID,
+		}
+		err = clientHost.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return err
 		}
@@ -437,7 +449,10 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if relay.InternetGwID != "" {
-		relayedHost, err := GetHost(relayed.HostID.String())
+		relayedHost := &schema.Host{
+			ID: relayed.HostID,
+		}
+		err := relayedHost.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return peerUpdate
 		}
@@ -458,7 +473,10 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		if err != nil {
 			return peerUpdate
 		}
-		host, err := GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return peerUpdate
 		}

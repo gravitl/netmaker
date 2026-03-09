@@ -131,7 +131,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 }
 
 // GetHostNodes - fetches all nodes part of the host
-func GetHostNodes(host *models.Host) []models.Node {
+func GetHostNodes(host *schema.Host) []models.Node {
 	nodes := []models.Node{}
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
@@ -320,7 +320,10 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
@@ -486,7 +489,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
@@ -498,7 +501,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
@@ -609,7 +612,10 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	for i := range nodes {
 		node := nodes[i]
 		if !node.IsStatic {
-			h, err := GetHost(node.HostID.String())
+			h := &schema.Host{
+				ID: node.HostID,
+			}
+			err := h.Get(db.WithContext(context.TODO()))
 			if err == nil {
 				node.Location = h.Location
 				node.CountryCode = h.CountryCode
@@ -630,7 +636,10 @@ func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
 		if node.IsStatic {
 			newApiNode.Location = node.StaticNode.Location
 		} else {
-			host, _ := GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			_ = host.Get(db.WithContext(context.TODO()))
 			newApiNode.Location = host.Location
 		}
 
@@ -681,7 +690,10 @@ func createNode(node *models.Node) error {
 	addressLock.Lock()
 	defer addressLock.Unlock()
 
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

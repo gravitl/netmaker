@@ -4,12 +4,15 @@
 package pro
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -43,8 +46,8 @@ func unauthorisedUserNodeHook() error {
 	currentTime := time.Now()
 	validityDuration := logic.GetJwtValidityDuration()
 	for _, user := range users {
-		if user.PlatformRoleID == models.AdminRole ||
-			user.PlatformRoleID == models.SuperAdminRole {
+		if user.PlatformRoleID == schema.AdminRole ||
+			user.PlatformRoleID == schema.SuperAdminRole {
 			continue
 		}
 		if !currentTime.After(user.LastLoginTime.Add(validityDuration)) {
@@ -78,7 +81,10 @@ func disableExtClient(client *models.ExtClient) error {
 			if err = mq.PublishPeerUpdate(false); err != nil {
 				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 			}
-			ingressHost, err := logic.GetHost(ingressNode.HostID.String())
+			ingressHost := &schema.Host{
+				ID: ingressNode.HostID,
+			}
+			err := ingressHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				return err
 			}

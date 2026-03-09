@@ -3,6 +3,7 @@ package mq
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -13,13 +14,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
-func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
+func decryptMsgWithHost(host *schema.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT { // just pass along IoT messages
 		return msg, nil
 	}
@@ -44,8 +47,8 @@ func DecryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
 		return nil, fmt.Errorf("received invalid message from broker %v", msg)
 	}
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return nil, err
 	}
 
@@ -105,7 +108,7 @@ func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
+func encryptMsg(host *schema.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT {
 		return msg, nil
 	}
@@ -133,7 +136,7 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
-func publish(host *models.Host, dest string, msg []byte) error {
+func publish(host *schema.Host, dest string, msg []byte) error {
 
 	var encrypted []byte
 	var encryptErr error

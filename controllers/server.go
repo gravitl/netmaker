@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -43,7 +45,7 @@ func serverHandlers(r *mux.Router) {
 						Username: r.Header.Get("username"),
 					}
 					err := caller.Get(r.Context())
-					if err != nil || caller.PlatformRoleID != models.SuperAdminRole {
+					if err != nil || caller.PlatformRoleID != schema.SuperAdminRole {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only a super-admin can shut down the server"), "forbidden"))
 						return
 					}
@@ -259,7 +261,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if superAdmin.AuthType == models.OAuth {
+		if superAdmin.AuthType == schema.OAuth {
 			err := fmt.Errorf(
 				"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 			)
@@ -297,19 +299,19 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   models.SettingSub.String(),
-			Name: models.SettingSub.String(),
-			Type: models.SettingSub,
+			ID:   schema.SettingSub.String(),
+			Name: schema.SettingSub.String(),
+			Type: schema.SettingSub,
 		},
 		Diff: models.Diff{
 			Old: currSettings,
 			New: req,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	go reInit(currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
@@ -337,7 +339,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if force || !new.EnableFlowLogs {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
-			hosts, _ := logic.GetAllHosts()
+			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
 					host.AutoUpdate = new.NetclientAutoUpdate
@@ -359,7 +361,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	go mq.PublishPeerUpdate(false)
 }
 
-func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action {
+func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action {
 	// TODO: here we are relying on the dashboard to only
 	// make singular updates, but it's possible that the
 	// API can be called to make multiple changes to the
@@ -367,33 +369,33 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 	// events or create singular update APIs.
 	if old.MFAEnforced != new.MFAEnforced {
 		if new.MFAEnforced {
-			return models.EnforceMFA
+			return schema.EnforceMFA
 		} else {
-			return models.UnenforceMFA
+			return schema.UnenforceMFA
 		}
 	}
 
 	if old.BasicAuth != new.BasicAuth {
 		if new.BasicAuth {
-			return models.EnableBasicAuth
+			return schema.EnableBasicAuth
 		} else {
-			return models.DisableBasicAuth
+			return schema.DisableBasicAuth
 		}
 	}
 
 	if old.Telemetry != new.Telemetry {
 		if new.Telemetry == "off" {
-			return models.DisableTelemetry
+			return schema.DisableTelemetry
 		} else {
-			return models.EnableTelemetry
+			return schema.EnableTelemetry
 		}
 	}
 
 	if old.EnableFlowLogs != new.EnableFlowLogs {
 		if new.EnableFlowLogs {
-			return models.EnableFlowLogs
+			return schema.EnableFlowLogs
 		} else {
-			return models.DisableFlowLogs
+			return schema.DisableFlowLogs
 		}
 	}
 
@@ -402,19 +404,19 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		old.ManageDNS != new.ManageDNS ||
 		old.DefaultDomain != new.DefaultDomain ||
 		old.EndpointDetection != new.EndpointDetection {
-		return models.UpdateClientSettings
+		return schema.UpdateClientSettings
 	}
 
 	if old.AllowedEmailDomains != new.AllowedEmailDomains ||
 		old.JwtValidityDuration != new.JwtValidityDuration {
-		return models.UpdateAuthenticationSecuritySettings
+		return schema.UpdateAuthenticationSecuritySettings
 	}
 
 	if old.Verbosity != new.Verbosity ||
 		old.MetricsPort != new.MetricsPort ||
 		old.MetricInterval != new.MetricInterval ||
 		old.AuditLogsRetentionPeriodInDays != new.AuditLogsRetentionPeriodInDays {
-		return models.UpdateMonitoringAndDebuggingSettings
+		return schema.UpdateMonitoringAndDebuggingSettings
 	}
 
 	if old.EmailSenderAddr != new.EmailSenderAddr ||
@@ -422,7 +424,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		old.EmailSenderPassword != new.EmailSenderPassword ||
 		old.SmtpHost != new.SmtpHost ||
 		old.SmtpPort != new.SmtpPort {
-		return models.UpdateSMTPSettings
+		return schema.UpdateSMTPSettings
 	}
 
 	if old.AuthProvider != new.AuthProvider ||
@@ -436,10 +438,10 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		old.AzureTenant != new.AzureTenant ||
 		!cmp.Equal(old.GroupFilters, new.GroupFilters) ||
 		cmp.Equal(old.UserFilters, new.UserFilters) {
-		return models.UpdateIDPSettings
+		return schema.UpdateIDPSettings
 	}
 
-	return models.Update
+	return schema.Update
 }
 
 // @Summary     Get feature flags for this server

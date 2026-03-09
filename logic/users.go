@@ -29,7 +29,7 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user *schema.User) models.ReturnUser {
 
-	userGroups := make(map[models.UserGroupID]struct{})
+	userGroups := make(map[schema.UserGroupID]struct{})
 	for userGroupID := range userGroups {
 		userGroups[userGroupID] = struct{}{}
 	}
@@ -40,8 +40,8 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 		IsMFAEnabled:               user.IsMFAEnabled,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
-		IsAdmin:                    user.PlatformRoleID == models.SuperAdminRole,
-		IsSuperAdmin:               user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole,
+		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole,
+		IsSuperAdmin:               user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,
 		AuthType:                   user.AuthType,
 		// no need to set. field not in use.
 		RemoteGwIDs:    nil,
@@ -59,7 +59,7 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
 func SetUserDefaults(user *schema.User) {
 	if len(user.UserGroups.Data()) == 0 {
-		user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
+		user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 	}
 }
 
@@ -119,8 +119,8 @@ func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 		user := models.ReturnUser{}
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}
@@ -137,8 +137,8 @@ func ListPendingUsers() ([]models.User, error) {
 		var user models.User
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}

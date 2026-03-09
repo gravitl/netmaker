@@ -16,5 +16,6 @@ func ListModels() []interface{} {
 		&UserGroup{},
 		&JITRequest{},
 		&JITGrant{},
+		&Host{},
 	}
 }

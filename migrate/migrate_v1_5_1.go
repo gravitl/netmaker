@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -30,7 +31,7 @@ func ToSQLSchema() error {
 		}
 	}()
 
-	// v1.5.1 migration includes migrating the users, groups, roles and networks tables.
+	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
 	// future table migrations should be made below this block,
 	// with a different version number and a similar check for whether the
 	// migration was already done.
@@ -81,7 +82,12 @@ func migrateV1_5_1(ctx context.Context) error {
 		return err
 	}
 
-	return migrateUserGroups(ctx)
+	err = migrateUserGroups(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateHosts(ctx)
 }
 
 func migrateUsers(ctx context.Context) error {
@@ -100,11 +106,11 @@ func migrateUsers(ctx context.Context) error {
 		platformRoleID := user.PlatformRoleID
 		if user.PlatformRoleID == "" {
 			if user.IsSuperAdmin {
-				platformRoleID = models.SuperAdminRole
+				platformRoleID = schema.SuperAdminRole
 			} else if user.IsAdmin {
-				platformRoleID = models.AdminRole
+				platformRoleID = schema.AdminRole
 			} else {
-				platformRoleID = models.ServiceUser
+				platformRoleID = schema.ServiceUser
 			}
 		}
 
@@ -247,6 +253,99 @@ func migrateUserGroups(ctx context.Context) error {
 		err = _userGroup.Create(ctx)
 		if err != nil {
 			logger.Log(4, fmt.Sprintf("migrating user group %s failed: %v", _userGroup.ID, err))
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateHosts(ctx context.Context) error {
+	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, record := range records {
+		var host models.Host
+		err = json.Unmarshal([]byte(record), &host)
+		if err != nil {
+			return err
+		}
+
+		_host := &schema.Host{
+			ID:                 host.ID,
+			Verbosity:          host.Verbosity,
+			FirewallInUse:      host.FirewallInUse,
+			Version:            host.Version,
+			IPForwarding:       host.IPForwarding,
+			DaemonInstalled:    host.DaemonInstalled,
+			AutoUpdate:         host.AutoUpdate,
+			HostPass:           host.HostPass,
+			Name:               host.Name,
+			OS:                 host.OS,
+			OSFamily:           host.OSFamily,
+			OSVersion:          host.OSVersion,
+			KernelVersion:      host.KernelVersion,
+			Interface:          host.Interface,
+			Debug:              host.Debug,
+			ListenPort:         host.ListenPort,
+			WgPublicListenPort: host.WgPublicListenPort,
+			MTU:                host.MTU,
+			PublicKey: schema.WgKey{
+				Key: host.PublicKey,
+			},
+			MacAddress:          host.MacAddress,
+			TrafficKeyPublic:    host.TrafficKeyPublic,
+			Nodes:               host.Nodes,
+			Interfaces:          host.Interfaces,
+			DefaultInterface:    host.DefaultInterface,
+			EndpointIP:          host.EndpointIP,
+			EndpointIPv6:        host.EndpointIPv6,
+			IsDocker:            host.IsDocker,
+			IsK8S:               host.IsK8S,
+			IsStaticPort:        host.IsStaticPort,
+			IsStatic:            host.IsStatic,
+			IsDefault:           host.IsDefault,
+			DNS:                 host.DNS,
+			NatType:             host.NatType,
+			TurnEndpoint:        nil,
+			PersistentKeepalive: host.PersistentKeepalive,
+			Location:            host.Location,
+			CountryCode:         host.CountryCode,
+			EnableFlowLogs:      host.EnableFlowLogs,
+		}
+
+		if host.TurnEndpoint != nil {
+			_host.TurnEndpoint = &schema.AddrPort{
+				AddrPort: *host.TurnEndpoint,
+			}
+		}
+
+		if _host.PersistentKeepalive == 0 {
+			_host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		}
+
+		if _host.DNS == "" || (_host.DNS != "yes" && _host.DNS != "no") {
+			if logic.GetServerSettings().ManageDNS {
+				_host.DNS = "yes"
+			} else {
+				_host.DNS = "no"
+			}
+			if _host.IsDefault {
+				_host.DNS = "yes"
+			}
+		}
+
+		if _host.IsDefault && !_host.AutoUpdate {
+			_host.AutoUpdate = true
+		}
+
+		logger.Log(4, fmt.Sprintf("migrating host %s", _host.ID))
+
+		err = _host.Create(ctx)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating host %s failed: %v", _host.ID, err))
 			return err
 		}
 	}

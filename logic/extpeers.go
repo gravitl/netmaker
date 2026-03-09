@@ -72,8 +72,8 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	staticNode := client.ConvertToStaticNode()
-	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
-	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(client.Network), models.UserPolicy)
+	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
+	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
 
 	for _, eI := range eli {
 		if !eI.Status {
@@ -174,21 +174,21 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(&models.Event{
-			Action: models.Disconnect,
+			Action: schema.Disconnect,
 			Source: models.Subject{
 				ID:   extClient.OwnerID,
 				Name: extClient.OwnerID,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: extClient.OwnerID,
 			Target: models.Subject{
 				ID:   extClient.Network,
 				Name: extClient.Network,
-				Type: models.NetworkSub,
+				Type: schema.NetworkSub,
 				Info: extClient,
 			},
-			NetworkID: models.NetworkID(extClient.Network),
-			Origin:    models.ClientApp,
+			NetworkID: schema.NetworkID(extClient.Network),
+			Origin:    schema.ClientApp,
 		})
 	}
 	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
@@ -577,7 +577,10 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
@@ -791,7 +794,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	return
 }
 
-func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode []models.Node) {
+func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode []models.Node) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return

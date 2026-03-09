@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -30,9 +31,9 @@ import (
 // @Failure     400 {object} models.ErrorResponse
 func migrate(w http.ResponseWriter, r *http.Request) {
 	data := models.MigrationData{}
-	host := models.Host{}
+	host := schema.Host{}
 	node := models.Node{}
-	nodes := []models.Node{}
+	var nodes []models.Node
 	server := models.ServerConfig{}
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
@@ -127,9 +128,9 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) {
+func convertLegacyHostNode(legacy models.LegacyNode) (schema.Host, models.Node) {
 	//convert host
-	host := models.Host{}
+	host := schema.Host{}
 	host.ID = uuid.New()
 	host.IPForwarding = models.ParseBool(legacy.IPForwarding)
 	host.AutoUpdate = logic.AutoUpdateEnabled()
@@ -139,7 +140,8 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 		host.ListenPort = 51821
 	}
 	host.MTU = int(legacy.MTU)
-	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
+	pubKey, _ := wgtypes.ParseKey(legacy.PublicKey)
+	host.PublicKey = schema.WgKey{Key: pubKey}
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
 	host.TrafficKeyPublic = legacy.TrafficKeys.Mine
 	host.Nodes = append([]string{}, legacy.ID)

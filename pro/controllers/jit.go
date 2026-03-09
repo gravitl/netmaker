@@ -172,20 +172,20 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   networkID,
 			Name: networkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(networkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT enabled on network")
@@ -205,20 +205,20 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   networkID,
 			Name: networkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(networkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT disabled on network")
@@ -266,20 +266,20 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   requestID,
 			Name: networkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(networkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, grant, "JIT request approved")
@@ -314,20 +314,20 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   requestID,
 			Name: networkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(networkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT request denied")
@@ -438,20 +438,20 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   grantID,
 			Name: networkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(networkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT grant revoked")
@@ -596,20 +596,20 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   request.ID,
 			Name: req.NetworkID,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		NetworkID: models.NetworkID(req.NetworkID),
-		Origin:    models.ClientApp,
+		NetworkID: schema.NetworkID(req.NetworkID),
+		Origin:    schema.ClientApp,
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, request, "JIT access request created")

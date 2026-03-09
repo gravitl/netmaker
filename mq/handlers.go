@@ -1,17 +1,20 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
@@ -60,8 +63,8 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
 		if !newNode.Connected {
 			err = PublishDeletedNodePeerUpdate(&newNode)
-			host, err := logic.GetHost(newNode.HostID.String())
-			if err != nil {
+			host := &schema.Host{ID: newNode.HostID}
+			if err := host.Get(db.WithContext(context.TODO())); err != nil {
 				slog.Error("failed to get host for the node", "nodeid", newNode.ID.String(), "error", err)
 				return
 			}
@@ -87,8 +90,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		slog.Error("error getting host.ID sent on ", "topic", msg.Topic(), "error", err)
 		return
 	}
-	currentHost, err := logic.GetHost(id)
-	if err != nil {
+	currentHost := &schema.Host{ID: uuid.MustParse(id)}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
 		slog.Error("error getting host", "id", id, "error", err)
 		return
 	}
@@ -159,7 +162,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func DeleteAndCleanupHost(h *models.Host) {
+func DeleteAndCleanupHost(h *schema.Host) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
 		if err := emqx.DeleteEmqxUser(h.ID.String()); err != nil {
@@ -180,7 +183,7 @@ func DeleteAndCleanupHost(h *models.Host) {
 		slog.Error("failed to delete all nodes of host", "id", h.ID, "error", err)
 		return
 	}
-	if err := logic.RemoveHostByID(h.ID.String()); err != nil {
+	if err := (&schema.Host{ID: h.ID}).Delete(db.WithContext(context.TODO())); err != nil {
 		slog.Error("failed to delete host", "id", h.ID, "error", err)
 		return
 	}
@@ -209,8 +212,8 @@ func SignalPeer(signal models.Signal) {
 	}
 	signal.NetworkID = node.Network
 	signal.IsPro = servercfg.IsPro
-	peerHost, err := logic.GetHost(signal.ToHostID)
-	if err != nil {
+	peerHost := &schema.Host{ID: uuid.MustParse(signal.ToHostID)}
+	if err := peerHost.Get(db.WithContext(context.TODO())); err != nil {
 		slog.Error("failed to signal, peer host not found", "error", err)
 		return
 	}
@@ -255,7 +258,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
-func HandleHostCheckin(h, currentHost *models.Host) bool {
+func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	if h == nil {
 		return false
 	}

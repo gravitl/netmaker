@@ -115,9 +115,9 @@ func CreateUser(_user *schema.User) error {
 	}
 	// set password to encrypted password
 	_user.Password = string(hash)
-	_user.AuthType = models.BasicAuth
+	_user.AuthType = schema.BasicAuth
 	if IsOauthUser(_user) == nil {
-		_user.AuthType = models.OAuth
+		_user.AuthType = schema.OAuth
 	}
 	AddGlobalNetRolesToAdmins(_user)
 	// create user will always be called either from API or Dashboard.
@@ -155,7 +155,7 @@ func CreateSuperAdmin(u *schema.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
-	u.PlatformRoleID = models.SuperAdminRole
+	u.PlatformRoleID = schema.SuperAdminRole
 	return CreateUser(u)
 }
 
@@ -192,7 +192,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, models.UserRoleID(_user.PlatformRoleID), appName)
+		tokenString, err := CreateUserJWT(authRequest.UserName, schema.UserRoleID(_user.PlatformRoleID), appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -260,7 +260,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 		_user.Password = userchange.Password
 	}
 
-	validUserGroups := make(map[models.UserGroupID]struct{})
+	validUserGroups := make(map[schema.UserGroupID]struct{})
 	for userGroupID := range userchange.UserGroups.Data() {
 		_, err := GetUserGroup(userGroupID)
 		if err == nil {

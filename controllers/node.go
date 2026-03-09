@@ -82,7 +82,10 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-	host, err := logic.GetHost(result.HostID.String())
+	host := &schema.Host{
+		ID: result.HostID,
+	}
+	err = host.Get(request.Context())
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
@@ -316,7 +319,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching host for node [ %s ] info: %v", nodeid, err))
@@ -552,7 +558,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	host, err := logic.GetHost(newNode.HostID.String())
+	host := &schema.Host{
+		ID: newNode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
@@ -624,7 +633,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode.PostureChecksViolations,
 		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
-		models.NetworkID(newNode.Network))
+		schema.NetworkID(newNode.Network))
 	newNode.LastEvaluatedAt = time.Now().UTC()
 	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
@@ -639,23 +648,23 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Network,
 	)
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   newNode.ID.String(),
 			Name: host.Name,
-			Type: models.NodeSub,
+			Type: schema.NodeSub,
 		},
 		Diff: models.Diff{
 			Old: currentNode,
 			New: newNode,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)

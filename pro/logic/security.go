@@ -12,7 +12,6 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -60,7 +59,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
-	if userRole.ID == models.Auditor {
+	if userRole.ID == schema.Auditor {
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
@@ -84,7 +83,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
-	if targetRsrc == models.MetricRsrc.String() {
+	if targetRsrc == schema.MetricRsrc.String() {
 		return nil
 	}
 
@@ -92,7 +91,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 
 		userG, err := GetUserGroup(groupID)
 		if err == nil {
-			if netRoles, ok := userG.NetworkRoles.Data()[models.AllNetworks]; ok {
+			if netRoles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok {
 				for netRoleID := range netRoles {
 					err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 					if err == nil {
@@ -100,7 +99,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 					}
 				}
 			}
-			netRoles := userG.NetworkRoles.Data()[models.NetworkID(netID)]
+			netRoles := userG.NetworkRoles.Data()[schema.NetworkID(netID)]
 			for netRoleID := range netRoles {
 				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 				if err == nil {
@@ -113,7 +112,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
+func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope := &schema.UserRole{ID: netRoleID}
 	err := networkPermissionScope.Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -122,13 +121,13 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if networkPermissionScope.FullAccess {
 		return nil
 	}
-	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
 		return errors.New("access denied")
 	}
-	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(models.RsrcType(targetRsrc))]; ok {
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(schema.RsrcType(targetRsrc))]; ok {
 		// handle extclient apis here
-		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
+		if schema.RsrcType(targetRsrc) == schema.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
 			extclient, err := logic.GetExtClient(targetRsrcID, netID)
 			if err != nil {
 				return err
@@ -146,7 +145,7 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is empty")
 	}
-	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+	if scope, ok := rsrcPermissionScope[schema.RsrcID(targetRsrcID)]; ok {
 		err = checkPermissionScopeWithReqMethod(scope, reqScope)
 		if err == nil {
 			return nil
@@ -174,7 +173,7 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
-	if userRole.ID == models.Auditor {
+	if userRole.ID == schema.Auditor {
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
@@ -195,51 +194,51 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
-	if targetRsrc == models.MetricRsrc.String() {
+	if targetRsrc == schema.MetricRsrc.String() {
 		return nil
 	}
-	if (targetRsrc == models.HostRsrc.String() || targetRsrc == models.NetworkRsrc.String()) && r.Method == http.MethodGet && targetRsrcID == "" {
+	if (targetRsrc == schema.HostRsrc.String() || targetRsrc == schema.NetworkRsrc.String()) && r.Method == http.MethodGet && targetRsrcID == "" {
 		return nil
 	}
-	if targetRsrc == models.UserRsrc.String() && user.PlatformRoleID == models.PlatformUser && r.Method == http.MethodPut &&
+	if targetRsrc == schema.UserRsrc.String() && user.PlatformRoleID == schema.PlatformUser && r.Method == http.MethodPut &&
 		route == "/api/v1/users/add_network_user" || route == "/api/v1/users/remove_network_user" {
 		return nil
 	}
-	if targetRsrc == models.UserRsrc.String() && user.PlatformRoleID == models.PlatformUser && r.Method == http.MethodGet &&
+	if targetRsrc == schema.UserRsrc.String() && user.PlatformRoleID == schema.PlatformUser && r.Method == http.MethodGet &&
 		route == "/api/v1/users/unassigned_network_users" {
 		return nil
 	}
-	if targetRsrc == models.JitUserRsrc.String() && r.Method == http.MethodGet &&
+	if targetRsrc == schema.JitUserRsrc.String() && r.Method == http.MethodGet &&
 		strings.Contains(r.URL.Path, "/api/v1/jit_user/networks") {
 		return nil
 	}
-	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
+	if targetRsrc == schema.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
 		return nil
 	}
-	if r.Method == http.MethodGet && targetRsrc == models.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
+	if r.Method == http.MethodGet && targetRsrc == schema.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
 		return nil
 	}
-	if r.Method == http.MethodGet && user.PlatformRoleID == models.PlatformUser && (route == "/api/v1/network/activity" || route == "/api/v1/flows") {
+	if r.Method == http.MethodGet && user.PlatformRoleID == schema.PlatformUser && (route == "/api/v1/network/activity" || route == "/api/v1/flows") {
 		return nil
 	}
-	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s", targetRsrc)
 	}
-	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[schema.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
 		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
 
 	}
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is missing")
 	}
-	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+	if scope, ok := rsrcPermissionScope[schema.RsrcID(targetRsrcID)]; ok {
 		return checkPermissionScopeWithReqMethod(scope, r.Method)
 	}
 	return errors.New("access denied")
 }
 
-func checkPermissionScopeWithReqMethod(scope models.RsrcPermissionScope, reqmethod string) error {
+func checkPermissionScopeWithReqMethod(scope schema.RsrcPermissionScope, reqmethod string) error {
 	if reqmethod == http.MethodGet && scope.Read {
 		return nil
 	}

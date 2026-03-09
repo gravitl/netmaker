@@ -18,7 +18,7 @@ import (
 var EventActivityCh = make(chan models.Event, 100)
 
 var allowUnexported = []any{
-	datatypes.JSONType[map[models.UserGroupID]struct{}]{},
+	datatypes.JSONType[map[schema.UserGroupID]struct{}]{},
 	datatypes.JSONType[schema.ResourceAccess]{},
 	datatypes.JSONType[schema.NetworkRoles]{},
 }
@@ -48,7 +48,7 @@ func EventWatcher() {
 		Interval: time.Hour * 24,
 	}
 	for e := range EventActivityCh {
-		if e.Action == models.Update {
+		if e.Action == schema.Update {
 			// check if diff
 			if cmp.Equal(e.Diff.Old, e.Diff.New, cmp.AllowUnexported(allowUnexported...)) {
 				continue

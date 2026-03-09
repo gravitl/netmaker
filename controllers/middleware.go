@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 func userMiddleWare(handler http.Handler) http.Handler {
@@ -33,79 +33,79 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Set("NET_ID", r.URL.Query().Get("network"))
 		}
 		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
-			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {
-			r.Header.Set("TARGET_RSRC", models.DnsRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.DnsRsrc.String())
 		}
 		if strings.Contains(route, "rac") {
 			r.Header.Set("RAC", "true")
 		}
 		if strings.Contains(route, "users") {
-			r.Header.Set("TARGET_RSRC", models.UserRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.UserRsrc.String())
 		}
 		if strings.Contains(route, "ingress") {
-			r.Header.Set("TARGET_RSRC", models.RemoteAccessGwRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.RemoteAccessGwRsrc.String())
 		}
 		if strings.Contains(route, "createrelay") || strings.Contains(route, "deleterelay") {
-			r.Header.Set("TARGET_RSRC", models.RelayRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.RelayRsrc.String())
 		}
 		if strings.Contains(route, "gateway") {
-			r.Header.Set("TARGET_RSRC", models.GatewayRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.GatewayRsrc.String())
 		}
 
 		if strings.Contains(route, "egress") {
-			r.Header.Set("TARGET_RSRC", models.EgressGwRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.EgressGwRsrc.String())
 		}
 		if strings.Contains(route, "networks") {
-			r.Header.Set("TARGET_RSRC", models.NetworkRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.NetworkRsrc.String())
 		}
 		// check 'graph' after 'networks', otherwise the
 		// header will be overwritten.
 		if strings.Contains(route, "graph") {
-			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "acls") {
-			r.Header.Set("TARGET_RSRC", models.AclRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.AclRsrc.String())
 		}
 		if strings.Contains(route, "tags") {
-			r.Header.Set("TARGET_RSRC", models.TagRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.TagRsrc.String())
 		}
 		if strings.Contains(route, "extclients") || strings.Contains(route, "client_conf") {
-			r.Header.Set("TARGET_RSRC", models.ExtClientsRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.ExtClientsRsrc.String())
 		}
 		if strings.Contains(route, "enrollment-keys") {
-			r.Header.Set("TARGET_RSRC", models.EnrollmentKeysRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.EnrollmentKeysRsrc.String())
 		}
 		if strings.Contains(route, "posture_check") {
-			r.Header.Set("TARGET_RSRC", models.PostureCheckRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.PostureCheckRsrc.String())
 		}
 		if strings.Contains(route, "activity") {
-			r.Header.Set("TARGET_RSRC", models.UserActivityRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.UserActivityRsrc.String())
 		}
 		if strings.Contains(route, "nameserver") {
-			r.Header.Set("TARGET_RSRC", models.NameserverRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.NameserverRsrc.String())
 		}
 		if strings.Contains(route, "jit") {
-			r.Header.Set("TARGET_RSRC", models.JitAdminRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.JitAdminRsrc.String())
 		}
 		if strings.Contains(route, "jit_user") {
-			r.Header.Set("TARGET_RSRC", models.JitUserRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.JitUserRsrc.String())
 		}
 		if strings.Contains(route, "metrics") {
-			r.Header.Set("TARGET_RSRC", models.MetricRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.MetricRsrc.String())
 		}
 		if strings.Contains(route, "flows") {
-			r.Header.Set("TARGET_RSRC", models.TrafficFlow.String())
+			r.Header.Set("TARGET_RSRC", schema.TrafficFlow.String())
 		}
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
 		}
-		if nodeID, ok := params["nodeid"]; ok && r.Header.Get("TARGET_RSRC") != models.ExtClientsRsrc.String() {
+		if nodeID, ok := params["nodeid"]; ok && r.Header.Get("TARGET_RSRC") != schema.ExtClientsRsrc.String() {
 			r.Header.Set("TARGET_RSRC_ID", nodeID)
 		}
 		if strings.Contains(route, "failover") {
-			r.Header.Set("TARGET_RSRC", models.FailOverRsrc.String())
+			r.Header.Set("TARGET_RSRC", schema.FailOverRsrc.String())
 			nodeID := r.Header.Get("TARGET_RSRC_ID")
 			node, _ := logic.GetNodeByID(nodeID)
 			r.Header.Set("NET_ID", node.Network)
@@ -133,10 +133,10 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			}
 		}
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
-			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) ||
-			(r.Header.Get("TARGET_RSRC") == models.UserActivityRsrc.String() && route != "/api/v1/network/activity") ||
-			r.Header.Get("TARGET_RSRC") == models.TrafficFlow.String() {
+			r.Header.Get("TARGET_RSRC") == schema.EnrollmentKeysRsrc.String() ||
+			r.Header.Get("TARGET_RSRC") == schema.UserRsrc.String()) ||
+			(r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String() && route != "/api/v1/network/activity") ||
+			r.Header.Get("TARGET_RSRC") == schema.TrafficFlow.String() {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))

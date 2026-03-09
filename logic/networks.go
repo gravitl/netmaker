@@ -150,8 +150,8 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 		if err == nil {
 			for _, node := range nodes {
 				node := node
-				host, err := GetHost(node.HostID.String())
-				if err != nil {
+				host := &schema.Host{ID: node.HostID}
+				if err := host.Get(db.WithContext(context.TODO())); err != nil {
 					continue
 				}
 				if node.IsGw {
@@ -775,9 +775,9 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 				node.PendingDelete = true
 				node.Action = models.NODE_DELETE
 				DeleteNodesCh <- &node
-				host, err := GetHost(node.HostID.String())
-				if err == nil && len(host.Nodes) == 0 {
-					RemoveHostByID(host.ID.String())
+				host := &schema.Host{ID: node.HostID}
+				if err := host.Get(db.WithContext(context.TODO())); err == nil && len(host.Nodes) == 0 {
+					(&schema.Host{ID: host.ID}).Delete(db.WithContext(context.TODO()))
 				}
 			}
 		}

@@ -97,7 +97,7 @@ func FetchTelemetryData() telemetryData {
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
-	data.Hosts = getDBLength(database.HOSTS_TABLE_NAME)
+	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
 	nodes, _ := GetAllNodes()
@@ -146,7 +146,10 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 func getClientCount(nodes []models.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
-		host, err := GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err := host.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}

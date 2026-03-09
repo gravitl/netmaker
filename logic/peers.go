@@ -64,9 +64,9 @@ var (
 )
 
 // GetHostPeerInfo - fetches required peer info per network
-func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
+func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
-		NetworkPeerIDs: make(map[models.NetworkID]models.PeerMap),
+		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
 	}
 	allNodes, err := GetAllNodes()
 	if err != nil {
@@ -84,7 +84,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -94,7 +94,10 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 				continue
 			}
 
-			peerHost, err := GetHost(peer.HostID.String())
+			peerHost := &schema.Host{
+				ID: peer.HostID,
+			}
+			err := peerHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -134,13 +137,13 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			}
 		}
 
-		peerInfo.NetworkPeerIDs[models.NetworkID(node.Network)] = networkPeersInfo
+		peerInfo.NetworkPeerIDs[schema.NetworkID(node.Network)] = networkPeersInfo
 	}
 	return peerInfo, nil
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.Node,
+func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node,
 	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
@@ -165,8 +168,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo:    models.HostInfoMap{},
 		ServerConfig:       GetServerInfo(),
 		DnsNameservers:     GetNameserversForHost(host),
-		AutoRelayNodes:     make(map[models.NetworkID][]models.Node),
-		GwNodes:            make(map[models.NetworkID][]models.Node),
+		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
+		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: make(map[string]models.PeerIdentity),
 	}
 	if host.DNS == "no" {
@@ -231,7 +234,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
-		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+		acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		GetNodeEgressInfo(&node, eli, acls)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
@@ -243,8 +246,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
@@ -280,13 +283,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				continue
 			}
 
-			peerHost, err := GetHost(peer.HostID.String())
+			peerHost := &schema.Host{
+				ID: peer.HostID,
+			}
+			err := peerHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
 			}
 			peerConfig := wgtypes.PeerConfig{
-				PublicKey:                   peerHost.PublicKey,
+				PublicKey:                   peerHost.PublicKey.Key,
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
@@ -309,7 +315,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					// get relay host
 					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
 					if err == nil {
-						relayHost, err := GetHost(failOverNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: failOverNode.HostID,
+						}
+						err := relayHost.Get(db.WithContext(context.TODO()))
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -319,7 +328,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					// get relay host
 					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
 					if err == nil {
-						relayHost, err := GetHost(autoRelayNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: autoRelayNode.HostID,
+						}
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -329,7 +340,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					// get relay host
 					relayNode, err := GetNodeByID(peer.RelayedBy)
 					if err == nil {
-						relayHost, err := GetHost(relayNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: relayNode.HostID,
+						}
+						err := relayHost.Get(db.WithContext(context.TODO()))
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -358,11 +372,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if allowedToComm {
 				if peer.IsAutoRelay {
-					hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
+					hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)],
 						peer)
 				}
 				if node.AutoAssignGateway && peer.IsGw {
-					hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)],
+					hostPeerUpdate.GwNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[schema.NetworkID(peer.Network)],
 						peer)
 				}
 			}
@@ -582,7 +596,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Network:     rangeI,
 					RouteMetric: 256,
 					Nat:         true,
-					Mode:        models.DirectNAT,
+					Mode:        schema.DirectNAT,
 				})
 			}
 			inetEgressInfo := models.EgressInfo{
@@ -621,11 +635,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		hostPeerUpdate.Peers[i] = peer
 	}
 	if deletedNode != nil && host.OS != models.OS_Types.IoT {
-		peerHost, err := GetHost(deletedNode.HostID.String())
+		peerHost := &schema.Host{
+			ID: deletedNode.HostID,
+		}
+		err := peerHost.Get(db.WithContext(context.TODO()))
 		if err == nil && host.ID != peerHost.ID {
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
-					PublicKey: peerHost.PublicKey,
+					PublicKey: peerHost.PublicKey.Key,
 					Remove:    true,
 				})
 			}
@@ -657,7 +674,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 }
 
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
-func GetPeerListenPort(host *models.Host) int {
+func GetPeerListenPort(host *schema.Host) int {
 	peerPort := host.ListenPort
 	if !host.IsStaticPort && host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort
@@ -737,8 +754,10 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {
-
-	peerHost, err := GetHost(peer.HostID.String())
+	peerHost := &schema.Host{
+		ID: peer.ID,
+	}
+	err := peerHost.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
 	}

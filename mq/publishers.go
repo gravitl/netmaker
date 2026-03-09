@@ -28,7 +28,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 		sendDNSSync()
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -41,7 +41,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 	for _, host := range hosts {
 		host := host
 		time.Sleep(5 * time.Millisecond)
-		go func(host models.Host) {
+		go func(host schema.Host) {
 			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
@@ -62,7 +62,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -87,7 +87,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -108,7 +108,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -139,8 +139,8 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return nil
 	}
 	if !servercfg.IsMessageQueueBackend() {

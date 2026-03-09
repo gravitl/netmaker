@@ -12,13 +12,13 @@ import (
 
 // Pre-Define Permission Templates for default Roles
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:         models.SuperAdminRole,
+	ID:         schema.SuperAdminRole,
 	Default:    true,
 	FullAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:         models.AdminRole,
+	ID:         schema.AdminRole,
 	Default:    true,
 	FullAccess: true,
 }
@@ -27,7 +27,7 @@ var GetFilteredNodesByUserAccess = func(user *schema.User, nodes []models.Node) 
 	return
 }
 
-var DeleteRole = func(r models.UserRoleID, force bool) error {
+var DeleteRole = func(r schema.UserRoleID, force bool) error {
 	return nil
 }
 
@@ -35,7 +35,7 @@ var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User)
 	return allnetworks
 }
 
-var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
+var IsGroupsValid = func(groups map[schema.UserGroupID]struct{}) error {
 	return nil
 }
 
@@ -44,8 +44,8 @@ var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
 var InitialiseRoles = userRolesInit
 var IntialiseGroups = func() {}
 var DeleteNetworkRoles = func(netID string) {}
-var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID models.NetworkID) {
+var CreateDefaultNetworkRolesAndGroups = func(netID schema.NetworkID) {}
+var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
@@ -78,50 +78,50 @@ var CreateDefaultUserPolicies = func(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 }
-var GetUserGroup = func(groupId models.UserGroupID) (userGrps schema.UserGroup, err error) { return }
+var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var EmailInit = func() {}
 
-func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
+func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	switch rsrc {
-	case models.HostRsrc:
-		return models.AllHostRsrcID
-	case models.RelayRsrc:
-		return models.AllRelayRsrcID
-	case models.RemoteAccessGwRsrc:
-		return models.AllRemoteAccessGwRsrcID
-	case models.ExtClientsRsrc:
-		return models.AllExtClientsRsrcID
-	case models.InetGwRsrc:
-		return models.AllInetGwRsrcID
-	case models.EgressGwRsrc:
-		return models.AllEgressGwRsrcID
-	case models.NetworkRsrc:
-		return models.AllNetworkRsrcID
-	case models.EnrollmentKeysRsrc:
-		return models.AllEnrollmentKeysRsrcID
-	case models.UserRsrc:
-		return models.AllUserRsrcID
-	case models.DnsRsrc:
-		return models.AllDnsRsrcID
-	case models.FailOverRsrc:
-		return models.AllFailOverRsrcID
-	case models.AclRsrc:
-		return models.AllAclsRsrcID
-	case models.TagRsrc:
-		return models.AllTagsRsrcID
-	case models.PostureCheckRsrc:
-		return models.AllPostureCheckRsrcID
-	case models.NameserverRsrc:
-		return models.AllNameserverRsrcID
-	case models.JitAdminRsrc:
-		return models.AllJitAdminRsrcID
-	case models.JitUserRsrc:
-		return models.AllJitUserRsrcID
-	case models.UserActivityRsrc:
-		return models.AllUserActivityRsrcID
-	case models.TrafficFlow:
-		return models.AllTrafficFlowRsrcID
+	case schema.HostRsrc:
+		return schema.AllHostRsrcID
+	case schema.RelayRsrc:
+		return schema.AllRelayRsrcID
+	case schema.RemoteAccessGwRsrc:
+		return schema.AllRemoteAccessGwRsrcID
+	case schema.ExtClientsRsrc:
+		return schema.AllExtClientsRsrcID
+	case schema.InetGwRsrc:
+		return schema.AllInetGwRsrcID
+	case schema.EgressGwRsrc:
+		return schema.AllEgressGwRsrcID
+	case schema.NetworkRsrc:
+		return schema.AllNetworkRsrcID
+	case schema.EnrollmentKeysRsrc:
+		return schema.AllEnrollmentKeysRsrcID
+	case schema.UserRsrc:
+		return schema.AllUserRsrcID
+	case schema.DnsRsrc:
+		return schema.AllDnsRsrcID
+	case schema.FailOverRsrc:
+		return schema.AllFailOverRsrcID
+	case schema.AclRsrc:
+		return schema.AllAclsRsrcID
+	case schema.TagRsrc:
+		return schema.AllTagsRsrcID
+	case schema.PostureCheckRsrc:
+		return schema.AllPostureCheckRsrcID
+	case schema.NameserverRsrc:
+		return schema.AllNameserverRsrcID
+	case schema.JitAdminRsrc:
+		return schema.AllJitAdminRsrcID
+	case schema.JitUserRsrc:
+		return schema.AllJitUserRsrcID
+	case schema.UserActivityRsrc:
+		return schema.AllUserActivityRsrcID
+	case schema.TrafficFlow:
+		return schema.AllTrafficFlowRsrcID
 	}
 	return ""
 }

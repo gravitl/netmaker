@@ -105,9 +105,9 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
-	if caller.Username != user.Username && caller.PlatformRoleID != models.SuperAdminRole {
-		if caller.PlatformRoleID == models.AdminRole {
-			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+	if caller.Username != user.Username && caller.PlatformRoleID != schema.SuperAdminRole {
+		if caller.PlatformRoleID == schema.AdminRole {
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to create token for user "+user.Username), logic.Forbidden_Msg))
 				return
 			}
@@ -140,20 +140,20 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
 			Name: caller.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: caller.Username,
 		Target: models.Subject{
 			ID:   req.ID,
 			Name: req.Name,
-			Type: models.UserAccessTokenSub,
+			Type: schema.UserAccessTokenSub,
 			Info: req,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
 		AuthToken: jwt,
@@ -216,9 +216,9 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	if caller.Username != user.Username && caller.PlatformRoleID != models.SuperAdminRole {
-		if caller.PlatformRoleID == models.AdminRole {
-			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+	if caller.Username != user.Username && caller.PlatformRoleID != schema.SuperAdminRole {
+		if caller.PlatformRoleID == schema.AdminRole {
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to delete token of user "+user.Username), logic.Forbidden_Msg))
 				return
 			}
@@ -238,20 +238,20 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
 			Name: caller.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: caller.Username,
 		Target: models.Subject{
 			ID:   a.ID,
 			Name: a.Name,
-			Type: models.UserAccessTokenSub,
+			Type: schema.UserAccessTokenSub,
 			Info: a,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: a,
 			New: nil,
@@ -310,7 +310,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID != models.SuperAdminRole && !logic.IsBasicAuthEnabled() {
+	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -390,35 +390,35 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if !user.IsMFAEnabled {
 		if val := request.Header.Get("From-Ui"); val == "true" {
 			logic.LogEvent(&models.Event{
-				Action: models.Login,
+				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
 					Name: user.Username,
-					Type: models.UserSub,
+					Type: schema.UserSub,
 				},
 				TriggeredBy: user.Username,
 				Target: models.Subject{
-					ID:   models.DashboardSub.String(),
-					Name: models.DashboardSub.String(),
-					Type: models.DashboardSub,
+					ID:   schema.DashboardSub.String(),
+					Name: schema.DashboardSub.String(),
+					Type: schema.DashboardSub,
 				},
-				Origin: models.Dashboard,
+				Origin: schema.Dashboard,
 			})
 		} else {
 			logic.LogEvent(&models.Event{
-				Action: models.Login,
+				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
 					Name: user.Username,
-					Type: models.UserSub,
+					Type: schema.UserSub,
 				},
 				TriggeredBy: user.Username,
 				Target: models.Subject{
-					ID:   models.ClientAppSub.String(),
-					Name: models.ClientAppSub.String(),
-					Type: models.ClientAppSub,
+					ID:   schema.ClientAppSub.String(),
+					Name: schema.ClientAppSub.String(),
+					Type: schema.ClientAppSub,
 				},
-				Origin: models.ClientApp,
+				Origin: schema.ClientApp,
 			})
 		}
 	}
@@ -490,7 +490,7 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.AuthType == models.OAuth {
+	if user.AuthType == schema.OAuth {
 		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -573,7 +573,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.AuthType == models.OAuth {
+	if user.AuthType == schema.OAuth {
 		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -602,19 +602,19 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logic.LogEvent(&models.Event{
-			Action: models.EnableMFA,
+			Action: schema.EnableMFA,
 			Source: models.Subject{
 				ID:   user.Username,
 				Name: user.Username,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: user.Username,
 			Target: models.Subject{
 				ID:   user.Username,
 				Name: user.Username,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
-			Origin: models.Dashboard,
+			Origin: schema.Dashboard,
 		})
 
 		logic.ReturnSuccessResponse(w, r, fmt.Sprintf("totp setup complete for user %s", username))
@@ -688,19 +688,19 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logic.LogEvent(&models.Event{
-			Action: models.Login,
+			Action: schema.Login,
 			Source: models.Subject{
 				ID:   user.Username,
 				Name: user.Username,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: user.Username,
 			Target: models.Subject{
-				ID:   models.DashboardSub.String(),
-				Name: models.DashboardSub.String(),
-				Type: models.DashboardSub,
+				ID:   schema.DashboardSub.String(),
+				Name: schema.DashboardSub.String(),
+				Type: schema.DashboardSub,
 			},
-			Origin: models.Dashboard,
+			Origin: schema.Dashboard,
 		})
 
 		logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
@@ -829,23 +829,23 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 
 	if !isMaster {
 		switch _user.PlatformRoleID {
-		case models.SuperAdminRole:
+		case schema.SuperAdminRole:
 			// This can never happen, since a superadmin user cannot
 			// be disabled.
-		case models.AdminRole:
-			if _caller.PlatformRoleID != models.SuperAdminRole {
+		case schema.AdminRole:
+			if _caller.PlatformRoleID != schema.SuperAdminRole {
 				err = fmt.Errorf("%s cannot %s an admin", action, _caller.PlatformRoleID)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
-		case models.PlatformUser:
-			if _caller.PlatformRoleID != models.SuperAdminRole && _caller.PlatformRoleID != models.AdminRole {
+		case schema.PlatformUser:
+			if _caller.PlatformRoleID != schema.SuperAdminRole && _caller.PlatformRoleID != schema.AdminRole {
 				err = fmt.Errorf("%s cannot %s a platform-user", action, _caller.PlatformRoleID)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
-		case models.ServiceUser:
-			if _caller.PlatformRoleID != models.SuperAdminRole && _caller.PlatformRoleID != models.AdminRole {
+		case schema.ServiceUser:
+			if _caller.PlatformRoleID != schema.SuperAdminRole && _caller.PlatformRoleID != schema.AdminRole {
 				err = fmt.Errorf("%s cannot %s a service-user", action, _caller.PlatformRoleID)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
@@ -966,12 +966,12 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	type ReturnUserWithRolesAndGroups struct {
 		models.ReturnUser
 		PlatformRole *schema.UserRole                        `json:"platform_role"`
-		UserGroups   map[models.UserGroupID]schema.UserGroup `json:"user_group_ids"`
+		UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
 	}
 	resp := ReturnUserWithRolesAndGroups{
 		ReturnUser:   user,
 		PlatformRole: userRoleTemplate,
-		UserGroups:   map[models.UserGroupID]schema.UserGroup{},
+		UserGroups:   map[schema.UserGroupID]schema.UserGroup{},
 	}
 	for gId := range user.UserGroups {
 		grp, err := logic.GetUserGroup(gId)
@@ -1067,7 +1067,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
-	if caller.PlatformRoleID != models.SuperAdminRole {
+	if caller.PlatformRoleID != schema.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
 		return
 	}
@@ -1080,7 +1080,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if u.PlatformRoleID != models.AdminRole {
+	if u.PlatformRoleID != schema.AdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
@@ -1093,7 +1093,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u.PlatformRoleID = models.SuperAdminRole
+	u.PlatformRoleID = schema.SuperAdminRole
 	err = logic.UpsertUser(*u)
 	if err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.Username, "error", err.Error())
@@ -1101,7 +1101,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	caller.PlatformRoleID = models.AdminRole
+	caller.PlatformRoleID = schema.AdminRole
 	err = logic.UpsertUser(*caller)
 	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.Username, "error", err.Error())
@@ -1141,7 +1141,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !servercfg.IsPro {
-		user.PlatformRoleID = models.AdminRole
+		user.PlatformRoleID = schema.AdminRole
 	}
 	if user.Username == logic.MasterUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username not allowed"), "badrequest"))
@@ -1160,21 +1160,21 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if userRole.ID == models.SuperAdminRole {
+	if userRole.ID == schema.SuperAdminRole {
 		err = errors.New("additional superadmins cannot be created")
 		slog.Error("error creating new user: ", "user", user.Username, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
-	if caller.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID == models.AdminRole {
+	if caller.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID == schema.AdminRole {
 		err = errors.New("only superadmin can create admin users")
 		slog.Error("error creating new user: ", "user", user.Username, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
-	if !servercfg.IsPro && user.PlatformRoleID != models.AdminRole {
+	if !servercfg.IsPro && user.PlatformRoleID != schema.AdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
@@ -1186,20 +1186,20 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
 			Name: caller.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: caller.Username,
 		Target: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 			Info: user,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logic.DeleteUserInvite(user.Username)
 	logic.DeletePendingUser(user.Username)
@@ -1265,7 +1265,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if userchange.PlatformRoleID == models.SuperAdminRole {
+	if userchange.PlatformRoleID == schema.SuperAdminRole {
 		err = errors.New("only a super-admin can assign the super-admin role to another user via transferSuperAdmin method")
 		slog.Error(
 			"failed to update user",
@@ -1285,22 +1285,22 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ismaster && !selfUpdate {
-		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.SuperAdminRole {
+		if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.SuperAdminRole {
 			slog.Error("non-superadmin user", "caller", caller.Username, "attempted to update superadmin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if caller.PlatformRoleID != models.AdminRole && caller.PlatformRoleID != models.SuperAdminRole {
+		if caller.PlatformRoleID != schema.AdminRole && caller.PlatformRoleID != schema.SuperAdminRole {
 			slog.Error("operation not allowed", "caller", caller.Username, "attempted to update user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.AdminRole {
+		if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
 			slog.Error("an admin user does not have permissions to update another admin user", "caller", caller.Username, "attempted to update admin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an admin user does not have permissions to update another admin user"), "forbidden"))
 			return
 		}
-		if caller.PlatformRoleID == models.AdminRole && userchange.PlatformRoleID == models.AdminRole {
+		if caller.PlatformRoleID == schema.AdminRole && userchange.PlatformRoleID == schema.AdminRole {
 			err = errors.New("an admin user does not have permissions to assign the admin role to another user")
 			slog.Error(
 				"failed to update user",
@@ -1342,7 +1342,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if ismaster {
-		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
+		if user.PlatformRoleID != schema.SuperAdminRole && userchange.PlatformRoleID == schema.SuperAdminRole {
 			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
 			return
@@ -1364,7 +1364,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Username: logic.MasterUser,
 		}
 	}
-	action := models.Update
+	action := schema.Update
 	// TODO: here we are relying on the dashboard to only
 	// make singular updates, but it's possible that the
 	// API can be called to make multiple changes to the
@@ -1373,9 +1373,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if userchange.IsMFAEnabled != user.IsMFAEnabled {
 		if userchange.IsMFAEnabled {
 			// the update API won't be used to enable MFA.
-			action = models.EnableMFA
+			action = schema.EnableMFA
 		} else {
-			action = models.DisableMFA
+			action = schema.DisableMFA
 		}
 	}
 	e := models.Event{
@@ -1383,19 +1383,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		Source: models.Subject{
 			ID:   caller.Username,
 			Name: caller.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: caller.Username,
 		Target: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
 			Old: oldUser,
 			New: userchange,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	}
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
@@ -1409,7 +1409,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		// Populating all the networks the user has access to by
 		// being a member of groups.
-		userMembershipNetworkAccess := make(map[models.NetworkID]struct{})
+		userMembershipNetworkAccess := make(map[schema.NetworkID]struct{})
 		for groupID := range user.UserGroups.Data() {
 			userGroup, _ := logic.GetUserGroup(groupID)
 			for netID := range userGroup.NetworkRoles.Data() {
@@ -1429,14 +1429,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var shouldDelete bool
-			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 				// Super-admin and Admin's access is not determined by group membership
 				// or network roles. Even if a user is removed from the group, they
 				// continue to have access to the network.
 				// So, no need to delete the extclient.
 				shouldDelete = false
 			} else {
-				_, hasAccessThroughGroups := userMembershipNetworkAccess[models.NetworkID(extclient.Network)]
+				_, hasAccessThroughGroups := userMembershipNetworkAccess[schema.NetworkID(extclient.Network)]
 				if !hasAccessThroughGroups {
 					// The user does not have access to the network by either
 					// being a Super-admin or Admin, by network roles or by virtue
@@ -1507,7 +1507,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if userRole.ID == models.SuperAdminRole {
+	if userRole.ID == schema.SuperAdminRole {
 		slog.Error(
 			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
 		logic.ReturnErrorResponse(
@@ -1517,8 +1517,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if callerUserRole.ID != models.SuperAdminRole {
-		if callerUserRole.ID == models.AdminRole && userRole.ID == models.AdminRole {
+	if callerUserRole.ID != schema.SuperAdminRole {
+		if callerUserRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
 			slog.Error(
 				"failed to delete user: ",
 				"user",
@@ -1538,7 +1538,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if user.AuthType == models.OAuth || user.ExternalIdentityProviderID != "" {
+	if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
 		err = fmt.Errorf("cannot delete idp user %s", username)
 		logger.Log(0, username, "failed to delete user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1553,19 +1553,19 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
 			Name: caller.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: caller.Username,
 		Target: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: user,
 			New: nil,
@@ -1657,19 +1657,19 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	var target models.SubjectType
+	var target schema.SubjectType
 	if val := r.Header.Get("From-Ui"); val == "true" {
-		target = models.DashboardSub
+		target = schema.DashboardSub
 	} else {
-		target = models.ClientAppSub
+		target = schema.ClientAppSub
 	}
 	if target != "" {
 		logic.LogEvent(&models.Event{
-			Action: models.LogOut,
+			Action: schema.LogOut,
 			Source: models.Subject{
 				ID:   user.Username,
 				Name: user.Username,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: user.Username,
 			Target: models.Subject{
@@ -1677,7 +1677,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 				Name: target.String(),
 				Type: target,
 			},
-			Origin: models.Origin(target),
+			Origin: schema.Origin(target),
 		})
 	}
 

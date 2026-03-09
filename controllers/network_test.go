@@ -24,7 +24,7 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
-var netHost models.Host
+var netHost schema.Host
 
 func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	logic.CreateSuperAdmin(&schema.User{
 		Username:       "admin",
 		Password:       "password",
-		PlatformRoleID: models.SuperAdminRole,
+		PlatformRoleID: schema.SuperAdminRole,
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background())
@@ -242,9 +242,9 @@ func createNetDualStack() {
 
 func createNetHost() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	netHost = models.Host{
+	netHost = schema.Host{
 		ID:        uuid.New(),
-		PublicKey: k.PublicKey(),
+		PublicKey: schema.WgKey{Key: k.PublicKey()},
 		HostPass:  "password",
 		OS:        "linux",
 		Name:      "nethost",

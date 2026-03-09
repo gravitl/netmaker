@@ -50,7 +50,7 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	tags, err := proLogic.ListTagsWithNodes(models.NetworkID(netID))
+	tags, err := proLogic.ListTagsWithNodes(schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -140,20 +140,20 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   tag.ID.String(),
 			Name: tag.TagName,
-			Type: models.TagSub,
+			Type: schema.TagSub,
 		},
 		NetworkID: tag.Network,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(false)
 
@@ -191,23 +191,23 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := &models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   tag.ID.String(),
 			Name: tag.TagName,
-			Type: models.TagSub,
+			Type: schema.TagSub,
 		},
 		Diff: models.Diff{
 			Old: tag,
 		},
 		NetworkID: tag.Network,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 	}
 	updateTag.NewName = strings.TrimSpace(updateTag.NewName)
 	var newID models.TagID
@@ -292,20 +292,20 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		mq.PublishPeerUpdate(false)
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   tag.ID.String(),
 			Name: tag.TagName,
-			Type: models.TagSub,
+			Type: schema.TagSub,
 		},
 		NetworkID: tag.Network,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: tag,
 			New: nil,

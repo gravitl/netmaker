@@ -229,7 +229,10 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 		if node.Network != network {
 			continue
 		}
-		host, err := GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}
@@ -256,7 +259,10 @@ func GetGwDNS(node *models.Node) string {
 	if !servercfg.GetManageDNS() {
 		return ""
 	}
-	h, err := GetHost(node.HostID.String())
+	h := &schema.Host{
+		ID: node.HostID,
+	}
+	err := h.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return ""
 	}
@@ -595,7 +601,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+func getNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}
