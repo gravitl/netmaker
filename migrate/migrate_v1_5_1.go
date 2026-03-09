@@ -31,12 +31,12 @@ func ToSQLSchema() error {
 		}
 	}()
 
-	// v1.6.0 migration includes migrating the users, groups, roles, networks and hosts tables.
+	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
 	// future table migrations should be made below this block,
 	// with a different version number and a similar check for whether the
 	// migration was already done.
 	migrationJob := &schema.Job{
-		ID: "migration-v1.6.0",
+		ID: "migration-v1.5.1",
 	}
 	err := migrationJob.Get(dbctx)
 	if err != nil {
@@ -46,7 +46,7 @@ func ToSQLSchema() error {
 
 		logger.Log(1, fmt.Sprintf("running migration job %s", migrationJob.ID))
 		// migrate.
-		err = migrateV1_6_0(dbctx)
+		err = migrateV1_5_1(dbctx)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func ToSQLSchema() error {
 	return nil
 }
 
-func migrateV1_6_0(ctx context.Context) error {
+func migrateV1_5_1(ctx context.Context) error {
 	err := migrateUsers(ctx)
 	if err != nil {
 		return err
@@ -178,22 +178,24 @@ func migrateNetworks(ctx context.Context) error {
 		}
 
 		_network := &schema.Network{
-			ID:                  "",
-			Name:                network.NetID,
-			AddressRange:        network.AddressRange,
-			AddressRange6:       network.AddressRange6,
-			DefaultKeepAlive:    int(network.DefaultKeepalive),
-			DefaultACL:          network.DefaultACL,
-			DefaultMTU:          network.DefaultMTU,
-			AutoJoin:            autoJoin,
-			AutoRemove:          autoRemove,
-			AutoRemoveTags:      network.AutoRemoveTags,
-			AutoRemoveThreshold: network.AutoRemoveThreshold,
-			JITEnabled:          jitEnabled,
-			NodesUpdatedAt:      time.Unix(network.NodesLastModified, 0),
-			CreatedBy:           network.CreatedBy,
-			CreatedAt:           network.CreatedAt,
-			UpdatedAt:           time.Unix(network.NetworkLastModified, 0),
+			ID:                          "",
+			Name:                        network.NetID,
+			AddressRange:                network.AddressRange,
+			AddressRange6:               network.AddressRange6,
+			DefaultKeepAlive:            int(network.DefaultKeepalive),
+			DefaultACL:                  network.DefaultACL,
+			DefaultMTU:                  network.DefaultMTU,
+			AutoJoin:                    autoJoin,
+			AutoRemove:                  autoRemove,
+			AutoRemoveTags:              network.AutoRemoveTags,
+			AutoRemoveThreshold:         network.AutoRemoveThreshold,
+			JITEnabled:                  jitEnabled,
+			VirtualNATPoolIPv4:          network.VirtualNATPoolIPv4,
+			VirtualNATSitePrefixLenIPv4: network.VirtualNATSitePrefixLenIPv4,
+			NodesUpdatedAt:              time.Unix(network.NodesLastModified, 0),
+			CreatedBy:                   network.CreatedBy,
+			CreatedAt:                   network.CreatedAt,
+			UpdatedAt:                   time.Unix(network.NetworkLastModified, 0),
 		}
 
 		logger.Log(4, fmt.Sprintf("migrating network %s", _network.Name))
