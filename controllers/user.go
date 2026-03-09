@@ -1022,7 +1022,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       account_status query string false "Filter by Account Status" Enums(enabled, disabled)
 // @Param       mfa_status query string false "Filter by MFA Status" Enums(enabled, disabled)
-// @Param       role query []string false "Filter by Role" Enums(all, super-admin, admin, platform-user, service-user, auditor)
+// @Param       role query []string false "Filter by Role" Enums(super-admin, admin, platform-user, service-user, auditor)
 // @Param       auth_type query string false "Filter by Auth Type" Enums(basic, oauth)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
