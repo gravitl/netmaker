@@ -612,7 +612,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
+	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
