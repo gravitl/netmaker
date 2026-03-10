@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -396,7 +396,13 @@ func validateUserName(user *schema.User) error {
 		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
 	}
 
-	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`).MatchString(user.Username) {
+	var isValidEmail bool
+	_, err := mail.ParseAddress(user.Username)
+	if err == nil {
+		isValidEmail = true
+	}
+
+	if !isValidEmail {
 		charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
 		for _, char := range user.Username {
 			if !strings.Contains(charset, strings.ToLower(string(char))) {
