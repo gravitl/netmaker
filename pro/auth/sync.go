@@ -154,8 +154,10 @@ func syncUsers(idpUsers []idp.User) error {
 	for _, user := range idpUsers {
 		if user.AccountArchived {
 			// delete the user if it has been archived.
-			user := dbUsersMap[user.Username]
-			_ = deleteAndCleanUpUser(user)
+			user, ok := dbUsersMap[user.Username]
+			if ok {
+				_ = deleteAndCleanUpUser(user)
+			}
 			continue
 		}
 
@@ -348,9 +350,12 @@ func syncGroups(idpGroups []idp.Group) error {
 	}
 
 	for userID := range modifiedUsers {
-		err = logic.UpsertUser(*dbUsersMap[userID])
-		if err != nil {
-			return err
+		user, ok := dbUsersMap[userID]
+		if ok {
+			err = logic.UpsertUser(*user)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
