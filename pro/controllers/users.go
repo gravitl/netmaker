@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -439,24 +438,14 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 		defaultGroups = append(defaultGroups, value)
 	}
 
-	var page, pageSize int
-
-	if !r.URL.Query().Has("page") {
-		page = 1
-	} else {
-		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
-	}
-
-	if !r.URL.Query().Has("per_page") {
-		pageSize = 10
-	} else {
-		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
-	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 
 	groups, err := (&schema.UserGroup{}).ListAll(
-		db.SetPagination(r.Context(), page, pageSize),
+		r.Context(),
 		dbtypes.WithFilter("default", defaultGroups...),
 		dbtypes.InAscOrder("name"),
+		dbtypes.WithPagination(page, pageSize),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

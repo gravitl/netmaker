@@ -8,6 +8,25 @@ import (
 
 type Option func(db *gorm.DB) *gorm.DB
 
+func WithPagination(page, pageSize int) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		if page == 0 && pageSize == 0 {
+			return db
+		}
+
+		if page < 1 {
+			page = 1
+		}
+
+		if pageSize < 1 || pageSize > 100 {
+			pageSize = 10
+		}
+
+		offset := (page - 1) * pageSize
+		return db.Offset(offset).Limit(pageSize)
+	}
+}
+
 func WithFilter(field string, value ...interface{}) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(value) == 0 {

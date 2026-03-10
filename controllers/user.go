@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
@@ -1068,27 +1067,17 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		authTypeFilter = append(authTypeFilter, filter)
 	}
 
-	var page, pageSize int
-
-	if !r.URL.Query().Has("page") {
-		page = 1
-	} else {
-		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
-	}
-
-	if !r.URL.Query().Has("per_page") {
-		pageSize = 10
-	} else {
-		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
-	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 
 	_users, err := (&schema.User{}).ListAll(
-		db.SetPagination(r.Context(), page, pageSize),
+		r.Context(),
 		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter("platform_role_id", roleFilter...),
 		dbtypes.WithFilter("auth_type", authTypeFilter...),
 		dbtypes.InAscOrder("username"),
+		dbtypes.WithPagination(page, pageSize),
 	)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())

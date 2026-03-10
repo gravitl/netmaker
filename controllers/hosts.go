@@ -206,24 +206,14 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		osFilters = append(osFilters, filter)
 	}
 
-	var page, pageSize int
-
-	if !r.URL.Query().Has("page") {
-		page = 1
-	} else {
-		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
-	}
-
-	if !r.URL.Query().Has("per_page") {
-		pageSize = 10
-	} else {
-		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
-	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 
 	currentHosts, err := (&schema.Host{}).ListAll(
-		db.SetPagination(r.Context(), page, pageSize),
+		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.InAscOrder("name"),
+		dbtypes.WithPagination(page, pageSize),
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
