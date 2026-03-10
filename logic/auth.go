@@ -396,10 +396,6 @@ func validateUserName(user *schema.User) error {
 		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
 	}
 
-	if len(user.Username) > 32 {
-		validationErr = errors.Join(validationErr, errors.New("username cannot be longer than 32 characters"))
-	}
-
 	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`).MatchString(user.Username) {
 		charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
 		for _, char := range user.Username {

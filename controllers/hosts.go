@@ -1373,7 +1373,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h := &schema.Host{
-		ID: uuid.MustParse(id),
+		ID: uuid.MustParse(p.HostID),
 	}
 	err = h.Get(r.Context())
 	if err != nil {

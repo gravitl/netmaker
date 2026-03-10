@@ -99,11 +99,11 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *schema.Host) error {
-	hosts, hErr := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hostsCount, hErr := (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	clients, cErr := GetAllExtClients()
 	if (hErr != nil) ||
 		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
-		len(hosts)+len(clients) >= MachinesLimit {
+		hostsCount+len(clients) >= MachinesLimit {
 		return errors.New("free tier limits exceeded on machines")
 	}
 	_host := &schema.Host{ID: h.ID}
@@ -612,7 +612,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
+	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
