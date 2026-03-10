@@ -102,7 +102,6 @@ func CreateUser(_user *schema.User) error {
 	}
 
 	var err = ValidateUser(_user)
-	fmt.Println("validation err:", err)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
