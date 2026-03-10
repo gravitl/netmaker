@@ -9,8 +9,11 @@ import (
 	"image/png"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
 
@@ -54,6 +57,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/list", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -1009,6 +1013,122 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched users")
 	json.NewEncoder(w).Encode(users)
+}
+
+// @Summary     List all users
+// @Router      /api/v1/users/list [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       account_status query string false "Filter by Account Status" Enums(enabled, disabled)
+// @Param       mfa_status query string false "Filter by MFA Status" Enums(enabled, disabled)
+// @Param       role query []string false "Filter by Role" Enums(super-admin, admin, platform-user, service-user, auditor)
+// @Param       auth_type query string false "Filter by Auth Type" Enums(basic, oauth)
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ReturnUser
+// @Failure     500 {object} models.ErrorResponse
+func listUsers(w http.ResponseWriter, r *http.Request) {
+	var accountStatusFilter, mfaStatusFilter, roleFilter, authTypeFilter []interface{}
+	for _, filter := range r.URL.Query()["account_status"] {
+		var value bool
+		if filter == "enabled" {
+			value = false
+		}
+
+		if filter == "disabled" {
+			value = true
+		}
+
+		accountStatusFilter = append(accountStatusFilter, value)
+	}
+
+	for _, filter := range r.URL.Query()["mfa_status"] {
+		var value bool
+		if filter == "enabled" {
+			value = true
+		}
+
+		if filter == "disabled" {
+			value = false
+		}
+
+		mfaStatusFilter = append(mfaStatusFilter, value)
+	}
+
+	for _, filter := range r.URL.Query()["role"] {
+		roleFilter = append(roleFilter, filter)
+	}
+
+	for _, filter := range r.URL.Query()["auth_type"] {
+		if filter == "basic" {
+			filter = string(schema.BasicAuth)
+		}
+
+		authTypeFilter = append(authTypeFilter, filter)
+	}
+
+	var page, pageSize int
+
+	if !r.URL.Query().Has("page") {
+		page = 1
+	} else {
+		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	}
+
+	if !r.URL.Query().Has("per_page") {
+		pageSize = 10
+	} else {
+		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	}
+
+	_users, err := (&schema.User{}).ListAll(
+		db.SetPagination(r.Context(), page, pageSize),
+		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
+		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
+		dbtypes.WithFilter("platform_role_id", roleFilter...),
+		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.InAscOrder("username"),
+	)
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	users := make([]models.ReturnUser, len(_users))
+	for i, _user := range _users {
+		users[i] = logic.ToReturnUser(&_user)
+	}
+
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
+	}
+
+	total, err := (&schema.User{}).Count(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched users")
+
+	response := models.PaginatedResponse{
+		Data:       users,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched users")
 }
 
 // @Summary     Create a super admin

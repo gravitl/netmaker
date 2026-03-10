@@ -123,12 +123,12 @@ func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user
 		totalPages = 1
 	}
 
-	response := map[string]interface{}{
-		"data":        requests,
-		"page":        page,
-		"per_page":    pageSize,
-		"total":       total,
-		"total_pages": totalPages,
+	response := models.PaginatedResponse{
+		Data:       requests,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      int(total),
+		TotalPages: totalPages,
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched JIT requests")

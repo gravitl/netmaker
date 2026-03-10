@@ -53,14 +53,13 @@ func networkHandlers(r *mux.Router) {
 // @Tags        Networks
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} schema.Network
+// @Success     200 {array} schema.Network
 // @Failure     500 {object} models.ErrorResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 
 	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

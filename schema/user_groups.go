@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
 
@@ -51,9 +52,21 @@ func (u *UserGroup) GetByName(ctx context.Context) error {
 		Error
 }
 
-func (u *UserGroup) ListAll(ctx context.Context) ([]UserGroup, error) {
+func (u *UserGroup) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&UserGroup{}).Count(&count).Error
+	return int(count), err
+}
+
+func (u *UserGroup) ListAll(ctx context.Context, options ...dbtypes.Option) ([]UserGroup, error) {
 	var userGroups []UserGroup
-	err := db.FromContext(ctx).Model(&UserGroup{}).Find(&userGroups).Error
+	query := db.FromContext(ctx).Model(&UserGroup{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Find(&userGroups).Error
 	return userGroups, err
 }
 

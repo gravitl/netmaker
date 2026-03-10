@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -24,6 +26,8 @@ import (
 
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/hosts", logic.SecurityCheck(true, http.HandlerFunc(listHosts))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).
 		Methods(http.MethodPut)
@@ -184,6 +188,72 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
+}
+
+// @Summary     List all hosts
+// @Router      /api/v1/hosts [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
+func listHosts(w http.ResponseWriter, r *http.Request) {
+	var osFilters []interface{}
+	for _, filter := range r.URL.Query()["os"] {
+		osFilters = append(osFilters, filter)
+	}
+
+	var page, pageSize int
+
+	if !r.URL.Query().Has("page") {
+		page = 1
+	} else {
+		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	}
+
+	if !r.URL.Query().Has("per_page") {
+		pageSize = 10
+	} else {
+		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	}
+
+	currentHosts, err := (&schema.Host{}).ListAll(
+		db.SetPagination(r.Context(), page, pageSize),
+		dbtypes.WithFilter("os", osFilters...),
+		dbtypes.InAscOrder("name"),
+	)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+
+	total, err := (&schema.Host{}).Count(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       apiHosts,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched hosts")
 }
 
 // @Summary     Used by clients for "pull" command
