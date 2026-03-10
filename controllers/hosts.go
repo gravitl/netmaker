@@ -234,7 +234,10 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 
-	total, err := (&schema.Host{}).Count(r.Context())
+	total, err := (&schema.Host{}).Count(
+		r.Context(),
+		dbtypes.WithFilter("os", osFilters...),
+	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return

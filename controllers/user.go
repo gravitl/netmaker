@@ -1107,7 +1107,13 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		}).CountByUser(r.Context())
 	}
 
-	total, err := (&schema.User{}).Count(r.Context())
+	total, err := (&schema.User{}).Count(
+		r.Context(),
+		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
+		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
+		dbtypes.WithFilter("platform_role_id", roleFilter...),
+		dbtypes.WithFilter("auth_type", authTypeFilter...),
+	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return

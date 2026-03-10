@@ -81,9 +81,15 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 		Error
 }
 
-func (u *User) Count(ctx context.Context) (int, error) {
+func (u *User) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&User{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&User{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Count(&count).Error
 	return int(count), err
 }
 

@@ -165,9 +165,15 @@ func (h *Host) Get(ctx context.Context) error {
 		Error
 }
 
-func (h *Host) Count(ctx context.Context) (int, error) {
+func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&Host{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&Host{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Count(&count).Error
 	return int(count), err
 }
 

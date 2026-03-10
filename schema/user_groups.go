@@ -52,9 +52,15 @@ func (u *UserGroup) GetByName(ctx context.Context) error {
 		Error
 }
 
-func (u *UserGroup) Count(ctx context.Context) (int, error) {
+func (u *UserGroup) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&UserGroup{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&UserGroup{})
+
+	for _, option := range options {
+		query = option(query)
+	}
+
+	err := query.Count(&count).Error
 	return int(count), err
 }
 
