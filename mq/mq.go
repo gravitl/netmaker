@@ -123,20 +123,33 @@ const CHECKIN_FLUSH_INTERVAL = 30
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
-	warmPeerCaches()
+	if servercfg.CacheEnabled() {
+		warmPeerCaches()
+	}
 	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
-	checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
-	defer checkinTicker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			logic.FlushNodeCheckins()
-			return
-		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			sendPeers()
-		case <-checkinTicker.C:
-			logic.FlushNodeCheckins()
+	if servercfg.CacheEnabled() {
+		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
+		defer checkinTicker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				logic.FlushNodeCheckins()
+				return
+			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+				sendPeers()
+			case <-checkinTicker.C:
+				logic.FlushNodeCheckins()
+			}
+		}
+	} else {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+				sendPeers()
+			}
 		}
 	}
 }

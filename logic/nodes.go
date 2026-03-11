@@ -165,19 +165,25 @@ var (
 	pendingCheckinsMu sync.Mutex
 )
 
-// UpdateNodeCheckin - buffers the checkin timestamp in memory.
+// UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
 // The actual DB write is deferred to FlushNodeCheckins.
+// When caching is disabled (HA mode), writes directly to the DB.
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()
 	node.EgressDetails = models.EgressDetails{}
-	pendingCheckinsMu.Lock()
-	pendingCheckins[node.ID.String()] = *node
-	pendingCheckinsMu.Unlock()
 	if servercfg.CacheEnabled() {
+		pendingCheckinsMu.Lock()
+		pendingCheckins[node.ID.String()] = *node
+		pendingCheckinsMu.Unlock()
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
+		return nil
 	}
-	return nil
+	data, err := json.Marshal(node)
+	if err != nil {
+		return err
+	}
+	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 }
 
 // FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
