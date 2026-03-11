@@ -76,8 +76,8 @@ func SetupMQTT(fatal bool) {
 		// Only master pod subscribes to incoming client messages in HA setup
 		// This prevents duplicate message processing across multiple pods
 		// Worker pods can still publish messages but won't process incoming ones
+		serverName := servercfg.GetServer()
 		if servercfg.IsMasterPod() {
-			serverName := servercfg.GetServer()
 			if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				logger.Log(0, "node update subscription failed")
 			}
