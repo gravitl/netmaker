@@ -132,12 +132,17 @@ func SetupMQTT(fatal bool) {
 }
 
 const CHECKIN_FLUSH_INTERVAL = 30
-
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
 	warmPeerCaches()
 	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
+	metricsExportInterval := servercfg.GetMetricIntervalInMinutes()
+	if metricsExportInterval < time.Minute {
+		metricsExportInterval = time.Minute
+	}
+	metricsTicker := time.NewTicker(metricsExportInterval)
+	defer metricsTicker.Stop()
 	if servercfg.CacheEnabled() {
 		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
 		defer checkinTicker.Stop()
@@ -150,6 +155,8 @@ func Keepalive(ctx context.Context) {
 				sendPeers()
 			case <-checkinTicker.C:
 				logic.FlushNodeCheckins()
+			case <-metricsTicker.C:
+				PushAllMetricsToExporter()
 			}
 		}
 	} else {
@@ -159,6 +166,8 @@ func Keepalive(ctx context.Context) {
 				return
 			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
 				sendPeers()
+			case <-metricsTicker.C:
+				PushAllMetricsToExporter()
 			}
 		}
 	}

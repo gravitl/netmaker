@@ -1,15 +1,18 @@
 package mq
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -345,6 +348,46 @@ func PushMetricsToExporter(metrics models.Metrics) error {
 		return err
 	}
 	return nil
+}
+
+// PushAllMetricsToExporter fetches all node metrics from the database
+// and POSTs them as a batch to the exporter's HTTP API.
+// Called periodically by a ticker instead of on every individual metrics MQTT message.
+func PushAllMetricsToExporter() {
+	if !servercfg.IsMetricsExporter() {
+		return
+	}
+	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	if err != nil {
+		slog.Error("metrics export: failed to fetch records", "error", err)
+		return
+	}
+	batch := make([]models.Metrics, 0, len(records))
+	for _, data := range records {
+		var m models.Metrics
+		if err := json.Unmarshal([]byte(data), &m); err != nil {
+			continue
+		}
+		batch = append(batch, m)
+	}
+	if len(batch) == 0 {
+		return
+	}
+	body, err := json.Marshal(batch)
+	if err != nil {
+		slog.Error("metrics export: failed to marshal batch", "error", err)
+		return
+	}
+	url := servercfg.GetMetricsExporterURL() + "/api/v1/metrics"
+	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		slog.Error("metrics export: POST failed", "url", url, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("metrics export: unexpected status", "url", url, "status", resp.StatusCode)
+	}
 }
 
 // sendPeers - retrieve networks, send peer ports to all peers

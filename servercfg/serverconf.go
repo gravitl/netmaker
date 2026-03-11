@@ -302,6 +302,14 @@ func IsMetricsExporter() bool {
 	return export
 }
 
+// GetMetricsExporterURL returns the base URL of the netmaker-exporter HTTP API.
+func GetMetricsExporterURL() string {
+	if v := os.Getenv("NETMAKER_METRICS_TARGET"); v != "" {
+		return v
+	}
+	return "http://netmaker-exporter:8085"
+}
+
 // IsMessageQueueBackend - checks if message queue is on or off
 func IsMessageQueueBackend() bool {
 	ismessagequeue := true
