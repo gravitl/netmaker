@@ -358,6 +358,17 @@ func PushAllMetricsToExporter() {
 	if !servercfg.IsMetricsExporter() {
 		return
 	}
+	baseURL := servercfg.GetMetricsExporterURL()
+	healthResp, err := http.Get(baseURL + "/api/health")
+	if err != nil {
+		slog.Warn("metrics export: exporter not reachable, skipping", "error", err)
+		return
+	}
+	healthResp.Body.Close()
+	if healthResp.StatusCode != http.StatusOK {
+		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
+		return
+	}
 	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
 	if err != nil {
 		slog.Error("metrics export: failed to fetch records", "error", err)
@@ -379,7 +390,7 @@ func PushAllMetricsToExporter() {
 		slog.Error("metrics export: failed to marshal batch", "error", err)
 		return
 	}
-	url := servercfg.GetMetricsExporterURL() + "/api/v1/metrics"
+	url := baseURL + "/api/v1/metrics"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		slog.Error("metrics export: failed to create request", "error", err)
