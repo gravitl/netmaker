@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
 
 const OIDC_TIMEOUT = 10 * time.Second
@@ -106,7 +107,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	user := &schema.User{Username: content.Email}
 	err = user.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
