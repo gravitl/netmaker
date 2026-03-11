@@ -74,12 +74,21 @@ var (
 	hostPeerUpdateCacheMu sync.RWMutex
 )
 
+// InvalidateHostPeerCaches clears both hostPeerInfoCache and
+// hostPeerUpdateCache so they are rebuilt on next access or refresh.
+func InvalidateHostPeerCaches() {
+	hostPeerInfoCacheMu.Lock()
+	hostPeerInfoCache = nil
+	hostPeerInfoCacheMu.Unlock()
+
+	hostPeerUpdateCacheMu.Lock()
+	hostPeerUpdateCache = nil
+	hostPeerUpdateCacheMu.Unlock()
+}
+
 // StoreHostPeerUpdate - caches a computed HostPeerUpdate for a host.
 // Called as a side-effect of PublishSingleHostPeerUpdate during broadcast.
 func StoreHostPeerUpdate(hostID string, peerUpdate models.HostPeerUpdate) {
-	if !servercfg.CacheEnabled() {
-		return
-	}
 	hostPeerUpdateCacheMu.Lock()
 	if hostPeerUpdateCache == nil {
 		hostPeerUpdateCache = make(map[string]models.HostPeerUpdate)
@@ -90,9 +99,6 @@ func StoreHostPeerUpdate(hostID string, peerUpdate models.HostPeerUpdate) {
 
 // GetCachedHostPeerUpdate - returns a cached HostPeerUpdate if available.
 func GetCachedHostPeerUpdate(hostID string) (models.HostPeerUpdate, bool) {
-	if !servercfg.CacheEnabled() {
-		return models.HostPeerUpdate{}, false
-	}
 	hostPeerUpdateCacheMu.RLock()
 	defer hostPeerUpdateCacheMu.RUnlock()
 	if hostPeerUpdateCache == nil {
@@ -105,27 +111,21 @@ func GetCachedHostPeerUpdate(hostID string) (models.HostPeerUpdate, bool) {
 // GetHostPeerInfo - returns cached peer info for a host.
 // Falls back to on-demand computation if the cache is not yet populated.
 func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
-	if servercfg.CacheEnabled() {
-		hostID := host.ID.String()
-		hostPeerInfoCacheMu.RLock()
-		if hostPeerInfoCache != nil {
-			if info, ok := hostPeerInfoCache[hostID]; ok {
-				hostPeerInfoCacheMu.RUnlock()
-				return info, nil
-			}
+	hostID := host.ID.String()
+	hostPeerInfoCacheMu.RLock()
+	if hostPeerInfoCache != nil {
+		if info, ok := hostPeerInfoCache[hostID]; ok {
+			hostPeerInfoCacheMu.RUnlock()
+			return info, nil
 		}
-		hostPeerInfoCacheMu.RUnlock()
 	}
+	hostPeerInfoCacheMu.RUnlock()
 	return computeHostPeerInfo(host, nil, models.ServerConfig{})
 }
 
 // RefreshHostPeerInfoCache - batch pre-computes peer info for all hosts
 // and stores the results in the cache. Called by the peer update worker.
-// No-op when caching is disabled (HA mode).
 func RefreshHostPeerInfoCache() {
-	if !servercfg.CacheEnabled() {
-		return
-	}
 	hosts, err := GetAllHosts()
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)

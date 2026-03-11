@@ -166,7 +166,7 @@ var (
 )
 
 // UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
-// The actual DB write is deferred to FlushNodeCheckins.
+// The actual DB write is deferred to FlushNodeCheckins (every 30s).
 // When caching is disabled (HA mode), writes directly to the DB.
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()

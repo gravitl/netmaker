@@ -30,12 +30,14 @@ unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
+INSTALL_MONITORING="${INSTALL_MONITORING:-off}"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-c]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
+	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter)"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
@@ -254,7 +256,7 @@ save_config() { (
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
-		save_config_item METRICS_EXPORTER "on"
+		save_config_item METRICS_EXPORTER "$INSTALL_MONITORING"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
@@ -564,7 +566,7 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$INSTALL_TYPE" = "pro" ]; then
+	if [ "$INSTALL_MONITORING" = "on" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
@@ -642,22 +644,35 @@ install_netmaker() {
     local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
     wget -qO "$INSTALL_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
     local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-    # download Grafana assets (dashboards, datasource, config)
-    mkdir -p "$INSTALL_DIR/grafana"
-    local GRAFANA_BASE="https://downloads.netmaker.io/assests/grafana"
-    wget -qO "$INSTALL_DIR/grafana/dashboard-config.yaml" "$GRAFANA_BASE/dashboard-config.yaml"
-    wget -qO "$INSTALL_DIR/grafana/dashboard.json" "$GRAFANA_BASE/dashboard.json"
-    wget -qO "$INSTALL_DIR/grafana/datasource.yaml" "$GRAFANA_BASE/datasource.yaml"
-    wget -qO "$INSTALL_DIR/grafana/grafana.ini" "$GRAFANA_BASE/grafana.ini"
-    # download Prometheus config
-    mkdir -p "$INSTALL_DIR/prometheus"
-    wget -qO "$INSTALL_DIR/prometheus/prometheus.yml" "https://downloads.netmaker.io/assests/prometheus/prometheus.yml"
+    if [ "$INSTALL_MONITORING" = "on" ]; then
+      # download Grafana assets (dashboards, datasource, config)
+      mkdir -p "$INSTALL_DIR/grafana"
+      local GRAFANA_BASE="https://downloads.netmaker.io/assests/grafana"
+      wget -qO "$INSTALL_DIR/grafana/dashboard-config.yaml" "$GRAFANA_BASE/dashboard-config.yaml"
+      wget -qO "$INSTALL_DIR/grafana/dashboard.json" "$GRAFANA_BASE/dashboard.json"
+      wget -qO "$INSTALL_DIR/grafana/datasource.yaml" "$GRAFANA_BASE/datasource.yaml"
+      wget -qO "$INSTALL_DIR/grafana/grafana.ini" "$GRAFANA_BASE/grafana.ini"
+      # download Prometheus config
+      mkdir -p "$INSTALL_DIR/prometheus"
+      wget -qO "$INSTALL_DIR/prometheus/prometheus.yml" "https://downloads.netmaker.io/assests/prometheus/prometheus.yml"
+    else
+      # strip monitoring services and volumes from the override file
+      yq -i 'del(.services.prometheus)' "$INSTALL_DIR/docker-compose.override.yml"
+      yq -i 'del(.services.grafana)' "$INSTALL_DIR/docker-compose.override.yml"
+      yq -i 'del(.services.netmaker-exporter)' "$INSTALL_DIR/docker-compose.override.yml"
+      yq -i 'del(.volumes.prometheus_data)' "$INSTALL_DIR/docker-compose.override.yml"
+      yq -i 'del(.volumes.grafana_data)' "$INSTALL_DIR/docker-compose.override.yml"
+    fi
 	elif [ -a "$INSTALL_DIR"/docker-compose.override.yml ]; then
 		rm -f "$INSTALL_DIR"/docker-compose.override.yml
 	fi
 	wget -qO "$INSTALL_DIR"/docker-compose.yml $COMPOSE_URL
 
 	wget -qO "$INSTALL_DIR"/Caddyfile "$CADDY_URL"
+	if [ "$INSTALL_TYPE" = "pro" ] && [ "$INSTALL_MONITORING" != "on" ]; then
+		sed -i '/# Netmaker Exporter/,/^}/d' "$INSTALL_DIR/Caddyfile"
+		sed -i '/# Grafana/,/^}/d' "$INSTALL_DIR/Caddyfile"
+	fi
 	wget -qO "$INSTALL_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 	wget -qO "$INSTALL_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
 	wget -qO "$INSTALL_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
@@ -751,6 +766,12 @@ print_success() {
 	echo "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
 	echo ""
 	echo "Installation files are located in: $INSTALL_DIR"
+	if [ "$INSTALL_TYPE" = "pro" ] && [ "$INSTALL_MONITORING" != "on" ]; then
+		echo ""
+		echo "To add the monitoring stack (Prometheus, Grafana, Exporter), re-run:"
+		echo "  sudo ./nm-quick.sh -m"
+		echo "NOTE: The monitoring stack requires at least 2 GB of RAM."
+	fi
 	echo "-----------------------------------------------------------------"
 	echo "-----------------------------------------------------------------"
 }
@@ -884,7 +905,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpv flag; do
+	while getopts :cudpmv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -905,6 +926,12 @@ main (){
 	p)
 		echo "installing pro version..."
 		INSTALL_TYPE="pro"
+		COLLECT_PRO_VARS="true"
+		;;
+	m)
+		echo "installing pro version with monitoring stack..."
+		INSTALL_TYPE="pro"
+		INSTALL_MONITORING="on"
 		COLLECT_PRO_VARS="true"
 		;;
 	v)

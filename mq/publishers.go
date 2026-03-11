@@ -1,15 +1,19 @@
 package mq
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -83,6 +87,8 @@ func StartPeerUpdateWorker(ctx context.Context) {
 				logic.RefreshHostPeerInfoCache()
 				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
 					slog.Error("error publishing peer update", "error", err)
+				} else {
+					publishServerSync("peerupdate", "")
 				}
 			}
 		}
@@ -345,15 +351,80 @@ func PushMetricsToExporter(metrics models.Metrics) error {
 	return nil
 }
 
+// PushAllMetricsToExporter fetches all node metrics from the database
+// and POSTs them as a batch to the exporter's HTTP API.
+// Called periodically by a ticker instead of on every individual metrics MQTT message.
+func PushAllMetricsToExporter() {
+	if !servercfg.IsMetricsExporter() {
+		return
+	}
+	baseURL := servercfg.GetMetricsExporterURL()
+	healthResp, err := http.Get(baseURL + "/api/health")
+	if err != nil {
+		slog.Warn("metrics export: exporter not reachable, skipping", "error", err)
+		return
+	}
+	healthResp.Body.Close()
+	if healthResp.StatusCode != http.StatusOK {
+		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
+		return
+	}
+	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	if err != nil {
+		slog.Error("metrics export: failed to fetch records", "error", err)
+		return
+	}
+	batch := make([]models.Metrics, 0, len(records))
+	for _, data := range records {
+		var m models.Metrics
+		if err := json.Unmarshal([]byte(data), &m); err != nil {
+			continue
+		}
+		batch = append(batch, m)
+	}
+	if len(batch) == 0 {
+		return
+	}
+	body, err := json.Marshal(batch)
+	if err != nil {
+		slog.Error("metrics export: failed to marshal batch", "error", err)
+		return
+	}
+	url := baseURL + "/api/v1/metrics"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		slog.Error("metrics export: failed to create request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	metricsUser := os.Getenv("METRICS_USERNAME")
+	if metricsUser == "" {
+		metricsUser = "netmaker"
+	}
+	req.SetBasicAuth(metricsUser, os.Getenv("METRICS_SECRET"))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Error("metrics export: POST failed", "url", url, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("metrics export: unexpected status", "url", url, "status", resp.StatusCode)
+	}
+}
+
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
 	peer_force_send++
 	if peer_force_send == 5 {
 		servercfg.SetHost()
 		peer_force_send = 0
-		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
-		if err != nil {
-			logger.Log(3, "error occurred on timer,", err.Error())
+		// Only run timer checkpoint on master pod in HA setup
+		if servercfg.IsMasterPod() {
+			err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
+			if err != nil {
+				logger.Log(3, "error occurred on timer,", err.Error())
+			}
 		}
 	}
 }
