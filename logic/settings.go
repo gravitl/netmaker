@@ -50,6 +50,12 @@ func GetServerSettings() (s models.ServerSettings) {
 	return
 }
 
+// InvalidateServerSettingsCache clears the in-memory settings cache so
+// the next GetServerSettings call re-reads from the database.
+func InvalidateServerSettingsCache() {
+	serverSettingsCache = atomic.Value{}
+}
+
 func getServerSettingsFromDB() (s models.ServerSettings) {
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
@@ -101,6 +107,9 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	}
 	if servercfg.CacheEnabled() {
 		serverSettingsCache.Store(s)
+	}
+	if OnCacheInvalidation != nil {
+		OnCacheInvalidation("settings", "")
 	}
 	return nil
 }

@@ -86,6 +86,9 @@ func SetupMQTT(fatal bool) {
 		if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			logger.Log(0, "node metrics subscription failed")
 		}
+		if token := client.Subscribe(fmt.Sprintf("serversync/%s/#", serverName), 0, mqtt.MessageHandler(handleServerSync)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+			logger.Log(0, "server sync subscription failed")
+		}
 
 		opts.SetOrderMatters(false)
 		opts.SetResumeSubs(true)
@@ -117,15 +120,14 @@ func SetupMQTT(fatal bool) {
 		}
 		time.Sleep(2 * time.Second)
 	}
+	InitServerSync()
 }
 
 const CHECKIN_FLUSH_INTERVAL = 30
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
-	if servercfg.CacheEnabled() {
-		warmPeerCaches()
-	}
+	warmPeerCaches()
 	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
 	if servercfg.CacheEnabled() {

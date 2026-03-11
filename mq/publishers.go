@@ -83,6 +83,8 @@ func StartPeerUpdateWorker(ctx context.Context) {
 				logic.RefreshHostPeerInfoCache()
 				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
 					slog.Error("error publishing peer update", "error", err)
+				} else {
+					publishServerSync("peerupdate", "")
 				}
 			}
 		}
