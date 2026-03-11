@@ -435,7 +435,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
 		if sendPeerUpdate {
-			fmt.Println("=======> SEND PEER UPDATE SET TO: ", hostUpdate.Action, sendPeerUpdate)
 			err := mq.PublishPeerUpdate(replacePeers)
 			if err != nil {
 				slog.Error("failed to publish peer update", "error", err)
