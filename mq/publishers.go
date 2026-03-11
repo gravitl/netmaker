@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -379,7 +380,18 @@ func PushAllMetricsToExporter() {
 		return
 	}
 	url := servercfg.GetMetricsExporterURL() + "/api/v1/metrics"
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		slog.Error("metrics export: failed to create request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	metricsUser := os.Getenv("METRICS_USERNAME")
+	if metricsUser == "" {
+		metricsUser = "netmaker"
+	}
+	req.SetBasicAuth(metricsUser, os.Getenv("METRICS_SECRET"))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		slog.Error("metrics export: POST failed", "url", url, "error", err)
 		return
