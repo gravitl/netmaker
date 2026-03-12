@@ -330,27 +330,6 @@ func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 
 }
 
-func PushMetricsToExporter(metrics models.Metrics) error {
-	logger.Log(2, "----> Pushing metrics to exporter")
-	data, err := json.Marshal(metrics)
-	if err != nil {
-		return errors.New("failed to marshal metrics: " + err.Error())
-	}
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
-		return errors.New("cannot publish ... mqclient not connected")
-	}
-	if token := mqclient.Publish(fmt.Sprintf("metrics_exporter/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connection timeout")
-		} else {
-			err = token.Error()
-		}
-		return err
-	}
-	return nil
-}
-
 // PushAllMetricsToExporter fetches all node metrics from the database
 // and POSTs them as a batch to the exporter's HTTP API.
 // Called periodically by a ticker instead of on every individual metrics MQTT message.
