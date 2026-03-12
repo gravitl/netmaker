@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -18,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
+	"gorm.io/gorm"
 )
 
 var azure_ad_functions = map[string]interface{}{
@@ -94,7 +94,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	user := &schema.User{Username: content.UserPrincipalName}
 	err = user.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
