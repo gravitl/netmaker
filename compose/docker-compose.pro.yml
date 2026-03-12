@@ -4,6 +4,7 @@ services:
     container_name: prometheus
     image: prom/prometheus:latest
     environment:
+      - METRICS_USERNAME=${METRICS_USERNAME:-netmaker}
       - METRICS_SECRET=${METRICS_SECRET}
       - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET:-http://netmaker-exporter:8085}
       - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-15d}
