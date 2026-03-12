@@ -873,6 +873,69 @@ downgrade () {
 	install_netmaker
 }
 
+add_monitoring() {
+	print_logo
+	echo "Adding monitoring stack (Prometheus, Grafana, Exporter)..."
+	echo "NOTE: The monitoring stack requires at least 2 GB of RAM."
+	echo ""
+
+	INSTALL_MONITORING="on"
+	INSTALL_TYPE="pro"
+
+	mkdir -p "$INSTALL_DIR"
+	CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
+	if [ ! -f "$CONFIG_PATH" ] && [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+		cp "$SCRIPT_DIR/$CONFIG_FILE" "$CONFIG_PATH"
+	fi
+
+	unset IMAGE_TAG
+	unset BUILD_TAG
+	IMAGE_TAG=$UI_IMAGE_TAG
+	semver=$(chsv_check_version_ex "$UI_IMAGE_TAG")
+	if [[ ! "$semver" ]]; then
+		BUILD_TAG=$LATEST
+	else
+		BUILD_TAG=$UI_IMAGE_TAG
+	fi
+
+	local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BRANCH"
+
+	# re-download the full pro override (with monitoring services intact)
+	wget -qO "$INSTALL_DIR"/docker-compose.override.yml "$BASE_URL/compose/docker-compose.pro.yml"
+
+	# download Caddyfile-pro (with monitoring reverse-proxy entries)
+	wget -qO "$INSTALL_DIR"/Caddyfile "$BASE_URL/docker/Caddyfile-pro"
+
+	# download Grafana assets
+	mkdir -p "$INSTALL_DIR/grafana"
+	local GRAFANA_BASE="https://downloads.netmaker.io/assests/grafana"
+	wget -qO "$INSTALL_DIR/grafana/dashboard-config.yaml" "$GRAFANA_BASE/dashboard-config.yaml"
+	wget -qO "$INSTALL_DIR/grafana/dashboard.json" "$GRAFANA_BASE/dashboard.json"
+	wget -qO "$INSTALL_DIR/grafana/datasource.yaml" "$GRAFANA_BASE/datasource.yaml"
+	wget -qO "$INSTALL_DIR/grafana/grafana.ini" "$GRAFANA_BASE/grafana.ini"
+
+	# download Prometheus config
+	mkdir -p "$INSTALL_DIR/prometheus"
+	wget -qO "$INSTALL_DIR/prometheus/prometheus.yml" "https://downloads.netmaker.io/assests/prometheus/prometheus.yml"
+
+	# update METRICS_EXPORTER in config
+	save_config_item METRICS_EXPORTER "on"
+
+	# restart services
+	stop_services
+	echo "Starting containers..."
+	cd "${INSTALL_DIR}"
+	docker compose up -d --force-recreate
+	cd -
+
+	echo ""
+	echo "-----------------------------------------------------------------"
+	echo "Monitoring stack has been added successfully."
+	echo "  Grafana:  https://grafana.${NM_DOMAIN}"
+	echo "  Exporter: https://netmaker-exporter.${NM_DOMAIN}"
+	echo "-----------------------------------------------------------------"
+}
+
 function chsv_check_version() {
   if [[ $1 =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$ ]]; then
     echo "$1"
@@ -929,6 +992,10 @@ main (){
 		COLLECT_PRO_VARS="true"
 		;;
 	m)
+		if [ -f "$INSTALL_DIR/$CONFIG_FILE" ] || [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
+			add_monitoring
+			exit 0
+		fi
 		echo "installing pro version with monitoring stack..."
 		INSTALL_TYPE="pro"
 		INSTALL_MONITORING="on"
