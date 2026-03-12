@@ -116,7 +116,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName:                   content.Email,
+					UserName:                   content.UserPrincipalName,
 					ExternalIdentityProviderID: string(content.ID),
 					AuthType:                   schema.OAuth,
 				})

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -130,7 +129,7 @@ func SyncFromIDP() error {
 
 func syncUsers(idpUsers []idp.User) error {
 	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return err
 	}
 
@@ -234,12 +233,12 @@ func syncUsers(idpUsers []idp.User) error {
 
 func syncGroups(idpGroups []idp.Group) error {
 	dbGroups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return err
 	}
 
 	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return err
 	}
 
