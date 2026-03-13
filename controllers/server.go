@@ -42,7 +42,7 @@ func serverHandlers(r *mux.Router) {
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("ismaster") != "yes" {
 					caller := &schema.User{
-						Username: r.Header.Get("username"),
+						Username: r.Header.Get("user"),
 					}
 					err := caller.Get(r.Context())
 					if err != nil || caller.PlatformRoleID != schema.SuperAdminRole {
