@@ -38,15 +38,12 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s models.ServerSettings) {
-	if servercfg.CacheEnabled() {
-		if cached, ok := serverSettingsCache.Load().(models.ServerSettings); ok {
-			return cached
-		}
+
+	if cached, ok := serverSettingsCache.Load().(models.ServerSettings); ok {
+		return cached
 	}
 	s = getServerSettingsFromDB()
-	if servercfg.CacheEnabled() {
-		serverSettingsCache.Store(s)
-	}
+	serverSettingsCache.Store(s)
 	return
 }
 
@@ -105,11 +102,9 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	if servercfg.CacheEnabled() {
-		serverSettingsCache.Store(s)
-	}
-	if OnCacheInvalidation != nil {
-		OnCacheInvalidation("settings", "")
+	serverSettingsCache.Store(s)
+	if PublishServerSync != nil {
+		PublishServerSync(SyncTypeSettings)
 	}
 	return nil
 }

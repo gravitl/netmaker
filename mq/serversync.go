@@ -3,7 +3,6 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -13,33 +12,31 @@ import (
 )
 
 type serverSyncMessage struct {
-	Sender string `json:"sender"`
-	Action string `json:"action"`
-	Key    string `json:"key,omitempty"`
+	Sender   string               `json:"sender"`
+	SyncType logic.ServerSyncType `json:"sync_type"`
 }
 
-// InitServerSync wires up the logic.OnCacheInvalidation hook so that
-// mutations in the logic package can broadcast invalidation signals
+// InitServerSync wires up the logic.PublishServerSync hook so that
+// mutations in the logic package can broadcast sync signals
 // without importing mq (avoiding circular imports).
 func InitServerSync() {
-	logic.OnCacheInvalidation = publishServerSync
+	logic.PublishServerSync = publishServerSync
 }
 
-func publishServerSync(cacheType, key string) {
+func publishServerSync(syncType logic.ServerSyncType) {
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return
 	}
 	msg := serverSyncMessage{
-		Sender: servercfg.GetNodeID(),
-		Action: "invalidate",
-		Key:    key,
+		Sender:   servercfg.GetNodeID(),
+		SyncType: syncType,
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {
 		slog.Error("serversync: failed to marshal message", "error", err)
 		return
 	}
-	topic := fmt.Sprintf("serversync/%s/%s", servercfg.GetServer(), cacheType)
+	topic := fmt.Sprintf("serversync/%s", servercfg.GetServer())
 	token := mqclient.Publish(topic, 0, false, data)
 	if !token.WaitTimeout(MQ_TIMEOUT * time.Second) {
 		slog.Warn("serversync: publish timed out", "topic", topic)
@@ -57,20 +54,17 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	if syncMsg.Sender == servercfg.GetNodeID() {
 		return
 	}
-	parts := strings.Split(msg.Topic(), "/")
-	if len(parts) < 3 {
-		return
-	}
-	cacheType := parts[len(parts)-1]
-	slog.Info("serversync: received invalidation", "from", syncMsg.Sender, "type", cacheType, "key", syncMsg.Key)
+	slog.Info("serversync: received sync", "from", syncMsg.Sender, "type", syncMsg.SyncType)
 
-	switch cacheType {
-	case "settings":
+	switch syncMsg.SyncType {
+	case logic.SyncTypeSettings:
 		logic.InvalidateServerSettingsCache()
-	case "peerupdate":
-		go func() {
-			logic.InvalidateHostPeerCaches()
-			warmPeerCaches()
-		}()
+	case logic.SyncTypePeerUpdate:
+		logic.InvalidateHostPeerCaches()
+		warmPeerCaches()
+	case logic.SyncTypeIDPSync:
+		if servercfg.IsMasterPod() {
+			logic.ResetIDPSyncHook()
+		}
 	}
 }
