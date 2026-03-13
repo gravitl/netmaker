@@ -811,3 +811,22 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 
 	return
 }
+
+// CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
+func CleanupOtherExtclients(extclient *models.ExtClient) error {
+	extclients, err := GetNetworkExtClients(extclient.Network)
+	if err != nil {
+		return err
+	}
+
+	for _, extI := range extclients {
+		if extI.ClientID != extclient.ClientID && extI.DeviceID == extclient.DeviceID && extI.OwnerID == extclient.OwnerID {
+			err = DeleteExtClient(extI.Network, extI.ClientID, false)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
