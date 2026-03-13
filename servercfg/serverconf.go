@@ -852,19 +852,12 @@ func IsMasterPod() bool {
 	}
 
 	// StatefulSet pods are named <statefulset-name>-<ordinal>.
-	// Parse the last hyphen-delimited segment as the ordinal to avoid
+	// Compare the last hyphen-delimited segment to "0" to avoid
 	// false positives (e.g. "netmaker-10" matching a naive HasSuffix "-0").
 	hostname, err := os.Hostname()
 	if err != nil {
 		return true
 	}
-	idx := strings.LastIndex(hostname, "-")
-	if idx < 0 {
-		return true
-	}
-	ordinal, err := strconv.Atoi(hostname[idx+1:])
-	if err != nil {
-		return true
-	}
-	return ordinal == 0
+	parts := strings.Split(hostname, "-")
+	return parts[len(parts)-1] == "0"
 }
