@@ -61,7 +61,9 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 		logic.InvalidateServerSettingsCache()
 	case logic.SyncTypePeerUpdate:
 		logic.InvalidateHostPeerCaches()
-		warmPeerCaches()
+case logic.SyncTypePeerUpdate:
+	logic.InvalidateHostPeerCaches()
+	go warmPeerCaches()
 	case logic.SyncTypeIDPSync:
 		if servercfg.IsMasterPod() {
 			logic.ResetIDPSyncHook()
