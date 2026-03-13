@@ -1,120 +1,59 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"sort"
-	"sync"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
-
-var (
-	userCacheMutex = &sync.RWMutex{}
-	usersCacheMap  = make(map[string]models.User)
-)
-
-func getUserFromCache(username string) (models.User, bool) {
-	userCacheMutex.RLock()
-	user, ok := usersCacheMap[username]
-	userCacheMutex.RUnlock()
-	return user, ok
-}
-
-func getUsersFromCache() []models.User {
-	userCacheMutex.RLock()
-	users := make([]models.User, 0, len(usersCacheMap))
-	for _, user := range usersCacheMap {
-		users = append(users, user)
-	}
-	userCacheMutex.RUnlock()
-	return users
-}
-
-func storeUserInCache(user models.User) {
-	userCacheMutex.Lock()
-	usersCacheMap[user.UserName] = user
-	userCacheMutex.Unlock()
-}
-
-func deleteUserFromCache(username string) {
-	userCacheMutex.Lock()
-	delete(usersCacheMap, username)
-	userCacheMutex.Unlock()
-}
-
-func loadUsersIntoCache(users map[string]models.User) {
-	userCacheMutex.Lock()
-	usersCacheMap = users
-	userCacheMutex.Unlock()
-}
-
-// GetUser - gets a user
-func GetUser(username string) (*models.User, error) {
-	if servercfg.CacheEnabled() {
-		if user, ok := getUserFromCache(username); ok {
-			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
-			return &user, nil
-		}
-	}
-	var user models.User
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
-	if err != nil {
-		return &user, err
-	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return &models.User{}, err
-	}
-
-	user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-	user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
-	if servercfg.CacheEnabled() {
-		storeUserInCache(user)
-	}
-	return &user, err
-}
 
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {
-	u, err := GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.ReturnUser{}, err
 	}
-	return ToReturnUser(*u), nil
+
+	return ToReturnUser(_user), nil
 }
 
 // ToReturnUser - gets a user as a return user
-func ToReturnUser(user models.User) models.ReturnUser {
+func ToReturnUser(user *schema.User) models.ReturnUser {
 	return models.ReturnUser{
-		UserName:                   user.UserName,
+		UserName:                   user.Username,
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 		IsMFAEnabled:               user.IsMFAEnabled,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
+		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,
+		IsSuperAdmin:               user.PlatformRoleID == schema.SuperAdminRole,
 		AuthType:                   user.AuthType,
-		RemoteGwIDs:                user.RemoteGwIDs,
-		UserGroups:                 user.UserGroups,
-		PlatformRoleID:             user.PlatformRoleID,
-		IsSuperAdmin:               user.PlatformRoleID == models.SuperAdminRole,
-		IsAdmin:                    user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole,
-		NetworkRoles:               user.NetworkRoles,
-		LastLoginTime:              user.LastLoginTime,
+		// no need to set. field not in use.
+		RemoteGwIDs:    nil,
+		UserGroups:     user.UserGroups.Data(),
+		PlatformRoleID: user.PlatformRoleID,
+		// no need to set. field not in use.
+		NetworkRoles:  nil,
+		LastLoginTime: user.LastLoginAt,
+		CreatedBy:     user.CreatedBy,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	}
 }
 
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
-func SetUserDefaults(user *models.User) {
-	if user.RemoteGwIDs == nil {
-		user.RemoteGwIDs = make(map[string]struct{})
-	}
-	if len(user.NetworkRoles) == 0 {
-		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-	}
-	if len(user.UserGroups) == 0 {
-		user.UserGroups = make(map[models.UserGroupID]struct{})
+func SetUserDefaults(user *schema.User) {
+	if len(user.UserGroups.Data()) == 0 {
+		user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 	}
 }
 
@@ -127,16 +66,13 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 
 // GetSuperAdmin - fetches superadmin user
 func GetSuperAdmin() (models.ReturnUser, error) {
-	users, err := GetUsers()
+	_user := &schema.User{}
+	err := _user.GetSuperAdmin(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.ReturnUser{}, err
 	}
-	for _, user := range users {
-		if user.PlatformRoleID == models.SuperAdminRole {
-			return user, nil
-		}
-	}
-	return models.ReturnUser{}, errors.New("superadmin not found")
+
+	return ToReturnUser(_user), nil
 }
 
 func InsertPendingUser(u *models.User) error {
@@ -177,8 +113,8 @@ func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 		user := models.ReturnUser{}
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}
@@ -195,25 +131,25 @@ func ListPendingUsers() ([]models.User, error) {
 		var user models.User
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}
 	return pendingUsers, nil
 }
 
-func GetUserMap() (map[string]models.User, error) {
-	users, err := GetUsersDB()
-	if err != nil && !database.IsEmptyRecord(err) {
+func GetUserMap() (map[string]schema.User, error) {
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return nil, err
 	}
-	userMap := make(map[string]models.User, len(users))
+
+	userMap := make(map[string]schema.User, len(users))
 	for _, user := range users {
-		user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-		user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
-		userMap[user.UserName] = user
+		userMap[user.Username] = user
 	}
+
 	return userMap, nil
 }
 

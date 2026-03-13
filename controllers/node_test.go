@@ -4,19 +4,23 @@ import (
 	"net"
 	"testing"
 
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var nonLinuxHost models.Host
-var linuxHost models.Host
+var nonLinuxHost schema.Host
+var linuxHost schema.Host
 
 func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
@@ -95,10 +99,11 @@ func TestNodeACLs(t *testing.T) {
 	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
 		node3 := createNodeWithParams("", "10.0.0.100/32")
 		createNodeHosts()
-		n, e := logic.GetNetwork(node3.Network)
+		n := &schema.Network{Name: node3.Network}
+		e := n.Get(db.WithContext(context.TODO()))
 		assert.Nil(t, e)
 		n.DefaultACL = "no"
-		e = logic.SaveNetwork(&n)
+		e = logic.SaveNetwork(n)
 		assert.Nil(t, e)
 		err := logic.AssociateNodeToHost(node3, &linuxHost)
 		assert.Nil(t, err)
@@ -159,18 +164,18 @@ func createNodeWithParams(network, address string) *models.Node {
 
 func createNodeHosts() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	linuxHost = models.Host{
+	linuxHost = schema.Host{
 		ID:        uuid.New(),
-		PublicKey: k.PublicKey(),
+		PublicKey: schema.WgKey{Key: k.PublicKey()},
 		HostPass:  "password",
 		OS:        "linux",
 		Name:      "linuxhost",
 	}
 	_ = logic.CreateHost(&linuxHost)
-	nonLinuxHost = models.Host{
+	nonLinuxHost = schema.Host{
 		ID:        uuid.New(),
 		OS:        "windows",
-		PublicKey: k.PublicKey(),
+		PublicKey: schema.WgKey{Key: k.PublicKey()},
 		Name:      "windowshost",
 		HostPass:  "password",
 	}

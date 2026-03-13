@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -35,7 +36,8 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			return
 		}
 		if username != MasterUser {
-			user, err := GetUser(username)
+			user := &schema.User{Username: username}
+			err = user.Get(r.Context())
 			if err != nil {
 				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 				return

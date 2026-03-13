@@ -131,7 +131,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 }
 
 // GetHostNodes - fetches all nodes part of the host
-func GetHostNodes(host *models.Host) []models.Node {
+func GetHostNodes(host *schema.Host) []models.Node {
 	nodes := []models.Node{}
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
@@ -201,7 +201,8 @@ func UpsertNode(newNode *models.Node) error {
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
-		if network, err := GetParentNetwork(newNode.Network); err == nil {
+		network := &schema.Network{Name: newNode.Network}
+		if err := network.Get(db.WithContext(context.TODO())); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -319,7 +320,10 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
@@ -428,7 +432,7 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetworkByNode(node)
+		err := (&schema.Network{Name: node.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
@@ -485,7 +489,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
@@ -497,7 +501,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
@@ -511,24 +515,10 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
-// GetNetworkByNode - gets the network model from a node
-func GetNetworkByNode(node *models.Node) (models.Network, error) {
-
-	var network = models.Network{}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
-
-	parentNetwork, _ := GetNetworkByNode(node)
+	parentNetwork := &schema.Network{Name: node.Network}
+	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
 	if err == nil {
 		node.NetworkRange = *cidr
@@ -622,7 +612,10 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	for i := range nodes {
 		node := nodes[i]
 		if !node.IsStatic {
-			h, err := GetHost(node.HostID.String())
+			h := &schema.Host{
+				ID: node.HostID,
+			}
+			err := h.Get(db.WithContext(context.TODO()))
 			if err == nil {
 				node.Location = h.Location
 				node.CountryCode = h.CountryCode
@@ -643,7 +636,10 @@ func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
 		if node.IsStatic {
 			newApiNode.Location = node.StaticNode.Location
 		} else {
-			host, _ := GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			_ = host.Get(db.WithContext(context.TODO()))
 			newApiNode.Location = host.Location
 		}
 
@@ -694,7 +690,10 @@ func createNode(node *models.Node) error {
 	addressLock.Lock()
 	defer addressLock.Unlock()
 
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -702,7 +701,8 @@ func createNode(node *models.Node) error {
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
+	parentNetwork := &schema.Network{Name: node.Network}
+	err = parentNetwork.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		if parentNetwork.DefaultACL != "yes" {
 			defaultACLVal = acls.NotAllowed
@@ -714,7 +714,7 @@ func createNode(node *models.Node) error {
 	}
 
 	if node.Address.IP == nil {
-		if parentNetwork.IsIPv4 == "yes" {
+		if parentNetwork.AddressRange != "" {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
@@ -728,7 +728,7 @@ func createNode(node *models.Node) error {
 		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
-		if parentNetwork.IsIPv6 == "yes" {
+		if parentNetwork.AddressRange6 != "" {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}
@@ -836,7 +836,8 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 }
 
 func ValidateEgressRange(netID string, ranges []string) error {
-	network, err := GetNetworkSettings(netID)
+	network := &schema.Network{Name: netID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())

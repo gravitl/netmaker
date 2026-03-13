@@ -32,7 +32,7 @@ func AddPostureCheckHook() {
 		Interval: interval,
 	}
 }
-func RemoveTagFromPostureChecks(tagID models.TagID, netID models.NetworkID) {
+func RemoveTagFromPostureChecks(tagID models.TagID, netID schema.NetworkID) {
 	pcLi, err := (&schema.PostureCheck{NetworkID: netID}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return
@@ -44,7 +44,7 @@ func RemoveTagFromPostureChecks(tagID models.TagID, netID models.NetworkID) {
 		}
 	}
 }
-func RemoveUserGroupFromPostureChecks(grpID models.UserGroupID, netID models.NetworkID) {
+func RemoveUserGroupFromPostureChecks(grpID schema.UserGroupID, netID schema.NetworkID) {
 	pcLi, err := (&schema.PostureCheck{NetworkID: netID}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return
@@ -62,7 +62,7 @@ func RunPostureChecks() error {
 	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
-	nets, err := logic.GetNetworks()
+	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -71,12 +71,12 @@ func RunPostureChecks() error {
 		return err
 	}
 	for _, netI := range nets {
-		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
+		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
 		if len(networkNodes) == 0 {
 			continue
 		}
 		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: models.NetworkID(netI.NetID)}).ListByNetwork(db.WithContext(context.TODO()))
+		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
 		if err != nil || len(pcLi) == 0 {
 			continue
 		}
@@ -108,23 +108,23 @@ func RunPostureChecks() error {
 	return nil
 }
 
-func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) ([]models.Violation, models.Severity) {
+func CheckPostureViolations(d models.PostureCheckDeviceInfo, network schema.NetworkID) ([]models.Violation, schema.Severity) {
 	if !GetFeatureFlags().EnablePostureChecks {
-		return []models.Violation{}, models.SeverityUnknown
+		return []models.Violation{}, schema.SeverityUnknown
 	}
 	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
-		return []models.Violation{}, models.SeverityUnknown
+		return []models.Violation{}, schema.SeverityUnknown
 	}
 	violations, level := GetPostureCheckViolations(pcLi, d)
 	return violations, level
 }
-func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, models.Severity) {
+func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
 	if !GetFeatureFlags().EnablePostureChecks {
-		return []models.Violation{}, models.SeverityUnknown
+		return []models.Violation{}, schema.SeverityUnknown
 	}
 	var violations []models.Violation
-	highest := models.SeverityUnknown
+	highest := schema.SeverityUnknown
 
 	// Group checks by attribute
 	checksByAttribute := make(map[schema.Attribute][]schema.PostureCheck)
@@ -173,7 +173,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				}
 				exists := false
 				for userG := range c.UserGroups {
-					if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
+					if _, ok := d.UserGroups[schema.UserGroupID(userG)]; ok {
 						exists = true
 						break
 					}
@@ -291,7 +291,10 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 	var deviceInfo models.PostureCheckDeviceInfo
 
 	if !node.IsStatic {
-		h, err := logic.GetHost(node.HostID.String())
+		h := &schema.Host{
+			ID: node.HostID,
+		}
+		err := h.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return deviceInfo
 		}
@@ -315,23 +318,24 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			KernelVersion:  node.StaticNode.KernelVersion,
 			Tags:           make(map[models.TagID]struct{}),
 			IsUser:         true,
-			UserGroups:     make(map[models.UserGroupID]struct{}),
+			UserGroups:     make(map[schema.UserGroupID]struct{}),
 		}
 		// get user groups
 		if node.StaticNode.OwnerID != "" {
-			user, err := logic.GetUser(node.StaticNode.OwnerID)
-			if err == nil && len(user.UserGroups) > 0 {
-				deviceInfo.UserGroups = user.UserGroups
-				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
-					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
+			user := &schema.User{Username: node.StaticNode.OwnerID}
+			err := user.Get(db.WithContext(context.TODO()))
+			if err == nil && len(user.UserGroups.Data()) > 0 {
+				deviceInfo.UserGroups = user.UserGroups.Data()
+				if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
 					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
-				} else if _, ok := user.UserGroups[GetDefaultGlobalAdminGroupID()]; ok {
+				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
 
-					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
 
-				} else if _, ok := user.UserGroups[GetDefaultGlobalUserGroupID()]; ok {
+				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupID()]; ok {
 
-					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(models.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(schema.NetworkID(node.Network))] = struct{}{}
 				}
 			}
 		}
@@ -491,7 +495,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	_, err := logic.GetNetwork(pc.NetworkID.String())
+	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("invalid network")
 	}
@@ -549,7 +553,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if userGrpID == "*" {
 				continue
 			}
-			_, err := GetUserGroup(models.UserGroupID(userGrpID))
+			_, err := GetUserGroup(schema.UserGroupID(userGrpID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}

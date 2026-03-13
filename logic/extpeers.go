@@ -72,8 +72,8 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	staticNode := client.ConvertToStaticNode()
-	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
-	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(client.Network), models.UserPolicy)
+	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
+	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
 
 	for _, eI := range eli {
 		if !eI.Status {
@@ -100,7 +100,8 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 			result = append(result, rangesToBeAdded...)
 		} else {
 			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
-				user, err := GetUser(staticNode.StaticNode.OwnerID)
+				user := &schema.User{Username: staticNode.StaticNode.OwnerID}
+				err := user.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					return []string{}, errors.New("user not found")
 				}
@@ -173,21 +174,21 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(&models.Event{
-			Action: models.Disconnect,
+			Action: schema.Disconnect,
 			Source: models.Subject{
 				ID:   extClient.OwnerID,
 				Name: extClient.OwnerID,
-				Type: models.UserSub,
+				Type: schema.UserSub,
 			},
 			TriggeredBy: extClient.OwnerID,
 			Target: models.Subject{
 				ID:   extClient.Network,
 				Name: extClient.Network,
-				Type: models.NetworkSub,
+				Type: schema.NetworkSub,
 				Info: extClient,
 			},
-			NetworkID: models.NetworkID(extClient.Network),
-			Origin:    models.ClientApp,
+			NetworkID: schema.NetworkID(extClient.Network),
+			Origin:    schema.ClientApp,
 		})
 	}
 	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
@@ -343,12 +344,13 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		extclient.ExtraAllowedIPs = []string{}
 	}
 
-	parentNetwork, err := GetNetwork(extclient.Network)
+	parentNetwork := &schema.Network{Name: extclient.Network}
+	err := parentNetwork.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 	if extclient.Address == "" {
-		if parentNetwork.IsIPv4 == "yes" {
+		if parentNetwork.AddressRange != "" {
 			newAddress, err := UniqueAddress(extclient.Network, true)
 			if err != nil {
 				return err
@@ -358,7 +360,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	if extclient.Address6 == "" {
-		if parentNetwork.IsIPv6 == "yes" {
+		if parentNetwork.AddressRange6 != "" {
 			addr6, err := UniqueAddress6(extclient.Network, true)
 			if err != nil {
 				return err
@@ -497,7 +499,7 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 // GetAllExtClients - gets all ext clients from DB
 func GetAllExtClients() ([]models.ExtClient, error) {
 	var clients = []models.ExtClient{}
-	currentNetworks, err := GetNetworks()
+	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && database.IsEmptyRecord(err) {
 		return clients, nil
 	} else if err != nil {
@@ -505,7 +507,7 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	}
 
 	for i := range currentNetworks {
-		netName := currentNetworks[i].NetID
+		netName := currentNetworks[i].Name
 		netClients, err := GetNetworkExtClients(netName)
 		if err != nil {
 			continue
@@ -575,7 +577,10 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
@@ -764,7 +769,8 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		return
 	}
 
-	network, err := GetParentNetwork(client.Network)
+	network := &schema.Network{Name: client.Network}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return
@@ -788,7 +794,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	return
 }
 
-func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode []models.Node) {
+func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode []models.Node) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return

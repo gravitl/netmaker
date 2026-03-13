@@ -140,20 +140,20 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   ns.ID,
 			Name: ns.Name,
-			Type: models.NameserverSub,
+			Type: schema.NameserverSub,
 		},
-		NetworkID: models.NetworkID(ns.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(ns.NetworkID),
+		Origin:    schema.Dashboard,
 	})
 
 	go mq.PublishPeerUpdate(false)
@@ -252,24 +252,24 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		updateFallback = true
 	}
 	event := &models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   ns.ID,
 			Name: updateNs.Name,
-			Type: models.NameserverSub,
+			Type: schema.NameserverSub,
 		},
 		Diff: models.Diff{
 			Old: ns,
 			New: updateNs,
 		},
-		NetworkID: models.NetworkID(ns.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(ns.NetworkID),
+		Origin:    schema.Dashboard,
 	}
 
 	if !ns.Default {
@@ -352,20 +352,20 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   ns.ID,
 			Name: ns.Name,
-			Type: models.NameserverSub,
+			Type: schema.NameserverSub,
 		},
-		NetworkID: models.NetworkID(ns.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(ns.NetworkID),
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: ns,
 			New: nil,

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // HasAdmin - check if server has an admin user
@@ -14,13 +15,13 @@ func HasAdmin() *bool {
 }
 
 // CreateUser - create a user
-func CreateUser(payload *models.User) *models.User {
-	return request[models.User](http.MethodPost, "/api/users/"+payload.UserName, payload)
+func CreateUser(payload *schema.User) *schema.User {
+	return request[schema.User](http.MethodPost, "/api/users/"+payload.Username, payload)
 }
 
 // UpdateUser - update a user
-func UpdateUser(payload *models.User) *models.User {
-	return request[models.User](http.MethodPut, "/api/users/"+payload.UserName, payload)
+func UpdateUser(payload *schema.User) *schema.User {
+	return request[schema.User](http.MethodPut, "/api/users/"+payload.Username, payload)
 }
 
 // DeleteUser - delete a user
@@ -29,8 +30,8 @@ func DeleteUser(username string) *string {
 }
 
 // GetUser - fetch a single user
-func GetUser(username string) *models.User {
-	return request[models.User](http.MethodGet, "/api/users/"+username, nil)
+func GetUser(username string) *schema.User {
+	return request[schema.User](http.MethodGet, "/api/users/"+username, nil)
 }
 
 // ListUsers - fetch all users
@@ -38,7 +39,7 @@ func ListUsers() *[]models.ReturnUser {
 	return request[[]models.ReturnUser](http.MethodGet, "/api/users", nil)
 }
 
-func ListUserRoles() (roles []models.UserRolePermissionTemplate) {
+func ListUserRoles() (roles []schema.UserRole) {
 	resp := request[models.SuccessResponse](http.MethodGet, "/api/v1/users/roles", nil)
 	d, _ := json.Marshal(resp.Response)
 	json.Unmarshal(d, &roles)
@@ -48,14 +49,14 @@ func ListUserRoles() (roles []models.UserRolePermissionTemplate) {
 func DeleteUserRole(roleID string) *models.SuccessResponse {
 	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/v1/users/role?role_id=%s", roleID), nil)
 }
-func GetUserRole(roleID string) (role models.UserRolePermissionTemplate) {
+func GetUserRole(roleID string) (role schema.UserRole) {
 	resp := request[models.SuccessResponse](http.MethodGet, fmt.Sprintf("/api/v1/users/role?role_id=%s", roleID), nil)
 	d, _ := json.Marshal(resp.Response)
 	json.Unmarshal(d, &role)
 	return
 }
 
-func ListUserGrps() (groups []models.UserGroup) {
+func ListUserGrps() (groups []schema.UserGroup) {
 	resp := request[models.SuccessResponse](http.MethodGet, "/api/v1/users/groups", nil)
 	d, _ := json.Marshal(resp.Response)
 	json.Unmarshal(d, &groups)
@@ -66,7 +67,7 @@ func DeleteUserGrp(grpID string) *models.SuccessResponse {
 	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/v1/users/group?group_id=%s", grpID), nil)
 }
 
-func GetUserGrp(grpID string) (group models.UserGroup) {
+func GetUserGrp(grpID string) (group schema.UserGroup) {
 	resp := request[models.SuccessResponse](http.MethodGet, fmt.Sprintf("/api/v1/users/group?group_id=%s", grpID), nil)
 	d, _ := json.Marshal(resp.Response)
 	json.Unmarshal(d, &group)

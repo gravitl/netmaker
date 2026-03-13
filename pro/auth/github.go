@@ -9,14 +9,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+	"gorm.io/gorm"
 )
 
 var github_functions = map[string]interface{}{
@@ -91,29 +93,30 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// if user exists with provider ID, convert them into email ID
-	user, err := logic.GetUser(content.Login)
+	user := &schema.User{Username: content.Login}
+	err = user.Get(r.Context())
 	if err == nil {
 		// if user exists, then ensure user's auth type is
 		// oauth before proceeding.
-		if user.AuthType == models.BasicAuth {
+		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
 			handleAuthTypeMismatch(w)
 			return
 		}
 
 		// checks if user exists with email
-		_, err := logic.GetUser(content.Email)
+		emailCheck := &schema.User{Username: content.Email}
+		err = emailCheck.Get(r.Context())
 		if err != nil {
-			user.UserName = content.Email
+			user.Username = content.Email
 			user.ExternalIdentityProviderID = content.Login
-			_ = logic.DeleteUser(content.Login)
-			_ = logic.UpsertUser(*user)
+			_ = user.Update(db.WithContext(context.TODO()))
 		}
-
 	}
-	_, err = logic.GetUser(content.Email)
+	emailCheck := &schema.User{Username: content.Email}
+	err = emailCheck.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
@@ -136,7 +139,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 				err = logic.InsertPendingUser(&models.User{
 					UserName:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-					AuthType:                   models.OAuth,
+					AuthType:                   schema.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -150,7 +153,8 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err = logic.GetUser(content.Email)
+	user = &schema.User{Username: content.Email}
+	err = user.Get(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -161,7 +165,8 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return
@@ -186,20 +191,20 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Login,
+		Action: schema.Login,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
-			Type: models.UserSub,
+			ID:   user.Username,
+			Name: user.Username,
+			Type: schema.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   models.DashboardSub.String(),
-			Name: models.DashboardSub.String(),
-			Type: models.DashboardSub,
+			ID:   schema.DashboardSub.String(),
+			Name: schema.DashboardSub.String(),
+			Type: schema.DashboardSub,
 			Info: user,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(1, "completed github OAuth sigin in for", content.Email)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)

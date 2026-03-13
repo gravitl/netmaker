@@ -53,6 +53,7 @@ var version = "v1.5.0"
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
+	setVerbosity()
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
@@ -60,7 +61,6 @@ func main() {
 	logic.SetAllocatedIpMap()
 	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
@@ -122,15 +122,19 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error initializing database: ", err.Error())
 	}
 
+	err = migrate.ToSQLSchema()
+	if err != nil {
+		// we shouldn't allow user to use the product until the migration is successfully done.
+		panic(err)
+	}
+
 	initializeUUID()
+
 	//initialize cache
-	_, _ = logic.GetNetworks()
 	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
-	_, _ = logic.GetUsersDB()
 	_ = logic.CleanExpiredSSOStates()
 
 	migrate.Run()

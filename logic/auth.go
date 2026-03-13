@@ -6,19 +6,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
-	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -37,67 +39,25 @@ var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-	users, err := GetUsersDB()
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return false, nil
-		}
-		return true, err
-	}
-	for _, user := range users {
-		if user.PlatformRoleID == models.SuperAdminRole {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// GetUsersDB - gets users
-func GetUsersDB() ([]models.User, error) {
-	if servercfg.CacheEnabled() {
-		users := getUsersFromCache()
-		if len(users) != 0 {
-			return users, nil
-		}
-	}
-
-	var users []models.User
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil {
-		return users, err
-	}
-
-	cacheMap := make(map[string]models.User, len(collection))
-	for _, value := range collection {
-		var user models.User
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue
-		}
-		users = append(users, user)
-		cacheMap[user.UserName] = user
-	}
-	if servercfg.CacheEnabled() {
-		loadUsersIntoCache(cacheMap)
-	}
-	return users, nil
+	return (&schema.User{}).SuperAdminExists(db.WithContext(context.TODO()))
 }
 
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
-	dbUsers, err := GetUsersDB()
+	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
-	users := make([]models.ReturnUser, 0, len(dbUsers))
-	for _, u := range dbUsers {
-		users = append(users, ToReturnUser(u))
+
+	users := make([]models.ReturnUser, len(_users))
+	for i, _user := range _users {
+		users[i] = ToReturnUser(&_user)
 	}
 	return users, nil
 }
 
 // IsOauthUser - returns
-func IsOauthUser(user *models.User) error {
+func IsOauthUser(user *schema.User) error {
 	var currentValue, err = FetchPassValue("")
 	if err != nil {
 		return err
@@ -130,63 +90,63 @@ func FetchPassValue(newValue string) (string, error) {
 }
 
 // CreateUser - creates a user
-func CreateUser(user *models.User) error {
+func CreateUser(_user *schema.User) error {
 	// check if user exists
-	if _, err := GetUser(user.UserName); err == nil {
+	userCheck := &schema.User{Username: _user.Username}
+	if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
 		return errors.New("user exists")
 	}
-	SetUserDefaults(user)
-	if err := IsGroupsValid(user.UserGroups); err != nil {
+	SetUserDefaults(_user)
+	if err := IsGroupsValid(_user.UserGroups.Data()); err != nil {
 		return errors.New("invalid groups: " + err.Error())
 	}
-	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
-		return errors.New("invalid network roles: " + err.Error())
-	}
 
-	var err = ValidateUser(user)
+	var err = ValidateUser(_user)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
 	// encrypt that password so we never see it again
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+	hash, err := bcrypt.GenerateFromPassword([]byte(_user.Password), 5)
 	if err != nil {
 		logger.Log(0, "error encrypting pass", err.Error())
 		return err
 	}
 	// set password to encrypted password
-	user.Password = string(hash)
-	user.AuthType = models.BasicAuth
-	if IsOauthUser(user) == nil {
-		user.AuthType = models.OAuth
+	_user.Password = string(hash)
+	_user.AuthType = schema.BasicAuth
+	if IsOauthUser(_user) == nil {
+		_user.AuthType = schema.OAuth
 	}
-	AddGlobalNetRolesToAdmins(user)
+	AddGlobalNetRolesToAdmins(_user)
 	// create user will always be called either from API or Dashboard.
-	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID, DashboardApp)
+	_, err = CreateUserJWT(_user.Username, _user.PlatformRoleID, DashboardApp)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}
 
-	// connect db
-	data, err := json.Marshal(user)
+	dbctx := db.BeginTx(context.TODO())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	err = _user.Create(dbctx)
 	if err != nil {
-		logger.Log(0, "failed to marshal", err.Error())
-		return err
+		return fmt.Errorf("failed to create user %s: %v", _user.Username, err)
 	}
-	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
-	if err != nil {
-		logger.Log(0, "failed to insert user", err.Error())
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeUserInCache(*user)
-	}
+
+	commit = true
 	return nil
 }
 
 // CreateSuperAdmin - creates an super admin user
-func CreateSuperAdmin(u *models.User) error {
+func CreateSuperAdmin(u *schema.User) error {
 	hassuperadmin, err := HasSuperAdmin()
 	if err != nil {
 		return err
@@ -194,37 +154,34 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
-	u.IsSuperAdmin = true
-	u.IsAdmin = true
-	u.PlatformRoleID = models.SuperAdminRole
+	u.PlatformRoleID = schema.SuperAdminRole
 	return CreateUser(u)
 }
 
 // VerifyAuthRequest - verifies an auth request
 func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
-	var result models.User
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
 		return "", errors.New("password can't be empty")
 	}
 	// Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
+	_user := &schema.User{
+		Username: authRequest.UserName,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return "", errors.New("incorrect credentials")
-	}
-	if err = json.Unmarshal([]byte(record), &result); err != nil {
-		return "", errors.New("error unmarshalling user json: " + err.Error())
 	}
 
 	// compare password from request to stored password in database
 	// might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
 	// TODO: Consider a way of hashing the password client side before sending, or using certificates
-	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(_user.Password), []byte(authRequest.Password)); err != nil {
 		return "", errors.New("incorrect credentials")
 	}
 
-	if result.IsMFAEnabled {
+	if _user.IsMFAEnabled {
 		tokenString, err := CreatePreAuthToken(authRequest.UserName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
@@ -234,15 +191,15 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID, appName)
+		tokenString, err := CreateUserJWT(authRequest.UserName, schema.UserRoleID(_user.PlatformRoleID), appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
 		}
 
 		// update last login time
-		result.LastLoginTime = time.Now().UTC()
-		err = UpsertUser(result)
+		_user.LastLoginAt = time.Now().UTC()
+		err = _user.Update(db.WithContext(context.TODO()))
 		if err != nil {
 			slog.Error("error upserting user", "error", err)
 			return "", err
@@ -253,44 +210,42 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 }
 
 // UpsertUser - updates user in the db
-func UpsertUser(user models.User) error {
-	data, err := json.Marshal(&user)
-	if err != nil {
-		slog.Error("error marshalling user", "user", user.UserName, "error", err.Error())
-		return err
+func UpsertUser(_user schema.User) error {
+	_existingUser := schema.User{Username: _user.Username}
+	// Check if user exists to preserve ID
+	err := _existingUser.Get(db.WithContext(context.TODO()))
+	if err == nil {
+		_user.ID = _existingUser.ID
+		return _user.Update(db.WithContext(context.TODO()))
 	}
-	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
-		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeUserInCache(user)
-	}
-	return nil
+
+	return _user.Create(db.WithContext(context.TODO()))
 }
 
 // UpdateUser - updates a given user
-func UpdateUser(userchange, user *models.User) (*models.User, error) {
+func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
-	if _, err := GetUser(user.UserName); err != nil {
-		return &models.User{}, err
+	userCheck := &schema.User{Username: _user.Username}
+	if err := userCheck.Get(db.WithContext(context.TODO())); err != nil {
+		return &schema.User{}, err
 	}
 
-	queryUser := user.UserName
-	if userchange.UserName != "" && user.UserName != userchange.UserName {
+	queryUser := _user.Username
+	if userchange.Username != "" && _user.Username != userchange.Username {
 		// check if username is available
-		if _, err := GetUser(userchange.UserName); err == nil {
-			return &models.User{}, errors.New("username exists already")
+		userCheck := &schema.User{Username: userchange.Username}
+		if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
+			return &schema.User{}, errors.New("username exists already")
 		}
-		if userchange.UserName == MasterUser {
-			return &models.User{}, errors.New("username not allowed")
+		if userchange.Username == MasterUser {
+			return &schema.User{}, errors.New("username not allowed")
 		}
 
-		user.UserName = userchange.UserName
+		_user.Username = userchange.Username
 	}
 	if userchange.Password != "" {
 		if len(userchange.Password) < 5 {
-			return &models.User{}, errors.New("password requires min 5 characters")
+			return &schema.User{}, errors.New("password requires min 5 characters")
 		}
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
@@ -301,152 +256,203 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		// set password to encrypted password
 		userchange.Password = string(hash)
 
-		user.Password = userchange.Password
+		_user.Password = userchange.Password
 	}
 
-	validUserGroups := make(map[models.UserGroupID]struct{})
-	for userGroupID := range userchange.UserGroups {
+	validUserGroups := make(map[schema.UserGroupID]struct{})
+	for userGroupID := range userchange.UserGroups.Data() {
 		_, err := GetUserGroup(userGroupID)
 		if err == nil {
 			validUserGroups[userGroupID] = struct{}{}
 		}
 	}
 
-	userchange.UserGroups = validUserGroups
-
-	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
-		return userchange, errors.New("invalid network roles: " + err.Error())
-	}
+	userchange.UserGroups = datatypes.NewJSONType(validUserGroups)
 
 	if userchange.DisplayName != "" {
-		if user.ExternalIdentityProviderID != "" &&
-			user.DisplayName != userchange.DisplayName {
+		if _user.ExternalIdentityProviderID != "" &&
+			_user.DisplayName != userchange.DisplayName {
 			return userchange, errors.New("display name cannot be updated for external user")
 		}
 
-		user.DisplayName = userchange.DisplayName
+		_user.DisplayName = userchange.DisplayName
 	}
 
-	if user.ExternalIdentityProviderID != "" &&
-		userchange.AccountDisabled != user.AccountDisabled {
+	if _user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != _user.AccountDisabled {
 		return userchange, errors.New("account status cannot be updated for external user")
 	}
 
 	// Reset Gw Access for service users
-	go UpdateUserGwAccess(*user, *userchange)
+	go UpdateUserGwAccess(_user, userchange)
 	if userchange.PlatformRoleID != "" {
-		user.PlatformRoleID = userchange.PlatformRoleID
-		// TODO: remove once NMUI stops using these fields.
-		if user.PlatformRoleID == models.SuperAdminRole {
-			user.IsSuperAdmin = true
-			user.IsAdmin = true
-		} else if user.PlatformRoleID == models.AdminRole {
-			user.IsSuperAdmin = false
-			user.IsAdmin = true
+		_user.PlatformRoleID = userchange.PlatformRoleID
+	}
+
+	for groupID := range userchange.UserGroups.Data() {
+		_, ok := _user.UserGroups.Data()[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range _user.UserGroups.Data() {
+		_, ok := userchange.UserGroups.Data()[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	var updateMFA bool
+	if _user.IsMFAEnabled != userchange.IsMFAEnabled {
+		updateMFA = true
+	}
+
+	_user.IsMFAEnabled = userchange.IsMFAEnabled
+
+	var updateAccountStatus bool
+	if _user.AccountDisabled != userchange.AccountDisabled {
+		updateAccountStatus = true
+	}
+
+	_user.IsMFAEnabled = userchange.IsMFAEnabled
+	if !_user.IsMFAEnabled {
+		_user.TOTPSecret = ""
+	}
+
+	_user.UserGroups = userchange.UserGroups
+	AddGlobalNetRolesToAdmins(_user)
+	err := ValidateUser(_user)
+	if err != nil {
+		return &schema.User{}, err
+	}
+
+	dbctx := db.BeginTx(context.TODO())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+			logger.Log(1, "updated user", queryUser)
 		} else {
-			user.IsSuperAdmin = false
-			user.IsAdmin = false
+			db.FromContext(dbctx).Rollback()
 		}
-	}
+	}()
 
-	for groupID := range userchange.UserGroups {
-		_, ok := user.UserGroups[groupID]
-		if !ok {
-			group, err := GetUserGroup(groupID)
-			if err != nil {
-				return userchange, err
-			}
-
-			if group.ExternalIdentityProviderID != "" {
-				return userchange, errors.New("cannot modify membership of external groups")
-			}
-		}
-	}
-
-	for groupID := range user.UserGroups {
-		_, ok := userchange.UserGroups[groupID]
-		if !ok {
-			group, err := GetUserGroup(groupID)
-			if err != nil {
-				return userchange, err
-			}
-
-			if group.ExternalIdentityProviderID != "" {
-				return userchange, errors.New("cannot modify membership of external groups")
-			}
-		}
-	}
-
-	user.IsMFAEnabled = userchange.IsMFAEnabled
-	if !user.IsMFAEnabled {
-		user.TOTPSecret = ""
-	}
-
-	user.UserGroups = userchange.UserGroups
-	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(user)
-	err := ValidateUser(user)
+	// Fetch existing user to get ID
+	_schemaUser := schema.User{Username: queryUser}
+	err = _schemaUser.Get(dbctx)
 	if err != nil {
-		return &models.User{}, err
+		return &schema.User{}, err
 	}
-	if err = database.DeleteRecord(database.USERS_TABLE_NAME, queryUser); err != nil {
-		return &models.User{}, err
-	}
-	data, err := json.Marshal(&user)
+
+	_user.ID = _schemaUser.ID
+
+	err = _user.Update(dbctx)
 	if err != nil {
-		return &models.User{}, err
+		return &schema.User{}, err
 	}
-	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
-		return &models.User{}, err
-	}
-	if servercfg.CacheEnabled() {
-		if queryUser != user.UserName {
-			deleteUserFromCache(queryUser)
+
+	if updateAccountStatus {
+		err = _user.UpdateAccountStatus(dbctx)
+		if err != nil {
+			return &schema.User{}, err
 		}
-		storeUserInCache(*user)
 	}
-	logger.Log(1, "updated user", queryUser)
-	return user, nil
+
+	if updateMFA {
+		err = _user.UpdateMFA(dbctx)
+		if err != nil {
+			return &schema.User{}, err
+		}
+	}
+
+	commit = true
+	return _user, nil
+}
+
+func validateUserName(user *schema.User) error {
+	var validationErr error
+
+	if len(user.Username) == 0 {
+		validationErr = errors.Join(validationErr, errors.New("username cannot be empty"))
+	}
+
+	if len(user.Username) <= 3 {
+		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
+	}
+
+	var isValidEmail bool
+	_, err := mail.ParseAddress(user.Username)
+	if err == nil {
+		isValidEmail = true
+	}
+
+	if !isValidEmail {
+		charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+		for _, char := range user.Username {
+			if !strings.Contains(charset, strings.ToLower(string(char))) {
+				validationErr = errors.Join(validationErr, errors.New("invalid character(s) in username"))
+				break
+			}
+		}
+	}
+	return validationErr
 }
 
 // ValidateUser - validates a user model
-func ValidateUser(user *models.User) error {
-
+func ValidateUser(user *schema.User) error {
+	var validationErr error
 	// check if role is valid
-	_, err := GetRole(user.PlatformRoleID)
+	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
+	err := roleCheck.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return errors.New("failed to fetch platform role " + user.PlatformRoleID.String())
-	}
-	v := validator.New()
-	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := user.NameInCharSet()
-		return isgood
-	})
-	err = v.Struct(user)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			logger.Log(2, e.Error())
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
+
+		validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role %s", user.PlatformRoleID))
 	}
 
-	return err
+	err = validateUserName(user)
+	if err != nil {
+		validationErr = errors.Join(validationErr, err)
+	}
+
+	if len(user.Password) <= 5 {
+		validationErr = errors.Join(validationErr, errors.New("password must have more than 5 characters"))
+	}
+
+	return validationErr
 }
 
 // DeleteUser - deletes a given user
 func DeleteUser(user string) error {
-
-	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return errors.New("user does not exist")
+	_user := schema.User{
+		Username: user,
 	}
-
-	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
+	err := _user.Delete(db.WithContext(context.TODO()))
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not exist")
+		}
+
 		return err
 	}
-	if servercfg.CacheEnabled() {
-		deleteUserFromCache(user)
-	}
+
 	go RemoveUserFromAclPolicy(user)
 	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }

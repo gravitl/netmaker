@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -63,7 +64,7 @@ type Host struct {
 	MacAddress          net.HardwareAddr `json:"macaddress"              yaml:"macaddress"`
 	TrafficKeyPublic    []byte           `json:"traffickeypublic"        yaml:"traffickeypublic"`
 	Nodes               []string         `json:"nodes"                   yaml:"nodes"`
-	Interfaces          []Iface          `json:"interfaces"              yaml:"interfaces"`
+	Interfaces          []schema.Iface   `json:"interfaces"              yaml:"interfaces"`
 	DefaultInterface    string           `json:"defaultinterface"        yaml:"defaultinterface"`
 	EndpointIP          net.IP           `json:"endpointip"              yaml:"endpointip"`
 	EndpointIPv6        net.IP           `json:"endpointipv6"            yaml:"endpointipv6"`
@@ -150,7 +151,7 @@ const (
 // HostUpdate - struct for host update
 type HostUpdate struct {
 	Action       HostMqAction
-	Host         Host
+	Host         schema.Host
 	Node         Node
 	Signal       Signal
 	EgressDomain EgressDomain
@@ -182,10 +183,10 @@ type Signal struct {
 
 // RegisterMsg - login message struct for hosts to join via SSO login
 type RegisterMsg struct {
-	RegisterHost Host   `json:"host"`
-	Network      string `json:"network,omitempty"`
-	User         string `json:"user,omitempty"`
-	Password     string `json:"password,omitempty"`
-	JoinAll      bool   `json:"join_all,omitempty"`
-	Relay        string `json:"relay,omitempty"`
+	RegisterHost schema.Host `json:"host"`
+	Network      string      `json:"network,omitempty"`
+	User         string      `json:"user,omitempty"`
+	Password     string      `json:"password,omitempty"`
+	JoinAll      bool        `json:"join_all,omitempty"`
+	Relay        string      `json:"relay,omitempty"`
 }

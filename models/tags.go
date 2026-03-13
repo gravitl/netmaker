@@ -3,6 +3,8 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"github.com/gravitl/netmaker/schema"
 )
 
 type TagID string
@@ -21,19 +23,19 @@ func (t Tag) GetIDFromName() string {
 }
 
 type Tag struct {
-	ID        TagID     `json:"id"`
-	TagName   string    `json:"tag_name"`
-	Network   NetworkID `json:"network"`
-	ColorCode string    `json:"color_code"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        TagID            `json:"id"`
+	TagName   string           `json:"tag_name"`
+	Network   schema.NetworkID `json:"network"`
+	ColorCode string           `json:"color_code"`
+	CreatedBy string           `json:"created_by"`
+	CreatedAt time.Time        `json:"created_at"`
 }
 
 type CreateTagReq struct {
-	TagName     string    `json:"tag_name"`
-	Network     NetworkID `json:"network"`
-	ColorCode   string    `json:"color_code"`
-	TaggedNodes []ApiNode `json:"tagged_nodes"`
+	TagName     string           `json:"tag_name"`
+	Network     schema.NetworkID `json:"network"`
+	ColorCode   string           `json:"color_code"`
+	TaggedNodes []ApiNode        `json:"tagged_nodes"`
 }
 
 type TagListResp struct {
