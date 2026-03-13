@@ -851,14 +851,20 @@ func IsMasterPod() bool {
 		return true
 	}
 
-	// In K8s StatefulSet, check if this is pod ordinal 0
-	// StatefulSet pods are named <statefulset-name>-<ordinal>
+	// StatefulSet pods are named <statefulset-name>-<ordinal>.
+	// Parse the last hyphen-delimited segment as the ordinal to avoid
+	// false positives (e.g. "netmaker-10" matching a naive HasSuffix "-0").
 	hostname, err := os.Hostname()
 	if err != nil {
-		// Default to master if can't determine hostname
 		return true
 	}
-
-	// Check if hostname ends with -0 (first pod in StatefulSet)
-	return strings.HasSuffix(hostname, "-0")
+	idx := strings.LastIndex(hostname, "-")
+	if idx < 0 {
+		return true
+	}
+	ordinal, err := strconv.Atoi(hostname[idx+1:])
+	if err != nil {
+		return true
+	}
+	return ordinal == 0
 }

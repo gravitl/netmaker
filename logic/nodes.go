@@ -196,12 +196,19 @@ func FlushNodeCheckins() {
 	if len(batch) == 0 {
 		return
 	}
+	var failed int
 	for id, node := range batch {
 		data, err := json.Marshal(node)
 		if err != nil {
+			failed++
 			continue
 		}
-		database.Insert(id, string(data), database.NODES_TABLE_NAME)
+		if err := database.Insert(id, string(data), database.NODES_TABLE_NAME); err != nil {
+			failed++
+		}
+	}
+	if failed > 0 {
+		slog.Error("FlushNodeCheckins: failed to persist checkins", "failed", failed, "total", len(batch))
 	}
 }
 
