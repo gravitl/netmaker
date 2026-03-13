@@ -821,10 +821,10 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 	}
 
 	if !isMaster && _caller.Username == _user.Username {
-		// This implies that a user is trying to enable themselves.
-		// This can never happen, since a disabled user cannot be
-		// authenticated.
-		err := fmt.Errorf("cannot enable self")
+		// This implies that a user is trying to enable/disable themselves.
+		// An enabled user shouldn't be able to do that.
+		// And, a disabled user cannot be authenticated, so this will never happen.
+		err := fmt.Errorf("cannot %s self", action)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
