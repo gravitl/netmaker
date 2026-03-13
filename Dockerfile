@@ -17,4 +17,5 @@ RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
 EXPOSE 8081
+EXPOSE 6060
 ENTRYPOINT ["./netmaker"]

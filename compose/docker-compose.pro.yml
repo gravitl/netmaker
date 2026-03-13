@@ -4,6 +4,7 @@ services:
     container_name: prometheus
     image: prom/prometheus:latest
     environment:
+      - METRICS_USERNAME=${METRICS_USERNAME:-netmaker}
       - METRICS_SECRET=${METRICS_SECRET}
       - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET:-http://netmaker-exporter:8085}
       - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-15d}
@@ -15,18 +16,19 @@ services:
     command:
       - -c
       - |
-        cp /etc/prometheus/prometheus.yml.tmpl /tmp/prometheus.yml
+        cp /etc/prometheus/prometheus.yml.tmpl /etc/prometheus/prometheus.rendered.yml
         url="$${NETMAKER_METRICS_TARGET}"
         if echo "$${url}" | grep -q '://'; then
           scheme="$${url%%://*}"; target="$${url#*://}"
         else
           scheme="https"; target="$${url}"
         fi
-        sed -i "s~NETMAKER_METRICS_TARGET~$${target}~g" /tmp/prometheus.yml
-        sed -i "s~__SCHEME__~$${scheme}~g" /tmp/prometheus.yml
-        sed -i "s~METRICS_SECRET~$${METRICS_SECRET}~g" /tmp/prometheus.yml
+        sed -i "s~NETMAKER_METRICS_TARGET~$${target}~g" /etc/prometheus/prometheus.rendered.yml
+        sed -i "s~__SCHEME__~$${scheme}~g" /etc/prometheus/prometheus.rendered.yml
+        sed -i "s~METRICS_USERNAME~$${METRICS_USERNAME}~g" /etc/prometheus/prometheus.rendered.yml
+        sed -i "s~METRICS_SECRET~$${METRICS_SECRET}~g" /etc/prometheus/prometheus.rendered.yml
         exec /bin/prometheus \
-          --config.file=/tmp/prometheus.yml \
+          --config.file=/etc/prometheus/prometheus.rendered.yml \
           --storage.tsdb.path=/prometheus \
           --storage.tsdb.retention.time=$${PROMETHEUS_RETENTION_TIME:-15d} \
           --storage.tsdb.retention.size=$${PROMETHEUS_RETENTION_SIZE:-0}
