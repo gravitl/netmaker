@@ -208,24 +208,24 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Query().Get("reset_failovered") == "true" {
-		nodeIDs := make([]string, len(host.Nodes))
-		copy(nodeIDs, host.Nodes)
-		go func() {
-			for _, nodeID := range nodeIDs {
-				node, err := logic.GetNodeByID(nodeID)
-				if err != nil {
-					continue
-				}
-				logic.ResetFailedOverPeer(&node)
-				logic.ResetAutoRelayedPeer(&node)
+	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
+	if resetFailovered {
+		for _, nodeID := range host.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
 			}
-			if err := mq.PublishPeerUpdate(false); err != nil {
-				logger.Log(0, "fail to publish peer update: ", err.Error())
-			}
-		}()
+			logic.ResetFailedOverPeer(&node)
+			logic.ResetAutoRelayedPeer(&node)
+		}
+		go mq.PublishPeerUpdate(false)
 	}
-	hPU, ok := logic.GetCachedHostPeerUpdate(hostID)
+
+	var hPU models.HostPeerUpdate
+	var ok bool
+	if !resetFailovered {
+		hPU, ok = logic.GetCachedHostPeerUpdate(hostID)
+	}
 	if !ok {
 		allNodes, err := logic.GetAllNodes()
 		if err != nil {

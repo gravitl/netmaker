@@ -32,6 +32,8 @@ const (
 	maxConcurrentPublishes = 5
 )
 
+var metricsHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 // PublishPeerUpdate --- queues a peer update that will be coalesced with other
 // rapid-fire updates via a debounce window (500ms) capped by a max-wait (3s).
 func PublishPeerUpdate(replacePeers bool) error {
@@ -338,7 +340,7 @@ func PushAllMetricsToExporter() {
 		return
 	}
 	baseURL := servercfg.GetMetricsExporterURL()
-	healthResp, err := http.Get(baseURL + "/api/health")
+	healthResp, err := metricsHTTPClient.Get(baseURL + "/api/health")
 	if err != nil {
 		slog.Warn("metrics export: exporter not reachable, skipping", "error", err)
 		return
@@ -381,7 +383,7 @@ func PushAllMetricsToExporter() {
 		metricsUser = "netmaker"
 	}
 	req.SetBasicAuth(metricsUser, os.Getenv("METRICS_SECRET"))
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := metricsHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("metrics export: POST failed", "url", url, "error", err)
 		return
