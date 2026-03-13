@@ -1611,6 +1611,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	err := caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 	callerUserRole := &schema.UserRole{ID: caller.PlatformRoleID}
 	err = callerUserRole.Get(r.Context())
