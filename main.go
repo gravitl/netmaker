@@ -108,10 +108,6 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(0, "warning: MASTER_KEY not set, this could make account recovery difficult")
 	}
 
-	if servercfg.GetNodeID() == "" {
-		logger.FatalLog("error: must set NODE_ID, currently blank")
-	}
-
 	// Log master/worker mode for K8s HA setup
 	if servercfg.IsHA() {
 		if servercfg.IsMasterPod() {

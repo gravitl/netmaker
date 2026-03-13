@@ -485,15 +485,15 @@ func GetSQLConn() string {
 	return sqlconn
 }
 
-// GetNodeID - gets the node id
-func GetNodeID() string {
+// GetHostName - gets the host name
+func GetHostName() string {
 	var id string
 	var err error
 	// id = getMacAddr()
-	if os.Getenv("NODE_ID") != "" {
-		id = os.Getenv("NODE_ID")
-	} else if config.Config.Server.NodeID != "" {
-		id = config.Config.Server.NodeID
+	if os.Getenv("HOST_NAME") != "" {
+		id = os.Getenv("HOST_NAME")
+	} else if config.Config.Server.HostName != "" {
+		id = config.Config.Server.HostName
 	} else {
 		id, err = os.Hostname()
 		if err != nil {
@@ -504,7 +504,7 @@ func GetNodeID() string {
 }
 
 func SetNodeID(id string) {
-	config.Config.Server.NodeID = id
+	config.Config.Server.HostName = id
 }
 
 // GetAuthProviderInfo = gets the oauth provider info

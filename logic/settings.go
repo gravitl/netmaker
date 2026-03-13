@@ -242,7 +242,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = servercfg.GetAllowedOrigin()
 	cfg.RestBackend = "off"
-	cfg.NodeID = servercfg.GetNodeID()
+	cfg.HostName = servercfg.GetHostName()
 	cfg.BrokerType = servercfg.GetBrokerType()
 	cfg.EmqxRestEndpoint = servercfg.GetEmqxRestEndpoint()
 	if settings.NetclientAutoUpdate {

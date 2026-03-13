@@ -28,7 +28,7 @@ func publishServerSync(syncType logic.ServerSyncType) {
 		return
 	}
 	msg := serverSyncMessage{
-		Sender:   servercfg.GetNodeID(),
+		Sender:   servercfg.GetHostName(),
 		SyncType: syncType,
 	}
 	data, err := json.Marshal(msg)
@@ -51,7 +51,7 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 		slog.Error("serversync: failed to parse message", "error", err)
 		return
 	}
-	if syncMsg.Sender == servercfg.GetNodeID() {
+	if syncMsg.Sender == servercfg.GetHostName() {
 		return
 	}
 	slog.Info("serversync: received sync", "from", syncMsg.Sender, "type", syncMsg.SyncType)
