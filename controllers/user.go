@@ -832,9 +832,12 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 
 	if !isMaster {
 		switch _user.PlatformRoleID {
-		case schema.SuperAdminRole:
-			// This can never happen, since a superadmin user cannot
-			// be disabled.
+case schema.SuperAdminRole:
+			if disableAccount {
+				err = errors.New("cannot disable a super-admin")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
 		case schema.AdminRole:
 			if _caller.PlatformRoleID != schema.SuperAdminRole {
 				err = fmt.Errorf("%s cannot %s an admin", action, _caller.PlatformRoleID)

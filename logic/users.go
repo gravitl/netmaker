@@ -34,8 +34,8 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 		IsMFAEnabled:               user.IsMFAEnabled,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
-		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole,
-		IsSuperAdmin:               user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,
+		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,
+		IsSuperAdmin:               user.PlatformRoleID == schema.SuperAdminRole,
 		AuthType:                   user.AuthType,
 		// no need to set. field not in use.
 		RemoteGwIDs:    nil,
