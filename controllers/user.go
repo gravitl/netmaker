@@ -832,7 +832,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 
 	if !isMaster {
 		switch _user.PlatformRoleID {
-case schema.SuperAdminRole:
+		case schema.SuperAdminRole:
 			if disableAccount {
 				err = errors.New("cannot disable a super-admin")
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
@@ -840,19 +840,19 @@ case schema.SuperAdminRole:
 			}
 		case schema.AdminRole:
 			if _caller.PlatformRoleID != schema.SuperAdminRole {
-				err = fmt.Errorf("%s cannot %s an admin", action, _caller.PlatformRoleID)
+				err = fmt.Errorf("%s cannot %s an admin", _caller.PlatformRoleID, action)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
 		case schema.PlatformUser:
 			if _caller.PlatformRoleID != schema.SuperAdminRole && _caller.PlatformRoleID != schema.AdminRole {
-				err = fmt.Errorf("%s cannot %s a platform-user", action, _caller.PlatformRoleID)
+				err = fmt.Errorf("%s cannot %s a platform-user", _caller.PlatformRoleID, action)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
 		case schema.ServiceUser:
 			if _caller.PlatformRoleID != schema.SuperAdminRole && _caller.PlatformRoleID != schema.AdminRole {
-				err = fmt.Errorf("%s cannot %s a service-user", action, _caller.PlatformRoleID)
+				err = fmt.Errorf("%s cannot %s a service-user", _caller.PlatformRoleID, action)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
