@@ -213,7 +213,6 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	if servercfg.IsMasterPod() {
 		logic.InitNetworkHooks()
 	}
-	logic.InitNetworkHooks()
 	logic.AddSSOStateCleanupHook()
 }
 
