@@ -2160,8 +2160,11 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	settings.GoogleAdminEmail = ""
 	settings.GoogleSACredsJson = ""
 	settings.AzureTenant = ""
+	settings.OktaOrgURL = ""
+	settings.OktaAPIToken = ""
 	settings.UserFilters = nil
 	settings.GroupFilters = nil
+	settings.IDPSyncInterval = ""
 
 	err = logic.UpsertServerSettings(settings)
 	if err != nil {
