@@ -28,12 +28,6 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user *schema.User) models.ReturnUser {
-
-	userGroups := make(map[schema.UserGroupID]struct{})
-	for userGroupID := range userGroups {
-		userGroups[userGroupID] = struct{}{}
-	}
-
 	return models.ReturnUser{
 		UserName:                   user.Username,
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
