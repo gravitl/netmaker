@@ -93,7 +93,6 @@ func compressPayload(data []byte) ([]byte, error) {
 
 	zw := gzipWriterPool.Get().(*gzip.Writer)
 	zw.Reset(buf)
-	defer gzipWriterPool.Put(zw)
 
 	if _, err := zw.Write(data); err != nil {
 		return nil, err
@@ -101,6 +100,8 @@ func compressPayload(data []byte) ([]byte, error) {
 	if err := zw.Close(); err != nil {
 		return nil, err
 	}
+	gzipWriterPool.Put(zw)
+
 	result := make([]byte, buf.Len())
 	copy(result, buf.Bytes())
 	return result, nil

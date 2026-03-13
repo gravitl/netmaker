@@ -221,12 +221,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		go mq.PublishPeerUpdate(false)
 	}
 
-	var hPU models.HostPeerUpdate
-	var ok bool
-	if !resetFailovered {
-		hPU, ok = logic.GetCachedHostPeerUpdate(hostID)
-	}
-	if !ok {
+	hPU, ok := logic.GetCachedHostPeerUpdate(hostID)
+	if !ok || resetFailovered {
 		allNodes, err := logic.GetAllNodes()
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID)
@@ -239,6 +235,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		logic.StoreHostPeerUpdate(hostID, hPU)
 	}
 
 	response := models.HostPull{

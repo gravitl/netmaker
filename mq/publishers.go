@@ -101,15 +101,8 @@ func StartPeerUpdateWorker(ctx context.Context) {
 // pull requests arriving before the first debounced broadcast are served
 // instantly from cache instead of triggering expensive on-demand computation.
 func warmPeerCaches() {
-	logic.RefreshHostPeerInfoCache()
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		slog.Error("warmPeerCaches: failed to get hosts", "error", err)
-		return
-	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		slog.Error("warmPeerCaches: failed to get nodes", "error", err)
+	hosts, allNodes := logic.RefreshHostPeerInfoCache()
+	if hosts == nil || allNodes == nil {
 		return
 	}
 	for i := range hosts {

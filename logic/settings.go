@@ -38,12 +38,13 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s models.ServerSettings) {
-
 	if cached, ok := serverSettingsCache.Load().(models.ServerSettings); ok {
 		return cached
 	}
-	s = getServerSettingsFromDB()
-	serverSettingsCache.Store(s)
+	s, err := getServerSettingsFromDB()
+	if err == nil {
+		serverSettingsCache.Store(s)
+	}
 	return
 }
 
@@ -53,18 +54,21 @@ func InvalidateServerSettingsCache() {
 	serverSettingsCache = atomic.Value{}
 }
 
-func getServerSettingsFromDB() (s models.ServerSettings) {
+func getServerSettingsFromDB() (models.ServerSettings, error) {
+	var s models.ServerSettings
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
-		return
+		return s, err
 	}
-	json.Unmarshal([]byte(data), &s)
-	return
+	if err := json.Unmarshal([]byte(data), &s); err != nil {
+		return s, err
+	}
+	return s, nil
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
 	// get curr settings from DB directly (not cache) for accurate comparison
-	currSettings := getServerSettingsFromDB()
+	currSettings, _ := getServerSettingsFromDB()
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}

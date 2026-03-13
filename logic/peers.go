@@ -124,17 +124,18 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 }
 
 // RefreshHostPeerInfoCache - batch pre-computes peer info for all hosts
-// and stores the results in the cache. Called by the peer update worker.
-func RefreshHostPeerInfoCache() {
+// and stores the results in the cache. Returns the fetched hosts and
+// nodes so callers can reuse them without redundant DB queries.
+func RefreshHostPeerInfoCache() ([]models.Host, []models.Node) {
 	hosts, err := GetAllHosts()
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
-		return
+		return nil, nil
 	}
 	allNodes, err := GetAllNodes()
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
-		return
+		return nil, nil
 	}
 	serverInfo := GetServerInfo()
 
@@ -150,6 +151,7 @@ func RefreshHostPeerInfoCache() {
 	hostPeerInfoCacheMu.Lock()
 	hostPeerInfoCache = newCache
 	hostPeerInfoCacheMu.Unlock()
+	return hosts, allNodes
 }
 
 // computeHostPeerInfo - computes peer info for a single host.

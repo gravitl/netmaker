@@ -95,7 +95,7 @@ func SetupMQTT(fatal bool) {
 			logger.Log(0, "MQ publish-only mode (worker pod)")
 		}
 		if servercfg.IsHA() {
-			if token := client.Subscribe(fmt.Sprintf("serversync/%s/#", serverName), 0, mqtt.MessageHandler(handleServerSync)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+			if token := client.Subscribe(fmt.Sprintf("serversync/%s", serverName), 0, mqtt.MessageHandler(handleServerSync)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				logger.Log(0, "server sync subscription failed")
 			}
 		}
