@@ -1390,7 +1390,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.PlatformRoleID != userchange.PlatformRoleID && userchange.PlatformRoleID == models.SuperAdminRole {
+	if user.PlatformRoleID != userchange.PlatformRoleID && userchange.PlatformRoleID == schema.SuperAdminRole {
 		err = errors.New("only a super-admin can assign the super-admin role to another user via transferSuperAdmin method")
 		slog.Error(
 			"failed to update user",
