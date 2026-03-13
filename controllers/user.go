@@ -56,7 +56,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/list", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -1018,7 +1018,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     List all users
-// @Router      /api/v1/users/list [get]
+// @Router      /api/v2/users [get]
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
@@ -1073,10 +1073,14 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 	var page, pageSize int
 	if r.URL.Query().Has("page") {
 		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	} else {
+		page = 1
 	}
 
 	if r.URL.Query().Has("per_page") {
 		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	} else {
+		pageSize = 10
 	}
 
 	_users, err := (&schema.User{}).ListAll(
@@ -1117,11 +1121,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var totalPages int
-	if pageSize != 0 {
-		totalPages = (total + pageSize - 1) / pageSize
-	}
-
+	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages == 0 {
 		totalPages = 1
 	}

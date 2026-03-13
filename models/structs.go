@@ -143,8 +143,8 @@ type SuccessResponse struct {
 
 type PaginatedResponse struct {
 	Data       interface{} `json:"data"`
-	Page       int         `json:"page,omitempty"`
-	PerPage    int         `json:"per_page,omitempty"`
+	Page       int         `json:"page"`
+	PerPage    int         `json:"per_page"`
 	Total      int         `json:"total"`
 	TotalPages int         `json:"total_pages"`
 }

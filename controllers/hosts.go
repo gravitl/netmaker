@@ -209,10 +209,14 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	var page, pageSize int
 	if r.URL.Query().Has("page") {
 		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	} else {
+		page = 1
 	}
 
 	if r.URL.Query().Has("per_page") {
 		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	} else {
+		pageSize = 10
 	}
 
 	currentHosts, err := (&schema.Host{}).ListAll(
@@ -239,11 +243,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var totalPages int
-	if pageSize != 0 {
-		totalPages = (total + pageSize - 1) / pageSize
-	}
-
+	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages == 0 {
 		totalPages = 1
 	}

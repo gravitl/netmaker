@@ -10,10 +10,6 @@ type Option func(db *gorm.DB) *gorm.DB
 
 func WithPagination(page, pageSize int) Option {
 	return func(db *gorm.DB) *gorm.DB {
-		if page == 0 && pageSize == 0 {
-			return db
-		}
-
 		if page < 1 {
 			page = 1
 		}
