@@ -202,7 +202,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 			ID:   schema.DashboardSub.String(),
 			Name: schema.DashboardSub.String(),
 			Type: schema.DashboardSub,
-			Info: user,
+			Info: logic.ToReturnUser(user),
 		},
 		Origin: schema.Dashboard,
 	})

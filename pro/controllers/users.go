@@ -910,8 +910,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: oldUser,
-			New: user,
+			Old: logic.ToReturnUser(&oldUser),
+			New: logic.ToReturnUser(user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -966,8 +966,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: oldUser,
-			New: user,
+			Old: logic.ToReturnUser(&oldUser),
+			New: logic.ToReturnUser(user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -2103,8 +2103,8 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			Old: schema.User{
-				Username: username,
+			Old: models.ReturnUser{
+				UserName: username,
 			},
 			New: nil,
 		},

@@ -1323,7 +1323,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 			ID:   user.Username,
 			Name: user.Username,
 			Type: schema.UserSub,
-			Info: user,
+			Info: logic.ToReturnUser(&user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -1518,8 +1518,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: oldUser,
-			New: userchange,
+			Old: logic.ToReturnUser(&oldUser),
+			New: logic.ToReturnUser(&userchange),
 		},
 		Origin: schema.Dashboard,
 	}
@@ -1694,7 +1694,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			Old: user,
+			Old: logic.ToReturnUser(user),
 			New: nil,
 		},
 	})
