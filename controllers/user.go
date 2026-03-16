@@ -1360,6 +1360,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
 		}
 	}
 
