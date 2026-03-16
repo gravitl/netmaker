@@ -299,11 +299,7 @@ func syncGroups(idpGroups []idp.Group) error {
 			dbGroup.ExternalIdentityProviderID = group.ID
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
-			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{
-				schema.AllNetworks: {
-					proLogic.GetDefaultGlobalUserRoleID(): {},
-				},
-			})
+			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{})
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
