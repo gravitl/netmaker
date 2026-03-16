@@ -389,10 +389,9 @@ func validateUserName(user *schema.User) error {
 
 	if len(user.Username) == 0 {
 		validationErr = errors.Join(validationErr, errors.New("username cannot be empty"))
-	}
-
-	if len(user.Username) <= 3 {
+	} else if len(user.Username) <= 3 {
 		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
+	}
 	}
 
 	var isValidEmail bool
