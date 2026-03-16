@@ -392,7 +392,6 @@ func validateUserName(user *schema.User) error {
 	} else if len(user.Username) <= 3 {
 		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
 	}
-	}
 
 	var isValidEmail bool
 	_, err := mail.ParseAddress(user.Username)
