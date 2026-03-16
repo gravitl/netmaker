@@ -331,6 +331,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						relayHost := &schema.Host{
 							ID: autoRelayNode.HostID,
 						}
+						err = relayHost.Get(db.WithContext(context.TODO()))
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
