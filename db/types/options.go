@@ -30,7 +30,9 @@ func WithFilter(field string, value ...interface{}) Option {
 		}
 
 		if len(value) == 1 {
-			return db.Where(fmt.Sprintf("%s = ?", field), value)
+		if len(value) == 1 {
+			return db.Where(fmt.Sprintf("%s = ?", field), value[0])
+		}
 		}
 
 		return db.Where(fmt.Sprintf("%s IN ?", field), value)
