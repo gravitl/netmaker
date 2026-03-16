@@ -1189,9 +1189,9 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller := &schema.User{Username: r.Header.Get("user")}
-	err := caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 	if caller.PlatformRoleID != schema.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
