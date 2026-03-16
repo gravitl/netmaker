@@ -1189,7 +1189,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller := &schema.User{Username: r.Header.Get("user")}
-	if err != nil {
+	if err := caller.Get(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1200,8 +1200,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	username := params["username"]
 	u := &schema.User{Username: username}
-	err = u.Get(r.Context())
-	if err != nil {
+	if err := u.Get(r.Context()); err != nil {
 		slog.Error("error getting user", "user", u.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -1220,16 +1219,14 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.PlatformRoleID = schema.SuperAdminRole
-	err = logic.UpsertUser(*u)
-	if err != nil {
+	if err := logic.UpsertUser(*u); err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	caller.PlatformRoleID = schema.AdminRole
-	err = logic.UpsertUser(*caller)
-	if err != nil {
+	if err := logic.UpsertUser(*caller); err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
