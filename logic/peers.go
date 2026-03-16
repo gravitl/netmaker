@@ -756,7 +756,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {
 	peerHost := &schema.Host{
-		ID: peer.ID,
+		ID: peer.HostID,
 	}
 	err := peerHost.Get(db.WithContext(context.TODO()))
 	if err != nil {
