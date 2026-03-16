@@ -181,7 +181,7 @@ func (u *UserRole) Delete(ctx context.Context) error {
 
 func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id <> '' && network_id = ?", u.NetworkID).
+		Where("network_id <> '' AND network_id = ?", u.NetworkID).
 		Delete(u).
 		Error
 }
