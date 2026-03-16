@@ -207,15 +207,13 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var page, pageSize int
-	if r.URL.Query().Has("page") {
-		page, _ = strconv.Atoi(r.URL.Query().Get("page"))
-	} else {
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page == 0 {
 		page = 1
 	}
 
-	if r.URL.Query().Has("per_page") {
-		pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
-	} else {
+	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	if pageSize == 0 {
 		pageSize = 10
 	}
 
