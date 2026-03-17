@@ -140,7 +140,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+func GetNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}

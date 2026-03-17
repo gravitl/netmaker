@@ -116,14 +116,14 @@ func SetDNS() error {
 		return err
 	}
 	var corefilestring string
-	networks, err := GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return err
 	}
 
 	for _, net := range networks {
-		corefilestring = corefilestring + net.NetID + " "
-		dns, err := GetDNS(net.NetID)
+		corefilestring = corefilestring + net.Name + " "
+		dns, err := GetDNS(net.Name)
 		if err != nil && !database.IsEmptyRecord(err) {
 			return err
 		}
@@ -229,7 +229,10 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 		if node.Network != network {
 			continue
 		}
-		host, err := GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}
@@ -256,7 +259,10 @@ func GetGwDNS(node *models.Node) string {
 	if !servercfg.GetManageDNS() {
 		return ""
 	}
-	h, err := GetHost(node.HostID.String())
+	h := &schema.Host{
+		ID: node.HostID,
+	}
+	err := h.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return ""
 	}
@@ -340,12 +346,12 @@ func SetCorefile(domains string) error {
 // GetAllDNS - gets all dns entries
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
-		netdns, err := GetDNS(net.NetID)
+		netdns, err := GetDNS(net.Name)
 		if err != nil {
 			return []models.DNSEntry{}, nil
 		}
@@ -405,7 +411,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	})
 
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetParentNetwork(entry.Network)
+		err := (&schema.Network{Name: entry.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 
@@ -437,7 +443,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 		return err == nil && num == 0
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetParentNetwork(change.Network)
+		err := (&schema.Network{Name: change.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 
@@ -488,7 +494,7 @@ func validateNameserverReq(ns *schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	_, err := GetNetwork(ns.NetworkID)
+	err := (&schema.Network{Name: ns.NetworkID}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("invalid network id")
 	}
@@ -595,7 +601,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+func getNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}

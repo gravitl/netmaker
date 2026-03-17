@@ -1,11 +1,10 @@
 package user
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/spf13/cobra"
+	"gorm.io/datatypes"
 )
 
 var userUpdateCmd = &cobra.Command{
@@ -14,27 +13,16 @@ var userUpdateCmd = &cobra.Command{
 	Short: "Update a user",
 	Long:  `Update a user`,
 	Run: func(cmd *cobra.Command, args []string) {
-		user := &models.User{UserName: args[0]}
+		user := &schema.User{Username: args[0]}
 		if platformID != "" {
-			user.PlatformRoleID = models.UserRoleID(platformID)
-		}
-		if len(networkRoles) > 0 {
-			netRolesMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			for netID, netRoles := range networkRoles {
-				roleMap := make(map[models.UserRoleID]struct{})
-				for _, roleID := range strings.Split(netRoles, ",") {
-					roleMap[models.UserRoleID(roleID)] = struct{}{}
-				}
-				netRolesMap[models.NetworkID(netID)] = roleMap
-			}
-			user.NetworkRoles = netRolesMap
+			user.PlatformRoleID = schema.UserRoleID(platformID)
 		}
 		if len(groups) > 0 {
-			grMap := make(map[models.UserGroupID]struct{})
+			grMap := make(map[schema.UserGroupID]struct{})
 			for _, groupID := range groups {
-				grMap[models.UserGroupID(groupID)] = struct{}{}
+				grMap[schema.UserGroupID(groupID)] = struct{}{}
 			}
-			user.UserGroups = grMap
+			user.UserGroups = datatypes.NewJSONType(grMap)
 		}
 		functions.PrettyPrint(functions.UpdateUser(user))
 	},

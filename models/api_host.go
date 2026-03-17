@@ -4,6 +4,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/schema"
 )
 
 // ApiHost - the host struct for API usage
@@ -47,8 +49,8 @@ type ApiIface struct {
 	AddressString string `json:"addressString"`
 }
 
-// Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
-func (h *Host) ConvertNMHostToAPI() *ApiHost {
+// NewApiHostFromSchemaHost - converts a Netmaker host to an API editable host
+func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
@@ -96,8 +98,8 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 
 // APIHost.ConvertAPIHostToNMHost - convert's a given apihost struct to
 // a Host struct
-func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
-	h := Host{}
+func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host {
+	h := schema.Host{}
 	h.ID = currentHost.ID
 	h.HostPass = currentHost.HostPass
 	h.DaemonInstalled = currentHost.DaemonInstalled

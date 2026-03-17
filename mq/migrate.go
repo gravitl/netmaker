@@ -2,6 +2,7 @@ package mq
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,9 +12,11 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -77,7 +80,7 @@ func SendPullSYN() error {
 	if err != nil {
 		return err
 	}
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -125,7 +128,7 @@ func KickOutClients() error {
 	if err != nil {
 		return err
 	}
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("failed to migrate emqx: ", "error", err)
 		return err

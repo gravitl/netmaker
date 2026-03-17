@@ -5,11 +5,17 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
 )
 
 const egressTable = "egresses"
+
+type EgressNATMode string
+
+const (
+	VirtualNAT EgressNATMode = "virtual_nat"
+	DirectNAT  EgressNATMode = "direct_nat"
+)
 
 type Egress struct {
 	ID           string                      `gorm:"primaryKey" json:"id"`
@@ -19,7 +25,7 @@ type Egress struct {
 	Nodes        datatypes.JSONMap           `gorm:"nodes" json:"nodes"`
 	Tags         datatypes.JSONMap           `gorm:"tags" json:"tags"`
 	Range        string                      `gorm:"range" json:"range"`
-	Mode         models.EgressNATMode        `gorm:"mode;default:direct_nat" json:"mode"`
+	Mode         EgressNATMode               `gorm:"mode;default:direct_nat" json:"mode"`
 	VirtualRange string                      `gorm:"virtual_range" json:"virtual_range"`
 	DomainAns    datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
 	Domain       string                      `gorm:"domain" json:"domain"`

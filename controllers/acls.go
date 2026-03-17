@@ -211,12 +211,12 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if network exists
-	_, err := logic.GetNetwork(netID)
+	err := (&schema.Network{Name: netID}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListAclsByNetwork(models.NetworkID(netID))
+	acls, err := logic.ListAclsByNetwork(schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -276,7 +276,8 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	user, err := logic.GetUser(r.Header.Get("user"))
+	user := &schema.User{Username: r.Header.Get("user")}
+	err = user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -289,7 +290,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 
 	acl := req
 	acl.ID = uuid.New().String()
-	acl.CreatedBy = user.UserName
+	acl.CreatedBy = user.Username
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
 	if acl.ServiceType == models.Any {
@@ -312,20 +313,20 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   acl.ID,
 			Name: acl.Name,
-			Type: models.AclSub,
+			Type: schema.AclSub,
 		},
 		NetworkID: acl.NetworkID,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
@@ -374,24 +375,24 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   acl.ID,
 			Name: acl.Name,
-			Type: models.AclSub,
+			Type: schema.AclSub,
 		},
 		Diff: models.Diff{
 			Old: acl,
 			New: updateAcl.Acl,
 		},
 		NetworkID: acl.NetworkID,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
@@ -428,20 +429,20 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   acl.ID,
 			Name: acl.Name,
-			Type: models.AclSub,
+			Type: schema.AclSub,
 		},
 		NetworkID: acl.NetworkID,
-		Origin:    models.Dashboard,
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: acl,
 			New: nil,

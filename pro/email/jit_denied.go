@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -13,11 +12,11 @@ import (
 type JITDeniedMail struct {
 	BodyBuilder EmailBodyBuilder
 	Request     *schema.JITRequest
-	Network     models.Network
+	Network     *schema.Network
 }
 
 // SendJITDeniedEmail - sends email notification to user when JIT request is denied
-func SendJITDeniedEmail(request *schema.JITRequest, network models.Network) error {
+func SendJITDeniedEmail(request *schema.JITRequest, network *schema.Network) error {
 	mail := JITDeniedMail{
 		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
 		Request:     request,
@@ -38,17 +37,17 @@ func SendJITDeniedEmail(request *schema.JITRequest, network models.Network) erro
 
 // GetSubject - gets the subject of the email
 func (mail JITDeniedMail) GetSubject(info Notification) string {
-	return fmt.Sprintf("JIT Access Request Denied: %s", mail.Network.NetID)
+	return fmt.Sprintf("JIT Access Request Denied: %s", mail.Network.Name)
 }
 
 // GetBody - gets the body of the email
 func (mail JITDeniedMail) GetBody(info Notification) string {
 	content := mail.BodyBuilder.
 		WithHeadline("JIT Access Request Denied").
-		WithParagraph(fmt.Sprintf("Your request for Just-In-Time access to network <strong>%s</strong> has been denied.", mail.Network.NetID)).
+		WithParagraph(fmt.Sprintf("Your request for Just-In-Time access to network <strong>%s</strong> has been denied.", mail.Network.Name)).
 		WithParagraph("Request Details:").
 		WithHtml("<ul>").
-		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
+		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.Name)).
 		WithHtml(fmt.Sprintf("<li><strong>Requested At:</strong> %s</li>", formatUTCTime(mail.Request.RequestedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Denied At:</strong> %s</li>", formatUTCTime(mail.Request.ApprovedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Denied By:</strong> %s</li>", mail.Request.ApprovedBy)).

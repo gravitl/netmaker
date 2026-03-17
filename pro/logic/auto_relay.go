@@ -17,7 +17,7 @@ import (
 
 var autoRelayCtxMutex = &sync.RWMutex{}
 var autoRelayCacheMutex = &sync.RWMutex{}
-var autoRelayCache = make(map[models.NetworkID][]string)
+var autoRelayCache = make(map[schema.NetworkID][]string)
 
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
@@ -28,7 +28,7 @@ func InitAutoRelayCache() {
 	}
 	for _, node := range allNodes {
 		if node.IsAutoRelay {
-			autoRelayCache[models.NetworkID(node.Network)] = append(autoRelayCache[models.NetworkID(node.Network)], node.ID.String())
+			autoRelayCache[schema.NetworkID(node.Network)] = append(autoRelayCache[schema.NetworkID(node.Network)], node.ID.String())
 		}
 	}
 
@@ -128,13 +128,13 @@ func GetAutoRelayNode(network string, allNodes []models.Node) (models.Node, erro
 func RemoveAutoRelayFromCache(network string) {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	delete(autoRelayCache, models.NetworkID(network))
+	delete(autoRelayCache, schema.NetworkID(network))
 }
 
 func SetAutoRelayInCache(node models.Node) {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	autoRelayCache[models.NetworkID(node.Network)] = append(autoRelayCache[models.NetworkID(node.Network)], node.ID.String())
+	autoRelayCache[schema.NetworkID(node.Network)] = append(autoRelayCache[schema.NetworkID(node.Network)], node.ID.String())
 }
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
@@ -149,7 +149,7 @@ func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
 			}
 		}
 	}
-	if nodeIDs, ok := autoRelayCache[models.NetworkID(network)]; ok {
+	if nodeIDs, ok := autoRelayCache[schema.NetworkID(network)]; ok {
 		for _, nodeID := range nodeIDs {
 			autoRelayNode, err := logic.GetNodeByID(nodeID)
 			if err == nil {
@@ -210,7 +210,7 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
@@ -274,7 +274,10 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 }
 
 func CreateAutoRelay(node models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

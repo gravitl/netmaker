@@ -11,11 +11,15 @@ import (
 	"sync"
 	"time"
 
+	"context"
+
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -87,13 +91,13 @@ func UpsertServerSettings(s models.ServerSettings) error {
 }
 
 func setDefaultsforOldAclCfg() {
-	nets, _ := GetNetworks()
+	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, netI := range nets {
 		if netI.DefaultACL != "yes" {
 			netI.DefaultACL = "yes"
-			UpsertNetwork(netI)
+			UpsertNetwork(&netI)
 		}
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
 		if err != nil {
 			continue
 		}
@@ -105,7 +109,7 @@ func setDefaultsforOldAclCfg() {
 			}
 			networkACL.UpdateACL(id, aclNode)
 		}
-		networkACL.Save(acls.ContainerID(netI.NetID))
+		networkACL.Save(acls.ContainerID(netI.Name))
 	}
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {

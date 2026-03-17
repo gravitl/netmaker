@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -17,7 +17,9 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -126,8 +128,8 @@ func SyncFromIDP() error {
 }
 
 func syncUsers(idpUsers []idp.User) error {
-	dbUsers, err := logic.GetUsersDB()
-	if err != nil && !database.IsEmptyRecord(err) {
+	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return err
 	}
 
@@ -141,9 +143,9 @@ func syncUsers(idpUsers []idp.User) error {
 		idpUsersMap[user.Username] = struct{}{}
 	}
 
-	dbUsersMap := make(map[string]models.User)
+	dbUsersMap := make(map[string]*schema.User)
 	for _, user := range dbUsers {
-		dbUsersMap[user.UserName] = user
+		dbUsersMap[user.Username] = &user
 	}
 
 	filters := logic.GetServerSettings().UserFilters
@@ -151,8 +153,10 @@ func syncUsers(idpUsers []idp.User) error {
 	for _, user := range idpUsers {
 		if user.AccountArchived {
 			// delete the user if it has been archived.
-			user := dbUsersMap[user.Username]
-			_ = deleteAndCleanUpUser(&user)
+			user, ok := dbUsersMap[user.Username]
+			if ok {
+				_ = deleteAndCleanUpUser(user)
+			}
 			continue
 		}
 
@@ -172,14 +176,14 @@ func syncUsers(idpUsers []idp.User) error {
 		dbUser, ok := dbUsersMap[user.Username]
 		if !ok {
 			// create the user only if it doesn't exist.
-			err = logic.CreateUser(&models.User{
-				UserName:                   user.Username,
+			err = logic.CreateUser(&schema.User{
+				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
 				DisplayName:                user.DisplayName,
 				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
-				AuthType:                   models.OAuth,
-				PlatformRoleID:             models.ServiceUser,
+				AuthType:                   schema.OAuth,
+				PlatformRoleID:             schema.ServiceUser,
 			})
 			if err != nil {
 				return err
@@ -191,7 +195,7 @@ func syncUsers(idpUsers []idp.User) error {
 			// created. Now, since the user is created, the pending user
 			// can be deleted.
 			_ = logic.DeletePendingUser(user.Username)
-		} else if dbUser.AuthType == models.OAuth {
+		} else if dbUser.AuthType == schema.OAuth {
 			if dbUser.AccountDisabled != user.AccountDisabled ||
 				dbUser.DisplayName != user.DisplayName ||
 				dbUser.ExternalIdentityProviderID != user.ID {
@@ -200,7 +204,7 @@ func syncUsers(idpUsers []idp.User) error {
 				dbUser.DisplayName = user.DisplayName
 				dbUser.ExternalIdentityProviderID = user.ID
 
-				err = logic.UpsertUser(dbUser)
+				err = logic.UpsertUser(*dbUser)
 				if err != nil {
 					return err
 				}
@@ -213,10 +217,10 @@ func syncUsers(idpUsers []idp.User) error {
 
 	for _, user := range dbUsersMap {
 		if user.ExternalIdentityProviderID != "" {
-			if _, ok := idpUsersMap[user.UserName]; !ok {
+			if _, ok := idpUsersMap[user.Username]; !ok {
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
-				err = deleteAndCleanUpUser(&user)
+				err = deleteAndCleanUpUser(user)
 				if err != nil {
 					return err
 				}
@@ -228,13 +232,13 @@ func syncUsers(idpUsers []idp.User) error {
 }
 
 func syncGroups(idpGroups []idp.Group) error {
-	dbGroups, err := proLogic.ListUserGroups()
-	if err != nil && !database.IsEmptyRecord(err) {
+	dbGroups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return err
 	}
 
-	dbUsers, err := logic.GetUsersDB()
-	if err != nil && !database.IsEmptyRecord(err) {
+	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return err
 	}
 
@@ -243,17 +247,17 @@ func syncGroups(idpGroups []idp.Group) error {
 		idpGroupsMap[group.ID] = struct{}{}
 	}
 
-	dbGroupsMap := make(map[string]models.UserGroup)
+	dbGroupsMap := make(map[string]schema.UserGroup)
 	for _, group := range dbGroups {
 		if group.ExternalIdentityProviderID != "" {
 			dbGroupsMap[group.ExternalIdentityProviderID] = group
 		}
 	}
 
-	dbUsersMap := make(map[string]models.User)
+	dbUsersMap := make(map[string]*schema.User)
 	for _, user := range dbUsers {
 		if user.ExternalIdentityProviderID != "" {
-			dbUsersMap[user.ExternalIdentityProviderID] = user
+			dbUsersMap[user.ExternalIdentityProviderID] = &user
 		}
 	}
 
@@ -261,7 +265,7 @@ func syncGroups(idpGroups []idp.Group) error {
 
 	filters := logic.GetServerSettings().GroupFilters
 
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -269,7 +273,7 @@ func syncGroups(idpGroups []idp.Group) error {
 	var aclsUpdated bool
 	var acls []models.Acl
 	for _, network := range networks {
-		aclID := fmt.Sprintf("%s.%s-grp", network.NetID, models.NetworkUser)
+		aclID := fmt.Sprintf("%s.%s-grp", network.Name, schema.NetworkUser)
 		acl, err := logic.GetAcl(aclID)
 		if err == nil {
 			acls = append(acls, acl)
@@ -295,7 +299,7 @@ func syncGroups(idpGroups []idp.Group) error {
 			dbGroup.ExternalIdentityProviderID = group.ID
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
-			dbGroup.NetworkRoles = map[models.NetworkID]map[models.UserRoleID]struct{}{}
+			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{})
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
@@ -323,27 +327,30 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		for _, user := range dbUsers {
 			// use dbGroup.Name because the group name may have been changed on idp.
-			_, inNetmakerGroup := user.UserGroups[dbGroup.ID]
+			_, inNetmakerGroup := user.UserGroups.Data()[dbGroup.ID]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, dbGroup.ID)
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data(), dbGroup.ID)
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[dbGroup.ID] = struct{}{}
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data()[dbGroup.ID] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
 	}
 
 	for userID := range modifiedUsers {
-		err = logic.UpsertUser(dbUsersMap[userID])
-		if err != nil {
-			return err
+		user, ok := dbUsersMap[userID]
+		if ok {
+			err = logic.UpsertUser(*user)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -456,8 +463,8 @@ func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Gro
 // TODO: deduplicate
 // The cyclic import between the package logic and mq requires this
 // function to be duplicated in multiple places.
-func deleteAndCleanUpUser(user *models.User) error {
-	err := logic.DeleteUser(user.UserName)
+func deleteAndCleanUpUser(user *schema.User) error {
+	err := logic.DeleteUser(user.Username)
 	if err != nil {
 		return err
 	}
@@ -469,7 +476,7 @@ func deleteAndCleanUpUser(user *models.User) error {
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName {
+			if extclient.OwnerID == user.Username {
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err == nil {
 					_ = mq.PublishDeletedClientPeerUpdate(&extclient)
@@ -477,7 +484,7 @@ func deleteAndCleanUpUser(user *models.User) error {
 			}
 		}
 
-		go logic.DeleteUserInvite(user.UserName)
+		go logic.DeleteUserInvite(user.Username)
 		go mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			go logic.SetDNS()

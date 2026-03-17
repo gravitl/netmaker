@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -14,11 +13,11 @@ type JITApprovedMail struct {
 	BodyBuilder EmailBodyBuilder
 	Grant       *schema.JITGrant
 	Request     *schema.JITRequest
-	Network     models.Network
+	Network     *schema.Network
 }
 
 // SendJITApprovalEmail - sends email notification to user when JIT request is approved
-func SendJITApprovalEmail(grant *schema.JITGrant, request *schema.JITRequest, network models.Network) error {
+func SendJITApprovalEmail(grant *schema.JITGrant, request *schema.JITRequest, network *schema.Network) error {
 	mail := JITApprovedMail{
 		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
 		Grant:       grant,
@@ -40,17 +39,17 @@ func SendJITApprovalEmail(grant *schema.JITGrant, request *schema.JITRequest, ne
 
 // GetSubject - gets the subject of the email
 func (mail JITApprovedMail) GetSubject(info Notification) string {
-	return fmt.Sprintf("JIT Access Approved: %s", mail.Network.NetID)
+	return fmt.Sprintf("JIT Access Approved: %s", mail.Network.Name)
 }
 
 // GetBody - gets the body of the email
 func (mail JITApprovedMail) GetBody(info Notification) string {
 	content := mail.BodyBuilder.
 		WithHeadline("JIT Access Approved").
-		WithParagraph(fmt.Sprintf("Your request for Just-In-Time access to network <strong>%s</strong> has been approved.", mail.Network.NetID)).
+		WithParagraph(fmt.Sprintf("Your request for Just-In-Time access to network <strong>%s</strong> has been approved.", mail.Network.Name)).
 		WithParagraph("Access Details:").
 		WithHtml("<ul>").
-		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
+		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.Name)).
 		WithHtml(fmt.Sprintf("<li><strong>Granted At:</strong> %s</li>", formatUTCTime(mail.Grant.GrantedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Expires At:</strong> %s</li>", formatUTCTime(mail.Grant.ExpiresAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Approved By:</strong> %s</li>", mail.Request.ApprovedBy)).

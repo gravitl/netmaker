@@ -59,7 +59,7 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Time, tokenID string) (response string, err error) {
+func CreateUserAccessJwtToken(username string, role schema.UserRoleID, d time.Time, tokenID string) (response string, err error) {
 	claims := &models.UserClaims{
 		UserName:  username,
 		Role:      role,
@@ -83,7 +83,7 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, role models.UserRoleID, appName string) (response string, err error) {
+func CreateUserJWT(username string, role schema.UserRoleID, appName string) (response string, err error) {
 	duration := GetJwtValidityDuration()
 	if appName == NetclientApp || appName == NetmakerDesktopApp {
 		duration = GetJwtValidityDurationForClients()
@@ -187,14 +187,14 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	}
 
 	if token != nil && token.Valid {
-		var user *models.User
 		// check that user exists
-		user, err = GetUser(claims.UserName)
+		user := &schema.User{Username: claims.UserName}
+		err = user.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return "", err
 		}
-		if user.UserName != "" {
-			return user.UserName, nil
+		if user.Username != "" {
+			return user.Username, nil
 		}
 		if user.PlatformRoleID != claims.Role {
 			return "", Unauthorized_Err
@@ -232,15 +232,15 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		}
 	}
 	if token != nil && token.Valid {
-		var user *models.User
 		// check that user exists
-		user, err = GetUser(claims.UserName)
+		user := &schema.User{Username: claims.UserName}
+		err = user.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return "", false, false, err
 		}
-		if user.UserName != "" {
-			return user.UserName, user.PlatformRoleID == models.SuperAdminRole,
-				user.PlatformRoleID == models.AdminRole, nil
+		if user.Username != "" {
+			return user.Username, user.PlatformRoleID == schema.SuperAdminRole,
+				user.PlatformRoleID == schema.AdminRole, nil
 		}
 		err = errors.New("user does not exist")
 	}

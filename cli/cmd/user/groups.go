@@ -35,7 +35,7 @@ var userGroupListCmd = &cobra.Command{
 			for _, d := range data {
 
 				roleInfoStr := ""
-				for netID, netRoleMap := range d.NetworkRoles {
+				for netID, netRoleMap := range d.NetworkRoles.Data() {
 					roleList := []string{}
 					for roleID := range netRoleMap {
 						roleList = append(roleList, roleID.String())
@@ -88,7 +88,7 @@ var userGroupGetCmd = &cobra.Command{
 			h := []string{"ID", "MetaData", "Network Roles"}
 			table.SetHeader(h)
 			roleInfoStr := ""
-			for netID, netRoleMap := range data.NetworkRoles {
+			for netID, netRoleMap := range data.NetworkRoles.Data() {
 				roleList := []string{}
 				for roleID := range netRoleMap {
 					roleList = append(roleList, roleID.String())

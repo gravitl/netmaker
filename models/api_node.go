@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -69,7 +70,7 @@ type ApiNode struct {
 	Location                          string              `json:"location"`
 	Country                           string              `json:"country"`
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
-	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	PostureCheckVolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
 	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
 }
 

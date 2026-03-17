@@ -1,10 +1,14 @@
 package logic
 
 import (
+	"context"
+
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -56,7 +60,8 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-	network, err := logic.GetNetwork(ec.Network)
+	network := &schema.Network{Name: ec.Network}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

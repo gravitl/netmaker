@@ -70,7 +70,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 		req.Domain = ""
 	}
-	network, err := logic.GetNetwork(req.Network)
+	network := &schema.Network{Name: req.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -91,7 +92,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -121,20 +122,20 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 	})
 	// for nodeID := range e.Nodes {
 	// 	node, err := logic.GetNodeByID(nodeID)
@@ -151,8 +152,11 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				host, _ := logic.GetHost(node.HostID.String())
-				if host == nil {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err = host.Get(r.Context())
+				if err != nil {
 					continue
 				}
 				mq.HostUpdate(&models.HostUpdate{
@@ -227,7 +231,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	network, err := logic.GetNetwork(req.Network)
+	network := &schema.Network{Name: req.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -271,8 +276,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 	// Update mode and NAT before calling AssignVirtualRangeToEgress
 	// This ensures the function sees the new values
-	if req.Mode != models.VirtualNAT || !req.Nat {
-		e.Mode = models.DirectNAT
+	if req.Mode != schema.VirtualNAT || !req.Nat {
+		e.Mode = schema.DirectNAT
 		if !req.Nat {
 			e.Mode = ""
 		}
@@ -284,8 +289,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		e.Nat = req.Nat
 		// Assign virtual range if switching to virtual NAT mode from a different mode,
 		// or if already in virtual NAT mode but virtual range is empty
-		if (oldMode != models.VirtualNAT) || (e.VirtualRange == "") {
-			if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
+			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
@@ -293,23 +298,23 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	event := &models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
 		Diff: models.Diff{
 			Old: e,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
@@ -374,8 +379,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				host, _ := logic.GetHost(node.HostID.String())
-				if host == nil {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err = host.Get(r.Context())
+				if err != nil {
 					continue
 				}
 				mq.HostUpdate(&models.HostUpdate{
@@ -426,20 +434,20 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   e.ID,
 			Name: e.Name,
-			Type: models.EgressSub,
+			Type: schema.EgressSub,
 		},
-		NetworkID: models.NetworkID(e.Network),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(e.Network),
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: e,
 			New: nil,

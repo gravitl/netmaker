@@ -92,20 +92,20 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   pc.ID,
 			Name: pc.Name,
-			Type: models.PostureCheckSub,
+			Type: schema.PostureCheckSub,
 		},
-		NetworkID: models.NetworkID(pc.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(pc.NetworkID),
+		Origin:    schema.Dashboard,
 	})
 
 	go mq.PublishPeerUpdate(false)
@@ -131,7 +131,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
-	_, err := logic.GetNetwork(network)
+	err := (&schema.Network{Name: network}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network not found"), logic.BadReq))
 		return
@@ -151,7 +151,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
-	pc := schema.PostureCheck{NetworkID: models.NetworkID(network)}
+	pc := schema.PostureCheck{NetworkID: schema.NetworkID(network)}
 	list, err := pc.ListByNetwork(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -202,24 +202,24 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		updateStatus = true
 	}
 	event := &models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   pc.ID,
 			Name: updatePc.Name,
-			Type: models.PostureCheckSub,
+			Type: schema.PostureCheckSub,
 		},
 		Diff: models.Diff{
 			Old: pc,
 			New: updatePc,
 		},
-		NetworkID: models.NetworkID(pc.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(pc.NetworkID),
+		Origin:    schema.Dashboard,
 	}
 	pc.Tags = updatePc.Tags
 	pc.UserGroups = updatePc.UserGroups
@@ -278,20 +278,20 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   pc.ID,
 			Name: pc.Name,
-			Type: models.PostureCheckSub,
+			Type: schema.PostureCheckSub,
 		},
-		NetworkID: models.NetworkID(pc.NetworkID),
-		Origin:    models.Dashboard,
+		NetworkID: schema.NetworkID(pc.NetworkID),
+		Origin:    schema.Dashboard,
 		Diff: models.Diff{
 			Old: pc,
 			New: nil,
