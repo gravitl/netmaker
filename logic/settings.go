@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"context"
@@ -32,6 +33,8 @@ var (
 var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
+var serverSettingsCache atomic.Value
+
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
 	Theme:         models.Dark,
@@ -39,17 +42,37 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s models.ServerSettings) {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
-	if err != nil {
-		return
+	if cached, ok := serverSettingsCache.Load().(*models.ServerSettings); ok && cached != nil {
+		return *cached
 	}
-	json.Unmarshal([]byte(data), &s)
+	s, err := getServerSettingsFromDB()
+	if err == nil {
+		serverSettingsCache.Store(&s)
+	}
 	return
 }
 
+// InvalidateServerSettingsCache clears the in-memory settings cache so
+// the next GetServerSettings call re-reads from the database.
+func InvalidateServerSettingsCache() {
+	serverSettingsCache.Store((*models.ServerSettings)(nil))
+}
+
+func getServerSettingsFromDB() (models.ServerSettings, error) {
+	var s models.ServerSettings
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+	if err != nil {
+		return s, err
+	}
+	if err := json.Unmarshal([]byte(data), &s); err != nil {
+		return s, err
+	}
+	return s, nil
+}
+
 func UpsertServerSettings(s models.ServerSettings) error {
-	// get curr settings
-	currSettings := GetServerSettings()
+	// get curr settings from DB directly (not cache) for accurate comparison
+	currSettings, _ := getServerSettingsFromDB()
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -86,6 +109,10 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
 	if err != nil {
 		return err
+	}
+	serverSettingsCache.Store(&s)
+	if PublishServerSync != nil {
+		PublishServerSync(SyncTypeSettings)
 	}
 	return nil
 }
@@ -219,7 +246,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = servercfg.GetAllowedOrigin()
 	cfg.RestBackend = "off"
-	cfg.NodeID = servercfg.GetNodeID()
+	cfg.HostName = servercfg.GetHostName()
 	cfg.BrokerType = servercfg.GetBrokerType()
 	cfg.EmqxRestEndpoint = servercfg.GetEmqxRestEndpoint()
 	if settings.NetclientAutoUpdate {

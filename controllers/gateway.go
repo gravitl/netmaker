@@ -104,40 +104,14 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertHost(host)
 		}
 	}
-	for _, relayedNodeID := range relayNode.RelayedNodes {
-		relayedNode, err := logic.GetNodeByID(relayedNodeID)
-		if err == nil {
-			if relayedNode.FailedOverBy != uuid.Nil {
-				go logic.ResetFailedOverPeer(&relayedNode)
-			}
-			if len(relayedNode.AutoRelayedPeers) > 0 {
-				go logic.ResetAutoRelayedPeer(&relayedNode)
-			}
 
-		}
-	}
 	if len(req.InetNodeClientIDs) > 0 {
 		logic.SetInternetGw(&node, req.InetNodeReq)
-		if servercfg.IsPro {
-			if _, exists := logic.FailOverExists(node.Network); exists {
-				go func() {
-					logic.ResetFailedOverPeer(&node)
-					mq.PublishPeerUpdate(false)
-				}()
-			}
-
-			go func() {
-				logic.ResetAutoRelayedPeer(&node)
-				mq.PublishPeerUpdate(false)
-			}()
-
-		}
 		if node.IsGw && node.IngressDNS == "" {
 			node.IngressDNS = "1.1.1.1"
 		}
 		logic.UpsertNode(&node)
 	}
-
 	logger.Log(
 		1,
 		r.Header.Get("user"),
@@ -168,6 +142,18 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
+		for _, relayedNodeID := range relayNode.RelayedNodes {
+			relayedNode, err := logic.GetNodeByID(relayedNodeID)
+			if err == nil {
+				if relayedNode.FailedOverBy != uuid.Nil {
+					logic.ResetFailedOverPeer(&relayedNode)
+				}
+				if len(relayedNode.AutoRelayedPeers) > 0 {
+					logic.ResetAutoRelayedPeer(&relayedNode)
+				}
+			}
+		}
+		logic.ResetAutoRelayedPeer(&node)
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
@@ -352,12 +338,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		autoAssignGw = false
 	}
 	if autoAssignGw {
-		if node.FailedOverBy != uuid.Nil {
-			go logic.ResetFailedOverPeer(&node)
-		}
-		if len(node.AutoRelayedPeers) > 0 {
-			go logic.ResetAutoRelayedPeer(&node)
-		}
+
 		if node.RelayedBy != "" {
 			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
 			if err == nil {
@@ -384,6 +365,12 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.UpsertNode(&node)
 		logic.GetNodeStatus(&node, false)
 		go func() {
+			if node.FailedOverBy != uuid.Nil {
+				logic.ResetFailedOverPeer(&node)
+			}
+			if len(node.AutoRelayedPeers) > 0 {
+				logic.ResetAutoRelayedPeer(&node)
+			}
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
@@ -408,18 +395,16 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
 		return
 	}
-
-	if node.FailedOverBy != uuid.Nil {
-		go logic.ResetFailedOverPeer(&node)
-	}
-	if len(node.AutoRelayedPeers) > 0 {
-		go logic.ResetAutoRelayedPeer(&node)
-	}
 	newNodes := []string{node.ID.String()}
 	newNodes = append(newNodes, gatewayNode.RelayedNodes...)
 	newNodes = logic.UniqueStrings(newNodes)
 	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
 
+	node, err = logic.GetNodeByID(node.ID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	host := &schema.Host{
 		ID: node.HostID,
 	}
@@ -453,6 +438,13 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 
 	go func() {
+
+		if node.FailedOverBy != uuid.Nil {
+			logic.ResetFailedOverPeer(&node)
+		}
+		if len(node.AutoRelayedPeers) > 0 {
+			logic.ResetAutoRelayedPeer(&node)
+		}
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}

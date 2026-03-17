@@ -666,15 +666,19 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
+	ipChanged := currentNode.Address.String() != newNode.Address.String() ||
+		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
-		// if !newNode.Connected {
-		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
-		// }
+		if ipChanged {
+			if err := mq.HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: *host}); err != nil {
+				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
+			}
+		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)

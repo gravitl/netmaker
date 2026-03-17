@@ -47,7 +47,7 @@ type ServerConfig struct {
 	MasterKey                  string        `yaml:"masterkey"`
 	DNSKey                     string        `yaml:"dnskey"`
 	AllowedOrigin              string        `yaml:"allowedorigin"`
-	NodeID                     string        `yaml:"nodeid"`
+	HostName                   string        `yaml:"host_name"`
 	RestBackend                string        `yaml:"restbackend"`
 	MessageQueueBackend        string        `yaml:"messagequeuebackend"`
 	DNSMode                    string        `yaml:"dnsmode"`

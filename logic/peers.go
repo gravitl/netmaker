@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,16 +64,112 @@ var (
 	}
 )
 
-// GetHostPeerInfo - fetches required peer info per network
+var (
+	hostPeerInfoCache   map[string]models.HostPeerInfo
+	hostPeerInfoCacheMu sync.RWMutex
+)
+
+var (
+	hostPeerUpdateCache   map[string]models.HostPeerUpdate
+	hostPeerUpdateCacheMu sync.RWMutex
+)
+
+// InvalidateHostPeerCaches clears both hostPeerInfoCache and
+// hostPeerUpdateCache so they are rebuilt on next access or refresh.
+func InvalidateHostPeerCaches() {
+	hostPeerInfoCacheMu.Lock()
+	hostPeerInfoCache = nil
+	hostPeerInfoCacheMu.Unlock()
+
+	hostPeerUpdateCacheMu.Lock()
+	hostPeerUpdateCache = nil
+	hostPeerUpdateCacheMu.Unlock()
+}
+
+// StoreHostPeerUpdate - caches a computed HostPeerUpdate for a host.
+// Called as a side-effect of PublishSingleHostPeerUpdate during broadcast.
+func StoreHostPeerUpdate(hostID string, peerUpdate models.HostPeerUpdate) {
+	hostPeerUpdateCacheMu.Lock()
+	if hostPeerUpdateCache == nil {
+		hostPeerUpdateCache = make(map[string]models.HostPeerUpdate)
+	}
+	hostPeerUpdateCache[hostID] = peerUpdate
+	hostPeerUpdateCacheMu.Unlock()
+}
+
+// GetCachedHostPeerUpdate - returns a cached HostPeerUpdate if available.
+func GetCachedHostPeerUpdate(hostID string) (models.HostPeerUpdate, bool) {
+	hostPeerUpdateCacheMu.RLock()
+	defer hostPeerUpdateCacheMu.RUnlock()
+	if hostPeerUpdateCache == nil {
+		return models.HostPeerUpdate{}, false
+	}
+	hpu, ok := hostPeerUpdateCache[hostID]
+	return hpu, ok
+}
+
+// GetHostPeerInfo - returns cached peer info for a host.
+// Falls back to on-demand computation if the cache is not yet populated.
 func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
-	peerInfo := models.HostPeerInfo{
-		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
+	hostID := host.ID.String()
+	hostPeerInfoCacheMu.RLock()
+	if hostPeerInfoCache != nil {
+		if info, ok := hostPeerInfoCache[hostID]; ok {
+			hostPeerInfoCacheMu.RUnlock()
+			return info, nil
+		}
+	}
+	hostPeerInfoCacheMu.RUnlock()
+	return computeHostPeerInfo(host, nil, models.ServerConfig{})
+}
+
+// RefreshHostPeerInfoCache - batch pre-computes peer info for all hosts
+// and stores the results in the cache. Returns the fetched hosts and
+// nodes so callers can reuse them without redundant DB queries.
+func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		slog.Error("failed to refresh host peer info cache", "error", err)
+		return nil, nil
 	}
 	allNodes, err := GetAllNodes()
 	if err != nil {
-		return peerInfo, err
+		slog.Error("failed to refresh host peer info cache", "error", err)
+		return nil, nil
 	}
 	serverInfo := GetServerInfo()
+
+	newCache := make(map[string]models.HostPeerInfo, len(hosts))
+	for i := range hosts {
+		info, err := computeHostPeerInfo(&hosts[i], allNodes, serverInfo)
+		if err != nil {
+			continue
+		}
+		newCache[hosts[i].ID.String()] = info
+	}
+
+	hostPeerInfoCacheMu.Lock()
+	hostPeerInfoCache = newCache
+	hostPeerInfoCacheMu.Unlock()
+	return hosts, allNodes
+}
+
+// computeHostPeerInfo - computes peer info for a single host.
+// If allNodes is nil or serverInfo is zero-value, fetches them fresh.
+func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo models.ServerConfig) (models.HostPeerInfo, error) {
+	peerInfo := models.HostPeerInfo{
+		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
+	}
+	var err error
+	if allNodes == nil {
+		allNodes, err = GetAllNodes()
+		if err != nil {
+			return peerInfo, err
+		}
+	}
+	if serverInfo.Server == "" {
+		serverInfo = GetServerInfo()
+	}
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
@@ -90,7 +187,6 @@ func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				// skip yourself
 				continue
 			}
 

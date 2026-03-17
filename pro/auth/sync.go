@@ -30,6 +30,13 @@ var (
 )
 
 func ResetIDPSyncHook() {
+	if !servercfg.IsMasterPod() {
+		if servercfg.IsHA() && logic.PublishServerSync != nil {
+			logic.PublishServerSync(logic.SyncTypeIDPSync)
+		}
+		return
+	}
+
 	if cancelSyncHook != nil {
 		cancelSyncHook()
 		hookStopWg.Wait()

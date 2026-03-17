@@ -54,12 +54,12 @@ func TraceCaller() {
 	// Skip 1 frame to get the caller of this function
 	pc, file, line, ok := runtime.Caller(2)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	tracePc, _, _, ok := runtime.Caller(1)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	traceFuncName := runtime.FuncForPC(tracePc).Name()

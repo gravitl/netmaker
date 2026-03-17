@@ -160,6 +160,9 @@ func FailOverExists(network string) (failOverNode models.Node, exists bool) {
 
 // ResetFailedOverPeer - removes failed over node from network peers
 func ResetFailedOverPeer(failedOveredNode *models.Node) error {
+	if failedOveredNode.FailedOverBy == uuid.Nil && len(failedOveredNode.FailOverPeers) == 0 {
+		return nil
+	}
 	nodes, err := logic.GetNetworkNodes(failedOveredNode.Network)
 	if err != nil {
 		return err
@@ -170,11 +173,15 @@ func ResetFailedOverPeer(failedOveredNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	nodeIDStr := failedOveredNode.ID.String()
 	for _, node := range nodes {
 		if node.FailOverPeers == nil || node.ID == failedOveredNode.ID {
 			continue
 		}
-		delete(node.FailOverPeers, failedOveredNode.ID.String())
+		if _, exists := node.FailOverPeers[nodeIDStr]; !exists {
+			continue
+		}
+		delete(node.FailOverPeers, nodeIDStr)
 		logic.UpsertNode(&node)
 	}
 	return nil

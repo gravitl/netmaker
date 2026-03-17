@@ -2,7 +2,6 @@ package mq
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -12,6 +11,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/klauspost/compress/gzip"
 	"golang.org/x/exp/slog"
 )
 
@@ -75,14 +76,41 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 	return batches
 }
 
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
+		return w
+	},
+}
+
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
+
 func compressPayload(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(buf)
+	defer func() {
+		zw.Reset(io.Discard)
+		gzipWriterPool.Put(zw)
+	}()
+
 	if _, err := zw.Write(data); err != nil {
 		return nil, err
 	}
-	zw.Close()
-	return buf.Bytes(), nil
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
 func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	// Create AES block cipher
@@ -161,19 +189,35 @@ func publish(host *schema.Host, dest string, msg []byte) error {
 		}
 	}
 
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
-		return errors.New("cannot publish ... mqclient not connected")
-	}
-
-	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connection timeout")
-		} else {
-			slog.Error("publish to mq error", "error", token.Error().Error())
-			err = token.Error()
+	for attempt := 0; attempt < 2; attempt++ {
+		if mqclient == nil || !mqclient.IsConnectionOpen() {
+			ok := false
+			for i := 0; i < 5; i++ {
+				time.Sleep(time.Second)
+				if mqclient != nil && mqclient.IsConnectionOpen() {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return errors.New("cannot publish ... mqclient not connected")
+			}
 		}
-		return err
+
+		token := mqclient.Publish(dest, 0, true, encrypted)
+		if token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() == nil {
+			return nil
+		}
+		if attempt == 0 {
+			slog.Warn("publish failed, retrying after reconnect", "dest", dest)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if token.Error() != nil {
+			slog.Error("publish to mq error", "error", token.Error().Error())
+			return token.Error()
+		}
+		return errors.New("connection timeout")
 	}
 	return nil
 }

@@ -160,23 +160,56 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 	return nodes
 }
 
-// UpdateNodeCheckin - updates the checkin time of a node
+var (
+	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckinsMu sync.Mutex
+)
+
+// UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
+// The actual DB write is deferred to FlushNodeCheckins (every 30s).
+// When caching is disabled (HA mode), writes directly to the DB.
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()
+	node.EgressDetails = models.EgressDetails{}
+	if servercfg.CacheEnabled() {
+		pendingCheckinsMu.Lock()
+		pendingCheckins[node.ID.String()] = *node
+		pendingCheckinsMu.Unlock()
+		storeNodeInCache(*node)
+		storeNodeInNetworkCache(*node, node.Network)
+		return nil
+	}
 	data, err := json.Marshal(node)
 	if err != nil {
 		return err
 	}
-	node.EgressDetails = models.EgressDetails{}
-	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
+	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+}
+
+// FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
+// Called periodically (e.g., every 30s) to avoid per-checkin write lock contention.
+func FlushNodeCheckins() {
+	pendingCheckinsMu.Lock()
+	batch := pendingCheckins
+	pendingCheckins = make(map[string]models.Node)
+	pendingCheckinsMu.Unlock()
+	if len(batch) == 0 {
+		return
 	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
+	var failed int
+	for id, node := range batch {
+		data, err := json.Marshal(node)
+		if err != nil {
+			failed++
+			continue
+		}
+		if err := database.Insert(id, string(data), database.NODES_TABLE_NAME); err != nil {
+			failed++
+		}
 	}
-	return nil
+	if failed > 0 {
+		slog.Error("FlushNodeCheckins: failed to persist checkins", "failed", failed, "total", len(batch))
+	}
 }
 
 // UpsertNode - updates node in the DB
@@ -238,15 +271,13 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			if servercfg.CacheEnabled() {
 				storeNodeInCache(*newNode)
 				storeNodeInNetworkCache(*newNode, newNode.Network)
-				if _, ok := allocatedIpMap[newNode.Network]; ok {
-					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-					}
-					if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-					}
+				if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
+				}
+				if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
 				}
 			}
 			return nil
@@ -765,13 +796,11 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
-		if _, ok := allocatedIpMap[node.Network]; ok {
-			if node.Address.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-			}
-			if node.Address6.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-			}
+		if node.Address.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		}
+		if node.Address6.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
 		}
 	}
 

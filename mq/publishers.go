@@ -1,14 +1,19 @@
 package mq
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -18,8 +23,103 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
+var (
+	peerUpdateSignal  = make(chan struct{}, 1)
+	peerUpdateReplace atomic.Bool
+)
+
+const (
+	peerUpdateDebounce     = 500 * time.Millisecond
+	peerUpdateMaxWait      = 3 * time.Second
+	maxConcurrentPublishes = 5
+)
+
+var metricsHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+// PublishPeerUpdate --- queues a peer update that will be coalesced with other
+// rapid-fire updates via a debounce window (500ms) capped by a max-wait (3s).
 func PublishPeerUpdate(replacePeers bool) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	if replacePeers {
+		peerUpdateReplace.Store(true)
+	}
+	select {
+	case peerUpdateSignal <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+// StartPeerUpdateWorker --- runs a background goroutine that coalesces peer
+// update signals using a resettable debounce timer capped by an absolute
+// max-wait deadline. This ensures rapid-fire PublishPeerUpdate calls result
+// in a single broadcast, while guaranteeing peers never wait longer than
+// peerUpdateMaxWait from the first signal.
+func StartPeerUpdateWorker(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-peerUpdateSignal:
+				maxWait := time.After(peerUpdateMaxWait)
+				debounce := time.After(peerUpdateDebounce)
+			wait:
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-maxWait:
+						break wait
+					case <-debounce:
+						break wait
+					case <-peerUpdateSignal:
+						debounce = time.After(peerUpdateDebounce)
+					}
+				}
+				replacePeers := peerUpdateReplace.Swap(false)
+			drain:
+				for {
+					select {
+					case <-peerUpdateSignal:
+					default:
+						break drain
+					}
+				}
+				logic.RefreshHostPeerInfoCache()
+				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
+					slog.Error("error publishing peer update", "error", err)
+				} else {
+					publishServerSync(logic.SyncTypePeerUpdate)
+				}
+			}
+		}
+	}()
+}
+
+// warmPeerCaches pre-computes HostPeerInfo and HostPeerUpdate caches so that
+// pull requests arriving before the first debounced broadcast are served
+// instantly from cache instead of triggering expensive on-demand computation.
+func warmPeerCaches() {
+	hosts, allNodes := logic.RefreshHostPeerInfoCache()
+	if hosts == nil || allNodes == nil {
+		return
+	}
+	for i := range hosts {
+		peerUpdate, err := logic.GetPeerUpdateForHost("", &hosts[i], allNodes, nil, nil)
+		if err != nil {
+			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
+			continue
+		}
+		logic.StoreHostPeerUpdate(hosts[i].ID.String(), peerUpdate)
+	}
+	slog.Info("peer update caches warmed", "hosts", len(hosts))
+}
+
+// publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts
+func publishPeerUpdateImmediate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -38,11 +138,15 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return err
 	}
 
+	sem := make(chan struct{}, maxConcurrentPublishes)
+	var wg sync.WaitGroup
 	for _, host := range hosts {
 		host := host
-		time.Sleep(5 * time.Millisecond)
+		sem <- struct{}{}
+		wg.Add(1)
 		go func(host schema.Host) {
-			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+			defer func() { <-sem; wg.Done() }()
+			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -51,6 +155,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 			}
 		}(host)
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -130,6 +235,9 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
+	if deletedNode == nil && len(deletedClients) == 0 {
+		logic.StoreHostPeerUpdate(host.ID.String(), peerUpdate)
+	}
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
@@ -219,25 +327,66 @@ func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 
 }
 
-func PushMetricsToExporter(metrics models.Metrics) error {
-	logger.Log(2, "----> Pushing metrics to exporter")
-	data, err := json.Marshal(metrics)
+// PushAllMetricsToExporter fetches all node metrics from the database
+// and POSTs them as a batch to the exporter's HTTP API.
+// Called periodically by a ticker instead of on every individual metrics MQTT message.
+func PushAllMetricsToExporter() {
+	if !servercfg.IsMetricsExporter() {
+		return
+	}
+	baseURL := servercfg.GetMetricsExporterURL()
+	healthResp, err := metricsHTTPClient.Get(baseURL + "/api/health")
 	if err != nil {
-		return errors.New("failed to marshal metrics: " + err.Error())
+		slog.Warn("metrics export: exporter not reachable, skipping", "error", err)
+		return
 	}
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
-		return errors.New("cannot publish ... mqclient not connected")
+	healthResp.Body.Close()
+	if healthResp.StatusCode != http.StatusOK {
+		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
+		return
 	}
-	if token := mqclient.Publish(fmt.Sprintf("metrics_exporter/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-		var err error
-		if token.Error() == nil {
-			err = errors.New("connection timeout")
-		} else {
-			err = token.Error()
+	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	if err != nil {
+		slog.Error("metrics export: failed to fetch records", "error", err)
+		return
+	}
+	batch := make([]models.Metrics, 0, len(records))
+	for _, data := range records {
+		var m models.Metrics
+		if err := json.Unmarshal([]byte(data), &m); err != nil {
+			continue
 		}
-		return err
+		batch = append(batch, m)
 	}
-	return nil
+	if len(batch) == 0 {
+		return
+	}
+	body, err := json.Marshal(batch)
+	if err != nil {
+		slog.Error("metrics export: failed to marshal batch", "error", err)
+		return
+	}
+	url := baseURL + "/api/v1/metrics"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		slog.Error("metrics export: failed to create request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	metricsUser := os.Getenv("METRICS_USERNAME")
+	if metricsUser == "" {
+		metricsUser = "netmaker"
+	}
+	req.SetBasicAuth(metricsUser, os.Getenv("METRICS_SECRET"))
+	resp, err := metricsHTTPClient.Do(req)
+	if err != nil {
+		slog.Error("metrics export: POST failed", "url", url, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("metrics export: unexpected status", "url", url, "status", resp.StatusCode)
+	}
 }
 
 // sendPeers - retrieve networks, send peer ports to all peers
@@ -246,9 +395,12 @@ func sendPeers() {
 	if peer_force_send == 5 {
 		servercfg.SetHost()
 		peer_force_send = 0
-		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
-		if err != nil {
-			logger.Log(3, "error occurred on timer,", err.Error())
+		// Only run timer checkpoint on master pod in HA setup
+		if servercfg.IsMasterPod() {
+			err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
+			if err != nil {
+				logger.Log(3, "error occurred on timer,", err.Error())
+			}
 		}
 	}
 }

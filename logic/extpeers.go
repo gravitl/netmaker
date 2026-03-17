@@ -420,13 +420,11 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
-		if _, ok := allocatedIpMap[extclient.Network]; ok {
-			if extclient.Address != "" {
-				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
-			}
-			if extclient.Address6 != "" {
-				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
-			}
+		if extclient.Address != "" {
+			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+		}
+		if extclient.Address6 != "" {
+			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
 		}
 	}
 

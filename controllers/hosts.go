@@ -301,43 +301,34 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendPeerUpdate := false
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			//slog.Error("failed to get node:", "id", node.ID, "error", err)
-			continue
-		}
-		if r.URL.Query().Get("reset_failovered") == "true" {
+	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
+	if resetFailovered {
+		for _, nodeID := range host.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
 			logic.ResetFailedOverPeer(&node)
 			logic.ResetAutoRelayedPeer(&node)
-			sendPeerUpdate = true
 		}
-	}
-	if sendPeerUpdate {
-		if err := mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
-	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logger.Log(0, "failed to get nodes: ", hostIDStr)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
-	if err != nil {
-		logger.Log(0, "could not pull peers for host", hostIDStr, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+		go mq.PublishPeerUpdate(false)
 	}
 
-	portChanged := logic.CheckHostPorts(host)
-	if portChanged {
-		// Save the port change to database immediately to prevent conflicts
-		if err := logic.UpsertHost(host); err != nil {
-			slog.Error("failed to save host port change", "host", host.Name, "error", err)
+	hPU, ok := logic.GetCachedHostPeerUpdate(hostID.String())
+	if !ok || resetFailovered {
+		allNodes, err := logic.GetAllNodes()
+		if err != nil {
+			logger.Log(0, "failed to get nodes: ", hostID.String())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
 		}
+		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+		if err != nil {
+			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		logic.StoreHostPeerUpdate(hostID.String(), hPU)
 	}
 
 	response := models.HostPull{
@@ -515,10 +506,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
-		changed := logic.CheckHostPorts(currentHost)
-		if changed {
-			mq.HostUpdate(&models.HostUpdate{Action: models.UpdateHost, Host: *currentHost})
-		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
