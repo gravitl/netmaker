@@ -79,6 +79,7 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						debounce = time.After(peerUpdateDebounce)
 					}
 				}
+				replacePeers := peerUpdateReplace.Swap(false)
 			drain:
 				for {
 					select {
@@ -87,7 +88,6 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						break drain
 					}
 				}
-				replacePeers := peerUpdateReplace.Swap(false)
 				logic.RefreshHostPeerInfoCache()
 				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
 					slog.Error("error publishing peer update", "error", err)
