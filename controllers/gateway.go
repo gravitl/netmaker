@@ -385,6 +385,11 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 	newNodes = logic.UniqueStrings(newNodes)
 	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
 
+	node, err = logic.GetNodeByID(node.ID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
