@@ -864,6 +864,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 	if err != nil {
 		logger.Log(0, fmt.Sprintf("failed to %s user account: %v", action, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 
 	go func() {
@@ -1033,29 +1034,21 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 func listUsers(w http.ResponseWriter, r *http.Request) {
 	var accountStatusFilter, mfaStatusFilter, roleFilter, authTypeFilter []interface{}
 	for _, filter := range r.URL.Query()["account_status"] {
-		var value bool
-		if filter == "enabled" {
-			value = false
+		switch filter {
+		case "enabled":
+			accountStatusFilter = append(accountStatusFilter, false)
+		case "disabled":
+			accountStatusFilter = append(accountStatusFilter, true)
 		}
-
-		if filter == "disabled" {
-			value = true
-		}
-
-		accountStatusFilter = append(accountStatusFilter, value)
 	}
 
 	for _, filter := range r.URL.Query()["mfa_status"] {
-		var value bool
-		if filter == "enabled" {
-			value = true
+		switch filter {
+		case "enabled":
+			mfaStatusFilter = append(mfaStatusFilter, true)
+		case "disabled":
+			mfaStatusFilter = append(mfaStatusFilter, false)
 		}
-
-		if filter == "disabled" {
-			value = false
-		}
-
-		mfaStatusFilter = append(mfaStatusFilter, value)
 	}
 
 	for _, filter := range r.URL.Query()["role"] {
