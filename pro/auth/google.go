@@ -3,20 +3,22 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"gorm.io/gorm"
 )
 
 var google_functions = map[string]interface{}{
@@ -93,9 +95,10 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(content.Email)
+	user := &schema.User{Username: content.Email}
+	err = user.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
@@ -108,7 +111,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.UserName)
+				logic.DeleteUserInvite(user.Username)
 				logic.DeletePendingUser(content.Email)
 			} else {
 				if !isEmailAllowed(content.Email) {
@@ -118,7 +121,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				err = logic.InsertPendingUser(&models.User{
 					UserName:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-					AuthType:                   models.OAuth,
+					AuthType:                   schema.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -135,14 +138,15 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// if user exists, then ensure user's auth type is
 		// oauth before proceeding.
-		if user.AuthType == models.BasicAuth {
+		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
 			handleAuthTypeMismatch(w)
 			return
 		}
 	}
 
-	user, err = logic.GetUser(content.Email)
+	user = &schema.User{Username: content.Email}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
@@ -154,7 +158,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return
@@ -180,20 +185,20 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: models.Login,
+		Action: schema.Login,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
-			Type: models.UserSub,
+			ID:   user.Username,
+			Name: user.Username,
+			Type: schema.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   models.DashboardSub.String(),
-			Name: models.DashboardSub.String(),
-			Type: models.DashboardSub,
-			Info: user,
+			ID:   schema.DashboardSub.String(),
+			Name: schema.DashboardSub.String(),
+			Type: schema.DashboardSub,
+			Info: logic.ToReturnUser(user),
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 
 	logger.Log(1, "completed google OAuth sigin in for", content.Email)

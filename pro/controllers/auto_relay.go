@@ -65,7 +65,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	defaultPolicy, err := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := logic.GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -205,7 +205,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -243,7 +246,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
@@ -370,8 +373,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -532,7 +537,10 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -568,7 +576,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)

@@ -35,12 +35,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestCheckPorts(t *testing.T) {
-	h := models.Host{
+	h := schema.Host{
 		ID:         uuid.New(),
 		EndpointIP: net.ParseIP("192.168.1.1"),
 		ListenPort: 51821,
 	}
-	testHost := models.Host{
+	testHost := schema.Host{
 		ID:         uuid.New(),
 		EndpointIP: net.ParseIP("192.168.1.1"),
 		ListenPort: 51830,

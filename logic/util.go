@@ -2,10 +2,10 @@
 package logic
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -19,9 +19,9 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -57,23 +57,11 @@ func IsAddressInCIDR(address net.IP, cidr string) bool {
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
 func SetNetworkNodesLastModified(networkName string) error {
-
-	timestamp := time.Now().Unix()
-
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return err
+	_network := &schema.Network{
+		Name:           networkName,
+		NodesUpdatedAt: time.Now(),
 	}
-	network.NodesLastModified = timestamp
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(networkName, string(data), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
+	return _network.UpdateNodesUpdatedAt(db.WithContext(context.TODO()))
 }
 
 // RandomString - returns a random string in a charset
@@ -270,7 +258,7 @@ func GetClientIP(r *http.Request) string {
 }
 
 // CompareIfaceSlices compares two slices of Iface for deep equality (order-sensitive)
-func CompareIfaceSlices(a, b []models.Iface) bool {
+func CompareIfaceSlices(a, b []schema.Iface) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -281,7 +269,7 @@ func CompareIfaceSlices(a, b []models.Iface) bool {
 	}
 	return true
 }
-func compareIface(a, b models.Iface) bool {
+func compareIface(a, b schema.Iface) bool {
 	return a.Name == b.Name &&
 		a.Address.IP.Equal(b.Address.IP) &&
 		a.Address.Mask.String() == b.Address.Mask.String() &&

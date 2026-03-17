@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
@@ -27,7 +28,7 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).
+	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(createNetwork))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).
 		Methods(http.MethodGet)
@@ -52,26 +53,26 @@ func networkHandlers(r *mux.Router) {
 // @Tags        Networks
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.Network
+// @Success     200 {array} schema.Network
 // @Failure     500 {object} models.ErrorResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 
-	allnetworks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
+	if err != nil {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
-		user, err := logic.GetUser(username)
+		user := &schema.User{Username: username}
+		err = user.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
+		allnetworks = logic.FilterNetworksByRole(allnetworks, user)
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
@@ -90,32 +91,38 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 
 	var err error
-	allnetworks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
+	if err != nil {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
-		user, err := logic.GetUser(username)
+		user := &schema.User{Username: username}
+		err = user.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
+		allnetworks = logic.FilterNetworksByRole(allnetworks, user)
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	netstats := []models.NetworkStatResp{}
+	type networkStatResp struct {
+		Network *schema.Network
+		Hosts   int
+	}
+
+	var netstats []networkStatResp
 	logic.SortNetworks(allnetworks[:])
 	for _, network := range allnetworks {
-		netstats = append(netstats, models.NetworkStatResp{
-			Network: network,
-			Hosts:   len(logic.GetNetworkNodesMemory(allNodes, network.NetID)),
+		netstats = append(netstats, networkStatResp{
+			Network: &network,
+			Hosts:   len(logic.GetNetworkNodesMemory(allNodes, network.Name)),
 		})
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
@@ -128,7 +135,7 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       networkname path string true "Network name"
 // @Produce     json
-// @Success     200 {object} models.Network
+// @Success     200 {object} schema.Network
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +143,8 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	network, err := logic.GetNetwork(netname)
+	network := &schema.Network{Name: netname}
+	err := network.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to fetch network [%s] info: %v",
 			netname, err))
@@ -383,7 +391,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// update ingress gateways of associated clients
-		hosts, err := logic.GetAllHosts()
+		hosts, err := (&schema.Host{}).ListAll(r.Context())
 		if err != nil {
 			slog.Error(
 				"failed to fetch hosts after network ACL update. skipping publish extclients ACL",
@@ -392,7 +400,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		hostsMap := make(map[uuid.UUID]models.Host)
+		hostsMap := make(map[uuid.UUID]schema.Host)
 		for _, host := range hosts {
 			hostsMap[host.ID] = host
 		}
@@ -486,14 +494,14 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	netname := params["networkname"]
 	// check if network exists
-	_, err := logic.GetNetwork(netname)
+	err := (&schema.Network{Name: netname}).Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(schema.NetworkID(netname))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -538,8 +546,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteAllNetworkTags(models.NetworkID(network))
-	go logic.DeleteNetworkPolicies(models.NetworkID(network))
+	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
+	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
@@ -561,19 +569,19 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   network,
 			Name: network,
-			Type: models.NetworkSub,
+			Type: schema.NetworkSub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: network,
 			New: nil,
@@ -588,15 +596,15 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/networks [post]
 // @Tags        Networks
 // @Security    oauth
-// @Param       body body models.Network true "Network details"
+// @Param       body body schema.Network true "Network details"
 // @Produce     json
-// @Success     200 {object} models.Network
+// @Success     200 {object} schema.Network
 // @Failure     400 {object} models.ErrorResponse
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var network models.Network
+	var network schema.Network
 
 	// we decode our body request params
 	err := json.NewDecoder(r.Body).Decode(&network)
@@ -608,9 +616,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	featureFlags := logic.GetFeatureFlags()
 	if !featureFlags.EnableDeviceApproval {
-		network.AutoJoin = "true"
+		network.AutoJoin = true
 	}
-	if len(network.NetID) > 32 {
+	if len(network.Name) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
@@ -664,7 +672,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if network.AutoRemove == "true" {
+	if network.AutoRemove {
 		if network.AutoRemoveThreshold == 0 {
 			network.AutoRemoveThreshold = 60
 		}
@@ -672,23 +680,23 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if network.AutoRemoveTags == nil {
 		network.AutoRemoveTags = []string{}
 	}
-	network, err = logic.CreateNetwork(network)
+	err = logic.CreateNetwork(&network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
-	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
-	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-	logic.AddNetworkToAllocatedIpMap(network.NetID)
-	logic.CreateFallbackNameserver(network.NetID)
+	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
+	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
+	logic.CreateDefaultTags(schema.NetworkID(network.Name))
+	logic.AddNetworkToAllocatedIpMap(network.Name)
+	logic.CreateFallbackNameserver(network.Name)
 	if featureFlags.EnableOverlappingEgressRanges {
 		// assign virtual NAT pool fields
-		network.AssignVirtualNATDefaults(network.AddressRange, network.NetID)
+		logic.AssignVirtualNATDefaults(&network, network.AddressRange)
 		// Update network with virtual NAT settings
-		if err := logic.UpsertNetwork(network); err != nil {
+		if err := logic.UpsertNetwork(&network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
 		}
 	}
@@ -696,14 +704,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {
 			currHost := &defaultHosts[i]
-			newNode, err := logic.UpdateHostNetwork(currHost, network.NetID, true)
+			newNode, err := logic.UpdateHostNetwork(currHost, network.Name, true)
 			if err != nil {
 				logger.Log(
 					0,
 					r.Header.Get("user"),
 					"failed to add host to network:",
 					currHost.ID.String(),
-					network.NetID,
+					network.Name,
 					err.Error(),
 				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -721,7 +729,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 						r.Header.Get("user"),
 						"failed to add host to network:",
 						currHost.ID.String(),
-						network.NetID,
+						network.Name,
 						err.Error(),
 					)
 				}
@@ -736,7 +744,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 						r.Header.Get("user"),
 						"failed to add host to network:",
 						currHost.ID.String(),
-						network.NetID,
+						network.Name,
 						err.Error(),
 					)
 				}
@@ -745,10 +753,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			// make  host failover
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
-			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
+			logic.CreateIngressGateway(network.Name, newNode.ID.String(), models.IngressRequest{})
 			logic.CreateRelay(models.RelayRequest{
 				NodeID: newNode.ID.String(),
-				NetID:  network.NetID,
+				NetID:  network.Name,
 			})
 		}
 		// send peer updates
@@ -757,22 +765,22 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   network.NetID,
-			Name: network.NetID,
-			Type: models.NetworkSub,
+			ID:   network.Name,
+			Name: network.Name,
+			Type: schema.NetworkSub,
 			Info: network,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
-	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
+	logger.Log(1, r.Header.Get("user"), "created network", network.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
 }
@@ -782,15 +790,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Param       networkname path string true "Network name"
-// @Param       body body models.Network true "Network details"
+// @Param       body body schema.Network true "Network details"
 // @Produce     json
-// @Success     200 {object} models.Network
+// @Success     200 {object} schema.Network
 // @Failure     400 {object} models.ErrorResponse
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var payload models.Network
+	var payload schema.Network
 
 	// we decode our body request params
 	err := json.NewDecoder(r.Body).Decode(&payload)
@@ -800,20 +808,21 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	netOld, err := logic.GetNetwork(payload.NetID)
+	netOld := &schema.Network{Name: payload.Name}
+	err = netOld.Get(r.Context())
 	if err != nil {
 		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateNetwork(&netOld, &payload)
+	err = logic.UpdateNetwork(netOld, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	go mq.PublishPeerUpdate(false)
-	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
+	slog.Info("updated network", "network", payload.Name, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)
 }

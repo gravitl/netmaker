@@ -14,9 +14,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -126,7 +128,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 		sendDNSSync()
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -142,7 +144,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 		host := host
 		sem <- struct{}{}
 		wg.Add(1)
-		go func(host models.Host) {
+		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
 			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
@@ -165,7 +167,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -190,7 +192,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -211,7 +213,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -245,8 +247,8 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return nil
 	}
 	if !servercfg.IsMessageQueueBackend() {
@@ -418,16 +420,15 @@ func SendDNSSyncByNetwork(network string) error {
 }
 
 func sendDNSSync() error {
-
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
-			k, err := logic.GetDNS(v.NetID)
-			k = append(k, logic.EgressDNs(v.NetID)...)
+			k, err := logic.GetDNS(v.Name)
+			k = append(k, logic.EgressDNs(v.Name)...)
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
 				if err != nil {
-					slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
+					slog.Warn("error publishing dns entry data for network ", v.Name, err.Error())
 				}
 			}
 		}

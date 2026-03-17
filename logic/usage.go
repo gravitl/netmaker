@@ -18,14 +18,8 @@ func GetCurrentServerUsage() (limits models.Usage) {
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
-	users, err := GetUsers()
-	if err == nil {
-		limits.Users = len(users)
-	}
-	networks, err := GetNetworks()
-	if err == nil {
-		limits.Networks = len(networks)
-	}
+	limits.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
+	limits.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	limits.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
 
 	nodes, _ := GetAllNodes()
@@ -35,8 +29,9 @@ func GetCurrentServerUsage() (limits models.Usage) {
 	}
 
 	limits.NetworkUsage = make(map[string]models.NetworkUsage)
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
-		limits.NetworkUsage[network.NetID] = models.NetworkUsage{}
+		limits.NetworkUsage[network.Name] = models.NetworkUsage{}
 	}
 
 	for _, node := range nodes {

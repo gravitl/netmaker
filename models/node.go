@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -55,14 +56,7 @@ var seededRand *rand.Rand = rand.New(
 type NodeCheckin struct {
 	Version   string
 	Connected bool
-	Ifaces    []Iface
-}
-
-// Iface struct for local interfaces of a node
-type Iface struct {
-	Name          string    `json:"name"`
-	Address       net.IPNet `json:"address"`
-	AddressString string    `json:"addressString"`
+	Ifaces    []schema.Iface
 }
 
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient
@@ -127,7 +121,7 @@ type Node struct {
 	Mutex                             *sync.Mutex         `json:"-"`
 	EgressDetails                     EgressDetails       `json:"-"`
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
-	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	PostureCheckVolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
 	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
 	Location                          string              `json:"location"` // Format: "lat,lon"
 	CountryCode                       string              `json:"country_code"`
@@ -148,7 +142,7 @@ type LegacyNode struct {
 	Address                 string               `json:"address"                 bson:"address"                 yaml:"address"                 validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6"                bson:"address6"                yaml:"address6"                validate:"omitempty,ipv6"`
 	LocalAddress            string               `json:"localaddress"            bson:"localaddress"            yaml:"localaddress"            validate:"omitempty"`
-	Interfaces              []Iface              `json:"interfaces"                                             yaml:"interfaces"`
+	Interfaces              []schema.Iface       `json:"interfaces"                                             yaml:"interfaces"`
 	Name                    string               `json:"name"                    bson:"name"                    yaml:"name"                    validate:"omitempty,max=62,in_charset"`
 	NetworkSettings         Network              `json:"networksettings"         bson:"networksettings"         yaml:"networksettings"         validate:"-"`
 	ListenPort              int32                `json:"listenport"              bson:"listenport"              yaml:"listenport"              validate:"omitempty,numeric,min=1024,max=65535"`
@@ -541,10 +535,10 @@ func (node *Node) DoesACLDeny() bool {
 	return node.DefaultACL == "no"
 }
 
-func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
+func (ln *LegacyNode) ConvertToNewNode() (*schema.Host, *Node) {
 	var node Node
 	//host:= logic.GetHost(node.HostID)
-	var host Host
+	var host schema.Host
 	if host.ID.String() == "" {
 		host.ID = uuid.New()
 		host.FirewallInUse = ln.FirewallInUse
@@ -554,7 +548,8 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
 		host.MTU = int(ln.MTU)
-		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
+		pubkey, _ := wgtypes.ParseKey(ln.PublicKey)
+		host.PublicKey = schema.WgKey{Key: pubkey}
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
 		host.TrafficKeyPublic = ln.TrafficKeys.Mine
 		id, _ := uuid.Parse(ln.ID)
