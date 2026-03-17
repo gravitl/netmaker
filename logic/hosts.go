@@ -17,7 +17,6 @@ import (
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -99,13 +98,6 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *schema.Host) error {
-	hostsCount, hErr := (&schema.Host{}).Count(db.WithContext(context.TODO()))
-	clients, cErr := GetAllExtClients()
-	if (hErr != nil) ||
-		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
-		hostsCount+len(clients) >= MachinesLimit {
-		return errors.New("free tier limits exceeded on machines")
-	}
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
 	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {

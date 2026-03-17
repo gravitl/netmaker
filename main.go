@@ -61,9 +61,6 @@ func main() {
 	logic.SetAllocatedIpMap()
 	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	if servercfg.DeployedByOperator() && !servercfg.IsPro {
-		logic.SetFreeTierLimits()
-	}
 	defer db.CloseDB()
 	defer database.CloseDB()
 

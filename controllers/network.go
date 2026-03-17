@@ -28,7 +28,7 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).
+	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(createNetwork))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).
 		Methods(http.MethodGet)
