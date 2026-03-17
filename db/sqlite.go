@@ -50,7 +50,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 	}
 
 	dsn := dbFilePath + "?_journal_mode=WAL&_busy_timeout=5000"
-	return gorm.Open(sqlite.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
@@ -62,6 +62,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		return nil, err
 	}
 
+	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
 	return db, nil
