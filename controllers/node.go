@@ -663,7 +663,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
 		if ipChanged {
-			if err := mq.HostUpdate(&models.HostUpdate{Action: models.SignalPull, Host: *host}); err != nil {
+			if err := mq.HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: *host}); err != nil {
 				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
 			}
 		}
