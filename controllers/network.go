@@ -92,7 +92,7 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

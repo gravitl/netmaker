@@ -430,8 +430,8 @@ func ValidateUser(user *schema.User) error {
 		validationErr = errors.Join(validationErr, err)
 	}
 
-	if len(user.Password) <= 5 {
-		validationErr = errors.Join(validationErr, errors.New("password must have more than 5 characters"))
+	if len(user.Password) < 5 {
+		validationErr = errors.Join(validationErr, errors.New("password must have a minimum of 5 characters"))
 	}
 
 	return validationErr

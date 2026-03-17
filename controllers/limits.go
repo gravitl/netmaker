@@ -43,11 +43,11 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 					return
 				}
 			case limitChoiceMachines:
-				hosts, hErr := (&schema.Host{}).ListAll(r.Context())
+				numHosts, hErr := (&schema.Host{}).Count(r.Context())
 				clients, cErr := logic.GetAllExtClients()
-				if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
+				if hErr != nil ||
 					(cErr != nil && !database.IsEmptyRecord(cErr)) ||
-					len(hosts)+len(clients) >= logic.MachinesLimit {
+					numHosts+len(clients) >= logic.MachinesLimit {
 					errorResponse.Message += "machines"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
