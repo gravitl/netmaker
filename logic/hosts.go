@@ -396,8 +396,13 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 }
 
 // DisassociateAllNodesFromHost - deletes all nodes of the host
-func DisassociateAllNodesFromHost(hostID string) error {
-	host := &schema.Host{ID: uuid.MustParse(hostID)}
+func DisassociateAllNodesFromHost(hostIDStr string) error {
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		return err
+	}
+
+	host := &schema.Host{ID: hostID}
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}

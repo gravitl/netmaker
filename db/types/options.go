@@ -23,6 +23,9 @@ func WithPagination(page, pageSize int) Option {
 	}
 }
 
+// WithFilter applies a WHERE clause for the given column.
+// IMPORTANT: `field` MUST be a trusted, hardcoded column name.
+// NEVER pass user-supplied strings as `field`.
 func WithFilter(field string, value ...interface{}) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(value) == 0 {
