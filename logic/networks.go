@@ -98,7 +98,9 @@ func AddIpToAllocatedIpMap(networkName string, ip net.IP) {
 		return
 	}
 	networkCacheMutex.Lock()
-	allocatedIpMap[networkName][ip.String()] = ip
+	if m, ok := allocatedIpMap[networkName]; ok {
+		m[ip.String()] = ip
+	}
 	networkCacheMutex.Unlock()
 }
 
@@ -107,7 +109,9 @@ func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
 		return
 	}
 	networkCacheMutex.Lock()
-	delete(allocatedIpMap[networkName], ip)
+	if m, ok := allocatedIpMap[networkName]; ok {
+		delete(m, ip)
+	}
 	networkCacheMutex.Unlock()
 }
 
@@ -403,9 +407,11 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 		newAddrs = net4.LastAddress()
 	}
 
+	networkCacheMutex.RLock()
 	ipAllocated := allocatedIpMap[networkName]
 	for {
 		if _, ok := ipAllocated[newAddrs.String()]; !ok {
+			networkCacheMutex.RUnlock()
 			return newAddrs, nil
 		}
 		if reverse {
@@ -417,6 +423,7 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 			break
 		}
 	}
+	networkCacheMutex.RUnlock()
 
 	return add, errors.New("ERROR: No unique addresses available. Check network subnet")
 }
@@ -591,9 +598,11 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 
+	networkCacheMutex.RLock()
 	ipAllocated := allocatedIpMap[networkName]
 	for {
 		if _, ok := ipAllocated[newAddrs.String()]; !ok {
+			networkCacheMutex.RUnlock()
 			return newAddrs, nil
 		}
 		if reverse {
@@ -605,6 +614,7 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 			break
 		}
 	}
+	networkCacheMutex.RUnlock()
 
 	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
 }

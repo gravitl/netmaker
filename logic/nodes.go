@@ -270,15 +270,13 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			if servercfg.CacheEnabled() {
 				storeNodeInCache(*newNode)
 				storeNodeInNetworkCache(*newNode, newNode.Network)
-				if _, ok := allocatedIpMap[newNode.Network]; ok {
-					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-					}
-					if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-					}
+				if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
+				}
+				if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
 				}
 			}
 			return nil
@@ -798,13 +796,11 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
-		if _, ok := allocatedIpMap[node.Network]; ok {
-			if node.Address.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-			}
-			if node.Address6.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-			}
+		if node.Address.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		}
+		if node.Address6.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
 		}
 	}
 
