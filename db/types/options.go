@@ -29,11 +29,19 @@ func WithFilter(field string, value ...interface{}) Option {
 			return db
 		}
 
-		if len(value) == 1 {
+func WithFilter(field string, value ...interface{}) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		if len(value) == 0 {
+			return db
+		}
+
 		if len(value) == 1 {
 			return db.Where(fmt.Sprintf("%s = ?", field), value[0])
 		}
-		}
+
+		return db.Where(fmt.Sprintf("%s IN ?", field), value)
+	}
+}
 
 		return db.Where(fmt.Sprintf("%s IN ?", field), value)
 	}
