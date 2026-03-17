@@ -221,7 +221,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
-	if pageSize == 0 {
+	if pageSize < 1 || pageSize > 100 {
 		pageSize = 10
 	}
 
