@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
@@ -1180,9 +1181,19 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
 	w.Header().Set("Content-Type", "application/json")
 	caller := &schema.User{Username: r.Header.Get("user")}
-	if err := caller.Get(r.Context()); err != nil {
+	if err := caller.Get(dbctx); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1193,7 +1204,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	username := params["username"]
 	u := &schema.User{Username: username}
-	if err := u.Get(r.Context()); err != nil {
+	if err := u.Get(dbctx); err != nil {
 		slog.Error("error getting user", "user", u.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -1212,18 +1223,23 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u.PlatformRoleID = schema.SuperAdminRole
-	if err := logic.UpsertUser(*u); err != nil {
+	err := u.Update(dbctx)
+	if err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	caller.PlatformRoleID = schema.AdminRole
-	if err := logic.UpsertUser(*caller); err != nil {
+	err = caller.Update(dbctx)
+	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	commit = true
+
 	slog.Info("user was made a super admin", "user", u.Username)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
 }
