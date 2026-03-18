@@ -62,7 +62,6 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
 	return db, nil
