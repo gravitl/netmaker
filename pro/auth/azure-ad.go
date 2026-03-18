@@ -90,7 +90,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(content.UserPrincipalName)
+	user, err := GetMatchingUser(content)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -140,7 +140,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err = logic.GetUser(content.UserPrincipalName)
+	user, err = GetMatchingUser(content)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -193,6 +193,30 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	})
 	logger.Log(1, "completed azure OAuth sigin in for", user.UserName)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.UserName, http.StatusPermanentRedirect)
+}
+
+func GetMatchingUser(oauthUser *OAuthUser) (*models.User, error) {
+	user, err := logic.GetUser(oauthUser.UserPrincipalName)
+	if err != nil {
+		if !database.IsEmptyRecord(err) {
+			return nil, err
+		}
+	} else {
+		return user, nil
+	}
+
+	users, err := logic.GetUsersDB()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, user := range users {
+		if user.ExternalIdentityProviderID == string(oauthUser.ID) {
+			return &user, nil
+		}
+	}
+
+	return nil, errors.New(database.NO_RECORD)
 }
 
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
