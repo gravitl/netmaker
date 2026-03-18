@@ -472,16 +472,17 @@ type IDPSyncTestRequest struct {
 }
 
 type PostureCheckDeviceInfo struct {
-	ClientLocation string
-	ClientVersion  string
-	OS             string
-	OSFamily       string
-	OSVersion      string
-	KernelVersion  string
-	AutoUpdate     bool
-	Tags           map[TagID]struct{}
-	IsUser         bool
-	UserGroups     map[schema.UserGroupID]struct{}
+	ClientLocation  string
+	ClientVersion   string
+	OS              string
+	OSFamily        string
+	OSVersion       string
+	KernelVersion   string
+	AutoUpdate      bool
+	SkipAutoUpdate  bool
+	Tags            map[TagID]struct{}
+	IsUser          bool
+	UserGroups      map[schema.UserGroupID]struct{}
 }
 
 type Violation struct {

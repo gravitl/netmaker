@@ -695,7 +695,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		OSFamily:       currHost.OSFamily,
 		OSVersion:      currHost.OSVersion,
 		KernelVersion:  currHost.KernelVersion,
-		AutoUpdate:     currHost.AutoUpdate,
+		SkipAutoUpdate: true,
 	}, schema.NetworkID(network))
 	if len(violations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
