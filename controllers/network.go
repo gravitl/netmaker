@@ -807,14 +807,14 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	netOld := &schema.Network{Name: payload.Name}
-	err = netOld.Get(r.Context())
+	currNet := &schema.Network{Name: payload.Name}
+	err = currNet.Get(r.Context())
 	if err != nil {
 		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateNetwork(netOld, &payload)
+	err = logic.UpdateNetwork(currNet, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -823,5 +823,5 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	go mq.PublishPeerUpdate(false)
 	slog.Info("updated network", "network", payload.Name, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(netOld)
+	json.NewEncoder(w).Encode(currNet)
 }
