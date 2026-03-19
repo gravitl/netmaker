@@ -382,7 +382,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			OSFamily:       newHost.OSFamily,
 			OSVersion:      newHost.OSVersion,
 			KernelVersion:  newHost.KernelVersion,
-			AutoUpdate:     newHost.AutoUpdate,
+			SkipAutoUpdate: true,
 			Tags:           keyTags,
 		}, schema.NetworkID(netI))
 		pcviolations = append(pcviolations, violations...)
