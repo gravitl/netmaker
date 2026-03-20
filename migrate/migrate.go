@@ -2,12 +2,9 @@ package migrate
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"time"
 
@@ -83,9 +80,6 @@ func initializeVirtualNATSettings() {
 	if !servercfg.IsPro {
 		return
 	}
-	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges {
-		return
-	}
 	logger.Log(1, "Initializing Virtual NAT settings for existing networks")
 	defer logger.Log(1, "Completed initializing Virtual NAT settings for existing networks")
 
@@ -95,34 +89,27 @@ func initializeVirtualNATSettings() {
 		return
 	}
 
-	// Track allocated pools to ensure uniqueness
 	allocatedPools := make(map[string]struct{})
 
-	// First pass: collect already-allocated pools
 	for _, network := range networks {
-		if network.VirtualNATPoolIPv4 != "" && network.VirtualNATSitePrefixLenIPv4 > 0 {
+		if isValidVNATPool(network.VirtualNATPoolIPv4) && network.VirtualNATSitePrefixLenIPv4 > 0 {
 			allocatedPools[network.VirtualNATPoolIPv4] = struct{}{}
 		}
 	}
 
-	// Allocate unique pools from fallback pool for networks that need them
-	const fallbackPool = "198.18.0.0/15"
-	const poolPrefixLen = 22 // /22 gives 1024 addresses per network, enough for virtual NAT
-	_, fallbackNet, err := net.ParseCIDR(fallbackPool)
+	_, fallbackNet, err := net.ParseCIDR(logic.FallbackVNATPool)
 	if err != nil || fallbackNet == nil {
 		logger.Log(0, "failed to parse fallback pool for Virtual NAT migration:", err.Error())
 		return
 	}
-	_, cgnatNet, err := net.ParseCIDR("100.64.0.0/10")
+	_, cgnatNet, err := net.ParseCIDR(logic.CgnatCIDR)
 	if err != nil || cgnatNet == nil {
 		logger.Log(0, "failed to parse CGNAT CIDR for Virtual NAT migration:", err.Error())
 		return
 	}
 
-	// Second pass: initialize networks
 	for _, network := range networks {
-		// Skip if already initialized
-		if network.VirtualNATPoolIPv4 != "" && network.VirtualNATSitePrefixLenIPv4 > 0 {
+		if isValidVNATPool(network.VirtualNATPoolIPv4) && network.VirtualNATSitePrefixLenIPv4 > 0 {
 			continue
 		}
 
@@ -131,34 +118,33 @@ func initializeVirtualNATSettings() {
 
 		if vpnCIDR == "" {
 			needsUniquePool = true
-			vpnCIDR = fallbackPool
 		} else {
-			// Check if overlaps with CGNAT
 			_, vpnNet, err := net.ParseCIDR(vpnCIDR)
 			if err != nil || vpnNet == nil {
 				needsUniquePool = true
-				vpnCIDR = fallbackPool
-			} else {
-				if cidrOverlaps(vpnNet, cgnatNet) {
-					needsUniquePool = true
-					vpnCIDR = fallbackPool
-				}
+			} else if vpnNet.Contains(cgnatNet.IP) || cgnatNet.Contains(vpnNet.IP) {
+				needsUniquePool = true
 			}
 		}
 
-		// If this network needs a unique pool, allocate one
 		if needsUniquePool {
-			uniquePool := allocateUniquePoolFromFallback(fallbackNet, poolPrefixLen, allocatedPools, network.Name)
-			if uniquePool != "" {
-				vpnCIDR = uniquePool
-				allocatedPools[uniquePool] = struct{}{}
+			uniquePool := logic.AllocateUniquePoolFromFallback(fallbackNet, logic.VNATPoolPrefixLen, allocatedPools, network.Name)
+			if uniquePool == "" {
+				logger.Log(0, "failed to allocate unique Virtual NAT pool for network", network.Name, "- pool exhausted")
+				continue
 			}
+			network.VirtualNATPoolIPv4 = uniquePool
+			network.VirtualNATSitePrefixLenIPv4 = logic.DefaultSitePrefixV4
+			allocatedPools[uniquePool] = struct{}{}
+		} else {
+			logic.AssignVirtualNATDefaults(&network, vpnCIDR)
 		}
 
-		// Initialize virtual NAT defaults
-		logic.AssignVirtualNATDefaults(&network, vpnCIDR)
+		if network.VirtualNATPoolIPv4 == "" {
+			logger.Log(0, "skipping Virtual NAT update for network", network.Name, "- no pool assigned")
+			continue
+		}
 
-		// Save the updated network
 		if err := logic.UpsertNetwork(&network); err != nil {
 			logger.Log(0, "failed to update network", network.Name, "with Virtual NAT settings:", err.Error())
 			continue
@@ -167,93 +153,12 @@ func initializeVirtualNATSettings() {
 	}
 }
 
-// allocateUniquePoolFromFallback allocates a unique /22 subnet from the fallback pool
-func allocateUniquePoolFromFallback(pool *net.IPNet, newPrefixLen int, allocated map[string]struct{}, seed string) string {
-	if pool == nil {
-		return ""
+func isValidVNATPool(pool string) bool {
+	if pool == "" {
+		return false
 	}
-
-	poolPrefixLen, bits := pool.Mask.Size()
-	if newPrefixLen < poolPrefixLen || newPrefixLen > bits {
-		return ""
-	}
-
-	total := 1 << uint(newPrefixLen-poolPrefixLen)
-	start := hashIndex(seed, total)
-
-	for i := 0; i < total; i++ {
-		idx := (start + i) % total
-		cand := nthSubnet(pool, newPrefixLen, idx)
-		if cand == nil {
-			continue
-		}
-		cs := cand.String()
-		if _, used := allocated[cs]; !used {
-			return cs
-		}
-	}
-
-	return ""
-}
-
-// nthSubnet calculates the nth subnet of a given prefix length within a pool
-func nthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
-	if pool == nil {
-		return nil
-	}
-
-	poolPrefixLen, bits := pool.Mask.Size()
-	if newPrefixLen < poolPrefixLen || newPrefixLen > bits || n < 0 {
-		return nil
-	}
-
-	base := ipToBigInt(pool.IP)
-	size := new(big.Int).Lsh(big.NewInt(1), uint(bits-newPrefixLen))
-	offset := new(big.Int).Mul(big.NewInt(int64(n)), size)
-	ipInt := new(big.Int).Add(base, offset)
-	ip := bigIntToIP(ipInt, bits)
-
-	mask := net.CIDRMask(newPrefixLen, bits)
-	return &net.IPNet{IP: ip.Mask(mask), Mask: mask}
-}
-
-// ipToBigInt converts an IP address to a big.Int
-func ipToBigInt(ip net.IP) *big.Int {
-	ip = ip.To16()
-	if ip == nil {
-		return big.NewInt(0)
-	}
-	return new(big.Int).SetBytes(ip)
-}
-
-// bigIntToIP converts a big.Int back to an IP address
-func bigIntToIP(i *big.Int, bits int) net.IP {
-	b := i.Bytes()
-	byteLen := bits / 8
-	if len(b) < byteLen {
-		pad := make([]byte, byteLen-len(b))
-		b = append(pad, b...)
-	}
-	ip := net.IP(b)
-	if bits == 32 {
-		return ip.To4()
-	}
-	return ip
-}
-
-// hashIndex generates a deterministic index from a seed string
-func hashIndex(seed string, mod int) int {
-	if mod <= 1 {
-		return 0
-	}
-	sum := sha1.Sum([]byte(seed))
-	v := binary.BigEndian.Uint32(sum[:4])
-	return int(v % uint32(mod))
-}
-
-// cidrOverlaps checks if two CIDR blocks overlap
-func cidrOverlaps(a, b *net.IPNet) bool {
-	return a.Contains(b.IP) || b.Contains(a.IP)
+	_, _, err := net.ParseCIDR(pool)
+	return err == nil
 }
 
 // removes if any stale configurations from previous run.
