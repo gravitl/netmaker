@@ -657,84 +657,96 @@ func UpdateUserGroup(g schema.UserGroup) error {
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
-	err := DeleteUserGroup(group.ID)
-	if err != nil {
-		return err
-	}
-	go func() {
-		var replacePeers bool
-		var networkIDs []schema.NetworkID
-
-		_, ok := group.NetworkRoles.Data()[schema.AllNetworks]
-		if ok {
-			networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-			for _, network := range networks {
-				networkIDs = append(networkIDs, schema.NetworkID(network.Name))
-			}
+	dbctx := db.BeginTx(context.TODO())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
 		} else {
-			for networkID := range group.NetworkRoles.Data() {
-				networkIDs = append(networkIDs, networkID)
-			}
+			db.FromContext(dbctx).Rollback()
 		}
-
-		for _, networkID := range networkIDs {
-			go RemoveUserGroupFromPostureChecks(group.ID, networkID)
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
-
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
-					}
-				}
-
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
-					replacePeers = true
-				}
-			}
-		}
-
-		go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
-		go mq.PublishPeerUpdate(replacePeers)
 	}()
 
-	return nil
-}
+	users, err := (&schema.User{}).ListAll(dbctx)
+	if err != nil {
+		return err
+	}
 
-// DeleteUserGroup - deletes user group
-func DeleteUserGroup(gid schema.UserGroupID) error {
-	g, err := GetUserGroup(gid)
-	if err != nil {
-		return err
-	}
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
 	for _, user := range users {
-		delete(user.UserGroups.Data(), gid)
-		logic.UpsertUser(user)
+		delete(user.UserGroups.Data(), group.ID)
+		err = user.Update(dbctx)
+		if err != nil {
+			return err
+		}
 	}
-	// create default network gateway policies
-	DeleteDefaultUserGroupNetworkPolicies(g)
-	return (&schema.UserGroup{
-		ID: gid,
-	}).Delete(db.WithContext(context.TODO()))
+
+	var replacePeers bool
+	var networkIDs []schema.NetworkID
+
+	_, ok := group.NetworkRoles.Data()[schema.AllNetworks]
+	if ok {
+		networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+		for _, network := range networks {
+			networkIDs = append(networkIDs, schema.NetworkID(network.Name))
+		}
+	} else {
+		for networkID := range group.NetworkRoles.Data() {
+			networkIDs = append(networkIDs, networkID)
+		}
+	}
+
+	for _, networkID := range networkIDs {
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			return err
+		}
+
+		for _, acl := range acls {
+			var hasGroupSrc bool
+			newAclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+					hasGroupSrc = true
+				} else {
+					newAclSrc = append(newAclSrc, src)
+				}
+			}
+
+			if hasGroupSrc {
+				if len(newAclSrc) == 0 {
+					// no other src exists, delete acl.
+					err = logic.DeleteAcl(acl)
+					if err != nil {
+						return err
+					}
+				} else {
+					// other sources exist, update acl.
+					acl.Src = newAclSrc
+					err = logic.UpsertAcl(acl)
+					if err != nil {
+						return err
+					}
+				}
+				replacePeers = true
+			}
+		}
+	}
+
+	err = group.Delete(dbctx)
+	if err != nil {
+		return err
+	}
+
+	commit = true
+
+	go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
+	go mq.PublishPeerUpdate(replacePeers)
+
+	for _, networkID := range networkIDs {
+		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
+	}
+
+	return nil
 }
 
 func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
@@ -989,12 +1001,16 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			} else {
 				_, userInGroup := user.UserGroups.Data()[groupID]
 				_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
-				if userInGroup && networkRemoved {
+				_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
+				if userInGroup && (networkRemoved || allNetworkAccessRemoved) {
 					// This group no longer provides it's members access to the
 					// network.
 					// This user is a member of the group and has no direct
 					// access to the network (either by its platform role or by
 					// network roles).
+					// This user is a member of the group and access to this
+					// network was previously given through the all network
+					// role and is now removed.
 					// So, delete the extclient.
 					shouldDelete = true
 				}
@@ -1109,38 +1125,6 @@ func CreateDefaultUserGroupNetworkPolicies(g schema.UserGroup) {
 		}
 		logic.InsertAcl(acl)
 
-	}
-}
-
-func DeleteDefaultUserGroupNetworkPolicies(g schema.UserGroup) {
-	for networkID := range g.NetworkRoles.Data() {
-		acls, err := logic.ListAclsByNetwork(networkID)
-		if err != nil {
-			continue
-		}
-
-		for _, acl := range acls {
-			var hasGroupSrc bool
-			newAclSrc := make([]models.AclPolicyTag, 0)
-			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID && src.Value == g.ID.String() {
-					hasGroupSrc = true
-				} else {
-					newAclSrc = append(newAclSrc, src)
-				}
-			}
-
-			if hasGroupSrc {
-				if len(newAclSrc) == 0 {
-					// no other src exists, delete acl.
-					_ = logic.DeleteAcl(acl)
-				} else {
-					// other sources exist, update acl.
-					acl.Src = newAclSrc
-					_ = logic.UpsertAcl(acl)
-				}
-			}
-		}
 	}
 }
 

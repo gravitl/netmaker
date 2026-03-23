@@ -43,6 +43,7 @@ func Run() {
 	resync()
 	deleteOldExtclients()
 	checkAndDeprecateOldAcls()
+	cleanupDeletedUserGroupRefs()
 }
 
 func checkAndDeprecateOldAcls() {
@@ -906,6 +907,71 @@ func deleteOldExtclients() {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {
 				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+			}
+		}
+	}
+}
+
+func cleanupDeletedUserGroupRefs() {
+	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	existingGroups := make(map[schema.UserGroupID]struct{})
+	for _, group := range groups {
+		existingGroups[group.ID] = struct{}{}
+	}
+
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	for _, user := range users {
+		var update bool
+		for groupID := range user.UserGroups.Data() {
+			if _, ok := existingGroups[groupID]; !ok {
+				delete(user.UserGroups.Data(), groupID)
+				update = true
+			}
+		}
+
+		if update {
+			err = user.Update(db.WithContext(context.TODO()))
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	for _, acl := range logic.ListAcls() {
+		var newSrc []models.AclPolicyTag
+		var update bool
+		for _, src := range acl.Src {
+			if src.ID == models.UserGroupAclID {
+				if _, ok := existingGroups[schema.UserGroupID(src.Value)]; !ok {
+					update = true
+				} else {
+					newSrc = append(newSrc, src)
+				}
+			} else {
+				newSrc = append(newSrc, src)
+			}
+		}
+
+		if update {
+			if len(newSrc) == 0 {
+				err = logic.DeleteAcl(acl)
+				if err != nil {
+					return
+				}
+			} else {
+				acl.Src = newSrc
+				err = logic.UpsertAcl(acl)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}
