@@ -172,7 +172,7 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.EnableJIT,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -205,7 +205,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.DisableJIT,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,

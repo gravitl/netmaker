@@ -43,6 +43,8 @@ const (
 	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
 	GatewayAssign                        Action = "GATEWAY_ASSIGN"
 	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
+	EnableJIT                            Action = "ENABLE_JIT"
+	DisableJIT                           Action = "DISABLE_JIT"
 )
 
 type SubjectType string
