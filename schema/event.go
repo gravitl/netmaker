@@ -45,6 +45,8 @@ const (
 	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
 	EnableJIT                            Action = "ENABLE_JIT"
 	DisableJIT                           Action = "DISABLE_JIT"
+	EnableUser                           Action = "ENABLE_USER"
+	DisableUser                          Action = "DISABLE_USER"
 )
 
 type SubjectType string

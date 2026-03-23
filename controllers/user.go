@@ -889,6 +889,33 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		mq.PublishPeerUpdate(false)
 	}()
 
+	src := logic.MasterUser
+	if !isMaster {
+		src = _caller.Username
+	}
+
+	event := schema.EnableUser
+	if disableAccount {
+		event = schema.DisableUser
+	}
+
+	logic.LogEvent(&models.Event{
+		Action: event,
+		Source: models.Subject{
+			ID:   src,
+			Name: src,
+			Type: schema.UserSub,
+		},
+		TriggeredBy: src,
+		Target: models.Subject{
+			ID:   _user.Username,
+			Name: _user.Username,
+			Type: schema.UserSub,
+			Info: logic.ToReturnUser(_user),
+		},
+		Origin: schema.Dashboard,
+	})
+
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", action))
 }
 
