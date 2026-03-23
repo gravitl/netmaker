@@ -233,6 +233,9 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) 
 	if newHost.CountryCode != "" {
 		currHost.CountryCode = newHost.CountryCode
 	}
+	if newHost.Interface != "" {
+		currHost.Interface = newHost.Interface
+	}
 	if isEndpointChanged || currHost.Location == "" || currHost.CountryCode == "" {
 		var nodeIP net.IP
 		if currHost.EndpointIP != nil {
