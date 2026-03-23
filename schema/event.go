@@ -47,6 +47,8 @@ const (
 	DisableJIT                           Action = "DISABLE_JIT"
 	EnableUser                           Action = "ENABLE_USER"
 	DisableUser                          Action = "DISABLE_USER"
+	EnableAclPolicy                      Action = "ENABLE_ACL_POLICY"
+	DisableAclPolicy                     Action = "DISABLE_ACL_POLICY"
 )
 
 type SubjectType string

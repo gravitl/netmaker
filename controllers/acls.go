@@ -357,6 +357,14 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	action := schema.Update
+	if updateAcl.Enabled && !acl.Enabled {
+		action = schema.EnableAclPolicy
+	} else if !updateAcl.Enabled && acl.Enabled {
+		action = schema.DisableAclPolicy
+	}
+
 	if err := logic.IsAclPolicyValid(updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -375,7 +383,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: action,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
