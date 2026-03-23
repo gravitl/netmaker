@@ -2,8 +2,11 @@ package logic
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"sort"
 	"strings"
@@ -240,6 +243,155 @@ func AssignVirtualNATDefaults(network *schema.Network, vpnCIDR string) {
 // cidrOverlaps checks if two CIDR blocks overlap
 func cidrOverlaps(a, b *net.IPNet) bool {
 	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
+const (
+	FallbackVNATPool    = "198.18.0.0/15"
+	VNATPoolPrefixLen   = 22
+	DefaultSitePrefixV4 = 24
+	CgnatCIDR           = "100.64.0.0/10"
+)
+
+// AllocateUniqueVNATPool allocates a unique Virtual NAT pool for a network,
+// ensuring it doesn't conflict with pools already assigned to other networks.
+func AllocateUniqueVNATPool(network *schema.Network) error {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		return fmt.Errorf("failed to list networks: %w", err)
+	}
+
+	allocatedPools := make(map[string]struct{})
+	for _, n := range networks {
+		if n.VirtualNATSitePrefixLenIPv4 > 0 {
+			if _, _, err := net.ParseCIDR(n.VirtualNATPoolIPv4); err == nil {
+				allocatedPools[n.VirtualNATPoolIPv4] = struct{}{}
+			}
+		}
+	}
+
+	_, cgnatNet, err := net.ParseCIDR(CgnatCIDR)
+	if err != nil {
+		return fmt.Errorf("failed to parse CGNAT CIDR: %w", err)
+	}
+
+	_, fallbackNet, err := net.ParseCIDR(FallbackVNATPool)
+	if err != nil {
+		return fmt.Errorf("failed to parse fallback pool: %w", err)
+	}
+
+	vpnCIDR := network.AddressRange
+	needsUniquePool := false
+
+	if vpnCIDR == "" {
+		needsUniquePool = true
+	} else {
+		_, vpnNet, err := net.ParseCIDR(vpnCIDR)
+		if err != nil || vpnNet == nil {
+			needsUniquePool = true
+		} else if cidrOverlaps(vpnNet, cgnatNet) {
+			needsUniquePool = true
+		}
+	}
+
+	if needsUniquePool {
+		uniquePool := AllocateUniquePoolFromFallback(fallbackNet, VNATPoolPrefixLen, allocatedPools, network.Name)
+		if uniquePool == "" {
+			return fmt.Errorf("failed to allocate unique Virtual NAT pool for network %s: pool exhausted", network.Name)
+		}
+		network.VirtualNATPoolIPv4 = uniquePool
+		network.VirtualNATSitePrefixLenIPv4 = DefaultSitePrefixV4
+	} else {
+		AssignVirtualNATDefaults(network, vpnCIDR)
+	}
+
+	return nil
+}
+
+// AllocateUniquePoolFromFallback allocates a unique subnet of the given prefix length
+// from the fallback pool, skipping any subnets already present in the allocated map.
+func AllocateUniquePoolFromFallback(pool *net.IPNet, newPrefixLen int, allocated map[string]struct{}, seed string) string {
+	if pool == nil {
+		return ""
+	}
+
+	poolPrefixLen, bits := pool.Mask.Size()
+	if newPrefixLen < poolPrefixLen || newPrefixLen > bits {
+		return ""
+	}
+
+	total := 1 << uint(newPrefixLen-poolPrefixLen)
+	start := vnatHashIndex(seed, total)
+
+	for i := 0; i < total; i++ {
+		idx := (start + i) % total
+		cand := NthSubnet(pool, newPrefixLen, idx)
+		if cand == nil || cand.IP == nil {
+			continue
+		}
+		cs := cand.String()
+		if _, _, err := net.ParseCIDR(cs); err != nil {
+			continue
+		}
+		if _, used := allocated[cs]; !used {
+			return cs
+		}
+	}
+
+	return ""
+}
+
+// NthSubnet calculates the nth subnet of a given prefix length within a pool.
+func NthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
+	if pool == nil {
+		return nil
+	}
+
+	poolPrefixLen, bits := pool.Mask.Size()
+	if newPrefixLen < poolPrefixLen || newPrefixLen > bits || n < 0 {
+		return nil
+	}
+
+	base := ipToBigInt(pool.IP)
+	size := new(big.Int).Lsh(big.NewInt(1), uint(bits-newPrefixLen))
+	offset := new(big.Int).Mul(big.NewInt(int64(n)), size)
+	ipInt := new(big.Int).Add(base, offset)
+	ip := bigIntToIP(ipInt, bits)
+
+	mask := net.CIDRMask(newPrefixLen, bits)
+	return &net.IPNet{IP: ip.Mask(mask), Mask: mask}
+}
+
+func ipToBigInt(ip net.IP) *big.Int {
+	if v4 := ip.To4(); v4 != nil {
+		return new(big.Int).SetBytes(v4)
+	}
+	if v6 := ip.To16(); v6 != nil {
+		return new(big.Int).SetBytes(v6)
+	}
+	return big.NewInt(0)
+}
+
+func bigIntToIP(i *big.Int, bits int) net.IP {
+	b := i.Bytes()
+	byteLen := bits / 8
+	if len(b) < byteLen {
+		pad := make([]byte, byteLen-len(b))
+		b = append(pad, b...)
+	}
+	ip := net.IP(b)
+	if bits == 32 {
+		return ip.To4()
+	}
+	return ip
+}
+
+func vnatHashIndex(seed string, mod int) int {
+	if mod <= 1 {
+		return 0
+	}
+	sum := sha1.Sum([]byte(seed))
+	v := binary.BigEndian.Uint32(sum[:4])
+	return int(v % uint32(mod))
 }
 
 // CreateNetwork - creates a network in database
@@ -645,11 +797,8 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 			}
 		}
 		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
-	} else {
-		// If both are empty, clear the settings
-		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
-		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
 	}
+	// When both VNAT fields are omitted from the update, preserve existing settings
 	return currentNetwork.Update(db.WithContext(context.TODO()))
 }
 

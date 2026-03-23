@@ -325,11 +325,13 @@ func nthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
 }
 
 func ipToBigInt(ip net.IP) *big.Int {
-	ip = ip.To16()
-	if ip == nil {
-		return big.NewInt(0)
+	if v4 := ip.To4(); v4 != nil {
+		return new(big.Int).SetBytes(v4)
 	}
-	return new(big.Int).SetBytes(ip)
+	if v6 := ip.To16(); v6 != nil {
+		return new(big.Int).SetBytes(v6)
+	}
+	return big.NewInt(0)
 }
 
 func bigIntToIP(i *big.Int, bits int) net.IP {

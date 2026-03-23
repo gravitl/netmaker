@@ -770,7 +770,7 @@ print_success() {
 		echo ""
 		echo "To add the monitoring stack (Prometheus, Grafana, Exporter), re-run:"
 		echo "  sudo ./nm-quick.sh -m"
-		echo "NOTE: The monitoring stack requires at least 2 GB of RAM."
+		echo "NOTE: The monitoring stack requires at least 2 GB of RAM and 2 vCPUs."
 	fi
 	echo "-----------------------------------------------------------------"
 	echo "-----------------------------------------------------------------"
