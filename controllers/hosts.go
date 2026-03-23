@@ -1476,7 +1476,6 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		for _, tagI := range key.Groups {
 			newNode.Tags[tagI] = struct{}{}
 		}
-		logic.UpsertNode(newNode)
 	}
 	if key.Relay != uuid.Nil && !newNode.IsRelayed {
 		// check if relay node exists and acting as relay
@@ -1491,12 +1490,17 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 			if err := logic.UpsertNode(&updatedRelayNode); err != nil {
 				slog.Error("failed to update node", "nodeid", key.Relay.String())
 			}
-			if err := logic.UpsertNode(newNode); err != nil {
-				slog.Error("failed to update node", "nodeid", key.Relay.String())
-			}
 		} else {
 			slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
 		}
+	}
+
+	err = logic.UpsertNode(newNode)
+	if err != nil {
+		err = fmt.Errorf("failed to update node: %w", err)
+		slog.Error("failed to update node", "nodeid", key.Relay.String())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
 	}
 
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
