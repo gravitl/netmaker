@@ -33,6 +33,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nodes/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/nodes/{network}/status", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -741,4 +742,55 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode)
+}
+
+// @Summary     Bulk delete nodes
+// @Router      /api/v1/nodes/bulk [delete]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkDeleteRequest true "List of node IDs to delete"
+// @Param       force query bool false "Force delete"
+// @Success     200 {object} models.BulkDeleteResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
+		return
+	}
+	forceDelete := r.URL.Query().Get("force") == "true"
+	user := r.Header.Get("user")
+	resp := models.BulkDeleteResponse{}
+	var deletedNodes []models.Node
+
+	for _, nodeID := range req.IDs {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: nodeID, Error: err.Error()})
+			continue
+		}
+		if err := logic.DeleteNode(&node, forceDelete); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: nodeID, Error: err.Error()})
+			continue
+		}
+		logger.Log(1, user, "Deleted node", nodeID, "from network", node.Network)
+		resp.Deleted = append(resp.Deleted, nodeID)
+		deletedNodes = append(deletedNodes, node)
+	}
+
+	if len(deletedNodes) > 0 {
+		go func() {
+			for _, node := range deletedNodes {
+				mq.PublishMqUpdatesForDeletedNode(node, true)
+			}
+		}()
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, resp, fmt.Sprintf("deleted %d node(s)", len(resp.Deleted)))
 }

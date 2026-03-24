@@ -58,6 +58,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -1740,6 +1741,125 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+// @Summary     Bulk delete users
+// @Router      /api/v1/users/bulk [delete]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkDeleteRequest true "List of usernames to delete"
+// @Param       force_delete_configs query bool false "Force delete configs"
+// @Success     200 {object} models.BulkDeleteResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no usernames provided"), logic.BadReq))
+		return
+	}
+
+	caller := &schema.User{Username: r.Header.Get("user")}
+	if err := caller.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	callerRole := &schema.UserRole{ID: caller.PlatformRoleID}
+	if err := callerRole.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	resp := models.BulkDeleteResponse{}
+
+	for _, username := range req.IDs {
+		user := &schema.User{Username: username}
+		if err := user.Get(r.Context()); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
+			continue
+		}
+		userRole := &schema.UserRole{ID: user.PlatformRoleID}
+		if err := userRole.Get(r.Context()); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
+			continue
+		}
+		if userRole.ID == schema.SuperAdminRole {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "superadmin cannot be deleted"})
+			continue
+		}
+		if callerRole.ID != schema.SuperAdminRole {
+			if callerRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
+				resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "admin cannot delete another admin user"})
+				continue
+			}
+		}
+		if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "cannot delete idp user"})
+			continue
+		}
+		if err := logic.DeleteUser(username); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
+			continue
+		}
+		logic.LogEvent(&models.Event{
+			Action: schema.Delete,
+			Source: models.Subject{
+				ID:   caller.Username,
+				Name: caller.Username,
+				Type: schema.UserSub,
+			},
+			TriggeredBy: caller.Username,
+			Target: models.Subject{
+				ID:   user.Username,
+				Name: user.Username,
+				Type: schema.UserSub,
+			},
+			Origin: schema.Dashboard,
+			Diff:   models.Diff{Old: logic.ToReturnUser(user), New: nil},
+		})
+		logger.Log(1, username, "was deleted")
+		resp.Deleted = append(resp.Deleted, username)
+
+		go func(u *schema.User) {
+			extclients, err := logic.GetAllExtClients()
+			if err != nil {
+				slog.Error("failed to get extclients", "error", err)
+				return
+			}
+			for _, extclient := range extclients {
+				if extclient.OwnerID != u.Username {
+					continue
+				}
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+					continue
+				}
+				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
+					slog.Error("failed to delete extclient", "id", extclient.ClientID, "owner", u.Username, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
+				}
+			}
+			_ = logic.DeleteUserInvite(u.Username)
+		}(user)
+	}
+
+	if len(resp.Deleted) > 0 {
+		go func() {
+			mq.PublishPeerUpdate(false)
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
+			}
+		}()
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, resp, fmt.Sprintf("deleted %d user(s)", len(resp.Deleted)))
 }
 
 // Called when vpn client dials in to start the auth flow and first stage is to get register URL itself

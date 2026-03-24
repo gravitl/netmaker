@@ -127,13 +127,17 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error initializing database: ", err.Error())
 	}
 
-	err = migrate.ToSQLSchema()
-	if err != nil {
-		// we shouldn't allow user to use the product until the migration is successfully done.
-		panic(err)
-	}
+	// Only run migrations on master pod to avoid conflicts in HA setup
+	if servercfg.IsMasterPod() {
+		err = migrate.ToSQLSchema()
+		if err != nil {
+			// we shouldn't allow user to use the product until the migration is successfully done.
+			panic(err)
+		}
 
-	initializeUUID()
+		initializeUUID()
+		migrate.Run()
+	}
 
 	//initialize cache
 	_, _ = logic.GetAllNodes()
@@ -141,11 +145,6 @@ func initialize() { // Client Mode Prereq Check
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
 	_ = logic.CleanExpiredSSOStates()
-
-	// Only run migrations on master pod to avoid conflicts in HA setup
-	if servercfg.IsMasterPod() {
-		migrate.Run()
-	}
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()

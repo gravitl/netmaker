@@ -100,8 +100,11 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 func CreateHost(h *schema.Host) error {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {
+	if err == nil {
 		return ErrHostExists
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to check host existence: %w", err)
 	}
 
 	// encrypt that password so we never see it
@@ -355,12 +358,7 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 	if err != nil {
 		return err
 	}
-	currentHost := &schema.Host{ID: h.ID}
-	if err = currentHost.Get(db.WithContext(context.TODO())); err != nil {
-		return err
-	}
-	h.HostPass = currentHost.HostPass
-	h.Nodes = append(currentHost.Nodes, n.ID.String())
+	h.Nodes = append(h.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
 
@@ -612,7 +610,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
+	return err == nil
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
