@@ -585,17 +585,24 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	var hostNodes []models.Node
 	for _, nodeID := range currHost.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
 			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 			continue
 		}
+		hostNodes = append(hostNodes, node)
+	}
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, node := range hostNodes {
 		go mq.PublishMqUpdatesForDeletedNode(node, false)
-
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		// delete EMQX credentials for host
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
 			slog.Error(
 				"failed to remove host credentials from EMQX",
@@ -617,11 +624,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			currHost.ID.String(),
 			err.Error(),
 		)
-	}
-	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
 	}
 	// delete if any pending reqs
 	(&schema.PendingHost{
@@ -686,12 +688,20 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk host delete: host not found", "id", idStr, "error", err)
 				continue
 			}
+			var hostNodes []models.Node
 			for _, nodeID := range currHost.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
 				if err != nil {
 					slog.Error("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
 					continue
 				}
+				hostNodes = append(hostNodes, node)
+			}
+			if err = logic.RemoveHost(currHost, true); err != nil {
+				slog.Error("bulk host delete: failed to remove host", "id", idStr, "error", err)
+				continue
+			}
+			for _, node := range hostNodes {
 				mq.PublishMqUpdatesForDeletedNode(node, false)
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
@@ -704,10 +714,6 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				Host:   *currHost,
 			}); err != nil {
 				slog.Error("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
-			}
-			if err = logic.RemoveHost(currHost, true); err != nil {
-				slog.Error("bulk host delete: failed to remove host", "id", idStr, "error", err)
-				continue
 			}
 			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
 			logic.LogEvent(&models.Event{

@@ -134,10 +134,10 @@ func initialize() { // Client Mode Prereq Check
 			// we shouldn't allow user to use the product until the migration is successfully done.
 			panic(err)
 		}
-
-		initializeUUID()
 		migrate.Run()
 	}
+
+	initializeUUID()
 
 	//initialize cache
 	_, _ = logic.GetAllNodes()

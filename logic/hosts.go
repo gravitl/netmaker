@@ -358,6 +358,11 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 	if err != nil {
 		return err
 	}
+	currentHost := &schema.Host{ID: h.ID}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err == nil {
+		h.Nodes = currentHost.Nodes
+		h.HostPass = currentHost.HostPass
+	}
 	h.Nodes = append(h.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
@@ -370,6 +375,10 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 	}
 	if n.HostID != h.ID {
 		return fmt.Errorf("node is not associated with host")
+	}
+	currentHost := &schema.Host{ID: h.ID}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err == nil {
+		h.Nodes = currentHost.Nodes
 	}
 	nList := []string{}
 	for i := range h.Nodes {

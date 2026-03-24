@@ -1780,6 +1780,16 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	go func() {
+		ownerExtClients := make(map[string][]models.ExtClient)
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			slog.Error("bulk user delete: failed to get extclients", "error", err)
+		} else {
+			for _, ec := range extclients {
+				ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
+			}
+		}
+
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
@@ -1790,6 +1800,10 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			userRole := &schema.UserRole{ID: user.PlatformRoleID}
 			if err := userRole.Get(db.WithContext(context.TODO())); err != nil {
 				slog.Error("bulk user delete: failed to get role", "username", username, "error", err)
+				continue
+			}
+			if username == caller.Username {
+				slog.Error("bulk user delete: cannot delete own account", "username", username)
 				continue
 			}
 			if userRole.ID == schema.SuperAdminRole {
@@ -1829,15 +1843,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, username, "was deleted")
 			deleted++
 
-			extclients, err := logic.GetAllExtClients()
-			if err != nil {
-				slog.Error("bulk user delete: failed to get extclients", "error", err)
-				continue
-			}
-			for _, extclient := range extclients {
-				if extclient.OwnerID != user.Username {
-					continue
-				}
+			for _, extclient := range ownerExtClients[user.Username] {
 				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
 					continue
 				}
@@ -1903,6 +1909,19 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
 
 	go func() {
+		var ownerExtClients map[string][]models.ExtClient
+		if forceToggle {
+			extclients, err := logic.GetAllExtClients()
+			if err != nil {
+				slog.Error("bulk user status: failed to get extclients", "error", err)
+			} else {
+				ownerExtClients = make(map[string][]models.ExtClient, len(req.IDs))
+				for _, ec := range extclients {
+					ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
+				}
+			}
+		}
+
 		updated := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
@@ -1950,15 +1969,10 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, username, "was", action+"d")
 			updated++
 
-			if forceToggle {
-				extclients, err := logic.GetAllExtClients()
-				if err != nil {
-					slog.Error("bulk user status: failed to get extclients", "error", err)
-					continue
-				}
+			if forceToggle && ownerExtClients != nil {
 				extclientStatus := !req.Disable
-				for _, extclient := range extclients {
-					if extclient.OwnerID == user.Username && extclient.Enabled != extclientStatus {
+				for _, extclient := range ownerExtClients[user.Username] {
+					if extclient.Enabled != extclientStatus {
 						if _, err := logic.ToggleExtClientConnectivity(&extclient, extclientStatus); err != nil {
 							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 						}
