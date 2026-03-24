@@ -1569,11 +1569,6 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 		}
 		userConf.Enabled = true
-		parentNetwork := &schema.Network{Name: node.Network}
-		err = parentNetwork.Get(r.Context())
-		if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
-			userConf.Enabled = parentNetwork.DefaultACL == "yes"
-		}
 		userConf.Tags = make(map[models.TagID]struct{})
 		// userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
 		// 	models.RemoteAccessTagName))] = struct{}{}

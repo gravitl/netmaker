@@ -368,11 +368,8 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
-	if n.HostID != h.ID { // check if node actually belongs to host
+	if n.HostID != h.ID {
 		return fmt.Errorf("node is not associated with host")
-	}
-	if len(h.Nodes) == 0 {
-		return fmt.Errorf("no nodes present in given host")
 	}
 	nList := []string{}
 	for i := range h.Nodes {
@@ -381,15 +378,6 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		}
 	}
 	h.Nodes = nList
-	go func() {
-		if servercfg.IsPro {
-			if clients, err := GetNetworkExtClients(n.Network); err != nil {
-				for i := range clients {
-					AllowClientNodeAccess(&clients[i], n.ID.String())
-				}
-			}
-		}
-	}()
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}

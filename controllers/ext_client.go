@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +44,8 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(updateExtClient))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/extclients/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, http.HandlerFunc(createExtClient))).
 		Methods(http.MethodPost)
@@ -637,19 +638,6 @@ Endpoint = %s
 	)
 
 	go func() {
-		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-			slog.Error(
-				"failed to set default acls for extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				networkid,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
@@ -822,11 +810,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 	extclient.Enabled = true
-	parentNetwork := &schema.Network{Name: node.Network}
-	err = parentNetwork.Get(r.Context())
-	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
-		extclient.Enabled = parentNetwork.DefaultACL == "yes"
-	}
 	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
@@ -927,19 +910,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclient)
 
 	go func() {
-		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-			slog.Error(
-				"failed to set default acls for extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				node.Network,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
 		extUpdateMutex.Lock()
 		mq.PublishPeerUpdate(false)
 		extUpdateMutex.Unlock()
@@ -1015,10 +985,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var changedID = update.ClientID != oldExtClient.ClientID
-
-	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
-		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
-	}
 
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
@@ -1187,6 +1153,60 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
+}
+
+// @Summary     Bulk delete ext clients
+// @Router      /api/v1/extclients/bulk [delete]
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkExtClientDeleteRequest true "List of ext clients to delete"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkExtClientDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.Clients) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no ext clients provided"), logic.BadReq))
+		return
+	}
+	user := r.Header.Get("user")
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d ext client(s) accepted", len(req.Clients)))
+
+	go func() {
+		deleted := 0
+		for _, c := range req.Clients {
+			if c.ClientID == "" || c.Network == "" {
+				slog.Error("bulk extclient delete: client_id and network are required", "client_id", c.ClientID)
+				continue
+			}
+			extclient, err := logic.GetExtClient(c.ClientID, c.Network)
+			if err != nil {
+				slog.Error("bulk extclient delete: client not found", "client_id", c.ClientID, "network", c.Network, "error", err)
+				continue
+			}
+			if err = logic.DeleteExtClientAndCleanup(extclient); err != nil {
+				slog.Error("bulk extclient delete: failed to delete", "client_id", c.ClientID, "error", err)
+				continue
+			}
+			if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+				slog.Error("bulk extclient delete: error publishing peer update", "client_id", extclient.ClientID, "error", err)
+			}
+			logger.Log(0, user, "Deleted extclient", c.ClientID, "from network", c.Network)
+			deleted++
+		}
+		if deleted > 0 {
+			mq.PublishPeerUpdate(false)
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
+			}
+		}
+		slog.Info("bulk extclient delete completed", "deleted", deleted, "total", len(req.Clients))
+	}()
 }
 
 // validateCustomExtClient	Validates the extclient object

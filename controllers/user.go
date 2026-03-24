@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -59,6 +60,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -1750,8 +1752,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.BulkDeleteRequest true "List of usernames to delete"
-// @Param       force_delete_configs query bool false "Force delete configs"
-// @Success     200 {object} models.BulkDeleteResponse
+// @Param       force_delete_configs query bool false "Force delete associated ext-client configs"
+// @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkDeleteRequest
@@ -1775,91 +1777,200 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
-	resp := models.BulkDeleteResponse{}
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
-	for _, username := range req.IDs {
-		user := &schema.User{Username: username}
-		if err := user.Get(r.Context()); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
-			continue
-		}
-		userRole := &schema.UserRole{ID: user.PlatformRoleID}
-		if err := userRole.Get(r.Context()); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
-			continue
-		}
-		if userRole.ID == schema.SuperAdminRole {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "superadmin cannot be deleted"})
-			continue
-		}
-		if callerRole.ID != schema.SuperAdminRole {
-			if callerRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
-				resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "admin cannot delete another admin user"})
+	go func() {
+		deleted := 0
+		for _, username := range req.IDs {
+			user := &schema.User{Username: username}
+			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user delete: user not found", "username", username, "error", err)
 				continue
 			}
-		}
-		if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: "cannot delete idp user"})
-			continue
-		}
-		if err := logic.DeleteUser(username); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: username, Error: err.Error()})
-			continue
-		}
-		logic.LogEvent(&models.Event{
-			Action: schema.Delete,
-			Source: models.Subject{
-				ID:   caller.Username,
-				Name: caller.Username,
-				Type: schema.UserSub,
-			},
-			TriggeredBy: caller.Username,
-			Target: models.Subject{
-				ID:   user.Username,
-				Name: user.Username,
-				Type: schema.UserSub,
-			},
-			Origin: schema.Dashboard,
-			Diff:   models.Diff{Old: logic.ToReturnUser(user), New: nil},
-		})
-		logger.Log(1, username, "was deleted")
-		resp.Deleted = append(resp.Deleted, username)
+			userRole := &schema.UserRole{ID: user.PlatformRoleID}
+			if err := userRole.Get(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user delete: failed to get role", "username", username, "error", err)
+				continue
+			}
+			if userRole.ID == schema.SuperAdminRole {
+				slog.Error("bulk user delete: cannot delete superadmin", "username", username)
+				continue
+			}
+			if callerRole.ID != schema.SuperAdminRole {
+				if callerRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
+					slog.Error("bulk user delete: admin cannot delete another admin", "username", username)
+					continue
+				}
+			}
+			if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
+				slog.Error("bulk user delete: cannot delete idp user", "username", username)
+				continue
+			}
+			if err := logic.DeleteUser(username); err != nil {
+				slog.Error("bulk user delete: failed to delete user", "username", username, "error", err)
+				continue
+			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   caller.Username,
+					Name: caller.Username,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: caller.Username,
+				Target: models.Subject{
+					ID:   user.Username,
+					Name: user.Username,
+					Type: schema.UserSub,
+				},
+				Origin: schema.Dashboard,
+				Diff:   models.Diff{Old: logic.ToReturnUser(user), New: nil},
+			})
+			logger.Log(1, username, "was deleted")
+			deleted++
 
-		go func(u *schema.User) {
 			extclients, err := logic.GetAllExtClients()
 			if err != nil {
-				slog.Error("failed to get extclients", "error", err)
-				return
+				slog.Error("bulk user delete: failed to get extclients", "error", err)
+				continue
 			}
 			for _, extclient := range extclients {
-				if extclient.OwnerID != u.Username {
+				if extclient.OwnerID != user.Username {
 					continue
 				}
 				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
 					continue
 				}
 				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
-					slog.Error("failed to delete extclient", "id", extclient.ClientID, "owner", u.Username, "error", err)
+					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
 					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
+						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
 					}
 				}
 			}
-			_ = logic.DeleteUserInvite(u.Username)
-		}(user)
-	}
-
-	if len(resp.Deleted) > 0 {
-		go func() {
+			_ = logic.DeleteUserInvite(user.Username)
+		}
+		if deleted > 0 {
 			mq.PublishPeerUpdate(false)
 			if servercfg.IsDNSMode() {
 				logic.SetDNS()
 			}
-		}()
+		}
+		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
+}
+
+// @Summary     Bulk disable/enable user accounts
+// @Router      /api/v1/users/bulk/status [post]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkUserStatusUpdate true "List of usernames and desired status"
+// @Param       force_toggle_configs query bool false "Also toggle associated ext-client connectivity"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkUserStatusUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no usernames provided"), logic.BadReq))
+		return
 	}
 
-	logic.ReturnSuccessResponseWithJson(w, r, resp, fmt.Sprintf("deleted %d user(s)", len(resp.Deleted)))
+	callerName := r.Header.Get("user")
+	var caller *schema.User
+	var isMaster bool
+	if callerName == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller = &schema.User{Username: callerName}
+		if err := caller.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	forceToggle := r.URL.Query().Get("force_toggle_configs") == "true"
+	action := "enable"
+	if req.Disable {
+		action = "disable"
+	}
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
+
+	go func() {
+		updated := 0
+		for _, username := range req.IDs {
+			user := &schema.User{Username: username}
+			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user status: user not found", "username", username, "error", err)
+				continue
+			}
+			if !isMaster && caller.Username == username {
+				slog.Error("bulk user status: cannot change own account status", "username", username)
+				continue
+			}
+			if !isMaster {
+				skip := false
+				switch user.PlatformRoleID {
+				case schema.SuperAdminRole:
+					if req.Disable {
+						slog.Error("bulk user status: cannot disable superadmin", "username", username)
+						skip = true
+					}
+				case schema.AdminRole:
+					if caller.PlatformRoleID != schema.SuperAdminRole {
+						slog.Error("bulk user status: insufficient role to change admin status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				case schema.PlatformUser:
+					if caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
+						slog.Error("bulk user status: insufficient role to change platform-user status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				case schema.ServiceUser:
+					if caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
+						slog.Error("bulk user status: insufficient role to change service-user status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				}
+				if skip {
+					continue
+				}
+			}
+			user.AccountDisabled = req.Disable
+			if err := user.UpdateAccountStatus(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
+				continue
+			}
+			logger.Log(1, username, "was", action+"d")
+			updated++
+
+			if forceToggle {
+				extclients, err := logic.GetAllExtClients()
+				if err != nil {
+					slog.Error("bulk user status: failed to get extclients", "error", err)
+					continue
+				}
+				extclientStatus := !req.Disable
+				for _, extclient := range extclients {
+					if extclient.OwnerID == user.Username && extclient.Enabled != extclientStatus {
+						if _, err := logic.ToggleExtClientConnectivity(&extclient, extclientStatus); err != nil {
+							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
+						}
+					}
+				}
+			}
+		}
+		if updated > 0 && forceToggle {
+			mq.PublishPeerUpdate(false)
+		}
+		slog.Info("bulk user status update completed", "action", action, "updated", updated, "total", len(req.IDs))
+	}()
 }
 
 // Called when vpn client dials in to start the auth flow and first stage is to get register URL itself

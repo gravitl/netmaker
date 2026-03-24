@@ -18,7 +18,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -167,11 +166,6 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 				}
 				DissasociateNodeFromHost(&node, host)
 			}
-		}
-		// remove ACL for network
-		err = nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
-		if err != nil {
-			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
 		}
 		// delete server nodes first then db records
 		_network := &schema.Network{
@@ -760,7 +754,6 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 	currentNetwork.AutoRemove = newNetwork.AutoRemove
 	currentNetwork.AutoRemoveThreshold = newNetwork.AutoRemoveThreshold
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
-	currentNetwork.DefaultACL = newNetwork.DefaultACL
 
 	// Validate and update Virtual NAT IPv4 settings
 	if newNetwork.VirtualNATPoolIPv4 != "" {

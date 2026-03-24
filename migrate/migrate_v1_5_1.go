@@ -183,7 +183,6 @@ func migrateNetworks(ctx context.Context) error {
 			AddressRange:                network.AddressRange,
 			AddressRange6:               network.AddressRange6,
 			DefaultKeepAlive:            int(network.DefaultKeepalive),
-			DefaultACL:                  network.DefaultACL,
 			DefaultMTU:                  network.DefaultMTU,
 			AutoJoin:                    autoJoin,
 			AutoRemove:                  autoRemove,

@@ -213,7 +213,6 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.EgressGatewayRequest = legacy.EgressGatewayRequest
 	node.IngressGatewayRange = legacy.IngressGatewayRange
 	node.IngressGatewayRange6 = legacy.IngressGatewayRange6
-	node.DefaultACL = legacy.DefaultACL
 	node.OwnerID = legacy.OwnerID
 	return node
 }

@@ -575,7 +575,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertHost(host)
 		}
 	}
-	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
 	err = logic.UpdateNode(&currentNode, newNode)
 	if err != nil {
@@ -671,7 +670,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
+	go func(relayupdate bool, newNode *models.Node) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -702,7 +701,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
 			}
 		}
-	}(aclUpdate, relayUpdate, newNode)
+	}(relayUpdate, newNode)
 }
 
 // @Summary     Delete an individual node
@@ -751,8 +750,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.BulkDeleteRequest true "List of node IDs to delete"
-// @Param       force query bool false "Force delete"
-// @Success     200 {object} models.BulkDeleteResponse
+// @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkDeleteRequest
@@ -764,33 +762,29 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
 		return
 	}
-	forceDelete := true
 	user := r.Header.Get("user")
-	resp := models.BulkDeleteResponse{}
-	var deletedNodes []models.Node
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
 
-	for _, nodeID := range req.IDs {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: nodeID, Error: err.Error()})
-			continue
-		}
-		if err := logic.DeleteNode(&node, forceDelete); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkDeleteError{ID: nodeID, Error: err.Error()})
-			continue
-		}
-		logger.Log(1, user, "Deleted node", nodeID, "from network", node.Network)
-		resp.Deleted = append(resp.Deleted, nodeID)
-		deletedNodes = append(deletedNodes, node)
-	}
-
-	if len(deletedNodes) > 0 {
-		go func() {
-			for _, node := range deletedNodes {
-				mq.PublishMqUpdatesForDeletedNode(node, true)
+	go func() {
+		deleted := 0
+		var deletedNodes []models.Node
+		for _, nodeID := range req.IDs {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
+				continue
 			}
-		}()
-	}
-
-	logic.ReturnSuccessResponseWithJson(w, r, resp, fmt.Sprintf("deleted %d node(s)", len(resp.Deleted)))
+			if err := logic.DeleteNode(&node, true); err != nil {
+				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
+				continue
+			}
+			logger.Log(1, user, "Deleted node", nodeID, "from network", node.Network)
+			deletedNodes = append(deletedNodes, node)
+			deleted++
+		}
+		for _, node := range deletedNodes {
+			mq.PublishMqUpdatesForDeletedNode(node, true)
+		}
+		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
 }
