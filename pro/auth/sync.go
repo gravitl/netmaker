@@ -125,7 +125,7 @@ func SyncFromIDP() error {
 		}
 	}
 
-	err = syncUsers(idpUsers)
+	err = syncUsers(idpUsers, settings.AuthProvider == "")
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func SyncFromIDP() error {
 	return err
 }
 
-func syncUsers(idpUsers []idp.User) error {
+func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
 	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -203,9 +203,10 @@ func syncUsers(idpUsers []idp.User) error {
 			// can be deleted.
 			_ = logic.DeletePendingUser(user.Username)
 		} else if dbUser.AuthType == schema.OAuth {
-			if dbUser.AccountDisabled != user.AccountDisabled ||
-				dbUser.DisplayName != user.DisplayName ||
-				dbUser.ExternalIdentityProviderID != user.ID {
+			if dbUser.PlatformRoleID != schema.SuperAdminRole &&
+				(dbUser.AccountDisabled != user.AccountDisabled ||
+					dbUser.DisplayName != user.DisplayName ||
+					dbUser.ExternalIdentityProviderID != user.ID) {
 
 				dbUser.AccountDisabled = user.AccountDisabled
 				dbUser.DisplayName = user.DisplayName
@@ -225,6 +226,10 @@ func syncUsers(idpUsers []idp.User) error {
 	for _, user := range dbUsersMap {
 		if user.ExternalIdentityProviderID != "" {
 			if _, ok := idpUsersMap[user.Username]; !ok {
+				if user.PlatformRoleID == schema.SuperAdminRole && !removeIntegration {
+					continue
+				}
+
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
 				err = deleteAndCleanUpUser(user)
