@@ -764,7 +764,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
 		return
 	}
-	forceDelete := r.URL.Query().Get("force") == "true"
+	forceDelete := true
 	user := r.Header.Get("user")
 	resp := models.BulkDeleteResponse{}
 	var deletedNodes []models.Node

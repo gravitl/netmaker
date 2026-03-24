@@ -324,7 +324,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// check if host already exists
 	hostExists := false
-	slog.Error("registration: checking if host exists", "hostID", newHost.ID.String(), "hostName", newHost.Name)
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
 		logger.Log(
 			0,
@@ -400,7 +399,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
 		return slices.Contains(skipViolatedNetworks, netI)
 	})
-	slog.Error("registration: host existence check done", "hostID", newHost.ID.String(), "hostName", newHost.Name, "hostExists", hostExists)
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
@@ -414,33 +412,25 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		slog.Error("registration: creating new host", "hostID", newHost.ID.String(), "hostName", newHost.Name)
 		if err = logic.CreateHost(&newHost); err != nil {
-			slog.Error("registration: CreateHost failed", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		slog.Error("registration: host created successfully", "hostID", newHost.ID.String(), "hostName", newHost.Name)
 		host = &newHost
 	} else {
 		currHost := &schema.Host{
 			ID: newHost.ID,
 		}
-		slog.Error("registration: fetching existing host for update", "hostID", newHost.ID.String(), "hostName", newHost.Name)
 		err := currHost.Get(r.Context())
 		if err != nil {
-			slog.Error("registration: existing host Get failed (hostExists branch)", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		logic.UpdateHostFromClient(&newHost, currHost)
-		err = logic.UpsertHost(currHost)
-		if err != nil {
-			slog.Error("registration: UpsertHost failed (hostExists branch)", "hostID", currHost.ID, "error", err)
+		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		slog.Error("registration: existing host updated successfully", "hostID", currHost.ID.String(), "hostName", currHost.Name)
 		host = currHost
 	}
 	// ready the response
