@@ -657,24 +657,15 @@ func UpdateUserGroup(g schema.UserGroup) error {
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	users, err := (&schema.User{}).ListAll(dbctx)
+	// TODO: wrap in transaction once acls are migrated to sql schema.
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
 	for _, user := range users {
 		delete(user.UserGroups.Data(), group.ID)
-		err = user.Update(dbctx)
+		err = user.Update(db.WithContext(context.TODO()))
 		if err != nil {
 			return err
 		}
@@ -732,12 +723,10 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		}
 	}
 
-	err = group.Delete(dbctx)
+	err = group.Delete(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-
-	commit = true
 
 	go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 	go mq.PublishPeerUpdate(replacePeers)
