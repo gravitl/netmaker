@@ -86,7 +86,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		inviteExists = true
 	}
 	// check if user approval is already pending
-	if !inviteExists && logic.IsPendingUser(content.Email) {
+	if !inviteExists && (logic.IsPendingUser(content.Email) || logic.IsPendingUser(content.UserPrincipalName)) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
@@ -109,6 +109,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				logic.DeleteUserInvite(content.Email)
+				logic.DeletePendingUser(content.UserPrincipalName)
 				logic.DeletePendingUser(content.Email)
 			} else {
 				if !isEmailAllowed(content.Email) {
