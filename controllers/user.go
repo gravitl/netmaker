@@ -1028,6 +1028,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Param       mfa_status query string false "Filter by MFA Status" Enums(enabled, disabled)
 // @Param       role query []string false "Filter by Role" Enums(super-admin, admin, platform-user, service-user, auditor)
 // @Param       auth_type query string false "Filter by Auth Type" Enums(basic, oauth)
+// @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ReturnUser
@@ -1064,6 +1065,8 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		authTypeFilter = append(authTypeFilter, filter)
 	}
 
+	q := r.URL.Query().Get("q")
+
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
@@ -1081,6 +1084,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter("platform_role_id", roleFilter...),
 		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithSearchQuery(q, "username"),
 		dbtypes.InAscOrder("username"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -1107,6 +1111,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter("platform_role_id", roleFilter...),
 		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithSearchQuery(q, "username"),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

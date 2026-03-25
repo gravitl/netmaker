@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -37,6 +38,28 @@ func WithFilter(field string, value ...interface{}) Option {
 		}
 
 		return db.Where(fmt.Sprintf("%s IN ?", field), value)
+	}
+}
+
+// WithSearchQuery applies a WHERE clause searching `q` across multiple text fields using OR.
+// Uses LOWER() for case-insensitive matching across SQLite and PostgreSQL.
+// IMPORTANT: `fields` MUST be trusted, hardcoded column names.
+// NEVER pass user-supplied strings as `fields`.
+func WithSearchQuery(q string, fields ...string) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		if q == "" || len(fields) == 0 {
+			return db
+		}
+
+		clauses := make([]string, len(fields))
+		args := make([]interface{}, len(fields))
+
+		for i, field := range fields {
+			clauses[i] = fmt.Sprintf("LOWER(CAST(%s AS TEXT)) LIKE ?", db.Statement.Quote(field))
+			args[i] = "%" + strings.ToLower(q) + "%"
+		}
+
+		return db.Where(strings.Join(clauses, " OR "), args...)
 	}
 }
 

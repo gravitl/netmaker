@@ -419,6 +419,7 @@ func getUserGroups(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       default query string false "Filter Default / Custom Groups" Enums(true, false)
+// @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.UserGroup
@@ -438,6 +439,8 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 		defaultGroups = append(defaultGroups, value)
 	}
 
+	q := r.URL.Query().Get("q")
+
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
@@ -452,6 +455,7 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := (&schema.UserGroup{}).ListAll(
 		r.Context(),
 		dbtypes.WithFilter("default", defaultGroups...),
+		dbtypes.WithSearchQuery(q, "id", "name", "meta_data"),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -463,6 +467,7 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	total, err := (&schema.UserGroup{}).Count(
 		r.Context(),
 		dbtypes.WithFilter("default", defaultGroups...),
+		dbtypes.WithSearchQuery(q, "id", "name", "meta_data"),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

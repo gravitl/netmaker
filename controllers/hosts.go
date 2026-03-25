@@ -204,6 +204,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
+// @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiHost
@@ -213,6 +214,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	for _, filter := range r.URL.Query()["os"] {
 		osFilters = append(osFilters, filter)
 	}
+
+	q := r.URL.Query().Get("q")
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -228,6 +231,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := (&schema.Host{}).ListAll(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -243,6 +247,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	total, err := (&schema.Host{}).Count(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
