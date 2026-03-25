@@ -401,7 +401,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
-// @Success     200 {array} models.UserGroup
+// @Success     200 {array} schema.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func getUserGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := (&schema.UserGroup{}).ListAll(r.Context())
@@ -421,7 +421,7 @@ func getUserGroups(w http.ResponseWriter, r *http.Request) {
 // @Param       default query string false "Filter Default / Custom Groups" Enums(true, false)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
-// @Success     200 {array} models.UserGroup
+// @Success     200 {array} schema.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	var defaultGroups []interface{}
@@ -488,7 +488,7 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       group_id query string true "Group ID"
-// @Success     200 {object} models.UserGroup
+// @Success     200 {object} schema.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func getUserGroup(w http.ResponseWriter, r *http.Request) {
 
@@ -514,8 +514,8 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Accept      json
 // @Produce     json
-// @Param       body body models.CreateGroupReq true "Create group request"
-// @Success     200 {object} models.UserGroup
+// @Param       body body schema.UserGroup true "Create group request"
+// @Success     200 {object} schema.UserGroup
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
@@ -580,8 +580,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Accept      json
 // @Produce     json
-// @Param       body body models.UserGroup true "User group update data"
-// @Success     200 {object} models.UserGroup
+// @Param       body body schema.UserGroup true "User group update data"
+// @Success     200 {object} schema.UserGroup
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateUserGroup(w http.ResponseWriter, r *http.Request) {

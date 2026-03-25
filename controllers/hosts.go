@@ -702,7 +702,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			for _, node := range hostNodes {
-				mq.PublishMqUpdatesForDeletedNode(node, false)
+				go mq.PublishMqUpdatesForDeletedNode(node, false)
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {

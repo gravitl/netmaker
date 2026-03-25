@@ -947,7 +947,7 @@ func updateUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username query string true "Username"
-// @Success     200 {object} models.ReturnUserWithRolesAndGroups
+// @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getUserV1(w http.ResponseWriter, r *http.Request) {
@@ -1766,15 +1766,23 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	caller := &schema.User{Username: r.Header.Get("user")}
-	if err := caller.Get(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	callerRole := &schema.UserRole{ID: caller.PlatformRoleID}
-	if err := callerRole.Get(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	callerName := r.Header.Get("user")
+	var caller *schema.User
+	var callerRole *schema.UserRole
+	var isMaster bool
+	if callerName == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller = &schema.User{Username: callerName}
+		if err := caller.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		callerRole = &schema.UserRole{ID: caller.PlatformRoleID}
+		if err := callerRole.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
@@ -1797,23 +1805,20 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: user not found", "username", username, "error", err)
 				continue
 			}
-			userRole := &schema.UserRole{ID: user.PlatformRoleID}
-			if err := userRole.Get(db.WithContext(context.TODO())); err != nil {
-				slog.Error("bulk user delete: failed to get role", "username", username, "error", err)
-				continue
-			}
-			if username == caller.Username {
+			if !isMaster && username == caller.Username {
 				slog.Error("bulk user delete: cannot delete own account", "username", username)
 				continue
 			}
-			if userRole.ID == schema.SuperAdminRole {
+			if user.PlatformRoleID == schema.SuperAdminRole {
 				slog.Error("bulk user delete: cannot delete superadmin", "username", username)
 				continue
 			}
-			if callerRole.ID != schema.SuperAdminRole {
-				if callerRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
-					slog.Error("bulk user delete: admin cannot delete another admin", "username", username)
-					continue
+			if !isMaster {
+				if callerRole.ID != schema.SuperAdminRole {
+					if callerRole.ID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
+						slog.Error("bulk user delete: admin cannot delete another admin", "username", username)
+						continue
+					}
 				}
 			}
 			if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
@@ -1827,11 +1832,11 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.LogEvent(&models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
-					ID:   caller.Username,
-					Name: caller.Username,
+					ID:   callerName,
+					Name: callerName,
 					Type: schema.UserSub,
 				},
-				TriggeredBy: caller.Username,
+				TriggeredBy: callerName,
 				Target: models.Subject{
 					ID:   user.Username,
 					Name: user.Username,

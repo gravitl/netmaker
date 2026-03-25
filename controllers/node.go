@@ -33,7 +33,8 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nodes/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateNodeStatus))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/nodes/{network}/status", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -744,15 +745,17 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Bulk delete nodes
-// @Router      /api/v1/nodes/bulk [delete]
+// @Router      /api/v1/nodes/{network}/bulk [delete]
 // @Tags        Nodes
 // @Security    oauth
 // @Accept      json
 // @Produce     json
+// @Param       network path string true "Network ID"
 // @Param       body body models.BulkDeleteRequest true "List of node IDs to delete"
 // @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
 	var req models.BulkDeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
@@ -760,6 +763,10 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.IDs) == 0 {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
 	user := r.Header.Get("user")
@@ -774,11 +781,14 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
 				continue
 			}
+			if node.Network != network {
+				continue
+			}
 			if err := logic.DeleteNode(&node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
-			logger.Log(1, user, "Deleted node", nodeID, "from network", node.Network)
+			logger.Log(1, user, "Deleted node", nodeID, "from network", network)
 			deletedNodes = append(deletedNodes, node)
 			deleted++
 		}
@@ -786,5 +796,76 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			mq.PublishMqUpdatesForDeletedNode(node, true)
 		}
 		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
+}
+
+// @Summary     Bulk update node connected status
+// @Router      /api/v1/nodes/{network}/bulk/status [put]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkNodeStatusUpdate true "Node IDs and desired connected state"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	var req models.BulkNodeStatusUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
+		return
+	}
+
+	action := "reconnect"
+	if !req.Connected {
+		action = "disconnect"
+	}
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", action, len(req.IDs)))
+
+	go func() {
+		updated := 0
+		for _, nodeID := range req.IDs {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("bulk node status: node not found", "id", nodeID, "error", err)
+				continue
+			}
+			if node.Network != network {
+				continue
+			}
+			if node.Connected == req.Connected {
+				continue
+			}
+			newNode := node
+			newNode.Connected = req.Connected
+			if err := logic.UpdateNode(&node, &newNode); err != nil {
+				slog.Error("bulk node status: failed to update node", "id", nodeID, "error", err)
+				continue
+			}
+			if !req.Connected {
+				metrics, err := logic.GetMetrics(nodeID)
+				if err == nil {
+					for peer, connectivity := range metrics.Connectivity {
+						connectivity.Connected = false
+						metrics.Connectivity[peer] = connectivity
+					}
+					_ = logic.UpdateMetrics(nodeID, metrics)
+				}
+			}
+			updated++
+		}
+		if updated > 0 {
+			mq.PublishPeerUpdate(false)
+		}
+		slog.Info("bulk node status completed", "action", action, "updated", updated, "total", len(req.IDs))
 	}()
 }

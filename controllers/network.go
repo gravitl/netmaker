@@ -74,7 +74,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Produce     json
-// @Success     200 {array} models.NetworkStatResp
+// @Success     200 {array} schema.Network
 // @Failure     500 {object} models.ErrorResponse
 func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 

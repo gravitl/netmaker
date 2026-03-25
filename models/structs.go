@@ -512,16 +512,18 @@ type BulkUserStatusUpdate struct {
 	Disable bool     `json:"disable"`
 }
 
-type ExtClientID struct {
-	ClientID string `json:"client_id"`
-	Network  string `json:"network"`
-}
-
-type BulkExtClientDeleteRequest struct {
-	Clients []ExtClientID `json:"clients"`
-}
 
 type BulkStatusResponse struct {
 	Updated []string          `json:"updated"`
 	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkNodeStatusUpdate struct {
+	IDs       []string `json:"ids"`
+	Connected bool     `json:"connected"`
+}
+
+type BulkExtClientStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Enabled bool     `json:"enabled"`
 }
