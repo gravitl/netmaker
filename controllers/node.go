@@ -857,7 +857,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk node status: node not found", "id", nodeID, "error", err)
 				continue
 			}
-			if node.Connected == req.Connected {
+			if node.Connected == req.Connected || node.Network != network {
 				continue
 			}
 			newNode := node
