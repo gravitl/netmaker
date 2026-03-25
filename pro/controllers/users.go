@@ -460,7 +460,10 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	total, err := (&schema.UserGroup{}).Count(r.Context())
+	total, err := (&schema.UserGroup{}).Count(
+		r.Context(),
+		dbtypes.WithFilter("default", defaultGroups...),
+	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
