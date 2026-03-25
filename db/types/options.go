@@ -33,7 +33,7 @@ func WithFilter(field string, value ...interface{}) Option {
 		}
 
 		if len(value) == 1 {
-			return db.Where(fmt.Sprintf("%s = ?", field), value[0])
+			return db.Where(fmt.Sprintf("%s = ?", db.Statement.Quote(field)), value[0])
 		}
 
 		return db.Where(fmt.Sprintf("%s IN ?", field), value)
@@ -43,7 +43,7 @@ func WithFilter(field string, value ...interface{}) Option {
 func InAscOrder(fields ...string) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		for _, field := range fields {
-			db = db.Order(fmt.Sprintf("%s ASC", field))
+			db = db.Order(fmt.Sprintf("%s ASC", db.Statement.Quote(field)))
 		}
 
 		return db
@@ -53,7 +53,7 @@ func InAscOrder(fields ...string) Option {
 func InDescOrder(fields ...string) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		for _, field := range fields {
-			db = db.Order(fmt.Sprintf("%s DESC", field))
+			db = db.Order(fmt.Sprintf("%s DESC", db.Statement.Quote(field)))
 		}
 
 		return db
