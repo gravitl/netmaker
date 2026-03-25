@@ -1187,6 +1187,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		deleted := 0
+		gwDeletedClients := make(map[string][]models.ExtClient)
 		for _, clientID := range req.IDs {
 			extclient, err := logic.GetExtClient(clientID, network)
 			if err != nil {
@@ -1197,9 +1198,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
 				continue
 			}
-			if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
-				slog.Error("bulk extclient delete: error publishing peer update", "client_id", extclient.ClientID, "error", err)
-			}
+			gwDeletedClients[extclient.IngressGatewayID] = append(gwDeletedClients[extclient.IngressGatewayID], extclient)
 			logic.LogEvent(&models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
@@ -1221,7 +1220,22 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			mq.PublishPeerUpdate(false)
+			allNodes, _ := logic.GetAllNodes()
+			for gwNodeID, clients := range gwDeletedClients {
+				gwNode, err := logic.GetNodeByID(gwNodeID)
+				if err != nil {
+					slog.Error("bulk extclient delete: gw node not found", "node_id", gwNodeID, "error", err)
+					continue
+				}
+				gwHost := &schema.Host{ID: gwNode.HostID}
+				if err := gwHost.Get(db.WithContext(context.TODO())); err != nil {
+					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
+					continue
+				}
+				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, clients, false, nil)
+
+			}
+			go mq.PublishPeerUpdate(false)
 			if servercfg.IsDNSMode() {
 				logic.SetDNS()
 			}
