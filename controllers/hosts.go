@@ -684,7 +684,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			currHost := &schema.Host{ID: hostID}
-			if err = currHost.Get(db.WithContext(context.TODO())); err != nil {
+			if err = currHost.Get(db.WithContext(context.Background())); err != nil {
 				slog.Error("bulk host delete: host not found", "id", idStr, "error", err)
 				continue
 			}
