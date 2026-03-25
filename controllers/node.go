@@ -788,6 +788,23 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   node.ID.String(),
+					Name: node.ID.String(),
+					Type: schema.NodeSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: node, New: nil},
+			})
 			logger.Log(1, user, "Deleted node", nodeID, "from network", network)
 			deletedNodes = append(deletedNodes, node)
 			deleted++
@@ -825,11 +842,12 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	action := "reconnect"
+	eventAction := schema.Connect
 	if !req.Connected {
-		action = "disconnect"
+		eventAction = schema.Disconnect
 	}
-	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", action, len(req.IDs)))
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", eventAction, len(req.IDs)))
 
 	go func() {
 		updated := 0
@@ -837,9 +855,6 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			node, err := logic.GetNodeByID(nodeID)
 			if err != nil {
 				slog.Error("bulk node status: node not found", "id", nodeID, "error", err)
-				continue
-			}
-			if node.Network != network {
 				continue
 			}
 			if node.Connected == req.Connected {
@@ -861,11 +876,27 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 					_ = logic.UpdateMetrics(nodeID, metrics)
 				}
 			}
+			logic.LogEvent(&models.Event{
+				Action: eventAction,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   node.ID.String(),
+					Name: node.ID.String(),
+					Type: schema.NodeSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+			})
 			updated++
 		}
 		if updated > 0 {
 			mq.PublishPeerUpdate(false)
 		}
-		slog.Info("bulk node status completed", "action", action, "updated", updated, "total", len(req.IDs))
+		slog.Info("bulk node status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()
 }

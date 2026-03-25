@@ -1200,6 +1200,23 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
 				slog.Error("bulk extclient delete: error publishing peer update", "client_id", extclient.ClientID, "error", err)
 			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   extclient.ClientID,
+					Name: extclient.ClientID,
+					Type: schema.NetworkSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: extclient, New: nil},
+			})
 			logger.Log(0, user, "Deleted extclient", clientID, "from network", network)
 			deleted++
 		}
@@ -1299,16 +1316,13 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no ext client IDs provided"), logic.BadReq))
 		return
 	}
-	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
-		return
-	}
 
-	action := "enable"
+	eventAction := schema.Connect
 	if !req.Enabled {
-		action = "disable"
+		eventAction = schema.Disconnect
 	}
-	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d ext client(s) accepted", action, len(req.IDs)))
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d ext client(s) accepted", eventAction, len(req.IDs)))
 
 	go func() {
 		updated := 0
@@ -1321,6 +1335,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 			if client.Enabled == req.Enabled {
 				continue
 			}
+			oldClient := client
 			if _, err := logic.ToggleExtClientConnectivity(&client, req.Enabled); err != nil {
 				slog.Error("bulk extclient status: failed to toggle", "client_id", clientID, "error", err)
 				continue
@@ -1330,6 +1345,24 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient status: error publishing peer update", "client_id", clientID, "error", err)
 				}
 			}
+			logic.LogEvent(&models.Event{
+				Action: eventAction,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   client.ClientID,
+					Name: client.ClientID,
+					Type: schema.NetworkSub,
+					Info: client,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: oldClient, New: client},
+			})
 			updated++
 		}
 		if updated > 0 {
@@ -1338,6 +1371,6 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 				logic.SetDNS()
 			}
 		}
-		slog.Info("bulk extclient status completed", "action", action, "updated", updated, "total", len(req.IDs))
+		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()
 }

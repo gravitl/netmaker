@@ -1966,11 +1966,31 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 			}
+			oldUser := *user
 			user.AccountDisabled = req.Disable
 			if err := user.UpdateAccountStatus(db.WithContext(context.TODO())); err != nil {
 				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
 				continue
 			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Update,
+				Source: models.Subject{
+					ID:   callerName,
+					Name: callerName,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: callerName,
+				Target: models.Subject{
+					ID:   user.Username,
+					Name: user.Username,
+					Type: schema.UserSub,
+				},
+				Diff: models.Diff{
+					Old: logic.ToReturnUser(&oldUser),
+					New: logic.ToReturnUser(user),
+				},
+				Origin: schema.Dashboard,
+			})
 			logger.Log(1, username, "was", action+"d")
 			updated++
 
