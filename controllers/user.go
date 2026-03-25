@@ -1753,7 +1753,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       body body models.BulkDeleteRequest true "List of usernames to delete"
 // @Param       force_delete_configs query bool false "Force delete associated ext-client configs"
-// @Success     200 {object} models.SuccessResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkDeleteRequest
@@ -1777,7 +1777,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
-	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	go func() {
 		ownerExtClients := make(map[string][]models.ExtClient)
@@ -1875,7 +1875,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       body body models.BulkUserStatusUpdate true "List of usernames and desired status"
 // @Param       force_toggle_configs query bool false "Also toggle associated ext-client connectivity"
-// @Success     200 {object} models.SuccessResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkUserStatusUpdate
@@ -1906,7 +1906,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	if req.Disable {
 		action = "disable"
 	}
-	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
 
 	go func() {
 		var ownerExtClients map[string][]models.ExtClient

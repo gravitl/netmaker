@@ -750,7 +750,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.BulkDeleteRequest true "List of node IDs to delete"
-// @Success     200 {object} models.SuccessResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkDeleteRequest
@@ -763,7 +763,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := r.Header.Get("user")
-	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
 
 	go func() {
 		deleted := 0

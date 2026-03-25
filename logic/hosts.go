@@ -359,10 +359,11 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 		return err
 	}
 	currentHost := &schema.Host{ID: h.ID}
-	if err := currentHost.Get(db.WithContext(context.TODO())); err == nil {
-		h.Nodes = currentHost.Nodes
-		h.HostPass = currentHost.HostPass
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node association: %w", err)
 	}
+	h.Nodes = currentHost.Nodes
+	h.HostPass = currentHost.HostPass
 	h.Nodes = append(h.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
@@ -377,9 +378,10 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		return fmt.Errorf("node is not associated with host")
 	}
 	currentHost := &schema.Host{ID: h.ID}
-	if err := currentHost.Get(db.WithContext(context.TODO())); err == nil {
-		h.Nodes = currentHost.Nodes
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node dissociation: %w", err)
 	}
+	h.Nodes = currentHost.Nodes
 	nList := []string{}
 	for i := range h.Nodes {
 		if h.Nodes[i] != n.ID.String() {

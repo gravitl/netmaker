@@ -249,6 +249,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
+		allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 	}
 	return
 }

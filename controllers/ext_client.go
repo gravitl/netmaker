@@ -1162,7 +1162,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.BulkExtClientDeleteRequest true "List of ext clients to delete"
-// @Success     200 {object} models.SuccessResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkExtClientDeleteRequest
@@ -1175,7 +1175,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := r.Header.Get("user")
-	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d ext client(s) accepted", len(req.Clients)))
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d ext client(s) accepted", len(req.Clients)))
 
 	go func() {
 		deleted := 0

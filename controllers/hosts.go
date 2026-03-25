@@ -660,7 +660,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.BulkDeleteRequest true "List of host IDs to delete"
-// @Success     200 {object} models.SuccessResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 	var req models.BulkDeleteRequest
@@ -673,7 +673,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := r.Header.Get("user")
-	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
 
 	go func() {
 		deleted := 0
