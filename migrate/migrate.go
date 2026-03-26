@@ -528,44 +528,8 @@ func updateAcls() {
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-		userGroupMap := make(map[schema.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
-			userGroupMap[userGroup.ID] = userGroup
-		}
-
-		acls := logic.ListAcls()
-		for _, acl := range acls {
-			aclSrc := make([]models.AclPolicyTag, 0)
-			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID {
-					userGroup, ok := userGroupMap[schema.UserGroupID(src.Value)]
-					if !ok {
-						// if the group doesn't exist, don't add it to the acl's src.
-						continue
-					} else {
-						_, allNetworkAccess := userGroup.NetworkRoles.Data()[schema.AllNetworks]
-						if !allNetworkAccess {
-							_, ok := userGroup.NetworkRoles.Data()[acl.NetworkID]
-							if !ok {
-								// if the group doesn't have permissions for the acl's
-								// network, don't add it to the acl's src.
-								continue
-							}
-						}
-					}
-				}
-				aclSrc = append(aclSrc, src)
-			}
-
-			if len(aclSrc) == 0 {
-				// if there are no acl sources, delete the acl.
-				_ = logic.DeleteAcl(acl)
-			} else if len(aclSrc) != len(acl.Src) {
-				// if some user groups were removed from the acl source,
-				// update the acl.
-				acl.Src = aclSrc
-				_ = logic.UpsertAcl(acl)
-			}
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &userGroup, true)
 		}
 	}
 }

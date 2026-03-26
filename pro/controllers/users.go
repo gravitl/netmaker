@@ -7,12 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -561,7 +558,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 		}
 		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
-		logic.UpsertUser(*user)
+		_ = logic.UpsertUser(*user)
 	}
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
@@ -644,188 +641,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 	replacePeers := false
-	go func() {
-		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles.Data()[schema.AllNetworks]
-		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles.Data()[schema.AllNetworks]
 
-		var removeAllNetworksCurrRoleAcls bool
-		var addAllNetworksNewRoleAcls bool
-		var updateSpecifiedNetworksAcls bool
-		if currAllNetworksRoleExists {
-			if newAllNetworksRoleExists {
-				if !reflect.DeepEqual(currAllNetworksRole, newAllNetworksRole) {
-					removeAllNetworksCurrRoleAcls = true
-					addAllNetworksNewRoleAcls = true
-				}
-			} else {
-				removeAllNetworksCurrRoleAcls = true
-			}
-		} else {
-			if newAllNetworksRoleExists {
-				addAllNetworksNewRoleAcls = true
-			} else {
-				updateSpecifiedNetworksAcls = true
-			}
-		}
-
-		networksAdded := make([]schema.NetworkID, 0)
-		networksRemoved := make([]schema.NetworkID, 0)
-
-		for networkID := range userGroup.NetworkRoles.Data() {
-			if networkID == schema.AllNetworks {
-				continue
-			}
-
-			if _, ok := currUserG.NetworkRoles.Data()[networkID]; !ok {
-				networksAdded = append(networksAdded, networkID)
-			}
-		}
-
-		for networkID := range currUserG.NetworkRoles.Data() {
-			if networkID == schema.AllNetworks {
-				continue
-			}
-
-			if _, ok := userGroup.NetworkRoles.Data()[networkID]; !ok {
-				networksRemoved = append(networksRemoved, networkID)
-			}
-		}
-
-		if removeAllNetworksCurrRoleAcls || addAllNetworksNewRoleAcls {
-			const globalNetworkAdmin = "global-network-admin"
-			networks, _ := (&schema.Network{}).ListAll(r.Context())
-			for _, network := range networks {
-				if removeAllNetworksCurrRoleAcls {
-					currRole := schema.NetworkUser
-					_, ok := currAllNetworksRole[globalNetworkAdmin]
-					if ok {
-						currRole = schema.NetworkAdmin
-					}
-
-					aclID := fmt.Sprintf("%s.%s-grp", network.Name, currRole)
-					acl, err := logic.GetAcl(aclID)
-					if err == nil {
-						var hasGroupSrc bool
-						newAclSrc := make([]models.AclPolicyTag, 0)
-						for _, src := range acl.Src {
-							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
-								hasGroupSrc = true
-							} else {
-								newAclSrc = append(newAclSrc, src)
-							}
-						}
-
-						if hasGroupSrc {
-							acl.Src = newAclSrc
-							_ = logic.UpsertAcl(acl)
-						}
-					}
-				}
-
-				if addAllNetworksNewRoleAcls {
-					newRole := schema.NetworkUser
-					_, ok := newAllNetworksRole[globalNetworkAdmin]
-					if ok {
-						newRole = schema.NetworkAdmin
-					}
-
-					aclID := fmt.Sprintf("%s.%s-grp", network.Name, newRole)
-					acl, err := logic.GetAcl(aclID)
-					if err == nil {
-						var hasGroupSrc bool
-						for _, src := range acl.Src {
-							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
-								hasGroupSrc = true
-							}
-						}
-
-						if !hasGroupSrc {
-							acl.Src = append(acl.Src, models.AclPolicyTag{
-								ID:    models.UserGroupAclID,
-								Value: userGroup.ID.String(),
-							})
-							_ = logic.UpsertAcl(acl)
-						}
-					}
-				}
-			}
-		}
-
-		if updateSpecifiedNetworksAcls {
-			for _, networkID := range networksAdded {
-				// ensure the network exists.
-				network := &schema.Network{Name: networkID.String()}
-				err := network.Get(r.Context())
-				if err != nil {
-					continue
-				}
-
-				// insert acl if the network is added to the group.
-				acl := models.Acl{
-					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s group", userGroup.Name),
-					MetaData:    "This Policy allows user group to communicate with all gateways",
-					Default:     false,
-					ServiceType: models.Any,
-					NetworkID:   schema.NetworkID(network.Name),
-					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
-					Src: []models.AclPolicyTag{
-						{
-							ID:    models.UserGroupAclID,
-							Value: userGroup.ID.String(),
-						},
-					},
-					Dst: []models.AclPolicyTag{
-						{
-							ID:    models.NodeTagID,
-							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
-						}},
-					AllowedDirection: models.TrafficDirectionUni,
-					Enabled:          true,
-					CreatedBy:        "auto",
-					CreatedAt:        time.Now().UTC(),
-				}
-				_ = logic.InsertAcl(acl)
-				replacePeers = true
-			}
-
-			// since this group doesn't have a role for this network,
-			// there is no point in having this group as src in any
-			// of the network's acls.
-			for _, networkID := range networksRemoved {
-				acls, err := logic.ListAclsByNetwork(networkID)
-				if err != nil {
-					continue
-				}
-
-				for _, acl := range acls {
-					var hasGroupSrc bool
-					newAclSrc := make([]models.AclPolicyTag, 0)
-					for _, src := range acl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
-							hasGroupSrc = true
-						} else {
-							newAclSrc = append(newAclSrc, src)
-						}
-					}
-
-					if hasGroupSrc {
-						if len(newAclSrc) == 0 {
-							// no other src exists, delete acl.
-							_ = logic.DeleteAcl(acl)
-						} else {
-							// other sources exist, update acl.
-							acl.Src = newAclSrc
-							_ = logic.UpsertAcl(acl)
-						}
-						replacePeers = true
-					}
-				}
-			}
-		}
-	}()
-
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&userGroup, &userGroup, false)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(replacePeers)

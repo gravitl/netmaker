@@ -1185,6 +1185,10 @@ var (
 	}
 
 	RemoveUserFromAclPolicy = func(userName string) {}
+
+	EnsureDefaultUserGroupNetworkPolicies = func(old, new *schema.UserGroup, migrate bool) error {
+		return nil
+	}
 )
 
 var (
