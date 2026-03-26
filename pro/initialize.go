@@ -178,6 +178,7 @@ func InitPro() {
 	logic.IsOAuthConfigured = auth.IsOAuthConfigured
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy

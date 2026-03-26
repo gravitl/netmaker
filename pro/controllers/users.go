@@ -1971,14 +1971,18 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
-	go func() {
-		err := proAuth.SyncFromIDP()
-		if err != nil {
-			logger.Log(0, "failed to sync from idp: ", err.Error())
-		} else {
-			logger.Log(0, "sync from idp complete")
-		}
-	}()
+	if servercfg.IsMasterPod() {
+		go func() {
+			err := proAuth.SyncFromIDP()
+			if err != nil {
+				logger.Log(0, "failed to sync from idp: ", err.Error())
+			} else {
+				logger.Log(0, "sync from idp complete")
+			}
+		}()
+	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
+		logic.PublishServerSync(logic.SyncTypeIDPSync)
+	}
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
 }
@@ -2098,14 +2102,18 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	proAuth.ResetAuthProvider()
 	proAuth.ResetIDPSyncHook()
 
-	go func() {
-		err := proAuth.SyncFromIDP()
-		if err != nil {
-			logger.Log(0, "failed to sync from idp: ", err.Error())
-		} else {
-			logger.Log(0, "sync from idp complete")
-		}
-	}()
+	if servercfg.IsMasterPod() {
+		go func() {
+			err := proAuth.SyncFromIDP()
+			if err != nil {
+				logger.Log(0, "failed to sync from idp: ", err.Error())
+			} else {
+				logger.Log(0, "sync from idp complete")
+			}
+		}()
+	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
+		logic.PublishServerSync(logic.SyncTypeIDPSync)
+	}
 
 	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")
 }
