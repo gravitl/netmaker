@@ -1141,34 +1141,25 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 				CreatedAt:        time.Now().UTC(),
 			}
 
-			var exists bool
-			for _, acl := range acls {
-				if acl.Name == defaultAclName {
-					if acl.Default {
-						exists = true
-						break
-					} else if migrate {
-						if acl.Name == expectedAcl.Name &&
-							acl.MetaData == expectedAcl.MetaData &&
-							acl.ServiceType == expectedAcl.ServiceType &&
-							acl.NetworkID == expectedAcl.NetworkID &&
-							acl.Proto == expectedAcl.Proto &&
-							acl.RuleType == expectedAcl.RuleType &&
-							slices.Equal(acl.Src, expectedAcl.Src) &&
-							slices.Equal(acl.Dst, expectedAcl.Dst) &&
-							acl.AllowedDirection == expectedAcl.AllowedDirection {
+			if acl.Name == defaultAclName {
+				if acl.Default {
+					continue
+				} else if migrate {
+					if acl.Name == expectedAcl.Name &&
+						acl.MetaData == expectedAcl.MetaData &&
+						acl.ServiceType == expectedAcl.ServiceType &&
+						acl.NetworkID == expectedAcl.NetworkID &&
+						acl.Proto == expectedAcl.Proto &&
+						acl.RuleType == expectedAcl.RuleType &&
+						slices.Equal(acl.Src, expectedAcl.Src) &&
+						slices.Equal(acl.Dst, expectedAcl.Dst) &&
+						acl.AllowedDirection == expectedAcl.AllowedDirection {
 
-							acl.Default = true
-							_ = logic.UpsertAcl(acl)
-							exists = true
-							break
-						}
+						acl.Default = true
+						_ = logic.UpsertAcl(acl)
+						continue
 					}
 				}
-			}
-
-			if exists {
-				continue
 			}
 
 			_ = logic.InsertAcl(expectedAcl)

@@ -370,7 +370,8 @@ func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 		for _, userGroup := range userGroups {
-			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &userGroup, true)
+			group := userGroup
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group, true)
 		}
 	}
 }
