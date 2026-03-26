@@ -1088,85 +1088,107 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 		groupName = old.Name
 	}
 
+	policyEnabled := make(map[schema.NetworkID]bool)
 	defaultAclName := GetDefaultGroupAclName(groupName)
-	acls := logic.ListAcls()
-	for _, acl := range acls {
-		if migrate && acl.Default {
-			if acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkAdmin) ||
-				acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkUser) {
-				var newAclSrc []models.AclPolicyTag
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == groupID {
-						continue
-					} else {
-						newAclSrc = append(newAclSrc, src)
+	if migrate {
+		acls := logic.ListAcls()
+		for _, acl := range acls {
+			if acl.Default {
+				if acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkAdmin) ||
+					acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkUser) {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range acl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == groupID {
+							policyEnabled[acl.NetworkID] = acl.Enabled
+							continue
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
 					}
-				}
 
-				if len(newAclSrc) == 0 {
-					_ = logic.DeleteAcl(acl)
-				} else {
-					acl.Src = newAclSrc
-					_ = logic.UpsertAcl(acl)
+					if len(newAclSrc) == 0 {
+						_ = logic.DeleteAcl(acl)
+					} else {
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+					continue
 				}
-				continue
+			}
+		}
+	}
+
+	for networkID, network := range networksAdded {
+		expectedAcl := models.Acl{
+			ID:          uuid.New().String(),
+			Name:        defaultAclName,
+			MetaData:    "This Policy allows user group to communicate with all gateways",
+			Default:     true,
+			ServiceType: models.Any,
+			NetworkID:   schema.NetworkID(network.Name),
+			Proto:       models.ALL,
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: groupID,
+				},
+			},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			continue
+		}
+
+		var exists bool
+		for _, acl := range acls {
+			if acl.Name == defaultAclName && acl.Default {
+				exists = true
+				break
+			} else if migrate {
+				if acl.Name == expectedAcl.Name &&
+					acl.MetaData == expectedAcl.MetaData &&
+					acl.ServiceType == expectedAcl.ServiceType &&
+					acl.NetworkID == expectedAcl.NetworkID &&
+					acl.Proto == expectedAcl.Proto &&
+					acl.RuleType == expectedAcl.RuleType &&
+					slices.Equal(acl.Src, expectedAcl.Src) &&
+					slices.Equal(acl.Dst, expectedAcl.Dst) &&
+					acl.AllowedDirection == expectedAcl.AllowedDirection {
+
+					acl.Default = true
+					_ = logic.UpsertAcl(acl)
+					exists = true
+					break
+				}
 			}
 		}
 
-		network, networkAdded := networksAdded[acl.NetworkID]
-		if networkAdded {
-			expectedAcl := models.Acl{
-				ID:          uuid.New().String(),
-				Name:        defaultAclName,
-				MetaData:    "This Policy allows user group to communicate with all gateways",
-				Default:     true,
-				ServiceType: models.Any,
-				NetworkID:   schema.NetworkID(network.Name),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
-					{
-						ID:    models.UserGroupAclID,
-						Value: groupID,
-					},
-				},
-				Dst: []models.AclPolicyTag{
-					{
-						ID:    models.NodeTagID,
-						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
-					}},
-				AllowedDirection: models.TrafficDirectionUni,
-				Enabled:          true,
-				CreatedBy:        "auto",
-				CreatedAt:        time.Now().UTC(),
+		if !exists {
+			_, ok := policyEnabled[schema.NetworkID(network.Name)]
+			if ok {
+				expectedAcl.Enabled = policyEnabled[schema.NetworkID(network.Name)]
 			}
-
-			if acl.Name == defaultAclName {
-				if acl.Default {
-					continue
-				} else if migrate {
-					if acl.Name == expectedAcl.Name &&
-						acl.MetaData == expectedAcl.MetaData &&
-						acl.ServiceType == expectedAcl.ServiceType &&
-						acl.NetworkID == expectedAcl.NetworkID &&
-						acl.Proto == expectedAcl.Proto &&
-						acl.RuleType == expectedAcl.RuleType &&
-						slices.Equal(acl.Src, expectedAcl.Src) &&
-						slices.Equal(acl.Dst, expectedAcl.Dst) &&
-						acl.AllowedDirection == expectedAcl.AllowedDirection {
-
-						acl.Default = true
-						_ = logic.UpsertAcl(acl)
-						continue
-					}
-				}
-			}
-
 			_ = logic.InsertAcl(expectedAcl)
 		}
+	}
 
-		network, networkRemoved := networksRemoved[acl.NetworkID]
-		if networkRemoved {
+	for networkID := range networksRemoved {
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			continue
+		}
+
+		for _, acl := range acls {
 			if acl.Default && acl.Name == defaultAclName {
 				_ = logic.DeleteAcl(acl)
 			} else {
