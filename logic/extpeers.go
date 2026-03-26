@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -202,22 +201,6 @@ func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 	err := DeleteExtClient(extClient.Network, extClient.ClientID, false)
 	if err != nil {
 		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
-		return err
-	}
-
-	//update ACLs
-	var networkAcls acls.ACLContainer
-	networkAcls, err = networkAcls.Get(acls.ContainerID(extClient.Network))
-	if err != nil {
-		slog.Error("DeleteExtClientAndCleanup-update network acls: ", "Error", err.Error())
-		return err
-	}
-	for objId := range networkAcls {
-		delete(networkAcls[objId], acls.AclID(extClient.ClientID))
-	}
-	delete(networkAcls, acls.AclID(extClient.ClientID))
-	if _, err = networkAcls.Save(acls.ContainerID(extClient.Network)); err != nil {
-		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
 		return err
 	}
 
@@ -584,9 +567,6 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
-		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
-			continue
-		}
 		if extPeer.RemoteAccessClientID == "" {
 			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
 				continue

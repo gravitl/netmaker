@@ -17,8 +17,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -241,7 +239,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			}
 		}
 	}
-	nodeACLDelta := currentNode.DefaultACL != newNode.DefaultACL
 	newNode.Fill(currentNode, servercfg.IsPro)
 
 	// check for un-settable server values
@@ -250,12 +247,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	}
 
 	if newNode.ID == currentNode.ID {
-		if nodeACLDelta {
-			if err := UpdateProNodeACLs(newNode); err != nil {
-				logger.Log(1, "failed to apply node level ACLs during creation of node", newNode.ID.String(), "-", err.Error())
-				return err
-			}
-		}
 		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
 		if !currentNode.Connected && newNode.Connected {
@@ -424,11 +415,6 @@ func DeleteNodeByID(node *models.Node) error {
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
-	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
-	if err != nil {
-		// ignoring for now, could hit a nil pointer if delete called twice
-		logger.Log(2, "attempted to remove node ACL for node", node.ID.String())
-	}
 	// removeZombie <- node.ID
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
@@ -559,9 +545,6 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 		node.NetworkRange6 = *cidr
 	}
 
-	if node.DefaultACL == "" {
-		node.DefaultACL = parentNetwork.DefaultACL
-	}
 	if node.FailOverPeers == nil {
 		node.FailOverPeers = make(map[string]struct{})
 	}
@@ -730,20 +713,11 @@ func createNode(node *models.Node) error {
 	}
 
 	SetNodeDefaults(node, true)
-
-	defaultACLVal := acls.Allowed
 	parentNetwork := &schema.Network{Name: node.Network}
 	err = parentNetwork.Get(db.WithContext(context.TODO()))
-	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
-			defaultACLVal = acls.NotAllowed
-		}
+	if err != nil {
+		return err
 	}
-
-	if node.DefaultACL == "" {
-		node.DefaultACL = "unset"
-	}
-
 	if node.Address.IP == nil {
 		if parentNetwork.AddressRange != "" {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
@@ -802,17 +776,6 @@ func createNode(node *models.Node) error {
 		if node.Address6.IP != nil {
 			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
 		}
-	}
-
-	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
-	if err != nil {
-		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
-		return err
-	}
-
-	if err = UpdateProNodeACLs(node); err != nil {
-		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
-		return err
 	}
 
 	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {

@@ -100,7 +100,6 @@ type Node struct {
 	IngressMTU                 int32                `json:"ingressmtu"`
 	Metadata                   string               `json:"metadata"`
 	// == PRO ==
-	DefaultACL  string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID     string `json:"ownerid,omitempty"`
 	IsFailOver  bool   `json:"is_fail_over"`
 	IsAutoRelay bool   `json:"is_auto_relay"`
@@ -479,9 +478,6 @@ func (newNode *Node) Fill(
 	if newNode.Server == "" {
 		newNode.Server = currentNode.Server
 	}
-	if newNode.DefaultACL == "" {
-		newNode.DefaultACL = currentNode.DefaultACL
-	}
 	if newNode.IsFailOver != currentNode.IsFailOver {
 		newNode.IsFailOver = currentNode.IsFailOver
 	}
@@ -521,18 +517,6 @@ func (node *LegacyNode) NameInNodeCharSet() bool {
 		}
 	}
 	return true
-}
-
-// == PRO ==
-
-// Node.DoesACLAllow - checks if default ACL on node is "yes"
-func (node *Node) DoesACLAllow() bool {
-	return node.DefaultACL == "yes"
-}
-
-// Node.DoesACLDeny - checks if default ACL on node is "no"
-func (node *Node) DoesACLDeny() bool {
-	return node.DefaultACL == "no"
 }
 
 func (ln *LegacyNode) ConvertToNewNode() (*schema.Host, *Node) {
@@ -634,7 +618,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.FirewallInUse = h.FirewallInUse
 	l.Connected = formatBool(n.Connected)
 	//l.PendingDelete = formatBool(n.PendingDelete)
-	l.DefaultACL = n.DefaultACL
 	l.OwnerID = n.OwnerID
 	//l.Failover = n.Failover
 	return &l

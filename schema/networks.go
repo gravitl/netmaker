@@ -32,7 +32,6 @@ type Network struct {
 	AddressRange6 string `json:"addressrange6"`
 	// in seconds.
 	DefaultKeepAlive int                         `gorm:"default:20" json:"defaultkeepalive"`
-	DefaultACL       string                      `gorm:"default:yes" json:"defaultacl"`
 	DefaultMTU       int32                       `gorm:"default:1280" json:"defaultmtu"`
 	AutoJoin         bool                        `json:"auto_join"`
 	AutoRemove       bool                        `json:"auto_remove"`
@@ -92,7 +91,6 @@ func (n *Network) Update(ctx context.Context) error {
 		Where("id = ? OR name = ?", n.ID, n.Name).
 		Updates(map[string]interface{}{
 			"default_keep_alive":               n.DefaultKeepAlive,
-			"default_acl":                      n.DefaultACL,
 			"default_mtu":                      n.DefaultMTU,
 			"auto_join":                        n.AutoJoin,
 			"auto_remove":                      n.AutoRemove,

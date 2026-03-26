@@ -100,8 +100,11 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 func CreateHost(h *schema.Host) error {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {
+	if err == nil {
 		return ErrHostExists
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to check host existence: %w", err)
 	}
 
 	// encrypt that password so we never see it
@@ -356,11 +359,12 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 		return err
 	}
 	currentHost := &schema.Host{ID: h.ID}
-	if err = currentHost.Get(db.WithContext(context.TODO())); err != nil {
-		return err
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node association: %w", err)
 	}
+	h.Nodes = currentHost.Nodes
 	h.HostPass = currentHost.HostPass
-	h.Nodes = append(currentHost.Nodes, n.ID.String())
+	h.Nodes = append(h.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
 
@@ -370,12 +374,14 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
-	if n.HostID != h.ID { // check if node actually belongs to host
+	if n.HostID != h.ID {
 		return fmt.Errorf("node is not associated with host")
 	}
-	if len(h.Nodes) == 0 {
-		return fmt.Errorf("no nodes present in given host")
+	currentHost := &schema.Host{ID: h.ID}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node dissociation: %w", err)
 	}
+	h.Nodes = currentHost.Nodes
 	nList := []string{}
 	for i := range h.Nodes {
 		if h.Nodes[i] != n.ID.String() {
@@ -383,15 +389,6 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		}
 	}
 	h.Nodes = nList
-	go func() {
-		if servercfg.IsPro {
-			if clients, err := GetNetworkExtClients(n.Network); err != nil {
-				for i := range clients {
-					AllowClientNodeAccess(&clients[i], n.ID.String())
-				}
-			}
-		}
-	}()
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
@@ -612,7 +609,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
+	return err == nil
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
