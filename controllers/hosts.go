@@ -47,6 +47,8 @@ func hostHandlers(r *mux.Router) {
 	// used by UI
 	r.HandleFunc("/api/v1/ui/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/hosts/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteHosts))).
+		Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).
@@ -583,17 +585,24 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	var hostNodes []models.Node
 	for _, nodeID := range currHost.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
 			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 			continue
 		}
+		hostNodes = append(hostNodes, node)
+	}
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, node := range hostNodes {
 		go mq.PublishMqUpdatesForDeletedNode(node, false)
-
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		// delete EMQX credentials for host
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
 			slog.Error(
 				"failed to remove host credentials from EMQX",
@@ -615,11 +624,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			currHost.ID.String(),
 			err.Error(),
 		)
-	}
-	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
 	}
 	// delete if any pending reqs
 	(&schema.PendingHost{
@@ -647,6 +651,97 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	apiHostData := models.NewApiHostFromSchemaHost(currHost)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
+}
+
+// @Summary     Bulk delete hosts
+// @Router      /api/v1/hosts/bulk [delete]
+// @Tags        Hosts
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkDeleteRequest true "List of host IDs to delete"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host IDs provided"), logic.BadReq))
+		return
+	}
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
+
+	go func() {
+		deleted := 0
+		for _, idStr := range req.IDs {
+			hostID, err := uuid.Parse(idStr)
+			if err != nil {
+				slog.Error("bulk host delete: invalid host id", "id", idStr)
+				continue
+			}
+			currHost := &schema.Host{ID: hostID}
+			if err = currHost.Get(db.WithContext(context.Background())); err != nil {
+				slog.Error("bulk host delete: host not found", "id", idStr, "error", err)
+				continue
+			}
+			var hostNodes []models.Node
+			for _, nodeID := range currHost.Nodes {
+				node, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					slog.Error("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
+					continue
+				}
+				hostNodes = append(hostNodes, node)
+			}
+			if err = logic.RemoveHost(currHost, true); err != nil {
+				slog.Error("bulk host delete: failed to remove host", "id", idStr, "error", err)
+				continue
+			}
+			for _, node := range hostNodes {
+				go mq.PublishMqUpdatesForDeletedNode(node, false)
+			}
+			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
+					slog.Error("bulk host delete: failed to remove EMQX credentials", "id", currHost.ID, "error", err)
+				}
+			}
+			if err = mq.HostUpdate(&models.HostUpdate{
+				Action: models.DeleteHost,
+				Host:   *currHost,
+			}); err != nil {
+				slog.Error("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
+			}
+			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   currHost.ID.String(),
+					Name: currHost.Name,
+					Type: schema.DeviceSub,
+				},
+				Origin: schema.Dashboard,
+				Diff:   models.Diff{Old: currHost, New: nil},
+			})
+			logger.Log(2, user, "removed host", currHost.Name)
+			deleted++
+		}
+		if deleted > 0 {
+			if err := mq.PublishPeerUpdate(false); err != nil {
+				slog.Error("bulk host delete: failed to publish peer update", "error", err)
+			}
+		}
+		slog.Info("bulk host delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
 }
 
 // @Summary     To Add Host To Network
@@ -695,6 +790,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		OSFamily:       currHost.OSFamily,
 		OSVersion:      currHost.OSVersion,
 		KernelVersion:  currHost.KernelVersion,
+
 		SkipAutoUpdate: true,
 	}, schema.NetworkID(network))
 	if len(violations) > 0 {

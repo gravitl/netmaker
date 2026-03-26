@@ -180,14 +180,6 @@ func SessionHandler(conn *websocket.Conn) {
 			handleHostRegErr(conn, err)
 			return
 		}
-		currHost := &schema.Host{
-			ID: result.Host.ID,
-		}
-		err = currHost.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			handleHostRegErr(conn, err)
-			return
-		}
 		var currentNetworks []string
 		if result.ALL {
 			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
@@ -200,7 +192,7 @@ func SessionHandler(conn *websocket.Conn) {
 			currentNetworks = append(currentNetworks, result.Network)
 		}
 		var netsToAdd []string // track the networks not currently owned by host
-		hostNets := logic.GetHostNetworks(currHost.ID.String())
+		hostNets := logic.GetHostNetworks(result.Host.ID.String())
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {

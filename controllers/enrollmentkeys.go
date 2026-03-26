@@ -399,6 +399,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
 		return slices.Contains(skipViolatedNetworks, netI)
 	})
+	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
@@ -412,52 +413,25 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err = logic.CreateHost(&newHost); err != nil {
-			logger.Log(
-				0,
-				"host",
-				newHost.ID.String(),
-				newHost.Name,
-				"failed registration -",
-				err.Error(),
-			)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		host = &newHost
 	} else {
-		// need to revise the list of networks from key
-		// based on the ones host currently has
-		// networksToAdd := []string{}
-		// currentNets := logic.GetHostNetworks(newHost.ID.String())
-		// for _, newNet := range enrollmentKey.Networks {
-		// 	if !logic.StringSliceContains(currentNets, newNet) {
-		// 		networksToAdd = append(networksToAdd, newNet)
-		// 	}
-		// }
-		// enrollmentKey.Networks = networksToAdd
 		currHost := &schema.Host{
 			ID: newHost.ID,
 		}
 		err := currHost.Get(r.Context())
 		if err != nil {
-			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		logic.UpdateHostFromClient(&newHost, currHost)
-		err = logic.UpsertHost(currHost)
-		if err != nil {
-			slog.Error("failed to update host", "id", currHost.ID, "error", err)
+		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	}
-	host := &schema.Host{
-		ID: newHost.ID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+		host = currHost
 	}
 	// ready the response
 	server := logic.GetServerInfo()

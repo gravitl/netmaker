@@ -104,7 +104,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.InternetGwID = currentNode.InternetGwID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
-	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
 	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
 	if err == nil {
@@ -215,7 +214,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.Server = nm.Server
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
-	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
 	apiNode.InetNodeReq = nm.InetNodeReq

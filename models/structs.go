@@ -492,3 +492,38 @@ type Violation struct {
 	Message   string          `json:"message"`
 	Severity  schema.Severity `json:"severity"`
 }
+
+type BulkDeleteRequest struct {
+	IDs []string `json:"ids"`
+}
+
+type BulkDeleteError struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type BulkDeleteResponse struct {
+	Deleted []string          `json:"deleted"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkUserStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Disable bool     `json:"disable"`
+}
+
+
+type BulkStatusResponse struct {
+	Updated []string          `json:"updated"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkNodeStatusUpdate struct {
+	IDs       []string `json:"ids"`
+	Connected bool     `json:"connected"`
+}
+
+type BulkExtClientStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Enabled bool     `json:"enabled"`
+}

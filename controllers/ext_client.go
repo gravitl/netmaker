@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +45,10 @@ func extClientHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/extclients/{network}/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus))).
+		Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, http.HandlerFunc(createExtClient))).
 		Methods(http.MethodPost)
 	// unused API
@@ -637,19 +640,6 @@ Endpoint = %s
 	)
 
 	go func() {
-		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-			slog.Error(
-				"failed to set default acls for extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				networkid,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
@@ -822,11 +812,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 	extclient.Enabled = true
-	parentNetwork := &schema.Network{Name: node.Network}
-	err = parentNetwork.Get(r.Context())
-	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
-		extclient.Enabled = parentNetwork.DefaultACL == "yes"
-	}
 	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
@@ -927,19 +912,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclient)
 
 	go func() {
-		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-			slog.Error(
-				"failed to set default acls for extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				node.Network,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
 		extUpdateMutex.Lock()
 		mq.PublishPeerUpdate(false)
 		extUpdateMutex.Unlock()
@@ -1015,10 +987,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var changedID = update.ClientID != oldExtClient.ClientID
-
-	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
-		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
-	}
 
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
@@ -1189,6 +1157,93 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
 }
 
+// @Summary     Bulk delete ext clients
+// @Router      /api/v1/extclients/{network}/bulk [delete]
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkDeleteRequest true "List of ext client IDs to delete"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no ext client IDs provided"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d ext client(s) accepted", len(req.IDs)))
+
+	go func() {
+		deleted := 0
+		gwDeletedClients := make(map[string][]models.ExtClient)
+		for _, clientID := range req.IDs {
+			extclient, err := logic.GetExtClient(clientID, network)
+			if err != nil {
+				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
+				continue
+			}
+			if err = logic.DeleteExtClientAndCleanup(extclient); err != nil {
+				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
+				continue
+			}
+			gwDeletedClients[extclient.IngressGatewayID] = append(gwDeletedClients[extclient.IngressGatewayID], extclient)
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   extclient.ClientID,
+					Name: extclient.ClientID,
+					Type: schema.NetworkSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: extclient, New: nil},
+			})
+			logger.Log(0, user, "Deleted extclient", clientID, "from network", network)
+			deleted++
+		}
+		if deleted > 0 {
+			allNodes, _ := logic.GetAllNodes()
+			for gwNodeID, clients := range gwDeletedClients {
+				gwNode, err := logic.GetNodeByID(gwNodeID)
+				if err != nil {
+					slog.Error("bulk extclient delete: gw node not found", "node_id", gwNodeID, "error", err)
+					continue
+				}
+				gwHost := &schema.Host{ID: gwNode.HostID}
+				if err := gwHost.Get(db.WithContext(context.TODO())); err != nil {
+					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
+					continue
+				}
+				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, clients, false, nil)
+
+			}
+			go mq.PublishPeerUpdate(false)
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
+			}
+		}
+		slog.Info("bulk extclient delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
+}
+
 // validateCustomExtClient	Validates the extclient object
 func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool) error {
 	v := validator.New()
@@ -1248,4 +1303,88 @@ func isValid(clientid string, checkID bool) error {
 		}
 	}
 	return nil
+}
+
+// @Summary     Bulk update ext client enabled status
+// @Router      /api/v1/extclients/{network}/bulk/status [put]
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkExtClientStatusUpdate true "Client IDs and desired enabled state"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	var req models.BulkExtClientStatusUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no ext client IDs provided"), logic.BadReq))
+		return
+	}
+
+	eventAction := schema.Connect
+	if !req.Enabled {
+		eventAction = schema.Disconnect
+	}
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d ext client(s) accepted", eventAction, len(req.IDs)))
+
+	go func() {
+		updated := 0
+		for _, clientID := range req.IDs {
+			client, err := logic.GetExtClient(clientID, network)
+			if err != nil {
+				slog.Error("bulk extclient status: client not found", "client_id", clientID, "error", err)
+				continue
+			}
+			if client.Enabled == req.Enabled {
+				continue
+			}
+			oldClient := client
+			if _, err := logic.ToggleExtClientConnectivity(&client, req.Enabled); err != nil {
+				slog.Error("bulk extclient status: failed to toggle", "client_id", clientID, "error", err)
+				continue
+			}
+			if !req.Enabled {
+				if err := mq.PublishDeletedClientPeerUpdate(&client); err != nil {
+					slog.Error("bulk extclient status: error publishing peer update", "client_id", clientID, "error", err)
+				}
+			}
+			logic.LogEvent(&models.Event{
+				Action: eventAction,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   client.ClientID,
+					Name: client.ClientID,
+					Type: schema.NetworkSub,
+					Info: client,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: oldClient, New: client},
+			})
+			updated++
+		}
+		if updated > 0 {
+			mq.PublishPeerUpdate(false)
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
+			}
+		}
+		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
+	}()
 }

@@ -151,12 +151,6 @@ func InitPro() {
 	logic.SetAutoRelay = proLogic.SetAutoRelay
 	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 
-	logic.DenyClientNodeAccess = proLogic.DenyClientNode
-	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
-	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
-	logic.SetClientDefaultACLs = proLogic.SetClientDefaultACLs
-	logic.SetClientACLs = proLogic.SetClientACLs
-	logic.UpdateProNodeACLs = proLogic.UpdateProNodeACLs
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics

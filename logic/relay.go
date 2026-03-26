@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -239,7 +238,6 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
-	serverSettings := GetServerSettings()
 	acls, _ := ListAclsByNetwork(schema.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(relay.Network), models.DevicePolicy)
@@ -251,9 +249,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		if !serverSettings.OldAClsSupport || nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
-		}
+		allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 	}
 	return
 }

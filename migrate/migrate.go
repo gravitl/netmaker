@@ -16,8 +16,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -32,44 +30,12 @@ func Run() {
 	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
-	updateAcls()
 	updateNewAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
 	updateNetworks()
 	resync()
 	deleteOldExtclients()
-	checkAndDeprecateOldAcls()
-}
-
-func checkAndDeprecateOldAcls() {
-	// check if everything is allowed on old acl and disable old acls
-	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	disableOldAcls := true
-	for _, netI := range nets {
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
-		if err != nil {
-			continue
-		}
-		for _, aclNode := range networkACL {
-			for _, allowed := range aclNode {
-				if allowed != acls.Allowed {
-					disableOldAcls = false
-					break
-				}
-			}
-		}
-		if disableOldAcls {
-			netI.DefaultACL = "yes"
-			logic.UpsertNetwork(&netI)
-		}
-	}
-	if disableOldAcls {
-		settings := logic.GetServerSettings()
-		settings.OldAClsSupport = false
-		logic.UpsertServerSettings(settings)
-	}
-
 }
 
 func updateNetworks() {
@@ -399,131 +365,6 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 	return egressRanges, update
 }
 
-func updateAcls() {
-	// get all networks
-	if !logic.GetServerSettings().OldAClsSupport {
-		return
-	}
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		slog.Error("acls migration failed. error getting networks", "error", err)
-		return
-	}
-
-	// get current acls per network
-	for _, network := range networks {
-		var networkAcl acls.ACLContainer
-		networkAcl, err := networkAcl.Get(acls.ContainerID(network.Name))
-		if err != nil {
-			if database.IsEmptyRecord(err) {
-				continue
-			}
-			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.Name), "error", err)
-			continue
-		}
-		// convert old acls to new acls with clients
-		// TODO: optimise O(n^2) operation
-		clients, err := logic.GetNetworkExtClients(network.Name)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error getting clients for network: %s", network.Name), "error", err)
-			continue
-		}
-		clientsIdMap := make(map[string]struct{})
-		for _, client := range clients {
-			clientsIdMap[client.ClientID] = struct{}{}
-		}
-		nodeIdsMap := make(map[string]struct{})
-		for nodeId := range networkAcl {
-			nodeIdsMap[string(nodeId)] = struct{}{}
-		}
-		/*
-			initially, networkACL has only node acls so we add client acls to it
-			final shape:
-			{
-				"node1": {
-					"node2": 2,
-					"client1": 2,
-					"client2": 1,
-				},
-				"node2": {
-					"node1": 2,
-					"client1": 2,
-					"client2": 1,
-				},
-				"client1": {
-					"node1": 2,
-					"node2": 2,
-					"client2": 1,
-				},
-				"client2": {
-					"node1": 1,
-					"node2": 1,
-					"client1": 1,
-				},
-			}
-		*/
-		for _, client := range clients {
-			networkAcl[acls.AclID(client.ClientID)] = acls.ACL{}
-			// add client values to node acls and create client acls with node values
-			for id, nodeAcl := range networkAcl {
-				// skip if not a node
-				if _, ok := nodeIdsMap[string(id)]; !ok {
-					continue
-				}
-				if nodeAcl == nil {
-					slog.Warn("acls migration bad data: nil node acl", "node", id, "network", network.Name)
-					continue
-				}
-				nodeAcl[acls.AclID(client.ClientID)] = acls.Allowed
-				networkAcl[acls.AclID(client.ClientID)][id] = acls.Allowed
-				if client.DeniedACLs == nil {
-					continue
-				} else if _, ok := client.DeniedACLs[string(id)]; ok {
-					nodeAcl[acls.AclID(client.ClientID)] = acls.NotAllowed
-					networkAcl[acls.AclID(client.ClientID)][id] = acls.NotAllowed
-				}
-			}
-			// add clients to client acls response
-			for _, c := range clients {
-				if c.ClientID == client.ClientID {
-					continue
-				}
-				networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.Allowed
-				if client.DeniedACLs == nil {
-					continue
-				} else if _, ok := client.DeniedACLs[c.ClientID]; ok {
-					networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.NotAllowed
-				}
-			}
-			// delete oneself from its own acl
-			delete(networkAcl[acls.AclID(client.ClientID)], acls.AclID(client.ClientID))
-		}
-
-		// remove non-existent client and node acls
-		for objId := range networkAcl {
-			if _, ok := nodeIdsMap[string(objId)]; ok {
-				continue
-			}
-			if _, ok := clientsIdMap[string(objId)]; ok {
-				continue
-			}
-			// remove all occurances of objId from all acls
-			for objId2 := range networkAcl {
-				delete(networkAcl[objId2], objId)
-			}
-			delete(networkAcl, objId)
-		}
-
-		// save new acls
-		slog.Debug(fmt.Sprintf("(migration) saving new acls for network: %s", network.Name), "networkAcl", networkAcl)
-		if _, err := networkAcl.Save(acls.ContainerID(network.Name)); err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.Name), "error", err)
-			continue
-		}
-		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.Name))
-	}
-}
-
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
@@ -758,9 +599,6 @@ func migrateSettings() {
 		json.Unmarshal([]byte(data), &settingsD)
 	}
 	settings := logic.GetServerSettings()
-	if _, ok := settingsD["old_acl_support"]; !ok {
-		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
-	}
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
 	}
