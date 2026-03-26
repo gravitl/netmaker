@@ -1599,7 +1599,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	err = logic.UpsertNode(newNode)
 	if err != nil {
 		err = fmt.Errorf("failed to update node: %w", err)
-		slog.Error("failed to update node", "nodeid", key.Relay.String())
+		slog.Error("failed to update node", "nodeid", newNode.ID.String())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}

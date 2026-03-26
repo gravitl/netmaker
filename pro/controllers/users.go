@@ -642,7 +642,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 
-	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&userGroup, &userGroup, false)
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup, false)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(replacePeers)

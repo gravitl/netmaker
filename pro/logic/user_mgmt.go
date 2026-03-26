@@ -1176,27 +1176,25 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 
 		network, networkRemoved := networksRemoved[acl.NetworkID]
 		if networkRemoved {
-			for _, acl := range acls {
-				if acl.Default && acl.Name == defaultAclName {
-					_ = logic.DeleteAcl(acl)
-				} else {
-					var newAclSrc []models.AclPolicyTag
-					var groupSrcExists bool
-					for _, src := range acl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == groupID {
-							groupSrcExists = true
-						} else {
-							newAclSrc = append(newAclSrc, src)
-						}
+			if acl.Default && acl.Name == defaultAclName {
+				_ = logic.DeleteAcl(acl)
+			} else {
+				var newAclSrc []models.AclPolicyTag
+				var groupSrcExists bool
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == groupID {
+						groupSrcExists = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
 					}
+				}
 
-					if groupSrcExists {
-						if len(newAclSrc) == 0 {
-							_ = logic.DeleteAcl(acl)
-						} else {
-							acl.Src = newAclSrc
-							_ = logic.UpsertAcl(acl)
-						}
+				if groupSrcExists {
+					if len(newAclSrc) == 0 {
+						_ = logic.DeleteAcl(acl)
+					} else {
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
 					}
 				}
 			}
@@ -1220,7 +1218,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 		}
 
 		for _, network := range networks {
-			networksMap[schema.NetworkID(network.ID)] = network
+			networksMap[schema.NetworkID(network.Name)] = network
 		}
 	} else {
 		for networkID := range g.NetworkRoles.Data() {
@@ -1230,7 +1228,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 				return nil, err
 			}
 
-			networksMap[schema.NetworkID(network.ID)] = *network
+			networksMap[schema.NetworkID(network.Name)] = *network
 		}
 	}
 
