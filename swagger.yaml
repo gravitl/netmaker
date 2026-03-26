@@ -1,13 +1,4 @@
 definitions:
-  acls.ACL:
-    additionalProperties:
-      format: int32
-      type: integer
-    type: object
-  acls.ACLContainer:
-    additionalProperties:
-      $ref: '#/definitions/acls.ACL'
-    type: object
   controllers.FlowRow:
     properties:
       bytes_recv:
@@ -66,6 +57,10 @@ definitions:
   datatypes.JSONMap:
     additionalProperties: true
     type: object
+  datatypes.JSONType-schema_NetworkRoles:
+    type: object
+  datatypes.JSONType-schema_ResourceAccess:
+    type: object
   models.APIEnrollmentKey:
     properties:
       auto_assign_gw:
@@ -121,7 +116,7 @@ definitions:
       name:
         type: string
       network_id:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       policy_type:
         $ref: '#/definitions/models.AclPolicyType'
       ports:
@@ -228,74 +223,6 @@ definitions:
           $ref: '#/definitions/net.IPNet'
         type: array
     type: object
-  models.Action:
-    enum:
-    - CREATE
-    - UPDATE
-    - DELETE
-    - DELETE_ALL
-    - LOGIN
-    - LOGOUT
-    - CONNECT
-    - SYNC
-    - REFRESH_KEY
-    - REFRESH_ALL_KEYS
-    - SYNC_ALL
-    - UPGRADE_ALL
-    - DISCONNECT
-    - JOIN_HOST_TO_NETWORK
-    - REMOVE_HOST_FROM_NETWORK
-    - ENABLE_MFA
-    - DISABLE_MFA
-    - ENFORCE_MFA
-    - UNENFORCE_MFA
-    - ENABLE_BASIC_AUTH
-    - DISABLE_BASIC_AUTH
-    - ENABLE_TELEMETRY
-    - DISABLE_TELEMETRY
-    - UPDATE_CLIENT_SETTINGS
-    - UPDATE_AUTHENTICATION_SECURITY_SETTINGS
-    - UPDATE_MONITORING_AND_DEBUGGING_SETTINGS
-    - UPDATE_EMAIL_SETTINGS
-    - UPDATE_IDP_SETTINGS
-    - ENABLE_FLOW_LOGS
-    - DISABLE_FLOW_LOGS
-    - GATEWAY_ASSIGN
-    - GATEWAY_UNASSIGN
-    type: string
-    x-enum-varnames:
-    - Create
-    - Update
-    - Delete
-    - DeleteAll
-    - Login
-    - LogOut
-    - Connect
-    - Sync
-    - RefreshKey
-    - RefreshAllKeys
-    - SyncAll
-    - UpgradeAll
-    - Disconnect
-    - JoinHostToNet
-    - RemoveHostFromNet
-    - EnableMFA
-    - DisableMFA
-    - EnforceMFA
-    - UnenforceMFA
-    - EnableBasicAuth
-    - DisableBasicAuth
-    - EnableTelemetry
-    - DisableTelemetry
-    - UpdateClientSettings
-    - UpdateAuthenticationSecuritySettings
-    - UpdateMonitoringAndDebuggingSettings
-    - UpdateSMTPSettings
-    - UpdateIDPSettings
-    - EnableFlowLogs
-    - DisableFlowLogs
-    - GatewayAssign
-    - GatewayUnAssign
   models.AllowedTrafficDirection:
     enum:
     - 0
@@ -488,7 +415,7 @@ definitions:
       pendingdelete:
         type: boolean
       posture_check_violation_severity_level:
-        $ref: '#/definitions/models.Severity'
+        $ref: '#/definitions/schema.Severity'
       posture_check_violations:
         items:
           $ref: '#/definitions/models.Violation'
@@ -530,14 +457,39 @@ definitions:
       node_id:
         type: string
     type: object
-  models.CreateGroupReq:
+  models.BulkDeleteRequest:
     properties:
-      members:
+      ids:
         items:
           type: string
         type: array
-      user_group:
-        $ref: '#/definitions/models.UserGroup'
+    type: object
+  models.BulkExtClientStatusUpdate:
+    properties:
+      enabled:
+        type: boolean
+      ids:
+        items:
+          type: string
+        type: array
+    type: object
+  models.BulkNodeStatusUpdate:
+    properties:
+      connected:
+        type: boolean
+      ids:
+        items:
+          type: string
+        type: array
+    type: object
+  models.BulkUserStatusUpdate:
+    properties:
+      disable:
+        type: boolean
+      ids:
+        items:
+          type: string
+        type: array
     type: object
   models.CreateGwReq:
     properties:
@@ -569,7 +521,7 @@ definitions:
       color_code:
         type: string
       network:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       tag_name:
         type: string
       tagged_nodes:
@@ -652,7 +604,7 @@ definitions:
       domain:
         type: string
       host:
-        $ref: '#/definitions/models.Host'
+        $ref: '#/definitions/schema.Host'
       id:
         type: string
       node:
@@ -694,14 +646,6 @@ definitions:
       network6:
         $ref: '#/definitions/net.IPNet'
     type: object
-  models.EgressNATMode:
-    enum:
-    - virtual_nat
-    - direct_nat
-    type: string
-    x-enum-varnames:
-    - VirtualNAT
-    - DirectNAT
   models.EgressNetworkRoutes:
     properties:
       egress_gw_addr:
@@ -730,7 +674,7 @@ definitions:
       nat:
         type: boolean
       nat_mode:
-        $ref: '#/definitions/models.EgressNATMode'
+        $ref: '#/definitions/schema.EgressNATMode'
       network:
         type: string
       route_metric:
@@ -750,7 +694,7 @@ definitions:
       is_internet_gateway:
         type: boolean
       mode:
-        $ref: '#/definitions/models.EgressNATMode'
+        $ref: '#/definitions/schema.EgressNATMode'
       name:
         type: string
       nat:
@@ -878,7 +822,7 @@ definitions:
       postup:
         type: string
       posture_check_violation_severity_level:
-        $ref: '#/definitions/models.Severity'
+        $ref: '#/definitions/schema.Severity'
       posture_check_violations:
         items:
           $ref: '#/definitions/models.Violation'
@@ -964,101 +908,6 @@ definitions:
           $ref: '#/definitions/models.AclRule'
         type: array
     type: object
-  models.Host:
-    properties:
-      autoupdate:
-        type: boolean
-      country_code:
-        type: string
-      daemoninstalled:
-        type: boolean
-      debug:
-        type: boolean
-      defaultinterface:
-        type: string
-      dns_status:
-        type: string
-      enable_flow_logs:
-        type: boolean
-      endpointip:
-        items:
-          type: integer
-        type: array
-      endpointipv6:
-        items:
-          type: integer
-        type: array
-      firewallinuse:
-        type: string
-      hostpass:
-        type: string
-      id:
-        type: string
-      interface:
-        type: string
-      interfaces:
-        items:
-          $ref: '#/definitions/models.Iface'
-        type: array
-      ipforwarding:
-        type: boolean
-      isdefault:
-        type: boolean
-      isdocker:
-        type: boolean
-      isk8s:
-        type: boolean
-      isstatic:
-        type: boolean
-      isstaticport:
-        type: boolean
-      kernel_version:
-        type: string
-      listenport:
-        type: integer
-      location:
-        description: 'Format: "lat,lon"'
-        type: string
-      macaddress:
-        items:
-          type: integer
-        type: array
-      mtu:
-        type: integer
-      name:
-        type: string
-      nat_type:
-        type: string
-      nodes:
-        items:
-          type: string
-        type: array
-      os:
-        type: string
-      os_family:
-        type: string
-      os_version:
-        type: string
-      persistentkeepalive:
-        format: int64
-        type: integer
-      publickey:
-        items:
-          type: integer
-        type: array
-      traffickeypublic:
-        items:
-          type: integer
-        type: array
-      turn_endpoint:
-        $ref: '#/definitions/netip.AddrPort'
-      verbosity:
-        type: integer
-      version:
-        type: string
-      wg_public_listen_port:
-        type: integer
-    type: object
   models.HostInfoMap:
     additionalProperties:
       $ref: '#/definitions/models.HostNetworkInfo'
@@ -1103,7 +952,7 @@ definitions:
     properties:
       interfaces:
         items:
-          $ref: '#/definitions/models.Iface'
+          $ref: '#/definitions/schema.Iface'
         type: array
       is_static:
         type: boolean
@@ -1162,7 +1011,7 @@ definitions:
           type: array
         type: object
       host:
-        $ref: '#/definitions/models.Host'
+        $ref: '#/definitions/schema.Host'
       host_network_info:
         $ref: '#/definitions/models.HostInfoMap'
       is_inet_gw:
@@ -1193,7 +1042,7 @@ definitions:
       egressDomain:
         $ref: '#/definitions/models.EgressDomain'
       host:
-        $ref: '#/definitions/models.Host'
+        $ref: '#/definitions/schema.Host'
       newMetrics:
         $ref: '#/definitions/models.Metrics'
       node:
@@ -1254,15 +1103,6 @@ definitions:
       network:
         type: string
       username:
-        type: string
-    type: object
-  models.Iface:
-    properties:
-      address:
-        $ref: '#/definitions/net.IPNet'
-      addressString:
-        type: string
-      name:
         type: string
     type: object
   models.InetNodeReq:
@@ -1416,7 +1256,7 @@ definitions:
         type: string
       interfaces:
         items:
-          $ref: '#/definitions/models.Iface'
+          $ref: '#/definitions/schema.Iface'
         type: array
       internetgateway:
         type: string
@@ -1574,6 +1414,8 @@ definitions:
         items:
           type: string
         type: array
+      is_ad_domain:
+        type: boolean
       is_fallback:
         type: boolean
       is_search_domain:
@@ -1608,8 +1450,6 @@ definitions:
         type: string
       addressrange6:
         type: string
-      allowmanualsignup:
-        type: string
       auto_join:
         type: string
       auto_remove:
@@ -1620,25 +1460,17 @@ definitions:
         type: array
       auto_remove_threshold_mins:
         type: integer
-      defaultacl:
+      created_by:
         type: string
-      defaultinterface:
-        maxLength: 35
-        minLength: 1
+      createdAt:
+        type: string
+      defaultacl:
         type: string
       defaultkeepalive:
         maximum: 1000
         type: integer
-      defaultlistenport:
-        maximum: 65535
-        minimum: 1024
-        type: integer
       defaultmtu:
         type: integer
-      defaultpostdown:
-        type: string
-      defaultudpholepunch:
-        type: string
       dns_nameservers:
         items:
           type: string
@@ -1656,8 +1488,6 @@ definitions:
       networklastmodified:
         format: int64
         type: integer
-      nodelimit:
-        type: integer
       nodeslastmodified:
         format: int64
         type: integer
@@ -1672,88 +1502,10 @@ definitions:
     required:
     - netid
     type: object
-  models.NetworkID:
-    enum:
-    - all_networks
-    type: string
-    x-enum-varnames:
-    - AllNetworks
   models.NetworkMetrics:
     properties:
       nodes:
         $ref: '#/definitions/models.MetricsMap'
-    type: object
-  models.NetworkStatResp:
-    properties:
-      addressrange:
-        type: string
-      addressrange6:
-        type: string
-      allowmanualsignup:
-        type: string
-      auto_join:
-        type: string
-      auto_remove:
-        type: string
-      auto_remove_tags:
-        items:
-          type: string
-        type: array
-      auto_remove_threshold_mins:
-        type: integer
-      defaultacl:
-        type: string
-      defaultinterface:
-        maxLength: 35
-        minLength: 1
-        type: string
-      defaultkeepalive:
-        maximum: 1000
-        type: integer
-      defaultlistenport:
-        maximum: 65535
-        minimum: 1024
-        type: integer
-      defaultmtu:
-        type: integer
-      defaultpostdown:
-        type: string
-      defaultudpholepunch:
-        type: string
-      dns_nameservers:
-        items:
-          type: string
-        type: array
-      hosts:
-        type: integer
-      isipv4:
-        type: string
-      isipv6:
-        type: string
-      jit_enabled:
-        type: string
-      netid:
-        maxLength: 32
-        minLength: 1
-        type: string
-      networklastmodified:
-        format: int64
-        type: integer
-      nodelimit:
-        type: integer
-      nodeslastmodified:
-        format: int64
-        type: integer
-      virtual_nat_pool_ipv4:
-        description: VirtualNATPoolIPv4 is the IPv4 CIDR pool from which virtual NAT
-          ranges are allocated for egress gateways
-        type: string
-      virtual_nat_site_prefixlen_ipv4:
-        description: VirtualNATSitePrefixLenIPv4 is the prefix length (e.g., 24) for
-          individual site allocations from the IPv4 virtual NAT pool
-        type: integer
-    required:
-    - netid
     type: object
   models.Node:
     properties:
@@ -1777,9 +1529,6 @@ definitions:
       connected:
         type: boolean
       country_code:
-        type: string
-      defaultacl:
-        description: == PRO ==
         type: string
       egressgatewaynatenabled:
         type: boolean
@@ -1860,11 +1609,12 @@ definitions:
       node_status:
         $ref: '#/definitions/models.NodeStatus'
       ownerid:
+        description: == PRO ==
         type: string
       pendingdelete:
         type: boolean
       posture_check_violation_severity_level:
-        $ref: '#/definitions/models.Severity'
+        $ref: '#/definitions/schema.Severity'
       posture_check_violations:
         items:
           $ref: '#/definitions/models.Violation'
@@ -1887,7 +1637,7 @@ definitions:
   models.NodeGet:
     properties:
       host:
-        $ref: '#/definitions/models.Host'
+        $ref: '#/definitions/schema.Host'
       host_peers:
         items:
           $ref: '#/definitions/wgtypes.PeerConfig'
@@ -1919,18 +1669,6 @@ definitions:
     - ErrorSt
     - UnKnown
     - Disconnected
-  models.Origin:
-    enum:
-    - DASHBOARD
-    - API
-    - NMCTL
-    - CLIENT-APP
-    type: string
-    x-enum-varnames:
-    - Dashboard
-    - Api
-    - NMCTL
-    - ClientApp
   models.PeerIdentity:
     properties:
       id:
@@ -1984,7 +1722,7 @@ definitions:
   models.RegisterResponse:
     properties:
       requested_host:
-        $ref: '#/definitions/models.Host'
+        $ref: '#/definitions/schema.Host'
       server_config:
         $ref: '#/definitions/models.ServerConfig'
     type: object
@@ -1994,45 +1732,9 @@ definitions:
         type: boolean
       auth_type:
         type: string
-      display_name:
+      created_at:
         type: string
-      external_identity_provider_id:
-        type: string
-      is_mfa_enabled:
-        type: boolean
-      isadmin:
-        type: boolean
-      issuperadmin:
-        type: boolean
-      last_login_time:
-        type: string
-      network_roles:
-        additionalProperties:
-          additionalProperties:
-            type: object
-          type: object
-        type: object
-      num_access_tokens:
-        type: integer
-      platform_role_id:
-        $ref: '#/definitions/models.UserRoleID'
-      remote_gw_ids:
-        additionalProperties:
-          type: object
-        description: deprecated
-        type: object
-      user_group_ids:
-        additionalProperties:
-          type: object
-        type: object
-      username:
-        type: string
-    type: object
-  models.ReturnUserWithRolesAndGroups:
-    properties:
-      account_disabled:
-        type: boolean
-      auth_type:
+      created_by:
         type: string
       display_name:
         type: string
@@ -2054,36 +1756,21 @@ definitions:
         type: object
       num_access_tokens:
         type: integer
-      platform_role:
-        $ref: '#/definitions/models.UserRolePermissionTemplate'
       platform_role_id:
-        $ref: '#/definitions/models.UserRoleID'
+        $ref: '#/definitions/schema.UserRoleID'
       remote_gw_ids:
         additionalProperties:
           type: object
         description: deprecated
         type: object
+      updated_at:
+        type: string
       user_group_ids:
         additionalProperties:
-          $ref: '#/definitions/models.UserGroup'
+          type: object
         type: object
       username:
         type: string
-    type: object
-  models.RsrcPermissionScope:
-    properties:
-      create:
-        type: boolean
-      delete:
-        type: boolean
-      read:
-        type: boolean
-      self_only:
-        type: boolean
-      update:
-        type: boolean
-      vpn_access:
-        type: boolean
     type: object
   models.ServerConfig:
     properties:
@@ -2208,8 +1895,6 @@ definitions:
         type: string
       okta_org_url:
         type: string
-      old_acl_support:
-        type: boolean
       peer_connection_check_interval:
         type: string
       posture_check_interval:
@@ -2236,20 +1921,6 @@ definitions:
       verbosity:
         type: integer
     type: object
-  models.Severity:
-    enum:
-    - 0
-    - 1
-    - 2
-    - 3
-    - 4
-    type: integer
-    x-enum-varnames:
-    - SeverityUnknown
-    - SeverityLow
-    - SeverityMedium
-    - SeverityHigh
-    - SeverityCritical
   models.Signal:
     properties:
       action:
@@ -2325,7 +1996,7 @@ definitions:
       id:
         type: string
       network:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       tag_name:
         type: string
       tagged_nodes:
@@ -2379,7 +2050,7 @@ definitions:
       name:
         type: string
       network_id:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       new_name:
         type: string
       policy_type:
@@ -2410,7 +2081,7 @@ definitions:
       id:
         type: string
       network:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       new_name:
         type: string
       tag_name:
@@ -2425,6 +2096,10 @@ definitions:
       account_disabled:
         type: boolean
       auth_type:
+        type: string
+      created_at:
+        type: string
+      created_by:
         type: string
       display_name:
         type: string
@@ -2450,13 +2125,15 @@ definitions:
         minLength: 5
         type: string
       platform_role_id:
-        $ref: '#/definitions/models.UserRoleID'
+        $ref: '#/definitions/schema.UserRoleID'
       remote_gw_ids:
         additionalProperties:
           type: object
         description: deprecated
         type: object
       totp_secret:
+        type: string
+      updated_at:
         type: string
       user_group_ids:
         additionalProperties:
@@ -2474,27 +2151,6 @@ definitions:
         type: string
       username:
         type: string
-    type: object
-  models.UserGroup:
-    properties:
-      color_code:
-        type: string
-      default:
-        type: boolean
-      external_identity_provider_id:
-        type: string
-      id:
-        type: string
-      meta_data:
-        type: string
-      name:
-        type: string
-      network_roles:
-        additionalProperties:
-          additionalProperties:
-            type: object
-          type: object
-        type: object
     type: object
   models.UserIPMap:
     properties:
@@ -2560,53 +2216,6 @@ definitions:
       user:
         type: string
     type: object
-  models.UserRoleID:
-    enum:
-    - super-admin
-    - admin
-    - service-user
-    - platform-user
-    - auditor
-    - network-admin
-    - network-user
-    type: string
-    x-enum-varnames:
-    - SuperAdminRole
-    - AdminRole
-    - ServiceUser
-    - PlatformUser
-    - Auditor
-    - NetworkAdmin
-    - NetworkUser
-  models.UserRolePermissionTemplate:
-    properties:
-      default:
-        type: boolean
-      deny_dashboard_access:
-        type: boolean
-      full_access:
-        type: boolean
-      global_level_access:
-        additionalProperties:
-          additionalProperties:
-            $ref: '#/definitions/models.RsrcPermissionScope'
-          type: object
-        type: object
-      id:
-        $ref: '#/definitions/models.UserRoleID'
-      meta_data:
-        type: string
-      name:
-        type: string
-      network_id:
-        $ref: '#/definitions/models.NetworkID'
-      network_level_access:
-        additionalProperties:
-          additionalProperties:
-            $ref: '#/definitions/models.RsrcPermissionScope'
-          type: object
-        type: object
-    type: object
   models.UserSettings:
     properties:
       reduced_motion:
@@ -2636,7 +2245,7 @@ definitions:
       name:
         type: string
       severity:
-        $ref: '#/definitions/models.Severity'
+        $ref: '#/definitions/schema.Severity'
     type: object
   net.IPNet:
     properties:
@@ -2664,7 +2273,75 @@ definitions:
         description: IPv6 scoped addressing zone
         type: string
     type: object
-  netip.AddrPort:
+  schema.Action:
+    enum:
+    - CREATE
+    - UPDATE
+    - DELETE
+    - DELETE_ALL
+    - LOGIN
+    - LOGOUT
+    - CONNECT
+    - SYNC
+    - REFRESH_KEY
+    - REFRESH_ALL_KEYS
+    - SYNC_ALL
+    - UPGRADE_ALL
+    - DISCONNECT
+    - JOIN_HOST_TO_NETWORK
+    - REMOVE_HOST_FROM_NETWORK
+    - ENABLE_MFA
+    - DISABLE_MFA
+    - ENFORCE_MFA
+    - UNENFORCE_MFA
+    - ENABLE_BASIC_AUTH
+    - DISABLE_BASIC_AUTH
+    - ENABLE_TELEMETRY
+    - DISABLE_TELEMETRY
+    - UPDATE_CLIENT_SETTINGS
+    - UPDATE_AUTHENTICATION_SECURITY_SETTINGS
+    - UPDATE_MONITORING_AND_DEBUGGING_SETTINGS
+    - UPDATE_EMAIL_SETTINGS
+    - UPDATE_IDP_SETTINGS
+    - ENABLE_FLOW_LOGS
+    - DISABLE_FLOW_LOGS
+    - GATEWAY_ASSIGN
+    - GATEWAY_UNASSIGN
+    type: string
+    x-enum-varnames:
+    - Create
+    - Update
+    - Delete
+    - DeleteAll
+    - Login
+    - LogOut
+    - Connect
+    - Sync
+    - RefreshKey
+    - RefreshAllKeys
+    - SyncAll
+    - UpgradeAll
+    - Disconnect
+    - JoinHostToNet
+    - RemoveHostFromNet
+    - EnableMFA
+    - DisableMFA
+    - EnforceMFA
+    - UnenforceMFA
+    - EnableBasicAuth
+    - DisableBasicAuth
+    - EnableTelemetry
+    - DisableTelemetry
+    - UpdateClientSettings
+    - UpdateAuthenticationSecuritySettings
+    - UpdateMonitoringAndDebuggingSettings
+    - UpdateSMTPSettings
+    - UpdateIDPSettings
+    - EnableFlowLogs
+    - DisableFlowLogs
+    - GatewayAssign
+    - GatewayUnAssign
+  schema.AddrPort:
     type: object
   schema.Attribute:
     enum:
@@ -2701,7 +2378,7 @@ definitions:
       id:
         type: string
       mode:
-        $ref: '#/definitions/models.EgressNATMode'
+        $ref: '#/definitions/schema.EgressNATMode'
       name:
         type: string
       nat:
@@ -2722,10 +2399,18 @@ definitions:
       virtual_range:
         type: string
     type: object
+  schema.EgressNATMode:
+    enum:
+    - virtual_nat
+    - direct_nat
+    type: string
+    x-enum-varnames:
+    - VirtualNAT
+    - DirectNAT
   schema.Event:
     properties:
       action:
-        $ref: '#/definitions/models.Action'
+        $ref: '#/definitions/schema.Action'
       diff:
         items:
           type: integer
@@ -2733,9 +2418,9 @@ definitions:
       id:
         type: string
       network_id:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       origin:
-        $ref: '#/definitions/models.Origin'
+        $ref: '#/definitions/schema.Origin'
       source:
         items:
           type: integer
@@ -2747,6 +2432,108 @@ definitions:
       time_stamp:
         type: string
       triggered_by:
+        type: string
+    type: object
+  schema.Host:
+    properties:
+      autoupdate:
+        type: boolean
+      country_code:
+        type: string
+      daemoninstalled:
+        type: boolean
+      debug:
+        type: boolean
+      defaultinterface:
+        type: string
+      dns_status:
+        type: string
+      enable_flow_logs:
+        type: boolean
+      endpointip:
+        items:
+          type: integer
+        type: array
+      endpointipv6:
+        items:
+          type: integer
+        type: array
+      firewallinuse:
+        type: string
+      hostpass:
+        type: string
+      id:
+        type: string
+      interface:
+        type: string
+      interfaces:
+        items:
+          $ref: '#/definitions/schema.Iface'
+        type: array
+      ipforwarding:
+        type: boolean
+      isdefault:
+        type: boolean
+      isdocker:
+        type: boolean
+      isk8s:
+        type: boolean
+      isstatic:
+        type: boolean
+      isstaticport:
+        type: boolean
+      kernel_version:
+        type: string
+      listenport:
+        type: integer
+      location:
+        description: 'Format: "lat,lon"'
+        type: string
+      macaddress:
+        items:
+          type: integer
+        type: array
+      mtu:
+        type: integer
+      name:
+        type: string
+      nat_type:
+        type: string
+      nodes:
+        items:
+          type: string
+        type: array
+      os:
+        type: string
+      os_family:
+        type: string
+      os_version:
+        type: string
+      persistentkeepalive:
+        format: int64
+        type: integer
+      publickey:
+        $ref: '#/definitions/schema.WgKey'
+      traffickeypublic:
+        items:
+          type: integer
+        type: array
+      turn_endpoint:
+        $ref: '#/definitions/schema.AddrPort'
+      verbosity:
+        type: integer
+      version:
+        type: string
+      wg_public_listen_port:
+        type: integer
+    type: object
+  schema.Iface:
+    properties:
+      address:
+        $ref: '#/definitions/net.IPNet'
+      addressString:
+        type: string
+      name:
         type: string
     type: object
   schema.JITRequest:
@@ -2823,9 +2610,70 @@ definitions:
     properties:
       domain:
         type: string
+      is_ad_domain:
+        type: boolean
       is_search_domain:
         type: boolean
     type: object
+  schema.Network:
+    properties:
+      addressrange:
+        type: string
+      addressrange6:
+        type: string
+      auto_join:
+        type: boolean
+      auto_remove:
+        type: boolean
+      auto_remove_tags:
+        items:
+          type: string
+        type: array
+      auto_remove_threshold:
+        description: in minutes
+        type: integer
+      created_at:
+        type: string
+      created_by:
+        type: string
+      defaultkeepalive:
+        description: in seconds.
+        type: integer
+      defaultmtu:
+        type: integer
+      id:
+        type: string
+      jit_enabled:
+        type: boolean
+      netid:
+        type: string
+      nodes_updated_at:
+        type: string
+      updated_at:
+        type: string
+      virtual_nat_pool_ipv4:
+        type: string
+      virtual_nat_site_prefixlen_ipv4:
+        type: integer
+    type: object
+  schema.NetworkID:
+    enum:
+    - all_networks
+    type: string
+    x-enum-varnames:
+    - AllNetworks
+  schema.Origin:
+    enum:
+    - DASHBOARD
+    - API
+    - NMCTL
+    - CLIENT-APP
+    type: string
+    x-enum-varnames:
+    - Dashboard
+    - Api
+    - NMCTL
+    - ClientApp
   schema.PendingHost:
     properties:
       enrollment_key_id:
@@ -2867,9 +2715,9 @@ definitions:
       name:
         type: string
       network_id:
-        $ref: '#/definitions/models.NetworkID'
+        $ref: '#/definitions/schema.NetworkID'
       severity:
-        $ref: '#/definitions/models.Severity'
+        $ref: '#/definitions/schema.Severity'
       status:
         type: boolean
       tags:
@@ -2883,6 +2731,20 @@ definitions:
           type: string
         type: array
     type: object
+  schema.Severity:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    type: integer
+    x-enum-varnames:
+    - SeverityUnknown
+    - SeverityLow
+    - SeverityMedium
+    - SeverityHigh
+    - SeverityCritical
   schema.UserAccessToken:
     properties:
       created_at:
@@ -2899,6 +2761,76 @@ definitions:
         type: string
       user_name:
         type: string
+    type: object
+  schema.UserGroup:
+    properties:
+      color_code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      default:
+        type: boolean
+      external_identity_provider_id:
+        type: string
+      id:
+        type: string
+      meta_data:
+        type: string
+      name:
+        type: string
+      network_roles:
+        $ref: '#/definitions/datatypes.JSONType-schema_NetworkRoles'
+      updated_at:
+        type: string
+    type: object
+  schema.UserRole:
+    properties:
+      default:
+        type: boolean
+      deny_dashboard_access:
+        type: boolean
+      full_access:
+        type: boolean
+      global_level_access:
+        $ref: '#/definitions/datatypes.JSONType-schema_ResourceAccess'
+      id:
+        $ref: '#/definitions/schema.UserRoleID'
+      meta_data:
+        type: string
+      name:
+        type: string
+      network_id:
+        $ref: '#/definitions/schema.NetworkID'
+      network_level_access:
+        $ref: '#/definitions/datatypes.JSONType-schema_ResourceAccess'
+    type: object
+  schema.UserRoleID:
+    enum:
+    - super-admin
+    - admin
+    - service-user
+    - platform-user
+    - auditor
+    - network-admin
+    - network-user
+    type: string
+    x-enum-varnames:
+    - SuperAdminRole
+    - AdminRole
+    - ServiceUser
+    - PlatformUser
+    - Auditor
+    - NetworkAdmin
+    - NetworkUser
+  schema.WgKey:
+    properties:
+      wgtypes.Key:
+        items:
+          format: int32
+          type: integer
+        type: array
     type: object
   wgtypes.PeerConfig:
     properties:
@@ -2927,6 +2859,7 @@ definitions:
 
           A non-nil, zero-value Key will clear the preshared key.
         items:
+          format: int32
           type: integer
         type: array
       publicKey:
@@ -2934,6 +2867,7 @@ definitions:
           PublicKey specifies the public key of this peer.  PublicKey is a
           mandatory field for all PeerConfigs.
         items:
+          format: int32
           type: integer
         type: array
       remove:
@@ -3895,7 +3829,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Network'
+            items:
+              $ref: '#/definitions/schema.Network'
+            type: array
         "500":
           description: Internal Server Error
           schema:
@@ -3912,14 +3848,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.Network'
+          $ref: '#/definitions/schema.Network'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Network'
+            $ref: '#/definitions/schema.Network'
         "400":
           description: Bad Request
           schema:
@@ -3974,7 +3910,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Network'
+            $ref: '#/definitions/schema.Network'
         "404":
           description: Not Found
           schema:
@@ -4000,14 +3936,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.Network'
+          $ref: '#/definitions/schema.Network'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Network'
+            $ref: '#/definitions/schema.Network'
         "400":
           description: Bad Request
           schema:
@@ -4015,97 +3951,6 @@ paths:
       security:
       - oauth: []
       summary: Update network settings
-      tags:
-      - Networks
-  /api/networks/{networkname}/acls:
-    get:
-      parameters:
-      - description: Network name
-        in: path
-        name: networkname
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/acls.ACLContainer'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Get a network ACL (Access Control List)
-      tags:
-      - Networks
-    put:
-      parameters:
-      - description: Network name
-        in: path
-        name: networkname
-        required: true
-        type: string
-      - description: ACL container
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/acls.ACLContainer'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/acls.ACLContainer'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Update a network ACL (Access Control List)
-      tags:
-      - Networks
-  /api/networks/{networkname}/acls/v2:
-    put:
-      parameters:
-      - description: Network name
-        in: path
-        name: networkname
-        required: true
-        type: string
-      - description: ACL container
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/acls.ACLContainer'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/acls.ACLContainer'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Update a network ACL (Access Control List)
       tags:
       - Networks
   /api/networks/{networkname}/egress_routes:
@@ -4134,30 +3979,6 @@ paths:
       security:
       - oauth: []
       summary: Get a network Egress routes
-      tags:
-      - Networks
-  /api/networks/{networkname}/old_acl_status:
-    get:
-      parameters:
-      - description: Network name
-        in: path
-        name: networkname
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/acls.ACLContainer'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Check a Old ACL Status (Access Control List)
       tags:
       - Networks
   /api/nodes:
@@ -5807,6 +5628,70 @@ paths:
       summary: Updates an EnrollmentKey
       tags:
       - EnrollmentKeys
+  /api/v1/extclients/{network}/bulk:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: List of ext client IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk delete ext clients
+      tags:
+      - Config Files
+  /api/v1/extclients/{network}/bulk/status:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Client IDs and desired enabled state
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkExtClientStatusUpdate'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk update ext client enabled status
+      tags:
+      - Config Files
   /api/v1/fallback/host/{hostid}:
     put:
       parameters:
@@ -5993,7 +5878,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.Host'
+          $ref: '#/definitions/schema.Host'
       produces:
       - application/json
       responses:
@@ -6012,6 +5897,73 @@ paths:
       summary: Handles a Netclient registration with server and add nodes accordingly
       tags:
       - EnrollmentKeys
+  /api/v1/hosts:
+    get:
+      parameters:
+      - collectionFormat: csv
+        description: Filter by OS
+        in: query
+        items:
+          enum:
+          - windows
+          - linux
+          - darwin
+          type: string
+        name: os
+        type: array
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ApiHost'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List all hosts
+      tags:
+      - Hosts
+  /api/v1/hosts/bulk:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: List of host IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk delete hosts
+      tags:
+      - Hosts
   /api/v1/jit:
     delete:
       parameters:
@@ -6473,7 +6425,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.NetworkStatResp'
+              $ref: '#/definitions/schema.Network'
             type: array
         "500":
           description: Internal Server Error
@@ -6699,6 +6651,70 @@ paths:
       summary: Update AutoRelay me
       tags:
       - Auto Relay
+  /api/v1/nodes/{network}/bulk:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: List of node IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk delete nodes
+      tags:
+      - Nodes
+  /api/v1/nodes/{network}/bulk/status:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node IDs and desired connected state
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkNodeStatusUpdate'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk update node connected status
+      tags:
+      - Nodes
   /api/v1/nodes/{network}/status:
     get:
       parameters:
@@ -7184,7 +7200,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.ReturnUserWithRolesAndGroups'
+            $ref: '#/definitions/models.ReturnUser'
         "400":
           description: Bad Request
           schema:
@@ -7326,6 +7342,68 @@ paths:
       summary: Add user to network
       tags:
       - Users
+  /api/v1/users/bulk:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: List of usernames to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkDeleteRequest'
+      - description: Force delete associated ext-client configs
+        in: query
+        name: force_delete_configs
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk delete users
+      tags:
+      - Users
+  /api/v1/users/bulk/status:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: List of usernames and desired status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkUserStatusUpdate'
+      - description: Also toggle associated ext-client connectivity
+        in: query
+        name: force_toggle_configs
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Bulk disable/enable user accounts
+      tags:
+      - Users
   /api/v1/users/group:
     delete:
       parameters:
@@ -7367,7 +7445,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserGroup'
+            $ref: '#/definitions/schema.UserGroup'
         "500":
           description: Internal Server Error
           schema:
@@ -7386,14 +7464,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.CreateGroupReq'
+          $ref: '#/definitions/schema.UserGroup'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserGroup'
+            $ref: '#/definitions/schema.UserGroup'
         "400":
           description: Bad Request
           schema:
@@ -7416,14 +7494,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.UserGroup'
+          $ref: '#/definitions/schema.UserGroup'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserGroup'
+            $ref: '#/definitions/schema.UserGroup'
         "400":
           description: Bad Request
           schema:
@@ -7446,7 +7524,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.UserGroup'
+              $ref: '#/definitions/schema.UserGroup'
             type: array
         "500":
           description: Internal Server Error
@@ -7721,7 +7799,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserRolePermissionTemplate'
+            $ref: '#/definitions/schema.UserRole'
         "500":
           description: Internal Server Error
           schema:
@@ -7740,14 +7818,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.UserRolePermissionTemplate'
+          $ref: '#/definitions/schema.UserRole'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserRolePermissionTemplate'
+            $ref: '#/definitions/schema.UserRole'
         "400":
           description: Bad Request
           schema:
@@ -7770,14 +7848,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.UserRolePermissionTemplate'
+          $ref: '#/definitions/schema.UserRole'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UserRolePermissionTemplate'
+            $ref: '#/definitions/schema.UserRole'
         "400":
           description: Bad Request
           schema:
@@ -7805,7 +7883,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.UserRolePermissionTemplate'
+              $ref: '#/definitions/schema.UserRole'
             type: array
         "500":
           description: Internal Server Error
@@ -7840,6 +7918,105 @@ paths:
       security:
       - oauth: []
       summary: List unassigned network users
+      tags:
+      - Users
+  /api/v2/users:
+    get:
+      parameters:
+      - description: Filter by Account Status
+        enum:
+        - enabled
+        - disabled
+        in: query
+        name: account_status
+        type: string
+      - description: Filter by MFA Status
+        enum:
+        - enabled
+        - disabled
+        in: query
+        name: mfa_status
+        type: string
+      - collectionFormat: csv
+        description: Filter by Role
+        in: query
+        items:
+          enum:
+          - super-admin
+          - admin
+          - platform-user
+          - service-user
+          - auditor
+          type: string
+        name: role
+        type: array
+      - description: Filter by Auth Type
+        enum:
+        - basic
+        - oauth
+        in: query
+        name: auth_type
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ReturnUser'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List all users
+      tags:
+      - Users
+  /api/v2/users/groups:
+    get:
+      parameters:
+      - description: Filter Default / Custom Groups
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: default
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/schema.UserGroup'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List all user groups
       tags:
       - Users
 swagger: "2.0"
