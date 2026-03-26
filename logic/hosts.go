@@ -169,6 +169,9 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
+	if newHost.IsDefault {
+		newHost.IsStaticPort = true
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
