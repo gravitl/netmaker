@@ -1533,8 +1533,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(&oldUser),
-			New: logic.ToReturnUser(&userchange),
+			Old: logic.ToUserEventLog(&oldUser),
+			New: logic.ToUserEventLog(&userchange),
 		},
 		Origin: schema.Dashboard,
 	}
@@ -1709,7 +1709,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(user),
+			Old: logic.ToUserEventLog(user),
 			New: nil,
 		},
 	})
@@ -1848,7 +1848,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 					Type: schema.UserSub,
 				},
 				Origin: schema.Dashboard,
-				Diff:   models.Diff{Old: logic.ToReturnUser(user), New: nil},
+				Diff:   models.Diff{Old: logic.ToUserEventLog(user), New: nil},
 			})
 			logger.Log(1, username, "was deleted")
 			deleted++
@@ -1991,8 +1991,8 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 					Type: schema.UserSub,
 				},
 				Diff: models.Diff{
-					Old: logic.ToReturnUser(&oldUser),
-					New: logic.ToReturnUser(user),
+					Old: logic.ToUserEventLog(&oldUser),
+					New: logic.ToUserEventLog(user),
 				},
 				Origin: schema.Dashboard,
 			})

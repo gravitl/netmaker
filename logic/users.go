@@ -52,6 +52,23 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 	}
 }
 
+// ToUserEventLog - converts a user to an event log entry with resolved group/role names
+func ToUserEventLog(user *schema.User) models.UserEventLog {
+	log := models.UserEventLog{
+		ReturnUser:          ToReturnUser(user),
+		UserGroupsWithNames: make(map[string]string),
+	}
+	for gID := range user.UserGroups.Data() {
+		grp, err := GetUserGroup(gID)
+		if err == nil {
+			log.UserGroupsWithNames[string(gID)] = grp.Name
+		} else {
+			log.UserGroupsWithNames[string(gID)] = string(gID)
+		}
+	}
+	return log
+}
+
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
 func SetUserDefaults(user *schema.User) {
 	if len(user.UserGroups.Data()) == 0 {

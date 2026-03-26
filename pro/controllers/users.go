@@ -735,8 +735,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(&oldUser),
-			New: logic.ToReturnUser(user),
+			Old: logic.ToUserEventLog(&oldUser),
+			New: logic.ToUserEventLog(user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -791,8 +791,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(&oldUser),
-			New: logic.ToReturnUser(user),
+			Old: logic.ToUserEventLog(&oldUser),
+			New: logic.ToUserEventLog(user),
 		},
 		Origin: schema.Dashboard,
 	})
