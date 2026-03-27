@@ -116,6 +116,12 @@ func (p *PostureCheck) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&PostureCheck{}).Create(&p).Error
 }
 
+func (p *PostureCheck) ListAll(ctx context.Context) ([]PostureCheck, error) {
+	var postureChecks []PostureCheck
+	err := db.FromContext(ctx).Model(&PostureCheck{}).Find(&postureChecks).Error
+	return postureChecks, err
+}
+
 func (p *PostureCheck) ListByNetwork(ctx context.Context) (pcli []PostureCheck, err error) {
 	err = db.FromContext(ctx).Model(&PostureCheck{}).Where("network_id = ?", p.NetworkID).Find(&pcli).Error
 	return

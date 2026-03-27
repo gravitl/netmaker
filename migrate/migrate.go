@@ -728,19 +728,16 @@ func deleteOldExtclients() {
 func cleanupDeletedUserGroupRefs() {
 	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
+		// skip if we can't list all groups.
 		return
 	}
 
-	existingGroups := make(map[schema.UserGroupID]struct{})
+	existingGroups := make(map[schema.UserGroupID]schema.UserGroup)
 	for _, group := range groups {
-		existingGroups[group.ID] = struct{}{}
+		existingGroups[group.ID] = group
 	}
 
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return
-	}
-
+	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	for _, user := range users {
 		var update bool
 		for groupID := range user.UserGroups.Data() {
@@ -751,41 +748,53 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if update {
-			err = user.Update(db.WithContext(context.TODO()))
-			if err != nil {
-				return
-			}
+			_ = user.Update(db.WithContext(context.TODO()))
 		}
 	}
 
 	for _, acl := range logic.ListAcls() {
 		var newSrc []models.AclPolicyTag
-		var update bool
 		for _, src := range acl.Src {
 			if src.ID == models.UserGroupAclID {
-				if _, ok := existingGroups[schema.UserGroupID(src.Value)]; !ok {
-					update = true
-				} else {
-					newSrc = append(newSrc, src)
+				if group, ok := existingGroups[schema.UserGroupID(src.Value)]; ok {
+					var hasAccess bool
+					if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
+						hasAccess = true
+					}
+
+					if _, ok := group.NetworkRoles.Data()[acl.NetworkID]; ok {
+						hasAccess = true
+					}
+
+					if hasAccess {
+						newSrc = append(newSrc, src)
+					}
 				}
 			} else {
 				newSrc = append(newSrc, src)
 			}
 		}
 
-		if update {
-			if len(newSrc) == 0 {
-				err = logic.DeleteAcl(acl)
-				if err != nil {
-					return
-				}
-			} else {
-				acl.Src = newSrc
-				err = logic.UpsertAcl(acl)
-				if err != nil {
-					return
-				}
+		if len(newSrc) == 0 {
+			_ = logic.DeleteAcl(acl)
+		} else if len(acl.Src) != len(newSrc) {
+			acl.Src = newSrc
+			_ = logic.UpsertAcl(acl)
+		}
+	}
+
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		var update bool
+		for groupID := range postureCheck.UserGroups {
+			if _, ok := existingGroups[schema.UserGroupID(groupID)]; !ok {
+				delete(postureCheck.UserGroups, groupID)
+				update = true
 			}
+		}
+
+		if update {
+			_ = postureCheck.Update(db.WithContext(context.TODO()))
 		}
 	}
 }
