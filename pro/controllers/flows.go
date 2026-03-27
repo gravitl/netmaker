@@ -93,6 +93,13 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conn, err := ch.FromContext(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(fmt.Errorf("clickhouse connection not available: %v", err), logic.Internal))
+		return
+	}
+
 	q := r.URL.Query()
 
 	// TODO: handle query filters better
@@ -227,12 +234,6 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 	args = append(args, perPage, offset)
 
-	conn, err := ch.FromContext(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r,
-			logic.FormatError(fmt.Errorf("clickhouse connection not available: %v", err), logic.Internal))
-		return
-	}
 	rows, err := conn.Query(r.Context(), query, args...)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,

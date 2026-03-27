@@ -81,6 +81,10 @@ func Middleware(next http.Handler) http.Handler {
 //
 // Returns the connection and an error if one does not exist.
 func FromContext(ctx context.Context) (clickhouse.Conn, error) {
+	if ch == nil {
+		return nil, ErrConnNotFound
+	}
+
 	ch, ok := ctx.Value(clickhouseCtxKey).(clickhouse.Conn)
 	if !ok {
 		return nil, ErrConnNotFound

@@ -120,7 +120,7 @@ func InitPro() {
 			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
-					logger.FatalLog("error connecting to clickhouse:", err.Error())
+					logger.Log(0, "error connecting to clickhouse:", err.Error())
 				}
 
 				proLogic.StartFlowCleanupLoop()
