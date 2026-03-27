@@ -1311,6 +1311,65 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 		logic.InsertAcl(defaultUserAcl)
 	}
 
+	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	for _, group := range groups {
+		if group.Default {
+			continue
+		}
+
+		var hasAccess bool
+		if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
+			hasAccess = true
+		}
+
+		if _, ok := group.NetworkRoles.Data()[netID]; ok {
+			hasAccess = true
+		}
+
+		if hasAccess {
+			var exists bool
+			acls, err := logic.ListAclsByNetwork(netID)
+			if err != nil {
+				continue
+			}
+
+			defaultAclName := GetDefaultGroupAclName(group.Name)
+			for _, acl := range acls {
+				if acl.Name == defaultAclName && acl.Default {
+					exists = true
+					break
+				}
+			}
+
+			if !exists {
+				_ = logic.InsertAcl(models.Acl{
+					ID:          uuid.New().String(),
+					Name:        defaultAclName,
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     true,
+					ServiceType: models.Any,
+					NetworkID:   netID,
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: group.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				})
+			}
+		}
+	}
 }
 
 func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
