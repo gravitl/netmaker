@@ -504,6 +504,24 @@ func compareVersions(a, b string) int {
 	return 0
 }
 
+// PopulatePostureCheckGroupNames sets group name as the value for each user group key
+func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
+	for i := range pcs {
+		for groupID := range pcs[i].UserGroups {
+			if groupID == "*" {
+				pcs[i].UserGroups[groupID] = "*"
+				continue
+			}
+			grp, err := logic.GetUserGroup(schema.UserGroupID(groupID))
+			if err == nil {
+				pcs[i].UserGroups[groupID] = grp.Name
+			} else {
+				pcs[i].UserGroups[groupID] = groupID
+			}
+		}
+	}
+}
+
 func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
