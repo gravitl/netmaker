@@ -1090,7 +1090,9 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 
 	policyEnabled := make(map[schema.NetworkID]bool)
 	defaultAclName := GetDefaultGroupAclName(groupName)
-	if migrate {
+	if migrate &&
+		groupID != GetDefaultGlobalAdminGroupID().String() &&
+		groupID != GetDefaultGlobalUserGroupID().String() {
 		acls := logic.ListAcls()
 		for _, acl := range acls {
 			if acl.Default {
