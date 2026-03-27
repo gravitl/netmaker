@@ -372,8 +372,7 @@ func updateNewAcls() {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 		for _, userGroup := range userGroups {
 			group := userGroup
-			if group.ID.String() == fmt.Sprintf("global-%s-grp", schema.NetworkAdmin) ||
-				group.ID.String() == fmt.Sprintf("global-%s-grp", schema.NetworkUser) {
+			if group.Default {
 				continue
 			}
 
