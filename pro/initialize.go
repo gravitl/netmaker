@@ -183,6 +183,7 @@ func InitPro() {
 	logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
+	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags

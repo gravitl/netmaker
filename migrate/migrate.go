@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -371,7 +372,112 @@ func updateNewAcls() {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 		for _, userGroup := range userGroups {
 			group := userGroup
-			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group, true)
+			if group.ID.String() == fmt.Sprintf("global-%s-grp", schema.NetworkAdmin) ||
+				group.ID.String() == fmt.Sprintf("global-%s-grp", schema.NetworkUser) {
+				continue
+			}
+
+			networks, err := logic.GetGroupNetworksMap(&group)
+			if err != nil {
+				continue
+			}
+
+			for networkID, network := range networks {
+				createSeparateACL := false
+				enableSeparateACL := true
+				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range adminAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							createSeparateACL = true
+							enableSeparateACL = adminAcl.Enabled
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					adminAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(adminAcl)
+				}
+
+				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range userAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							if !createSeparateACL {
+								// if group src not found in adminACL, then create.
+								createSeparateACL = true
+								enableSeparateACL = userAcl.Enabled
+							} else {
+								// if group src found in adminACL, then create.
+								// additionally, if either policy allows access, then allow access.
+								if !enableSeparateACL {
+									enableSeparateACL = adminAcl.Enabled
+								}
+							}
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					userAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(userAcl)
+				}
+
+				expectedAcl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s group", group.Name),
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     true,
+					ServiceType: models.Any,
+					NetworkID:   schema.NetworkID(network.Name),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: group.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+
+				acls, _ := logic.ListAclsByNetwork(networkID)
+				for _, acl := range acls {
+					if acl.Name == expectedAcl.Name &&
+						acl.MetaData == expectedAcl.MetaData &&
+						acl.ServiceType == expectedAcl.ServiceType &&
+						acl.NetworkID == expectedAcl.NetworkID &&
+						acl.Proto == expectedAcl.Proto &&
+						acl.RuleType == expectedAcl.RuleType &&
+						slices.Equal(acl.Src, expectedAcl.Src) &&
+						slices.Equal(acl.Dst, expectedAcl.Dst) &&
+						acl.AllowedDirection == expectedAcl.AllowedDirection {
+
+						acl.Default = true
+						_ = logic.UpsertAcl(acl)
+						createSeparateACL = false
+						break
+					}
+				}
+
+				if createSeparateACL {
+					expectedAcl.Enabled = enableSeparateACL
+					_ = logic.InsertAcl(expectedAcl)
+				}
+			}
+
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group)
 		}
 	}
 }

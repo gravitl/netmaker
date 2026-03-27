@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -603,7 +602,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 		return err
 	}
 	// create default network gateway policies
-	_ = EnsureDefaultUserGroupNetworkPolicies(nil, g, false)
+	_ = EnsureDefaultUserGroupNetworkPolicies(nil, g)
 	return nil
 }
 
@@ -676,7 +675,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		}
 	}
 
-	err = EnsureDefaultUserGroupNetworkPolicies(group, nil, false)
+	err = EnsureDefaultUserGroupNetworkPolicies(group, nil)
 	if err != nil {
 		return err
 	}
@@ -1048,7 +1047,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 }
 
-func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate bool) error {
+func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	oldNetworks, err := GetGroupNetworksMap(old)
 	if err != nil {
 		return err
@@ -1088,102 +1087,52 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 		groupName = old.Name
 	}
 
-	policyEnabled := make(map[schema.NetworkID]bool)
+	// For each network added, we add an ACL policy for this group to access this network.
 	defaultAclName := GetDefaultGroupAclName(groupName)
-	if migrate &&
-		groupID != GetDefaultGlobalAdminGroupID().String() &&
-		groupID != GetDefaultGlobalUserGroupID().String() {
-		acls := logic.ListAcls()
-		for _, acl := range acls {
-			if acl.Default {
-				if acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkAdmin) ||
-					acl.ID == fmt.Sprintf("%s.%s-grp", acl.NetworkID, schema.NetworkUser) {
-					var newAclSrc []models.AclPolicyTag
-					for _, src := range acl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == groupID {
-							policyEnabled[acl.NetworkID] = acl.Enabled
-							continue
-						} else {
-							newAclSrc = append(newAclSrc, src)
-						}
-					}
-
-					if len(newAclSrc) == 0 {
-						_ = logic.DeleteAcl(acl)
-					} else {
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
-					continue
-				}
-			}
-		}
-	}
-
 	for networkID, network := range networksAdded {
-		expectedAcl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        defaultAclName,
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     true,
-			ServiceType: models.Any,
-			NetworkID:   schema.NetworkID(network.Name),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserGroupAclID,
-					Value: groupID,
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
+		var exists bool
 		acls, err := logic.ListAclsByNetwork(networkID)
 		if err != nil {
 			continue
 		}
 
-		var exists bool
 		for _, acl := range acls {
 			if acl.Name == defaultAclName && acl.Default {
 				exists = true
 				break
-			} else if migrate {
-				if acl.Name == expectedAcl.Name &&
-					acl.MetaData == expectedAcl.MetaData &&
-					acl.ServiceType == expectedAcl.ServiceType &&
-					acl.NetworkID == expectedAcl.NetworkID &&
-					acl.Proto == expectedAcl.Proto &&
-					acl.RuleType == expectedAcl.RuleType &&
-					slices.Equal(acl.Src, expectedAcl.Src) &&
-					slices.Equal(acl.Dst, expectedAcl.Dst) &&
-					acl.AllowedDirection == expectedAcl.AllowedDirection {
-
-					acl.Default = true
-					_ = logic.UpsertAcl(acl)
-					exists = true
-					break
-				}
 			}
 		}
 
 		if !exists {
-			_, ok := policyEnabled[schema.NetworkID(network.Name)]
-			if ok {
-				expectedAcl.Enabled = policyEnabled[schema.NetworkID(network.Name)]
-			}
-			_ = logic.InsertAcl(expectedAcl)
+			_ = logic.InsertAcl(models.Acl{
+				ID:          uuid.New().String(),
+				Name:        defaultAclName,
+				MetaData:    "This Policy allows user group to communicate with all gateways",
+				Default:     true,
+				ServiceType: models.Any,
+				NetworkID:   schema.NetworkID(network.Name),
+				Proto:       models.ALL,
+				RuleType:    models.UserPolicy,
+				Src: []models.AclPolicyTag{
+					{
+						ID:    models.UserGroupAclID,
+						Value: groupID,
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.NodeTagID,
+						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+					}},
+				AllowedDirection: models.TrafficDirectionUni,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			})
 		}
 	}
 
+	// For each network removed, remove the group as the src from all the ACLs.
 	for networkID := range networksRemoved {
 		acls, err := logic.ListAclsByNetwork(networkID)
 		if err != nil {
@@ -1191,26 +1140,34 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup, migrate b
 		}
 
 		for _, acl := range acls {
-			if acl.Default && acl.Name == defaultAclName {
-				_ = logic.DeleteAcl(acl)
-			} else {
-				var newAclSrc []models.AclPolicyTag
-				var groupSrcExists bool
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == groupID {
-						groupSrcExists = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
-					}
-				}
+			// This commented if condition is a special case for the code that follows it.
+			// The default ACL for this group, will only have this group as the src.
+			// The code that follows it, removes this group as the src from the ACL and
+			// constructs the new src slice.
+			// Since, there are no other srcs in the default group ACL, it will be empty
+			// and hence, the ACL will be deleted, which is what this if condition also
+			// does.
 
-				if groupSrcExists {
-					if len(newAclSrc) == 0 {
-						_ = logic.DeleteAcl(acl)
-					} else {
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
+			//if acl.Default && acl.Name == defaultAclName {
+			//	_ = logic.DeleteAcl(acl)
+			//}
+
+			var newAclSrc []models.AclPolicyTag
+			var groupSrcExists bool
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID && src.Value == groupID {
+					groupSrcExists = true
+				} else {
+					newAclSrc = append(newAclSrc, src)
+				}
+			}
+
+			if groupSrcExists {
+				if len(newAclSrc) == 0 {
+					_ = logic.DeleteAcl(acl)
+				} else {
+					acl.Src = newAclSrc
+					_ = logic.UpsertAcl(acl)
 				}
 			}
 		}
