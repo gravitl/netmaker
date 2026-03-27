@@ -223,6 +223,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SortAclEntrys(acls[:])
+	logic.PopulateAclPolicyTagNames(acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
@@ -254,6 +255,7 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SortAclEntrys(acls[:])
+	logic.PopulateAclPolicyTagNames(acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched acls for egress"+e.Name)
 }
 
@@ -329,7 +331,9 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(true)
-	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
+	acls := []models.Acl{acl}
+	logic.PopulateAclPolicyTagNames(acls)
+	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "created acl successfully")
 }
 
 // @Summary     Update Acl
@@ -395,7 +399,14 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(true)
-	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
+	updatedAcl, err := logic.GetAcl(acl.ID)
+	if err != nil {
+		logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
+		return
+	}
+	acls := []models.Acl{updatedAcl}
+	logic.PopulateAclPolicyTagNames(acls)
+	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "updated acl "+acl.Name)
 }
 
 // @Summary     Delete Acl
