@@ -51,6 +51,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/groups/network", logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/unassigned_network_users", logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers))).Methods(http.MethodGet)
@@ -647,6 +648,49 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
+}
+
+// @Summary     List user groups with access to a network
+// @Router      /api/v1/users/groups/network [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} schema.UserGroup
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkUserGroups(w http.ResponseWriter, r *http.Request) {
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	netID := schema.NetworkID(network)
+	allGroups, err := (&schema.UserGroup{}).ListAll(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	globalAdminGrpID := proLogic.GetDefaultGlobalAdminGroupID()
+	globalUserGrpID := proLogic.GetDefaultGlobalUserGroupID()
+	var networkGroups []schema.UserGroup
+	for _, grp := range allGroups {
+		if grp.ID == globalAdminGrpID || grp.ID == globalUserGrpID {
+			networkGroups = append(networkGroups, grp)
+			continue
+		}
+		if _, ok := grp.NetworkRoles.Data()[netID]; ok {
+			networkGroups = append(networkGroups, grp)
+		}
+	}
+	if networkGroups == nil {
+		networkGroups = []schema.UserGroup{}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, networkGroups, "fetched user groups for network "+network)
 }
 
 // @Summary     List unassigned network users
