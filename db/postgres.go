@@ -46,7 +46,6 @@ func (pg *postgresConnector) connect() (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(10)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(2 * time.Minute)
-
 	return gormDB, nil
 }
 
