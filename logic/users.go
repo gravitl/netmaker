@@ -13,6 +13,8 @@ import (
 	"gorm.io/datatypes"
 )
 
+var SyncFromIDP = func() error { return nil }
+
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {
 	_user := &schema.User{
@@ -48,6 +50,23 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 	}
+}
+
+// ToUserEventLog - converts a user to an event log entry with resolved group/role names
+func ToUserEventLog(user *schema.User) models.UserEventLog {
+	log := models.UserEventLog{
+		ReturnUser:          ToReturnUser(user),
+		UserGroupsWithNames: make(map[string]string),
+	}
+	for gID := range user.UserGroups.Data() {
+		grp, err := GetUserGroup(gID)
+		if err == nil {
+			log.UserGroupsWithNames[string(gID)] = grp.Name
+		} else {
+			log.UserGroupsWithNames[string(gID)] = string(gID)
+		}
+	}
+	return log
 }
 
 // SetUserDefaults - sets the defaults of a user to avoid empty fields

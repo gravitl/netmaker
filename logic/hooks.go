@@ -4,8 +4,9 @@ type ServerSyncType string
 
 const (
 	SyncTypeSettings   ServerSyncType = "settings"
-	SyncTypePeerUpdate ServerSyncType = "peerupdate"
-	SyncTypeIDPSync    ServerSyncType = "idpsync"
+	SyncTypePeerUpdate ServerSyncType = "peer_update"
+	SyncTypeIDPSync    ServerSyncType = "idp_sync"
+	SyncTypeIDPReset   ServerSyncType = "idp_reset"
 )
 
 // PublishServerSync is set by the mq package at startup to broadcast

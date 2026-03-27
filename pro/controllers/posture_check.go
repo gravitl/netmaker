@@ -299,6 +299,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go mq.PublishPeerUpdate(false)
+	go proLogic.RunPostureChecks()
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
 }
 

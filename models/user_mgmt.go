@@ -72,6 +72,12 @@ type ReturnUser struct {
 	UpdatedAt                  time.Time                                           `json:"updated_at"`
 }
 
+// UserEventLog - user representation for activity logs with resolved names
+type UserEventLog struct {
+	ReturnUser
+	UserGroupsWithNames map[string]string `json:"user_groups_with_names"`
+}
+
 // UserAuthParams - user auth params struct
 type UserAuthParams struct {
 	UserName string `json:"username"`

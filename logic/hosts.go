@@ -169,6 +169,9 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
+	if newHost.IsDefault {
+		newHost.IsStaticPort = true
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
@@ -275,21 +278,17 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 	if err != nil {
 		return
 	}
-	ifaceDelta := IfaceDelta(&currentNode, newNode)
-	newNode.SetLastCheckIn()
-	if err := UpdateNode(&currentNode, newNode); err != nil {
-		slog.Error("error saving node", "name", h.Name, "network", newNode.Network, "error", err)
-		return
+	currentNode.Connected = newNode.Connected
+	currentNode.SetLastCheckIn()
+	UpsertNode(&currentNode)
+	if !newNode.Connected {
+		publishDeletedNodeUpdate = true
 	}
-	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if !newNode.Connected {
-			publishDeletedNodeUpdate = true
-		}
-		publishPeerUpdate = true
-		// reset failover data for this node
-		ResetFailedOverPeer(newNode)
-		ResetAutoRelayedPeer(newNode)
-	}
+	publishPeerUpdate = true
+	// reset failover data for this node
+	ResetFailedOverPeer(newNode)
+	ResetAutoRelayedPeer(newNode)
+
 	return
 }
 

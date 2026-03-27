@@ -602,7 +602,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 		return err
 	}
 	// create default network gateway policies
-	CreateDefaultUserGroupNetworkPolicies(*g)
+	_ = EnsureDefaultUserGroupNetworkPolicies(nil, g)
 	return nil
 }
 
@@ -647,6 +647,10 @@ func GetDefaultNetworkUserRoleID(networkID schema.NetworkID) schema.UserRoleID {
 	return schema.UserRoleID(fmt.Sprintf("%s-%s", networkID, schema.NetworkUser))
 }
 
+func GetDefaultGroupAclName(groupName string) string {
+	return fmt.Sprintf("%s group", groupName)
+}
+
 // UpdateUserGroup - updates new user group
 func UpdateUserGroup(g schema.UserGroup) error {
 	// check if the group exists
@@ -657,84 +661,49 @@ func UpdateUserGroup(g schema.UserGroup) error {
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
-	err := DeleteUserGroup(group.ID)
-	if err != nil {
-		return err
-	}
-	go func() {
-		var replacePeers bool
-		var networkIDs []schema.NetworkID
-
-		_, ok := group.NetworkRoles.Data()[schema.AllNetworks]
-		if ok {
-			networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-			for _, network := range networks {
-				networkIDs = append(networkIDs, schema.NetworkID(network.Name))
-			}
-		} else {
-			for networkID := range group.NetworkRoles.Data() {
-				networkIDs = append(networkIDs, networkID)
-			}
-		}
-
-		for _, networkID := range networkIDs {
-			go RemoveUserGroupFromPostureChecks(group.ID, networkID)
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
-
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
-					}
-				}
-
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
-					replacePeers = true
-				}
-			}
-		}
-
-		go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
-		go mq.PublishPeerUpdate(replacePeers)
-	}()
-
-	return nil
-}
-
-// DeleteUserGroup - deletes user group
-func DeleteUserGroup(gid schema.UserGroupID) error {
-	g, err := GetUserGroup(gid)
-	if err != nil {
-		return err
-	}
+	// TODO: wrap in transaction once acls are migrated to sql schema.
 	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
+
 	for _, user := range users {
-		delete(user.UserGroups.Data(), gid)
-		logic.UpsertUser(user)
+		delete(user.UserGroups.Data(), group.ID)
+		err = user.Update(db.WithContext(context.TODO()))
+		if err != nil {
+			return err
+		}
 	}
-	// create default network gateway policies
-	DeleteDefaultUserGroupNetworkPolicies(g)
-	return (&schema.UserGroup{
-		ID: gid,
-	}).Delete(db.WithContext(context.TODO()))
+
+	err = EnsureDefaultUserGroupNetworkPolicies(group, nil)
+	if err != nil {
+		return err
+	}
+
+	err = group.Delete(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
+
+	networksMap, err := GetGroupNetworksMap(group)
+	if err != nil {
+		return err
+	}
+
+	var replacePeers bool
+	if len(networksMap) > 0 {
+		replacePeers = true
+	}
+
+	go mq.PublishPeerUpdate(replacePeers)
+
+	for networkID := range networksMap {
+		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
+	}
+
+	return nil
 }
 
 func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
@@ -989,12 +958,16 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			} else {
 				_, userInGroup := user.UserGroups.Data()[groupID]
 				_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
-				if userInGroup && networkRemoved {
+				_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
+				if userInGroup && (networkRemoved || allNetworkAccessRemoved) {
 					// This group no longer provides it's members access to the
 					// network.
 					// This user is a member of the group and has no direct
 					// access to the network (either by its platform role or by
 					// network roles).
+					// This user is a member of the group and access to this
+					// network was previously given through the all network
+					// role and is now removed.
 					// So, delete the extclient.
 					shouldDelete = true
 				}
@@ -1074,74 +1047,164 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 }
 
-func CreateDefaultUserGroupNetworkPolicies(g schema.UserGroup) {
-	for networkID := range g.NetworkRoles.Data() {
-		network := &schema.Network{Name: networkID.String()}
-		err := network.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			continue
-		}
-
-		acl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        fmt.Sprintf("%s group", g.Name),
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     true,
-			ServiceType: models.Any,
-			NetworkID:   schema.NetworkID(network.Name),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserGroupAclID,
-					Value: g.ID.String(),
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(acl)
-
+func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
+	oldNetworks, err := GetGroupNetworksMap(old)
+	if err != nil {
+		return err
 	}
-}
 
-func DeleteDefaultUserGroupNetworkPolicies(g schema.UserGroup) {
-	for networkID := range g.NetworkRoles.Data() {
+	newNetworks, err := GetGroupNetworksMap(new)
+	if err != nil {
+		return err
+	}
+
+	networksRemoved := make(map[schema.NetworkID]schema.Network)
+	for networkID, network := range oldNetworks {
+		_, ok := newNetworks[networkID]
+		if !ok {
+			networksRemoved[networkID] = network
+		}
+	}
+
+	networksAdded := make(map[schema.NetworkID]schema.Network)
+	for networkID, network := range newNetworks {
+		_, ok := oldNetworks[networkID]
+		if !ok {
+			networksAdded[networkID] = network
+		}
+	}
+
+	var groupID, groupName string
+	if old == nil {
+		if new == nil {
+			return fmt.Errorf("old and new cannot both be nil")
+		}
+
+		groupID = new.ID.String()
+		groupName = new.Name
+	} else {
+		groupID = old.ID.String()
+		groupName = old.Name
+	}
+
+	// For each network added, we add an ACL policy for this group to access this network.
+	defaultAclName := GetDefaultGroupAclName(groupName)
+	for networkID, network := range networksAdded {
+		var exists bool
 		acls, err := logic.ListAclsByNetwork(networkID)
 		if err != nil {
 			continue
 		}
 
 		for _, acl := range acls {
-			var hasGroupSrc bool
-			newAclSrc := make([]models.AclPolicyTag, 0)
+			if acl.Name == defaultAclName && acl.Default {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			_ = logic.InsertAcl(models.Acl{
+				ID:          uuid.New().String(),
+				Name:        defaultAclName,
+				MetaData:    "This Policy allows user group to communicate with all gateways",
+				Default:     true,
+				ServiceType: models.Any,
+				NetworkID:   schema.NetworkID(network.Name),
+				Proto:       models.ALL,
+				RuleType:    models.UserPolicy,
+				Src: []models.AclPolicyTag{
+					{
+						ID:    models.UserGroupAclID,
+						Value: groupID,
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.NodeTagID,
+						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+					}},
+				AllowedDirection: models.TrafficDirectionUni,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			})
+		}
+	}
+
+	// For each network removed, remove the group as the src from all the ACLs.
+	for networkID := range networksRemoved {
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			continue
+		}
+
+		for _, acl := range acls {
+			// This commented if condition is a special case for the code that follows it.
+			// The default ACL for this group, will only have this group as the src.
+			// The code that follows it, removes this group as the src from the ACL and
+			// constructs the new src slice.
+			// Since, there are no other srcs in the default group ACL, it will be empty
+			// and hence, the ACL will be deleted, which is what this if condition also
+			// does.
+
+			//if acl.Default && acl.Name == defaultAclName {
+			//	_ = logic.DeleteAcl(acl)
+			//}
+
+			var newAclSrc []models.AclPolicyTag
+			var groupSrcExists bool
 			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID && src.Value == g.ID.String() {
-					hasGroupSrc = true
+				if src.ID == models.UserGroupAclID && src.Value == groupID {
+					groupSrcExists = true
 				} else {
 					newAclSrc = append(newAclSrc, src)
 				}
 			}
 
-			if hasGroupSrc {
+			if groupSrcExists {
 				if len(newAclSrc) == 0 {
-					// no other src exists, delete acl.
 					_ = logic.DeleteAcl(acl)
 				} else {
-					// other sources exist, update acl.
 					acl.Src = newAclSrc
 					_ = logic.UpsertAcl(acl)
 				}
 			}
 		}
 	}
+
+	return nil
+}
+
+func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
+	networksMap := make(map[schema.NetworkID]schema.Network)
+	if g == nil {
+		return networksMap, nil
+	}
+
+	if _, ok := g.NetworkRoles.Data()[schema.AllNetworks]; ok {
+		var err error
+		networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, network := range networks {
+			networksMap[schema.NetworkID(network.Name)] = network
+		}
+	} else {
+		for networkID := range g.NetworkRoles.Data() {
+			network := &schema.Network{Name: networkID.String()}
+			err := network.Get(db.WithContext(context.TODO()))
+			if err != nil {
+				return nil, err
+			}
+
+			networksMap[schema.NetworkID(network.Name)] = *network
+		}
+	}
+
+	return networksMap, nil
 }
 
 func CreateDefaultUserPolicies(netID schema.NetworkID) {
@@ -1248,6 +1311,65 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 		logic.InsertAcl(defaultUserAcl)
 	}
 
+	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	for _, group := range groups {
+		if group.Default {
+			continue
+		}
+
+		var hasAccess bool
+		if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
+			hasAccess = true
+		}
+
+		if _, ok := group.NetworkRoles.Data()[netID]; ok {
+			hasAccess = true
+		}
+
+		if hasAccess {
+			var exists bool
+			acls, err := logic.ListAclsByNetwork(netID)
+			if err != nil {
+				continue
+			}
+
+			defaultAclName := GetDefaultGroupAclName(group.Name)
+			for _, acl := range acls {
+				if acl.Name == defaultAclName && acl.Default {
+					exists = true
+					break
+				}
+			}
+
+			if !exists {
+				_ = logic.InsertAcl(models.Acl{
+					ID:          uuid.New().String(),
+					Name:        defaultAclName,
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     true,
+					ServiceType: models.Any,
+					NetworkID:   netID,
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: group.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				})
+			}
+		}
+	}
 }
 
 func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {

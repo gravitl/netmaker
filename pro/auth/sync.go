@@ -125,7 +125,7 @@ func SyncFromIDP() error {
 		}
 	}
 
-	err = syncUsers(idpUsers)
+	err = syncUsers(idpUsers, settings.AuthProvider == "")
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func SyncFromIDP() error {
 	return err
 }
 
-func syncUsers(idpUsers []idp.User) error {
+func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
 	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -203,9 +203,10 @@ func syncUsers(idpUsers []idp.User) error {
 			// can be deleted.
 			_ = logic.DeletePendingUser(user.Username)
 		} else if dbUser.AuthType == schema.OAuth {
-			if dbUser.AccountDisabled != user.AccountDisabled ||
-				dbUser.DisplayName != user.DisplayName ||
-				dbUser.ExternalIdentityProviderID != user.ID {
+			if dbUser.PlatformRoleID != schema.SuperAdminRole &&
+				(dbUser.AccountDisabled != user.AccountDisabled ||
+					dbUser.DisplayName != user.DisplayName ||
+					dbUser.ExternalIdentityProviderID != user.ID) {
 
 				dbUser.AccountDisabled = user.AccountDisabled
 				dbUser.DisplayName = user.DisplayName
@@ -225,6 +226,10 @@ func syncUsers(idpUsers []idp.User) error {
 	for _, user := range dbUsersMap {
 		if user.ExternalIdentityProviderID != "" {
 			if _, ok := idpUsersMap[user.Username]; !ok {
+				if user.PlatformRoleID == schema.SuperAdminRole && !removeIntegration {
+					continue
+				}
+
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
 				err = deleteAndCleanUpUser(user)
@@ -272,21 +277,6 @@ func syncGroups(idpGroups []idp.Group) error {
 
 	filters := logic.GetServerSettings().GroupFilters
 
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	var aclsUpdated bool
-	var acls []models.Acl
-	for _, network := range networks {
-		aclID := fmt.Sprintf("%s.%s-grp", network.Name, schema.NetworkUser)
-		acl, err := logic.GetAcl(aclID)
-		if err == nil {
-			acls = append(acls, acl)
-		}
-	}
-
 	for _, group := range idpGroups {
 		var found bool
 		for _, filter := range filters {
@@ -310,14 +300,6 @@ func syncGroups(idpGroups []idp.Group) error {
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
-			}
-
-			for i := range acls {
-				acls[i].Src = append(acls[i].Src, models.AclPolicyTag{
-					ID:    models.UserGroupAclID,
-					Value: dbGroup.ID.String(),
-				})
-				aclsUpdated = true
 			}
 		} else {
 			dbGroup.Name = group.Name
@@ -370,15 +352,6 @@ func syncGroups(idpGroups []idp.Group) error {
 				if err != nil {
 					return err
 				}
-			}
-		}
-	}
-
-	if aclsUpdated {
-		for _, acl := range acls {
-			err = logic.UpsertAcl(acl)
-			if err != nil {
-				return err
 			}
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -36,6 +37,7 @@ func Run() {
 	updateNetworks()
 	resync()
 	deleteOldExtclients()
+	cleanupDeletedUserGroupRefs()
 }
 
 func updateNetworks() {
@@ -368,44 +370,113 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-		userGroupMap := make(map[schema.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
-			userGroupMap[userGroup.ID] = userGroup
-		}
+			group := userGroup
+			if group.Default {
+				continue
+			}
 
-		acls := logic.ListAcls()
-		for _, acl := range acls {
-			aclSrc := make([]models.AclPolicyTag, 0)
-			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID {
-					userGroup, ok := userGroupMap[schema.UserGroupID(src.Value)]
-					if !ok {
-						// if the group doesn't exist, don't add it to the acl's src.
-						continue
-					} else {
-						_, allNetworkAccess := userGroup.NetworkRoles.Data()[schema.AllNetworks]
-						if !allNetworkAccess {
-							_, ok := userGroup.NetworkRoles.Data()[acl.NetworkID]
-							if !ok {
-								// if the group doesn't have permissions for the acl's
-								// network, don't add it to the acl's src.
-								continue
-							}
+			networks, err := logic.GetGroupNetworksMap(&group)
+			if err != nil {
+				continue
+			}
+
+			for networkID, network := range networks {
+				createSeparateACL := false
+				enableSeparateACL := true
+				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range adminAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							createSeparateACL = true
+							enableSeparateACL = adminAcl.Enabled
+						} else {
+							newAclSrc = append(newAclSrc, src)
 						}
 					}
+
+					adminAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(adminAcl)
 				}
-				aclSrc = append(aclSrc, src)
+
+				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range userAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							if !createSeparateACL {
+								// if group src not found in adminACL, then create.
+								createSeparateACL = true
+								enableSeparateACL = userAcl.Enabled
+							} else {
+								// if group src found in adminACL, then create.
+								// additionally, if either policy allows access, then allow access.
+								if !enableSeparateACL {
+									enableSeparateACL = adminAcl.Enabled
+								}
+							}
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					userAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(userAcl)
+				}
+
+				expectedAcl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s group", group.Name),
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     true,
+					ServiceType: models.Any,
+					NetworkID:   schema.NetworkID(network.Name),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: group.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+
+				acls, _ := logic.ListAclsByNetwork(networkID)
+				for _, acl := range acls {
+					if acl.Name == expectedAcl.Name &&
+						acl.MetaData == expectedAcl.MetaData &&
+						acl.ServiceType == expectedAcl.ServiceType &&
+						acl.NetworkID == expectedAcl.NetworkID &&
+						acl.Proto == expectedAcl.Proto &&
+						acl.RuleType == expectedAcl.RuleType &&
+						slices.Equal(acl.Src, expectedAcl.Src) &&
+						slices.Equal(acl.Dst, expectedAcl.Dst) &&
+						acl.AllowedDirection == expectedAcl.AllowedDirection {
+
+						acl.Default = true
+						_ = logic.UpsertAcl(acl)
+						createSeparateACL = false
+						break
+					}
+				}
+
+				if createSeparateACL {
+					expectedAcl.Enabled = enableSeparateACL
+					_ = logic.InsertAcl(expectedAcl)
+				}
 			}
 
-			if len(aclSrc) == 0 {
-				// if there are no acl sources, delete the acl.
-				_ = logic.DeleteAcl(acl)
-			} else if len(aclSrc) != len(acl.Src) {
-				// if some user groups were removed from the acl source,
-				// update the acl.
-				acl.Src = aclSrc
-				_ = logic.UpsertAcl(acl)
-			}
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group)
 		}
 	}
 }
@@ -650,6 +721,80 @@ func deleteOldExtclients() {
 			for _, extclient := range userExtclients[1:] {
 				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
 			}
+		}
+	}
+}
+
+func cleanupDeletedUserGroupRefs() {
+	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		// skip if we can't list all groups.
+		return
+	}
+
+	existingGroups := make(map[schema.UserGroupID]schema.UserGroup)
+	for _, group := range groups {
+		existingGroups[group.ID] = group
+	}
+
+	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	for _, user := range users {
+		var update bool
+		for groupID := range user.UserGroups.Data() {
+			if _, ok := existingGroups[groupID]; !ok {
+				delete(user.UserGroups.Data(), groupID)
+				update = true
+			}
+		}
+
+		if update {
+			_ = user.Update(db.WithContext(context.TODO()))
+		}
+	}
+
+	for _, acl := range logic.ListAcls() {
+		var newSrc []models.AclPolicyTag
+		for _, src := range acl.Src {
+			if src.ID == models.UserGroupAclID {
+				if group, ok := existingGroups[schema.UserGroupID(src.Value)]; ok {
+					var hasAccess bool
+					if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
+						hasAccess = true
+					}
+
+					if _, ok := group.NetworkRoles.Data()[acl.NetworkID]; ok {
+						hasAccess = true
+					}
+
+					if hasAccess {
+						newSrc = append(newSrc, src)
+					}
+				}
+			} else {
+				newSrc = append(newSrc, src)
+			}
+		}
+
+		if len(newSrc) == 0 {
+			_ = logic.DeleteAcl(acl)
+		} else if len(acl.Src) != len(newSrc) {
+			acl.Src = newSrc
+			_ = logic.UpsertAcl(acl)
+		}
+	}
+
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		var update bool
+		for groupID := range postureCheck.UserGroups {
+			if _, ok := existingGroups[schema.UserGroupID(groupID)]; !ok {
+				delete(postureCheck.UserGroups, groupID)
+				update = true
+			}
+		}
+
+		if update {
+			_ = postureCheck.Update(db.WithContext(context.TODO()))
 		}
 	}
 }

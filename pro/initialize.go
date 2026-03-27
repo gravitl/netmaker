@@ -120,7 +120,7 @@ func InitPro() {
 			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
-					logger.FatalLog("error connecting to clickhouse:", err.Error())
+					logger.Log(0, "error connecting to clickhouse:", err.Error())
 				}
 
 				proLogic.StartFlowCleanupLoop()
@@ -178,9 +178,12 @@ func InitPro() {
 	logic.IsOAuthConfigured = auth.IsOAuthConfigured
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
+	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
+	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
