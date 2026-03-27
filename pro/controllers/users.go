@@ -52,6 +52,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/groups/network", logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/network", logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/unassigned_network_users", logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers))).Methods(http.MethodGet)
@@ -691,6 +692,65 @@ func listNetworkUserGroups(w http.ResponseWriter, r *http.Request) {
 		networkGroups = []schema.UserGroup{}
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, networkGroups, "fetched user groups for network "+network)
+}
+
+// @Summary     List users with access to a network
+// @Router      /api/v1/users/network [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	netID := schema.NetworkID(network)
+	globalAdminGrpID := proLogic.GetDefaultGlobalAdminGroupID()
+	globalUserGrpID := proLogic.GetDefaultGlobalUserGroupID()
+
+	allUsers, err := logic.GetUsers()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	var networkUsers []models.ReturnUser
+	for _, user := range allUsers {
+		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+			networkUsers = append(networkUsers, user)
+			continue
+		}
+		hasAccess := false
+		for groupID := range user.UserGroups {
+			if groupID == globalAdminGrpID || groupID == globalUserGrpID {
+				hasAccess = true
+				break
+			}
+			grp, err := proLogic.GetUserGroup(groupID)
+			if err != nil {
+				continue
+			}
+			if _, ok := grp.NetworkRoles.Data()[netID]; ok {
+				hasAccess = true
+				break
+			}
+		}
+		if hasAccess {
+			networkUsers = append(networkUsers, user)
+		}
+	}
+	if networkUsers == nil {
+		networkUsers = []models.ReturnUser{}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, networkUsers, "fetched users for network "+network)
 }
 
 // @Summary     List unassigned network users
