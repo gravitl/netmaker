@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -687,7 +689,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
-		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -701,7 +702,39 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
 			}
+			if servercfg.IsPro {
+				gwNode, err := logic.GetNodeByID(newNode.ID.String())
+				if err != nil {
+					slog.Error("disconnect gw: failed to re-fetch node", "node", newNode.ID, "error", err)
+				} else if gwNode.IsGw && len(gwNode.RelayedNodes) > 0 {
+					newRelayedNodes := []string{}
+					var displacedNodes []models.Node
+					for _, relayedNodeID := range gwNode.RelayedNodes {
+						relayedNode, err := logic.GetNodeByID(relayedNodeID)
+						if err != nil {
+							continue
+						}
+						if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
+							displacedNodes = append(displacedNodes, relayedNode)
+							continue
+						}
+						newRelayedNodes = append(newRelayedNodes, relayedNodeID)
+					}
+					if len(displacedNodes) > 0 {
+						logic.UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+						for _, dNode := range displacedNodes {
+							dHost := &schema.Host{ID: dNode.HostID}
+							if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+								slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
+								continue
+							}
+							mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
+						}
+					}
+				}
+			}
 		}
+		mq.PublishPeerUpdate(false)
 	}(relayUpdate, newNode)
 }
 
