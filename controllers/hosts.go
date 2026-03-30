@@ -526,7 +526,20 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case models.UpdateNode:
-		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
+		var displacedGwNodes []models.Node
+		sendDeletedNodeUpdate, sendPeerUpdate, displacedGwNodes = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
+		if len(displacedGwNodes) > 0 {
+			go func() {
+				for _, dNode := range displacedGwNodes {
+					dHost := &schema.Host{ID: dNode.HostID}
+					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+						slog.Error("fallback disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
+						continue
+					}
+					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
+				}
+			}()
+		}
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
