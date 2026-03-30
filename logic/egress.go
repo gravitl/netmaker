@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -454,6 +455,16 @@ func RemoveNodeFromEgress(node models.Node) {
 			}).Error; err != nil {
 				slog.Error("RemoveNodeFromEgress: failed to update egress", "id", egI.ID, "error", err.Error())
 			}
+		}
+	}
+}
+
+func RemoveNodeFromEnrollmentKeys(node *models.Node) {
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		if key.Relay == node.ID {
+			key.Relay = uuid.Nil
+			_ = upsertEnrollmentKey(&key)
 		}
 	}
 }
