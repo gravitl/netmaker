@@ -676,15 +676,14 @@ func listNetworkUserGroups(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	globalAdminGrpID := proLogic.GetDefaultGlobalAdminGroupID()
-	globalUserGrpID := proLogic.GetDefaultGlobalUserGroupID()
 	var networkGroups []schema.UserGroup
 	for _, grp := range allGroups {
-		if grp.ID == globalAdminGrpID || grp.ID == globalUserGrpID {
+		roles := grp.NetworkRoles.Data()
+		if _, ok := roles[netID]; ok {
 			networkGroups = append(networkGroups, grp)
 			continue
 		}
-		if _, ok := grp.NetworkRoles.Data()[netID]; ok {
+		if _, ok := roles[schema.AllNetworks]; ok {
 			networkGroups = append(networkGroups, grp)
 		}
 	}
@@ -714,8 +713,6 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	netID := schema.NetworkID(network)
-	globalAdminGrpID := proLogic.GetDefaultGlobalAdminGroupID()
-	globalUserGrpID := proLogic.GetDefaultGlobalUserGroupID()
 
 	allUsers, err := logic.GetUsers()
 	if err != nil {
@@ -730,15 +727,16 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		hasAccess := false
 		for groupID := range user.UserGroups {
-			if groupID == globalAdminGrpID || groupID == globalUserGrpID {
-				hasAccess = true
-				break
-			}
 			grp, err := proLogic.GetUserGroup(groupID)
 			if err != nil {
 				continue
 			}
-			if _, ok := grp.NetworkRoles.Data()[netID]; ok {
+			roles := grp.NetworkRoles.Data()
+			if _, ok := roles[netID]; ok {
+				hasAccess = true
+				break
+			}
+			if _, ok := roles[schema.AllNetworks]; ok {
 				hasAccess = true
 				break
 			}
