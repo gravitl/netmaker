@@ -338,7 +338,12 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		autoAssignGw = false
 	}
 	if autoAssignGw {
-
+		if node.InternetGwID != "" {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("node is configured to route all traffic via an internet gateway; auto-assign gateway is not allowed"),
+				"badrequest"))
+			return
+		}
 		if node.RelayedBy != "" {
 			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
 			if err == nil {

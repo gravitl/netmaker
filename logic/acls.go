@@ -1721,6 +1721,60 @@ func SortAclEntrys(acls []models.Acl) {
 	})
 }
 
+// PopulateAclPolicyTagNames resolves human-readable names for ACL policy tags
+func PopulateAclPolicyTagNames(acls []models.Acl) {
+	for i := range acls {
+		populateTagNames(acls[i].Src)
+		populateTagNames(acls[i].Dst)
+	}
+}
+
+func populateTagNames(tags []models.AclPolicyTag) {
+	for i := range tags {
+		tag := &tags[i]
+		if tag.Value == "" || tag.Value == "*" {
+			tag.Name = tag.Value
+			continue
+		}
+		switch tag.ID {
+		case models.UserAclID:
+			tag.Name = tag.Value
+		case models.UserGroupAclID:
+			grp, err := GetUserGroup(schema.UserGroupID(tag.Value))
+			if err == nil {
+				tag.Name = grp.Name
+			} else {
+				tag.Name = tag.Value
+			}
+		case models.NodeTagID:
+			tag.Name = tag.Value
+		case models.NodeID:
+			node, err := GetNodeByID(tag.Value)
+			if err == nil {
+				host := &schema.Host{ID: node.HostID}
+				if err := host.Get(db.WithContext(context.TODO())); err == nil {
+					tag.Name = host.Name
+				} else {
+					tag.Name = tag.Value
+				}
+			} else {
+				tag.Name = tag.Value
+			}
+		case models.EgressID:
+			egress := schema.Egress{ID: tag.Value}
+			if err := egress.Get(db.WithContext(context.TODO())); err == nil {
+				tag.Name = egress.Name
+			} else {
+				tag.Name = tag.Value
+			}
+		case models.EgressRange:
+			tag.Name = tag.Value
+		default:
+			tag.Name = tag.Value
+		}
+	}
+}
+
 // ValidateCreateAclReq - validates create req for acl
 func ValidateCreateAclReq(req models.Acl) error {
 	// check if acl network exists

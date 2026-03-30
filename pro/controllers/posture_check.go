@@ -110,6 +110,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	go mq.PublishPeerUpdate(false)
 	go proLogic.RunPostureChecks()
+	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "created posture check")
 }
 
@@ -148,6 +149,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
+		proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
@@ -161,6 +163,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	proLogic.PopulatePostureCheckGroupNames(list)
 	logic.ReturnSuccessResponseWithJson(w, r, list, "fetched posture checks")
 }
 
@@ -246,6 +249,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)
 	go proLogic.RunPostureChecks()
+	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "updated posture check")
 }
 

@@ -703,34 +703,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
 			}
 			if servercfg.IsPro {
-				gwNode, err := logic.GetNodeByID(newNode.ID.String())
-				if err != nil {
-					slog.Error("disconnect gw: failed to re-fetch node", "node", newNode.ID, "error", err)
-				} else if gwNode.IsGw && len(gwNode.RelayedNodes) > 0 {
-					newRelayedNodes := []string{}
-					var displacedNodes []models.Node
-					for _, relayedNodeID := range gwNode.RelayedNodes {
-						relayedNode, err := logic.GetNodeByID(relayedNodeID)
-						if err != nil {
-							continue
-						}
-						if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
-							displacedNodes = append(displacedNodes, relayedNode)
-							continue
-						}
-						newRelayedNodes = append(newRelayedNodes, relayedNodeID)
+				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
+				for _, dNode := range displacedNodes {
+					dHost := &schema.Host{ID: dNode.HostID}
+					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
+						continue
 					}
-					if len(displacedNodes) > 0 {
-						logic.UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
-						for _, dNode := range displacedNodes {
-							dHost := &schema.Host{ID: dNode.HostID}
-							if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
-								slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
-								continue
-							}
-							mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
-						}
-					}
+					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
 				}
 			}
 		}

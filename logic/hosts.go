@@ -273,7 +273,7 @@ func UpsertHost(h *schema.Host) error {
 }
 
 // UpdateHostNode -  handles updates from client nodes
-func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
+func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
 	currentNode, err := GetNodeByID(newNode.ID.String())
 	if err != nil {
 		return
@@ -283,13 +283,41 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 	UpsertNode(&currentNode)
 	if !newNode.Connected {
 		publishDeletedNodeUpdate = true
+		if servercfg.IsPro {
+			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
+		}
 	}
 	publishPeerUpdate = true
-	// reset failover data for this node
 	ResetFailedOverPeer(newNode)
 	ResetAutoRelayedPeer(newNode)
 
 	return
+}
+
+// DisplaceAutoRelayedNodes removes auto-assigned nodes from a disconnected gateway
+// and returns the displaced nodes that need re-assignment.
+func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
+	gwNode, err := GetNodeByID(nodeID)
+	if err != nil || !gwNode.IsGw || len(gwNode.RelayedNodes) == 0 {
+		return nil
+	}
+	var newRelayedNodes []string
+	var displacedNodes []models.Node
+	for _, relayedNodeID := range gwNode.RelayedNodes {
+		relayedNode, err := GetNodeByID(relayedNodeID)
+		if err != nil {
+			continue
+		}
+		if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
+			displacedNodes = append(displacedNodes, relayedNode)
+			continue
+		}
+		newRelayedNodes = append(newRelayedNodes, relayedNodeID)
+	}
+	if len(displacedNodes) > 0 {
+		UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+	}
+	return displacedNodes
 }
 
 // RemoveHost - removes a given host from server
