@@ -719,6 +719,15 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+	allGroupsList, err := (&schema.UserGroup{}).ListAll(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	allGroupsMap := make(map[schema.UserGroupID]schema.UserGroup, len(allGroupsList))
+	for _, g := range allGroupsList {
+		allGroupsMap[g.ID] = g
+	}
 	var networkUsers []models.ReturnUser
 	for _, user := range allUsers {
 		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
@@ -727,8 +736,8 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		hasAccess := false
 		for groupID := range user.UserGroups {
-			grp, err := proLogic.GetUserGroup(groupID)
-			if err != nil {
+			grp, ok := allGroupsMap[groupID]
+			if !ok {
 				continue
 			}
 			roles := grp.NetworkRoles.Data()
