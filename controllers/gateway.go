@@ -282,6 +282,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 		}
 
+		logic.RemoveNodeFromEnrollmentKeys(&node)
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
