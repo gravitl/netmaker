@@ -59,7 +59,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
-	if userRole.ID == schema.Auditor {
+	if userRole.ID == schema.Auditor || userRole.ID == schema.PlatformUser {
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
