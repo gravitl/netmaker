@@ -423,10 +423,20 @@ func SetInternetGw(node *models.Node, req models.InetNodeReq) {
 		if err != nil {
 			continue
 		}
+		if clientNode.AutoAssignGateway {
+			clientNode.AutoAssignGateway = false
+			if clientNode.RelayedBy != "" && clientNode.RelayedBy != node.ID.String() {
+				currRelay, err := GetNodeByID(clientNode.RelayedBy)
+				if err == nil {
+					newRelayed := RemoveAllFromSlice(currRelay.RelayedNodes, clientNode.ID.String())
+					UpdateRelayNodes(currRelay.ID.String(), currRelay.RelayedNodes, newRelayed)
+				}
+				clientNode.RelayedBy = ""
+			}
+		}
 		clientNode.InternetGwID = node.ID.String()
 		UpsertNode(&clientNode)
 	}
-
 }
 
 func UnsetInternetGw(node *models.Node) {
