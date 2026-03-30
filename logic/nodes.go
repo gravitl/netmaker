@@ -382,6 +382,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 
 	go RemoveNodeFromAclPolicy(*node)
 	go RemoveNodeFromEgress(*node)
+	go RemoveNodeFromEnrollmentKeys(node)
 	return nil
 }
 
