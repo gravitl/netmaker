@@ -357,8 +357,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
 
-	cleanupNodeReferences(node)
-
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -371,6 +369,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
+	cleanupNodeReferences(node)
 	host := &schema.Host{
 		ID: node.HostID,
 	}
