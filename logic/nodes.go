@@ -379,6 +379,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
 			return delErr
 		}
+		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
 		return nil
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
