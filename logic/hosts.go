@@ -452,10 +452,10 @@ func DisassociateAllNodesFromHost(hostIDStr string) error {
 	}
 	host.Nodes = failedNodes
 	if err := UpsertHost(host); err != nil {
-		return err
+		slog.Error("failed to upsert host after node cleanup", "host", hostIDStr, "error", err)
 	}
 	if len(failedNodes) > 0 {
-		return fmt.Errorf("failed to delete %d node(s) from host %s", len(failedNodes), hostIDStr)
+		slog.Warn("some nodes could not be deleted during host cleanup", "host", hostIDStr, "failed_count", len(failedNodes), "failed_nodes", failedNodes)
 	}
 	return nil
 }
