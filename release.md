@@ -39,6 +39,9 @@ Traffic Logs have now moved into **Beta**.
 - **Monitoring Stack**  
   Updated the monitoring stack to use the **official Prometheus and Grafana images**.
 
+- **HA Gateways**
+  Reset Auto Assigned gw when it is disconnected from the network.
+
 ---
 
 ## 🐞 Known Issues
