@@ -12,6 +12,13 @@ Traffic Logs have now moved into **Beta**.
 
 ## 🧰 Improvements & Fixes
 
+- **Scalability & Reliability Improvements**
+  Introduced a peer update debouncer that coalesces rapid-fire PublishPeerUpdate calls into a single broadcast — a 500ms resettable debounce window capped by a 3s max-wait deadline ensures back-to-back operations (bulk node updates, gateway changes, host deletions) produce one peer update instead of dozens, drastically reducing CPU and MQTT pressure on the control plane
+
+  Pre-warms peer update caches after each debounced broadcast so pull requests from hosts are served instantly from cache instead of triggering expensive on-demand computation
+
+  Batched metrics export to netmaker exporter via periodic ticker instead of publishing on every individual MQTT metrics message, reducing continuous CPU pressure from Prometheus scraping
+
 - **Database Schema Migration**  
   Added schema migrations for the **Users, Groups, Roles, Networks, and Hosts** tables.
 
