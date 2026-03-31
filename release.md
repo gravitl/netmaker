@@ -22,9 +22,9 @@ Traffic Logs have now moved into **Beta**.
 - **Database Schema Migration**  
   Added schema migrations for the **Users, Groups, Roles, Networks, and Hosts** tables.
 
-- **Deprecated Legacy Acls**
-  Legacy Acls have been completed removed now from the platform.
-  
+- **Deprecated Legacy ACLs**  
+  Legacy ACLs have been **fully removed** as part of the platform’s transition to the updated access control model.
+
 - **Paginated APIs**  
   Introduced pagination support for **Users** and **Hosts** APIs.
 
