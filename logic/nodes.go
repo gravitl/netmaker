@@ -279,17 +279,16 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 }
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
-func DeleteNode(node *models.Node, purge bool) error {
-	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
-	node.Action = models.NODE_DELETE
-	//delete ext clients if node is ingress gw
+// cleanupNodeReferences handles best-effort cleanup of all external references
+// to a node (relay, internet gw, failover, nameservers, ACL, egress, enrollment keys).
+// Errors are logged but do not prevent node deletion.
+func cleanupNodeReferences(node *models.Node) {
 	if node.IsIngressGateway {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
 	if node.IsRelayed {
-		// cleanup node from relayednodes on relay node
 		relayNode, err := GetNodeByID(node.RelayedBy)
 		if err == nil {
 			relayedNodes := []string{}
@@ -310,7 +309,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		ResetAutoRelayedPeer(node)
 	}
 	if node.IsRelay {
-		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 	if node.InternetGwID != "" {
@@ -330,6 +328,37 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.IsInternetGateway {
 		UnsetInternetGw(node)
 	}
+
+	filters := make(map[string]bool)
+	if node.Address.IP != nil {
+		filters[node.Address.IP.String()] = true
+	}
+	if node.Address6.IP != nil {
+		filters[node.Address6.IP.String()] = true
+	}
+	nameservers, _ := (&schema.Nameserver{
+		NetworkID: node.Network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, ns := range nameservers {
+		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		if len(ns.Servers) > 0 {
+			_ = ns.Update(db.WithContext(context.TODO()))
+		} else {
+			_ = ns.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	go RemoveNodeFromAclPolicy(*node)
+	go RemoveNodeFromEgress(*node)
+	go RemoveNodeFromEnrollmentKeys(node)
+}
+
+func DeleteNode(node *models.Node, purge bool) error {
+	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
+	node.Action = models.NODE_DELETE
+
+	cleanupNodeReferences(node)
+
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -345,44 +374,17 @@ func DeleteNode(node *models.Node, purge bool) error {
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	err := host.Get(db.WithContext(context.TODO()))
-	if err != nil {
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
+			return delErr
 		}
-		return err
+		return nil
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-
-	filters := make(map[string]bool)
-	if node.Address.IP != nil {
-		filters[node.Address.IP.String()] = true
-	}
-
-	if node.Address6.IP != nil {
-		filters[node.Address6.IP.String()] = true
-	}
-
-	nameservers, _ := (&schema.Nameserver{
-		NetworkID: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
-	for _, ns := range nameservers {
-		ns.Servers = FilterOutIPs(ns.Servers, filters)
-		if len(ns.Servers) > 0 {
-			_ = ns.Update(db.WithContext(context.TODO()))
-		} else {
-			// TODO: deleting a nameserver dns server could cause trouble for other nodes.
-			// TODO: try to figure out a sequence that works the best.
-			_ = ns.Delete(db.WithContext(context.TODO()))
-		}
-	}
-
-	go RemoveNodeFromAclPolicy(*node)
-	go RemoveNodeFromEgress(*node)
-	go RemoveNodeFromEnrollmentKeys(node)
 	return nil
 }
 
