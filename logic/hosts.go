@@ -422,7 +422,9 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 	return UpsertHost(h)
 }
 
-// DisassociateAllNodesFromHost - deletes all nodes of the host
+// DisassociateAllNodesFromHost - deletes all nodes of the host.
+// Performs reference cleanup and directly deletes each node record,
+// bypassing host-association updates since the host itself is being removed.
 func DisassociateAllNodesFromHost(hostIDStr string) error {
 	hostID, err := uuid.Parse(hostIDStr)
 	if err != nil {
@@ -433,20 +435,29 @@ func DisassociateAllNodesFromHost(hostIDStr string) error {
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
+	var failedNodes []string
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
-		if err := DeleteNode(&node, true); err != nil {
-			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
+		cleanupNodeReferences(&node)
+		if err := DeleteNodeByID(&node); err != nil {
+			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)
+			failedNodes = append(failedNodes, nodeID)
 			continue
 		}
 		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
 	}
-	host.Nodes = []string{}
-	return UpsertHost(host)
+	host.Nodes = failedNodes
+	if err := UpsertHost(host); err != nil {
+		slog.Error("failed to upsert host after node cleanup", "host", hostIDStr, "error", err)
+	}
+	if len(failedNodes) > 0 {
+		slog.Warn("some nodes could not be deleted during host cleanup", "host", hostIDStr, "failed_count", len(failedNodes), "failed_nodes", failedNodes)
+	}
+	return nil
 }
 
 // GetDefaultHosts - retrieve all hosts marked as default from DB
