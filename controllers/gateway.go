@@ -51,6 +51,11 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if node.AutoAssignGateway {
+		err = fmt.Errorf("cannot set node as gateway while AutoAssignGateway is enabled")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	host := &schema.Host{
 		ID: node.HostID,
 	}

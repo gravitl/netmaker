@@ -158,6 +158,8 @@ definitions:
     properties:
       id:
         $ref: '#/definitions/models.AclGroupType'
+      name:
+        type: string
       value:
         type: string
     type: object
@@ -2440,6 +2442,8 @@ definitions:
         type: boolean
       country_code:
         type: string
+      created_at:
+        type: string
       daemoninstalled:
         type: boolean
       debug:
@@ -2520,6 +2524,8 @@ definitions:
         type: array
       turn_endpoint:
         $ref: '#/definitions/schema.AddrPort'
+      updated_at:
+        type: string
       verbosity:
         type: integer
       version:
@@ -2892,7 +2898,7 @@ info:
   contact: {}
   description: NetMaker API Docs
   title: NetMaker
-  version: 1.5.0
+  version: 1.5.1
 paths:
   /api/dns:
     get:
@@ -5911,6 +5917,10 @@ paths:
           type: string
         name: os
         type: array
+      - description: Search across fields
+        in: query
+        name: q
+        type: string
       - description: Page number
         in: query
         name: page
@@ -7535,6 +7545,36 @@ paths:
       summary: List all user groups
       tags:
       - Users
+  /api/v1/users/groups/network:
+    get:
+      parameters:
+      - description: Network ID
+        in: query
+        name: network
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/schema.UserGroup'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List user groups with access to a network
+      tags:
+      - Users
   /api/v1/users/invite:
     delete:
       parameters:
@@ -7705,6 +7745,36 @@ paths:
       security:
       - oauth: []
       summary: Log out a user
+      tags:
+      - Users
+  /api/v1/users/network:
+    get:
+      parameters:
+      - description: Network ID
+        in: query
+        name: network
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ReturnUser'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List users with access to a network
       tags:
       - Users
   /api/v1/users/network_ip:
@@ -7957,6 +8027,10 @@ paths:
         in: query
         name: auth_type
         type: string
+      - description: Search across fields
+        in: query
+        name: q
+        type: string
       - description: Page number
         in: query
         name: page
@@ -7992,6 +8066,10 @@ paths:
         - "false"
         in: query
         name: default
+        type: string
+      - description: Search across fields
+        in: query
+        name: q
         type: string
       - description: Page number
         in: query
