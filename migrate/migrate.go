@@ -737,8 +737,10 @@ func cleanupDeletedUserGroupRefs() {
 		existingGroups[group.ID] = group
 	}
 
+	existingUsers := make(map[string]schema.User)
 	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	for _, user := range users {
+		existingUsers[user.Username] = user
 		var update bool
 		for groupID := range user.UserGroups.Data() {
 			if _, ok := existingGroups[groupID]; !ok {
@@ -769,6 +771,10 @@ func cleanupDeletedUserGroupRefs() {
 					if hasAccess {
 						newSrc = append(newSrc, src)
 					}
+				}
+			} else if src.ID == models.UserAclID {
+				if _, ok := existingUsers[src.Value]; ok {
+					newSrc = append(newSrc, src)
 				}
 			} else {
 				newSrc = append(newSrc, src)
