@@ -38,6 +38,7 @@ func Run() {
 	resync()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
+	migrateNameservers()
 }
 
 func updateNetworks() {
@@ -801,6 +802,28 @@ func cleanupDeletedUserGroupRefs() {
 
 		if update {
 			_ = postureCheck.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+
+func migrateNameservers() {
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		_ = logic.CreateFallbackNameserver(network.Name)
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		if len(nameserver.Domains) != 0 {
+			for _, matchDomain := range nameserver.MatchDomains {
+				nameserver.Domains = append(nameserver.Domains, schema.NameserverDomain{
+					Domain: matchDomain,
+				})
+			}
+
+			nameserver.MatchDomains = []string{}
+
+			_ = nameserver.Update(db.WithContext(context.TODO()))
 		}
 	}
 }
