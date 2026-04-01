@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -203,6 +205,67 @@ func migrateNetworks(ctx context.Context) error {
 		if err != nil {
 			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
 			return err
+		}
+
+		_, cidr, err := net.ParseCIDR(network.AddressRange)
+		if err != nil {
+			err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
+			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+			return err
+		}
+
+		_, cidrv6, err := net.ParseCIDR(network.AddressRange6)
+		if err != nil {
+			err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
+			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+			return err
+		}
+
+		superAdmin := &schema.User{}
+		err = superAdmin.GetSuperAdmin(ctx)
+		if err != nil {
+			err = fmt.Errorf("error getting superadmin: %v", err)
+			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+			return err
+		}
+
+		if len(network.NameServers) > 0 {
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      "upstream nameservers",
+				NetworkID: _network.Name,
+				Servers:   []string{},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Tags: datatypes.JSONMap{
+					"*": struct{}{},
+				},
+				Nodes:     make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: superAdmin.Username,
+			}
+
+			for _, nsIP := range network.NameServers {
+				if net.ParseIP(nsIP) == nil {
+					continue
+				}
+				if !cidr.Contains(net.ParseIP(nsIP)) && !cidrv6.Contains(net.ParseIP(nsIP)) {
+					ns.Servers = append(ns.Servers, nsIP)
+				}
+			}
+
+			if len(ns.Servers) > 0 {
+				err = ns.Create(ctx)
+				if err != nil {
+					err = fmt.Errorf("error creating upstream nameserver for network (%s): %v", _network.Name, err)
+					logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+					return err
+				}
+			}
 		}
 	}
 

@@ -826,4 +826,54 @@ func migrateNameservers() {
 			_ = nameserver.Update(db.WithContext(context.TODO()))
 		}
 	}
+
+	superAdmin := &schema.User{}
+	err := superAdmin.GetSuperAdmin(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
+		if node.IngressDNS != "" {
+			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
+				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
+				continue
+			}
+			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
+				continue
+			}
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			err := host.Get(db.WithContext(context.TODO()))
+			if err != nil {
+				continue
+			}
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      fmt.Sprintf("%s gw nameservers", host.Name),
+				NetworkID: node.Network,
+				Servers:   []string{node.IngressDNS},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): struct{}{},
+				},
+				Tags:      make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: superAdmin.Username,
+			}
+			_ = ns.Create(db.WithContext(context.TODO()))
+			node.IngressDNS = ""
+			_ = logic.UpsertNode(&node)
+		}
+	}
 }
