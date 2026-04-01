@@ -2,8 +2,9 @@ package schema
 
 import (
 	"context"
-	"github.com/gravitl/netmaker/db"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
 )
 
 // Job represents a task that netmaker server

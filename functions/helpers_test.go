@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	testNetwork = &models.Network{
-		NetID: "not-a-network",
+	_testNetwork = &schema.Network{
+		Name: "not-a-network",
 	}
 	testExternalClient = &models.ExtClient{
 		ClientID: "testExtClient",
@@ -31,10 +31,10 @@ func TestMain(m *testing.M) {
 
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	logic.CreateSuperAdmin(&models.User{
-		UserName:       "superadmin",
+	logic.CreateSuperAdmin(&schema.User{
+		Username:       "superadmin",
 		Password:       "password",
-		PlatformRoleID: models.SuperAdminRole,
+		PlatformRoleID: schema.SuperAdminRole,
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background())
@@ -48,18 +48,18 @@ func TestMain(m *testing.M) {
 }
 
 func TestNetworkExists(t *testing.T) {
-	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
-	exists, err := logic.NetworkExists(testNetwork.NetID)
-	assert.NotNil(t, err)
+	_ = _testNetwork.Delete(db.WithContext(context.TODO()))
+	exists, err := logic.NetworkExists(_testNetwork.Name)
+	assert.Nil(t, err)
 	assert.False(t, exists)
 
-	err = logic.SaveNetwork(testNetwork)
+	err = logic.SaveNetwork(_testNetwork)
 	assert.Nil(t, err)
-	exists, err = logic.NetworkExists(testNetwork.NetID)
+	exists, err = logic.NetworkExists(_testNetwork.Name)
 	assert.Nil(t, err)
 	assert.True(t, exists)
 
-	err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
+	err = _testNetwork.Delete(db.WithContext(context.TODO()))
 	assert.Nil(t, err)
 }
 

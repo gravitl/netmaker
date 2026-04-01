@@ -3,11 +3,12 @@ package models
 import (
 	"net"
 
+	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type HostPeerInfo struct {
-	NetworkPeerIDs map[NetworkID]PeerMap `json:"network_peers"`
+	NetworkPeerIDs map[schema.NetworkID]PeerMap `json:"network_peers"`
 }
 
 type PeerType int
@@ -27,37 +28,37 @@ type PeerIdentity struct {
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host               Host                    `json:"host"`
-	Nodes              []Node                  `json:"nodes"`
-	ChangeDefaultGw    bool                    `json:"change_default_gw"`
-	DefaultGwIp        net.IP                  `json:"default_gw_ip"`
-	IsInternetGw       bool                    `json:"is_inet_gw"`
-	NodeAddrs          []net.IPNet             `json:"nodes_addrs"`
-	Server             string                  `json:"server"`
-	ServerVersion      string                  `json:"serverversion"`
-	ServerAddrs        []ServerAddr            `json:"serveraddrs"`
-	NodePeers          []wgtypes.PeerConfig    `json:"node_peers"`
-	Peers              []wgtypes.PeerConfig    `json:"host_peers"`
-	PeerIDs            PeerMap                 `json:"peerids"`
-	HostNetworkInfo    HostInfoMap             `json:"host_network_info,omitempty"`
-	EgressRoutes       []EgressNetworkRoutes   `json:"egress_network_routes"`
-	FwUpdate           FwUpdate                `json:"fw_update"`
-	ReplacePeers       bool                    `json:"replace_peers"`
-	NameServers        []string                `json:"name_servers"`
-	DnsNameservers     []Nameserver            `json:"dns_nameservers"`
-	EgressWithDomains  []EgressDomain          `json:"egress_with_domains"`
-	AutoRelayNodes     map[NetworkID][]Node    `json:"auto_relay_nodes"`
-	GwNodes            map[NetworkID][]Node    `json:"gw_nodes"`
-	AddressIdentityMap map[string]PeerIdentity `json:"address_identity_map"`
+	Host               schema.Host                 `json:"host"`
+	Nodes              []Node                      `json:"nodes"`
+	ChangeDefaultGw    bool                        `json:"change_default_gw"`
+	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
+	IsInternetGw       bool                        `json:"is_inet_gw"`
+	NodeAddrs          []net.IPNet                 `json:"nodes_addrs"`
+	Server             string                      `json:"server"`
+	ServerVersion      string                      `json:"serverversion"`
+	ServerAddrs        []ServerAddr                `json:"serveraddrs"`
+	NodePeers          []wgtypes.PeerConfig        `json:"node_peers"`
+	Peers              []wgtypes.PeerConfig        `json:"host_peers"`
+	PeerIDs            PeerMap                     `json:"peerids"`
+	HostNetworkInfo    HostInfoMap                 `json:"host_network_info,omitempty"`
+	EgressRoutes       []EgressNetworkRoutes       `json:"egress_network_routes"`
+	FwUpdate           FwUpdate                    `json:"fw_update"`
+	ReplacePeers       bool                        `json:"replace_peers"`
+	NameServers        []string                    `json:"name_servers"`
+	DnsNameservers     []Nameserver                `json:"dns_nameservers"`
+	EgressWithDomains  []EgressDomain              `json:"egress_with_domains"`
+	AutoRelayNodes     map[schema.NetworkID][]Node `json:"auto_relay_nodes"`
+	GwNodes            map[schema.NetworkID][]Node `json:"gw_nodes"`
+	AddressIdentityMap map[string]PeerIdentity     `json:"address_identity_map"`
 	ServerConfig
 	OldPeerUpdateFields
 }
 
 type EgressDomain struct {
-	ID     string `json:"id"`
-	Node   Node   `json:"node"`
-	Host   Host   `json:"host"`
-	Domain string `json:"domain"`
+	ID     string      `json:"id"`
+	Node   Node        `json:"node"`
+	Host   schema.Host `json:"host"`
+	Domain string      `json:"domain"`
 }
 type Nameserver struct {
 	IPs            []string `json:"ips"`

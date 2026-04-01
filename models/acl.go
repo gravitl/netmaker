@@ -3,6 +3,8 @@ package models
 import (
 	"net"
 	"time"
+
+	"github.com/gravitl/netmaker/schema"
 )
 
 // AllowedTrafficDirection - allowed direction of traffic
@@ -49,6 +51,7 @@ const (
 
 type AclPolicyTag struct {
 	ID    AclGroupType `json:"id"`
+	Name  string       `json:"name"`
 	Value string       `json:"value"`
 }
 
@@ -84,7 +87,7 @@ type Acl struct {
 	Default          bool                    `json:"default"`
 	MetaData         string                  `json:"meta_data"`
 	Name             string                  `json:"name"`
-	NetworkID        NetworkID               `json:"network_id"`
+	NetworkID        schema.NetworkID        `json:"network_id"`
 	RuleType         AclPolicyType           `json:"policy_type"`
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`

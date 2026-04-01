@@ -1,37 +1,24 @@
 package functions
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // CreateNetwork - creates a network
-func CreateNetwork(payload *models.Network) *models.Network {
-	return request[models.Network](http.MethodPost, "/api/networks", payload)
-}
-
-// UpdateNetwork - updates a network
-func UpdateNetwork(name string, payload *models.Network) *models.Network {
-	return request[models.Network](http.MethodPut, "/api/networks/"+name, payload)
-}
-
-// UpdateNetworkNodeLimit - updates a network
-func UpdateNetworkNodeLimit(name string, nodeLimit int32) *models.Network {
-	return request[models.Network](http.MethodPut, fmt.Sprintf("/api/networks/%s/nodelimit", name), &models.Network{
-		NodeLimit: nodeLimit,
-	})
+func CreateNetwork(payload *schema.Network) *schema.Network {
+	return request[schema.Network](http.MethodPost, "/api/networks", payload)
 }
 
 // GetNetworks - fetch all networks
-func GetNetworks() *[]models.Network {
-	return request[[]models.Network](http.MethodGet, "/api/networks", nil)
+func GetNetworks() *[]schema.Network {
+	return request[[]schema.Network](http.MethodGet, "/api/networks", nil)
 }
 
 // GetNetwork - fetch a single network
-func GetNetwork(name string) *models.Network {
-	return request[models.Network](http.MethodGet, "/api/networks/"+name, nil)
+func GetNetwork(name string) *schema.Network {
+	return request[schema.Network](http.MethodGet, "/api/networks/"+name, nil)
 }
 
 // DeleteNetwork - delete a network

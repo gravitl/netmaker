@@ -1,13 +1,11 @@
 package serverctl
 
 import (
-	"strings"
+	"context"
 
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -18,10 +16,6 @@ const (
 
 func SetDefaults() error {
 	if err := setNodeDefaults(); err != nil {
-		return err
-	}
-
-	if err := setNetworkDefaults(); err != nil {
 		return err
 	}
 
@@ -41,45 +35,26 @@ func setNodeDefaults() error {
 	}
 	for i := range nodes {
 		logic.SetNodeDefaults(&nodes[i], false)
-		logic.UpdateNode(&nodes[i], &nodes[i])
-		currentNodeACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID.String()))
-		if (err != nil && (database.IsEmptyRecord(err) || strings.Contains(err.Error(), "no node ACL present"))) || currentNodeACL == nil {
-			if _, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID.String()), acls.Allowed); err != nil {
-				logger.Log(1, "could not create a default ACL for node", nodes[i].ID.String())
-			}
-		}
-	}
-	return nil
-}
-
-func setNetworkDefaults() error {
-	// upgraded systems will not have NetworkUsers's set, which is why we need this function
-	networks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
-		return err
-	}
-	for _, network := range networks {
-		if network.SetDefaults() {
-			logic.SaveNetwork(&network)
-		}
+		logic.UpsertNode(&nodes[i])
 	}
 	return nil
 }
 
 func setUserDefaults() error {
 	users, err := logic.GetUsers()
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return err
 	}
 	for _, user := range users {
-		updateUser, err := logic.GetUser(user.UserName)
+		updateUser := &schema.User{Username: user.UserName}
+		err = updateUser.Get(db.WithContext(context.TODO()))
 		if err != nil {
-			slog.Error("could not get user", "user", updateUser.UserName, "error", err.Error())
+			slog.Error("could not get user", "user", updateUser.Username, "error", err.Error())
 		}
 		logic.SetUserDefaults(updateUser)
 		err = logic.UpsertUser(*updateUser)
 		if err != nil {
-			slog.Error("could not update user", "user", updateUser.UserName, "error", err.Error())
+			slog.Error("could not update user", "user", updateUser.Username, "error", err.Error())
 		}
 	}
 	return nil

@@ -11,6 +11,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/logger"
@@ -87,19 +88,19 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Delete,
+		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   keyID,
 			Name: key.Tags[0],
-			Type: models.EnrollmentKeySub,
+			Type: schema.EnrollmentKeySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 		Diff: models.Diff{
 			Old: key,
 			New: nil,
@@ -204,19 +205,19 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Create,
+		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   newEnrollmentKey.Value,
 			Name: newEnrollmentKey.Tags[0],
-			Type: models.EnrollmentKeySub,
+			Type: schema.EnrollmentKeySub,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
@@ -269,23 +270,23 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
-			Type: models.UserSub,
+			Type: schema.UserSub,
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   newEnrollmentKey.Value,
 			Name: newEnrollmentKey.Tags[0],
-			Type: models.EnrollmentKeySub,
+			Type: schema.EnrollmentKeySub,
 		},
 		Diff: models.Diff{
 			Old: currKey,
 			New: newEnrollmentKey,
 		},
-		Origin: models.Dashboard,
+		Origin: schema.Dashboard,
 	})
 	slog.Info("updated enrollment key", "id", keyId)
 	w.WriteHeader(http.StatusOK)
@@ -298,7 +299,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       token path string true "Enrollment Key Token"
-// @Param       body body models.Host true "Host registration parameters"
+// @Param       body body schema.Host true "Host registration parameters"
 // @Success     200 {object} models.RegisterResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -314,7 +315,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// get the host
-	var newHost models.Host
+	var newHost schema.Host
 	if err = json.NewDecoder(r.Body).Decode(&newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())
@@ -381,9 +382,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			OSFamily:       newHost.OSFamily,
 			OSVersion:      newHost.OSVersion,
 			KernelVersion:  newHost.KernelVersion,
-			AutoUpdate:     newHost.AutoUpdate,
+			SkipAutoUpdate: true,
 			Tags:           keyTags,
-		}, models.NetworkID(netI))
+		}, schema.NetworkID(netI))
 		pcviolations = append(pcviolations, violations...)
 		if len(violations) > 0 {
 			skipViolatedNetworks = append(skipViolatedNetworks, netI)
@@ -398,6 +399,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
 		return slices.Contains(skipViolatedNetworks, netI)
 	})
+	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
@@ -411,46 +413,25 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err = logic.CreateHost(&newHost); err != nil {
-			logger.Log(
-				0,
-				"host",
-				newHost.ID.String(),
-				newHost.Name,
-				"failed registration -",
-				err.Error(),
-			)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		host = &newHost
 	} else {
-		// need to revise the list of networks from key
-		// based on the ones host currently has
-		// networksToAdd := []string{}
-		// currentNets := logic.GetHostNetworks(newHost.ID.String())
-		// for _, newNet := range enrollmentKey.Networks {
-		// 	if !logic.StringSliceContains(currentNets, newNet) {
-		// 		networksToAdd = append(networksToAdd, newNet)
-		// 	}
-		// }
-		// enrollmentKey.Networks = networksToAdd
-		currHost, err := logic.GetHost(newHost.ID.String())
+		currHost := &schema.Host{
+			ID: newHost.ID,
+		}
+		err := currHost.Get(r.Context())
 		if err != nil {
-			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		logic.UpdateHostFromClient(&newHost, currHost)
-		err = logic.UpsertHost(currHost)
-		if err != nil {
-			slog.Error("failed to update host", "id", currHost.ID, "error", err)
+		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	}
-	host, err := logic.GetHost(newHost.ID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+		host = currHost
 	}
 	// ready the response
 	server := logic.GetServerInfo()

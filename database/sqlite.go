@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
+
 	"github.com/gravitl/netmaker/db"
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
@@ -140,6 +142,7 @@ func sqliteCloseDB() {
 }
 
 func sqliteConnected() bool {
-	stats := SqliteDB.Stats()
-	return stats.OpenConnections > 0
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return SqliteDB.PingContext(ctx) == nil
 }

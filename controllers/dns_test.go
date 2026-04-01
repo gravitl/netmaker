@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/txn2/txeh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -15,7 +17,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-var dnsHost models.Host
+var dnsHost schema.Host
 
 func TestGetAllDNS(t *testing.T) {
 	deleteAllDNS(t)
@@ -425,14 +427,17 @@ func TestValidateDNSCreate(t *testing.T) {
 
 func createHost() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	dnsHost = models.Host{
+	dnsHost = schema.Host{
 		ID:        uuid.New(),
-		PublicKey: k.PublicKey(),
+		PublicKey: schema.WgKey{Key: k.PublicKey()},
 		HostPass:  "password",
 		OS:        "linux",
 		Name:      "dnshost",
 	}
-	_ = logic.CreateHost(&dnsHost)
+	err := logic.CreateHost(&dnsHost)
+	if err != nil {
+		fmt.Println("ERROR CREATING HOST", err.Error())
+	}
 }
 
 func deleteAllDNS(t *testing.T) {

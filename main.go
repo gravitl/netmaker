@@ -36,10 +36,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.5.0"
+var version = "v1.5.1"
 
 //	@title			NetMaker
-//	@version		1.5.0
+//	@version		1.5.1
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -53,6 +53,7 @@ var version = "v1.5.0"
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
+	setVerbosity()
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
@@ -60,10 +61,6 @@ func main() {
 	logic.SetAllocatedIpMap()
 	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	setVerbosity()
-	if servercfg.DeployedByOperator() && !servercfg.IsPro {
-		logic.SetFreeTierLimits()
-	}
 	defer db.CloseDB()
 	defer database.CloseDB()
 
@@ -91,9 +88,12 @@ func setupConfig(absoluteConfigPath string) {
 }
 
 func startHooks(ctx context.Context, wg *sync.WaitGroup) {
-	err := logic.TimerCheckpoint()
-	if err != nil {
-		logger.Log(1, "Timer error occurred: ", err.Error())
+	// Only run timer checkpoint (telemetry) on master pod
+	if servercfg.IsMasterPod() {
+		err := logic.TimerCheckpoint()
+		if err != nil {
+			logger.Log(1, "Timer error occurred: ", err.Error())
+		}
 	}
 	logic.EnterpriseCheck(ctx, wg)
 }
@@ -105,8 +105,13 @@ func initialize() { // Client Mode Prereq Check
 		logger.Log(0, "warning: MASTER_KEY not set, this could make account recovery difficult")
 	}
 
-	if servercfg.GetNodeID() == "" {
-		logger.FatalLog("error: must set NODE_ID, currently blank")
+	// Log master/worker mode for K8s HA setup
+	if servercfg.IsHA() {
+		if servercfg.IsMasterPod() {
+			logger.Log(0, "HA mode: running as MASTER pod - will run migrations and singleton operations")
+		} else {
+			logger.Log(0, "HA mode: running as WORKER pod - skipping migrations and singleton operations")
+		}
 	}
 
 	// initialize sql schema db.
@@ -122,18 +127,24 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error initializing database: ", err.Error())
 	}
 
+	// Only run migrations on master pod to avoid conflicts in HA setup
+	if servercfg.IsMasterPod() {
+		err = migrate.ToSQLSchema()
+		if err != nil {
+			// we shouldn't allow user to use the product until the migration is successfully done.
+			panic(err)
+		}
+		migrate.Run()
+	}
+
 	initializeUUID()
+
 	//initialize cache
-	_, _ = logic.GetNetworks()
 	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
-	_, _ = logic.GetUsersDB()
 	_ = logic.CleanExpiredSSOStates()
-
-	migrate.Run()
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
@@ -194,7 +205,10 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
-	logic.InitNetworkHooks()
+	// Only run network cleanup hooks on master pod
+	if servercfg.IsMasterPod() {
+		logic.InitNetworkHooks()
+	}
 	logic.AddSSOStateCleanupHook()
 }
 
@@ -205,8 +219,12 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 
 	go mq.Keepalive(ctx)
 	go func() {
-		go logic.ManageZombies(ctx)
-		go logic.DeleteExpiredNodes(ctx)
+		// Only run zombie management and expired node deletion on master pod
+		// to avoid duplicate operations in HA setup
+		if servercfg.IsMasterPod() {
+			go logic.ManageZombies(ctx)
+			go logic.DeleteExpiredNodes(ctx)
+		}
 		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {
 				continue

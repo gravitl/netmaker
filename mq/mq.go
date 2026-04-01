@@ -73,29 +73,38 @@ func SetupMQTT(fatal bool) {
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	logger.Log(0, "Mq Client Connecting with Random ID: ", opts.ClientID)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		// Only master pod subscribes to incoming client messages in HA setup
+		// This prevents duplicate message processing across multiple pods
+		// Worker pods can still publish messages but won't process incoming ones
 		serverName := servercfg.GetServer()
-		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			logger.Log(0, "node update subscription failed")
+		if servercfg.IsMasterPod() {
+			if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "node update subscription failed")
+			}
+			if token := client.Subscribe(fmt.Sprintf("host/serverupdate/%s/#", serverName), 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "host update subscription failed")
+			}
+			if token := client.Subscribe(fmt.Sprintf("signal/%s/#", serverName), 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "node client subscription failed")
+			}
+			if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "node metrics subscription failed")
+			}
+			logger.Log(0, "MQ subscriptions established (master pod)")
+		} else {
+			logger.Log(0, "MQ publish-only mode (worker pod)")
 		}
-		if token := client.Subscribe(fmt.Sprintf("host/serverupdate/%s/#", serverName), 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			logger.Log(0, "host update subscription failed")
-		}
-		if token := client.Subscribe(fmt.Sprintf("signal/%s/#", serverName), 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			logger.Log(0, "node client subscription failed")
-		}
-		if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			logger.Log(0, "node metrics subscription failed")
+		if servercfg.IsHA() {
+			if token := client.Subscribe(fmt.Sprintf("serversync/%s", serverName), 0, mqtt.MessageHandler(handleServerSync)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "server sync subscription failed")
+			}
 		}
 
 		opts.SetOrderMatters(false)
 		opts.SetResumeSubs(true)
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		slog.Warn("detected broker connection lost", "err", e.Error())
-		c.Disconnect(250)
-		slog.Info("re-initiating MQ connection")
-		SetupMQTT(false)
-
+		slog.Warn("detected broker connection lost, auto-reconnect will retry", "err", e.Error())
 	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
@@ -121,17 +130,48 @@ func SetupMQTT(fatal bool) {
 		}
 		time.Sleep(2 * time.Second)
 	}
+	InitServerSync()
 }
+
+const CHECKIN_FLUSH_INTERVAL = 30
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
+	warmPeerCaches()
+	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			sendPeers()
+	metricsExportInterval := servercfg.GetMetricIntervalInMinutes()
+	if metricsExportInterval < time.Minute {
+		metricsExportInterval = time.Minute * 10
+	}
+	metricsTicker := time.NewTicker(metricsExportInterval)
+	defer metricsTicker.Stop()
+	if servercfg.CacheEnabled() {
+		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
+		defer checkinTicker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				logic.FlushNodeCheckins()
+				return
+			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+				sendPeers()
+			case <-checkinTicker.C:
+				logic.FlushNodeCheckins()
+			case <-metricsTicker.C:
+				PushAllMetricsToExporter()
+			}
+		}
+	} else {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+				sendPeers()
+			case <-metricsTicker.C:
+				PushAllMetricsToExporter()
+			}
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -69,7 +70,7 @@ type ApiNode struct {
 	Location                          string              `json:"location"`
 	Country                           string              `json:"country"`
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
-	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	PostureCheckVolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
 	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
 }
 
@@ -103,7 +104,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.InternetGwID = currentNode.InternetGwID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
-	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
 	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
 	if err == nil {
@@ -214,7 +214,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.Server = nm.Server
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
-	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
 	apiNode.InetNodeReq = nm.InetNodeReq

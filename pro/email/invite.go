@@ -3,8 +3,8 @@ package email
 import (
 	"fmt"
 
-	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -38,7 +38,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 		WithHtml("<br>").
 		WithHtml(fmt.Sprintf("<li><a href=\"%s\">Download the Netmaker Desktop App</a>.</li>", downloadLink))
 
-	if invite.PlatformRoleID == models.AdminRole.String() || invite.PlatformRoleID == models.PlatformUser.String() {
+	if invite.PlatformRoleID == schema.AdminRole.String() || invite.PlatformRoleID == schema.PlatformUser.String() {
 		content = content.
 			WithHtml("<br>").
 			WithHtml(fmt.Sprintf("<li>Access the <a href=\"%s\">Netmaker Dashboard</a> - use it to manage your network settings and view network status.</li>", dashboardURL))

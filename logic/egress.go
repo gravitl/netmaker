@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -16,7 +17,7 @@ import (
 
 var ValidateEgressReq = validateEgressReq
 
-var AssignVirtualRangeToEgress = func(nw *models.Network, eg *schema.Egress) error {
+var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) error {
 	return nil
 }
 
@@ -25,12 +26,12 @@ func validateEgressReq(e *schema.Egress) error {
 		return errors.New("network id is empty")
 	}
 	if e.Nat {
-		e.Mode = models.DirectNAT
+		e.Mode = schema.DirectNAT
 	} else {
 		e.Mode = ""
 		e.VirtualRange = ""
 	}
-	_, err := GetNetwork(e.Network)
+	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
@@ -50,7 +51,7 @@ func validateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []models.Acl) bool {
+func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
 	if !e.Status {
 		return false
 	}
@@ -64,11 +65,11 @@ func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []mode
 		if _, ok := dstTags[e.ID]; ok || all {
 			// get all src tags
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.UserName {
+				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.Username {
 					return true
 				} else if srcAcl.ID == models.UserGroupAclID {
 					// fetch all users in the group
-					if _, ok := user.UserGroups[models.UserGroupID(srcAcl.Value)]; ok {
+					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}
 				}
@@ -253,7 +254,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *models.User, network models.NetworkID) (domains []string) {
+func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
 	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
@@ -276,9 +277,9 @@ func GetEgressDomainsByAccessForUser(user *models.User, network models.NetworkID
 }
 
 func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(models.NetworkID(node.Network))
+	acls := ListDevicePolicies(schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
@@ -458,7 +459,17 @@ func RemoveNodeFromEgress(node models.Node) {
 	}
 }
 
-func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
+func RemoveNodeFromEnrollmentKeys(node *models.Node) {
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		if key.Relay == node.ID {
+			key.Relay = uuid.Nil
+			_ = upsertEnrollmentKey(&key)
+		}
+	}
+}
+
+func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)
@@ -496,7 +507,10 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 	if err != nil {
 		return
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}

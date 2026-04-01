@@ -23,20 +23,20 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
-	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == models.VirtualNAT {
+	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}
-	if e.Nat && (e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT) {
-		return fmt.Errorf("invalid NAT type: must be %s or %s", string(models.DirectNAT), string(models.VirtualNAT))
+	if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
+		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
 	if !e.Nat {
 		e.Mode = ""
 		e.VirtualRange = ""
 	}
 	if e.Domain != "" && e.Nat {
-		e.Mode = models.DirectNAT
+		e.Mode = schema.DirectNAT
 	}
-	_, err := logic.GetNetwork(e.Network)
+	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
@@ -65,7 +65,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func RemoveTagFromEgress(net models.NetworkID, tagID models.TagID) {
+func RemoveTagFromEgress(net schema.NetworkID, tagID models.TagID) {
 	eli, _ := (&schema.Egress{Network: net.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, eI := range eli {
 		if _, ok := eI.Tags[tagID.String()]; ok {
@@ -75,7 +75,7 @@ func RemoveTagFromEgress(net models.NetworkID, tagID models.TagID) {
 	}
 }
 
-func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
+func AssignVirtualRangeToEgress(nw *schema.Network, eg *schema.Egress) error {
 	if nw == nil {
 		return fmt.Errorf("network is nil")
 	}
@@ -88,7 +88,7 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	}
 
 	// v1: only allocate for virtual NAT mode
-	if eg.Mode != models.VirtualNAT {
+	if eg.Mode != schema.VirtualNAT {
 		logger.Log(2, "AssignVirtualRangeToEgress: mode is not VirtualNAT, skipping. Mode:", string(eg.Mode))
 		return nil
 	}
@@ -140,7 +140,7 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	}
 
 	if nw.VirtualNATPoolIPv4 == "" || nw.VirtualNATSitePrefixLenIPv4 == 0 {
-		return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.NetID)
+		return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.Name)
 	}
 	poolCIDR := nw.VirtualNATPoolIPv4
 	maxSitePrefixLen := nw.VirtualNATSitePrefixLenIPv4
@@ -325,11 +325,13 @@ func nthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
 }
 
 func ipToBigInt(ip net.IP) *big.Int {
-	ip = ip.To16()
-	if ip == nil {
-		return big.NewInt(0)
+	if v4 := ip.To4(); v4 != nil {
+		return new(big.Int).SetBytes(v4)
 	}
-	return new(big.Int).SetBytes(ip)
+	if v6 := ip.To16(); v6 != nil {
+		return new(big.Int).SetBytes(v6)
+	}
+	return big.NewInt(0)
 }
 
 func bigIntToIP(i *big.Int, bits int) net.IP {

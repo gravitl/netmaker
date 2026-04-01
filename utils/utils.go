@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // RetryStrategy specifies a strategy to retry an operation after waiting a while,
@@ -54,12 +54,12 @@ func TraceCaller() {
 	// Skip 1 frame to get the caller of this function
 	pc, file, line, ok := runtime.Caller(2)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	tracePc, _, _, ok := runtime.Caller(1)
 	if !ok {
-		slog.Debug("Unable to get caller information")
+		slog.Error("Unable to get caller information")
 		return
 	}
 	traceFuncName := runtime.FuncForPC(tracePc).Name()
@@ -96,7 +96,7 @@ func GetExtClientEndpoint(hostIpv4Endpoint, hostIpv6Endpoint net.IP, hostListenP
 }
 
 // SortIfacesByName sorts a slice of Iface by name in ascending order
-func SortIfacesByName(ifaces []models.Iface) {
+func SortIfacesByName(ifaces []schema.Iface) {
 	sort.Slice(ifaces, func(i, j int) bool {
 		return ifaces[i].Name < ifaces[j].Name
 	})
@@ -105,7 +105,7 @@ func SortIfacesByName(ifaces []models.Iface) {
 // CompareIfaces compares two slices of Iface and returns true if they are equal
 // Two slices are considered equal if they have the same length and all corresponding
 // elements have the same Name, AddressString, and IP address
-func CompareIfaces(ifaces1, ifaces2 []models.Iface) bool {
+func CompareIfaces(ifaces1, ifaces2 []schema.Iface) bool {
 	// Check if lengths are different
 	if len(ifaces1) != len(ifaces2) {
 		return false
@@ -122,7 +122,7 @@ func CompareIfaces(ifaces1, ifaces2 []models.Iface) bool {
 }
 
 // CompareIface compares two individual Iface structs and returns true if they are equal
-func CompareIface(iface1, iface2 models.Iface) bool {
+func CompareIface(iface1, iface2 schema.Iface) bool {
 	// Compare Name
 	if iface1.Name != iface2.Name {
 		return false
