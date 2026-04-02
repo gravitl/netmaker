@@ -235,9 +235,6 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 	args = append(args, perPage, offset)
 
-	fmt.Println("QUERY:", query)
-	fmt.Println("ARGS:", args)
-
 	rows, err := conn.Query(r.Context(), query, args...)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,
