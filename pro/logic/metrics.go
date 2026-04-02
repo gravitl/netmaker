@@ -119,6 +119,60 @@ func DeleteMetrics(nodeid string) error {
 	return nil
 }
 
+// DeleteNodeMetricsFromPeers - removes a deleted node's entry from all peers' connectivity maps
+func DeleteNodeMetricsFromPeers(nodeID string) {
+	peers, err := logic.GetAllNodes()
+	if err != nil {
+		slog.Error("failed to fetch nodes for peer metrics cleanup", "error", err)
+		return
+	}
+	for _, peer := range peers {
+		peerID := peer.ID.String()
+		if peerID == nodeID {
+			continue
+		}
+		peerMetrics, err := GetMetrics(peerID)
+		if err != nil || peerMetrics.Connectivity == nil {
+			continue
+		}
+		if _, exists := peerMetrics.Connectivity[nodeID]; exists {
+			delete(peerMetrics.Connectivity, nodeID)
+			if err := UpdateMetrics(peerID, peerMetrics); err != nil {
+				slog.Error("failed to update peer metrics after removing deleted node",
+					"peer", peerID, "deleted_node", nodeID, "error", err)
+			}
+		}
+	}
+}
+
+// SetPeerMetricsDisconnected - marks a node as disconnected in all peers' connectivity maps
+func SetPeerMetricsDisconnected(nodeID string) {
+	peers, err := logic.GetAllNodes()
+	if err != nil {
+		slog.Error("failed to fetch nodes for peer metrics disconnect update", "error", err)
+		return
+	}
+	for _, peer := range peers {
+		peerID := peer.ID.String()
+		if peerID == nodeID {
+			continue
+		}
+		peerMetrics, err := GetMetrics(peerID)
+		if err != nil || peerMetrics.Connectivity == nil {
+			continue
+		}
+		if metric, exists := peerMetrics.Connectivity[nodeID]; exists && metric.Connected {
+			metric.Connected = false
+			metric.Latency = 999
+			peerMetrics.Connectivity[nodeID] = metric
+			if err := UpdateMetrics(peerID, peerMetrics); err != nil {
+				slog.Error("failed to set peer metric disconnected",
+					"peer", peerID, "disconnected_node", nodeID, "error", err)
+			}
+		}
+	}
+}
+
 // MQUpdateMetricsFallBack - called when mq fallback thread is triggered on client
 func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
 
