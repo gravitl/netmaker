@@ -422,6 +422,7 @@ func DeleteNodeByID(node *models.Node) error {
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
+	go DeleteNodeMetricsFromPeers(node.ID.String())
 	//recycle ip address
 	if servercfg.CacheEnabled() {
 		if node.Address.IP != nil {
