@@ -142,7 +142,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	// 2. Source filters
 	if q.Get("src_type") != "" {
 		whereParts = append(whereParts, "src_type IN ?")
-		args = append(args, fmt.Sprintf("(%s)", strings.Join(q["src_type"], ",")))
+		args = append(args, q["src_type"])
 	}
 
 	srcEntity := q.Get("src_entity_id")
@@ -154,7 +154,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	// 3. Destination filters
 	if q.Get("dst_type") != "" {
 		whereParts = append(whereParts, "dst_type IN ?")
-		args = append(args, fmt.Sprintf("(%s)", strings.Join(q["dst_type"], ",")))
+		args = append(args, q["dst_type"])
 	}
 
 	dstEntity := q.Get("dst_entity_id")
@@ -166,7 +166,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	// 4. Protocol filter
 	if q.Get("protocol") != "" {
 		whereParts = append(whereParts, "protocol IN ?")
-		args = append(args, fmt.Sprintf("(%s)", strings.Join(q["protocol"], ",")))
+		args = append(args, q["protocol"])
 	}
 
 	// 5. Node filter
@@ -234,6 +234,9 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	query := querySelect + "\n" + whereSQL + "\n" + queryOrder
 
 	args = append(args, perPage, offset)
+
+	fmt.Println("QUERY:", query)
+	fmt.Println("ARGS:", args)
 
 	rows, err := conn.Query(r.Context(), query, args...)
 	if err != nil {
