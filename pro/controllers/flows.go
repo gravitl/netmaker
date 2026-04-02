@@ -217,6 +217,10 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		args = append(args, srcTypeStr, srcEntity, dstTypeStr, dstEntity)
 	}
 
+	// 7. Ignore flow logs with zero end_ts.
+	whereParts = append(whereParts, "end_ts <> ?")
+	args = append(args, time.Unix(0, 0))
+
 	// Pagination
 	page := parseIntOrDefault(q.Get("page"), 1)
 	perPage := parseIntOrDefault(q.Get("per_page"), 100)
