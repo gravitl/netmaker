@@ -115,7 +115,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		args = append(args, networkID)
 	}
 
-	// 1. Time filtering (version: UInt64 timestamp in ms)
+	// 1. Time filtering (start_ts: UInt64 timestamp in ms)
 	fromStr := q.Get("from")
 	toStr := q.Get("to")
 
@@ -125,7 +125,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'from' timestamp: %v", err), logic.BadReq))
 			return
 		}
-		whereParts = append(whereParts, "version >= ?")
+		whereParts = append(whereParts, "start_ts >= ?")
 		args = append(args, fromVal)
 	}
 
@@ -135,7 +135,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'to' timestamp: %v", err), logic.BadReq))
 			return
 		}
-		whereParts = append(whereParts, "version <= ?")
+		whereParts = append(whereParts, "start_ts <= ?")
 		args = append(args, toVal)
 	}
 
