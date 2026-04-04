@@ -701,6 +701,7 @@ func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRo
 		NodeAddr:      node.Address,
 		NodeAddr6:     node.Address6,
 		EgressRanges:  extPeer.ExtraAllowedIPs,
+		Network:       node.Network,
 	}
 	for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
 		r.EgressRangesWithMetric = append(r.EgressRangesWithMetric, models.EgressRangeMetric{
