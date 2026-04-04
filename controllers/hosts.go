@@ -1632,22 +1632,6 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	p.Delete(db.WithContext(r.Context()))
-	logic.LogEvent(&models.Event{
-		Action: schema.JoinHostToNet,
-		Source: models.Subject{
-			ID:   key.Value,
-			Name: key.Tags[0],
-			Type: schema.EnrollmentKeySub,
-		},
-		TriggeredBy: r.Header.Get("user"),
-		Target: models.Subject{
-			ID:   h.ID.String(),
-			Name: h.Name,
-			Type: schema.DeviceSub,
-		},
-		NetworkID: schema.NetworkID(p.Network),
-		Origin:    schema.Dashboard,
-	})
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
 }
