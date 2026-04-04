@@ -207,18 +207,23 @@ func migrateNetworks(ctx context.Context) error {
 			return err
 		}
 
-		_, cidr, err := net.ParseCIDR(network.AddressRange)
-		if err != nil {
-			err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
-			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-			return err
+		var cidr, cidrv6 *net.IPNet
+		if len(network.AddressRange) == 0 {
+			_, cidr, err = net.ParseCIDR(network.AddressRange)
+			if err != nil {
+				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
+				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+				return err
+			}
 		}
 
-		_, cidrv6, err := net.ParseCIDR(network.AddressRange6)
-		if err != nil {
-			err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
-			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-			return err
+		if len(network.AddressRange6) == 0 {
+			_, cidrv6, err = net.ParseCIDR(network.AddressRange6)
+			if err != nil {
+				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
+				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+				return err
+			}
 		}
 
 		superAdmin := &schema.User{}
@@ -253,7 +258,8 @@ func migrateNetworks(ctx context.Context) error {
 				if net.ParseIP(nsIP) == nil {
 					continue
 				}
-				if !cidr.Contains(net.ParseIP(nsIP)) && !cidrv6.Contains(net.ParseIP(nsIP)) {
+				if (cidr != nil && !cidr.Contains(net.ParseIP(nsIP))) &&
+					(cidrv6 != nil && !cidrv6.Contains(net.ParseIP(nsIP))) {
 					ns.Servers = append(ns.Servers, nsIP)
 				}
 			}
