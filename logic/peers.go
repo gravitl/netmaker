@@ -845,7 +845,7 @@ func deduplicateEgressRoutes(routes []models.EgressNetworkRoutes) []models.Egres
 	seen := make(map[string]struct{}, len(routes))
 	result := make([]models.EgressNetworkRoutes, 0, len(routes))
 	for _, r := range routes {
-		key := r.PeerKey
+		key := r.PeerKey + "|" + r.Network
 		if _, exists := seen[key]; !exists {
 			seen[key] = struct{}{}
 			result = append(result, r)
