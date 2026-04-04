@@ -208,7 +208,7 @@ func migrateNetworks(ctx context.Context) error {
 		}
 
 		var cidr, cidrv6 *net.IPNet
-		if len(network.AddressRange) == 0 {
+		if len(network.AddressRange) != 0 {
 			_, cidr, err = net.ParseCIDR(network.AddressRange)
 			if err != nil {
 				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
@@ -217,7 +217,7 @@ func migrateNetworks(ctx context.Context) error {
 			}
 		}
 
-		if len(network.AddressRange6) == 0 {
+		if len(network.AddressRange6) != 0 {
 			_, cidrv6, err = net.ParseCIDR(network.AddressRange6)
 			if err != nil {
 				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
