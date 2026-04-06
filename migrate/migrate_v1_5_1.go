@@ -255,12 +255,19 @@ func migrateNetworks(ctx context.Context) error {
 			}
 
 			for _, nsIP := range network.NameServers {
-				if net.ParseIP(nsIP) == nil {
+				ip := net.ParseIP(nsIP)
+				if ip == nil {
 					continue
 				}
-				if (cidr != nil && !cidr.Contains(net.ParseIP(nsIP))) &&
-					(cidrv6 != nil && !cidrv6.Contains(net.ParseIP(nsIP))) {
-					ns.Servers = append(ns.Servers, nsIP)
+
+				if ip.To4() != nil {
+					if cidr != nil && !cidr.Contains(ip) {
+						ns.Servers = append(ns.Servers, nsIP)
+					}
+				} else {
+					if cidrv6 != nil && !cidrv6.Contains(ip) {
+						ns.Servers = append(ns.Servers, nsIP)
+					}
 				}
 			}
 
