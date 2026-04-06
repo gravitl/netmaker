@@ -773,7 +773,7 @@ func cleanupDeletedUserGroupRefs() {
 						newSrc = append(newSrc, src)
 					}
 				}
-			} else if src.ID == models.UserAclID {
+			} else if src.ID == models.UserAclID && src.Value != "*" {
 				if _, ok := existingUsers[src.Value]; ok {
 					newSrc = append(newSrc, src)
 				}
