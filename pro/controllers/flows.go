@@ -23,7 +23,7 @@ func FlowHandlers(r *mux.Router) {
 const (
 	querySelect = `
 SELECT
-	flow_id, host_id, host_name, network_id,
+	flow_id, tenant_id, host_id, host_name, network_id,
 	protocol, src_port, dst_port,
 	icmp_type, icmp_code, direction,
 	src_ip, src_type, src_entity_id, src_entity_name,
@@ -41,6 +41,7 @@ LIMIT ? OFFSET ?`
 // FlowRow represents a single flow log entry
 type FlowRow struct {
 	FlowID        string    `ch:"flow_id" json:"flow_id"`
+	TenantID      string    `ch:"tenant_id" json:"tenant_id"`
 	HostID        string    `ch:"host_id" json:"host_id"`
 	HostName      string    `ch:"host_name" json:"host_name"`
 	NetworkID     string    `ch:"network_id" json:"network_id"`
