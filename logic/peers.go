@@ -238,14 +238,14 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node,
-	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
+	deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
 
 	// track which nodes are deleted
 	// after peer calculation, if peer not in list, add delete config of peer
-	hostPeerUpdate := models.HostPeerUpdate{
+	hostPeerUpdate = models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
 		ServerVersion: servercfg.GetVersion(),
@@ -266,6 +266,9 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: make(map[string]models.PeerIdentity),
 	}
+	defer func() {
+		hostPeerUpdate.EgressRoutes = deduplicateEgressRoutes(hostPeerUpdate.EgressRoutes)
+	}()
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false
 	}
@@ -930,6 +933,18 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
 	}
 	return allowedips
+}
+func deduplicateEgressRoutes(routes []models.EgressNetworkRoutes) []models.EgressNetworkRoutes {
+	seen := make(map[string]struct{}, len(routes))
+	result := make([]models.EgressNetworkRoutes, 0, len(routes))
+	for _, r := range routes {
+		key := r.PeerKey + "|" + r.Network
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			result = append(result, r)
+		}
+	}
+	return result
 }
 
 func getCIDRMaskFromAddr(addr string) net.IPMask {
