@@ -23,7 +23,10 @@ var ErrConnNotFound = errors.New("no connection in context")
 //go:embed initdb.d/02_create_flows_table.sql
 var createFlowsTableScript string
 
-func Initialize() error {
+//go:embed initdb.d/03_alter_flows_table_tenant_id.sql
+var alterFlowsTableTenantIDScript string
+
+func Initialize(defaultTenantID string) error {
 	if ch != nil {
 		return nil
 	}
@@ -45,6 +48,11 @@ func Initialize() error {
 	defer cancel()
 
 	err = chConn.Exec(ctx, createFlowsTableScript)
+	if err != nil {
+		return err
+	}
+
+	err = chConn.Exec(ctx, fmt.Sprintf(alterFlowsTableTenantIDScript, defaultTenantID))
 	if err != nil {
 		return err
 	}

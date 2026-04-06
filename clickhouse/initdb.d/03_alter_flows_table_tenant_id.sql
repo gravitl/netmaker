@@ -1,0 +1,2 @@
+ALTER TABLE flows
+ADD COLUMN IF NOT EXISTS tenant_id String DEFAULT '%s';

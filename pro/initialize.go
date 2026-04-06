@@ -118,7 +118,7 @@ func InitPro() {
 			addJitExpiryHookWithEmail()
 
 			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
-				err := ch.Initialize()
+				err := ch.Initialize(servercfg.GetNetmakerTenantID())
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
 				}

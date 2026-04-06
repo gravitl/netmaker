@@ -291,7 +291,8 @@ type FlowEvent struct {
 	// Version used by ClickHouse for merging.
 	// Must be strictly increasing for START → DESTROY.
 	// Usually equal to the netclient event timestamp (ms).
-	Version       int64 `protobuf:"varint,21,opt,name=version,proto3" json:"version,omitempty"`
+	Version       int64  `protobuf:"varint,21,opt,name=version,proto3" json:"version,omitempty"`
+	TenantId      string `protobuf:"bytes,22,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -473,6 +474,13 @@ func (x *FlowEvent) GetVersion() int64 {
 	return 0
 }
 
+func (x *FlowEvent) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
 // *
 // Envelope sent by netclients containing multiple FlowEvents.
 type FlowEnvelope struct {
@@ -582,7 +590,7 @@ const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x122\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1e.netmaker.flow.ParticipantTypeR\x04type\x12\x0e\n" +
 	"\x02id\x18\x03 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\"\xc1\x05\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\"\xde\x05\n" +
 	"\tFlowEvent\x12,\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x18.netmaker.flow.EventTypeR\x04type\x12\x17\n" +
 	"\aflow_id\x18\x02 \x01(\tR\x06flowId\x12\x17\n" +
@@ -608,7 +616,8 @@ const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\fpackets_sent\x18\x12 \x01(\x04R\vpacketsSent\x12!\n" +
 	"\fpackets_recv\x18\x13 \x01(\x04R\vpacketsRecv\x12\x16\n" +
 	"\x06status\x18\x14 \x01(\rR\x06status\x12\x18\n" +
-	"\aversion\x18\x15 \x01(\x03R\aversion\"@\n" +
+	"\aversion\x18\x15 \x01(\x03R\aversion\x12\x1b\n" +
+	"\ttenant_id\x18\x16 \x01(\tR\btenantId\"@\n" +
 	"\fFlowEnvelope\x120\n" +
 	"\x06events\x18\x01 \x03(\v2\x18.netmaker.flow.FlowEventR\x06events\">\n" +
 	"\fFlowResponse\x12\x18\n" +

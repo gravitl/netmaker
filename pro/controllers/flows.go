@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func FlowHandlers(r *mux.Router) {
@@ -215,6 +216,11 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 		whereParts = append(whereParts, "((src_type = ? AND src_entity_id = ?) OR (dst_type = ? AND dst_entity_id = ?))")
 		args = append(args, srcTypeStr, srcEntity, dstTypeStr, dstEntity)
+	}
+
+	if servercfg.GetNetmakerTenantID() != "" {
+		whereParts = append(whereParts, "tenant_id = ?")
+		args = append(args, servercfg.GetNetmakerTenantID())
 	}
 
 	// Pagination

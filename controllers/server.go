@@ -272,7 +272,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	if currSettings.EnableFlowLogs != req.EnableFlowLogs {
 		if req.EnableFlowLogs {
-			err := ch.Initialize()
+			err := ch.Initialize(servercfg.GetNetmakerTenantID())
 			if err != nil {
 				err = fmt.Errorf("failed to enable flow logs: %v", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

@@ -111,6 +111,8 @@ message FlowEvent {
    * Usually equal to the netclient event timestamp (ms).
    */
   int64 version = 21;
+
+  string tenant_id = 22;
 }
 
 // ============================================================
