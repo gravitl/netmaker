@@ -135,16 +135,22 @@ func SetupMQTT(fatal bool) {
 
 const CHECKIN_FLUSH_INTERVAL = 30
 
+// normalizedMetricsExportInterval applies the same minimum as before (invalid/too-small
+// intervals use a 10-minute default).
+func normalizedMetricsExportInterval() time.Duration {
+	d := logic.GetMetricIntervalInMinutes()
+	if d < time.Minute {
+		return time.Minute * 10
+	}
+	return d
+}
+
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
 	warmPeerCaches()
 	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
-	metricsExportInterval := servercfg.GetMetricIntervalInMinutes()
-	if metricsExportInterval < time.Minute {
-		metricsExportInterval = time.Minute * 10
-	}
-	metricsTicker := time.NewTicker(metricsExportInterval)
+	metricsTicker := time.NewTicker(normalizedMetricsExportInterval())
 	defer metricsTicker.Stop()
 	if servercfg.CacheEnabled() {
 		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
@@ -160,6 +166,9 @@ func Keepalive(ctx context.Context) {
 				logic.FlushNodeCheckins()
 			case <-metricsTicker.C:
 				PushAllMetricsToExporter()
+			case <-logic.MetricExportIntervalReset():
+				metricsTicker.Stop()
+				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
 			}
 		}
 	} else {
@@ -171,6 +180,9 @@ func Keepalive(ctx context.Context) {
 				sendPeers()
 			case <-metricsTicker.C:
 				PushAllMetricsToExporter()
+			case <-logic.MetricExportIntervalReset():
+				metricsTicker.Stop()
+				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
 			}
 		}
 	}

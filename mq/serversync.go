@@ -59,6 +59,7 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
 		logic.InvalidateServerSettingsCache()
+		logic.NotifyMetricExportIntervalChanged()
 	case logic.SyncTypePeerUpdate:
 		logic.InvalidateHostPeerCaches()
 		go warmPeerCaches()

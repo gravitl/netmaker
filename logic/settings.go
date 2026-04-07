@@ -412,19 +412,31 @@ func GetMetricsPort() int {
 	return GetServerSettings().MetricsPort
 }
 
-// GetMetricInterval - get the publish metric interval
+// GetMetricIntervalInMinutes returns the publish-to-exporter interval from server
+// settings (dashboard), with fallback to servercfg / env when unset or invalid.
 func GetMetricIntervalInMinutes() time.Duration {
-	//default 15 minutes
-	mi := "15"
-	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
-		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	mi := strings.TrimSpace(GetServerSettings().MetricInterval)
+	if mi != "" {
+		if interval, err := strconv.Atoi(mi); err == nil && interval > 0 {
+			return time.Duration(interval) * time.Minute
+		}
 	}
-	interval, err := strconv.Atoi(mi)
-	if err != nil {
-		interval = 15
-	}
+	return servercfg.GetMetricIntervalInMinutes()
+}
 
-	return time.Duration(interval) * time.Minute
+var metricExportIntervalReset = make(chan struct{}, 1)
+
+// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
+func NotifyMetricExportIntervalChanged() {
+	select {
+	case metricExportIntervalReset <- struct{}{}:
+	default:
+	}
+}
+
+// MetricExportIntervalReset returns a channel notified when the metric interval setting changes.
+func MetricExportIntervalReset() <-chan struct{} {
+	return metricExportIntervalReset
 }
 
 // GetMetricInterval - get the publish metric interval
