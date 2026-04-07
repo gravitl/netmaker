@@ -589,6 +589,9 @@ func migrateToEgressV1() {
 					CreatedBy: user.UserName,
 					CreatedAt: time.Now().UTC(),
 				}
+				if !e.Nat {
+					e.Mode = schema.DisabledNAT
+				}
 				err = e.Create(db.WithContext(context.TODO()))
 				if err == nil {
 					acl := models.Acl{
