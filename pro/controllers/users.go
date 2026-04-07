@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -90,7 +89,7 @@ func UserHandlers(r *mux.Router) {
 // @Produce     json
 // @Param       email query string true "Invitee email"
 // @Param       invite_code query string true "Invite code"
-// @Param       body body models.User true "User signup data"
+// @Param       body body schema.User true "User signup data"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +129,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
+	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = schema.ServiceUser
@@ -240,12 +239,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			// user exists already, so ignore
 			continue
 		}
-		invite := models.UserInvite{
+		invite := &schema.UserInvite{
+			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
 			PlatformRoleID: inviteReq.PlatformRoleID,
-			UserGroups:     inviteReq.UserGroups,
-			NetworkRoles:   inviteReq.NetworkRoles,
-			InviteCode:     logic.RandomString(8),
+			UserGroups:     datatypes.NewJSONType(inviteReq.UserGroups),
 		}
 		frontendURL := strings.TrimSuffix(servercfg.GetFrontendURL(), "/")
 		if frontendURL == "" {
@@ -266,7 +264,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
-		err = logic.InsertUserInvite(invite)
+		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
@@ -287,7 +285,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			Origin: schema.Dashboard,
 		})
 		// notify user with magic link
-		go func(invite models.UserInvite) {
+		go func(invite *schema.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
 
 			e := email.UserInvitedMail{
@@ -316,7 +314,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.UserInvite
 // @Failure     500 {object} models.ErrorResponse
 func listUserInvites(w http.ResponseWriter, r *http.Request) {
-	usersInvites, err := logic.ListUserInvites()
+	usersInvites, err := (&schema.UserInvite{}).ListAll(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -373,7 +371,7 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
-	err := database.DeleteAllRecords(database.USER_INVITES_TABLE_NAME)
+	err := (&schema.UserInvite{}).DeleteAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
@@ -816,7 +814,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.User
+// @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
 func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -872,7 +870,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.User
+// @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
 func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")

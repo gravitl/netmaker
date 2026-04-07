@@ -2,11 +2,9 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sort"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -125,41 +123,23 @@ func GetUserMap() (map[string]schema.User, error) {
 	return userMap, nil
 }
 
-func InsertUserInvite(invite models.UserInvite) error {
-	data, err := json.Marshal(invite)
+func GetUserInvite(email string) (*schema.UserInvite, error) {
+	userInvite := &schema.UserInvite{
+		Email: email,
+	}
+	err := userInvite.GetByEmail(db.WithContext(context.TODO()))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return database.Insert(invite.Email, string(data), database.USER_INVITES_TABLE_NAME)
-}
 
-func GetUserInvite(email string) (in models.UserInvite, err error) {
-	d, err := database.FetchRecord(database.USER_INVITES_TABLE_NAME, email)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal([]byte(d), &in)
-	return
-}
-
-func ListUserInvites() ([]models.UserInvite, error) {
-	invites := []models.UserInvite{}
-	records, err := database.FetchRecords(database.USER_INVITES_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return invites, err
-	}
-	for _, record := range records {
-		in := models.UserInvite{}
-		err = json.Unmarshal([]byte(record), &in)
-		if err == nil {
-			invites = append(invites, in)
-		}
-	}
-	return invites, nil
+	return userInvite, nil
 }
 
 func DeleteUserInvite(email string) error {
-	return database.DeleteRecord(database.USER_INVITES_TABLE_NAME, email)
+	userInvite := &schema.UserInvite{
+		Email: email,
+	}
+	return userInvite.DeleteByEmail(db.WithContext(context.TODO()))
 }
 
 func ValidateAndApproveUserInvite(email, code string) error {

@@ -18,5 +18,6 @@ func ListModels() []interface{} {
 		&JITGrant{},
 		&Host{},
 		&PendingUser{},
+		&UserInvite{},
 	}
 }
