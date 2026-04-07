@@ -412,10 +412,6 @@ func migrateHosts(ctx context.Context) error {
 			}
 		}
 
-		if _host.IsDefault && !_host.AutoUpdate {
-			_host.AutoUpdate = true
-		}
-
 		logger.Log(4, fmt.Sprintf("migrating host %s", _host.ID))
 
 		err = _host.Create(ctx)
