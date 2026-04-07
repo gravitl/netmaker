@@ -3,70 +3,18 @@ package migrate
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
-
-// ToSQLSchema migrates the data from key-value
-// db to sql db.
-func ToSQLSchema() error {
-	// begin a new transaction.
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	// future table migrations should be made below this block,
-	// with a different version number and a similar check for whether the
-	// migration was already done.
-	migrationJob := &schema.Job{
-		ID: "migration-v1.5.1",
-	}
-	err := migrationJob.Get(dbctx)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		logger.Log(1, fmt.Sprintf("running migration job %s", migrationJob.ID))
-		// migrate.
-		err = migrateV1_5_1(dbctx)
-		if err != nil {
-			return err
-		}
-
-		// mark migration job completed.
-		err = migrationJob.Create(dbctx)
-		if err != nil {
-			return err
-		}
-
-		logger.Log(1, fmt.Sprintf("migration job %s completed", migrationJob.ID))
-		commit = true
-	} else {
-		logger.Log(1, fmt.Sprintf("migration job %s already completed, skipping", migrationJob.ID))
-	}
-
-	return nil
-}
 
 func migrateV1_5_1(ctx context.Context) error {
 	err := migrateUsers(ctx)
@@ -116,7 +64,7 @@ func migrateUsers(ctx context.Context) error {
 			}
 		}
 
-		_user := schema.User{
+		_user := &schema.User{
 			ID:                         "",
 			Username:                   user.UserName,
 			DisplayName:                user.DisplayName,

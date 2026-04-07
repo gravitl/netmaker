@@ -116,11 +116,11 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
-				err = logic.InsertPendingUser(&models.User{
-					UserName:                   content.UserPrincipalName,
+
+				err := (&schema.PendingUser{
+					Username:                   content.UserPrincipalName,
 					ExternalIdentityProviderID: string(content.ID),
-					AuthType:                   schema.OAuth,
-				})
+				}).Create(r.Context())
 				if err != nil {
 					handleSomethingWentWrong(w)
 					return

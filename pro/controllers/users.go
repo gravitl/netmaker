@@ -29,6 +29,7 @@ import (
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func UserHandlers(r *mux.Router) {
@@ -1923,16 +1924,18 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.ListPendingReturnUsers()
+	pendingUsers, err := (&schema.PendingUser{}).ListAll(
+		r.Context(),
+		dbtypes.InAscOrder("username"),
+	)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched pending users")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(pendingUsers)
 }
 
 // @Summary     Approve a pending user
@@ -1948,37 +1951,41 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingUsers()
 
+	pendingUser := &schema.PendingUser{
+		Username: username,
+	}
+	err := pendingUser.Get(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		err = fmt.Errorf("failed to approve pending user (%s): error fetching pending user: %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	for _, user := range users {
-		if user.UserName == username {
-			var newPass, fetchErr = logic.FetchPassValue("")
-			if fetchErr != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
-				return
-			}
-			if err = logic.CreateUser(&schema.User{
-				Username:                   user.UserName,
-				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-				Password:                   newPass,
-				AuthType:                   user.AuthType,
-				PlatformRoleID:             schema.ServiceUser,
-			}); err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
-				return
-			}
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
-				return
-			}
-			break
-		}
+
+	var newPass, fetchErr = logic.FetchPassValue("")
+	if fetchErr != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+		return
+	}
+	if err = logic.CreateUser(&schema.User{
+		Username:                   pendingUser.Username,
+		ExternalIdentityProviderID: pendingUser.ExternalIdentityProviderID,
+		Password:                   newPass,
+		AuthType:                   schema.OAuth,
+		PlatformRoleID:             schema.ServiceUser,
+	}); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
+		return
+	}
+	err = logic.DeletePendingUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
+		return
 	}
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
@@ -2011,23 +2018,30 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingReturnUsers()
 
+	pendingUser := &schema.PendingUser{
+		Username: username,
+	}
+	err := pendingUser.Get(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		err = fmt.Errorf("failed to delete pending user (%s): error fetching pending user: %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	for _, user := range users {
-		if user.UserName == username {
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
-				return
-			}
-			break
-		}
+
+	err = pendingUser.Delete(r.Context())
+	if err != nil {
+		err = fmt.Errorf("failed to delete pending user (%s): %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
 	}
+
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
@@ -2061,7 +2075,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
-	err := database.DeleteAllRecords(database.PENDING_USERS_TABLE_NAME)
+	err := (&schema.PendingUser{}).DeleteAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
