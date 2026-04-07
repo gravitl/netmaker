@@ -140,8 +140,8 @@ func ValidateLicense() (err error) {
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
-	_ = mq.PublishExporterFeatureFlags()
-	_ = mq.PublishPeerUpdate(false)
+	go mq.PublishExporterFeatureFlags()
+	go mq.PublishPeerUpdate(false)
 
 	slog.Info("License validation succeeded!")
 	return nil
