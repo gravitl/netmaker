@@ -698,25 +698,25 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 		for _, idStr := range req.IDs {
 			hostID, err := uuid.Parse(idStr)
 			if err != nil {
-				slog.Error("bulk host delete: invalid host id", "id", idStr)
+				slog.Debug("bulk host delete: invalid host id", "id", idStr)
 				continue
 			}
 			currHost := &schema.Host{ID: hostID}
 			if err = currHost.Get(db.WithContext(context.Background())); err != nil {
-				slog.Error("bulk host delete: host not found", "id", idStr, "error", err)
+				slog.Debug("bulk host delete: host not found", "id", idStr, "error", err)
 				continue
 			}
 			var hostNodes []models.Node
 			for _, nodeID := range currHost.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
 				if err != nil {
-					slog.Error("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
+					slog.Debug("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
 					continue
 				}
 				hostNodes = append(hostNodes, node)
 			}
 			if err = logic.RemoveHost(currHost, true); err != nil {
-				slog.Error("bulk host delete: failed to remove host", "id", idStr, "error", err)
+				slog.Debug("bulk host delete: failed to remove host", "id", idStr, "error", err)
 				continue
 			}
 			for _, node := range hostNodes {
@@ -724,14 +724,14 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
-					slog.Error("bulk host delete: failed to remove EMQX credentials", "id", currHost.ID, "error", err)
+					slog.Debug("bulk host delete: failed to remove EMQX credentials", "id", currHost.ID, "error", err)
 				}
 			}
 			if err = mq.HostUpdate(&models.HostUpdate{
 				Action: models.DeleteHost,
 				Host:   *currHost,
 			}); err != nil {
-				slog.Error("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
+				slog.Debug("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
 			}
 			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
 			logic.LogEvent(&models.Event{
