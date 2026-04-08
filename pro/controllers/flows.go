@@ -75,11 +75,11 @@ type FlowRow struct {
 // @Param       network_id query string false "Filter by network ID"
 // @Param       from query string false "Start time in RFC3339 format"
 // @Param       to query string false "End time in RFC3339 format"
-// @Param       src_type query string false "Source type filter"
+// @Param       src_type []query string false "Source type filter"
 // @Param       src_entity_id query string false "Source entity ID filter"
-// @Param       dst_type query string false "Destination type filter"
+// @Param       dst_type []query string false "Destination type filter"
 // @Param       dst_entity_id query string false "Destination entity ID filter"
-// @Param       protocol query string false "Protocol filter"
+// @Param       protocol []query string false "Protocol filter"
 // @Param       node_id query string false "Node ID filter"
 // @Param       username query string false "Username filter"
 // @Param       page query int false "Page number"
@@ -115,7 +115,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		args = append(args, networkID)
 	}
 
-	// 1. Time filtering (version: UInt64 timestamp in ms)
+	// 1. Time filtering (start_ts: UInt64 timestamp in ms)
 	fromStr := q.Get("from")
 	toStr := q.Get("to")
 
@@ -125,7 +125,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'from' timestamp: %v", err), logic.BadReq))
 			return
 		}
-		whereParts = append(whereParts, "version >= ?")
+		whereParts = append(whereParts, "start_ts >= ?")
 		args = append(args, fromVal)
 	}
 
@@ -135,15 +135,14 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'to' timestamp: %v", err), logic.BadReq))
 			return
 		}
-		whereParts = append(whereParts, "version <= ?")
+		whereParts = append(whereParts, "start_ts <= ?")
 		args = append(args, toVal)
 	}
 
 	// 2. Source filters
-	srcTypeStr := q.Get("src_type")
-	if srcTypeStr != "" {
-		whereParts = append(whereParts, "src_type = ?")
-		args = append(args, srcTypeStr)
+	if q.Get("src_type") != "" {
+		whereParts = append(whereParts, "src_type IN ?")
+		args = append(args, q["src_type"])
 	}
 
 	srcEntity := q.Get("src_entity_id")
@@ -153,10 +152,9 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Destination filters
-	dstTypeStr := q.Get("dst_type")
-	if dstTypeStr != "" {
-		whereParts = append(whereParts, "dst_type = ?")
-		args = append(args, dstTypeStr)
+	if q.Get("dst_type") != "" {
+		whereParts = append(whereParts, "dst_type IN ?")
+		args = append(args, q["dst_type"])
 	}
 
 	dstEntity := q.Get("dst_entity_id")
@@ -166,10 +164,9 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. Protocol filter
-	protoStr := q.Get("protocol")
-	if protoStr != "" {
-		whereParts = append(whereParts, "protocol = ?")
-		args = append(args, protoStr)
+	if q.Get("protocol") != "" {
+		whereParts = append(whereParts, "protocol IN ?")
+		args = append(args, q["protocol"])
 	}
 
 	// 5. Node filter
@@ -202,20 +199,24 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	// 6. User filter
 	username := q.Get("username")
 	if username != "" {
-		if srcTypeStr != "" || dstTypeStr != "" ||
-			srcEntity != "" || dstEntity != "" {
+		if q.Has("src_type") || q.Has("dst_type") ||
+			q.Has("src_entity_id") || q.Has("dst_entity_id") {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot provide username filter along with src/dst type and id filters"), logic.BadReq))
 			return
 		}
 
-		srcTypeStr = "user"
-		srcEntity = username
-		dstTypeStr = "user"
-		dstEntity = username
+		srcTypeStr := "user"
+		srcEntity := username
+		dstTypeStr := "user"
+		dstEntity := username
 
 		whereParts = append(whereParts, "((src_type = ? AND src_entity_id = ?) OR (dst_type = ? AND dst_entity_id = ?))")
 		args = append(args, srcTypeStr, srcEntity, dstTypeStr, dstEntity)
 	}
+
+	// 7. Ignore flow logs with zero end_ts.
+	whereParts = append(whereParts, "end_ts <> ?")
+	args = append(args, time.Unix(0, 0))
 
 	// Pagination
 	page := parseIntOrDefault(q.Get("page"), 1)

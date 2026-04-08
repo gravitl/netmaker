@@ -242,3 +242,23 @@ func GetNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 	}
 	return
 }
+
+func RemoveTagFromNameservers(tagID models.TagID, netID schema.NetworkID) error {
+	nameservers, err := (&schema.Nameserver{
+		NetworkID: netID.String(),
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	var multiErr error
+	for _, nameserver := range nameservers {
+		delete(nameserver.Tags, tagID.String())
+		err := nameserver.Update(db.WithContext(context.TODO()))
+		if err != nil {
+			multiErr = errors.Join(multiErr, err)
+		}
+	}
+
+	return multiErr
+}

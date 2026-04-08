@@ -2135,7 +2135,11 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClient(req.ClientID, req.ClientSecret, req.AzureTenantID)
+		secret := req.ClientSecret
+		if secret == logic.Mask() {
+			secret = logic.GetServerSettings().ClientSecret
+		}
+		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
 		idpClient, err = okta.NewOktaClient(req.OktaOrgURL, req.OktaAPIToken)
 		if err != nil {
