@@ -25,9 +25,9 @@ https://netmaker-exporter.{$NM_DOMAIN} {
 }
 
 # Prometheus
-https://prometheus.{$NM_DOMAIN} {
-	reverse_proxy http://prometheus:9090
-}
+# https://prometheus.{$NM_DOMAIN} {
+# 	reverse_proxy http://prometheus:9090
+# }
 
 # Grafana
 https://grafana.{$NM_DOMAIN} {

@@ -1,14 +1,17 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/gravitl/netmaker/db"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -35,7 +38,8 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			return
 		}
 		if username != MasterUser {
-			user, err := GetUser(username)
+			user := &schema.User{Username: username}
+			err = user.Get(r.Context())
 			if err != nil {
 				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 				return
@@ -167,6 +171,34 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
+		var params = mux.Vars(r)
+		var requestedUser = params["username"]
+		if requestedUser == "" {
+			requestedUser = r.URL.Query().Get("username")
+		}
+		if requestedUser != r.Header.Get("user") {
+			ReturnErrorResponse(w, r, errorResponse)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var errorResponse = models.ErrorResponse{
+			Code: http.StatusForbidden, Message: Forbidden_Msg,
+		}
+
+		user := &schema.User{
+			Username: r.Header.Get("user"),
+		}
+		err := user.Get(db.WithContext(context.TODO()))
+		if err == nil && (user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
 		if requestedUser == "" {

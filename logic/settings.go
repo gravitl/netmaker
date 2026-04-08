@@ -9,12 +9,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -28,6 +27,8 @@ var (
 var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
+var serverSettingsCache atomic.Value
+
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
 	Theme:         models.Dark,
@@ -35,17 +36,37 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s models.ServerSettings) {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
-	if err != nil {
-		return
+	if cached, ok := serverSettingsCache.Load().(*models.ServerSettings); ok && cached != nil {
+		return *cached
 	}
-	json.Unmarshal([]byte(data), &s)
+	s, err := getServerSettingsFromDB()
+	if err == nil {
+		serverSettingsCache.Store(&s)
+	}
 	return
 }
 
+// InvalidateServerSettingsCache clears the in-memory settings cache so
+// the next GetServerSettings call re-reads from the database.
+func InvalidateServerSettingsCache() {
+	serverSettingsCache.Store((*models.ServerSettings)(nil))
+}
+
+func getServerSettingsFromDB() (models.ServerSettings, error) {
+	var s models.ServerSettings
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+	if err != nil {
+		return s, err
+	}
+	if err := json.Unmarshal([]byte(data), &s); err != nil {
+		return s, err
+	}
+	return s, nil
+}
+
 func UpsertServerSettings(s models.ServerSettings) error {
-	// get curr settings
-	currSettings := GetServerSettings()
+	// get curr settings from DB directly (not cache) for accurate comparison
+	currSettings, _ := getServerSettingsFromDB()
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -71,10 +92,6 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	if !s.OldAClsSupport {
-		// set defaults for old acl settings
-		go setDefaultsforOldAclCfg()
-	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -83,37 +100,11 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
+	serverSettingsCache.Store(&s)
+	if PublishServerSync != nil {
+		PublishServerSync(SyncTypeSettings)
+	}
 	return nil
-}
-
-func setDefaultsforOldAclCfg() {
-	nets, _ := GetNetworks()
-	for _, netI := range nets {
-		if netI.DefaultACL != "yes" {
-			netI.DefaultACL = "yes"
-			UpsertNetwork(netI)
-		}
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
-		if err != nil {
-			continue
-		}
-		for id, aclNode := range networkACL {
-			for aclID, allowed := range aclNode {
-				if allowed != acls.Allowed {
-					aclNode.Allow(aclID)
-				}
-			}
-			networkACL.UpdateACL(id, aclNode)
-		}
-		networkACL.Save(acls.ContainerID(netI.NetID))
-	}
-	nodes, _ := GetAllNodes()
-	for _, node := range nodes {
-		if node.DefaultACL != "yes" {
-			node.DefaultACL = "yes"
-			UpsertNode(&node)
-		}
-	}
 }
 
 func GetUserSettings(userID string) models.UserSettings {
@@ -197,7 +188,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
-		OldAClsSupport:             false,
 	}
 
 	return
@@ -215,7 +205,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = servercfg.GetAllowedOrigin()
 	cfg.RestBackend = "off"
-	cfg.NodeID = servercfg.GetNodeID()
+	cfg.HostName = servercfg.GetHostName()
 	cfg.BrokerType = servercfg.GetBrokerType()
 	cfg.EmqxRestEndpoint = servercfg.GetEmqxRestEndpoint()
 	if settings.NetclientAutoUpdate {
@@ -302,7 +292,6 @@ func GetServerInfo() models.ServerConfig {
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
 	cfg.PeerConnectionCheckInterval = serverSettings.PeerConnectionCheckInterval
-	cfg.OldAClsSupport = serverSettings.OldAClsSupport
 	key, _ := RetrievePublicTrafficKey()
 	cfg.TrafficKey = key
 	return cfg

@@ -16,12 +16,12 @@ import (
 
 var failOverCtxMutex = &sync.RWMutex{}
 var failOverCacheMutex = &sync.RWMutex{}
-var failOverCache = make(map[models.NetworkID]string)
+var failOverCache = make(map[schema.NetworkID]string)
 
 func InitFailOverCache() {
 	failOverCacheMutex.Lock()
 	defer failOverCacheMutex.Unlock()
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}
@@ -31,10 +31,10 @@ func InitFailOverCache() {
 	}
 
 	for _, network := range networks {
-		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.NetID)
+		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.Name)
 		for _, node := range networkNodes {
 			if node.IsFailOver {
-				failOverCache[models.NetworkID(network.NetID)] = node.ID.String()
+				failOverCache[schema.NetworkID(network.Name)] = node.ID.String()
 				break
 			}
 		}
@@ -136,20 +136,20 @@ func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error
 func RemoveFailOverFromCache(network string) {
 	failOverCacheMutex.Lock()
 	defer failOverCacheMutex.Unlock()
-	delete(failOverCache, models.NetworkID(network))
+	delete(failOverCache, schema.NetworkID(network))
 }
 
 func SetFailOverInCache(node models.Node) {
 	failOverCacheMutex.Lock()
 	defer failOverCacheMutex.Unlock()
-	failOverCache[models.NetworkID(node.Network)] = node.ID.String()
+	failOverCache[schema.NetworkID(node.Network)] = node.ID.String()
 }
 
 // FailOverExists - checks if failOver exists already in the network
 func FailOverExists(network string) (failOverNode models.Node, exists bool) {
 	failOverCacheMutex.RLock()
 	defer failOverCacheMutex.RUnlock()
-	if nodeID, ok := failOverCache[models.NetworkID(network)]; ok {
+	if nodeID, ok := failOverCache[schema.NetworkID(network)]; ok {
 		failOverNode, err := logic.GetNodeByID(nodeID)
 		if err == nil {
 			return failOverNode, true
@@ -160,6 +160,9 @@ func FailOverExists(network string) (failOverNode models.Node, exists bool) {
 
 // ResetFailedOverPeer - removes failed over node from network peers
 func ResetFailedOverPeer(failedOveredNode *models.Node) error {
+	if failedOveredNode.FailedOverBy == uuid.Nil && len(failedOveredNode.FailOverPeers) == 0 {
+		return nil
+	}
 	nodes, err := logic.GetNetworkNodes(failedOveredNode.Network)
 	if err != nil {
 		return err
@@ -170,11 +173,15 @@ func ResetFailedOverPeer(failedOveredNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	nodeIDStr := failedOveredNode.ID.String()
 	for _, node := range nodes {
 		if node.FailOverPeers == nil || node.ID == failedOveredNode.ID {
 			continue
 		}
-		delete(node.FailOverPeers, failedOveredNode.ID.String())
+		if _, exists := node.FailOverPeers[nodeIDStr]; !exists {
+			continue
+		}
+		delete(node.FailOverPeers, nodeIDStr)
 		logic.UpsertNode(&node)
 	}
 	return nil
@@ -201,7 +208,7 @@ func ResetFailOver(failOverNode *models.Node) error {
 func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
 	for failOverpeerID := range node.FailOverPeers {
 		failOverpeer, err := logic.GetNodeByID(failOverpeerID)
 		if err == nil && failOverpeer.FailedOverBy == peer.ID {

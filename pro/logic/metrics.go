@@ -133,11 +133,6 @@ func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
 		slog.Error("failed to update node metrics", "id", nodeid, "error", err)
 		return
 	}
-	if servercfg.IsMetricsExporter() {
-		if err := mq.PushMetricsToExporter(newMetrics); err != nil {
-			slog.Error("failed to push node metrics to exporter", "id", currentNode.ID, "error", err)
-		}
-	}
 	slog.Debug("updated node metrics", "id", nodeid)
 }
 
@@ -167,11 +162,6 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 	if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", id, "error", err)
 		return
-	}
-	if servercfg.IsMetricsExporter() {
-		if err := mq.PushMetricsToExporter(newMetrics); err != nil {
-			slog.Error("failed to push node metrics to exporter", "id", currentNode.ID, "error", err)
-		}
 	}
 	slog.Debug("updated node metrics", "id", id)
 }

@@ -2,7 +2,6 @@ package database
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
@@ -98,14 +97,10 @@ const (
 	isConnected = "isconnected"
 )
 
-var dbMutex sync.RWMutex
-
 var Tables = []string{
-	NETWORKS_TABLE_NAME,
 	NODES_TABLE_NAME,
 	CERTS_TABLE_NAME,
 	DELETED_NODES_TABLE_NAME,
-	USERS_TABLE_NAME,
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
 	PEERS_TABLE_NAME,
@@ -116,18 +111,22 @@ var Tables = []string{
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
 	NETWORK_USER_TABLE_NAME,
-	USER_GROUPS_TABLE_NAME,
 	CACHE_TABLE_NAME,
-	HOSTS_TABLE_NAME,
 	ENROLLMENT_KEYS_TABLE_NAME,
 	HOST_ACTIONS_TABLE_NAME,
 	PENDING_USERS_TABLE_NAME,
-	USER_PERMISSIONS_TABLE_NAME,
 	USER_INVITES_TABLE_NAME,
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	PEER_ACK_TABLE,
 	SERVER_SETTINGS,
+	// The following tables are to be migrated, but we still need them so that the migration function
+	// doesn't fail with table does not exist.
+	USERS_TABLE_NAME,
+	USER_GROUPS_TABLE_NAME,
+	USER_PERMISSIONS_TABLE_NAME,
+	NETWORKS_TABLE_NAME,
+	HOSTS_TABLE_NAME,
 }
 
 func getCurrentDB() map[string]interface{} {
@@ -174,8 +173,6 @@ func CreateTable(tableName string) error {
 
 // Insert - inserts object into db
 func Insert(key string, value string, tableName string) error {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
 	if key != "" && value != "" {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
@@ -185,37 +182,25 @@ func Insert(key string, value string, tableName string) error {
 
 // DeleteRecord - deletes a record from db
 func DeleteRecord(tableName string, key string) error {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
 	return getCurrentDB()[DELETE].(func(string, string) error)(tableName, key)
 }
 
 // DeleteAllRecords - removes a table and remakes
 func DeleteAllRecords(tableName string) error {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
 	err := getCurrentDB()[DELETE_ALL].(func(string) error)(tableName)
 	if err != nil {
 		return err
 	}
-	err = CreateTable(tableName)
-	if err != nil {
-		return err
-	}
-	return nil
+	return CreateTable(tableName)
 }
 
 // FetchRecord - fetches a single record by key
 func FetchRecord(tableName string, key string) (string, error) {
-	dbMutex.RLock()
-	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ONE].(func(string, string) (string, error))(tableName, key)
 }
 
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
-	dbMutex.RLock()
-	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 

@@ -1,5 +1,3 @@
-version: "3.4"
-
 services:
 
   netmaker:
@@ -55,18 +53,6 @@ services:
       - "80:80/tcp"
       - "443:443/tcp"
       - "50051:50051"
-
-  coredns:
-    #network_mode: host
-    container_name: coredns
-    image: coredns/coredns:1.10.1
-    command: -conf /root/dnsconfig/Corefile
-    env_file: ./netmaker.env
-    restart: always
-    depends_on:
-      - netmaker
-    volumes:
-      - dnsconfig:/root/dnsconfig
   mq:
     container_name: mq
     image: eclipse-mosquitto:2.0.15-openssl

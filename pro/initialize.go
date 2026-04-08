@@ -88,6 +88,7 @@ func InitPro() {
 			logger.Log(0, "proceeding with Paid Tier license")
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
+			// License validation runs on all pods to avoid audit issues
 			AddLicenseHooks()
 		} else {
 			logger.Log(0, "starting trial license hook")
@@ -107,29 +108,37 @@ func InitPro() {
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
-		auth.ResetIDPSyncHook()
+
+		// Only run singleton operations on master pod in HA setup
+		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
+		if servercfg.IsMasterPod() {
+			auth.ResetIDPSyncHook()
+			proLogic.AddPostureCheckHook()
+			// Register JIT expiry hook with email notifications
+			addJitExpiryHookWithEmail()
+
+			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+				err := ch.Initialize()
+				if err != nil {
+					logger.Log(0, "error connecting to clickhouse:", err.Error())
+				}
+
+				proLogic.StartFlowCleanupLoop()
+
+				wg.Add(1)
+				go func(ctx context.Context, wg *sync.WaitGroup) {
+					<-ctx.Done()
+					proLogic.StopFlowCleanupLoop()
+					ch.Close()
+					wg.Done()
+				}(ctx, wg)
+			}
+		}
+
+		// These can run on all pods
 		email.Init()
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
-		proLogic.AddPostureCheckHook()
-		// Register JIT expiry hook with email notifications
-		addJitExpiryHookWithEmail()
-		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
-			err := ch.Initialize()
-			if err != nil {
-				logger.FatalLog("error connecting to clickhouse:", err.Error())
-			}
-
-			proLogic.StartFlowCleanupLoop()
-
-			wg.Add(1)
-			go func(ctx context.Context, wg *sync.WaitGroup) {
-				<-ctx.Done()
-				proLogic.StopFlowCleanupLoop()
-				ch.Close()
-				wg.Done()
-			}(ctx, wg)
-		}
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -142,12 +151,6 @@ func InitPro() {
 	logic.SetAutoRelay = proLogic.SetAutoRelay
 	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 
-	logic.DenyClientNodeAccess = proLogic.DenyClientNode
-	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
-	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
-	logic.SetClientDefaultACLs = proLogic.SetClientDefaultACLs
-	logic.SetClientACLs = proLogic.SetClientACLs
-	logic.UpdateProNodeACLs = proLogic.UpdateProNodeACLs
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
@@ -155,8 +158,7 @@ func InitPro() {
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
-	logic.CreateRole = proLogic.CreateRole
-	logic.UpdateRole = proLogic.UpdateRole
+
 	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
 	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
@@ -164,25 +166,24 @@ func InitPro() {
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
-	logic.IsGroupValid = proLogic.IsGroupValid
-	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
+
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
-	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
-	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
-	logic.ListUserGroups = proLogic.ListUserGroups
-	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
+
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
 	logic.IsOAuthConfigured = auth.IsOAuthConfigured
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
+	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
+	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
@@ -238,9 +239,9 @@ func expireJITGrantsWithEmail() error {
 
 	// Track grants that need email before we expire them
 	var grantsToEmail []struct {
-		Grant   schema.JITGrant
-		Request schema.JITRequest
-		Network models.Network
+		Grant   *schema.JITGrant
+		Request *schema.JITRequest
+		Network *schema.Network
 	}
 
 	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
@@ -249,13 +250,14 @@ func expireJITGrantsWithEmail() error {
 		if expiredGrant.ExpiresAt.After(fiveMinutesAgo) && expiredGrant.RequestID != "" {
 			request := schema.JITRequest{ID: expiredGrant.RequestID}
 			if err := request.Get(ctx); err == nil {
-				network, err := logic.GetNetwork(expiredGrant.NetworkID)
+				network := &schema.Network{Name: expiredGrant.NetworkID}
+				err = network.Get(db.WithContext(context.TODO()))
 				if err == nil {
 					grantsToEmail = append(grantsToEmail, struct {
-						Grant   schema.JITGrant
-						Request schema.JITRequest
-						Network models.Network
-					}{expiredGrant, request, network})
+						Grant   *schema.JITGrant
+						Request *schema.JITRequest
+						Network *schema.Network
+					}{&expiredGrant, &request, network})
 				}
 			}
 		}
@@ -268,7 +270,7 @@ func expireJITGrantsWithEmail() error {
 
 	// Then, send email notifications for the grants we tracked
 	for _, item := range grantsToEmail {
-		if err := email.SendJITExpirationEmail(&item.Grant, &item.Request, item.Network, false, ""); err != nil {
+		if err := email.SendJITExpirationEmail(item.Grant, item.Request, item.Network, false, ""); err != nil {
 			slog.Warn("failed to send expiration email", "grant_id", item.Grant.ID, "user", item.Request.UserName, "error", err)
 		}
 	}

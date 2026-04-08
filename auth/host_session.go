@@ -163,6 +163,7 @@ func SessionHandler(conn *websocket.Conn) {
 	case result := <-answer: // a read from req.answerCh has occurred
 		// add the host, if not exists, handle like enrollment registration
 		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
+			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
 					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
@@ -180,24 +181,19 @@ func SessionHandler(conn *websocket.Conn) {
 			handleHostRegErr(conn, err)
 			return
 		}
-		currHost, err := logic.GetHost(result.Host.ID.String())
-		if err != nil {
-			handleHostRegErr(conn, err)
-			return
-		}
-		var currentNetworks = []string{}
+		var currentNetworks []string
 		if result.ALL {
-			currentNets, err := logic.GetNetworks()
-			if err == nil && len(currentNets) > 0 {
-				for i := range currentNets {
-					currentNetworks = append(currentNetworks, currentNets[i].NetID)
+			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+			if err == nil && len(_networks) > 0 {
+				for i := range _networks {
+					currentNetworks = append(currentNetworks, _networks[i].Name)
 				}
 			}
 		} else if len(result.Network) > 0 {
 			currentNetworks = append(currentNetworks, result.Network)
 		}
-		var netsToAdd = []string{} // track the networks not currently owned by host
-		hostNets := logic.GetHostNetworks(currHost.ID.String())
+		var netsToAdd []string // track the networks not currently owned by host
+		hostNets := logic.GetHostNetworks(result.Host.ID.String())
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
@@ -240,13 +236,14 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username string) {
+func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {
-		if network, err := logic.GetNetwork(netID); err == nil {
-			if featureFlags.EnableDeviceApproval && network.AutoJoin == "false" {
-				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
+		network := &schema.Network{Name: netID}
+		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
+				if logic.DoesHostExistinTheNetworkAlready(h, schema.NetworkID(netID)) {
 					continue
 				}
 				if err := (&schema.PendingHost{
@@ -275,37 +272,37 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 
 			if len(username) > 0 {
 				logic.LogEvent(&models.Event{
-					Action: models.JoinHostToNet,
+					Action: schema.JoinHostToNet,
 					Source: models.Subject{
 						ID:   username,
 						Name: username,
-						Type: models.UserSub,
+						Type: schema.UserSub,
 					},
 					TriggeredBy: username,
 					Target: models.Subject{
 						ID:   h.ID.String(),
 						Name: h.Name,
-						Type: models.DeviceSub,
+						Type: schema.DeviceSub,
 					},
-					NetworkID: models.NetworkID(netID),
-					Origin:    models.Dashboard,
+					NetworkID: schema.NetworkID(netID),
+					Origin:    schema.Dashboard,
 				})
 			} else {
 				logic.LogEvent(&models.Event{
-					Action: models.JoinHostToNet,
+					Action: schema.JoinHostToNet,
 					Source: models.Subject{
 						ID:   key.Value,
 						Name: key.Tags[0],
-						Type: models.EnrollmentKeySub,
+						Type: schema.EnrollmentKeySub,
 					},
 					TriggeredBy: username,
 					Target: models.Subject{
 						ID:   h.ID.String(),
 						Name: h.Name,
-						Type: models.DeviceSub,
+						Type: schema.DeviceSub,
 					},
-					NetworkID: models.NetworkID(netID),
-					Origin:    models.Dashboard,
+					NetworkID: schema.NetworkID(netID),
+					Origin:    schema.Dashboard,
 				})
 			}
 

@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/gravitl/netmaker/schema"
 )
 
 // Metrics - metrics struct
@@ -48,11 +50,11 @@ type HostInfoMap map[string]HostNetworkInfo
 
 // HostNetworkInfo - holds info related to host networking (used for client side peer calculations)
 type HostNetworkInfo struct {
-	Interfaces   []Iface `json:"interfaces" yaml:"interfaces"`
-	ListenPort   int     `json:"listen_port" yaml:"listen_port"`
-	IsStaticPort bool    `json:"is_static_port"`
-	IsStatic     bool    `json:"is_static"`
-	Version      string  `json:"version"`
+	Interfaces   []schema.Iface `json:"interfaces" yaml:"interfaces"`
+	ListenPort   int            `json:"listen_port" yaml:"listen_port"`
+	IsStaticPort bool           `json:"is_static_port"`
+	IsStatic     bool           `json:"is_static"`
+	Version      string         `json:"version"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 type CValue struct {
 	Network    string      `json:"network,omitempty"`
 	Value      string      `json:"value"`
-	Host       models.Host `json:"host"`
+	Host       schema.Host `json:"host"`
 	Pass       string      `json:"pass,omitempty"`
 	User       string      `json:"user,omitempty"`
 	ALL        bool        `json:"all,omitempty"`

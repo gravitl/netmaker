@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/access_token"
-	"github.com/gravitl/netmaker/cli/cmd/acl"
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/cmd/context"
 	"github.com/gravitl/netmaker/cli/cmd/dns"
@@ -48,7 +47,6 @@ func init() {
 	// Bind subcommands here
 	rootCmd.AddCommand(network.GetRoot())
 	rootCmd.AddCommand(context.GetRoot())
-	rootCmd.AddCommand(acl.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())
 	rootCmd.AddCommand(server.GetRoot())

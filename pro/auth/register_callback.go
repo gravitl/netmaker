@@ -8,9 +8,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 var (
@@ -69,12 +68,13 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if user exists
-	user, err := logic.GetUser(userClaims.getUserName())
+	user := &schema.User{Username: userClaims.getUserName()}
+	err = user.Get(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
 	}
-	if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
+	if user.PlatformRoleID != schema.AdminRole && user.PlatformRoleID != schema.SuperAdminRole {
 		response := returnErrTemplate(userClaims.getUserName(), "only admin users can register using SSO", state, reqKeyIf)
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(response)

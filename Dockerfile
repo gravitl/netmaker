@@ -6,7 +6,7 @@ COPY . .
 
 RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
 # RUN go build -tags=ee . -o netmaker main.go
-FROM alpine:3.23.2
+FROM alpine:3.23.3
 
 # add a c lib
 # set the working directory
@@ -17,4 +17,5 @@ RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
 EXPOSE 8081
+EXPOSE 6060
 ENTRYPOINT ["./netmaker"]

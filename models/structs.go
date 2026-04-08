@@ -2,10 +2,10 @@ package models
 
 import (
 	"net"
-	"strings"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -141,6 +141,14 @@ type SuccessResponse struct {
 	Response interface{}
 }
 
+type PaginatedResponse struct {
+	Data       interface{} `json:"data"`
+	Page       int         `json:"page"`
+	PerPage    int         `json:"per_page"`
+	Total      int         `json:"total"`
+	TotalPages int         `json:"total_pages"`
+}
+
 // DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`
@@ -194,12 +202,12 @@ type EgressRangeMetric struct {
 	// from. Might not be always set.
 	EgressID string `json:"-"`
 	// EgressName is the name of the egress gateway identified by EgressID. Might not be always set.
-	EgressName     string        `json:"-"`
-	Network        string        `json:"network"`
-	VirtualNetwork string        `json:"virtual_network"`
-	RouteMetric    uint32        `json:"route_metric"` // preffered range 1-999
-	Nat            bool          `json:"nat"`
-	Mode           EgressNATMode `json:"nat_mode"`
+	EgressName     string               `json:"-"`
+	Network        string               `json:"network"`
+	VirtualNetwork string               `json:"virtual_network"`
+	RouteMetric    uint32               `json:"route_metric"` // preffered range 1-999
+	Nat            bool                 `json:"nat"`
+	Mode           schema.EgressNATMode `json:"nat_mode"`
 }
 
 // EgressGatewayRequest - egress gateway request
@@ -268,31 +276,31 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host               Host                    `json:"host" yaml:"host"`
-	Nodes              []Node                  `json:"nodes" yaml:"nodes"`
-	Peers              []wgtypes.PeerConfig    `json:"peers" yaml:"peers"`
-	ServerConfig       ServerConfig            `json:"server_config" yaml:"server_config"`
-	PeerIDs            PeerMap                 `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo    HostInfoMap             `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
-	EgressRoutes       []EgressNetworkRoutes   `json:"egress_network_routes"`
-	FwUpdate           FwUpdate                `json:"fw_update"`
-	ChangeDefaultGw    bool                    `json:"change_default_gw"`
-	DefaultGwIp        net.IP                  `json:"default_gw_ip"`
-	IsInternetGw       bool                    `json:"is_inet_gw"`
-	EndpointDetection  bool                    `json:"endpoint_detection"`
-	NameServers        []string                `json:"name_servers"`
-	EgressWithDomains  []EgressDomain          `json:"egress_with_domains"`
-	DnsNameservers     []Nameserver            `json:"dns_nameservers"`
-	AutoRelayNodes     map[NetworkID][]Node    `json:"auto_relay_nodes"`
-	GwNodes            map[NetworkID][]Node    `json:"gw_nodes"`
-	ReplacePeers       bool                    `json:"replace_peers"`
-	AddressIdentityMap map[string]PeerIdentity `json:"address_identity_map"`
+	Host               schema.Host                 `json:"host" yaml:"host"`
+	Nodes              []Node                      `json:"nodes" yaml:"nodes"`
+	Peers              []wgtypes.PeerConfig        `json:"peers" yaml:"peers"`
+	ServerConfig       ServerConfig                `json:"server_config" yaml:"server_config"`
+	PeerIDs            PeerMap                     `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo    HostInfoMap                 `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes       []EgressNetworkRoutes       `json:"egress_network_routes"`
+	FwUpdate           FwUpdate                    `json:"fw_update"`
+	ChangeDefaultGw    bool                        `json:"change_default_gw"`
+	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
+	IsInternetGw       bool                        `json:"is_inet_gw"`
+	EndpointDetection  bool                        `json:"endpoint_detection"`
+	NameServers        []string                    `json:"name_servers"`
+	EgressWithDomains  []EgressDomain              `json:"egress_with_domains"`
+	DnsNameservers     []Nameserver                `json:"dns_nameservers"`
+	AutoRelayNodes     map[schema.NetworkID][]Node `json:"auto_relay_nodes"`
+	GwNodes            map[schema.NetworkID][]Node `json:"gw_nodes"`
+	ReplacePeers       bool                        `json:"replace_peers"`
+	AddressIdentityMap map[string]PeerIdentity     `json:"address_identity_map"`
 }
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         schema.Host          `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
@@ -302,7 +310,7 @@ type NodeGet struct {
 // NodeJoinResponse data returned to node in response to join
 type NodeJoinResponse struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         schema.Host          `json:"host" yaml:"host"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 }
@@ -336,17 +344,6 @@ type ServerConfig struct {
 	OldAClsSupport              bool   `json:"-"`
 }
 
-// User.NameInCharset - returns if name is in charset below or not
-func (user *User) NameInCharSet() bool {
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
-	for _, char := range user.UserName {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
-}
-
 // ServerIDs - struct to hold server ids.
 type ServerIDs struct {
 	ServerIDs []string `json:"server_ids"`
@@ -354,9 +351,9 @@ type ServerIDs struct {
 
 // JoinData - struct to hold data required for node to join a network on server
 type JoinData struct {
-	Host Host   `json:"host" yaml:"host"`
-	Node Node   `json:"node" yaml:"node"`
-	Key  string `json:"key" yaml:"key"`
+	Host schema.Host `json:"host" yaml:"host"`
+	Node Node        `json:"node" yaml:"node"`
+	Key  string      `json:"key" yaml:"key"`
 }
 
 // HookFunc - function type for hooks that can accept optional parameters
@@ -475,32 +472,58 @@ type IDPSyncTestRequest struct {
 }
 
 type PostureCheckDeviceInfo struct {
-	ClientLocation string
-	ClientVersion  string
-	OS             string
-	OSFamily       string
-	OSVersion      string
-	KernelVersion  string
-	AutoUpdate     bool
-	Tags           map[TagID]struct{}
-	IsUser         bool
-	UserGroups     map[UserGroupID]struct{}
+	ClientLocation  string
+	ClientVersion   string
+	OS              string
+	OSFamily        string
+	OSVersion       string
+	KernelVersion   string
+	AutoUpdate      bool
+	SkipAutoUpdate  bool
+	Tags            map[TagID]struct{}
+	IsUser          bool
+	UserGroups      map[schema.UserGroupID]struct{}
 }
 
 type Violation struct {
-	CheckID   string   `json:"check_id"`
-	Name      string   `json:"name"`
-	Attribute string   `json:"attribute"`
-	Message   string   `json:"message"`
-	Severity  Severity `json:"severity"`
+	CheckID   string          `json:"check_id"`
+	Name      string          `json:"name"`
+	Attribute string          `json:"attribute"`
+	Message   string          `json:"message"`
+	Severity  schema.Severity `json:"severity"`
 }
 
-type Severity int
+type BulkDeleteRequest struct {
+	IDs []string `json:"ids"`
+}
 
-const (
-	SeverityUnknown Severity = iota
-	SeverityLow
-	SeverityMedium
-	SeverityHigh
-	SeverityCritical
-)
+type BulkDeleteError struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type BulkDeleteResponse struct {
+	Deleted []string          `json:"deleted"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkUserStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Disable bool     `json:"disable"`
+}
+
+
+type BulkStatusResponse struct {
+	Updated []string          `json:"updated"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkNodeStatusUpdate struct {
+	IDs       []string `json:"ids"`
+	Connected bool     `json:"connected"`
+}
+
+type BulkExtClientStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Enabled bool     `json:"enabled"`
+}

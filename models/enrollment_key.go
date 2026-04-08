@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -75,7 +76,7 @@ type APIEnrollmentKey struct {
 // RegisterResponse - the response to a successful enrollment register
 type RegisterResponse struct {
 	ServerConf    ServerConfig `json:"server_config"`
-	RequestedHost Host         `json:"requested_host"`
+	RequestedHost schema.Host  `json:"requested_host"`
 }
 
 // EnrollmentKey.IsValid - checks if the key is still valid to use

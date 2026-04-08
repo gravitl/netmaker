@@ -49,7 +49,21 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		}
 	}
 
-	return gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
+	dsn := dbFilePath + "?_journal_mode=WAL&_busy_timeout=5000"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	//sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
+	return db, nil
 }

@@ -3,6 +3,7 @@ package logic
 import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // GetNetworkIngresses - gets the gateways of a network
@@ -41,7 +42,7 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 	return
 }
 
-func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
+func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
 	extclients, err := logic.GetNetworkExtClients(netID.String())
 	if err != nil {

@@ -17,8 +17,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -131,7 +129,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 }
 
 // GetHostNodes - fetches all nodes part of the host
-func GetHostNodes(host *models.Host) []models.Node {
+func GetHostNodes(host *schema.Host) []models.Node {
 	nodes := []models.Node{}
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
@@ -160,23 +158,56 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 	return nodes
 }
 
-// UpdateNodeCheckin - updates the checkin time of a node
+var (
+	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckinsMu sync.Mutex
+)
+
+// UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
+// The actual DB write is deferred to FlushNodeCheckins (every 30s).
+// When caching is disabled (HA mode), writes directly to the DB.
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()
+	node.EgressDetails = models.EgressDetails{}
+	if servercfg.CacheEnabled() {
+		pendingCheckinsMu.Lock()
+		pendingCheckins[node.ID.String()] = *node
+		pendingCheckinsMu.Unlock()
+		storeNodeInCache(*node)
+		storeNodeInNetworkCache(*node, node.Network)
+		return nil
+	}
 	data, err := json.Marshal(node)
 	if err != nil {
 		return err
 	}
-	node.EgressDetails = models.EgressDetails{}
-	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
+	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+}
+
+// FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
+// Called periodically (e.g., every 30s) to avoid per-checkin write lock contention.
+func FlushNodeCheckins() {
+	pendingCheckinsMu.Lock()
+	batch := pendingCheckins
+	pendingCheckins = make(map[string]models.Node)
+	pendingCheckinsMu.Unlock()
+	if len(batch) == 0 {
+		return
 	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
+	var failed int
+	for id, node := range batch {
+		data, err := json.Marshal(node)
+		if err != nil {
+			failed++
+			continue
+		}
+		if err := database.Insert(id, string(data), database.NODES_TABLE_NAME); err != nil {
+			failed++
+		}
 	}
-	return nil
+	if failed > 0 {
+		slog.Error("FlushNodeCheckins: failed to persist checkins", "failed", failed, "total", len(batch))
+	}
 }
 
 // UpsertNode - updates node in the DB
@@ -201,13 +232,13 @@ func UpsertNode(newNode *models.Node) error {
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
-		if network, err := GetParentNetwork(newNode.Network); err == nil {
+		network := &schema.Network{Name: newNode.Network}
+		if err := network.Get(db.WithContext(context.TODO())); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
 		}
 	}
-	nodeACLDelta := currentNode.DefaultACL != newNode.DefaultACL
 	newNode.Fill(currentNode, servercfg.IsPro)
 
 	// check for un-settable server values
@@ -216,12 +247,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	}
 
 	if newNode.ID == currentNode.ID {
-		if nodeACLDelta {
-			if err := UpdateProNodeACLs(newNode); err != nil {
-				logger.Log(1, "failed to apply node level ACLs during creation of node", newNode.ID.String(), "-", err.Error())
-				return err
-			}
-		}
 		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
 		if !currentNode.Connected && newNode.Connected {
@@ -237,15 +262,13 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			if servercfg.CacheEnabled() {
 				storeNodeInCache(*newNode)
 				storeNodeInNetworkCache(*newNode, newNode.Network)
-				if _, ok := allocatedIpMap[newNode.Network]; ok {
-					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-					}
-					if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-					}
+				if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
+				}
+				if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
+					AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
+					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
 				}
 			}
 			return nil
@@ -256,17 +279,16 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 }
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
-func DeleteNode(node *models.Node, purge bool) error {
-	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
-	node.Action = models.NODE_DELETE
-	//delete ext clients if node is ingress gw
+// cleanupNodeReferences handles best-effort cleanup of all external references
+// to a node (relay, internet gw, failover, nameservers, ACL, egress, enrollment keys).
+// Errors are logged but do not prevent node deletion.
+func cleanupNodeReferences(node *models.Node) {
 	if node.IsIngressGateway {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
 	if node.IsRelayed {
-		// cleanup node from relayednodes on relay node
 		relayNode, err := GetNodeByID(node.RelayedBy)
 		if err == nil {
 			relayedNodes := []string{}
@@ -287,7 +309,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		ResetAutoRelayedPeer(node)
 	}
 	if node.IsRelay {
-		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 	if node.InternetGwID != "" {
@@ -307,6 +328,35 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.IsInternetGateway {
 		UnsetInternetGw(node)
 	}
+
+	filters := make(map[string]bool)
+	if node.Address.IP != nil {
+		filters[node.Address.IP.String()] = true
+	}
+	if node.Address6.IP != nil {
+		filters[node.Address6.IP.String()] = true
+	}
+	nameservers, _ := (&schema.Nameserver{
+		NetworkID: node.Network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, ns := range nameservers {
+		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		if len(ns.Servers) > 0 {
+			_ = ns.Update(db.WithContext(context.TODO()))
+		} else {
+			_ = ns.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	go RemoveNodeFromAclPolicy(*node)
+	go RemoveNodeFromEgress(*node)
+	go RemoveNodeFromEnrollmentKeys(node)
+}
+
+func DeleteNode(node *models.Node, purge bool) error {
+	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
+	node.Action = models.NODE_DELETE
+
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -319,43 +369,22 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
+	cleanupNodeReferences(node)
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
+			return delErr
 		}
-		return err
+		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
+		return nil
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-
-	filters := make(map[string]bool)
-	if node.Address.IP != nil {
-		filters[node.Address.IP.String()] = true
-	}
-
-	if node.Address6.IP != nil {
-		filters[node.Address6.IP.String()] = true
-	}
-
-	nameservers, _ := (&schema.Nameserver{
-		NetworkID: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
-	for _, ns := range nameservers {
-		ns.Servers = FilterOutIPs(ns.Servers, filters)
-		if len(ns.Servers) > 0 {
-			_ = ns.Update(db.WithContext(context.TODO()))
-		} else {
-			// TODO: deleting a nameserver dns server could cause trouble for other nodes.
-			// TODO: try to figure out a sequence that works the best.
-			_ = ns.Delete(db.WithContext(context.TODO()))
-		}
-	}
-
-	go RemoveNodeFromAclPolicy(*node)
-	go RemoveNodeFromEgress(*node)
 	return nil
 }
 
@@ -388,11 +417,6 @@ func DeleteNodeByID(node *models.Node) error {
 	}
 	if servercfg.IsDNSMode() {
 		SetDNS()
-	}
-	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
-	if err != nil {
-		// ignoring for now, could hit a nil pointer if delete called twice
-		logger.Log(2, "attempted to remove node ACL for node", node.ID.String())
 	}
 	// removeZombie <- node.ID
 	if err = DeleteMetrics(node.ID.String()); err != nil {
@@ -428,7 +452,7 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetworkByNode(node)
+		err := (&schema.Network{Name: node.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
@@ -485,7 +509,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
@@ -497,7 +521,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
@@ -511,24 +535,10 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
-// GetNetworkByNode - gets the network model from a node
-func GetNetworkByNode(node *models.Node) (models.Network, error) {
-
-	var network = models.Network{}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
-
-	parentNetwork, _ := GetNetworkByNode(node)
+	parentNetwork := &schema.Network{Name: node.Network}
+	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
 	if err == nil {
 		node.NetworkRange = *cidr
@@ -538,9 +548,6 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 		node.NetworkRange6 = *cidr
 	}
 
-	if node.DefaultACL == "" {
-		node.DefaultACL = parentNetwork.DefaultACL
-	}
 	if node.FailOverPeers == nil {
 		node.FailOverPeers = make(map[string]struct{})
 	}
@@ -622,7 +629,10 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	for i := range nodes {
 		node := nodes[i]
 		if !node.IsStatic {
-			h, err := GetHost(node.HostID.String())
+			h := &schema.Host{
+				ID: node.HostID,
+			}
+			err := h.Get(db.WithContext(context.TODO()))
 			if err == nil {
 				node.Location = h.Location
 				node.CountryCode = h.CountryCode
@@ -643,7 +653,10 @@ func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
 		if node.IsStatic {
 			newApiNode.Location = node.StaticNode.Location
 		} else {
-			host, _ := GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			_ = host.Get(db.WithContext(context.TODO()))
 			newApiNode.Location = host.Location
 		}
 
@@ -694,27 +707,22 @@ func createNode(node *models.Node) error {
 	addressLock.Lock()
 	defer addressLock.Unlock()
 
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
 	SetNodeDefaults(node, true)
-
-	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
-	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
-			defaultACLVal = acls.NotAllowed
-		}
+	parentNetwork := &schema.Network{Name: node.Network}
+	err = parentNetwork.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
 	}
-
-	if node.DefaultACL == "" {
-		node.DefaultACL = "unset"
-	}
-
 	if node.Address.IP == nil {
-		if parentNetwork.IsIPv4 == "yes" {
+		if parentNetwork.AddressRange != "" {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
@@ -728,7 +736,7 @@ func createNode(node *models.Node) error {
 		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
-		if parentNetwork.IsIPv6 == "yes" {
+		if parentNetwork.AddressRange6 != "" {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}
@@ -765,25 +773,12 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
-		if _, ok := allocatedIpMap[node.Network]; ok {
-			if node.Address.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-			}
-			if node.Address6.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-			}
+		if node.Address.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
 		}
-	}
-
-	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
-	if err != nil {
-		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
-		return err
-	}
-
-	if err = UpdateProNodeACLs(node); err != nil {
-		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
-		return err
+		if node.Address6.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
+		}
 	}
 
 	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
@@ -836,7 +831,8 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 }
 
 func ValidateEgressRange(netID string, ranges []string) error {
-	network, err := GetNetworkSettings(netID)
+	network := &schema.Network{Name: netID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
