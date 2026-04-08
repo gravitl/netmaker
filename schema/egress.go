@@ -13,8 +13,9 @@ const egressTable = "egresses"
 type EgressNATMode string
 
 const (
-	VirtualNAT EgressNATMode = "virtual_nat"
-	DirectNAT  EgressNATMode = "direct_nat"
+	DisabledNAT EgressNATMode = "disabled"
+	VirtualNAT  EgressNATMode = "virtual_nat"
+	DirectNAT   EgressNATMode = "direct_nat"
 )
 
 type Egress struct {
