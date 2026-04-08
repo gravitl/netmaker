@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -589,6 +590,9 @@ func migrateToEgressV1() {
 					CreatedBy: user.UserName,
 					CreatedAt: time.Now().UTC(),
 				}
+				if !e.Nat {
+					e.Mode = schema.DisabledNAT
+				}
 				err = e.Create(db.WithContext(context.TODO()))
 				if err == nil {
 					acl := models.Acl{
@@ -773,7 +777,7 @@ func cleanupDeletedUserGroupRefs() {
 						newSrc = append(newSrc, src)
 					}
 				}
-			} else if src.ID == models.UserAclID {
+			} else if src.ID == models.UserAclID && src.Value != "*" {
 				if _, ok := existingUsers[src.Value]; ok {
 					newSrc = append(newSrc, src)
 				}
@@ -838,42 +842,53 @@ func migrateNameservers() {
 		if !node.IsGw {
 			continue
 		}
+
 		if node.IngressDNS != "" {
-			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
-				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
-				continue
+			var nsIPs []string
+			for _, nsIP := range strings.Split(node.IngressDNS, ",") {
+				nsIP = strings.TrimSpace(nsIP)
+
+				if (node.Address.IP != nil && node.Address.IP.String() == nsIP) ||
+					(node.Address6.IP != nil && node.Address6.IP.String() == nsIP) {
+					continue
+				}
+				if nsIP == "8.8.8.8" || nsIP == "1.1.1.1" || nsIP == "9.9.9.9" {
+					continue
+				}
+
+				nsIPs = append(nsIPs, nsIP)
 			}
-			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
-				continue
-			}
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			err := host.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				continue
-			}
-			ns := schema.Nameserver{
-				ID:        uuid.NewString(),
-				Name:      fmt.Sprintf("%s gw nameservers", host.Name),
-				NetworkID: node.Network,
-				Servers:   []string{node.IngressDNS},
-				MatchAll:  true,
-				Domains: []schema.NameserverDomain{
-					{
-						Domain: ".",
+
+			if len(nsIPs) > 0 {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err := host.Get(db.WithContext(context.TODO()))
+				if err != nil {
+					continue
+				}
+				ns := schema.Nameserver{
+					ID:        uuid.NewString(),
+					Name:      fmt.Sprintf("%s gw nameservers", host.Name),
+					NetworkID: node.Network,
+					Servers:   nsIPs,
+					MatchAll:  true,
+					Domains: []schema.NameserverDomain{
+						{
+							Domain: ".",
+						},
 					},
-				},
-				Nodes: datatypes.JSONMap{
-					node.ID.String(): struct{}{},
-				},
-				Tags:      make(datatypes.JSONMap),
-				Status:    true,
-				CreatedBy: superAdmin.Username,
+					Nodes: datatypes.JSONMap{
+						node.ID.String(): struct{}{},
+					},
+					Tags:      make(datatypes.JSONMap),
+					Status:    true,
+					CreatedBy: superAdmin.Username,
+				}
+				_ = ns.Create(db.WithContext(context.TODO()))
+				node.IngressDNS = ""
+				_ = logic.UpsertNode(&node)
 			}
-			_ = ns.Create(db.WithContext(context.TODO()))
-			node.IngressDNS = ""
-			_ = logic.UpsertNode(&node)
 		}
 	}
 }
