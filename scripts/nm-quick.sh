@@ -46,7 +46,6 @@ usage() {
 	echo "      with an existing install, -m alone only adds monitoring; use -p -m for a full Pro+monitoring re-install"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
-	echo " -V <version>  install a specific Netmaker release (e.g. v1.5.1 or 1.5.1); sets assets to branch release-<version>"
 	exit 1
 }
 
@@ -1069,23 +1068,12 @@ main (){
 	OPTIND=1
 	HAS_P=0
 	HAS_M=0
-	SPECIFIED_VERSION=""
-	while getopts :cudpmvV: flag; do
+	while getopts :cudpmv flag; do
 		case "${flag}" in
 		p) HAS_P=1 ;;
 		m) HAS_M=1 ;;
-		V) SPECIFIED_VERSION="$OPTARG" ;;
 		esac
 	done
-	if [ -n "$SPECIFIED_VERSION" ]; then
-		LATEST="$SPECIFIED_VERSION"
-		case "$LATEST" in
-		v*) ;;
-		*) LATEST="v${LATEST}" ;;
-		esac
-		BRANCH="release-${LATEST}"
-		echo "Using Netmaker $LATEST (compose/assets from branch $BRANCH)"
-	fi
 	OPTIND=1
 
 	if [ "$HAS_M" -eq 1 ]; then
@@ -1094,7 +1082,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpmvV: flag; do
+	while getopts :cudpmv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -1138,9 +1126,6 @@ main (){
 	v)
 		usage
 		exit 0
-		;;
-	V)
-		# LATEST/BRANCH already applied after first getopts pass
 		;;
 	esac
 done

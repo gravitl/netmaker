@@ -150,6 +150,7 @@ func Keepalive(ctx context.Context) {
 	warmPeerCaches()
 	StartPeerUpdateWorker(ctx)
 	go PublishPeerUpdate(true)
+	metricIntervalReset := logic.SubscribeMetricExportIntervalReset()
 	metricsTicker := time.NewTicker(normalizedMetricsExportInterval())
 	defer metricsTicker.Stop()
 	if servercfg.CacheEnabled() {
@@ -166,7 +167,7 @@ func Keepalive(ctx context.Context) {
 				logic.FlushNodeCheckins()
 			case <-metricsTicker.C:
 				PushAllMetricsToExporter()
-			case <-logic.MetricExportIntervalReset():
+			case <-metricIntervalReset:
 				metricsTicker.Stop()
 				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
 			}
@@ -180,7 +181,7 @@ func Keepalive(ctx context.Context) {
 				sendPeers()
 			case <-metricsTicker.C:
 				PushAllMetricsToExporter()
-			case <-logic.MetricExportIntervalReset():
+			case <-metricIntervalReset:
 				metricsTicker.Stop()
 				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
 			}

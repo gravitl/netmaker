@@ -424,19 +424,30 @@ func GetMetricIntervalInMinutes() time.Duration {
 	return servercfg.GetMetricIntervalInMinutes()
 }
 
-var metricExportIntervalReset = make(chan struct{}, 1)
+var (
+	metricExportIntervalMu   sync.Mutex
+	metricExportIntervalSubs []chan struct{}
+)
+
+// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval setting changes.
+func SubscribeMetricExportIntervalReset() <-chan struct{} {
+	ch := make(chan struct{}, 1)
+	metricExportIntervalMu.Lock()
+	metricExportIntervalSubs = append(metricExportIntervalSubs, ch)
+	metricExportIntervalMu.Unlock()
+	return ch
+}
 
 // NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
 func NotifyMetricExportIntervalChanged() {
-	select {
-	case metricExportIntervalReset <- struct{}{}:
-	default:
+	metricExportIntervalMu.Lock()
+	defer metricExportIntervalMu.Unlock()
+	for _, ch := range metricExportIntervalSubs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
 	}
-}
-
-// MetricExportIntervalReset returns a channel notified when the metric interval setting changes.
-func MetricExportIntervalReset() <-chan struct{} {
-	return metricExportIntervalReset
 }
 
 // GetMetricInterval - get the publish metric interval
