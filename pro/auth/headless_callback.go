@@ -104,7 +104,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	// Send OK to user in the browser
 	var response bytes.Buffer
 	if err := ssoCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
-		User: userClaims.getUserName(),
+		User: user.Username,
 		Verb: "authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
