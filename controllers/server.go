@@ -327,6 +327,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
+		logic.NotifyMetricExportIntervalChanged()
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
