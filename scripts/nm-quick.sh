@@ -9,6 +9,11 @@ if [ "$(basename "$SCRIPT_DIR")" = "netmaker" ]; then
 else
 	INSTALL_DIR="$SCRIPT_DIR/netmaker"
 fi
+# Legacy flat install: compose lived in SCRIPT_DIR (e.g. /root) instead of SCRIPT_DIR/netmaker.
+# Prefer the directory that actually contains docker-compose.yml so -m / upgrade paths match the running stack.
+if [ ! -f "$INSTALL_DIR/docker-compose.yml" ] && [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+	INSTALL_DIR="$SCRIPT_DIR"
+fi
 CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
@@ -37,7 +42,8 @@ usage() {
 	echo "usage: ./nm-quick.sh [-c]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
-	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter)"
+	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter); requires at least 2 GB RAM and 2 vCPUs"
+	echo "      with an existing install, -m alone only adds monitoring; use -p -m for a full Pro+monitoring re-install"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
@@ -203,7 +209,6 @@ setup_nmctl() {
 
 	chmod +x /usr/bin/nmctl
 	echo "using server api.$NETMAKER_BASE_DOMAIN"
-	echo "using master key $MASTER_KEY"
 	nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
 	nmctl context use default
 	RESP=$(nmctl network list)
@@ -516,8 +521,9 @@ set -e
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
-	IP_ADDR=$(curl -s -4 api64.ipify.org || echo "")
-    IP6_ADDR=$(curl -s -6 api64.ipify.org || echo "")
+	IP_ADDR=$(curl -s -4 --connect-timeout 5 --max-time 15 api64.ipify.org || echo "")
+	IP6_ADDR=$(curl -s -6 --connect-timeout 5 --max-time 15 api64.ipify.org || echo "")
+	NETMAKER_BASE_DOMAIN="${NETMAKER_BASE_DOMAIN:-$NM_DOMAIN}"
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi
@@ -583,7 +589,8 @@ set_install_vars() {
 
 	unset GET_EMAIL
 	while [ -z "$GET_EMAIL" ]; do
-		read -p "Email Address for Domain Registration: " GET_EMAIL
+		read -p "Email Address for Domain Registration: " input
+		GET_EMAIL="${input:-$NM_EMAIL}"
 	done
 	EMAIL="$GET_EMAIL"
 
@@ -620,6 +627,88 @@ set_install_vars() {
 	echo "-----------------------------------------------------------------"
 	echo "Confirm Settings for Installation"
 	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+
+	confirm
+}
+
+# set_install_vars_reuse - use values from sourced netmaker.env; minimal prompts (e.g. missing Pro license)
+set_install_vars_reuse() {
+	echo "Applying settings from $CONFIG_PATH ..."
+	NETMAKER_BASE_DOMAIN="${NETMAKER_BASE_DOMAIN:-$NM_DOMAIN}"
+	EMAIL="${EMAIL:-$NM_EMAIL}"
+
+	# Skip ipify lookups when config already has host + domain (avoids long hangs on broken IPv6).
+	if [ -n "$SERVER_HOST" ] && [ -n "$NETMAKER_BASE_DOMAIN" ]; then
+		IP_ADDR=""
+		IP6_ADDR=""
+	else
+		IP_ADDR=$(curl -s -4 --connect-timeout 5 --max-time 15 api64.ipify.org || echo "")
+		IP6_ADDR=$(curl -s -6 --connect-timeout 5 --max-time 15 api64.ipify.org || echo "")
+	fi
+
+	if [ -z "$NETMAKER_BASE_DOMAIN" ]; then
+		if [ -n "$IP_ADDR" ]; then
+			NETMAKER_BASE_DOMAIN=nm.$(echo "$IP_ADDR" | tr . -).nip.io
+		else
+			echo "Could not determine domain. Set NM_DOMAIN in $CONFIG_PATH or choose reconfigure."
+			exit 1
+		fi
+	fi
+
+	if [ -z "$EMAIL" ]; then
+		echo "Could not determine email. Set NM_EMAIL in $CONFIG_PATH or choose reconfigure."
+		exit 1
+	fi
+
+	if [ -z "$SERVER_HOST" ]; then
+		SERVER_HOST=$IP_ADDR
+	fi
+	if [ -z "$SERVER_HOST" ]; then
+		SERVER_HOST=$IP6_ADDR
+	fi
+
+	if test -z "$MASTER_KEY"; then
+		MASTER_KEY=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
+	MQ_USERNAME="${MQ_USERNAME:-netmaker}"
+	if test -z "$MQ_PASSWORD"; then
+		MQ_PASSWORD=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
+	if test -z "$METRICS_SECRET"; then
+		METRICS_SECRET=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
+
+	if [ "$COLLECT_PRO_VARS" = "true" ]; then
+		if [ -z "$LICENSE_KEY" ]; then
+			while [ -z "$LICENSE_KEY" ]; do
+				read -p "License Key: " LICENSE_KEY
+			done
+		fi
+		if [ -z "${NETMAKER_TENANT_ID:-}" ]; then
+			while [ -z "${NETMAKER_TENANT_ID:-}" ]; do
+				read -p "Tenant ID: " NETMAKER_TENANT_ID
+			done
+		fi
+	fi
+
+	echo "-----------------------------------------------------------------"
+	echo "                SETUP ARGUMENTS (existing config)"
+	echo "-----------------------------------------------------------------"
+	echo "        domain: $NETMAKER_BASE_DOMAIN"
+	echo "         email: $EMAIL"
+	echo "     public ip: $SERVER_HOST"
+	echo "-----------------------------------------------------------------"
+	echo "Confirm before continuing with installation"
+	echo "-----------------------------------------------------------------"
 
 	confirm
 }
@@ -777,17 +866,20 @@ print_success() {
 }
 
 cleanup() {
-	# remove the existing netclient's instance from the existing network
-	if ! command -v netclient >/dev/null 2>&1; then
-		return
-	fi
-	if command -v nmctl >/dev/null 2>&1; then
-		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
-		# trim doublequotes
-		node_id="${node_id//\"/}"
-		if test -n "$node_id"; then
-			echo "De-registering the existing netclient..."
-			nmctl node delete netmaker $node_id >/dev/null 2>&1
+	# remove the existing netclient's instance from the existing network (skip when reusing saved config)
+	if [ "${REUSE_EXISTING_CONFIG:-0}" -eq 1 ]; then
+		echo "Keeping existing netclient registration (reusing saved configuration)."
+	else
+		if ! command -v netclient >/dev/null 2>&1; then
+			return
+		fi
+		if command -v nmctl >/dev/null 2>&1; then
+			local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
+			node_id="${node_id//\"/}"
+			if test -n "$node_id"; then
+				echo "De-registering the existing netclient..."
+				nmctl node delete netmaker $node_id >/dev/null 2>&1
+			fi
 		fi
 	fi
 
@@ -876,7 +968,6 @@ downgrade () {
 add_monitoring() {
 	print_logo
 	echo "Adding monitoring stack (Prometheus, Grafana, Exporter)..."
-	echo "NOTE: The monitoring stack requires at least 2 GB of RAM."
 	echo ""
 
 	INSTALL_MONITORING="on"
@@ -956,15 +1047,38 @@ function chsv_check_version_ex() {
 
 main (){
 
+	EXISTING_CONFIG_LOADED=0
+	REUSE_EXISTING_CONFIG=0
+
 	# read the config (check netmaker folder first, then legacy script dir for upgrades)
 	if [ -f "$INSTALL_DIR/$CONFIG_FILE" ]; then
 		CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 		echo "Using config: $CONFIG_PATH"
 		source "$CONFIG_PATH"
+		EXISTING_CONFIG_LOADED=1
 	elif [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
 		CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 		echo "Using config: $CONFIG_PATH (legacy location)"
 		source "$CONFIG_PATH"
+		EXISTING_CONFIG_LOADED=1
+	fi
+
+	# Detect -p and -m together (any order, including -pm) so we can run full Pro+monitoring install
+	# instead of add_monitoring+exit when netmaker.env already exists.
+	OPTIND=1
+	HAS_P=0
+	HAS_M=0
+	while getopts :cudpmv flag; do
+		case "${flag}" in
+		p) HAS_P=1 ;;
+		m) HAS_M=1 ;;
+		esac
+	done
+	OPTIND=1
+
+	if [ "$HAS_M" -eq 1 ]; then
+		echo "NOTE: The monitoring stack requires at least 2 GB of RAM and 2 vCPUs."
+		echo ""
 	fi
 
 	INSTALL_TYPE="ce"
@@ -993,13 +1107,21 @@ main (){
 		;;
 	m)
 		if [ -f "$INSTALL_DIR/$CONFIG_FILE" ] || [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
-			add_monitoring
-			exit 0
+			if [ "$HAS_P" -eq 1 ] && [ "$HAS_M" -eq 1 ]; then
+				echo "installing pro version with monitoring stack (full install)..."
+				INSTALL_TYPE="pro"
+				INSTALL_MONITORING="on"
+				COLLECT_PRO_VARS="true"
+			else
+				add_monitoring
+				exit 0
+			fi
+		else
+			echo "installing pro version with monitoring stack..."
+			INSTALL_TYPE="pro"
+			INSTALL_MONITORING="on"
+			COLLECT_PRO_VARS="true"
 		fi
-		echo "installing pro version with monitoring stack..."
-		INSTALL_TYPE="pro"
-		INSTALL_MONITORING="on"
-		COLLECT_PRO_VARS="true"
 		;;
 	v)
 		usage
@@ -1023,7 +1145,31 @@ done
 	set -e
 
 	# 6. get user input for variables
-	set_install_vars
+	if [ "$EXISTING_CONFIG_LOADED" -eq 1 ]; then
+		echo "-----------------------------------------------------"
+		echo "Existing installation config found at $CONFIG_PATH."
+		echo "Choose how to continue:"
+		select reuse_option in "Keep existing settings from the config file" "Reconfigure (enter domain, email, and license prompts again)"; do
+			case $REPLY in
+			1)
+				REUSE_EXISTING_CONFIG=1
+				break
+				;;
+			2)
+				REUSE_EXISTING_CONFIG=0
+				break
+				;;
+			*) echo "invalid option $REPLY" ;;
+			esac
+		done
+		echo "-----------------------------------------------------"
+	fi
+
+	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
+		set_install_vars_reuse
+	else
+		set_install_vars
+	fi
 
 	set +e
 	cleanup
@@ -1045,11 +1191,13 @@ done
 
 	set -e
 
-	# 11. add netclient to docker-compose and start it up
-	setup_netclient
-
-	# 12. make the netclient a default host and ingress gw
-	configure_netclient
+	# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
+	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
+		echo "Skipping netclient setup and host configuration (reusing saved configuration)."
+	else
+		setup_netclient
+		configure_netclient
+	fi
 
 	# 13. print success message
 	print_success
