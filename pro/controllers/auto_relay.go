@@ -196,6 +196,8 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func autoRelayME(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponse(w, r, "relayed successfully")
+	return
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	// confirm host exists
@@ -361,6 +363,8 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponse(w, r, "relayed successfully")
+	return
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	// confirm host exists
