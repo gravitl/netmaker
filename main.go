@@ -148,13 +148,6 @@ func initialize() { // Client Mode Prereq Check
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
-	if servercfg.IsDNSMode() {
-		err := logic.SetDNS()
-		if err != nil {
-			logger.Log(0, "error occurred initializing DNS: ", err.Error())
-		}
-	}
-
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
