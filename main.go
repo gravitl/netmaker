@@ -22,7 +22,6 @@ import (
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate"
@@ -30,7 +29,6 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
@@ -147,29 +145,9 @@ func initialize() { // Client Mode Prereq Check
 	_ = logic.CleanExpiredSSOStates()
 
 	logic.SetJWTSecret()
-	logic.InitialiseRoles()
-	logic.IntialiseGroups()
-	err = serverctl.SetDefaults()
-	if err != nil {
-		logger.FatalLog("error setting defaults: ", err.Error())
-	}
-	if servercfg.IsDNSMode() {
-		err := functions.SetDNSDir()
-		if err != nil {
-			logger.FatalLog(err.Error())
-		}
-	}
-
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
-	if servercfg.IsDNSMode() {
-		err := logic.SetDNS()
-		if err != nil {
-			logger.Log(0, "error occurred initializing DNS: ", err.Error())
-		}
-	}
-
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
