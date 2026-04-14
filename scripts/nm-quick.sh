@@ -333,35 +333,35 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard-tools dnsutils curl jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="git wireguard-tools dnsutils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard curl jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard jq docker.io docker-compose grep gawk"
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="wget git wireguard-tools curl jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/amazon-linux-release ]; then
-		dependencies="git wireguard-tools bind-utils curl jq docker grep gawk"
+		dependencies="git wireguard-tools bind-utils jq docker grep gawk"
 		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="wget git wireguard-tools bind-utils curl jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='dnf updateinfo'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="wget git wireguard-tools curl jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependencies="git wireguard-tools dnsutils curl jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget curl jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	else
