@@ -20,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/txn2/txeh"
 )
 
 const (
@@ -111,45 +110,7 @@ func DeleteNetworkNameservers(networkID string) error {
 
 // SetDNS - sets the dns on file
 func SetDNS() error {
-	hostfile, err := txeh.NewHosts(&txeh.HostsConfig{})
-	if err != nil {
-		return err
-	}
-	var corefilestring string
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	for _, net := range networks {
-		corefilestring = corefilestring + net.Name + " "
-		dns, err := GetDNS(net.Name)
-		if err != nil && !database.IsEmptyRecord(err) {
-			return err
-		}
-		for _, entry := range dns {
-			hostfile.AddHost(entry.Address, entry.Name)
-		}
-	}
-	dns := GetExtclientDNS()
-	for _, entry := range dns {
-		hostfile.AddHost(entry.Address, entry.Name)
-	}
-	if corefilestring == "" {
-		corefilestring = "example.com"
-	}
-
-	err = hostfile.SaveAs("./config/dnsconfig/netmaker.hosts")
-	if err != nil {
-		return err
-	}
-	/* if something goes wrong with server DNS, check here
-	// commented out bc we were not using IsSplitDNS
-	if servercfg.IsSplitDNS() {
-		err = SetCorefile(corefilestring)
-	}
-	*/
-	return err
+	return nil
 }
 
 // GetDNS - gets the DNS of a current network
