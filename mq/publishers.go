@@ -98,16 +98,17 @@ func publishPeerUpdateNow(replacePeers bool) error {
 		return err
 	}
 
+	serverSnap := logic.LoadPeerUpdateServerSnapshot()
 	for _, host := range hosts {
 		host := host
 		time.Sleep(5 * time.Millisecond)
 		go func(host models.Host) {
-			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+			if pubErr := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil, &serverSnap); pubErr != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
 				}
-				slog.Error("failed to publish peer update to host", id, ": ", err)
+				slog.Error("failed to publish peer update to host", id, ": ", pubErr)
 			}
 		}(host)
 	}
@@ -131,9 +132,10 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	serverSnap := logic.LoadPeerUpdateServerSnapshot()
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, nil, &serverSnap); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -156,10 +158,11 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
+	serverSnap := logic.LoadPeerUpdateServerSnapshot()
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, nil, &serverSnap); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -168,11 +171,11 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup, serverSnap *logic.PeerUpdateServerSnapshot) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients)
+	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients, serverSnap)
 	if err != nil {
 		return err
 	}

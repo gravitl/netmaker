@@ -232,7 +232,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil, nil)
 	if err != nil {
 		logger.Log(0, "could not pull peers for host", hostID, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

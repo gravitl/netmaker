@@ -139,11 +139,37 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	return peerInfo, nil
 }
 
+// PeerUpdateServerSnapshot holds server-wide fields normally read from the database.
+// When generating many peer updates in parallel, pass a single snapshot to avoid
+// thundering-herd contention on the global database mutex.
+type PeerUpdateServerSnapshot struct {
+	Config               models.ServerConfig
+	ServerEnableFlowLogs bool
+}
+
+// LoadPeerUpdateServerSnapshot reads server config/settings once for bulk peer updates.
+func LoadPeerUpdateServerSnapshot() PeerUpdateServerSnapshot {
+	return PeerUpdateServerSnapshot{
+		Config:               GetServerInfo(),
+		ServerEnableFlowLogs: GetServerSettings().EnableFlowLogs,
+	}
+}
+
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.Node,
-	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
+	deletedNode *models.Node, deletedClients []models.ExtClient, serverSnap *PeerUpdateServerSnapshot) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
+	}
+
+	var serverCfg models.ServerConfig
+	var serverEnableFlowLogs bool
+	if serverSnap != nil {
+		serverCfg = serverSnap.Config
+		serverEnableFlowLogs = serverSnap.ServerEnableFlowLogs
+	} else {
+		serverCfg = GetServerInfo()
+		serverEnableFlowLogs = GetServerSettings().EnableFlowLogs
 	}
 
 	// track which nodes are deleted
@@ -163,7 +189,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		Peers:              []wgtypes.PeerConfig{},
 		NodePeers:          []wgtypes.PeerConfig{},
 		HostNetworkInfo:    models.HostInfoMap{},
-		ServerConfig:       GetServerInfo(),
+		ServerConfig:       serverCfg,
 		DnsNameservers:     GetNameserversForHost(host),
 		AutoRelayNodes:     make(map[models.NetworkID][]models.Node),
 		GwNodes:            make(map[models.NetworkID][]models.Node),
@@ -173,7 +199,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		hostPeerUpdate.ManageDNS = false
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+	if !GetFeatureFlags().EnableFlowLogs || !serverEnableFlowLogs {
 		host.EnableFlowLogs = false
 	}
 
