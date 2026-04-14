@@ -12,11 +12,13 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
+	utils.TraceCaller()
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}

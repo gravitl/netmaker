@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logic"
@@ -18,6 +19,13 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.org/x/exp/slog"
 )
+
+// gzipWriterPool avoids allocating a new gzip.Writer per MQTT publish (peer updates, etc.).
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(io.Discard)
+	},
+}
 
 func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT { // just pass along IoT messages
@@ -74,13 +82,28 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 
 func compressPayload(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
-	if _, err := zw.Write(data); err != nil {
+	// Incompressible payloads can grow slightly; JSON usually shrinks.
+	buf.Grow(len(data) + len(data)/8 + 256)
+
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(&buf)
+	var err error
+	if _, err = zw.Write(data); err != nil {
+		_ = zw.Close()
+		zw.Reset(io.Discard)
+		gzipWriterPool.Put(zw)
 		return nil, err
 	}
-	zw.Close()
+	if err = zw.Close(); err != nil {
+		zw.Reset(io.Discard)
+		gzipWriterPool.Put(zw)
+		return nil, err
+	}
+	zw.Reset(io.Discard)
+	gzipWriterPool.Put(zw)
 	return buf.Bytes(), nil
 }
+
 func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	// Create AES block cipher
 	block, err := aes.NewCipher(key)
@@ -94,15 +117,13 @@ func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Create a random nonce
-	nonce := make([]byte, aesGCM.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	// One allocation with capacity for nonce || ciphertext || tag so GCM Seal does not reallocate.
+	nonceSize := aesGCM.NonceSize()
+	out := make([]byte, nonceSize, nonceSize+len(plaintext)+aesGCM.Overhead())
+	if _, err := io.ReadFull(rand.Reader, out[:nonceSize]); err != nil {
 		return nil, err
 	}
-
-	// Encrypt the data
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return ciphertext, nil
+	return aesGCM.Seal(out[:nonceSize], out[:nonceSize], plaintext, nil), nil
 }
 
 func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {

@@ -222,9 +222,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if sendPeerUpdate {
-		if err := mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
+		// if err := mq.PublishPeerUpdate(false); err != nil {
+		// 	logger.Log(0, "fail to publish peer update: ", err.Error())
+		// }
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
