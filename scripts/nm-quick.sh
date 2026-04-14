@@ -183,14 +183,23 @@ configure_netclient() {
 	echo "Host ID: $HOST_ID"
 	# set as a default host
 	set +e
-	HOST_JSON=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
+	GET_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 		-H "Authorization: Bearer ${MASTER_KEY}" \
 		-H "Content-Type: application/json")
-	UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq '.Response | .isdefault = true')
-	curl -s -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
-		-H "Authorization: Bearer ${MASTER_KEY}" \
-		-H "Content-Type: application/json" \
-		-d "$UPDATED_HOST_JSON"
+	GET_HTTP_CODE=$(echo "$GET_RESPONSE" | tail -n1)
+	HOST_JSON=$(echo "$GET_RESPONSE" | head -n -1)
+	if [ "$GET_HTTP_CODE" != "200" ]; then
+		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping set default"
+	else
+		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq '.Response | .isdefault = true')
+		PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
+			-H "Authorization: Bearer ${MASTER_KEY}" \
+			-H "Content-Type: application/json" \
+			-d "$UPDATED_HOST_JSON")
+		if [ "$PUT_HTTP_CODE" != "200" ]; then
+			echo "Warning: failed to set host as default (HTTP $PUT_HTTP_CODE), skipping"
+		fi
+	fi
 	sleep 5
 	# nmctl node create_remote_access_gateway netmaker $NODE_ID
 	# sleep 2

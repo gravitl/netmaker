@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 func hostHandlers(r *mux.Router) {
@@ -695,7 +696,13 @@ func getHost(w http.ResponseWriter, r *http.Request) {
 	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch a host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+
+		apiErr := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			apiErr = logic.NotFound
+		}
+
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
 		return
 	}
 	apiHostData := models.NewApiHostFromSchemaHost(host)
