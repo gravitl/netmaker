@@ -21,6 +21,11 @@ func DeleteHost(hostID string, force bool) *models.ApiHost {
 	return request[models.ApiHost](http.MethodDelete, fmt.Sprintf("/api/hosts/%s?force=%t", hostID, force), nil)
 }
 
+// GetHost - fetches a host
+func GetHost(hostID string) *models.ApiHost {
+	return request[models.ApiHost](http.MethodGet, fmt.Sprintf("/api/hosts/%s", hostID), nil)
+}
+
 // UpdateHost - update a host
 func UpdateHost(hostID string, body *models.ApiHost) *models.ApiHost {
 	return request[models.ApiHost](http.MethodPut, "/api/hosts/"+hostID, body)
