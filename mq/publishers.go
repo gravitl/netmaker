@@ -16,9 +16,70 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const peerUpdateThrottleInterval = 750 * time.Millisecond
+
+var (
+	peerUpdateThrottleMu          sync.Mutex
+	peerUpdateLastPublish         time.Time
+	peerUpdateTimer               *time.Timer
+	peerUpdatePending             bool
+	peerUpdatePendingReplacePeers bool
+)
+
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	utils.TraceCaller()
+	peerUpdateThrottleMu.Lock()
+	shouldPublishNow := peerUpdateLastPublish.IsZero() || time.Since(peerUpdateLastPublish) >= peerUpdateThrottleInterval
+	if shouldPublishNow && !peerUpdatePending && peerUpdateTimer == nil {
+		peerUpdateLastPublish = time.Now()
+		peerUpdateThrottleMu.Unlock()
+		return publishPeerUpdateNow(replacePeers)
+	}
+	peerUpdatePending = true
+	if replacePeers {
+		peerUpdatePendingReplacePeers = true
+	}
+	schedulePendingPeerUpdateLocked()
+	peerUpdateThrottleMu.Unlock()
+	return nil
+}
+
+func schedulePendingPeerUpdateLocked() {
+	if peerUpdateTimer != nil {
+		return
+	}
+	wait := peerUpdateThrottleInterval - time.Since(peerUpdateLastPublish)
+	if wait < 0 {
+		wait = 0
+	}
+	peerUpdateTimer = time.AfterFunc(wait, func() {
+		peerUpdateThrottleMu.Lock()
+		if !peerUpdatePending {
+			peerUpdateTimer = nil
+			peerUpdateThrottleMu.Unlock()
+			return
+		}
+		replacePeers := peerUpdatePendingReplacePeers
+		peerUpdatePending = false
+		peerUpdatePendingReplacePeers = false
+		peerUpdateLastPublish = time.Now()
+		peerUpdateTimer = nil
+		peerUpdateThrottleMu.Unlock()
+
+		if err := publishPeerUpdateNow(replacePeers); err != nil {
+			slog.Error("failed to publish throttled peer update", "error", err)
+		}
+
+		peerUpdateThrottleMu.Lock()
+		if peerUpdatePending {
+			schedulePendingPeerUpdateLocked()
+		}
+		peerUpdateThrottleMu.Unlock()
+	})
+}
+
+func publishPeerUpdateNow(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
