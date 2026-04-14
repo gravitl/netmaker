@@ -334,7 +334,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(
 			0,
@@ -665,7 +665,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// }
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil, nil)
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})

@@ -86,7 +86,7 @@ func disableExtClient(client *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{*client}, false, nil, nil)
+			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{*client}, false, nil)
 		} else {
 			return err
 		}

@@ -168,31 +168,10 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 	return nodes
 }
 
-// nodeJSONSnapshot returns a shallow copy of n with map fields cloned so json.Marshal
-// does not race with concurrent map mutations on the same backing maps (e.g. nodes
-// returned from the in-memory cache share map headers with the cached value).
-func nodeJSONSnapshot(n *models.Node) models.Node {
-	if n == nil {
-		return models.Node{}
-	}
-	out := *n
-	if n.Tags != nil {
-		out.Tags = maps.Clone(n.Tags)
-	}
-	if n.AutoRelayedPeers != nil {
-		out.AutoRelayedPeers = maps.Clone(n.AutoRelayedPeers)
-	}
-	if n.FailOverPeers != nil {
-		out.FailOverPeers = maps.Clone(n.FailOverPeers)
-	}
-	return out
-}
-
 // UpdateNodeCheckin - updates the checkin time of a node
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()
-	snap := nodeJSONSnapshot(node)
-	data, err := json.Marshal(&snap)
+	data, err := json.Marshal(node)
 	if err != nil {
 		return err
 	}
@@ -211,8 +190,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 // UpsertNode - updates node in the DB
 func UpsertNode(newNode *models.Node) error {
 	newNode.SetLastModified()
-	snap := nodeJSONSnapshot(newNode)
-	data, err := json.Marshal(&snap)
+	data, err := json.Marshal(newNode)
 	if err != nil {
 		return err
 	}
@@ -257,8 +235,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
 		}
-		snap := nodeJSONSnapshot(newNode)
-		if data, err := json.Marshal(&snap); err != nil {
+		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
 			err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
@@ -785,8 +762,7 @@ func createNode(node *models.Node) error {
 	}
 	CheckZombies(node)
 	node.SetLastCheckIn()
-	snap := nodeJSONSnapshot(node)
-	nodebytes, err := json.Marshal(&snap)
+	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
 	}

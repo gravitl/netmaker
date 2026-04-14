@@ -67,7 +67,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			}
 			allNodes, err := logic.GetAllNodes()
 			if err == nil {
-				PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil, nil)
+				PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
 			}
 		} else {
 			err = PublishPeerUpdate(false)
@@ -120,7 +120,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			} else {
 
-				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil); err != nil {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
@@ -130,7 +130,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			HostUpdate(&models.HostUpdate{
 				Action: models.UpdateHost,
 				Host:   *currentHost})
-			PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil, nil)
+			PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil)
 		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
