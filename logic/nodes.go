@@ -159,7 +159,7 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 }
 
 var (
-	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckins   = make(map[string]time.Time)
 	pendingCheckinsMu sync.Mutex
 )
 
@@ -171,7 +171,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	node.EgressDetails = models.EgressDetails{}
 	if servercfg.CacheEnabled() {
 		pendingCheckinsMu.Lock()
-		pendingCheckins[node.ID.String()] = *node
+		pendingCheckins[node.ID.String()] = node.LastCheckIn
 		pendingCheckinsMu.Unlock()
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
@@ -189,13 +189,19 @@ func UpdateNodeCheckin(node *models.Node) error {
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
-	pendingCheckins = make(map[string]models.Node)
+	pendingCheckins = make(map[string]time.Time)
 	pendingCheckinsMu.Unlock()
 	if len(batch) == 0 {
 		return
 	}
 	var failed int
-	for id, node := range batch {
+	for id, checkin := range batch {
+		node, err := GetNodeByID(id)
+		if err != nil {
+			failed++
+			continue
+		}
+		node.LastCheckIn = checkin
 		data, err := json.Marshal(node)
 		if err != nil {
 			failed++
