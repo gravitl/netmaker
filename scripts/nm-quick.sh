@@ -772,6 +772,7 @@ install_netmaker() {
 		rm -f "$INSTALL_DIR"/docker-compose.override.yml
 	fi
 	wget -qO "$INSTALL_DIR"/docker-compose.yml $COMPOSE_URL
+	yq -i '.services.netmaker.image = "ABCDEF/GHIJKL:MNOPQR"' "$INSTALL_DIR/docker-compose.yml"
 
 	wget -qO "$INSTALL_DIR"/Caddyfile "$CADDY_URL"
 	if [ "$INSTALL_TYPE" = "pro" ] && [ "$INSTALL_MONITORING" != "on" ]; then
