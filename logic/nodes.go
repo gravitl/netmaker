@@ -36,21 +36,59 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
-	if node.Mutex == nil {
-		node.Mutex = &sync.Mutex{}
+	if !ok {
+		nodeCacheMutex.RUnlock()
+		return
+	}
+	if node.Mutex != nil {
+		nodeCacheMutex.RUnlock()
+		return node, true
 	}
 	nodeCacheMutex.RUnlock()
-	return
+
+	nodeCacheMutex.Lock()
+	defer nodeCacheMutex.Unlock()
+	node, ok = nodesCacheMap[nodeID]
+	if !ok {
+		return node, false
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+		nodesCacheMap[nodeID] = node
+	}
+	return node, true
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
+	needsMutex := false
 	for _, node := range nodesCacheMap {
 		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
+			needsMutex = true
+			break
 		}
-		nodes = append(nodes, node)
+	}
+	if !needsMutex {
+		nodes = make([]models.Node, 0, len(nodesCacheMap))
+		for _, node := range nodesCacheMap {
+			nodes = append(nodes, node)
+		}
+		nodeCacheMutex.RUnlock()
+		return
 	}
 	nodeCacheMutex.RUnlock()
+
+	nodeCacheMutex.Lock()
+	for id, node := range nodesCacheMap {
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+			nodesCacheMap[id] = node
+		}
+	}
+	nodes = make([]models.Node, 0, len(nodesCacheMap))
+	for _, node := range nodesCacheMap {
+		nodes = append(nodes, node)
+	}
+	nodeCacheMutex.Unlock()
 	return
 }
 
@@ -66,6 +104,9 @@ func deleteNodeFromNetworkCache(nodeID string, network string) {
 }
 
 func storeNodeInNetworkCache(node models.Node, network string) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeNetworkCacheMutex.Lock()
 	if nodesNetworkCacheMap[network] == nil {
 		nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -75,6 +116,9 @@ func storeNodeInNetworkCache(node models.Node, network string) {
 }
 
 func storeNodeInCache(node models.Node) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap[node.ID.String()] = node
 	nodeCacheMutex.Unlock()
@@ -82,6 +126,9 @@ func storeNodeInCache(node models.Node) {
 func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 	nodeNetworkCacheMutex.Lock()
 	for _, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+		}
 		network := v.Network
 		if nodesNetworkCacheMap[network] == nil {
 			nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -92,6 +139,12 @@ func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 }
 
 func loadNodesIntoCache(nMap map[string]models.Node) {
+	for id, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+			nMap[id] = v
+		}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap = nMap
 	nodeCacheMutex.Unlock()
