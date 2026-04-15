@@ -1,7 +1,9 @@
 package functions
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gravitl/netmaker/models"
@@ -23,7 +25,27 @@ func DeleteHost(hostID string, force bool) *models.ApiHost {
 
 // GetHost - fetches a host
 func GetHost(hostID string) *models.ApiHost {
-	return request[models.ApiHost](http.MethodGet, fmt.Sprintf("/api/hosts/%s", hostID), nil)
+	resp := request[models.SuccessResponse](http.MethodGet, fmt.Sprintf("/api/hosts/%s", hostID), nil)
+	if resp.Code != http.StatusOK {
+		log.Fatalf("Error Status: %d Response: %s", resp.Code, resp.Message)
+	}
+
+	if resp.Response == nil {
+		log.Fatalf("Empty response")
+	}
+
+	bytes, err := json.Marshal(resp.Response)
+	if err != nil {
+		log.Fatalf("Error reading Response: %s", err)
+	}
+
+	var host models.ApiHost
+	err = json.Unmarshal(bytes, &host)
+	if err != nil {
+		log.Fatalf("Error unmarshalling JSON: %s", err)
+	}
+
+	return &host
 }
 
 // UpdateHost - update a host
