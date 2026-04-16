@@ -521,7 +521,11 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			//remove old peer entry
 			replacePeers = true
 		}
-		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		var endpointChanged bool
+		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if endpointChanged {
+			logic.CheckHostPorts(currentHost)
+		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
