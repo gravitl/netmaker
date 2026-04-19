@@ -447,12 +447,12 @@ func GetPublicIP() (string, error) {
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			continue
+		}
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				continue
-			}
 			endpoint = string(bodyBytes)
 			break
 		}

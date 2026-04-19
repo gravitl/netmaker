@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 )
+
+// graphHTTPClient is used for all Microsoft Graph and token calls; the default client has no timeout.
+var graphHTTPClient = &http.Client{Timeout: 60 * time.Second}
 
 type Client struct {
 	clientID     string
@@ -37,7 +41,6 @@ func (a *Client) Verify() error {
 		return err
 	}
 
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled&$top=1", nil)
 	if err != nil {
 		return err
@@ -46,16 +49,14 @@ func (a *Client) Verify() error {
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := graphHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	var users getUsersResponse
 	err = json.NewDecoder(resp.Body).Decode(&users)
+	resp.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -72,16 +73,14 @@ func (a *Client) Verify() error {
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Accept", "application/json")
 
-	resp, err = client.Do(req)
+	resp, err = graphHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	var groups getGroupsResponse
 	err = json.NewDecoder(resp.Body).Decode(&groups)
+	resp.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,6 @@ func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 		return nil, err
 	}
 
-	client := &http.Client{}
 	getUsersURL := "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled"
 	if len(filters) > 0 {
 		getUsersURL += "&" + buildPrefixFilter("userPrincipalName", filters)
@@ -115,7 +113,7 @@ func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 		req.Header.Add("Authorization", "Bearer "+accessToken)
 		req.Header.Add("Accept", "application/json")
 
-		resp, err := client.Do(req)
+		resp, err := graphHTTPClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +146,6 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 		return nil, err
 	}
 
-	client := &http.Client{}
 	getGroupsURL := "https://graph.microsoft.com/v1.0/groups?$select=id,displayName"
 	if len(filters) > 0 {
 		getGroupsURL += "&" + buildPrefixFilter("displayName", filters)
@@ -164,7 +161,7 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 		req.Header.Add("Authorization", "Bearer "+accessToken)
 		req.Header.Add("Accept", "application/json")
 
-		resp, err := client.Do(req)
+		resp, err := graphHTTPClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +197,6 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 
 // getGroupMembers fetches all members of a group with pagination support
 func (a *Client) getGroupMembers(accessToken, groupID string) ([]string, error) {
-	client := &http.Client{}
 	getMembersURL := fmt.Sprintf("https://graph.microsoft.com/v1.0/groups/%s/members?$select=id", groupID)
 
 	var allMembers []string
@@ -213,7 +209,7 @@ func (a *Client) getGroupMembers(accessToken, groupID string) ([]string, error) 
 		req.Header.Add("Authorization", "Bearer "+accessToken)
 		req.Header.Add("Accept", "application/json")
 
-		resp, err := client.Do(req)
+		resp, err := graphHTTPClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +246,7 @@ func (a *Client) getAccessToken() (string, error) {
 	data.Set("client_secret", a.clientSecret)
 	data.Set("scope", "https://graph.microsoft.com/.default")
 
-	resp, err := http.PostForm(tokenURL, data)
+	resp, err := graphHTTPClient.PostForm(tokenURL, data)
 	if err != nil {
 		return "", errors.New("invalid credentials")
 	}

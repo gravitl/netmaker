@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -227,7 +228,7 @@ func getGithubUserInfo(state, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	var httpClient = &http.Client{}
+	var httpClient = &http.Client{Timeout: 30 * time.Second}
 	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user", nil)
 	if reqErr != nil {
 		return nil, fmt.Errorf("failed to create request to GitHub")
@@ -268,7 +269,7 @@ func verifyGithubUser(token *oauth2.Token) bool {
 
 func getGithubEmailsInfo(accessToken string) (string, error) {
 
-	var httpClient = &http.Client{}
+	var httpClient = &http.Client{Timeout: 30 * time.Second}
 	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user/emails", nil)
 	if reqErr != nil {
 		return "", fmt.Errorf("failed to create request to GitHub")

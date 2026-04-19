@@ -56,7 +56,7 @@ func getEmqxAuthTokenOld() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.Post(os.Getenv("OLD_EMQX_REST_ENDPOINT")+"/api/v5/login", "application/json", bytes.NewReader(payload))
+	resp, err := emqxHTTPClient.Post(os.Getenv("OLD_EMQX_REST_ENDPOINT")+"/api/v5/login", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
@@ -136,14 +136,13 @@ func KickOutClients() error {
 
 	for _, host := range hosts {
 		url := fmt.Sprintf("%s/api/v5/clients/%s", os.Getenv("OLD_EMQX_REST_ENDPOINT"), host.ID.String())
-		client := &http.Client{}
 		req, err := http.NewRequest(http.MethodDelete, url, nil)
 		if err != nil {
 			slog.Error("failed to kick out client:", "client", host.ID.String(), "error", err)
 			continue
 		}
 		req.Header.Add("Authorization", "Bearer "+authToken)
-		res, err := client.Do(req)
+		res, err := emqxHTTPClient.Do(req)
 		if err != nil {
 			slog.Error("failed to kick out client:", "client", host.ID.String(), "req-error", err)
 			continue
@@ -151,6 +150,7 @@ func KickOutClients() error {
 		if res.StatusCode != http.StatusNoContent {
 			slog.Error("failed to kick out client:", "client", host.ID.String(), "status-code", res.StatusCode)
 		}
+		io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 	}
 	return nil

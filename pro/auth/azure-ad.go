@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -242,7 +243,8 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	}
 
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	response, err := http.DefaultClient.Do(httpReq)
+	graphClient := &http.Client{Timeout: 30 * time.Second}
+	response, err := graphClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}

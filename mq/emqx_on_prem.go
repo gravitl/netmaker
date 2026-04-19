@@ -7,9 +7,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+// emqxHTTPClient avoids unbounded hangs and helps connection reuse when calling EMQX REST APIs.
+var emqxHTTPClient = &http.Client{Timeout: 45 * time.Second}
 
 type EmqxOnPrem struct {
 	URL      string
@@ -59,7 +63,7 @@ func getEmqxAuthToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.Post(servercfg.GetEmqxRestEndpoint()+"/api/v5/login", "application/json", bytes.NewReader(payload))
+	resp, err := emqxHTTPClient.Post(servercfg.GetEmqxRestEndpoint()+"/api/v5/login", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +103,7 @@ func (e *EmqxOnPrem) CreateEmqxUser(username, password string) error {
 	}
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -134,7 +138,7 @@ func (e *EmqxOnPrem) CreateEmqxUserforServer() error {
 	}
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -162,7 +166,7 @@ func (e *EmqxOnPrem) DeleteEmqxUser(username string) error {
 		return err
 	}
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -197,7 +201,7 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthenticator() error {
 	}
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -233,7 +237,7 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthorizer() error {
 	}
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -267,7 +271,7 @@ func (e *EmqxOnPrem) CreateDefaultAllowRule() error {
 	}
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}

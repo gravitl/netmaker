@@ -31,7 +31,6 @@ func (e *EmqxCloud) CreateEmqxUser(username, pass string) error {
 		Password: pass,
 	}
 	data, _ := json.Marshal(payload)
-	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
@@ -39,7 +38,7 @@ func (e *EmqxCloud) CreateEmqxUser(username, pass string) error {
 	req.SetBasicAuth(e.AppID, e.AppSecret)
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := client.Do(req)
+	res, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -61,7 +60,6 @@ func (e *EmqxCloud) CreateEmqxUserforServer() error {
 		Password: servercfg.GetMqPassword(),
 	}
 	data, _ := json.Marshal(payload)
-	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
@@ -69,7 +67,7 @@ func (e *EmqxCloud) CreateEmqxUserforServer() error {
 	req.SetBasicAuth(e.AppID, e.AppSecret)
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := client.Do(req)
+	res, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -95,13 +93,12 @@ func (e *EmqxCloud) CreateDefaultAllowRule() error {
 
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 
-	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/auth_username/%s", e.URL, username), nil)
 	if err != nil {
 		return err
 	}
 	req.SetBasicAuth(e.AppID, e.AppSecret)
-	res, err := client.Do(req)
+	res, err := emqxHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}

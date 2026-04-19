@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 )
+
+// externalGeoHTTPClient avoids hanging on unresponsive geo-IP services (default client has no timeout).
+var externalGeoHTTPClient = &http.Client{Timeout: 20 * time.Second}
 
 type GeoInfo struct {
 	IP          string
@@ -33,7 +37,7 @@ func getGeoInfoFromIPAPI(ip ...net.IP) (*GeoInfo, error) {
 	if len(ip) > 0 {
 		url = fmt.Sprintf("https://api.ipapi.is/?q=%s", ip[0].String())
 	}
-	resp, err := http.Get(url)
+	resp, err := externalGeoHTTPClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +70,7 @@ func getGeoInfoFromIPAPI(ip ...net.IP) (*GeoInfo, error) {
 
 func getGeoInfoFromCloudFlare(ip ...net.IP) (*GeoInfo, error) {
 	var geoInfo GeoInfo
-	resp, err := http.Get("https://speed.cloudflare.com/meta")
+	resp, err := externalGeoHTTPClient.Get("https://speed.cloudflare.com/meta")
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +116,7 @@ func getGeoInfoFromIpInfo(ip ...net.IP) (*GeoInfo, error) {
 		url = fmt.Sprintf("https://ipinfo.io/%s/json", ip[0].String())
 	}
 	var geoInfo GeoInfo
-	resp, err := http.Get(url)
+	resp, err := externalGeoHTTPClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
