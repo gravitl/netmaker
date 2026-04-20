@@ -125,7 +125,7 @@ func SetupMQTT(fatal bool) {
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
-	//go PublishPeerUpdate(true)
+	go PublishPeerUpdate(false)
 	for {
 		select {
 		case <-ctx.Done():
