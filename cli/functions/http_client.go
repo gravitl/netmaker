@@ -197,6 +197,8 @@ func request[T any](method, route string, payload any) *T {
 		if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
 			retried = true
 			continue
+		} else if res.StatusCode == http.StatusUnauthorized {
+			log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
 		}
 
 		if res.StatusCode != http.StatusOK {

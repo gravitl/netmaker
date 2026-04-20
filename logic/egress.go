@@ -124,21 +124,15 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 // often shallow-copied while sharing the same Tags map, so callers must not range Tags while
 // other goroutines mutate that map.
 func snapshotNodeTagIDs(n *models.Node) []models.TagID {
-	if n == nil || len(n.Tags) == 0 {
+	if n == nil {
 		return nil
 	}
 	if n.Mutex != nil {
 		n.Mutex.Lock()
-		if len(n.Tags) == 0 {
-			n.Mutex.Unlock()
-			return nil
-		}
-		out := make([]models.TagID, 0, len(n.Tags))
-		for tid := range n.Tags {
-			out = append(out, tid)
-		}
-		n.Mutex.Unlock()
-		return out
+		defer n.Mutex.Unlock()
+	}
+	if len(n.Tags) == 0 {
+		return nil
 	}
 	out := make([]models.TagID, 0, len(n.Tags))
 	for tid := range n.Tags {
