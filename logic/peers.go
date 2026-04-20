@@ -363,12 +363,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if allowedToComm {
 				if peer.IsAutoRelay {
-					hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
-						peer)
+					// hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
+					// 	peer)
 				}
 				if node.AutoAssignGateway && peer.IsGw {
-					hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)],
-						peer)
+					// hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)],
+					// 	peer)
 				}
 			}
 
