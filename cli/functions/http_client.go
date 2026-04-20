@@ -168,6 +168,7 @@ func request[T any](method, route string, payload any) *T {
 	}
 	httpClient := &http.Client{Timeout: 120 * time.Second}
 	retried := false
+	// Every path in this loop terminates via return (success) or log.Fatalf (error / repeated 401). The retried flag ensures at most one token-refresh retry. This prevents future maintainers from inadvertently adding a status-code branch that silently loops forever
 	for {
 		if payload != nil {
 			req.Body = io.NopCloser(bytes.NewReader(payloadBytes))
