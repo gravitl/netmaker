@@ -168,11 +168,12 @@ const (
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
 
+	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
+		nodeNetworkCacheMutex.RUnlock()
 		return slices.Collect(maps.Values(networkNodes)), nil
 	}
+	nodeNetworkCacheMutex.RUnlock()
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
@@ -196,11 +197,12 @@ func GetHostNodes(host *schema.Host) []models.Node {
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
 
+	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
+		nodeNetworkCacheMutex.RUnlock()
 		return slices.Collect(maps.Values(networkNodes))
 	}
+	nodeNetworkCacheMutex.RUnlock()
 	var nodes = make([]models.Node, 0, len(allNodes))
 	for i := range allNodes {
 		node := allNodes[i]
