@@ -550,11 +550,11 @@ func GetAllNodes() ([]models.Node, error) {
 			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
-		// add node to our array
-		nodes = append(nodes, node)
 		if node.Mutex == nil {
 			node.Mutex = &sync.Mutex{}
 		}
+		// add node to our array
+		nodes = append(nodes, node)
 		nodesMap[node.ID.String()] = node
 	}
 
