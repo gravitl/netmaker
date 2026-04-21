@@ -140,11 +140,7 @@ func snapshotNodeTagIDs(n *models.Node) []models.TagID {
 		n.Mutex.Unlock()
 		return out
 	}
-	out := make([]models.TagID, 0, len(n.Tags))
-	for tid := range n.Tags {
-		out = append(out, tid)
-	}
-	return out
+	return nil
 }
 
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {

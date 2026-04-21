@@ -78,6 +78,7 @@ func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RUnlock()
 
 	nodeCacheMutex.Lock()
+	defer nodeCacheMutex.Unlock()
 	for id, node := range nodesCacheMap {
 		if node.Mutex == nil {
 			node.Mutex = &sync.Mutex{}
@@ -88,7 +89,6 @@ func getNodesFromCache() (nodes []models.Node) {
 	for _, node := range nodesCacheMap {
 		nodes = append(nodes, node)
 	}
-	nodeCacheMutex.Unlock()
 	return
 }
 
