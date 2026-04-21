@@ -170,8 +170,9 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 
 	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodes := slices.Collect(maps.Values(networkNodes))
 		nodeNetworkCacheMutex.RUnlock()
-		return slices.Collect(maps.Values(networkNodes)), nil
+		return nodes, nil
 	}
 	nodeNetworkCacheMutex.RUnlock()
 	allnodes, err := GetAllNodes()
@@ -199,8 +200,9 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 
 	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodes := slices.Collect(maps.Values(networkNodes))
 		nodeNetworkCacheMutex.RUnlock()
-		return slices.Collect(maps.Values(networkNodes))
+		return nodes
 	}
 	nodeNetworkCacheMutex.RUnlock()
 	var nodes = make([]models.Node, 0, len(allNodes))
