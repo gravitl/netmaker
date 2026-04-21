@@ -100,7 +100,8 @@ func getAuthToken(ctx config.Context, force bool) string {
 		if err != nil {
 			log.Fatal(err)
 		}
-		res, err := http.Post(ctx.Endpoint+"/api/users/adm/authenticate", "application/json", bytes.NewReader(payload))
+		authClient := &http.Client{Timeout: 60 * time.Second}
+		res, err := authClient.Post(ctx.Endpoint+"/api/users/adm/authenticate", "application/json", bytes.NewReader(payload))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -148,14 +149,15 @@ func request[T any](method, route string, payload any) *T {
 		req    *http.Request
 		err    error
 	)
+	var payloadBytes []byte
 	if payload == nil {
 		req, err = http.NewRequest(method, ctx.Endpoint+route, nil)
 		if err != nil {
 			log.Fatalf("Client could not create request: %s", err)
 		}
 	} else {
-		payloadBytes, jsonErr := json.Marshal(payload)
-		if jsonErr != nil {
+		payloadBytes, err = json.Marshal(payload)
+		if err != nil {
 			log.Fatalf("Error in request JSON marshalling: %s", err)
 		}
 		req, err = http.NewRequest(method, ctx.Endpoint+route, bytes.NewReader(payloadBytes))
@@ -164,38 +166,53 @@ func request[T any](method, route string, payload any) *T {
 		}
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if ctx.MasterKey != "" {
-		req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
-	} else {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
-	}
+	httpClient := &http.Client{Timeout: 120 * time.Second}
 	retried := false
-retry:
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatalf("Client error making http request: %s", err)
-	}
-	// refresh JWT token
-	if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
-		retried = true
-		// TODO add a retry limit, drop goto
-		goto retry
-	}
-	resBodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Fatalf("Client could not read response body: %s", err)
-	}
-	if res.StatusCode != http.StatusOK {
-		log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
-	}
-	body := new(T)
-	if len(resBodyBytes) > 0 {
-		if err := json.Unmarshal(resBodyBytes, body); err != nil {
-			log.Fatalf("Error unmarshalling JSON: %s %s", err, string(resBodyBytes))
+	// Every path in this loop terminates via return (success) or log.Fatalf (error / repeated 401). The retried flag ensures at most one token-refresh retry. This prevents future maintainers from inadvertently adding a status-code branch that silently loops forever
+	for {
+		if payload != nil {
+			req.Body = io.NopCloser(bytes.NewReader(payloadBytes))
+			req.ContentLength = int64(len(payloadBytes))
 		}
+		if ctx.MasterKey != "" {
+			req.Header.Set("Authorization", "Bearer "+ctx.MasterKey)
+		} else {
+			if retried {
+				req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
+			} else {
+				req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
+			}
+		}
+
+		res, err := httpClient.Do(req)
+		if err != nil {
+			log.Fatalf("Client error making http request: %s", err)
+		}
+		resBodyBytes, readErr := io.ReadAll(res.Body)
+		res.Body.Close()
+		if readErr != nil {
+			log.Fatalf("Client could not read response body: %s", readErr)
+		}
+
+		// refresh JWT token once on 401
+		if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
+			retried = true
+			continue
+		} else if res.StatusCode == http.StatusUnauthorized {
+			log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
+		}
+
+		if res.StatusCode != http.StatusOK {
+			log.Fatalf("Error Status: %d Response: %s", res.StatusCode, string(resBodyBytes))
+		}
+		body := new(T)
+		if len(resBodyBytes) > 0 {
+			if err := json.Unmarshal(resBodyBytes, body); err != nil {
+				log.Fatalf("Error unmarshalling JSON: %s %s", err, string(resBodyBytes))
+			}
+		}
+		return body
 	}
-	return body
 }
 
 func get(route string) string {
@@ -209,10 +226,12 @@ func get(route string) string {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 	}
-	res, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 120 * time.Second}
+	res, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer res.Body.Close()
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -283,7 +302,7 @@ func basicAuthSaasSignin(email, password string) (string, http.Header, error) {
 func tenantLogin(ctx config.Context, sToken string) (string, string, error) {
 	url := fmt.Sprintf("%s/api/v1/tenant/login?tenant_id=%s", ambBaseUrl, ctx.TenantId)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 
 	if err != nil {
@@ -403,7 +422,7 @@ func tenantLoginV2(ambJwt, tenantId, email string) (string, string, error) {
 	payloadBuf := new(bytes.Buffer)
 	json.NewEncoder(payloadBuf).Encode(payload)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("POST", url, payloadBuf)
 	if err != nil {
 		slog.Error("error creating request", "err", err)

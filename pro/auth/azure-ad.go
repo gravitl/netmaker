@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -91,8 +93,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := &schema.User{Username: content.UserPrincipalName}
-	err = user.Get(r.Context())
+	user, err := GetMatchingUser(content)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
@@ -142,8 +143,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user = &schema.User{Username: content.UserPrincipalName}
-	err = user.Get(r.Context())
+	user, err = GetMatchingUser(content)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -199,6 +199,30 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)
 }
 
+func GetMatchingUser(oauthUser *OAuthUser) (*schema.User, error) {
+	user := &schema.User{
+		Username: oauthUser.UserPrincipalName,
+	}
+	err := user.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	} else {
+		return user, nil
+	}
+
+	user = &schema.User{
+		ExternalIdentityProviderID: string(oauthUser.ID),
+	}
+	err = user.GetByExternalID(db.WithContext(context.TODO()))
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
@@ -219,7 +243,8 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	}
 
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	response, err := http.DefaultClient.Do(httpReq)
+	graphClient := &http.Client{Timeout: 30 * time.Second}
+	response, err := graphClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}

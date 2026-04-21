@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 func hostHandlers(r *mux.Router) {
@@ -41,6 +42,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).
 		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(getHost))).
+		Methods(http.MethodGet)
 	// used by netclient
 	r.HandleFunc("/api/hosts/{hostid}", AuthorizeHost(http.HandlerFunc(deleteHost))).
 		Methods(http.MethodDelete)
@@ -671,6 +674,41 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
 
+// @Summary     Fetches a Netclient host from Netmaker server
+// @Router      /api/hosts/{hostid} [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       hostid path string true "Host ID"
+// @Success     200 {object} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
+func getHost(w http.ResponseWriter, r *http.Request) {
+	hostIDStr := mux.Vars(r)["hostid"]
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		err = fmt.Errorf("failed to parse host id: %w", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	host := &schema.Host{
+		ID: hostID,
+	}
+	err = host.Get(r.Context())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch a host:", err.Error())
+
+		apiErr := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			apiErr = logic.NotFound
+		}
+
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
+		return
+	}
+	apiHostData := models.NewApiHostFromSchemaHost(host)
+	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "fetched host "+host.Name)
+}
+
 // @Summary     Bulk delete hosts
 // @Router      /api/v1/hosts/bulk [delete]
 // @Tags        Hosts
@@ -698,25 +736,25 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 		for _, idStr := range req.IDs {
 			hostID, err := uuid.Parse(idStr)
 			if err != nil {
-				slog.Error("bulk host delete: invalid host id", "id", idStr)
+				slog.Debug("bulk host delete: invalid host id", "id", idStr)
 				continue
 			}
 			currHost := &schema.Host{ID: hostID}
 			if err = currHost.Get(db.WithContext(context.Background())); err != nil {
-				slog.Error("bulk host delete: host not found", "id", idStr, "error", err)
+				slog.Debug("bulk host delete: host not found", "id", idStr, "error", err)
 				continue
 			}
 			var hostNodes []models.Node
 			for _, nodeID := range currHost.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
 				if err != nil {
-					slog.Error("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
+					slog.Debug("bulk host delete: failed to get node", "nodeid", nodeID, "error", err)
 					continue
 				}
 				hostNodes = append(hostNodes, node)
 			}
 			if err = logic.RemoveHost(currHost, true); err != nil {
-				slog.Error("bulk host delete: failed to remove host", "id", idStr, "error", err)
+				slog.Debug("bulk host delete: failed to remove host", "id", idStr, "error", err)
 				continue
 			}
 			for _, node := range hostNodes {
@@ -724,14 +762,14 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
-					slog.Error("bulk host delete: failed to remove EMQX credentials", "id", currHost.ID, "error", err)
+					slog.Debug("bulk host delete: failed to remove EMQX credentials", "id", currHost.ID, "error", err)
 				}
 			}
 			if err = mq.HostUpdate(&models.HostUpdate{
 				Action: models.DeleteHost,
 				Host:   *currHost,
 			}); err != nil {
-				slog.Error("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
+				slog.Debug("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
 			}
 			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
 			logic.LogEvent(&models.Event{

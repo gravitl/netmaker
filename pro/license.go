@@ -140,7 +140,8 @@ func ValidateLicense() (err error) {
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
-	_ = mq.PublishExporterFeatureFlags()
+	go mq.PublishExporterFeatureFlags()
+	go mq.PublishPeerUpdate(false)
 
 	slog.Info("License validation succeeded!")
 	return nil
@@ -237,7 +238,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 			}
 			req.Header.Add("Content-Type", "application/json")
 			req.Header.Add("Accept", "application/json")
-			client := &http.Client{}
+			client := &http.Client{Timeout: 60 * time.Second}
 
 			validateResponse, err = client.Do(req)
 			if err != nil {
@@ -249,6 +250,8 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 				validateResponse.StatusCode == http.StatusGatewayTimeout ||
 				validateResponse.StatusCode == http.StatusBadGateway {
 				timedOut = true
+				_, _ = io.Copy(io.Discard, validateResponse.Body)
+				validateResponse.Body.Close()
 				return errors.New("failed to reach netmaker api")
 			}
 

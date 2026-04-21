@@ -36,18 +36,32 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
-	if node.Mutex == nil {
-		node.Mutex = &sync.Mutex{}
+	if !ok {
+		nodeCacheMutex.RUnlock()
+		return
+	}
+	if node.Mutex != nil {
+		nodeCacheMutex.RUnlock()
+		return node, true
 	}
 	nodeCacheMutex.RUnlock()
-	return
+
+	nodeCacheMutex.Lock()
+	defer nodeCacheMutex.Unlock()
+	node, ok = nodesCacheMap[nodeID]
+	if !ok {
+		return node, false
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+		nodesCacheMap[nodeID] = node
+	}
+	return node, true
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
+	nodes = make([]models.Node, 0, len(nodesCacheMap))
 	for _, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
 		nodes = append(nodes, node)
 	}
 	nodeCacheMutex.RUnlock()
@@ -66,6 +80,9 @@ func deleteNodeFromNetworkCache(nodeID string, network string) {
 }
 
 func storeNodeInNetworkCache(node models.Node, network string) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeNetworkCacheMutex.Lock()
 	if nodesNetworkCacheMap[network] == nil {
 		nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -75,6 +92,9 @@ func storeNodeInNetworkCache(node models.Node, network string) {
 }
 
 func storeNodeInCache(node models.Node) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap[node.ID.String()] = node
 	nodeCacheMutex.Unlock()
@@ -82,6 +102,9 @@ func storeNodeInCache(node models.Node) {
 func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 	nodeNetworkCacheMutex.Lock()
 	for _, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+		}
 		network := v.Network
 		if nodesNetworkCacheMap[network] == nil {
 			nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -92,6 +115,12 @@ func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 }
 
 func loadNodesIntoCache(nMap map[string]models.Node) {
+	for id, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+			nMap[id] = v
+		}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap = nMap
 	nodeCacheMutex.Unlock()
@@ -159,7 +188,7 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 }
 
 var (
-	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckins   = make(map[string]time.Time)
 	pendingCheckinsMu sync.Mutex
 )
 
@@ -171,7 +200,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	node.EgressDetails = models.EgressDetails{}
 	if servercfg.CacheEnabled() {
 		pendingCheckinsMu.Lock()
-		pendingCheckins[node.ID.String()] = *node
+		pendingCheckins[node.ID.String()] = node.LastCheckIn
 		pendingCheckinsMu.Unlock()
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
@@ -189,13 +218,19 @@ func UpdateNodeCheckin(node *models.Node) error {
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
-	pendingCheckins = make(map[string]models.Node)
+	pendingCheckins = make(map[string]time.Time)
 	pendingCheckinsMu.Unlock()
 	if len(batch) == 0 {
 		return
 	}
 	var failed int
-	for id, node := range batch {
+	for id, checkin := range batch {
+		node, err := GetNodeByID(id)
+		if err != nil {
+			failed++
+			continue
+		}
+		node.LastCheckIn = checkin
 		data, err := json.Marshal(node)
 		if err != nil {
 			failed++

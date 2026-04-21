@@ -56,7 +56,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers))).Methods(http.MethodDelete)

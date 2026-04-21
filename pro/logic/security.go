@@ -59,7 +59,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
-	if userRole.ID == schema.Auditor || userRole.ID == schema.PlatformUser {
+	if userRole.ID == schema.Auditor {
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
@@ -79,6 +79,9 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	}
 	if netID == "" {
 		return errors.New("network id is missing")
+	}
+	if userRole.ID == schema.PlatformUser && r.Method == http.MethodGet {
+		return nil
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet

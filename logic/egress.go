@@ -120,6 +120,27 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 	return false
 }
 
+// snapshotNodeTagIDs copies tag keys from n.Tags under n.Mutex when present. Node structs are
+// often shallow-copied while sharing the same Tags map, so callers must not range Tags while
+// other goroutines mutate that map.
+func snapshotNodeTagIDs(n *models.Node) []models.TagID {
+	if n == nil {
+		return nil
+	}
+	if n.Mutex != nil {
+		n.Mutex.Lock()
+		defer n.Mutex.Unlock()
+	}
+	if len(n.Tags) == 0 {
+		return nil
+	}
+	out := make([]models.TagID, 0, len(n.Tags))
+	for tid := range n.Tags {
+		out = append(out, tid)
+	}
+	return out
+}
+
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
@@ -127,6 +148,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		NetID:      targetNode.Network,
 		NatEnabled: "yes",
 	}
+	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -188,7 +210,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 
 			}
 		}
-		for tagID := range targetNode.Tags {
+		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
 				m64, err := metric.(json.Number).Int64()
 				if err != nil {
@@ -326,6 +348,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 		NetID:      targetNode.Network,
 		NatEnabled: "yes",
 	}
+	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -370,7 +393,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 			}
 
 		}
-		for tagID := range targetNode.Tags {
+		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
 				m64, err := metric.(json.Number).Int64()
 				if err != nil {
