@@ -551,8 +551,8 @@ func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+		if IsIPUnique(network, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
+			IsIPUnique(network, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -569,47 +569,73 @@ func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 }
 
 // IsIPUnique - checks if an IP is unique
-func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
-
-	isunique := true
+func IsIPUnique(network *schema.Network, ip string, tableName string, isIpv6 bool) bool {
+	// TODO: check if we should return true on error.
 	if tableName == database.NODES_TABLE_NAME {
-		nodes, err := GetNetworkNodes(network)
-		if err != nil {
-			return isunique
-		}
-		for _, node := range nodes {
-			if isIpv6 {
-				if node.Address6.IP.String() == ip && node.Network == network {
-					return false
-				}
-			} else {
-				if node.Address.IP.String() == ip && node.Network == network {
-					return false
-				}
-			}
+		node := &schema.Node{
+			NetworkID: network.ID,
 		}
 
+		if isIpv6 {
+			_, address6, err := net.ParseCIDR(network.AddressRange)
+			if err != nil {
+				return true
+			}
+
+			address6.IP = net.ParseIP(ip)
+			node.Address6 = address6.String()
+
+			err = node.GetByNetworkAndAddress6(db.WithContext(context.TODO()))
+			if err != nil {
+				//if errors.Is(err, gorm.ErrRecordNotFound) {
+				//	return true
+				//}
+
+				return true
+			}
+
+			return false
+		} else {
+			_, address, err := net.ParseCIDR(network.AddressRange)
+			if err != nil {
+				return true
+			}
+
+			address.IP = net.ParseIP(ip)
+			node.Address = address.String()
+
+			err = node.GetByNetworkAndAddress(db.WithContext(context.TODO()))
+			if err != nil {
+				//if errors.Is(err, gorm.ErrRecordNotFound) {
+				//	return true
+				//}
+
+				return true
+			}
+
+			return false
+		}
 	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
 
-		extClients, err := GetNetworkExtClients(network)
+		extClients, err := GetNetworkExtClients(network.Name)
 		if err != nil {
-			return isunique
+			return true
 		}
 		for _, extClient := range extClients { // filter
 			if isIpv6 {
-				if (extClient.Address6 == ip) && extClient.Network == network {
+				if (extClient.Address6 == ip) && extClient.Network == network.Name {
 					return false
 				}
 
 			} else {
-				if (extClient.Address == ip) && extClient.Network == network {
+				if (extClient.Address == ip) && extClient.Network == network.Name {
 					return false
 				}
 			}
 		}
 	}
 
-	return isunique
+	return true
 }
 func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	if servercfg.CacheEnabled() {
@@ -652,8 +678,8 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+		if IsIPUnique(network, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
+			IsIPUnique(network, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
 			return newAddrs, nil
 		}
 		if reverse {

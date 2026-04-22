@@ -732,7 +732,7 @@ func createNode(node *models.Node) error {
 			}
 			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
-	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
+	} else if !IsIPUnique(parentNetwork, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
@@ -746,7 +746,7 @@ func createNode(node *models.Node) error {
 			}
 			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
-	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
+	} else if !IsIPUnique(parentNetwork, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 %s is not unique", node.Address6.String())
 	}
 	node.ID = uuid.New()
@@ -813,16 +813,21 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 }
 
 func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
+	network := &schema.Network{Name: currentNode.Network}
+	err := network.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
 
 	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		if !IsIPUnique(newNode.Network, newNode.Address, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(newNode.Network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
+		if !IsIPUnique(network, newNode.Address, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address)
 		}
 	}
 	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		if !IsIPUnique(newNode.Network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(newNode.Network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
+		if !IsIPUnique(network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address6)
 		}
 	}

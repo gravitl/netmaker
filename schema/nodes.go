@@ -56,7 +56,22 @@ func (n *Node) Get(ctx context.Context) error {
 func (n *Node) GetByHostAndNetwork(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("host_id = ? AND network_id = ?", n.HostID, n.NetworkID).
-		First(n).Error
+		First(n).
+		Error
+}
+
+func (n *Node) GetByNetworkAndAddress(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ? AND address = ?", n.NetworkID, n.Address).
+		First(n).
+		Error
+}
+
+func (n *Node) GetByNetworkAndAddress6(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ? AND address6 = ?", n.NetworkID, n.Address6).
+		First(n).
+		Error
 }
 
 func (n *Node) Update(ctx context.Context) error {
