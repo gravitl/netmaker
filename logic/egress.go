@@ -120,27 +120,26 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 	return false
 }
 
-// snapshotNodeTagIDs copies tag keys from n.Tags under n.Mutex when present. Node structs are
-// often shallow-copied while sharing the same Tags map, so callers must not range Tags while
-// other goroutines mutate that map.
+// snapshotNodeTagIDs copies tag keys from n.Tags. When n.Mutex is set, reads are serialized
+// with writers on the same node (shallow copies may share the Tags map). When Mutex is nil,
+// tags are still read so tag-based egress matching applies; that matches patterns like
+// maps.Clone(node.Tags) elsewhere for nodes without an initialized mutex.
 func snapshotNodeTagIDs(n *models.Node) []models.TagID {
 	if n == nil {
 		return nil
 	}
 	if n.Mutex != nil {
 		n.Mutex.Lock()
-		if len(n.Tags) == 0 {
-			n.Mutex.Unlock()
-			return nil
-		}
-		out := make([]models.TagID, 0, len(n.Tags))
-		for tid := range n.Tags {
-			out = append(out, tid)
-		}
-		n.Mutex.Unlock()
-		return out
+		defer n.Mutex.Unlock()
 	}
-	return nil
+	if len(n.Tags) == 0 {
+		return nil
+	}
+	out := make([]models.TagID, 0, len(n.Tags))
+	for tid := range n.Tags {
+		out = append(out, tid)
+	}
+	return out
 }
 
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {

@@ -60,35 +60,11 @@ func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
-	needsMutex := false
-	for _, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			needsMutex = true
-			break
-		}
-	}
-	if !needsMutex {
-		nodes = make([]models.Node, 0, len(nodesCacheMap))
-		for _, node := range nodesCacheMap {
-			nodes = append(nodes, node)
-		}
-		nodeCacheMutex.RUnlock()
-		return
-	}
-	nodeCacheMutex.RUnlock()
-
-	nodeCacheMutex.Lock()
-	defer nodeCacheMutex.Unlock()
-	for id, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-			nodesCacheMap[id] = node
-		}
-	}
 	nodes = make([]models.Node, 0, len(nodesCacheMap))
 	for _, node := range nodesCacheMap {
 		nodes = append(nodes, node)
 	}
+	nodeCacheMutex.RUnlock()
 	return
 }
 
