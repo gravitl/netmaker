@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -54,7 +55,7 @@ func (n *Node) Get(ctx context.Context) error {
 
 func (n *Node) GetByHostAndNetwork(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
-		Where("host_id = ? AND network = ?", n.HostID, n.Network).
+		Where("host_id = ? AND network_id = ?", n.HostID, n.NetworkID).
 		First(n).Error
 }
 
@@ -82,7 +83,7 @@ func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, 
 
 func (n *Node) ListByNetwork(ctx context.Context) ([]Node, error) {
 	var nodes []Node
-	err := db.FromContext(ctx).Model(&Node{}).Where("network = ?", n.Network).Find(&nodes).Error
+	err := db.FromContext(ctx).Model(&Node{}).Where("network_id = ?", n.NetworkID).Find(&nodes).Error
 	return nodes, err
 }
 
@@ -106,14 +107,22 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 	tx := db.FromContext(ctx).Begin()
 	err := tx.Where("node_id = ?", n.ID).Delete(&PostureCheckViolation{}).Error
 	if err != nil {
-		tx.Rollback()
+		rollbackErr := tx.Rollback().Error
+		if rollbackErr != nil {
+			err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
+		}
+
 		return err
 	}
 
 	if len(violations) > 0 {
 		err := tx.Create(&violations).Error
 		if err != nil {
-			tx.Rollback()
+			rollbackErr := tx.Rollback().Error
+			if rollbackErr != nil {
+				err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
+			}
+
 			return err
 		}
 	}
