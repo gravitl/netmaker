@@ -554,9 +554,7 @@ func GetAllNodes() ([]models.Node, error) {
 			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
+		ensureNodeMutex(&node)
 		// add node to our array
 		nodes = append(nodes, node)
 		nodesMap[node.ID.String()] = node
@@ -598,8 +596,20 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
+// ensureNodeMutex sets node.Mutex if nil. Mutex is never persisted (json:"-"); unmarshaled
+// and freshly constructed nodes need a mutex for in-memory coordination of shared maps.
+func ensureNodeMutex(node *models.Node) {
+	if node == nil {
+		return
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
+}
+
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
+	ensureNodeMutex(node)
 	parentNetwork := &schema.Network{Name: node.Network}
 	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -650,6 +660,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+	ensureNodeMutex(&node)
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(node)
 		storeNodeInNetworkCache(node, node.Network)
