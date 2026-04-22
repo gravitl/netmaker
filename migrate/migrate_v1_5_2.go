@@ -18,7 +18,12 @@ func migrateV1_5_2(ctx context.Context) error {
 		return err
 	}
 
-	return migrateUserInvites(ctx)
+	err = migrateUserInvites(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateNodes(ctx)
 }
 
 func migratePendingUsers(ctx context.Context) error {
@@ -79,6 +84,25 @@ func migrateUserInvites(ctx context.Context) error {
 			logger.Log(4, fmt.Sprintf("migrating user invite (%s/%s) failed: %v", _userInvite.InviteCode, _userInvite.Email, err))
 			return err
 		}
+	}
+
+	return nil
+}
+
+func migrateNodes(ctx context.Context) error {
+	records, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, record := range records {
+		var node models.Node
+		err = json.Unmarshal([]byte(record), &node)
+		if err != nil {
+			return err
+		}
+
+		// TODO: add nodes migration logic.
 	}
 
 	return nil
