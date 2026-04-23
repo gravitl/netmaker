@@ -36,18 +36,32 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
-	if node.Mutex == nil {
-		node.Mutex = &sync.Mutex{}
+	if !ok {
+		nodeCacheMutex.RUnlock()
+		return
+	}
+	if node.Mutex != nil {
+		nodeCacheMutex.RUnlock()
+		return node, true
 	}
 	nodeCacheMutex.RUnlock()
-	return
+
+	nodeCacheMutex.Lock()
+	defer nodeCacheMutex.Unlock()
+	node, ok = nodesCacheMap[nodeID]
+	if !ok {
+		return node, false
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+		nodesCacheMap[nodeID] = node
+	}
+	return node, true
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
+	nodes = make([]models.Node, 0, len(nodesCacheMap))
 	for _, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
 		nodes = append(nodes, node)
 	}
 	nodeCacheMutex.RUnlock()
@@ -66,6 +80,9 @@ func deleteNodeFromNetworkCache(nodeID string, network string) {
 }
 
 func storeNodeInNetworkCache(node models.Node, network string) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeNetworkCacheMutex.Lock()
 	if nodesNetworkCacheMap[network] == nil {
 		nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -75,6 +92,9 @@ func storeNodeInNetworkCache(node models.Node, network string) {
 }
 
 func storeNodeInCache(node models.Node) {
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap[node.ID.String()] = node
 	nodeCacheMutex.Unlock()
@@ -82,6 +102,9 @@ func storeNodeInCache(node models.Node) {
 func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 	nodeNetworkCacheMutex.Lock()
 	for _, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+		}
 		network := v.Network
 		if nodesNetworkCacheMap[network] == nil {
 			nodesNetworkCacheMap[network] = make(map[string]models.Node)
@@ -92,6 +115,12 @@ func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
 }
 
 func loadNodesIntoCache(nMap map[string]models.Node) {
+	for id, v := range nMap {
+		if v.Mutex == nil {
+			v.Mutex = &sync.Mutex{}
+			nMap[id] = v
+		}
+	}
 	nodeCacheMutex.Lock()
 	nodesCacheMap = nMap
 	nodeCacheMutex.Unlock()
@@ -115,11 +144,13 @@ const (
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
 
+	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes)), nil
+		nodes := slices.Collect(maps.Values(networkNodes))
+		nodeNetworkCacheMutex.RUnlock()
+		return nodes, nil
 	}
+	nodeNetworkCacheMutex.RUnlock()
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
@@ -143,11 +174,13 @@ func GetHostNodes(host *schema.Host) []models.Node {
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
 
+	nodeNetworkCacheMutex.RLock()
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes))
+		nodes := slices.Collect(maps.Values(networkNodes))
+		nodeNetworkCacheMutex.RUnlock()
+		return nodes
 	}
+	nodeNetworkCacheMutex.RUnlock()
 	var nodes = make([]models.Node, 0, len(allNodes))
 	for i := range allNodes {
 		node := allNodes[i]
@@ -497,11 +530,9 @@ func GetAllNodes() ([]models.Node, error) {
 			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
+		ensureNodeMutex(&node)
 		// add node to our array
 		nodes = append(nodes, node)
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
 		nodesMap[node.ID.String()] = node
 	}
 
@@ -541,8 +572,20 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
+// ensureNodeMutex sets node.Mutex if nil. Mutex is never persisted (json:"-"); unmarshaled
+// and freshly constructed nodes need a mutex for in-memory coordination of shared maps.
+func ensureNodeMutex(node *models.Node) {
+	if node == nil {
+		return
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
+}
+
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
+	ensureNodeMutex(node)
 	parentNetwork := &schema.Network{Name: node.Network}
 	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -593,6 +636,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+	ensureNodeMutex(&node)
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(node)
 		storeNodeInNetworkCache(node, node.Network)
