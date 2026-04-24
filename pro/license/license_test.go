@@ -1,13 +1,13 @@
 //go:build ee
 // +build ee
 
-package pro
+package license
 
 import (
 	"testing"
 
 	"github.com/gravitl/netmaker/config"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/pro/logic"
 )
 
 func Test_GetAccountsHost(t *testing.T) {
@@ -71,7 +71,7 @@ func Test_GetAccountsHost(t *testing.T) {
 			if tt.envK != "" {
 				t.Setenv(tt.envK, tt.envV)
 			}
-			if got := proLogic.GetAccountsHost(); got != tt.want {
+			if got := logic.GetAccountsHost(); got != tt.want {
 				t.Errorf("GetAccountsHost() = %v, want %v", got, tt.want)
 			}
 		})

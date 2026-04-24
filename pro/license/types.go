@@ -1,7 +1,7 @@
 //go:build ee
 // +build ee
 
-package pro
+package license
 
 import (
 	"errors"
