@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 func hostHandlers(r *mux.Router) {
@@ -41,6 +42,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).
 		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(getHost))).
+		Methods(http.MethodGet)
 	// used by netclient
 	r.HandleFunc("/api/hosts/{hostid}", AuthorizeHost(http.HandlerFunc(deleteHost))).
 		Methods(http.MethodDelete)
@@ -518,7 +521,11 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			//remove old peer entry
 			replacePeers = true
 		}
-		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		var endpointChanged bool
+		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if endpointChanged {
+			logic.CheckHostPorts(currentHost)
+		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
@@ -669,6 +676,41 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	apiHostData := models.NewApiHostFromSchemaHost(currHost)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
+}
+
+// @Summary     Fetches a Netclient host from Netmaker server
+// @Router      /api/hosts/{hostid} [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       hostid path string true "Host ID"
+// @Success     200 {object} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
+func getHost(w http.ResponseWriter, r *http.Request) {
+	hostIDStr := mux.Vars(r)["hostid"]
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		err = fmt.Errorf("failed to parse host id: %w", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	host := &schema.Host{
+		ID: hostID,
+	}
+	err = host.Get(r.Context())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch a host:", err.Error())
+
+		apiErr := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			apiErr = logic.NotFound
+		}
+
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
+		return
+	}
+	apiHostData := models.NewApiHostFromSchemaHost(host)
+	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "fetched host "+host.Name)
 }
 
 // @Summary     Bulk delete hosts
