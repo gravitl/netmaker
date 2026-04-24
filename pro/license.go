@@ -1,7 +1,4 @@
-//go:build ee
-// +build ee
-
-package pro
+package license
 
 import (
 	"bytes"
@@ -14,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/mq"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
@@ -23,7 +21,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -140,8 +137,7 @@ func ValidateLicense() (err error) {
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
-	go mq.PublishExporterFeatureFlags()
-	go mq.PublishPeerUpdate(false)
+	_ = mq.PublishExporterFeatureFlags()
 
 	slog.Info("License validation succeeded!")
 	return nil
