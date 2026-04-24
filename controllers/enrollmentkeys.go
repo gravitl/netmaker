@@ -426,7 +426,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		logic.UpdateHostFromClient(&newHost, currHost)
+		endpointChanged, _ := logic.UpdateHostFromClient(&newHost, currHost)
+		if endpointChanged {
+			logic.CheckHostPorts(currHost)
+		}
 		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return

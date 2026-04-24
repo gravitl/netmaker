@@ -175,7 +175,7 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
-func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) {
+func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, sendPeerUpdate bool) {
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
@@ -189,7 +189,6 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) 
 		currHost.WgPublicListenPort = newHost.WgPublicListenPort
 		sendPeerUpdate = true
 	}
-	isEndpointChanged := false
 	if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
