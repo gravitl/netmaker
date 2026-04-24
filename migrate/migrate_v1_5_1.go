@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -91,7 +93,7 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
-	records, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	records, err := FetchAll(ctx, database.USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -145,7 +147,7 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
-	records, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	records, err := FetchAll(ctx, database.NETWORKS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -204,13 +206,87 @@ func migrateNetworks(ctx context.Context) error {
 			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
 			return err
 		}
+
+		var cidr, cidrv6 *net.IPNet
+		if len(network.AddressRange) != 0 {
+			_, cidr, err = net.ParseCIDR(network.AddressRange)
+			if err != nil {
+				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
+				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+				return err
+			}
+		}
+
+		if len(network.AddressRange6) != 0 {
+			_, cidrv6, err = net.ParseCIDR(network.AddressRange6)
+			if err != nil {
+				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
+				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+				return err
+			}
+		}
+
+		superAdmin := &schema.User{}
+		err = superAdmin.GetSuperAdmin(ctx)
+		if err != nil {
+			err = fmt.Errorf("error getting superadmin: %v", err)
+			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+			return err
+		}
+
+		if len(network.NameServers) > 0 {
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      "upstream nameservers",
+				NetworkID: _network.Name,
+				Servers:   []string{},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Tags: datatypes.JSONMap{
+					"*": struct{}{},
+				},
+				Nodes:     make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: superAdmin.Username,
+			}
+
+			for _, nsIP := range network.NameServers {
+				ip := net.ParseIP(nsIP)
+				if ip == nil {
+					continue
+				}
+
+				if ip.To4() != nil {
+					if cidr != nil && !cidr.Contains(ip) {
+						ns.Servers = append(ns.Servers, nsIP)
+					}
+				} else {
+					if cidrv6 != nil && !cidrv6.Contains(ip) {
+						ns.Servers = append(ns.Servers, nsIP)
+					}
+				}
+			}
+
+			if len(ns.Servers) > 0 {
+				err = ns.Create(ctx)
+				if err != nil {
+					err = fmt.Errorf("error creating upstream nameserver for network (%s): %v", _network.Name, err)
+					logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
+					return err
+				}
+			}
+		}
 	}
 
 	return nil
 }
 
 func migrateUserRoles(ctx context.Context) error {
-	records, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
+	records, err := FetchAll(ctx, database.USER_PERMISSIONS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -235,7 +311,7 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
-	records, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
+	records, err := FetchAll(ctx, database.USER_GROUPS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -260,7 +336,7 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
-	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	records, err := FetchAll(ctx, database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -336,10 +412,6 @@ func migrateHosts(ctx context.Context) error {
 			}
 		}
 
-		if _host.IsDefault && !_host.AutoUpdate {
-			_host.AutoUpdate = true
-		}
-
 		logger.Log(4, fmt.Sprintf("migrating host %s", _host.ID))
 
 		err = _host.Create(ctx)
@@ -350,4 +422,23 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func FetchAll(ctx context.Context, tableName string) (map[string]string, error) {
+	row, err := db.FromContext(ctx).Raw("SELECT * FROM " + tableName + " ORDER BY key").Rows()
+	if err != nil {
+		return nil, err
+	}
+	records := make(map[string]string)
+	defer row.Close()
+	for row.Next() { // Iterate and fetch the records from result cursor
+		var key string
+		var value string
+		row.Scan(&key, &value)
+		records[key] = value
+	}
+	if len(records) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return records, nil
 }

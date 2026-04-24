@@ -62,8 +62,14 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	user := &schema.User{Username: userClaims.getUserName()}
-	err = user.Get(r.Context())
+
+	var user *schema.User
+	if logic.GetServerSettings().AuthProvider == azure_ad_provider_name {
+		user, err = GetMatchingUser(userClaims)
+	} else {
+		user = &schema.User{Username: userClaims.getUserName()}
+		err = user.Get(r.Context())
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			err = logic.InsertPendingUser(&models.User{

@@ -647,6 +647,15 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go func() {
+		removedNetworks, _ := proLogic.GetGroupNetworksMap(&currUserG)
+		keptNetworks, _ := proLogic.GetGroupNetworksMap(&userGroup)
+		for netID := range removedNetworks {
+			if _, ok := keptNetworks[netID]; !ok {
+				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
+			}
+		}
+	}()
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -2126,7 +2135,11 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClient(req.ClientID, req.ClientSecret, req.AzureTenantID)
+		secret := req.ClientSecret
+		if secret == logic.Mask() {
+			secret = logic.GetServerSettings().ClientSecret
+		}
+		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
 		idpClient, err = okta.NewOktaClient(req.OktaOrgURL, req.OktaAPIToken)
 		if err != nil {

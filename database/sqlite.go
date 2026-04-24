@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -12,6 +13,9 @@ import (
 
 // SqliteDB is the db object for sqlite database connections
 var SqliteDB *sql.DB
+
+// sqliteWriteMu serializes SQLite write operations to reduce lock contention.
+var sqliteWriteMu sync.Mutex
 
 // SQLITE_FUNCTIONS - contains a map of the functions for sqlite
 var SQLITE_FUNCTIONS = map[string]interface{}{
@@ -40,6 +44,9 @@ func initSqliteDB() error {
 }
 
 func sqliteCreateTable(tableName string) error {
+	sqliteWriteMu.Lock()
+	defer sqliteWriteMu.Unlock()
+
 	statement, err := SqliteDB.Prepare("CREATE TABLE IF NOT EXISTS " + tableName + " (key TEXT NOT NULL UNIQUE PRIMARY KEY, value TEXT)")
 	if err != nil {
 		return err
@@ -54,6 +61,9 @@ func sqliteCreateTable(tableName string) error {
 
 func sqliteInsert(key string, value string, tableName string) error {
 	if key != "" && value != "" {
+		sqliteWriteMu.Lock()
+		defer sqliteWriteMu.Unlock()
+
 		insertSQL := "INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES (?, ?)"
 		statement, err := SqliteDB.Prepare(insertSQL)
 		if err != nil {
@@ -81,6 +91,9 @@ func sqliteInsertPeer(key string, value string) error {
 }
 
 func sqliteDeleteRecord(tableName string, key string) error {
+	sqliteWriteMu.Lock()
+	defer sqliteWriteMu.Unlock()
+
 	deleteSQL := "DELETE FROM " + tableName + " WHERE key = ?"
 	statement, err := SqliteDB.Prepare(deleteSQL)
 	if err != nil {
@@ -94,6 +107,9 @@ func sqliteDeleteRecord(tableName string, key string) error {
 }
 
 func sqliteDeleteAllRecords(tableName string) error {
+	sqliteWriteMu.Lock()
+	defer sqliteWriteMu.Unlock()
+
 	deleteSQL := "DELETE FROM " + tableName
 	statement, err := SqliteDB.Prepare(deleteSQL)
 	if err != nil {

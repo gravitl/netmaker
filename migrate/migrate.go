@@ -7,8 +7,10 @@ import (
 	"log"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/serverctl"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 
@@ -38,6 +40,11 @@ func Run() {
 	resync()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
+	migrateNameservers()
+
+	logic.InitialiseRoles()
+	logic.IntialiseGroups()
+	_ = serverctl.SetDefaults()
 }
 
 func updateNetworks() {
@@ -588,6 +595,9 @@ func migrateToEgressV1() {
 					CreatedBy: user.UserName,
 					CreatedAt: time.Now().UTC(),
 				}
+				if !e.Nat {
+					e.Mode = schema.DisabledNAT
+				}
 				err = e.Create(db.WithContext(context.TODO()))
 				if err == nil {
 					acl := models.Acl{
@@ -737,8 +747,10 @@ func cleanupDeletedUserGroupRefs() {
 		existingGroups[group.ID] = group
 	}
 
+	existingUsers := make(map[string]schema.User)
 	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	for _, user := range users {
+		existingUsers[user.Username] = user
 		var update bool
 		for groupID := range user.UserGroups.Data() {
 			if _, ok := existingGroups[groupID]; !ok {
@@ -770,6 +782,10 @@ func cleanupDeletedUserGroupRefs() {
 						newSrc = append(newSrc, src)
 					}
 				}
+			} else if src.ID == models.UserAclID && src.Value != "*" {
+				if _, ok := existingUsers[src.Value]; ok {
+					newSrc = append(newSrc, src)
+				}
 			} else {
 				newSrc = append(newSrc, src)
 			}
@@ -795,6 +811,89 @@ func cleanupDeletedUserGroupRefs() {
 
 		if update {
 			_ = postureCheck.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+
+func migrateNameservers() {
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		_ = logic.CreateFallbackNameserver(network.Name)
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		if len(nameserver.Domains) != 0 {
+			for _, matchDomain := range nameserver.MatchDomains {
+				nameserver.Domains = append(nameserver.Domains, schema.NameserverDomain{
+					Domain: matchDomain,
+				})
+			}
+
+			nameserver.MatchDomains = []string{}
+
+			_ = nameserver.Update(db.WithContext(context.TODO()))
+		}
+	}
+
+	superAdmin := &schema.User{}
+	err := superAdmin.GetSuperAdmin(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
+
+		if node.IngressDNS != "" {
+			var nsIPs []string
+			for _, nsIP := range strings.Split(node.IngressDNS, ",") {
+				nsIP = strings.TrimSpace(nsIP)
+
+				if (node.Address.IP != nil && node.Address.IP.String() == nsIP) ||
+					(node.Address6.IP != nil && node.Address6.IP.String() == nsIP) {
+					continue
+				}
+				if nsIP == "8.8.8.8" || nsIP == "1.1.1.1" || nsIP == "9.9.9.9" {
+					continue
+				}
+
+				nsIPs = append(nsIPs, nsIP)
+			}
+
+			if len(nsIPs) > 0 {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err := host.Get(db.WithContext(context.TODO()))
+				if err != nil {
+					continue
+				}
+				ns := schema.Nameserver{
+					ID:        uuid.NewString(),
+					Name:      fmt.Sprintf("%s gw nameservers", host.Name),
+					NetworkID: node.Network,
+					Servers:   nsIPs,
+					MatchAll:  true,
+					Domains: []schema.NameserverDomain{
+						{
+							Domain: ".",
+						},
+					},
+					Nodes: datatypes.JSONMap{
+						node.ID.String(): struct{}{},
+					},
+					Tags:      make(datatypes.JSONMap),
+					Status:    true,
+					CreatedBy: superAdmin.Username,
+				}
+				_ = ns.Create(db.WithContext(context.TODO()))
+				node.IngressDNS = ""
+				_ = logic.UpsertNode(&node)
+			}
 		}
 	}
 }
