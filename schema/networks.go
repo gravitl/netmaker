@@ -127,3 +127,20 @@ func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {
 		}).
 		Error
 }
+
+func (n *Network) GetNodes(ctx context.Context) ([]Node, error) {
+	if n.ID == "" && n.Name == "" {
+		return nil, ErrNetworkIdentifiersNotProvided
+	}
+
+	if n.ID == "" && n.Name != "" {
+		err := n.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return (&Node{
+		NetworkID: n.ID,
+	}).ListByNetwork(ctx)
+}

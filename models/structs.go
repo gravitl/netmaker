@@ -4,16 +4,9 @@ import (
 	"net"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-)
-
-const (
-	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
-	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
-	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
 type FeatureFlags struct {
@@ -246,13 +239,6 @@ type InetNodeReq struct {
 	InetNodeClientIDs []string `json:"inet_node_client_ids"`
 }
 
-// ServerUpdateData - contains data to configure server
-// and if it should set peers
-type ServerUpdateData struct {
-	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers"`
-	Node        LegacyNode `json:"servernode" bson:"servernode"`
-}
-
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
 // also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
@@ -472,17 +458,17 @@ type IDPSyncTestRequest struct {
 }
 
 type PostureCheckDeviceInfo struct {
-	ClientLocation  string
-	ClientVersion   string
-	OS              string
-	OSFamily        string
-	OSVersion       string
-	KernelVersion   string
-	AutoUpdate      bool
-	SkipAutoUpdate  bool
-	Tags            map[TagID]struct{}
-	IsUser          bool
-	UserGroups      map[schema.UserGroupID]struct{}
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	SkipAutoUpdate bool
+	Tags           map[TagID]struct{}
+	IsUser         bool
+	UserGroups     map[schema.UserGroupID]struct{}
 }
 
 type Violation struct {
@@ -511,7 +497,6 @@ type BulkUserStatusUpdate struct {
 	IDs     []string `json:"ids"`
 	Disable bool     `json:"disable"`
 }
-
 
 type BulkStatusResponse struct {
 	Updated []string          `json:"updated"`
