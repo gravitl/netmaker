@@ -53,7 +53,7 @@ If you're looking for a managed service, you can get started with just a few cli
 
 # Self-Hosted Open Source Quick Start  
 
-These are the instructions for deploying a Netmaker server on your cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://learn.netmaker.io/getting-started/quick-start/platform-installation#quick-install-script).  
+These are the instructions for deploying a Netmaker server on your cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/docs/server-installation/quick-install#quick-install-script).  
 
 1. Get a cloud VM with Ubuntu 24.04 and a static public IP.
 2. Allow inbound traffic on port 443,51821 TCP and UDP to the VM firewall in cloud security settings, and for simplicity, allow outbound on All TCP and All UDP.
@@ -62,7 +62,7 @@ These are the instructions for deploying a Netmaker server on your cloud VM as q
 
 `sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`
 
-**<pre>To Install Self-Hosted PRO Version - https://learn.netmaker.io/getting-started/walkthrough/how-to-install-netmaker</pre>** 
+**<pre>To Install Self-Hosted PRO Version - https://docs.netmaker.io/docs/server-installation/netmaker-professional-setup</pre>** 
 
 
 
@@ -70,11 +70,7 @@ These are the instructions for deploying a Netmaker server on your cloud VM as q
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
 </p>
 
-After installing Netmaker, check out the [Getting Started](https://learn.netmaker.io) guides to learn how to configure and manage your networks.
-
-For step-by-step instructions on specific tasks, explore the [How-To Guides](https://learn.netmaker.io/how-to-guides).
-
-You can also browse our [Tutorials](https://www.netmaker.io/tutorials) for real-world use cases, including Kubernetes and more advanced networking scenarios.
+After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://docs.netmaker.io/docs/getting-started) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
 
 # Get Support
 

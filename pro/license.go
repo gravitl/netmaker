@@ -1,4 +1,7 @@
-package license
+//go:build ee
+// +build ee
+
+package pro
 
 import (
 	"bytes"
@@ -11,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/mq"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
@@ -21,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
