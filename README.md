@@ -121,7 +121,7 @@ You can also browse our [Tutorials](https://www.netmaker.io/tutorials) for real-
 
 Netmaker's source code and all artifacts in this repository are freely available.
 All content that resides under the "pro/" directory of this repository, if that
-directory exists, is licensed under the license defined in "pro/LICENSE".
+directory exists, is licensed under the license defined in "pro/PRO_LICENSE".
 All third party components incorporated into the Netmaker Software are licensed
 under the original license provided by the owner of the applicable component.
 Content outside of the above mentioned directories or restrictions above is
