@@ -358,8 +358,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EndpointDetection:  logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:     hPU.DnsNameservers,
 		ReplacePeers:       hPU.ReplacePeers,
-		AutoRelayNodes:     make(map[models.NetworkID][]models.Node),
-		GwNodes:            make(map[models.NetworkID][]models.Node),
+		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
+		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: hPU.AddressIdentityMap,
 	}
 
