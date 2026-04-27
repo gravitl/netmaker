@@ -84,16 +84,17 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
-func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) bool {
-	if len(h.Nodes) > 0 {
-		for _, nodeID := range h.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err == nil && node.Network == network.String() {
-				return true
-			}
-		}
+func DoesHostExistInTheNetworkAlready(h *schema.Host, networkID schema.NetworkID) bool {
+	node := &schema.Node{
+		HostID:    h.ID.String(),
+		NetworkID: networkID.String(),
 	}
-	return false
+	err := node.GetByHostAndNetwork(db.WithContext(context.TODO()))
+	if err != nil {
+		return false
+	}
+
+	return true
 }
 
 // CreateHost - creates a host if not exist
