@@ -57,7 +57,7 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.NodeTagID,
 			models.NodeID,
 			models.EgressID,
-			// models.NetmakerIPAclID,
+			models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
 		ProtocolTypes: []models.ProtocolType{
@@ -291,6 +291,10 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	acl := req
+	if err := logic.NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	acl.ID = uuid.New().String()
 	acl.CreatedBy = user.Username
 	acl.CreatedAt = time.Now().UTC()
@@ -358,6 +362,10 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 
 	acl, err := logic.GetAcl(updateAcl.ID)
 	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

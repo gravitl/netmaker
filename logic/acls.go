@@ -21,6 +21,11 @@ import (
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
 
 var GetTagMapWithNodesByNetwork = getTagMapWithNodesByNetwork
+var getEgressByID = func(egressID string) (schema.Egress, error) {
+	e := schema.Egress{ID: egressID}
+	err := e.Get(db.WithContext(context.TODO()))
+	return e, err
+}
 
 var GetEgressUserRulesForNode = func(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
@@ -302,6 +307,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 		}
 
 		// add egress range rules
+		selectedIP4, selectedIP6 := getSelectedEgressIPNets(policy.Dst)
 		for _, dstI := range policy.Dst {
 			if dstI.ID == models.EgressID {
 
@@ -315,6 +321,33 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 					nodeOwnsEgress = true
 				}
 				if len(e.DomainAns) > 0 {
+					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						for _, cidr := range selectedIP4 {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP: cidr,
+									Allow: true,
+								})
+							}
+						}
+						for _, cidr := range selectedIP6 {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP: cidr,
+									Allow: true,
+								})
+							}
+						}
+						continue
+					}
 					for _, domainAnsI := range e.DomainAns {
 						dstI.Value = domainAnsI
 
@@ -347,6 +380,33 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 					}
 				} else {
+					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						for _, cidr := range selectedIP4 {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP: cidr,
+									Allow: true,
+								})
+							}
+						}
+						for _, cidr := range selectedIP6 {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP: cidr,
+									Allow: true,
+								})
+							}
+						}
+						continue
+					}
 					// Use virtual range if node doesn't own the egress, otherwise use regular range
 					egressRange := e.Range
 					if !nodeOwnsEgress && e.VirtualRange != "" {
@@ -542,6 +602,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		dstTags := ConvAclTagToValueMap(acl.Dst)
 		egressRanges4 := []net.IPNet{}
 		egressRanges6 := []net.IPNet{}
+		selectedIP4, selectedIP6 := getSelectedEgressIPNets(acl.Dst)
 		for _, dst := range acl.Dst {
 			if dst.Value == "*" {
 				e := schema.Egress{Network: targetnode.Network}
@@ -556,7 +617,10 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 					if nodeOwnsEgress {
-						if servercfg.IsPro && eI.Domain != "" && len(eI.DomainAns) > 0 {
+						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+							egressRanges4 = append(egressRanges4, selectedIP4...)
+							egressRanges6 = append(egressRanges6, selectedIP6...)
+						} else if servercfg.IsPro && eI.Domain != "" && len(eI.DomainAns) > 0 {
 							for _, domainAnsI := range eI.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
@@ -601,7 +665,10 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 					if nodeOwnsEgress {
-						if servercfg.IsPro && e.Domain != "" && len(e.DomainAns) > 0 {
+						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+							egressRanges4 = append(egressRanges4, selectedIP4...)
+							egressRanges6 = append(egressRanges6, selectedIP6...)
+						} else if servercfg.IsPro && e.Domain != "" && len(e.DomainAns) > 0 {
 							for _, domainAnsI := range e.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
@@ -828,6 +895,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		dstTags := ConvAclTagToValueMap(acl.Dst)
+		selectedIP4, selectedIP6 := getSelectedEgressIPNets(acl.Dst)
 		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
 			ID:              acl.ID,
@@ -838,7 +906,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		for egressID, egI := range egressIDMap {
 			if _, ok := dstTags[egressID]; ok || dstAll {
-				if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+				if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+					aclRule.Dst = append(aclRule.Dst, selectedIP4...)
+					aclRule.Dst6 = append(aclRule.Dst6, selectedIP6...)
+				} else if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
 					for _, domainAnsI := range egI.DomainAns {
 						ip, cidr, err := net.ParseCIDR(domainAnsI)
 						if err == nil {
@@ -972,6 +1043,117 @@ func UniqueIPNetList(ipnets []net.IPNet) []net.IPNet {
 	return uniqueList
 }
 
+func normalizeIPOrCIDR(value string) (string, error) {
+	if value == "" {
+		return "", errors.New("empty ip/cidr value")
+	}
+	if normalizedCIDR, err := NormalizeCIDR(value); err == nil {
+		return normalizedCIDR, nil
+	}
+	ip := net.ParseIP(value)
+	if ip == nil {
+		return "", errors.New("invalid ip/cidr value: " + value)
+	}
+	if ip.To4() != nil {
+		return (&net.IPNet{IP: ip.To4(), Mask: net.CIDRMask(32, 32)}).String(), nil
+	}
+	return (&net.IPNet{IP: ip.To16(), Mask: net.CIDRMask(128, 128)}).String(), nil
+}
+
+func cidrContainsCIDR(parent, child *net.IPNet) bool {
+	if parent == nil || child == nil {
+		return false
+	}
+	parentBits, _ := parent.Mask.Size()
+	childBits, _ := child.Mask.Size()
+	if childBits < parentBits {
+		return false
+	}
+	if !parent.Contains(child.IP) {
+		return false
+	}
+	last := make(net.IP, len(child.IP))
+	copy(last, child.IP)
+	for i := 0; i < len(child.Mask); i++ {
+		last[i] |= ^child.Mask[i]
+	}
+	return parent.Contains(last)
+}
+
+func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
+	if acl == nil {
+		return nil
+	}
+	egressCIDRs := []*net.IPNet{}
+	for _, dst := range acl.Dst {
+		if dst.ID != models.EgressID || dst.Value == "*" {
+			continue
+		}
+		e, err := getEgressByID(dst.Value)
+		if err != nil {
+			return errors.New("invalid egress")
+		}
+		if e.Range == "" {
+			continue
+		}
+		_, cidr, err := net.ParseCIDR(e.Range)
+		if err != nil {
+			return errors.New("invalid egress range")
+		}
+		egressCIDRs = append(egressCIDRs, cidr)
+	}
+	for i := range acl.Dst {
+		if acl.Dst[i].ID != models.NetmakerIPAclID {
+			continue
+		}
+		if len(egressCIDRs) == 0 {
+			return errors.New("egress ip destination requires at least one egress destination")
+		}
+		normalized, err := normalizeIPOrCIDR(acl.Dst[i].Value)
+		if err != nil {
+			return err
+		}
+		_, cidr, err := net.ParseCIDR(normalized)
+		if err != nil {
+			return err
+		}
+		allowed := false
+		for _, egressCIDR := range egressCIDRs {
+			if cidrContainsCIDR(egressCIDR, cidr) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return errors.New("selected ip/cidr " + normalized + " is outside the egress range")
+		}
+		acl.Dst[i].Value = normalized
+	}
+	return nil
+}
+
+func getSelectedEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
+	for _, dst := range dstTags {
+		if dst.ID != models.NetmakerIPAclID {
+			continue
+		}
+		normalized, err := normalizeIPOrCIDR(dst.Value)
+		if err != nil {
+			continue
+		}
+		ip, cidr, err := net.ParseCIDR(normalized)
+		if err != nil {
+			continue
+		}
+		if ip.To4() != nil {
+			dst4 = append(dst4, *cidr)
+		} else {
+			dst6 = append(dst6, *cidr)
+		}
+	}
+	return
+}
+
 func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
 	case models.NodeID:
@@ -992,6 +1174,11 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		err := e.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return errors.New("invalid egress")
+		}
+	case models.NetmakerIPAclID:
+		_, err := normalizeIPOrCIDR(t.Value)
+		if err != nil {
+			return err
 		}
 	default:
 		return errors.New("invalid policy")
@@ -1033,6 +1220,9 @@ var IsAclPolicyValid = func(acl models.Acl) (err error) {
 		}
 	default:
 		return errors.New("unknown acl policy type " + string(acl.RuleType))
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		return err
 	}
 	return nil
 }
