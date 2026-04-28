@@ -15,4 +15,6 @@ type EgressReq struct {
 	Mode        schema.EgressNATMode `json:"mode"`
 	Status      bool                 `json:"status"`
 	IsInetGw    bool                 `json:"is_internet_gateway"`
+	// PresetID optional: reference to a catalog preset (see GET /api/v1/egress/presets). Explicit name/domain in the body override preset defaults.
+	PresetID string `json:"preset_id"`
 }

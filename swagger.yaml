@@ -707,6 +707,9 @@ definitions:
         additionalProperties:
           type: integer
         type: object
+      preset_id:
+        description: PresetID optional: reference to a catalog preset (see GET /api/v1/egress/presets). Explicit name/domain in the body override preset defaults.
+        type: string
       range:
         type: string
       status:
@@ -2389,8 +2392,14 @@ definitions:
         type: string
       nodes:
         $ref: '#/definitions/datatypes.JSONMap'
+      preset_id:
+        description: PresetID is the catalog id when this egress was created from a preset (empty if custom).
+        type: string
       range:
         type: string
+      static_domain_ans:
+        description: StaticDomainAns when true: domain_ans was populated server-side; host check-in must not replace it.
+        type: boolean
       status:
         description: IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
         type: boolean
@@ -5393,6 +5402,24 @@ paths:
       summary: Get config file HA configuration
       tags:
       - Config Files
+  /api/v1/egress/presets:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List egress domain presets
+      tags:
+      - Egress
   /api/v1/egress:
     delete:
       parameters:

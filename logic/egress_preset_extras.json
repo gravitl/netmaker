@@ -1,0 +1,343 @@
+[
+  {
+    "name": "Salesforce (Hyperforce environment)",
+    "id": "salesforce-hyperforce",
+    "sources": [
+      "https://ip-ranges.salesforce.com/ip-ranges.json",
+      "https://help.salesforce.com/s/articleView?id=003876184&type=1",
+      "https://help.salesforce.com/s/articleView?id=xcloud.setup_domains.htm&type=5"
+    ],
+    "domains": [
+      "*.force-user-content.com",
+      "*.force.com",
+      "*.forceusercontent.com",
+      "*.salesforce-experience.com",
+      "*.salesforce-hub.com",
+      "*.salesforce-scrt.com",
+      "*.salesforce-setup.com",
+      "*.salesforce-sites.com",
+      "*.salesforce.com",
+      "*.salesforceliveagent.com",
+      "*.sfdcopens.com",
+      "*.site.com",
+      "*.svc.sfdcfc.net",
+      "*.trailhead.com",
+      ".trailblazer.me",
+      "app-frankfurt.salesforceiq.com",
+      "app.salesforceiq.com"
+    ],
+    "group": "",
+    "suggestedDomain": "login.salesforce.com"
+  },
+  {
+    "name": "Salesforce (Salesforce-hosted)",
+    "id": "salesforce",
+    "sources": [
+      "https://help.salesforce.com/s/articleView?id=000384438&type=1",
+      "https://help.salesforce.com/s/articleView?id=sf.setup_domains.htm&type=5"
+    ],
+    "domains": [
+      "*.bluetail.salesforce.com",
+      "*.documentforce.com",
+      "*.force-user-content.com",
+      "*.force.com",
+      "*.forceusercontent.com",
+      "*.lightning.com",
+      "*.lightningdesignsystem.com",
+      "*.salesforce-communities.com",
+      "*.salesforce-experience.com",
+      "*.salesforce-hub.com",
+      "*.salesforce-scrt.com",
+      "*.salesforce-setup.com",
+      "*.salesforce-sites.com",
+      "*.salesforce.com",
+      "*.salesforceliveagent.com",
+      "*.sfdcopens.com",
+      "*.sfdcstatic.com",
+      "*.site.com",
+      "*.trailhead.com",
+      "*.visualforce.com",
+      "trailblazer.me"
+    ],
+    "group": "",
+    "suggestedDomain": "login.salesforce.com"
+  },
+  {
+    "name": "GitHub",
+    "id": "github",
+    "sources": [
+      "https://api.github.com/meta"
+    ],
+    "domains": [
+      "*.api.github.com",
+      "*.github.com",
+      "*.github.dev",
+      "*.github.io",
+      "*.githubcopilot.com",
+      "*.msecnd.net",
+      "*.visualstudio.com",
+      "*.vscode-webview.net",
+      "api.github.com",
+      "default.exp-tas.com",
+      "github.com",
+      "github.dev",
+      "github.io",
+      "githubcopilot.com",
+      "msecnd.net",
+      "visualstudio.com",
+      "vscode-webview.net"
+    ],
+    "group": "",
+    "suggestedDomain": "github.com"
+  },
+  {
+    "name": "Fastly",
+    "id": "fastly",
+    "sources": [
+      "https://api.fastly.com/public-ip-list"
+    ],
+    "domains": [
+      "*.fastly.com",
+      "*.fastly.net",
+      "*.fastlylb.net",
+      "fastly.com",
+      "fastly.net",
+      "fastlylb.net"
+    ],
+    "group": "",
+    "suggestedDomain": "fastly.com"
+  },
+  {
+    "name": "Confluence",
+    "id": "confluence",
+    "sources": [
+      "https://ip-ranges.atlassian.com/",
+      "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
+    ],
+    "domains": [
+      "*.atl-paas.net",
+      "*.atlassian.com",
+      "*.atlassian.net",
+      "*.cloudfront.net",
+      "*.cookielaw.org",
+      "*.googleapis.com",
+      "*.gravatar.com",
+      "*.jira.com",
+      "*.launchdarkly.com",
+      "*.optimizely.com",
+      "*.pndsn.com",
+      "*.segment.io",
+      "*.sentry-cdn.com",
+      "*.slack-edge.com",
+      "*.wp.com",
+      "recaptcha.net"
+    ],
+    "group": "",
+    "suggestedDomain": "atlassian.net"
+  },
+  {
+    "name": "Jira",
+    "id": "jira",
+    "sources": [
+      "https://ip-ranges.atlassian.com/",
+      "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
+    ],
+    "domains": [
+      "*.atl-paas.net",
+      "*.atlassian.com",
+      "*.atlassian.net",
+      "*.cloudfront.net",
+      "*.cookielaw.org",
+      "*.googleapis.com",
+      "*.gravatar.com",
+      "*.jira.com",
+      "*.launchdarkly.com",
+      "*.optimizely.com",
+      "*.pndsn.com",
+      "*.segment.io",
+      "*.sentry-cdn.com",
+      "*.slack-edge.com",
+      "*.wp.com",
+      "recaptcha.net"
+    ],
+    "group": "",
+    "suggestedDomain": "atlassian.net"
+  },
+  {
+    "name": "Google Workspace",
+    "id": "google-workspace",
+    "sources": [
+      "https://support.google.com/a/answer/9012184",
+      "https://www.gstatic.com/ipranges/goog.json"
+    ],
+    "domains": [
+      "*.googleapis.com",
+      "*.googleusercontent.com",
+      "*.googlevideo.com",
+      "*.youtube-nocookie.com",
+      "*.ytimg.com",
+      "accounts.google.com",
+      "accounts.youtube.com",
+      "apps-apis.google.com",
+      "chat.google.com",
+      "classroom.googleapis.com",
+      "fonts.gstatic.com",
+      "mail.google.com",
+      "oauth2.googleapis.com",
+      "sheets.googleapis.com",
+      "slides.googleapis.com",
+      "ssl.gstatic.com",
+      "www.google.com",
+      "www.googleapis.com",
+      "www.gstatic.com"
+    ],
+    "group": "",
+    "suggestedDomain": "www.google.com"
+  },
+  {
+    "name": "Microsoft 365",
+    "id": "microsoft-365",
+    "sources": [
+      "https://learn.microsoft.com/en-us/microsoft-365/enterprise/urls-and-ip-address-ranges?view=o365-worldwide",
+      "https://endpoints.office.com/endpoints/worldwide?clientrequestid=b10c5ed1-bad1-445f-b386-b919946339a7"
+    ],
+    "domains": [
+      "*.auth.microsoft.com",
+      "*.lync.com",
+      "*.mail.protection.outlook.com",
+      "*.msftidentity.com",
+      "*.msidentity.com",
+      "*.mx.microsoft",
+      "*.officeapps.live.com",
+      "*.online.office.com",
+      "*.protection.office.com",
+      "*.protection.outlook.com",
+      "*.security.microsoft.com",
+      "*.sharepoint.com",
+      "*.teams.cloud.microsoft",
+      "*.teams.microsoft.com",
+      "account.activedirectory.windowsazure.com",
+      "accounts.accesscontrol.windows.net",
+      "adminwebservice.microsoftonline.com",
+      "api.passwordreset.microsoftonline.com",
+      "autologon.microsoftazuread-sso.com",
+      "becws.microsoftonline.com",
+      "ccs.login.microsoftonline.com",
+      "clientconfig.microsoftonline-p.net",
+      "companymanager.microsoftonline.com",
+      "compliance.microsoft.com",
+      "defender.microsoft.com",
+      "device.login.microsoftonline.com",
+      "graph.microsoft.com",
+      "graph.windows.net",
+      "login-us.microsoftonline.com",
+      "login.microsoft.com",
+      "login.microsoftonline-p.com",
+      "login.microsoftonline.com",
+      "login.windows.net",
+      "logincert.microsoftonline.com",
+      "loginex.microsoftonline.com",
+      "nexus.microsoftonline-p.com",
+      "office.live.com",
+      "outlook.cloud.microsoft",
+      "outlook.office.com",
+      "outlook.office365.com",
+      "passwordreset.microsoftonline.com",
+      "protection.office.com",
+      "provisioningapi.microsoftonline.com",
+      "purview.microsoft.com",
+      "security.microsoft.com",
+      "smtp.office365.com",
+      "teams.cloud.microsoft",
+      "teams.microsoft.com"
+    ],
+    "group": "",
+    "suggestedDomain": "outlook.office.com"
+  },
+  {
+    "name": "Okta",
+    "id": "okta",
+    "sources": [
+      "https://help.okta.com/en-us/content/topics/security/ip-address-allow-listing",
+      "https://s3.amazonaws.com/okta-ip-ranges/ip_ranges.json"
+    ],
+    "domains": [
+      "*.kerberos.okta-emea.com",
+      "*.kerberos.okta.com",
+      "*.kerberos.oktapreview.com",
+      "*.mtls.okta-emea.com",
+      "*.mtls.okta-gov.com",
+      "*.mtls.okta.com",
+      "*.mtls.okta.mil",
+      "*.mtls.oktapreview.com",
+      "*.okta-emea.com",
+      "*.okta-gov.com",
+      "*.okta.com",
+      "*.okta.mil",
+      "*.oktacdn.com",
+      "*.oktapreview.com"
+    ],
+    "group": "",
+    "suggestedDomain": "okta.com"
+  },
+  {
+    "name": "Stripe",
+    "id": "stripe",
+    "sources": [
+      "https://stripe.com/docs/ips"
+    ],
+    "domains": [
+      "express.stripe.com",
+      "a.stripecdn.com",
+      "api.stripe.com",
+      "atlas.stripe.com",
+      "auth.stripe.com",
+      "b.stripecdn.com",
+      "billing.stripe.com",
+      "buy.stripe.com",
+      "c.stripecdn.com",
+      "checkout.stripe.com",
+      "climate.stripe.com",
+      "connect.stripe.com",
+      "dashboard.stripe.com",
+      "files.stripe.com",
+      "hooks.stripe.com",
+      "invoice.stripe.com",
+      "invoicedata.stripe.com",
+      "js.stripe.com",
+      "m.stripe.com",
+      "m.stripe.network",
+      "manage.stripe.com",
+      "pay.stripe.com",
+      "payments.stripe.com",
+      "q.stripe.com",
+      "qr.stripe.com",
+      "r.stripe.com",
+      "stripe.com",
+      "terminal.stripe.com",
+      "uploads.stripe.com",
+      "verify.stripe.com"
+    ],
+    "group": "",
+    "suggestedDomain": "stripe.com"
+  },
+  {
+    "name": "Jenkins",
+    "id": "jenkins",
+    "sources": [
+      "https://updates.jenkins.io/current/update-center.json",
+      "https://www.jenkins.io/changelog-stable/"
+    ],
+    "domains": [
+      "*.jenkins.io",
+      "jenkins.io",
+      "updates.jenkins.io",
+      "get.jenkins.io",
+      "mirrors.jenkins.io",
+      "plugins.jenkins.io",
+      "pkg.jenkins.io"
+    ],
+    "group": "devtools",
+    "suggestedDomain": "updates.jenkins.io"
+  }
+]

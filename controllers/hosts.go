@@ -556,7 +556,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
 		}
-		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
+		if shouldApplyEgressDomainAnsUpdate(e, hostUpdate.Node.EgressGatewayRanges) {
 			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
 			e.Update(db.WithContext(r.Context()))
 		}
@@ -579,6 +579,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
+	return len(reportedRanges) > 0 && !e.StaticDomainAns
 }
 
 // @Summary     Deletes a Netclient host from Netmaker server

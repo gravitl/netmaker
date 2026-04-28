@@ -19,10 +19,25 @@ import (
 )
 
 func egressHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/egress/presets", logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(createEgress))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(listEgress))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(updateEgress))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(deleteEgress))).Methods(http.MethodDelete)
+}
+
+// @Summary     List egress domain presets
+// @Router      /api/v1/egress/presets [get]
+// @Tags        Egress
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     401 {object} models.ErrorResponse
+func getEgressPresets(w http.ResponseWriter, r *http.Request) {
+	presets := logic.ListEgressPresets()
+	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{
+		"presetApps": presets,
+	}, "fetched egress preset catalog")
 }
 
 // @Summary     Create Egress Resource
@@ -45,6 +60,20 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+	if req.PresetID != "" {
+		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	var resolvedCIDRs []string
+	if req.PresetID != "" {
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
+			if c, err := logic.ResolveEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+				resolvedCIDRs = c
+			}
+		}
 	}
 	var egressRange string
 	if !req.IsInetGw {
@@ -76,21 +105,28 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	domainAns := datatypes.JSONSlice[string]([]string{})
+	if len(resolvedCIDRs) > 0 {
+		domainAns = resolvedCIDRs
+	}
+	staticDomainAns := len(resolvedCIDRs) > 0
 	e := schema.Egress{
-		ID:          uuid.New().String(),
-		Name:        req.Name,
-		Network:     req.Network,
-		Description: req.Description,
-		Range:       egressRange,
-		Domain:      req.Domain,
-		DomainAns:   []string{},
-		Nat:         req.Nat,
-		Mode:        req.Mode,
-		Nodes:       make(datatypes.JSONMap),
-		Tags:        make(datatypes.JSONMap),
-		Status:      true,
-		CreatedBy:   r.Header.Get("user"),
-		CreatedAt:   time.Now().UTC(),
+		ID:              uuid.New().String(),
+		Name:            req.Name,
+		Network:         req.Network,
+		Description:     req.Description,
+		Range:           egressRange,
+		Domain:          req.Domain,
+		DomainAns:       domainAns,
+		Nat:             req.Nat,
+		Mode:            req.Mode,
+		Nodes:           make(datatypes.JSONMap),
+		Tags:            make(datatypes.JSONMap),
+		PresetID:        req.PresetID,
+		StaticDomainAns: staticDomainAns,
+		Status:          true,
+		CreatedBy:       r.Header.Get("user"),
+		CreatedAt:       time.Now().UTC(),
 	}
 	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
@@ -145,7 +181,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
-	if req.Domain != "" {
+	if req.Domain != "" && !e.StaticDomainAns {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -172,8 +208,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
-
-	} else {
+	} else if req.Domain == "" || e.StaticDomainAns {
 		go mq.PublishPeerUpdate(false)
 	}
 
@@ -230,6 +265,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+	if req.PresetID != "" {
+		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -337,6 +378,21 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Name = req.Name
 	e.Domain = req.Domain
 	e.Status = req.Status
+	var resolvedCIDRs []string
+	if req.PresetID != "" {
+		e.PresetID = req.PresetID
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
+			if c, err := logic.ResolveEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+				resolvedCIDRs = c
+			}
+		}
+		if len(resolvedCIDRs) > 0 {
+			e.DomainAns = resolvedCIDRs
+			e.StaticDomainAns = true
+		} else {
+			e.StaticDomainAns = false
+		}
+	}
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -346,18 +402,20 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Build update map with all fields including zero values
 	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
 	updateMap := map[string]any{
-		"name":          e.Name,
-		"description":   e.Description,
-		"range":         e.Range,
-		"domain":        e.Domain,
-		"nat":           e.Nat,
-		"mode":          e.Mode,
-		"status":        e.Status,
-		"nodes":         e.Nodes,
-		"tags":          e.Tags,
-		"domain_ans":    e.DomainAns,
-		"virtual_range": e.VirtualRange,
-		"updated_at":    e.UpdatedAt,
+		"name":              e.Name,
+		"description":       e.Description,
+		"range":             e.Range,
+		"domain":            e.Domain,
+		"nat":               e.Nat,
+		"mode":              e.Mode,
+		"status":            e.Status,
+		"nodes":             e.Nodes,
+		"tags":              e.Tags,
+		"domain_ans":        e.DomainAns,
+		"virtual_range":     e.VirtualRange,
+		"preset_id":         e.PresetID,
+		"static_domain_ans": e.StaticDomainAns,
+		"updated_at":        e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values
@@ -372,7 +430,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
-	if req.Domain != "" {
+	if req.Domain != "" && !e.StaticDomainAns {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
