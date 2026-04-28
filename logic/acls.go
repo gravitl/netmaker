@@ -1043,7 +1043,7 @@ func UniqueIPNetList(ipnets []net.IPNet) []net.IPNet {
 	return uniqueList
 }
 
-func normalizeIPOrCIDR(value string) (string, error) {
+func NormalizeIPOrCIDR(value string) (string, error) {
 	if value == "" {
 		return "", errors.New("empty ip/cidr value")
 	}
@@ -1109,7 +1109,7 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		if len(egressCIDRs) == 0 {
 			return errors.New("egress ip destination requires at least one egress destination")
 		}
-		normalized, err := normalizeIPOrCIDR(acl.Dst[i].Value)
+		normalized, err := NormalizeIPOrCIDR(acl.Dst[i].Value)
 		if err != nil {
 			return err
 		}
@@ -1137,7 +1137,7 @@ func getSelectedEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IP
 		if dst.ID != models.NetmakerIPAclID {
 			continue
 		}
-		normalized, err := normalizeIPOrCIDR(dst.Value)
+		normalized, err := NormalizeIPOrCIDR(dst.Value)
 		if err != nil {
 			continue
 		}
@@ -1176,7 +1176,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 			return errors.New("invalid egress")
 		}
 	case models.NetmakerIPAclID:
-		_, err := normalizeIPOrCIDR(t.Value)
+		_, err := NormalizeIPOrCIDR(t.Value)
 		if err != nil {
 			return err
 		}

@@ -434,6 +434,11 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		if err != nil {
 			return errors.New("invalid egress")
 		}
+	case models.NetmakerIPAclID:
+		_, err := logic.NormalizeIPOrCIDR(t.Value)
+		if err != nil {
+			return err
+		}
 
 	case models.UserAclID:
 		if a.RuleType == models.DevicePolicy {
@@ -520,6 +525,9 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 				return
 			}
 		}
+	}
+	if err := logic.NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		return err
 	}
 	return nil
 }
