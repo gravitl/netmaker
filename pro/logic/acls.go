@@ -308,6 +308,63 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 		}
 
 		// add egress range rules
+		selectedSrcIP4, selectedSrcIP6 := logic.GetSelectedEgressIPNets(policy.Src)
+		for _, srcI := range policy.Src {
+			if srcI.ID != models.EgressID {
+				continue
+			}
+			e := schema.Egress{ID: srcI.Value}
+			err := e.Get(db.WithContext(context.TODO()))
+			if err != nil {
+				continue
+			}
+			srcRanges4 := selectedSrcIP4
+			srcRanges6 := selectedSrcIP6
+			if len(srcRanges4) == 0 && len(srcRanges6) == 0 {
+				if e.Range != "" {
+					if ip, cidr, parseErr := net.ParseCIDR(e.Range); parseErr == nil {
+						if ip.To4() != nil {
+							srcRanges4 = append(srcRanges4, *cidr)
+						} else {
+							srcRanges6 = append(srcRanges6, *cidr)
+						}
+					}
+				} else {
+					for _, domainAnsI := range e.DomainAns {
+						if ip, cidr, parseErr := net.ParseCIDR(domainAnsI); parseErr == nil {
+							if ip.To4() != nil {
+								srcRanges4 = append(srcRanges4, *cidr)
+							} else {
+								srcRanges6 = append(srcRanges6, *cidr)
+							}
+						}
+					}
+				}
+			}
+			for _, srcRange := range srcRanges4 {
+				if peer.Address.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP:           srcRange,
+						DstIP:           peer.AddressIPNet4(),
+						AllowedProtocol: policy.Proto,
+						AllowedPorts:    policy.Port,
+						Allow:           true,
+					})
+				}
+			}
+			for _, srcRange := range srcRanges6 {
+				if peer.Address6.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP:           srcRange,
+						DstIP:           peer.AddressIPNet6(),
+						AllowedProtocol: policy.Proto,
+						AllowedPorts:    policy.Port,
+						Allow:           true,
+					})
+				}
+			}
+		}
+		selectedDstIP4, selectedDstIP6 := logic.GetSelectedEgressIPNets(policy.Dst)
 		for _, dstI := range policy.Dst {
 			if dstI.ID == models.EgressID {
 
@@ -319,6 +376,56 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				nodeOwnsEgress := false
 				if _, ok := e.Nodes[node.ID.String()]; ok {
 					nodeOwnsEgress = true
+				}
+				// Per-egress dest selected IPs (policy may list multiple /32; match to this egress's range)
+				var rangeCIDR *net.IPNet
+				if e.Range != "" {
+					_, c, parseErr := net.ParseCIDR(e.Range)
+					if parseErr == nil {
+						rangeCIDR = c
+					}
+				}
+				var addDst4, addDst6 []net.IPNet
+				for _, c := range selectedDstIP4 {
+					if rangeCIDR != nil && rangeCIDR.Contains(c.IP) {
+						addDst4 = append(addDst4, c)
+					}
+				}
+				for _, c := range selectedDstIP6 {
+					if rangeCIDR != nil && rangeCIDR.Contains(c.IP) {
+						addDst6 = append(addDst6, c)
+					}
+				}
+				if len(addDst4) > 0 || len(addDst6) > 0 {
+					for _, cidr := range addDst4 {
+						if node.Address.IP != nil {
+							rules = append(rules, models.FwRule{
+								SrcIP: net.IPNet{
+									IP:   node.Address.IP,
+									Mask: net.CIDRMask(32, 32),
+								},
+								DstIP:           cidr,
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
+						}
+					}
+					for _, cidr := range addDst6 {
+						if node.Address6.IP != nil {
+							rules = append(rules, models.FwRule{
+								SrcIP: net.IPNet{
+									IP:   node.Address6.IP,
+									Mask: net.CIDRMask(128, 128),
+								},
+								DstIP:           cidr,
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
+						}
+					}
+					continue
 				}
 				// Use virtual range if node doesn't own the egress, otherwise use regular range
 				egressRange := e.Range
@@ -615,17 +722,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 			continue
 		}
 		dstMap := logic.ConvAclTagToValueMap(policy.Dst)
-		for _, dst := range policy.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil && e.Status {
-					for nodeID := range e.Nodes {
-						dstMap[nodeID] = struct{}{}
-					}
-				}
-			}
-		}
+		logic.ExpandAclEgressTagValues(dstMap, dstMap, policy.Dst, policy.Dst)
 		if _, ok := dstMap["*"]; ok {
 			allowedPolicies = append(allowedPolicies, policy)
 			continue
@@ -724,17 +821,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 
 		srcMap = logic.ConvAclTagToValueMap(policy.Src)
 		dstMap = logic.ConvAclTagToValueMap(policy.Dst)
-		for _, dst := range policy.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil && e.Status {
-					for nodeID := range e.Nodes {
-						dstMap[nodeID] = struct{}{}
-					}
-				}
-			}
-		}
+		logic.ExpandAclEgressTagValues(srcMap, dstMap, policy.Src, policy.Dst)
 		if logic.CheckTagGroupPolicy(srcMap, dstMap, node, peer, nodeTags, peerTags) {
 			return true
 		}

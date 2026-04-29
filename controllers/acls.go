@@ -52,6 +52,7 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.UserGroupAclID,
 			models.NodeTagID,
 			models.NodeID,
+			models.EgressID,
 		},
 		DstGroupTypes: []models.AclGroupType{
 			models.NodeTagID,
