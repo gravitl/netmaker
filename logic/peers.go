@@ -934,16 +934,45 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	return allowedips
 }
 func deduplicateEgressRoutes(routes []models.EgressNetworkRoutes) []models.EgressNetworkRoutes {
-	seen := make(map[string]struct{}, len(routes))
+	mergedByKey := make(map[string]int, len(routes))
 	result := make([]models.EgressNetworkRoutes, 0, len(routes))
 	for _, r := range routes {
 		key := r.PeerKey + "|" + r.Network
-		if _, exists := seen[key]; !exists {
-			seen[key] = struct{}{}
+		if idx, exists := mergedByKey[key]; !exists {
+			mergedByKey[key] = len(result)
 			result = append(result, r)
+		} else {
+			result[idx].EgressRanges = UniqueStrings(append(result[idx].EgressRanges, r.EgressRanges...))
+			result[idx].EgressRangesWithMetric = mergeUniqueEgressRangeMetrics(
+				result[idx].EgressRangesWithMetric,
+				r.EgressRangesWithMetric,
+			)
 		}
 	}
 	return result
+}
+
+func mergeUniqueEgressRangeMetrics(existing, incoming []models.EgressRangeMetric) []models.EgressRangeMetric {
+	if len(incoming) == 0 {
+		return existing
+	}
+	seen := make(map[models.EgressRangeMetric]struct{}, len(existing)+len(incoming))
+	merged := make([]models.EgressRangeMetric, 0, len(existing)+len(incoming))
+	for _, metric := range existing {
+		if _, ok := seen[metric]; ok {
+			continue
+		}
+		seen[metric] = struct{}{}
+		merged = append(merged, metric)
+	}
+	for _, metric := range incoming {
+		if _, ok := seen[metric]; ok {
+			continue
+		}
+		seen[metric] = struct{}{}
+		merged = append(merged, metric)
+	}
+	return merged
 }
 
 func getCIDRMaskFromAddr(addr string) net.IPMask {
