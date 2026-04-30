@@ -11,19 +11,16 @@ import (
 const gatewayTable = "gateways_v1"
 
 type Gateway struct {
-	ID                  string `gorm:"primaryKey"`
-	NetworkID           string
-	Range               string
-	Range6              string
-	PersistentKeepalive int32
-	MTU                 int32
-	IsAutoRelay         bool
-	IsInternetGateway   bool
-	RelayedNodes        datatypes.JSONMap
-	AutoRelayedNodes    datatypes.JSONMap
-	CreatedBy           string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                string `gorm:"primaryKey"`
+	NetworkID         string
+	Range             string
+	Range6            string
+	IsAutoRelay       bool
+	IsInternetGateway bool
+	RelayedNodes      datatypes.JSONMap
+	CreatedBy         string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (g *Gateway) TableName() string {
@@ -50,4 +47,11 @@ func (g *Gateway) ListByNetwork(ctx context.Context) ([]Gateway, error) {
 	var ingresses []Gateway
 	err := db.FromContext(ctx).Model(&Gateway{}).Where("network_id = ?", g.NetworkID).Find(&ingresses).Error
 	return ingresses, err
+}
+
+func (g *Gateway) UpdateRelayedNodes(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Gateway{}).
+		Where("id = ?", g.ID).
+		Update("relayed_nodes", g.RelayedNodes).
+		Error
 }
