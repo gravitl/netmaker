@@ -238,14 +238,14 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node,
-	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
+	deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
 
 	// track which nodes are deleted
 	// after peer calculation, if peer not in list, add delete config of peer
-	hostPeerUpdate := models.HostPeerUpdate{
+	hostPeerUpdate = models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
 		ServerVersion: servercfg.GetVersion(),
@@ -266,6 +266,9 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: make(map[string]models.PeerIdentity),
 	}
+	defer func() {
+		hostPeerUpdate.EgressRoutes = deduplicateEgressRoutes(hostPeerUpdate.EgressRoutes)
+	}()
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false
 	}
@@ -930,6 +933,47 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
 	}
 	return allowedips
+}
+func deduplicateEgressRoutes(routes []models.EgressNetworkRoutes) []models.EgressNetworkRoutes {
+	mergedByKey := make(map[string]int, len(routes))
+	result := make([]models.EgressNetworkRoutes, 0, len(routes))
+	for _, r := range routes {
+		key := r.PeerKey + "|" + r.Network
+		if idx, exists := mergedByKey[key]; !exists {
+			mergedByKey[key] = len(result)
+			result = append(result, r)
+		} else {
+			result[idx].EgressRanges = UniqueStrings(append(result[idx].EgressRanges, r.EgressRanges...))
+			result[idx].EgressRangesWithMetric = mergeUniqueEgressRangeMetrics(
+				result[idx].EgressRangesWithMetric,
+				r.EgressRangesWithMetric,
+			)
+		}
+	}
+	return result
+}
+
+func mergeUniqueEgressRangeMetrics(existing, incoming []models.EgressRangeMetric) []models.EgressRangeMetric {
+	if len(incoming) == 0 {
+		return existing
+	}
+	seen := make(map[models.EgressRangeMetric]struct{}, len(existing)+len(incoming))
+	merged := make([]models.EgressRangeMetric, 0, len(existing)+len(incoming))
+	for _, metric := range existing {
+		if _, ok := seen[metric]; ok {
+			continue
+		}
+		seen[metric] = struct{}{}
+		merged = append(merged, metric)
+	}
+	for _, metric := range incoming {
+		if _, ok := seen[metric]; ok {
+			continue
+		}
+		seen[metric] = struct{}{}
+		merged = append(merged, metric)
+	}
+	return merged
 }
 
 func getCIDRMaskFromAddr(addr string) net.IPMask {

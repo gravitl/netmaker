@@ -62,7 +62,7 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 }
 
 var (
-	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckins   = make(map[string]time.Time)
 	pendingCheckinsMu sync.Mutex
 )
 
@@ -74,7 +74,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	node.EgressDetails = models.EgressDetails{}
 	if servercfg.CacheEnabled() {
 		pendingCheckinsMu.Lock()
-		pendingCheckins[node.ID.String()] = *node
+		pendingCheckins[node.ID.String()] = node.LastCheckIn
 		pendingCheckinsMu.Unlock()
 		return nil
 	}
@@ -90,13 +90,19 @@ func UpdateNodeCheckin(node *models.Node) error {
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
-	pendingCheckins = make(map[string]models.Node)
+	pendingCheckins = make(map[string]time.Time)
 	pendingCheckinsMu.Unlock()
 	if len(batch) == 0 {
 		return
 	}
 	var failed int
-	for id, node := range batch {
+	for id, checkin := range batch {
+		node, err := GetNodeByID(id)
+		if err != nil {
+			failed++
+			continue
+		}
+		node.LastCheckIn = checkin
 		data, err := json.Marshal(node)
 		if err != nil {
 			failed++
@@ -368,11 +374,9 @@ func GetAllNodes() ([]models.Node, error) {
 			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
+		ensureNodeMutex(&node)
 		// add node to our array
 		nodes = append(nodes, node)
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
 		nodesMap[node.ID.String()] = node
 	}
 
@@ -412,8 +416,20 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
+// ensureNodeMutex sets node.Mutex if nil. Mutex is never persisted (json:"-"); unmarshaled
+// and freshly constructed nodes need a mutex for in-memory coordination of shared maps.
+func ensureNodeMutex(node *models.Node) {
+	if node == nil {
+		return
+	}
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
+}
+
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
+	ensureNodeMutex(node)
 	parentNetwork := &schema.Network{Name: node.Network}
 	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -459,6 +475,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+	ensureNodeMutex(&node)
 	return node, nil
 }
 
