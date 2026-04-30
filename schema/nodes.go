@@ -13,6 +13,8 @@ import (
 const nodesTable = "nodes_v1"
 
 // TODO: check network and host delete cascade issues.
+// TODO: Add gateways list API.
+// TODO: Add gateway configs list API.
 
 type Node struct {
 	ID                                string   `gorm:"primaryKey"`
@@ -27,10 +29,10 @@ type Node struct {
 	Status                            string
 	PendingDelete                     bool
 	AutoAssignGateway                 bool
-	GatewayID                         *string
+	GatewayID                         datatypes.NullString
 	Gateway                           *Gateway `gorm:"foreignKey:GatewayID;constraint:OnDelete:SET NULL"`
-	RelayGatewayID                    *string
-	RelayGateway                      *Gateway `gorm:"foreignKey:RelayGatewayID;constraint:OnDelete:SET NULL"`
+	RelayingNodeID                    datatypes.NullString
+	RelayingNode                      *Node `gorm:"foreignKey:RelayingNodeID;constraint:OnDelete:SET NULL"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
 	Tags                              datatypes.JSONMap
 	PostureCheckStatus                string
@@ -87,6 +89,8 @@ func (n *Node) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).Delete(n).Error
 }
 
+// TODO: Add pagination APIs
+
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
@@ -106,6 +110,15 @@ func (n *Node) ListByNetwork(ctx context.Context) ([]Node, error) {
 func (n *Node) ListByHost(ctx context.Context) ([]Node, error) {
 	var nodes []Node
 	err := db.FromContext(ctx).Model(&Node{}).Where("host_id = ?", n.HostID).Find(&nodes).Error
+	return nodes, err
+}
+
+func (n *Node) ListByHostAndNetwork(ctx context.Context) ([]Node, error) {
+	var nodes []Node
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("host_id = ? AND network_id = ?", n.HostID, n.NetworkID).
+		Find(&nodes).
+		Error
 	return nodes, err
 }
 
@@ -159,5 +172,19 @@ func (n *Node) DeleteViolations(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&PostureCheckViolation{}).
 		Where("node_id = ?", n.ID).
 		Delete(&PostureCheckViolation{}).
+		Error
+}
+
+func (n *Node) UpdateTags(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("tags", n.Tags).
+		Error
+}
+
+func (n *Node) UpdateRelayingNode(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("relaying_node_id", n.RelayingNodeID).
 		Error
 }
