@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
@@ -17,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 
@@ -615,7 +617,106 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err = logic.CreateExtClient(&extclient); err != nil {
+
+	if len(extclient.PublicKey) == 0 {
+		privateKey, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			slog.Error(
+				"failed to create extclient",
+				"user",
+				r.Header.Get("user"),
+				"network",
+				node.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		extclient.PrivateKey = privateKey.String()
+		extclient.PublicKey = privateKey.PublicKey().String()
+	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
+		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
+	}
+	if extclient.ExtraAllowedIPs == nil {
+		extclient.ExtraAllowedIPs = []string{}
+	}
+
+	parentNetwork := &schema.Network{Name: extclient.Network}
+	err = parentNetwork.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		slog.Error(
+			"failed to create extclient",
+			"user",
+			r.Header.Get("user"),
+			"network",
+			node.Network,
+			"error",
+			err,
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if extclient.Address == "" {
+		if parentNetwork.AddressRange != "" {
+			newAddress, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(db.WithContext(context.TODO()), parentNetwork)
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			extclient.Address = newAddress.String()
+		}
+	}
+
+	if extclient.Address6 == "" {
+		if parentNetwork.AddressRange6 != "" {
+			addr6, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIPv6(db.WithContext(context.TODO()), parentNetwork)
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			extclient.Address6 = addr6.String()
+		}
+	}
+
+	if extclient.ClientID == "" {
+		extclient.ClientID, err = logic.GenerateNodeName(extclient.Network)
+		if err != nil {
+			slog.Error(
+				"failed to create extclient",
+				"user",
+				r.Header.Get("user"),
+				"network",
+				node.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
+	extclient.LastModified = time.Now().Unix()
+	if err = logic.SaveExtClient(&extclient); err != nil {
 		slog.Error(
 			"failed to create extclient",
 			"user",
