@@ -74,6 +74,17 @@ func (u *User) Get(ctx context.Context) error {
 		Error
 }
 
+func (u *User) GetByExternalID(ctx context.Context) error {
+	if u.ExternalIdentityProviderID == "" {
+		return ErrUserIdentifiersNotProvided
+	}
+
+	return db.FromContext(ctx).Model(&User{}).
+		Where("external_identity_provider_id = ?", u.ExternalIdentityProviderID).
+		First(u).
+		Error
+}
+
 func (u *User) GetSuperAdmin(ctx context.Context) error {
 	return db.FromContext(ctx).Model(u).
 		Where("platform_role_id = ?", SuperAdminRole).
