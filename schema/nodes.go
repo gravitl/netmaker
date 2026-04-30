@@ -31,6 +31,7 @@ type Node struct {
 	Gateway                           *Gateway `gorm:"foreignKey:GatewayID;constraint:OnDelete:SET NULL"`
 	RelayGatewayID                    *string
 	RelayGateway                      *Gateway `gorm:"foreignKey:RelayGatewayID;constraint:OnDelete:SET NULL"`
+	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
 	Tags                              datatypes.JSONMap
 	PostureCheckStatus                string
 	PostureCheckLastEvaluationCycleID string
