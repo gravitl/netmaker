@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -18,13 +17,12 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/validation"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
 )
 
 var (
-	DeleteNodesCh = make(chan *models.Node, 100)
+	DeleteNodesCh = make(chan *schema.Node, 100)
 )
 
 // GetNetworkNodes - gets the nodes of a network
@@ -553,109 +551,20 @@ func DeleteExpiredNodes(ctx context.Context) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			allnodes, err := GetAllNodes()
+			nodes, err := (&schema.Node{}).ListAll(db.WithContext(ctx))
 			if err != nil {
 				slog.Error("failed to retrieve all nodes", "error", err.Error())
 				return
 			}
-			for _, node := range allnodes {
+			for _, node := range nodes {
 				node := node
 				if time.Now().After(node.ExpirationDateTime) {
 					DeleteNodesCh <- &node
-					slog.Info("deleting expired node", "nodeid", node.ID.String())
+					slog.Info("deleting expired node", "nodeid", node.ID)
 				}
 			}
 		}
 	}
-}
-
-// createNode - creates a node in database
-func createNode(node *models.Node) error {
-	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
-	addressLock.Lock()
-	defer addressLock.Unlock()
-
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err := host.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	SetNodeDefaults(node, true)
-	parentNetwork := &schema.Network{Name: node.Network}
-	err = parentNetwork.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if node.Address.IP == nil {
-		if parentNetwork.AddressRange != "" {
-			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err != nil {
-				return err
-			}
-			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(parentNetwork, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
-	}
-	if node.Address6.IP == nil {
-		if parentNetwork.AddressRange6 != "" {
-			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err != nil {
-				return err
-			}
-			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(parentNetwork, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 %s is not unique", node.Address6.String())
-	}
-	node.ID = uuid.New()
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
-	if tokenString == "" {
-		//logic.ReturnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-	CheckZombies(node)
-	node.SetLastCheckIn()
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		if node.Address.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-		}
-		if node.Address6.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-		}
-	}
-
-	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
-		logger.Log(1, "failed to initialize metrics for node", node.ID.String(), err.Error())
-	}
-
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
 }
 
 // SortApiNodes - Sorts slice of ApiNodes by their ID alphabetically with numbers first
@@ -733,4 +642,20 @@ func ContainsCIDR(net1, net2 string) bool {
 	one, two := ipaddr.NewIPAddressString(net1),
 		ipaddr.NewIPAddressString(net2)
 	return one.Contains(two) || two.Contains(one)
+}
+
+// TODO: implement
+
+func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
+	return &models.ApiNode{
+		ID: _node.ID,
+	}
+}
+
+func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
+	return &models.Node{
+		CommonNode: models.CommonNode{
+			ID: uuid.MustParse(_node.ID),
+		},
+	}
 }

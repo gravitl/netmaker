@@ -353,46 +353,11 @@ func UpdateHostNetwork(h *schema.Host, network string, add bool) (*models.Node, 
 			continue
 		}
 		if node.Network == network {
-			if !add {
-				return &node, nil
-			} else {
-				return &node, errors.New("host already part of network " + network)
-			}
+			return &node, nil
 		}
 	}
-	if !add {
-		return nil, errors.New("host not part of the network " + network)
-	} else {
-		newNode := models.Node{}
-		newNode.Server = servercfg.GetServer()
-		newNode.Network = network
-		newNode.HostID = h.ID
-		if err := AssociateNodeToHost(&newNode, h); err != nil {
-			return nil, err
-		}
-		return &newNode, nil
-	}
-}
 
-// AssociateNodeToHost - associates and creates a node with a given host
-// should be the only way nodes get created as of 0.18
-func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
-	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
-		return ErrInvalidHostID
-	}
-	n.HostID = h.ID
-	err := createNode(n)
-	if err != nil {
-		return err
-	}
-	currentHost := &schema.Host{ID: h.ID}
-	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
-		return fmt.Errorf("failed to fetch host before node association: %w", err)
-	}
-	h.Nodes = currentHost.Nodes
-	h.HostPass = currentHost.HostPass
-	h.Nodes = append(h.Nodes, n.ID.String())
-	return UpsertHost(h)
+	return nil, errors.New("host not part of the network " + network)
 }
 
 // DissasociateNodeFromHost - deletes a node and removes from host nodes
