@@ -721,6 +721,9 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		if !policy.Enabled {
 			continue
 		}
+		if logic.IsEgressRoutingPolicyAllowedForNodes(policy, node, peer) {
+			return true
+		}
 
 		srcMap = logic.ConvAclTagToValueMap(policy.Src)
 		dstMap = logic.ConvAclTagToValueMap(policy.Dst)
