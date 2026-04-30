@@ -16,6 +16,8 @@ import (
 
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
@@ -51,6 +53,10 @@ var version = "v1.5.1"
 
 // Start DB Connection and start API Request Handler
 func main() {
+	// Initializes repository with a CE extensions factory as the default. If built with 'ee' tag, the EE init()
+	// will have already registered the Pro factory and this call will be a no-op.
+	orchestrator.InitializeRepository(extensions.NewCEFactory())
+
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
 	setVerbosity()
