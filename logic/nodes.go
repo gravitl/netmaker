@@ -69,20 +69,19 @@ var (
 // UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
 // The actual DB write is deferred to FlushNodeCheckins (every 30s).
 // When caching is disabled (HA mode), writes directly to the DB.
-func UpdateNodeCheckin(node *models.Node) error {
-	node.SetLastCheckIn()
-	node.EgressDetails = models.EgressDetails{}
+func UpdateNodeCheckin(nodeID string) error {
 	if servercfg.CacheEnabled() {
 		pendingCheckinsMu.Lock()
-		pendingCheckins[node.ID.String()] = node.LastCheckIn
+		pendingCheckins[nodeID] = time.Now().UTC()
 		pendingCheckinsMu.Unlock()
 		return nil
 	}
-	data, err := json.Marshal(node)
-	if err != nil {
-		return err
+
+	node := &schema.Node{
+		ID:          nodeID,
+		LastCheckIn: time.Now().UTC(),
 	}
-	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	return node.UpdateLastCheckIn(db.WithContext(context.TODO()))
 }
 
 // FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
@@ -97,18 +96,12 @@ func FlushNodeCheckins() {
 	}
 	var failed int
 	for id, checkin := range batch {
-		node, err := GetNodeByID(id)
-		if err != nil {
-			failed++
-			continue
+		node := &schema.Node{
+			ID:          id,
+			LastCheckIn: checkin,
 		}
-		node.LastCheckIn = checkin
-		data, err := json.Marshal(node)
+		err := node.UpdateLastCheckIn(db.WithContext(context.TODO()))
 		if err != nil {
-			failed++
-			continue
-		}
-		if err := database.Insert(id, string(data), database.NODES_TABLE_NAME); err != nil {
 			failed++
 		}
 	}

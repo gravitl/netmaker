@@ -175,6 +175,13 @@ func (n *Node) DeleteViolations(ctx context.Context) error {
 		Error
 }
 
+func (n *Node) UpdateRelayingNode(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("relaying_node_id", n.RelayingNodeID).
+		Error
+}
+
 func (n *Node) UpdateTags(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
@@ -182,9 +189,9 @@ func (n *Node) UpdateTags(ctx context.Context) error {
 		Error
 }
 
-func (n *Node) UpdateRelayingNode(ctx context.Context) error {
+func (n *Node) UpdateLastCheckIn(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("relaying_node_id", n.RelayingNodeID).
+		Update("last_check_in", n.LastCheckIn).
 		Error
 }

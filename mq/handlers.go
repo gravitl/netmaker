@@ -282,7 +282,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 			continue
 		}
-		if err := logic.UpdateNodeCheckin(&node); err != nil {
+		if err := logic.UpdateNodeCheckin(node.ID.String()); err != nil {
 			slog.Warn("failed to update node on checkin", "nodeid", node.ID, "error", err)
 		}
 	}
