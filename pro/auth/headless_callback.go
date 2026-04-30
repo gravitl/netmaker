@@ -72,11 +72,10 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
-			err = logic.InsertPendingUser(&models.User{
-				UserName:                   userClaims.getUserName(),
+			err = (&schema.PendingUser{
+				Username:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
-				AuthType:                   schema.OAuth,
-			})
+			}).Create(r.Context())
 			if err != nil {
 				handleSomethingWentWrong(w)
 				return

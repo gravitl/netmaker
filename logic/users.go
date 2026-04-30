@@ -2,11 +2,9 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sort"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -94,68 +92,21 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 	return ToReturnUser(_user), nil
 }
 
-func InsertPendingUser(u *models.User) error {
-	data, err := json.Marshal(u)
-	if err != nil {
-		return err
-	}
-	return database.Insert(u.UserName, string(data), database.PENDING_USERS_TABLE_NAME)
-}
-
 func DeletePendingUser(username string) error {
-	return database.DeleteRecord(database.PENDING_USERS_TABLE_NAME, username)
+	return (&schema.PendingUser{
+		Username: username,
+	}).Delete(db.WithContext(context.TODO()))
 }
 
 func IsPendingUser(username string) bool {
-	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
-	if err != nil {
-		return false
+	exists, err := (&schema.PendingUser{
+		Username: username,
+	}).Exists(db.WithContext(context.TODO()))
+	if err == nil {
+		return exists
+	}
 
-	}
-	for _, record := range records {
-		u := models.ReturnUser{}
-		err := json.Unmarshal([]byte(record), &u)
-		if err == nil && u.UserName == username {
-			return true
-		}
-	}
 	return false
-}
-
-func ListPendingReturnUsers() ([]models.ReturnUser, error) {
-	pendingUsers := []models.ReturnUser{}
-	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return pendingUsers, err
-	}
-	for _, record := range records {
-		user := models.ReturnUser{}
-		err = json.Unmarshal([]byte(record), &user)
-		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
-			pendingUsers = append(pendingUsers, user)
-		}
-	}
-	return pendingUsers, nil
-}
-
-func ListPendingUsers() ([]models.User, error) {
-	var pendingUsers []models.User
-	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return pendingUsers, err
-	}
-	for _, record := range records {
-		var user models.User
-		err = json.Unmarshal([]byte(record), &user)
-		if err == nil {
-			user.IsSuperAdmin = user.PlatformRoleID == schema.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole
-			pendingUsers = append(pendingUsers, user)
-		}
-	}
-	return pendingUsers, nil
 }
 
 func GetUserMap() (map[string]schema.User, error) {
@@ -172,41 +123,23 @@ func GetUserMap() (map[string]schema.User, error) {
 	return userMap, nil
 }
 
-func InsertUserInvite(invite models.UserInvite) error {
-	data, err := json.Marshal(invite)
+func GetUserInvite(email string) (*schema.UserInvite, error) {
+	userInvite := &schema.UserInvite{
+		Email: email,
+	}
+	err := userInvite.GetByEmail(db.WithContext(context.TODO()))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return database.Insert(invite.Email, string(data), database.USER_INVITES_TABLE_NAME)
-}
 
-func GetUserInvite(email string) (in models.UserInvite, err error) {
-	d, err := database.FetchRecord(database.USER_INVITES_TABLE_NAME, email)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal([]byte(d), &in)
-	return
-}
-
-func ListUserInvites() ([]models.UserInvite, error) {
-	invites := []models.UserInvite{}
-	records, err := database.FetchRecords(database.USER_INVITES_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return invites, err
-	}
-	for _, record := range records {
-		in := models.UserInvite{}
-		err = json.Unmarshal([]byte(record), &in)
-		if err == nil {
-			invites = append(invites, in)
-		}
-	}
-	return invites, nil
+	return userInvite, nil
 }
 
 func DeleteUserInvite(email string) error {
-	return database.DeleteRecord(database.USER_INVITES_TABLE_NAME, email)
+	userInvite := &schema.UserInvite{
+		Email: email,
+	}
+	return userInvite.DeleteByEmail(db.WithContext(context.TODO()))
 }
 
 func ValidateAndApproveUserInvite(email, code string) error {
