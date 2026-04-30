@@ -22,8 +22,9 @@ type NodeOrchestrator struct {
 }
 
 type NodeOrchestratorOptions struct {
-	useKey bool
-	key    *models.EnrollmentKey
+	useKey                bool
+	key                   *models.EnrollmentKey
+	skipPublishPeerUpdate bool
 }
 
 type NodeOrchestratorOption func(options *NodeOrchestratorOptions) *NodeOrchestratorOptions
@@ -32,6 +33,13 @@ func UseKey(key *models.EnrollmentKey) NodeOrchestratorOption {
 	return func(o *NodeOrchestratorOptions) *NodeOrchestratorOptions {
 		o.useKey = true
 		o.key = key
+		return o
+	}
+}
+
+func SkipPublishPeerUpdate() NodeOrchestratorOption {
+	return func(o *NodeOrchestratorOptions) *NodeOrchestratorOptions {
+		o.skipPublishPeerUpdate = true
 		return o
 	}
 }
@@ -156,11 +164,13 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}()
 
-	go func() {
-		if err := mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
-		}
-	}()
+	if !ops.skipPublishPeerUpdate {
+		go func() {
+			if err := mq.PublishPeerUpdate(false); err != nil {
+				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
+			}
+		}()
+	}
 
 	return node, nil
 }

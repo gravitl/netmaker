@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -371,65 +374,21 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {
-			currHost := &defaultHosts[i]
-			newNode, err := logic.UpdateHostNetwork(currHost, network.Name, true)
+			host := &defaultHosts[i]
+			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network)
 			if err != nil {
 				logger.Log(
 					0,
 					r.Header.Get("user"),
 					"failed to add host to network:",
-					currHost.ID.String(),
+					host.ID.String(),
 					network.Name,
 					err.Error(),
 				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-			if len(currHost.Nodes) == 1 {
-				if err = mq.HostUpdate(&models.HostUpdate{
-					Action: models.RequestPull,
-					Host:   *currHost,
-					Node:   *newNode,
-				}); err != nil {
-					logger.Log(
-						0,
-						r.Header.Get("user"),
-						"failed to add host to network:",
-						currHost.ID.String(),
-						network.Name,
-						err.Error(),
-					)
-				}
-			} else {
-				if err = mq.HostUpdate(&models.HostUpdate{
-					Action: models.JoinHostToNetwork,
-					Host:   *currHost,
-					Node:   *newNode,
-				}); err != nil {
-					logger.Log(
-						0,
-						r.Header.Get("user"),
-						"failed to add host to network:",
-						currHost.ID.String(),
-						network.Name,
-						err.Error(),
-					)
-				}
-			}
-
-			// make  host failover
-			logic.CreateFailOver(*newNode)
-			// make host remote access gateway
-			logic.CreateIngressGateway(network.Name, newNode.ID.String(), models.IngressRequest{})
-			logic.CreateRelay(models.RelayRequest{
-				NodeID: newNode.ID.String(),
-				NetID:  network.Name,
-			})
-		}
-		// send peer updates
-		if err = mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(1, "failed to publish peer update for default hosts after network is added")
+			logger.Log(1, "added new node", newNode.ID, "to host", host.Name)
 		}
 	}()
 	logic.LogEvent(&models.Event{
