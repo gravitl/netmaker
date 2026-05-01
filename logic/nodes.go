@@ -131,11 +131,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	}
 	newNode.Fill(currentNode, servercfg.IsPro)
 
-	// check for un-settable server values
-	if err := ValidateNode(newNode, true); err != nil {
-		return err
-	}
-
 	if newNode.ID == currentNode.ID {
 		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
@@ -320,33 +315,6 @@ func DeleteNodeByID(node *models.Node) error {
 	}
 
 	return nil
-}
-
-// IsNodeIDUnique - checks if node id is unique
-func IsNodeIDUnique(node *models.Node) (bool, error) {
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID.String())
-	return database.IsEmptyRecord(err), err
-}
-
-// ValidateNode - validates node values
-func ValidateNode(node *models.Node, isUpdate bool) error {
-	v := validator.New()
-	_ = v.RegisterValidation("id_unique", func(fl validator.FieldLevel) bool {
-		if isUpdate {
-			return true
-		}
-		isFieldUnique, _ := IsNodeIDUnique(node)
-		return isFieldUnique
-	})
-	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		err := (&schema.Network{Name: node.Network}).Get(db.WithContext(context.TODO()))
-		return err == nil
-	})
-	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
-		return validation.CheckYesOrNoOrUnset(f1)
-	})
-	err := v.Struct(node)
-	return err
 }
 
 // GetAllNodes - returns all nodes in the DB
