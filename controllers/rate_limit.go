@@ -1,12 +1,15 @@
 package controller
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/logic"
 	"golang.org/x/time/rate"
 )
 
@@ -23,7 +26,7 @@ type RateLimiter struct {
 	burst int
 }
 
-func NewRateLimiter(r rate.Limit, b int) *RateLimiter {
+func NewRateLimiter(ctx context.Context, r rate.Limit, b int) *RateLimiter {
 	rl := &RateLimiter{
 		visitors: make(map[string]*visitor),
 		rate:     r,
@@ -31,7 +34,7 @@ func NewRateLimiter(r rate.Limit, b int) *RateLimiter {
 	}
 
 	// cleanup goroutine
-	go rl.cleanupVisitors()
+	go rl.cleanupVisitors(ctx)
 
 	return rl
 }
@@ -54,33 +57,45 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	return v.limiter
 }
 
-func (rl *RateLimiter) cleanupVisitors() {
+func (rl *RateLimiter) cleanupVisitors(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
 	for {
-		time.Sleep(time.Minute)
-
-		rl.mu.Lock()
-		for ip, v := range rl.visitors {
-			if time.Since(v.lastSeen) > 10*time.Minute {
-				delete(rl.visitors, ip)
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			for ip, v := range rl.visitors {
+				if time.Since(v.lastSeen) > 10*time.Minute {
+					delete(rl.visitors, ip)
+				}
 			}
+			rl.mu.Unlock()
+		case <-ctx.Done():
+			return
 		}
-		rl.mu.Unlock()
 	}
 }
 
-func (rl *RateLimiter) Middleware(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ip := clientIP(r)
-
-		limiter := rl.getVisitor(ip)
-
-		if !limiter.Allow() {
-			http.Error(w, "too many requests", http.StatusTooManyRequests)
+func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		route, err := mux.CurrentRoute(r).GetPathTemplate()
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 
+		if r.Method == http.MethodPost && route == "/api/users/adm/authenticate" {
+			ip := clientIP(r)
+
+			limiter := rl.getVisitor(ip)
+
+			if !limiter.Allow() {
+				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				return
+			}
+		}
+
 		next.ServeHTTP(w, r)
-	}
+	})
 }
 
 func clientIP(r *http.Request) string {
