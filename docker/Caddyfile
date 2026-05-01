@@ -12,6 +12,10 @@ https://dashboard.{$NM_DOMAIN} {
 		X-Frame-Options "SAMEORIGIN"
 		# Prevent search engines from indexing
 		X-Robots-Tag "none"
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Control referrer information sent with requests
+		Referrer-Policy "strict-origin-when-cross-origin"
 		# Remove the server name
 		-Server
 	}
@@ -21,6 +25,13 @@ https://dashboard.{$NM_DOMAIN} {
 
 # API
 https://api.{$NM_DOMAIN} {
+	header {
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Control referrer information sent with requests
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
 	reverse_proxy http://netmaker:8081
 }
 
