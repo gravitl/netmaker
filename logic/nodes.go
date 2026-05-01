@@ -242,16 +242,19 @@ func cleanupNodeReferences(node *models.Node) {
 }
 
 func DeleteNode(node *models.Node, purge bool) error {
-	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
-	node.Action = models.NODE_DELETE
+	alreadyDeleted := node.PendingDelete || node.Action == schema.NODE_DELETE
+	node.Action = schema.NODE_DELETE
 
 	if !purge && !alreadyDeleted {
-		newnode := *node
-		newnode.PendingDelete = true
-		if err := UpdateNode(node, &newnode); err != nil {
+		nodeID := node.ID
+		node := &schema.Node{
+			ID: nodeID.String(),
+		}
+		err := node.MarkPendingDelete(db.WithContext(context.TODO()))
+		if err != nil {
 			return err
 		}
-		newZombie <- node.ID
+		newZombie <- nodeID
 		return nil
 	}
 	if alreadyDeleted {

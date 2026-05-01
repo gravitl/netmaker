@@ -229,7 +229,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		for _, node := range networkNodes {
 			node := node
 			node.PendingDelete = true
-			node.Action = models.NODE_DELETE
+			node.Action = schema.NODE_DELETE
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}

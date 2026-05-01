@@ -91,7 +91,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if host.OS != "linux" { // support for other OS to be added
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
-	if host.FirewallInUse == models.FIREWALL_NONE {
+	if host.FirewallInUse == schema.FIREWALL_NONE {
 		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
 	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
@@ -349,7 +349,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 	if err != nil {
 		return err
 	}
-	if inetHost.FirewallInUse == models.FIREWALL_NONE {
+	if inetHost.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
 	if inetNode.InternetGwID != "" {

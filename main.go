@@ -214,7 +214,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 				continue
 			}
 			node := nodeUpdate
-			node.Action = models.NODE_DELETE
+			node.Action = schema.NODE_DELETE
 			node.PendingDelete = true
 			if err := mq.NodeUpdate(node); err != nil {
 				logger.Log(

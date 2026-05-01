@@ -16,6 +16,15 @@ import (
 	"gorm.io/datatypes"
 )
 
+const (
+	// FIREWALL_IPTABLES - indicates that iptables is the firewall in use
+	FIREWALL_IPTABLES = "iptables"
+	// FIREWALL_NFTABLES - indicates nftables is in use (Linux only)
+	FIREWALL_NFTABLES = "nftables"
+	// FIREWALL_NONE - indicates that no supported firewall in use
+	FIREWALL_NONE = "none"
+)
+
 // Iface struct for local interfaces of a node
 type Iface struct {
 	Name          string    `json:"name"`

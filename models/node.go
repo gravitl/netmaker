@@ -25,28 +25,6 @@ const (
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
 
-const (
-	// NODE_SERVER_NAME - the default server name
-	NODE_SERVER_NAME = "netmaker"
-	// MAX_NAME_LENGTH - max name length of node
-	MAX_NAME_LENGTH = 62
-	// == ACTIONS == (can only be set by server)
-	// NODE_DELETE - delete node action
-	NODE_DELETE = "delete"
-	// NODE_IS_PENDING - node pending status
-	NODE_IS_PENDING = "pending"
-	// NODE_NOOP - node no op action
-	NODE_NOOP = "noop"
-	// NODE_FORCE_UPDATE - indicates a node should pull all changes
-	NODE_FORCE_UPDATE = "force"
-	// FIREWALL_IPTABLES - indicates that iptables is the firewall in use
-	FIREWALL_IPTABLES = "iptables"
-	// FIREWALL_NFTABLES - indicates nftables is in use (Linux only)
-	FIREWALL_NFTABLES = "nftables"
-	// FIREWALL_NONE - indicates that no supported firewall in use
-	FIREWALL_NONE = "none"
-)
-
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 

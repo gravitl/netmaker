@@ -300,7 +300,7 @@ func ServerStartNotify() error {
 		return err
 	}
 	for i := range nodes {
-		nodes[i].Action = models.NODE_FORCE_UPDATE
+		nodes[i].Action = schema.NODE_FORCE_UPDATE
 		if err = NodeUpdate(&nodes[i]); err != nil {
 			logger.Log(1, "error when notifying node", nodes[i].ID.String(), "of a server startup")
 		}
@@ -312,7 +312,7 @@ func ServerStartNotify() error {
 func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
-	node.Action = models.NODE_DELETE
+	node.Action = schema.NODE_DELETE
 	if sendNodeUpdate {
 		if err := NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)

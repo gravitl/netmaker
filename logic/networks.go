@@ -951,7 +951,7 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 					continue
 				}
 				node.PendingDelete = true
-				node.Action = models.NODE_DELETE
+				node.Action = schema.NODE_DELETE
 				DeleteNodesCh <- &node
 				host := &schema.Host{ID: node.HostID}
 				if err := host.Get(db.WithContext(context.TODO())); err == nil && len(host.Nodes) == 0 {

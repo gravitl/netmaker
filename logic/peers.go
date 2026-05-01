@@ -176,7 +176,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			continue
 		}
 
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
+		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE {
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
@@ -204,7 +204,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			} else {
 				allowedToComm = IsPeerAllowed(node, peer, false)
 			}
-			if peer.Action != models.NODE_DELETE &&
+			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				(allowedToComm) {
@@ -306,7 +306,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			continue
 		}
 
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE ||
+		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE ||
 			(!node.LastCheckIn.IsZero() && time.Since(node.LastCheckIn) > time.Hour) {
 			if deletedNode == nil || deletedNode.ID != node.ID {
 				continue
@@ -538,7 +538,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 
-			if peer.Action != models.NODE_DELETE &&
+			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				(allowedToComm) &&

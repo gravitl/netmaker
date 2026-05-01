@@ -110,7 +110,7 @@ func ManageZombies(ctx context.Context) {
 							continue
 						}
 						node.PendingDelete = true
-						node.Action = models.NODE_DELETE
+						node.Action = schema.NODE_DELETE
 						DeleteNodesCh <- &node
 						logger.Log(1, "deleting zombie node", node.ID.String())
 						zombies = append(zombies[:i], zombies[i+1:]...)
@@ -144,7 +144,7 @@ func checkPendingRemovalNodes() {
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {
 		node := node
-		pendingDelete := node.PendingDelete || node.Action == models.NODE_DELETE
+		pendingDelete := node.PendingDelete || node.Action == schema.NODE_DELETE
 		if pendingDelete {
 			DeleteNode(&node, true)
 			DeleteNodesCh <- &node

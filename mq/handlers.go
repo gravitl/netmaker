@@ -274,7 +274,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			if database.IsEmptyRecord(err) {
 				fakeNode := models.Node{}
 				fakeNode.ID, _ = uuid.Parse(currNodeID)
-				fakeNode.Action = models.NODE_DELETE
+				fakeNode.Action = schema.NODE_DELETE
 				fakeNode.PendingDelete = true
 				if err := NodeUpdate(&fakeNode); err != nil {
 					slog.Warn("failed to inform host to remove node", "host", currentHost.Name, "hostid", currentHost.ID, "nodeid", currNodeID, "error", err)

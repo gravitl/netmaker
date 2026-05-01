@@ -12,6 +12,17 @@ import (
 
 const nodesTable = "nodes_v1"
 
+const (
+	// NODE_DELETE - delete node action
+	NODE_DELETE = "delete"
+	// NODE_IS_PENDING - node pending status
+	NODE_IS_PENDING = "pending"
+	// NODE_NOOP - node no op action
+	NODE_NOOP = "noop"
+	// NODE_FORCE_UPDATE - indicates a node should pull all changes
+	NODE_FORCE_UPDATE = "force"
+)
+
 // TODO: check network and host delete cascade issues.
 // TODO: Add gateways list API.
 // TODO: Add gateway configs list API.
@@ -193,6 +204,14 @@ func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Opt
 		query = query.Where("id = ?", n.ID)
 	}
 	return query.Update("connected", n.Connected).Error
+}
+
+func (n *Node) MarkPendingDelete(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("pending_delete", true).
+		Update("action", NODE_DELETE).
+		Error
 }
 
 func (n *Node) UpdateRelayingNode(ctx context.Context) error {
