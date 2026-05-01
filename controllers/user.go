@@ -17,6 +17,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/pquerna/otp"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/time/rate"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -43,7 +44,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+
+	limiter := NewRateLimiter(rate.Every(time.Minute/10), 3)
+	r.HandleFunc("/api/users/adm/authenticate", limiter.Middleware(http.HandlerFunc(authenticateUser))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/validate-identity", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
