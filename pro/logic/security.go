@@ -218,9 +218,6 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == http.MethodGet && targetRsrc == schema.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
 		return nil
 	}
-	if r.Method == http.MethodGet && user.PlatformRoleID == schema.PlatformUser && route == "/api/v1/flows" {
-		return nil
-	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s", targetRsrc)
