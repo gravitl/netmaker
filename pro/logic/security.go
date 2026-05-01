@@ -83,9 +83,6 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
-	if targetRsrc == schema.MetricRsrc.String() {
-		return nil
-	}
 
 	for groupID := range user.UserGroups.Data() {
 

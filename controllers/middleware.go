@@ -89,9 +89,6 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "/network/activity") {
 			r.Header.Set("TARGET_RSRC", schema.NetworkActivityRsrc.String())
 		}
-		if strings.Contains(route, "flows") {
-			r.Header.Set("TARGET_RSRC", schema.TrafficFlow.String())
-		}
 		if strings.Contains(route, "nameserver") {
 			r.Header.Set("TARGET_RSRC", schema.NameserverRsrc.String())
 		}
