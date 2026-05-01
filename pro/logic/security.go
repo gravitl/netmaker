@@ -177,6 +177,9 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	}
 
 	if userRole.ID == schema.Auditor {
+		if strings.Contains(r.URL.Path, "/api/v1/enrollment-keys") {
+			return errors.New("access denied")
+		}
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
