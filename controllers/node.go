@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -862,22 +863,32 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", eventAction, len(req.IDs)))
 
 	go func() {
-		updated := 0
+		var nodeIDs []interface{}
+		// filter out invalid node IDs.
 		for _, nodeID := range req.IDs {
-			node, err := logic.GetNodeByID(nodeID)
-			if err != nil {
-				slog.Error("bulk node status: node not found", "id", nodeID, "error", err)
-				continue
+			node := &schema.Node{
+				ID: nodeID,
 			}
-			if node.Connected == req.Connected || node.Network != network {
-				continue
+			exists, err := node.Exists(db.WithContext(context.TODO()))
+			if err == nil && exists {
+				nodeIDs = append(nodeIDs, nodeID)
 			}
-			newNode := node
-			newNode.Connected = req.Connected
-			if err := logic.UpdateNode(&node, &newNode); err != nil {
-				slog.Error("bulk node status: failed to update node", "id", nodeID, "error", err)
-				continue
-			}
+		}
+
+		nodeUpdate := &schema.Node{
+			Connected: req.Connected,
+		}
+		err := nodeUpdate.UpdateConnectedStatus(
+			db.WithContext(context.TODO()),
+			dbtypes.WithFilter("id", nodeIDs...),
+		)
+		if err != nil {
+			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
+			return
+		}
+
+		for i := range nodeIDs {
+			nodeID := nodeIDs[i].(string)
 			if !req.Connected {
 				metrics, err := logic.GetMetrics(nodeID)
 				if err == nil {
@@ -897,18 +908,16 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				},
 				TriggeredBy: user,
 				Target: models.Subject{
-					ID:   node.ID.String(),
-					Name: node.ID.String(),
+					ID:   nodeID,
+					Name: nodeID,
 					Type: schema.NodeSub,
 				},
 				NetworkID: schema.NetworkID(network),
 				Origin:    schema.Dashboard,
 			})
-			updated++
 		}
-		if updated > 0 {
-			mq.PublishPeerUpdate(false)
-		}
-		slog.Info("bulk node status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
+
+		mq.PublishPeerUpdate(false)
+		slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
 	}()
 }

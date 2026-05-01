@@ -56,6 +56,15 @@ func (n *Node) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).First(n).Error
 }
 
+func (n *Node) Exists(ctx context.Context) (bool, error) {
+	var exists bool
+	err := db.FromContext(ctx).Raw(
+		"SELECT EXISTS (SELECT 1 FROM nodes_v1 WHERE id = ?)",
+		n.ID,
+	).Scan(&exists).Error
+	return exists, err
+}
+
 func (n *Node) GetByHostAndNetwork(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("host_id = ? AND network_id = ?", n.HostID, n.NetworkID).
@@ -173,6 +182,17 @@ func (n *Node) DeleteViolations(ctx context.Context) error {
 		Where("node_id = ?", n.ID).
 		Delete(&PostureCheckViolation{}).
 		Error
+}
+
+func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if n.ID != "" {
+		query = query.Where("id = ?", n.ID)
+	}
+	return query.Update("connected", n.Connected).Error
 }
 
 func (n *Node) UpdateRelayingNode(ctx context.Context) error {
