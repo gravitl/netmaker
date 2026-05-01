@@ -220,8 +220,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
 	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
-	//delete network from allocated ip map
-	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
@@ -362,7 +360,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))
-	logic.AddNetworkToAllocatedIpMap(network.Name)
 	logic.CreateFallbackNameserver(network.Name)
 	if featureFlags.EnableOverlappingEgressRanges {
 		if err := logic.AllocateUniqueVNATPool(&network); err != nil {

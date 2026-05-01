@@ -140,21 +140,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
-			if err != nil {
-				return err
-			}
-			if servercfg.CacheEnabled() {
-				if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-					AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-				}
-				if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-					AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-				}
-			}
-			return nil
+			return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
 
@@ -304,16 +290,6 @@ func DeleteNodeByID(node *models.Node) error {
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	//recycle ip address
-	if servercfg.CacheEnabled() {
-		if node.Address.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
-		}
-		if node.Address6.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
-		}
-	}
-
 	return nil
 }
 
