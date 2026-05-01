@@ -99,9 +99,8 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 }
 
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
+	if xffs := r.Header.Values("X-Forwarded-For"); len(xffs) != 0 {
+		return strings.TrimSpace(xffs[len(xffs)-1])
 	}
 
 	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
