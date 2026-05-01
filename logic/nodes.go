@@ -171,9 +171,6 @@ func cleanupNodeReferences(node *models.Node) {
 			UpsertNode(&relayNode)
 		}
 	}
-	if node.FailedOverBy != uuid.Nil {
-		ResetFailedOverPeer(node)
-	}
 	if len(node.AutoRelayedPeers) > 0 {
 		ResetAutoRelayedPeer(node)
 	}

@@ -10,7 +10,6 @@ import (
 
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -226,12 +225,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		node.IngressMTU = ingress.MTU
 	}
 	if servercfg.IsPro {
-		if _, exists := FailOverExists(node.Network); exists {
-			ResetFailedOverPeer(&node)
-		}
-
 		ResetAutoRelayedPeer(&node)
-
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata
@@ -364,7 +358,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
-		if clientNode.IsFailOver || clientNode.IsAutoRelay {
+		if clientNode.IsAutoRelay {
 			return errors.New("failover node cannot be set to use internet gateway")
 		}
 		clientHost := &schema.Host{
@@ -388,9 +382,6 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			if clientNode.InternetGwID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
-		}
-		if clientNode.FailedOverBy != uuid.Nil {
-			ResetFailedOverPeer(&clientNode)
 		}
 		if len(clientNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&clientNode)

@@ -217,9 +217,6 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 				slog.Error("failed to get node:", "id", node.ID, "error", err)
 				continue
 			}
-			if node.FailedOverBy != uuid.Nil {
-				ResetFailedOverPeer(&node)
-			}
 			if len(node.AutoRelayedPeers) > 0 {
 				ResetAutoRelayedPeer(&node)
 			}
@@ -288,7 +285,6 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		}
 	}
 	publishPeerUpdate = true
-	ResetFailedOverPeer(newNode)
 	ResetAutoRelayedPeer(newNode)
 
 	return

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -150,9 +149,6 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		for _, relayedNodeID := range relayNode.RelayedNodes {
 			relayedNode, err := logic.GetNodeByID(relayedNodeID)
 			if err == nil {
-				if relayedNode.FailedOverBy != uuid.Nil {
-					logic.ResetFailedOverPeer(&relayedNode)
-				}
 				if len(relayedNode.AutoRelayedPeers) > 0 {
 					logic.ResetAutoRelayedPeer(&relayedNode)
 				}
@@ -376,9 +372,6 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.UpsertNode(&node)
 		logic.GetNodeStatus(&node, false)
 		go func() {
-			if node.FailedOverBy != uuid.Nil {
-				logic.ResetFailedOverPeer(&node)
-			}
 			if len(node.AutoRelayedPeers) > 0 {
 				logic.ResetAutoRelayedPeer(&node)
 			}
@@ -449,10 +442,6 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 
 	go func() {
-
-		if node.FailedOverBy != uuid.Nil {
-			logic.ResetFailedOverPeer(&node)
-		}
 		if len(node.AutoRelayedPeers) > 0 {
 			logic.ResetAutoRelayedPeer(&node)
 		}

@@ -319,7 +319,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			logic.ResetFailedOverPeer(&node)
 			logic.ResetAutoRelayedPeer(&node)
 		}
 		go mq.PublishPeerUpdate(false)

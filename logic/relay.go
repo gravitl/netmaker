@@ -138,11 +138,8 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if relayedNode.InternetGwID != "" && relayedNode.InternetGwID != relay.NodeID {
 			return errors.New("cannot relay an internet client (" + relayedNodeID + ")")
 		}
-		if relayedNode.IsFailOver || relayedNode.IsAutoRelay {
+		if relayedNode.IsAutoRelay {
 			return errors.New("cannot relay a auto relay node (" + relayedNodeID + ")")
-		}
-		if relayedNode.FailedOverBy != uuid.Nil {
-			ResetFailedOverPeer(&relayedNode)
 		}
 		if len(relayedNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&relayedNode)
@@ -179,7 +176,6 @@ func UpdateRelayed(currentNode, newNode *models.Node) {
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
-			ResetFailedOverPeer(&node)
 			ResetAutoRelayedPeer(&node)
 		}
 	}

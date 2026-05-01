@@ -42,7 +42,6 @@ func InitPro() {
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
 		proControllers.UserHandlers,
-		proControllers.FailOverHandlers,
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
@@ -109,7 +108,6 @@ func InitPro() {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 		proLogic.LoadNodeMetricsToCache()
-		proLogic.InitFailOverCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -145,11 +143,6 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 	})
-	logic.ResetFailOver = proLogic.ResetFailOver
-	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
-	logic.FailOverExists = proLogic.FailOverExists
-	logic.CreateFailOver = proLogic.CreateFailOver
-	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
 	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
