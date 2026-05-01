@@ -59,6 +59,7 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 
 func (rl *RateLimiter) cleanupVisitors(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
