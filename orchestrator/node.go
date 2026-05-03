@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -114,7 +115,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	go func() {
 		err := logic.UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
 		if err != nil {
-			logger.Log(1, "failed to initialize metrics for node", node.ID, err.Error())
+			logger.Log(1, fmt.Sprintf("failed to initialize metrics for node (%s): %v", node.ID, err))
 		}
 	}()
 
@@ -152,13 +153,10 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	// TODO: figure out mq placement.
 	go func() {
-		// TODO: convert schema.Node to models.Node properly
-		mqNode := models.Node{}
-
 		if err := mq.HostUpdate(&models.HostUpdate{
 			Action: action,
 			Host:   *host,
-			Node:   mqNode,
+			Node:   *logic.ConvertSchemaNodeToModelsNode(node),
 		}); err != nil {
 			logger.Log(1, "failed to send host update for node", node.ID, err.Error())
 		}
