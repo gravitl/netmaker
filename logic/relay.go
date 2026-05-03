@@ -6,27 +6,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
-
-// GetRelays - gets all the nodes that are relays
-func GetRelays() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	relays := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsRelay {
-			relays = append(relays, node)
-		}
-	}
-	return relays, nil
-}
 
 // CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
@@ -94,22 +78,6 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 	return returnnodes
 }
 
-// func GetRelayedNodes(relayNode *models.Node) (models.Node, error) {
-//	var returnnodes []models.Node
-//	networkNodes, err := GetNetworkNodes(relayNode.Network)
-//	if err != nil {
-//		return returnnodes, err
-//	}
-//	for _, node := range networkNodes {
-//		for _, addr := range relayNode.RelayAddrs {
-//			if addr == node.Address.IP.String() || addr == node.Address6.IP.String() {
-//				returnnodes = append(returnnodes, node)
-//			}
-//		}
-//	}
-//	return returnnodes, nil
-// }
-
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest, update bool) error {
 	var err error
@@ -121,14 +89,11 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 	if !update && node.IsRelay {
 		return errors.New("node is already acting as a relay")
 	}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)
 		if err != nil {
 			return err
 		}
-		GetNodeEgressInfo(&relayedNode, eli, acls)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
