@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 )
 
-type NetworkOrchestrator struct{}
+type NetworkOrchestrator struct {
+	addressLock  sync.Mutex
+	address6Lock sync.Mutex
+}
 
 func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
 	return n.allocateIPv4(ctx, network, false)
@@ -30,6 +34,9 @@ func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network
 }
 
 func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
+	n.addressLock.Lock()
+	defer n.addressLock.Unlock()
+
 	if network.AddressRange == "" {
 		return nil, fmt.Errorf("IPv4 not configured on network %s", network.Name)
 	}
@@ -40,6 +47,9 @@ func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.
 }
 
 func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
+	n.address6Lock.Unlock()
+	defer n.address6Lock.Lock()
+
 	if network.AddressRange6 == "" {
 		return nil, fmt.Errorf("IPv6 not configured on network %s", network.Name)
 	}
