@@ -46,7 +46,6 @@ type Node struct {
 	RelayedClients                    datatypes.JSONMap
 	RelayedIGWClients                 datatypes.JSONMap
 	RelayingNodeID                    datatypes.NullString
-	RelayingNode                      *Node `gorm:"foreignKey:RelayingNodeID;constraint:OnDelete:SET NULL"`
 	RelayingAllTraffic                bool
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
 	Tags                              datatypes.JSONMap
