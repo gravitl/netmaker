@@ -531,29 +531,6 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 	return node, nil
 }
 
-func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
-	network := &schema.Network{Name: currentNode.Network}
-	err := network.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		if !IsIPUnique(network, newNode.Address, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address)
-		}
-	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		if !IsIPUnique(network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address6)
-		}
-	}
-
-	return nil
-}
-
 func ValidateEgressRange(netID string, ranges []string) error {
 	network := &schema.Network{Name: netID}
 	err := network.Get(db.WithContext(context.TODO()))

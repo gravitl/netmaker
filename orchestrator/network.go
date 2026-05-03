@@ -67,7 +67,7 @@ func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *sch
 	}
 
 	for {
-		if n.isIPv4UniqueDB(ctx, network, addr.String()) {
+		if n.IsIPv4Unique(ctx, network, addr.String()) {
 			return addr, nil
 		}
 		var err error
@@ -99,7 +99,7 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 	}
 
 	for {
-		if n.isIPv6UniqueDB(ctx, network, addr.String()) {
+		if n.IsIPv6Unique(ctx, network, addr.String()) {
 			return addr, nil
 		}
 		if reverse {
@@ -113,7 +113,7 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 	}
 }
 
-func (n *NetworkOrchestrator) isIPv4UniqueDB(ctx context.Context, network *schema.Network, ip string) bool {
+func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.Network, ip string) bool {
 	_, cidr, err := net.ParseCIDR(network.AddressRange)
 	if err != nil {
 		return true
@@ -136,7 +136,7 @@ func (n *NetworkOrchestrator) isIPv4UniqueDB(ctx context.Context, network *schem
 	return true
 }
 
-func (n *NetworkOrchestrator) isIPv6UniqueDB(ctx context.Context, network *schema.Network, ip string) bool {
+func (n *NetworkOrchestrator) IsIPv6Unique(ctx context.Context, network *schema.Network, ip string) bool {
 	_, cidr, err := net.ParseCIDR(network.AddressRange6)
 	if err != nil {
 		return true
