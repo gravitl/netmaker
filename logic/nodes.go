@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -293,26 +294,15 @@ func DeleteNodeByID(node *models.Node) error {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-	nodesMap := make(map[string]models.Node)
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return []models.Node{}, err
+		return nil, err
 	}
 
-	for _, value := range collection {
-		var node models.Node
-		// ignore legacy nodes in database
-		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			logger.Log(3, "legacy node detected: ", err.Error())
-			continue
-		}
-		ensureNodeMutex(&node)
-		// add node to our array
-		nodes = append(nodes, node)
-		nodesMap[node.ID.String()] = node
+	for _, _node := range _nodes {
+		node := ConvertSchemaNodeToModelsNode(&_node)
+		ensureNodeMutex(node)
+		nodes = append(nodes, *node)
 	}
 
 	return nodes, nil
@@ -401,17 +391,18 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-func GetNodeByID(uuid string) (models.Node, error) {
-	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
+func GetNodeByID(nodeID string) (models.Node, error) {
+	_node := &schema.Node{
+		ID: nodeID,
+	}
+	err := _node.Get(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
 	if err != nil {
 		return models.Node{}, err
 	}
-	var node models.Node
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-	ensureNodeMutex(&node)
-	return node, nil
+
+	node := ConvertSchemaNodeToModelsNode(_node)
+	ensureNodeMutex(node)
+	return *node, nil
 }
 
 // GetDeletedNodeByID - get a deleted node
@@ -565,18 +556,140 @@ func ContainsCIDR(net1, net2 string) bool {
 	return one.Contains(two) || two.Contains(one)
 }
 
-// TODO: implement
-
 func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
-	return &models.ApiNode{
-		ID: _node.ID,
-	}
+	return ConvertSchemaNodeToModelsNode(_node).ConvertToAPINode()
 }
 
 func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
-	return &models.Node{
-		CommonNode: models.CommonNode{
-			ID: uuid.MustParse(_node.ID),
-		},
+	nodeID, err := uuid.Parse(_node.ID)
+	if err != nil {
+		return &models.Node{}
 	}
+
+	var nodeAddr, nodeAddr6 net.IPNet
+	if _node.Address != "" {
+		ip, cidr, err := net.ParseCIDR(_node.Address)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		cidr.IP = ip
+		nodeAddr = *cidr
+	}
+
+	if _node.Address6 != "" {
+		ip6, cidr, err := net.ParseCIDR(_node.Address6)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		cidr.IP = ip6
+		nodeAddr6 = *cidr
+	}
+
+	hostID, err := uuid.Parse(_node.HostID)
+	if err != nil {
+		return &models.Node{}
+	}
+
+	if _node.Host == nil {
+		_node.Host = &schema.Host{
+			ID: hostID,
+		}
+		err = _node.Host.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			return &models.Node{}
+		}
+	}
+
+	var netAddrRange, netAddr6Range net.IPNet
+	if _node.Network == nil {
+		_node.Network = &schema.Network{
+			ID: _node.Network.ID,
+		}
+		err = _node.Network.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			return &models.Node{}
+		}
+	}
+
+	var violations []models.Violation
+	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
+	if err == nil {
+		for _, _violation := range _violations {
+			violations = append(violations, models.Violation{
+				CheckID:   _violation.CheckID,
+				Name:      _violation.Name,
+				Attribute: _violation.Attribute,
+				Message:   _violation.Message,
+				Severity:  _violation.Severity,
+			})
+		}
+	}
+
+	node := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:                nodeID,
+			HostID:            hostID,
+			Network:           _node.Network.Name,
+			NetworkRange:      netAddrRange,
+			NetworkRange6:     netAddr6Range,
+			Server:            servercfg.GetServer(),
+			Connected:         _node.Connected,
+			Address:           nodeAddr,
+			Address6:          nodeAddr6,
+			Action:            _node.Action,
+			IsRelay:           _node.IsGateway,
+			IsGw:              _node.IsGateway,
+			AutoAssignGateway: _node.AutoAssignGateway,
+		},
+		PendingDelete:                     _node.PendingDelete,
+		LastModified:                      _node.UpdatedAt,
+		LastCheckIn:                       _node.LastCheckIn,
+		ExpirationDateTime:                _node.ExpirationDateTime,
+		Metadata:                          _node.Metadata,
+		IsAutoRelay:                       _node.IsAutoRelay,
+		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
+		IsInternetGateway:                 _node.AllowRelayingAllTraffic,
+		Status:                            models.NodeStatus(_node.Status),
+		PostureChecksViolations:           violations,
+		PostureCheckVolationSeverityLevel: _node.PostureCheckSeverity,
+		LastEvaluatedAt:                   _node.UpdatedAt,
+		Location:                          _node.Host.Location,
+		CountryCode:                       _node.Host.CountryCode,
+	}
+
+	if _node.IsGateway {
+		node.IngressGatewayRange = _node.Network.AddressRange
+		node.IngressGatewayRange6 = _node.Network.AddressRange6
+		node.IngressPersistentKeepalive = int32(_node.Host.PersistentKeepalive.Seconds())
+		node.IngressMTU = int32(_node.Host.MTU)
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+		}
+	}
+
+	if _node.RelayingNodeID.Valid {
+		node.IsRelayed = true
+		node.RelayedBy = _node.RelayingNodeID.V
+
+		if _node.RelayingAllTraffic {
+			node.InternetGwID = _node.RelayingNodeID.V
+		}
+	}
+
+	for tagID := range _node.Tags {
+		node.Tags[models.TagID(tagID)] = struct{}{}
+	}
+
+	return node
 }
