@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var (
@@ -226,9 +227,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if !purge && !alreadyDeleted {
 		nodeID := node.ID
 		node := &schema.Node{
-			ID: nodeID.String(),
+			ID:            nodeID.String(),
+			Action:        schema.NODE_DELETE,
+			PendingDelete: true,
 		}
-		err := node.MarkPendingDelete(db.WithContext(context.TODO()))
+		err := node.MarkForDeletion(db.WithContext(context.TODO()))
 		if err != nil {
 			return err
 		}
@@ -273,17 +276,14 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 
 // DeleteNodeByID - deletes a node from database
 func DeleteNodeByID(node *models.Node) error {
-	var err error
-	var key = node.ID.String()
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		if !database.IsEmptyRecord(err) {
-			return err
-		}
+	_node := &schema.Node{
+		ID: node.ID.String(),
 	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
+	err := _node.Delete(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	// removeZombie <- node.ID
+
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}

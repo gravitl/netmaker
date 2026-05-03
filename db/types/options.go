@@ -5,9 +5,25 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Option func(db *gorm.DB) *gorm.DB
+
+func WithPreloads(associations ...string) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		for _, association := range associations {
+			db = db.Preload(association)
+		}
+		return db
+	}
+}
+
+func WithAllPreloads() Option {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Preload(clause.Associations)
+	}
+}
 
 func WithPagination(page, pageSize int) Option {
 	return func(db *gorm.DB) *gorm.DB {

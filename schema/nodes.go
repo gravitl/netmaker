@@ -63,8 +63,12 @@ func (n *Node) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Create(n).Error
 }
 
-func (n *Node) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).First(n).Error
+func (n *Node) Get(ctx context.Context, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	return query.Where("id = ?", n.ID).First(n).Error
 }
 
 func (n *Node) Exists(ctx context.Context) (bool, error) {
@@ -206,7 +210,7 @@ func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Opt
 	return query.Update("connected", n.Connected).Error
 }
 
-func (n *Node) MarkPendingDelete(ctx context.Context) error {
+func (n *Node) MarkForDeletion(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Update("pending_delete", true).
