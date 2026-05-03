@@ -6,10 +6,15 @@ import (
 )
 
 type NodeExtensions interface {
+	ConfigureAutoRelay(node *schema.Node)
 	ConfigureAutoAssignGateway(node *schema.Node, key *models.EnrollmentKey)
 }
 
 type CENodeExtensions struct{}
+
+func (c *CENodeExtensions) ConfigureAutoRelay(_ *schema.Node) {
+	return
+}
 
 func (c *CENodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, _ *models.EnrollmentKey) {
 	node.AutoAssignGateway = false

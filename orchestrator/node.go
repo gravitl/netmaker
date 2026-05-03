@@ -120,12 +120,12 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}()
 
 	if host.IsDefault {
-		_, err = GetRepository().GatewayOrchestrator().CreateGateway(ctx, node)
+		err = n.CreateGateway(ctx, node)
 		if err != nil {
 			return nil, err
 		}
 	} else if ops.useKey && ops.key.Relay != uuid.Nil {
-		gateway := &schema.Gateway{
+		gateway := &schema.Node{
 			ID: ops.key.Relay.String(),
 		}
 		err = gateway.Get(ctx)
@@ -136,8 +136,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 				return nil, err
 			}
 
-			gateway.RelayedNodes[node.ID] = struct{}{}
-			err = gateway.UpdateRelayedNodes(ctx)
+			gateway.RelayedClients[node.ID] = struct{}{}
+			err = gateway.UpdateRelayedClients(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -171,4 +171,37 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	return node, nil
+}
+
+func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node) error {
+	if node.Host.OS != "linux" {
+		return errors.New("gateway can only be created on linux based node")
+	}
+
+	if node.IsGateway {
+		return errors.New("node is already a gateway")
+	}
+
+	if node.RelayingNodeID.Valid {
+		return errors.New("gateway cannot be created on a relayed node")
+	}
+
+	node.IsGateway = true
+	node.AllowRelayingAllTraffic = false
+
+	n.nodeExt.ConfigureAutoRelay(node)
+
+	err := node.Update(ctx)
+	if err != nil {
+		return err
+	}
+
+	node.Tags[fmt.Sprintf("%s.%s", node.NetworkID, models.GwTagName)] = struct{}{}
+	err = node.UpdateTags(ctx)
+	if err != nil {
+		return err
+	}
+
+	node.Network.NodesUpdatedAt = time.Now()
+	return node.Network.UpdateNodesUpdatedAt(ctx)
 }

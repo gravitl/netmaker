@@ -12,7 +12,6 @@ var once sync.Once
 type Repository struct {
 	network *NetworkOrchestrator
 	node    *NodeOrchestrator
-	gateway *GatewayOrchestrator
 }
 
 func InitializeRepository(extFactory *extensions.Factory) {
@@ -21,9 +20,6 @@ func InitializeRepository(extFactory *extensions.Factory) {
 			network: &NetworkOrchestrator{},
 			node: &NodeOrchestrator{
 				nodeExt: extFactory.NodeExtensions(),
-			},
-			gateway: &GatewayOrchestrator{
-				gwExt: extFactory.GatewayExtensions(),
 			},
 		}
 	})
@@ -39,8 +35,4 @@ func (r *Repository) NetworkOrchestrator() *NetworkOrchestrator {
 
 func (r *Repository) NodeOrchestrator() *NodeOrchestrator {
 	return r.node
-}
-
-func (r *Repository) GatewayOrchestrator() *GatewayOrchestrator {
-	return r.gateway
 }

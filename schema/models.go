@@ -19,7 +19,6 @@ func ListModels() []interface{} {
 		&Host{},
 		&PendingUser{},
 		&UserInvite{},
-		&Gateway{},
 		&Node{},
 		&PostureCheckViolation{},
 	}

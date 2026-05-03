@@ -40,13 +40,17 @@ type Node struct {
 	Status                            string
 	PendingDelete                     bool
 	AutoAssignGateway                 bool
-	GatewayID                         datatypes.NullString
-	Gateway                           *Gateway `gorm:"foreignKey:GatewayID;constraint:OnDelete:SET NULL"`
+	IsGateway                         bool
+	IsAutoRelay                       bool
+	AllowRelayingAllTraffic           bool
+	RelayedClients                    datatypes.JSONMap
+	RelayedIGWClients                 datatypes.JSONMap
 	RelayingNodeID                    datatypes.NullString
 	RelayingNode                      *Node `gorm:"foreignKey:RelayingNodeID;constraint:OnDelete:SET NULL"`
+	RelayingAllTraffic                bool
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
 	Tags                              datatypes.JSONMap
-	PostureCheckStatus                string
+	PostureCheckSeverity              Severity
 	PostureCheckLastEvaluationCycleID string
 	Metadata                          string
 	LastCheckIn                       time.Time
@@ -222,6 +226,13 @@ func (n *Node) UpdateRelayingNode(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Update("relaying_node_id", n.RelayingNodeID).
+		Error
+}
+
+func (n *Node) UpdateRelayedClients(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("relayed_clients", n.RelayedClients).
 		Error
 }
 
