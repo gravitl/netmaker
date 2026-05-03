@@ -395,7 +395,7 @@ Endpoint = %s
 	)
 
 	if params["type"] == "qr" {
-		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)
+		bytes, err := qrcode.Encode(config, qrcode.Medium, -5)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to encode qr code: ", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
