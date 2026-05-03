@@ -142,7 +142,6 @@ func initialize() { // Client Mode Prereq Check
 	initializeUUID()
 
 	//initialize cache
-	_, _ = logic.GetAllNodes()
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
