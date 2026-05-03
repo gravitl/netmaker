@@ -303,7 +303,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 
 	keepalive := ""
 	if host.PersistentKeepalive != 0 {
-		keepalive = fmt.Sprintf("PersistentKeepalive = %d", host.PersistentKeepalive)
+		keepalive = fmt.Sprintf("PersistentKeepalive = %d", int(host.PersistentKeepalive.Seconds()))
 	}
 
 	gwendpoint := ""
