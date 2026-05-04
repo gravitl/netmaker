@@ -321,10 +321,6 @@ func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	if err := PublishDeletedNodePeerUpdate(&node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 // PushAllMetricsToExporter fetches all node metrics from the database

@@ -708,9 +708,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 		if !newNode.Connected {
 			metrics, err := logic.GetMetrics(newNode.ID.String())
 			if err == nil {

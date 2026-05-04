@@ -1338,9 +1338,6 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}(user, remoteGwID)
 
 	err = logic.UpsertUser(*user)

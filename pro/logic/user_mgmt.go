@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -919,9 +918,6 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 		}
 
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
@@ -986,11 +982,6 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			}
 		}
 	}
-
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
@@ -1041,10 +1032,6 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 		}
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {

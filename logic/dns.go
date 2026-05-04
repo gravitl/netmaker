@@ -108,11 +108,6 @@ func DeleteNetworkNameservers(networkID string) error {
 	}).Delete(db.WithContext(context.TODO()))
 }
 
-// SetDNS - sets the dns on file
-func SetDNS() error {
-	return nil
-}
-
 // GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 

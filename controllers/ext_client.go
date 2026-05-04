@@ -17,11 +17,9 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
-
-	"github.com/gravitl/netmaker/models"
 
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
@@ -778,9 +776,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extUpdateMutex.Lock()
 		mq.PublishPeerUpdate(false)
 		extUpdateMutex.Unlock()
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 }
 
@@ -848,8 +843,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	var changedID = update.ClientID != oldExtClient.ClientID
 
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
@@ -935,9 +928,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 
 	go func() {
-		if changedID && servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 		if replacePeers || !update.Enabled {
 			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
 				slog.Error("error deleting old ext peers", "error", err.Error())
@@ -1009,9 +999,6 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
 			slog.Error("error setting ext peers on " + ingressnode.ID.String() + ": " + err.Error())
-		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
 		}
 	}()
 
@@ -1099,9 +1086,6 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 
 			}
 			go mq.PublishPeerUpdate(false)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
 		}
 		slog.Info("bulk extclient delete completed", "deleted", deleted, "total", len(req.IDs))
 	}()
@@ -1244,9 +1228,6 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		if updated > 0 {
 			mq.PublishPeerUpdate(false)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
 		}
 		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()

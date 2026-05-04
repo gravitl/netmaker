@@ -191,9 +191,6 @@ func DeleteAndCleanupHost(h *schema.Host) {
 		slog.Error("failed to delete host", "id", h.ID, "error", err)
 		return
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func SignalPeer(signal models.Signal) {

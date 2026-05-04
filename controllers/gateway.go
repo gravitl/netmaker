@@ -277,10 +277,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 					err,
 				)
 			}
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
-
 		}
 
 		logic.RemoveNodeFromEnrollmentKeys(&node)

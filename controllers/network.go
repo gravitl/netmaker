@@ -20,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func networkHandlers(r *mux.Router) {
@@ -234,9 +233,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_ = logic.DeleteNetworkNameservers(network)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,

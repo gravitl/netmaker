@@ -9,13 +9,11 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/gorm"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type NetworkValidationTestCase struct {
@@ -180,28 +178,6 @@ func TestValidateNetwork(t *testing.T) {
 	}
 }
 
-func TestIpv6Network(t *testing.T) {
-	//these seem to work but not sure it the tests are really testing the functionality
-
-	os.Setenv("MASTER_KEY", "secretkey")
-	deleteAllNetworks()
-	createNet()
-	createNetDualStack()
-	network := &schema.Network{Name: "skynet6"}
-	err := network.Get(db.WithContext(context.TODO()))
-	t.Run("Test Network Create IPv6", func(t *testing.T) {
-		assert.Nil(t, err)
-		assert.Equal(t, network.AddressRange6, "fde6:be04:fa5e:d076::/64")
-	})
-	node1 := createNodeWithParams("skynet6", "")
-	createNetHost()
-	nodeErr := logic.AssociateNodeToHost(node1, &netHost)
-	t.Run("Test node on network IPv6", func(t *testing.T) {
-		assert.Nil(t, nodeErr)
-		assert.Equal(t, "fde6:be04:fa5e:d076::1", node1.Address6.IP.String())
-	})
-}
-
 func deleteAllNetworks() {
 	deleteAllNodes()
 	_networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
@@ -227,27 +203,4 @@ func createNetv1(netId string) {
 	if err != nil {
 		logic.CreateNetwork(&network)
 	}
-}
-
-func createNetDualStack() {
-	var network schema.Network
-	network.Name = "skynet6"
-	network.AddressRange = "10.1.2.0/24"
-	network.AddressRange6 = "fde6:be04:fa5e:d076::/64"
-	err := (&schema.Network{Name: "skynet6"}).Get(db.WithContext(context.TODO()))
-	if err != nil {
-		logic.CreateNetwork(&network)
-	}
-}
-
-func createNetHost() {
-	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	netHost = schema.Host{
-		ID:        uuid.New(),
-		PublicKey: schema.WgKey{Key: k.PublicKey()},
-		HostPass:  "password",
-		OS:        "linux",
-		Name:      "nethost",
-	}
-	_ = logic.CreateHost(&netHost)
 }

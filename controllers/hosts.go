@@ -446,11 +446,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-		if newHost.Name != currHost.Name {
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
-		}
 	}()
 
 	logic.LogEvent(&models.Event{
@@ -1030,9 +1025,6 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		mq.PublishMqUpdatesForDeletedNode(*node, true)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.RemoveHostFromNet,

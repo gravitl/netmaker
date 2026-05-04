@@ -328,17 +328,7 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 		}
 	}
 
-	err := h.Delete(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	go func() {
-		if servercfg.IsDNSMode() {
-			SetDNS()
-		}
-	}()
-
-	return nil
+	return h.Delete(db.WithContext(context.TODO()))
 }
 
 // UpdateHostNetwork - adds/deletes host from a network
