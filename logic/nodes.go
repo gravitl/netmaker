@@ -20,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -112,13 +113,12 @@ func FlushNodeCheckins() {
 
 // UpsertNode - updates node in the DB
 func UpsertNode(newNode *models.Node) error {
-	newNode.SetLastModified()
-	data, err := json.Marshal(newNode)
-	if err != nil {
-		return err
+	_node := ConvertModelsNodeToSchemaNode(newNode)
+	if _node.ID == "" {
+		return errors.New("error converting models.Node to schema.Node")
 	}
-	newNode.EgressDetails = models.EgressDetails{}
-	return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+
+	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -134,16 +134,16 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	newNode.Fill(currentNode, servercfg.IsPro)
 
 	if newNode.ID == currentNode.ID {
-		newNode.EgressDetails = models.EgressDetails{}
-		newNode.SetLastModified()
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
 		}
-		if data, err := json.Marshal(newNode); err != nil {
-			return err
-		} else {
-			return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+
+		_node := ConvertModelsNodeToSchemaNode(newNode)
+		if _node.ID == "" {
+			return errors.New("error converting models.Node to schema.Node")
 		}
+
+		return _node.Update(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
@@ -692,4 +692,77 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	}
 
 	return node
+}
+
+func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return &schema.Node{}
+	}
+
+	network := &schema.Network{
+		Name: node.Network,
+	}
+	err = network.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return &schema.Node{}
+	}
+
+	relayedClients := make(datatypes.JSONMap)
+	for _, relayedNodeID := range node.RelayedNodes {
+		relayedClients[relayedNodeID] = struct{}{}
+	}
+
+	relayedIGWClients := make(datatypes.JSONMap)
+	for _, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
+		relayedIGWClients[inetNodeClientID] = struct{}{}
+	}
+
+	tags := make(datatypes.JSONMap)
+	for tagID := range node.Tags {
+		tags[tagID.String()] = struct{}{}
+	}
+
+	var evalCycleID string
+	violations, _ := (&schema.Node{
+		ID: node.ID.String(),
+	}).ListViolations(db.WithContext(context.TODO()))
+	for _, violation := range violations {
+		evalCycleID = violation.EvaluationCycleID
+		break
+	}
+
+	return &schema.Node{
+		ID:                                node.ID.String(),
+		HostID:                            host.ID.String(),
+		Host:                              host,
+		NetworkID:                         network.ID,
+		Network:                           network,
+		Address:                           node.Address.String(),
+		Address6:                          node.Address6.String(),
+		Connected:                         node.Connected,
+		Action:                            node.Action,
+		Status:                            string(node.Status),
+		PendingDelete:                     node.PendingDelete,
+		AutoAssignGateway:                 node.AutoAssignGateway,
+		IsGateway:                         node.IsGw || node.IsRelay || node.IsIngressGateway,
+		IsAutoRelay:                       node.IsAutoRelay,
+		AllowRelayingAllTraffic:           node.IsGw && node.IsInternetGateway,
+		RelayedClients:                    relayedClients,
+		RelayedIGWClients:                 relayedIGWClients,
+		RelayingNodeID:                    datatypes.NewNull(node.RelayedBy),
+		RelayingAllTraffic:                node.IsRelayed && node.InternetGwID != "",
+		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
+		Tags:                              tags,
+		PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
+		PostureCheckLastEvaluationCycleID: evalCycleID,
+		Metadata:                          node.Metadata,
+		LastCheckIn:                       node.LastCheckIn,
+		ExpirationDateTime:                node.ExpirationDateTime,
+		CreatedAt:                         node.LastModified,
+		UpdatedAt:                         node.LastModified,
+	}
 }
