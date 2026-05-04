@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -28,18 +27,18 @@ var (
 // CheckZombies - checks if new node has same hostid as existing node
 // if so, existing node is added to zombie node quarantine list
 // also cleans up nodes past their expiration date
-func CheckZombies(newnode *models.Node) {
-	nodes, err := GetNetworkNodes(newnode.Network)
+func CheckZombies(_node *schema.Node) {
+	nodes, err := GetNetworkNodes(_node.Network.Name)
 	if err != nil {
-		logger.Log(1, "Failed to retrieve network nodes", newnode.Network, err.Error())
+		logger.Log(1, "Failed to retrieve network nodes", _node.Network.Name, err.Error())
 		return
 	}
 	for _, node := range nodes {
-		if node.ID == newnode.ID {
+		if node.ID.String() == _node.ID {
 			//skip self
 			continue
 		}
-		if node.HostID == newnode.HostID {
+		if node.HostID.String() == _node.HostID {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
 			newZombie <- node.ID
 		}
