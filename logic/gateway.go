@@ -29,51 +29,6 @@ func IsInternetGw(node models.Node) bool {
 	return node.IsInternetGateway
 }
 
-// GetInternetGateways - gets all the nodes that are internet gateways
-func GetInternetGateways() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	igs := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsInternetGateway {
-			igs = append(igs, node)
-		}
-	}
-	return igs, nil
-}
-
-// GetAllIngresses - gets all the nodes that are ingresses
-func GetAllIngresses() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	ingresses := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsIngressGateway {
-			ingresses = append(ingresses, node)
-		}
-	}
-	return ingresses, nil
-}
-
-// GetAllEgresses - gets all the nodes that are egresses
-func GetAllEgresses() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	egresses := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.EgressDetails.IsEgressGateway {
-			egresses = append(egresses, node)
-		}
-	}
-	return egresses, nil
-}
-
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
 	node, err := GetNodeByID(gateway.NodeID)
