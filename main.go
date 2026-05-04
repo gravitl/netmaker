@@ -225,7 +225,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 				slog.Error(
 					"error deleting expired node",
 					"nodeid",
-					node.ID.String(),
+					node.ID,
 					"error",
 					err.Error(),
 				)

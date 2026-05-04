@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	DeleteNodesCh = make(chan *schema.Node, 100)
+	DeleteNodesCh = make(chan *models.Node, 100)
 )
 
 // GetNetworkNodes - gets the nodes of a network
@@ -492,9 +492,9 @@ func DeleteExpiredNodes(ctx context.Context) {
 				return
 			}
 			for _, node := range nodes {
-				node := node
+				node := ConvertSchemaNodeToModelsNode(&node)
 				if time.Now().After(node.ExpirationDateTime) {
-					DeleteNodesCh <- &node
+					DeleteNodesCh <- node
 					slog.Info("deleting expired node", "nodeid", node.ID)
 				}
 			}
