@@ -118,7 +118,35 @@ func UpsertNode(newNode *models.Node) error {
 		return errors.New("error converting models.Node to schema.Node")
 	}
 
-	return _node.Upsert(db.WithContext(context.TODO()))
+	err := _node.Upsert(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	if _node.PostureCheckLastEvaluationCycleID != "" {
+		evaluatedAt, err := time.Parse(time.RFC3339, _node.PostureCheckLastEvaluationCycleID)
+		if err != nil {
+			return err
+		}
+
+		violations := make([]schema.PostureCheckViolation, 0, len(newNode.PostureChecksViolations))
+		for _, violation := range newNode.PostureChecksViolations {
+			violations = append(violations, schema.PostureCheckViolation{
+				EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+				CheckID:           violation.CheckID,
+				NodeID:            _node.ID,
+				Name:              violation.Name,
+				Attribute:         violation.Attribute,
+				Message:           violation.Message,
+				Severity:          violation.Severity,
+				EvaluatedAt:       evaluatedAt,
+			})
+		}
+
+		return _node.UpsertViolations(db.WithContext(context.TODO()), violations)
+	}
+
+	return nil
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -726,15 +754,6 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		tags[tagID.String()] = struct{}{}
 	}
 
-	var evalCycleID string
-	violations, _ := (&schema.Node{
-		ID: node.ID.String(),
-	}).ListViolations(db.WithContext(context.TODO()))
-	for _, violation := range violations {
-		evalCycleID = violation.EvaluationCycleID
-		break
-	}
-
 	return &schema.Node{
 		ID:                                node.ID.String(),
 		HostID:                            host.ID.String(),
@@ -758,7 +777,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
 		PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
-		PostureCheckLastEvaluationCycleID: evalCycleID,
+		PostureCheckLastEvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
 		Metadata:                          node.Metadata,
 		LastCheckIn:                       node.LastCheckIn,
 		ExpirationDateTime:                node.ExpirationDateTime,

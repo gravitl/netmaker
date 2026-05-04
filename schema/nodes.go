@@ -161,18 +161,22 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
 	tx := db.FromContext(ctx).Begin()
-	err := tx.Where("node_id = ?", n.ID).Delete(&PostureCheckViolation{}).Error
-	if err != nil {
-		rollbackErr := tx.Rollback().Error
-		if rollbackErr != nil {
-			err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
-		}
-
-		return err
-	}
-
 	if len(violations) > 0 {
 		err := tx.Create(&violations).Error
+		if err != nil {
+			rollbackErr := tx.Rollback().Error
+			if rollbackErr != nil {
+				err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
+			}
+
+			return err
+		}
+
+		err = tx.Model(n).
+			Where("id = ?", n.ID).
+			Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
+			Update("posture_check_severity", n.PostureCheckSeverity).
+			Error
 		if err != nil {
 			rollbackErr := tx.Rollback().Error
 			if rollbackErr != nil {
