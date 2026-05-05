@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var hostIDHeader = "host-id"
@@ -30,6 +32,7 @@ func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", logic.SecurityCheck(true, http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(listNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
@@ -193,6 +196,90 @@ func AuthorizeHost(
 		r.Header.Set(hostIDHeader, hostID)
 		next.ServeHTTP(w, r)
 	}
+}
+
+// @Summary     List all nodes in the network
+// @Router      /api/v1/nodes/{network} [get]
+// @Tags        Nodes
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
+	networkName := mux.Vars(r)["network"]
+
+	var page, pageSize int
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page == 0 {
+		page = 1
+	}
+
+	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	network := &schema.Network{
+		Name: networkName,
+	}
+	err := network.Get(r.Context())
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.BadReq
+		}
+
+		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching network: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+
+	nodes, err := (&schema.Node{}).ListAll(
+		r.Context(),
+		dbtypes.WithFilter("network_id", network.ID),
+	)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching nodes: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	for i, node := range nodes {
+		nodes[i].Status = logic.GetNodeCheckInStatus(&node)
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched nodes in network", networkName)
+
+	total, err := (&schema.Node{}).Count(
+		r.Context(),
+		dbtypes.WithFilter("network_id", network.Name),
+	)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch nodes in network %s: error constructing page: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       nodes,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched network nodes")
 }
 
 // @Summary     Gets all nodes associated with network including pending nodes
