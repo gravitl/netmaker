@@ -1402,6 +1402,51 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		}
 		acl.Dst[i].Value = normalized
 	}
+	srcEgressCIDRs := []*net.IPNet{}
+	for _, src := range acl.Src {
+		if src.ID != models.EgressID || src.Value == "*" {
+			continue
+		}
+		e, err := getEgressByID(src.Value)
+		if err != nil {
+			return errors.New("invalid egress")
+		}
+		if e.Range == "" {
+			continue
+		}
+		_, cidr, err := net.ParseCIDR(e.Range)
+		if err != nil {
+			return errors.New("invalid egress range")
+		}
+		srcEgressCIDRs = append(srcEgressCIDRs, cidr)
+	}
+	for i := range acl.Src {
+		if acl.Src[i].ID != models.NetmakerIPAclID {
+			continue
+		}
+		if len(srcEgressCIDRs) == 0 {
+			return errors.New("egress ip source requires at least one egress source")
+		}
+		normalized, err := NormalizeIPOrCIDR(acl.Src[i].Value)
+		if err != nil {
+			return err
+		}
+		_, cidr, err := net.ParseCIDR(normalized)
+		if err != nil {
+			return err
+		}
+		allowed := false
+		for _, egressCIDR := range srcEgressCIDRs {
+			if cidrContainsCIDR(egressCIDR, cidr) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return errors.New("selected ip/cidr " + normalized + " is outside the src egress range")
+		}
+		acl.Src[i].Value = normalized
+	}
 	return nil
 }
 
