@@ -400,7 +400,7 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 
 // GetAllExtClientsWithStatus - returns all external clients with
 // given status.
-func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, error) {
+func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]models.ExtClient, error) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return nil, err

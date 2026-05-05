@@ -134,7 +134,7 @@ func migrateNodes(ctx context.Context) error {
 			Address6:                          node.Address6.String(),
 			Connected:                         node.Connected,
 			Action:                            node.Action,
-			Status:                            string(node.Status),
+			Status:                            node.Status,
 			PendingDelete:                     node.PendingDelete,
 			AutoAssignGateway:                 node.AutoAssignGateway,
 			IsGateway:                         node.IsGw || node.IsRelay || node.IsIngressGateway,

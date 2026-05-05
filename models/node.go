@@ -11,17 +11,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-type NodeStatus string
-
-const (
-	OnlineSt     NodeStatus = "online"
-	OfflineSt    NodeStatus = "offline"
-	WarningSt    NodeStatus = "warning"
-	ErrorSt      NodeStatus = "error"
-	UnKnown      NodeStatus = "unknown"
-	Disconnected NodeStatus = "disconnected"
-)
-
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
 
@@ -92,7 +81,7 @@ type Node struct {
 	IsStatic                          bool                `json:"is_static"`
 	IsUserNode                        bool                `json:"is_user_node"`
 	StaticNode                        ExtClient           `json:"static_node"`
-	Status                            NodeStatus          `json:"node_status"`
+	Status                            schema.NodeStatus   `json:"node_status"`
 	Mutex                             *sync.Mutex         `json:"-"`
 	EgressDetails                     EgressDetails       `json:"-"`
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`

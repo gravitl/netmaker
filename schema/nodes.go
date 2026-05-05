@@ -23,6 +23,17 @@ const (
 	NODE_FORCE_UPDATE = "force"
 )
 
+type NodeStatus string
+
+const (
+	OnlineSt     NodeStatus = "online"
+	OfflineSt    NodeStatus = "offline"
+	WarningSt    NodeStatus = "warning"
+	ErrorSt      NodeStatus = "error"
+	UnKnown      NodeStatus = "unknown"
+	Disconnected NodeStatus = "disconnected"
+)
+
 // TODO: check network and host delete cascade issues.
 // TODO: Add gateways list API.
 // TODO: Add gateway configs list API.
@@ -37,7 +48,7 @@ type Node struct {
 	Address6                          string
 	Connected                         bool
 	Action                            string
-	Status                            string
+	Status                            NodeStatus
 	PendingDelete                     bool
 	AutoAssignGateway                 bool
 	IsGateway                         bool

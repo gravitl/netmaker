@@ -49,7 +49,7 @@ const (
 
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
-func GetAllHostsWithStatus(status models.NodeStatus) ([]schema.Host, error) {
+func GetAllHostsWithStatus(status schema.NodeStatus) ([]schema.Host, error) {
 	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
