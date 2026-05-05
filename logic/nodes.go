@@ -678,7 +678,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		Metadata:                          _node.Metadata,
 		IsAutoRelay:                       _node.IsAutoRelay,
 		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
-		IsInternetGateway:                 _node.AllowRelayingAllTraffic,
+		IsInternetGateway:                 _node.IsInternetGateway,
 		Status:                            models.NodeStatus(_node.Status),
 		PostureChecksViolations:           violations,
 		PostureCheckVolationSeverityLevel: _node.PostureCheckSeverity,
@@ -710,7 +710,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		node.IsRelayed = true
 		node.RelayedBy = _node.RelayingNodeID.V
 
-		if _node.RelayingAllTraffic {
+		if _node.IsIGWClient {
 			node.InternetGwID = _node.RelayingNodeID.V
 		}
 	}
@@ -769,11 +769,11 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		AutoAssignGateway:                 node.AutoAssignGateway,
 		IsGateway:                         node.IsGw || node.IsRelay || node.IsIngressGateway,
 		IsAutoRelay:                       node.IsAutoRelay,
-		AllowRelayingAllTraffic:           node.IsGw && node.IsInternetGateway,
+		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayingNodeID:                    datatypes.NewNull(node.RelayedBy),
-		RelayingAllTraffic:                node.IsRelayed && node.InternetGwID != "",
+		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
 		PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,

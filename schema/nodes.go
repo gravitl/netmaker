@@ -42,11 +42,11 @@ type Node struct {
 	AutoAssignGateway                 bool
 	IsGateway                         bool
 	IsAutoRelay                       bool
-	AllowRelayingAllTraffic           bool
+	IsInternetGateway                 bool
 	RelayedClients                    datatypes.JSONMap
 	RelayedIGWClients                 datatypes.JSONMap
 	RelayingNodeID                    datatypes.NullString
-	RelayingAllTraffic                bool
+	IsIGWClient                       bool
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
 	Tags                              datatypes.JSONMap
 	PostureCheckSeverity              Severity

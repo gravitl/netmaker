@@ -187,7 +187,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node)
 	}
 
 	node.IsGateway = true
-	node.AllowRelayingAllTraffic = false
+	node.IsInternetGateway = false
 
 	n.nodeExt.ConfigureAutoRelay(node)
 
