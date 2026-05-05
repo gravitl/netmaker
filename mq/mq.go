@@ -149,7 +149,7 @@ func normalizedMetricsExportInterval() time.Duration {
 func Keepalive(ctx context.Context) {
 	warmPeerCaches()
 	StartPeerUpdateWorker(ctx)
-	go PublishPeerUpdate(true)
+	go PublishPeerUpdate(false)
 	metricIntervalReset := logic.SubscribeMetricExportIntervalReset()
 	metricsTicker := time.NewTicker(normalizedMetricsExportInterval())
 	defer metricsTicker.Stop()

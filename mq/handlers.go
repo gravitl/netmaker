@@ -3,6 +3,7 @@ package mq
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -365,7 +366,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	}
 	ifaceDelta := len(ifaceDeltaReasons) > 0
 	if ifaceDelta { // only save if something changes
-		slog.Debug("host check-in peer-relevant delta",
+		fmt.Println("host check-in peer-relevant delta",
 			"host", h.Name,
 			"id", h.ID,
 			"reasons", ifaceDeltaReasons,

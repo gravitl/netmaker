@@ -271,7 +271,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 	}
 
 	if sendPeerUpdate {
-		slog.Debug("UpdateHostFromClient: sendPeerUpdate",
+		fmt.Println("UpdateHostFromClient: sendPeerUpdate",
 			"host", currHost.Name,
 			"id", currHost.ID.String(),
 			"reasons", peerUpdateReasons,
