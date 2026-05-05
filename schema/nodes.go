@@ -128,27 +128,6 @@ func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, 
 	return nodes, err
 }
 
-func (n *Node) ListByNetwork(ctx context.Context) ([]Node, error) {
-	var nodes []Node
-	err := db.FromContext(ctx).Model(&Node{}).Where("network_id = ?", n.NetworkID).Find(&nodes).Error
-	return nodes, err
-}
-
-func (n *Node) ListByHost(ctx context.Context) ([]Node, error) {
-	var nodes []Node
-	err := db.FromContext(ctx).Model(&Node{}).Where("host_id = ?", n.HostID).Find(&nodes).Error
-	return nodes, err
-}
-
-func (n *Node) ListByHostAndNetwork(ctx context.Context) ([]Node, error) {
-	var nodes []Node
-	err := db.FromContext(ctx).Model(&Node{}).
-		Where("host_id = ? AND network_id = ?", n.HostID, n.NetworkID).
-		Find(&nodes).
-		Error
-	return nodes, err
-}
-
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
