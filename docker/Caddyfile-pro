@@ -16,7 +16,7 @@ https://dashboard.{$NM_DOMAIN} {
 		X-Content-Type-Options "nosniff"
 		# Control referrer information sent with requests
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' js.intercomcdn.com widget.intercom.io app.posthog.com netmaker.gitbook.io learn.netmaker.io raw.githubusercontent.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: about: flagfeed.com media.netmaker.io api.accounts.netmaker.io basemaps.cartocdn.com; media-src 'self' media.netmaker.io; connect-src 'self' https://api.{$NM_DOMAIN} app.posthog.com api.accounts.netmaker.io js.intercomcdn.com api.github.com nominatim.openstreetmap.org; frame-src 'self' accounts.google.com github.com login.microsoftonline.com *.okta.com;"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' js.intercomcdn.com widget.intercom.io app.posthog.com netmaker.gitbook.io learn.netmaker.io static-2v.gitbook.com raw.githubusercontent.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com static-2v.gitbook.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: about: flagfeed.com media.netmaker.io api.accounts.netmaker.io basemaps.cartocdn.com; media-src 'self' media.netmaker.io; connect-src 'self' https://api.{$NM_DOMAIN} app.posthog.com api.accounts.netmaker.io js.intercomcdn.com api-iam.intercom.io api.github.com nominatim.openstreetmap.org; frame-src 'self' accounts.google.com github.com login.microsoftonline.com *.okta.com;"
         -Server
 	}
 
