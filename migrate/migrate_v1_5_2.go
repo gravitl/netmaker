@@ -27,7 +27,7 @@ func migrateV1_5_2(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
-	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -57,7 +57,7 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
-	records, err := database.FetchRecords(database.USER_INVITES_TABLE_NAME)
+	records, err := fetchAll(ctx, database.USER_INVITES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
