@@ -25,6 +25,20 @@ func WithAllPreloads() Option {
 	}
 }
 
+// WithJoin joins the given association and optionally scopes the join with conditions.
+// Conditions are applied only to the join clause, not the outer query.
+func WithJoin(association string, conditions ...Option) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		// NewDB: true creates a fresh *gorm.DB with no inherited clauses (no WHERE, ORDER BY, etc.)
+		// This ensures conditions passed here are scoped only to the JOIN, not the outer query.
+		condDB := db.Session(&gorm.Session{NewDB: true})
+		for _, condition := range conditions {
+			condDB = condition(condDB)
+		}
+		return db.Joins(association, condDB)
+	}
+}
+
 func WithPagination(page, pageSize int) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		if page < 1 {
@@ -50,10 +64,31 @@ func WithFilter(field string, value ...interface{}) Option {
 		}
 
 		if len(value) == 1 {
+			if value[0] == nil {
+				return db.Where(fmt.Sprintf("%s IS NULL", db.Statement.Quote(field)))
+			}
 			return db.Where(fmt.Sprintf("%s = ?", db.Statement.Quote(field)), value[0])
 		}
 
 		return db.Where(fmt.Sprintf("%s IN ?", field), value)
+	}
+}
+
+// WithFilterNot applies a WHERE NOT clause for the given column.
+// IMPORTANT: `field` MUST be a trusted, hardcoded column name.
+// NEVER pass user-supplied strings as `field`.
+func WithFilterNot(field string, value ...interface{}) Option {
+	return func(db *gorm.DB) *gorm.DB {
+		if len(value) == 0 {
+			return db
+		}
+		if len(value) == 1 {
+			if value[0] == nil {
+				return db.Where(fmt.Sprintf("%s IS NOT NULL", db.Statement.Quote(field)))
+			}
+			return db.Where(fmt.Sprintf("%s != ?", db.Statement.Quote(field)), value[0])
+		}
+		return db.Where(fmt.Sprintf("%s NOT IN ?", field), value)
 	}
 }
 

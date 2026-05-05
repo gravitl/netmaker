@@ -204,12 +204,21 @@ func AuthorizeHost(
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
+// @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
+// @Param       device_type query string false "Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	networkName := mux.Vars(r)["network"]
+
+	var osFilters []interface{}
+	for _, filter := range r.URL.Query()["os"] {
+		osFilters = append(osFilters, filter)
+	}
+
+	deviceType := r.URL.Query().Get("device_type")
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -238,10 +247,28 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, err := (&schema.Node{}).ListAll(
-		r.Context(),
-		dbtypes.WithFilter("network_id", network.ID),
-	)
+	var filters, options []dbtypes.Option
+	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
+	filters = append(filters, dbtypes.WithJoin("Host", dbtypes.WithFilter("os", osFilters...)))
+
+	if deviceType != "" {
+		switch deviceType {
+		case "gw":
+			filters = append(filters, dbtypes.WithFilter("is_gateway", true))
+		case "igw":
+			filters = append(filters, dbtypes.WithFilter("is_internet_gateway", true))
+		case "gw_assigned":
+			filters = append(filters, dbtypes.WithFilterNot("relaying_node_id", nil))
+		case "gw_unassigned":
+			filters = append(filters, dbtypes.WithFilter("relaying_node_id", nil))
+		}
+	}
+
+	options = append(options, filters...)
+	options = append(options, dbtypes.InAscOrder("created_at"))
+	options = append(options, dbtypes.WithPagination(page, pageSize))
+
+	nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
 	if err != nil {
 		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching nodes: %v", networkName, err)
 		logger.Log(0, r.Header.Get("user"), err.Error())
@@ -255,10 +282,7 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(2, r.Header.Get("user"), "fetched nodes in network", networkName)
 
-	total, err := (&schema.Node{}).Count(
-		r.Context(),
-		dbtypes.WithFilter("network_id", network.Name),
-	)
+	total, err := (&schema.Node{}).Count(r.Context(), filters...)
 	if err != nil {
 		err = fmt.Errorf("failed to fetch nodes in network %s: error constructing page: %v", networkName, err)
 		logger.Log(0, r.Header.Get("user"), err.Error())
