@@ -385,12 +385,15 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		if h.CountryCode != "" {
 			currentHost.CountryCode = h.CountryCode
 		}
-		if h.ListenPort != 0 {
-			currentHost.ListenPort = h.ListenPort
+		if !currentHost.IsStaticPort {
+			if h.ListenPort != 0 {
+				currentHost.ListenPort = h.ListenPort
+			}
+			if h.WgPublicListenPort != 0 {
+				currentHost.WgPublicListenPort = h.WgPublicListenPort
+			}
 		}
-		if h.WgPublicListenPort != 0 {
-			currentHost.WgPublicListenPort = h.WgPublicListenPort
-		}
+
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
