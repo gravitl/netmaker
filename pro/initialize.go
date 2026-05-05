@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
 	"github.com/gravitl/netmaker/pro/email"
+	"github.com/gravitl/netmaker/pro/license"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -48,6 +49,7 @@ func InitPro() {
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
 		proControllers.JITHandlers,
+		proControllers.ServerHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -80,8 +82,8 @@ func InitPro() {
 
 		if enableLicenseHook {
 			logger.Log(0, "starting license checker")
-			ClearLicenseCache()
-			if err := ValidateLicense(); err != nil {
+			license.ClearLicenseCache()
+			if err := license.ValidateLicense(); err != nil {
 				slog.Error(err.Error())
 				return
 			}
@@ -89,7 +91,7 @@ func InitPro() {
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
 			// License validation runs on all pods to avoid audit issues
-			AddLicenseHooks()
+			license.AddLicenseHooks()
 		} else {
 			logger.Log(0, "starting trial license hook")
 			addTrialLicenseHook()

@@ -290,11 +290,19 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
+	for i := range currentHost.Interfaces {
+		currentHost.Interfaces[i].AddressString = currentHost.Interfaces[i].Address.String()
+	}
 	utils.SortIfacesByName(h.Interfaces)
+	utils.SortIfacesByName(currentHost.Interfaces)
+	ifacesChanged := len(h.Interfaces) != len(currentHost.Interfaces) ||
+		!logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces)
+
 	/// version or firewall in use change does not require a peerUpdate
-	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse {
+	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse || ifacesChanged {
 		currentHost.FirewallInUse = h.FirewallInUse
 		currentHost.Version = h.Version
+		currentHost.Interfaces = h.Interfaces
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
@@ -366,7 +374,6 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			currentHost.EndpointIP = h.EndpointIP
 			currentHost.EndpointIPv6 = h.EndpointIPv6
 		}
-		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
 		currentHost.OSFamily = h.OSFamily
@@ -378,12 +385,15 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		if h.CountryCode != "" {
 			currentHost.CountryCode = h.CountryCode
 		}
-		if h.ListenPort != 0 {
-			currentHost.ListenPort = h.ListenPort
+		if !currentHost.IsStaticPort {
+			if h.ListenPort != 0 {
+				currentHost.ListenPort = h.ListenPort
+			}
+			if h.WgPublicListenPort != 0 {
+				currentHost.WgPublicListenPort = h.WgPublicListenPort
+			}
 		}
-		if h.WgPublicListenPort != 0 {
-			currentHost.WgPublicListenPort = h.WgPublicListenPort
-		}
+
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false

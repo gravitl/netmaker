@@ -571,7 +571,11 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
 		if sendPeerUpdate {
+<<<<<<< HEAD
 			slog.Debug("=====> HOST UPDATE Fallback: ", hostUpdate.Action, replacePeers)
+=======
+			slog.Debug("host update fallback", "action", hostUpdate.Action, "replacePeers", replacePeers)
+>>>>>>> 2175a2616d97de86c3602d588b2824a660e9e3a5
 			err := mq.PublishPeerUpdate(replacePeers)
 			if err != nil {
 				slog.Error("failed to publish peer update", "error", err)

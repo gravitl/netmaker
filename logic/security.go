@@ -190,11 +190,22 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
 
+		username := r.Header.Get("user")
+		if username == MasterUser {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		user := &schema.User{
-			Username: r.Header.Get("user"),
+			Username: username,
 		}
 		err := user.Get(db.WithContext(context.TODO()))
-		if err == nil && (user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole) {
+		if err != nil {
+			ReturnErrorResponse(w, r, errorResponse)
+			return
+		}
+
+		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 			next.ServeHTTP(w, r)
 			return
 		}
