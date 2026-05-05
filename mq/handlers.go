@@ -290,6 +290,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
+	utils.SortIfacesByName(h.Interfaces)
 	/// version or firewall in use change does not require a peerUpdate
 	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse {
 		currentHost.FirewallInUse = h.FirewallInUse
@@ -315,18 +316,56 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 		}
 	}
-	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
-		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
-		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
-		h.DefaultInterface != currentHost.DefaultInterface ||
-		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
-		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
-		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
-		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion) ||
-		(h.Location != currentHost.Location) || (h.CountryCode != currentHost.CountryCode)
+	var ifaceDeltaReasons []string
+	if !currentHost.IsStatic {
+		if !h.EndpointIP.Equal(currentHost.EndpointIP) {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "endpoint_ip")
+		}
+		if !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "endpoint_ipv6")
+		}
+	}
+	if len(h.NatType) > 0 && h.NatType != currentHost.NatType {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "nat_type")
+	}
+	if h.DefaultInterface != currentHost.DefaultInterface {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "default_interface")
+	}
+	if !currentHost.IsStaticPort {
+		if h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "listen_port")
+		}
+		if h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "wg_public_listen_port")
+		}
+	}
+
+	if h.OSFamily != currentHost.OSFamily {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "os_family")
+	}
+	if h.OSVersion != currentHost.OSVersion {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "os_version")
+	}
+	if h.KernelVersion != currentHost.KernelVersion {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "kernel_version")
+	}
+	if h.Location != currentHost.Location {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "location")
+	}
+	if h.CountryCode != currentHost.CountryCode {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "country_code")
+	}
+	ifaceDelta := len(ifaceDeltaReasons) > 0
 	if ifaceDelta { // only save if something changes
-		currentHost.EndpointIP = h.EndpointIP
-		currentHost.EndpointIPv6 = h.EndpointIPv6
+		slog.Debug("host check-in peer-relevant delta",
+			"host", h.Name,
+			"id", h.ID,
+			"reasons", ifaceDeltaReasons,
+		)
+		if !currentHost.IsStatic {
+			currentHost.EndpointIP = h.EndpointIP
+			currentHost.EndpointIPv6 = h.EndpointIPv6
+		}
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
