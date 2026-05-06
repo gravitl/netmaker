@@ -33,7 +33,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 		e.Mode = ""
 		e.VirtualRange = ""
 	}
-	if e.Domain != "" && e.Nat {
+	if logic.IsDomainBasedEgress(*e) && e.Nat {
 		e.Mode = schema.DirectNAT
 	}
 	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))

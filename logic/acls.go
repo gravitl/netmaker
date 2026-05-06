@@ -556,7 +556,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 					if nodeOwnsEgress {
-						if servercfg.IsPro && eI.Domain != "" && len(eI.DomainAns) > 0 {
+						if servercfg.IsPro && IsDomainBasedEgress(eI) && len(eI.DomainAns) > 0 {
 							for _, domainAnsI := range eI.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
@@ -601,7 +601,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 					if nodeOwnsEgress {
-						if servercfg.IsPro && e.Domain != "" && len(e.DomainAns) > 0 {
+						if servercfg.IsPro && IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 							for _, domainAnsI := range e.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
@@ -838,7 +838,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		for egressID, egI := range egressIDMap {
 			if _, ok := dstTags[egressID]; ok || dstAll {
-				if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+				if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
 					for _, domainAnsI := range egI.DomainAns {
 						ip, cidr, err := net.ParseCIDR(domainAnsI)
 						if err == nil {

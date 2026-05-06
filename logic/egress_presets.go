@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 
@@ -67,11 +68,26 @@ func ApplyEgressPresetToEgressReq(req *models.EgressReq) error {
 	if req.Description == "" && p.Description != "" {
 		req.Description = p.Description
 	}
-	if req.Domain == "" {
-		if p.SuggestedDomain == "" {
-			enrichSuggestedDomain(&p)
+	if req.Domain == "" && len(req.Domains) == 0 {
+		trimEgressPresetDomains(&p)
+		norm, err := NormalizeEgressReqDomains("", p.Domains)
+		if err != nil {
+			return err
 		}
-		req.Domain = strings.TrimSpace(p.SuggestedDomain)
+		if len(norm) > 0 {
+			req.Domains = norm
+			sd := strings.TrimSpace(strings.ToLower(p.SuggestedDomain))
+			if sd != "" && slices.Contains(norm, sd) {
+				req.Domain = sd
+			} else {
+				req.Domain = norm[0]
+			}
+		} else {
+			if p.SuggestedDomain == "" {
+				enrichSuggestedDomain(&p)
+			}
+			req.Domain = strings.TrimSpace(p.SuggestedDomain)
+		}
 	}
 	return nil
 }

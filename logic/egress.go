@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -49,6 +51,68 @@ func validateEgressReq(e *schema.Egress) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeEgressReqDomains merges legacy Domain with Domains, validates each entry (FQDN or *.suffix),
+// lowercases, and deduplicates. The single domain argument is processed first so it remains the primary
+// entry when present (backward compatible); additional names keep the order of the domains slice.
+func NormalizeEgressReqDomains(domain string, domains []string) ([]string, error) {
+	seen := make(map[string]struct{})
+	var out []string
+	add := func(s string) error {
+		s = strings.TrimSpace(strings.ToLower(s))
+		if s == "" {
+			return nil
+		}
+		if !IsEgressDomainPattern(s) {
+			return fmt.Errorf("invalid egress domain: %q", s)
+		}
+		if _, ok := seen[s]; ok {
+			return nil
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+		return nil
+	}
+	if err := add(domain); err != nil {
+		return nil, err
+	}
+	for _, d := range domains {
+		if err := add(d); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// ConfiguredDomainsForEgress returns logical domain names: Domains JSON when non-empty, else legacy Domain.
+func ConfiguredDomainsForEgress(e schema.Egress) []string {
+	if len(e.Domains) > 0 {
+		out := make([]string, len(e.Domains))
+		copy(out, e.Domains)
+		return out
+	}
+	if e.Domain != "" {
+		return []string{e.Domain}
+	}
+	return nil
+}
+
+// IsDomainBasedEgress is true when this egress has at least one configured logical domain.
+func IsDomainBasedEgress(e schema.Egress) bool {
+	return len(ConfiguredDomainsForEgress(e)) > 0
+}
+
+// EgressDomainsEqual compares two domain lists as sets (order-independent).
+func EgressDomainsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aa := slices.Clone(a)
+	bb := slices.Clone(b)
+	slices.Sort(aa)
+	slices.Sort(bb)
+	return slices.Equal(aa, bb)
 }
 
 func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
@@ -195,7 +259,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 					RouteMetric:    m,
 				})
 			}
-			if e.Domain != "" && len(e.DomainAns) > 0 {
+			if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
@@ -240,7 +304,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 						RouteMetric:    m,
 					})
 				}
-				if e.Domain != "" && len(e.DomainAns) > 0 {
+				if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
@@ -282,6 +346,7 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
+	seen := make(map[string]struct{})
 	for _, e := range eli {
 		if !e.Status || e.Network != network.String() {
 			continue
@@ -291,8 +356,15 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 				continue
 			}
 		}
-		if e.Domain != "" && len(e.DomainAns) > 0 {
-			domains = append(domains, BaseDomain(e.Domain))
+		if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
+			for _, d := range ConfiguredDomainsForEgress(e) {
+				bd := BaseDomain(d)
+				if _, ok := seen[bd]; ok {
+					continue
+				}
+				seen[bd] = struct{}{}
+				domains = append(domains, bd)
+			}
 
 		}
 	}
@@ -313,7 +385,7 @@ func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver
 				continue
 			}
 		}
-		if e.Domain != "" && len(e.DomainAns) > 0 {
+		if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 			var routingNodeIPs []string
 			// Collect IPs from all routing nodes for this egress
 			for nodeID := range e.Nodes {
@@ -331,11 +403,13 @@ func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver
 					routingNodeIPs = append(routingNodeIPs, routingNode.Address6.IP.String())
 				}
 			}
-			returnNsLi = append(returnNsLi, models.Nameserver{
-				IPs:            routingNodeIPs,
-				MatchDomain:    BaseDomain(e.Domain),
-				IsSearchDomain: false,
-			})
+			for _, d := range ConfiguredDomainsForEgress(e) {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:            routingNodeIPs,
+					MatchDomain:    BaseDomain(d),
+					IsSearchDomain: false,
+				})
+			}
 
 		}
 	}
@@ -377,7 +451,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 					RouteMetric:    m,
 				})
 			}
-			if e.Domain != "" && len(e.DomainAns) > 0 {
+			if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
@@ -423,7 +497,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 						RouteMetric:    m,
 					})
 				}
-				if e.Domain != "" && len(e.DomainAns) > 0 {
+				if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
@@ -539,17 +613,18 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 		return
 	}
 	for _, egI := range egs {
-		if !egI.Status || egI.Domain == "" {
+		if !egI.Status || !IsDomainBasedEgress(egI) {
 			continue
 		}
 		if _, ok := egI.Nodes[nodeID]; ok {
-
-			egWithDomain = append(egWithDomain, models.EgressDomain{
-				ID:     egI.ID,
-				Domain: egI.Domain,
-				Node:   node,
-				Host:   *host,
-			})
+			for _, d := range ConfiguredDomainsForEgress(egI) {
+				egWithDomain = append(egWithDomain, models.EgressDomain{
+					ID:     egI.ID,
+					Domain: d,
+					Node:   node,
+					Host:   *host,
+				})
+			}
 
 		}
 	}

@@ -67,6 +67,20 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domain, req.Domains)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.IsInetGw {
+		normDomains = nil
+	}
+	req.Domains = normDomains
+	if len(normDomains) > 0 {
+		req.Domain = normDomains[0]
+	} else {
+		req.Domain = ""
+	}
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
 		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
@@ -78,7 +92,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	var egressRange string
 	if !req.IsInetGw {
 		if req.Range != "" {
-			var err error
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -86,18 +99,13 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if req.Domain != "" {
-			isDomain := logic.IsFQDN(req.Domain)
-			if !isDomain {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
-				return
-			}
-
+		if len(normDomains) > 0 {
 			egressRange = ""
 		}
 	} else {
 		egressRange = "*"
 		req.Domain = ""
+		req.Domains = nil
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -117,6 +125,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Description:     req.Description,
 		Range:           egressRange,
 		Domain:          req.Domain,
+		Domains:         datatypes.JSONSlice[string](normDomains),
 		DomainAns:       domainAns,
 		Nat:             req.Nat,
 		Mode:            req.Mode,
@@ -181,7 +190,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
-	if req.Domain != "" && !e.StaticDomainAns {
+	if len(normDomains) > 0 && !e.StaticDomainAns {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -195,20 +204,22 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				mq.HostUpdate(&models.HostUpdate{
-					Action: models.EgressUpdate,
-					Host:   *host,
-					EgressDomain: models.EgressDomain{
-						ID:     e.ID,
+				for _, dom := range normDomains {
+					mq.HostUpdate(&models.HostUpdate{
+						Action: models.EgressUpdate,
 						Host:   *host,
-						Node:   node,
-						Domain: e.Domain,
-					},
-					Node: node,
-				})
+						EgressDomain: models.EgressDomain{
+							ID:     e.ID,
+							Host:   *host,
+							Node:   node,
+							Domain: dom,
+						},
+						Node: node,
+					})
+				}
 			}
 		}
-	} else if req.Domain == "" || e.StaticDomainAns {
+	} else if len(normDomains) == 0 || e.StaticDomainAns {
 		go mq.PublishPeerUpdate(false)
 	}
 
@@ -272,6 +283,20 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domain, req.Domains)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.IsInetGw {
+		normDomains = nil
+	}
+	req.Domains = normDomains
+	if len(normDomains) > 0 {
+		req.Domain = normDomains[0]
+	} else {
+		req.Domain = ""
+	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
 	if err != nil {
@@ -281,7 +306,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	var egressRange string
 	if !req.IsInetGw {
 		if req.Range != "" {
-			var err error
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -289,18 +313,13 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if req.Domain != "" {
-			isDomain := logic.IsFQDN(req.Domain)
-			if !isDomain {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
-				return
-			}
-
+		if len(normDomains) > 0 {
 			egressRange = ""
 		}
 	} else {
 		egressRange = "*"
 		req.Domain = ""
+		req.Domains = nil
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -309,6 +328,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	// Store old mode for comparison (before we modify e)
 	oldMode := e.Mode
 
@@ -369,7 +389,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			e.Nodes[nodeID] = metric
 		}
 	}
-	if e.Domain != req.Domain {
+	if !logic.EgressDomainsEqual(oldConfigured, normDomains) {
 		e.DomainAns = datatypes.JSONSlice[string]{}
 	}
 	// Update fields from request (Mode and Nat are already set correctly above)
@@ -377,6 +397,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Description = req.Description
 	e.Name = req.Name
 	e.Domain = req.Domain
+	e.Domains = datatypes.JSONSlice[string](normDomains)
 	e.Status = req.Status
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
@@ -406,6 +427,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		"description":       e.Description,
 		"range":             e.Range,
 		"domain":            e.Domain,
+		"domains":           e.Domains,
 		"nat":               e.Nat,
 		"mode":              e.Mode,
 		"status":            e.Status,
@@ -430,7 +452,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
-	if req.Domain != "" && !e.StaticDomainAns {
+	if len(normDomains) > 0 && !e.StaticDomainAns {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -444,17 +466,19 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				mq.HostUpdate(&models.HostUpdate{
-					Action: models.EgressUpdate,
-					Host:   *host,
-					EgressDomain: models.EgressDomain{
-						ID:     e.ID,
+				for _, dom := range normDomains {
+					mq.HostUpdate(&models.HostUpdate{
+						Action: models.EgressUpdate,
 						Host:   *host,
-						Node:   node,
-						Domain: e.Domain,
-					},
-					Node: node,
-				})
+						EgressDomain: models.EgressDomain{
+							ID:     e.ID,
+							Host:   *host,
+							Node:   node,
+							Domain: dom,
+						},
+						Node: node,
+					})
+				}
 			}
 		}
 

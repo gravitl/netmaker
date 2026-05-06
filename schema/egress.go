@@ -30,6 +30,7 @@ type Egress struct {
 	VirtualRange string                      `gorm:"virtual_range" json:"virtual_range"`
 	DomainAns    datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
 	Domain       string                      `gorm:"domain" json:"domain"`
+	Domains      datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
 	Nat          bool                        `gorm:"nat" json:"nat"`
 	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
@@ -68,7 +69,8 @@ func (e *Egress) UpdateEgressStatus(ctx context.Context) error {
 
 func (e *Egress) ResetDomain(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
-		"domain": "",
+		"domain":  "",
+		"domains": datatypes.JSONSlice[string]([]string{}),
 	}).Error
 }
 

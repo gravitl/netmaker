@@ -11,7 +11,9 @@ type EgressReq struct {
 	Tags        map[string]int       `json:"tags"`
 	Range       string               `json:"range"`
 	Domain      string               `json:"domain"`
-	Nat         bool                 `json:"nat"`
+	// Domains optional list of logical hostnames for domain-based egress (exact or *.example.com). When set, takes precedence over Domain for normalization; legacy clients may send only Domain.
+	Domains []string `json:"domains"`
+	Nat     bool     `json:"nat"`
 	Mode        schema.EgressNATMode `json:"mode"`
 	Status      bool                 `json:"status"`
 	IsInetGw    bool                 `json:"is_internet_gateway"`

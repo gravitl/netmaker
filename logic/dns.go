@@ -134,21 +134,23 @@ func EgressDNs(network string) (entries []models.DNSEntry) {
 		Network: network,
 	}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, egI := range egs {
-		if egI.Domain != "" && len(egI.DomainAns) > 0 {
-			entry := models.DNSEntry{
-				Name: egI.Domain,
-			}
-			for _, domainAns := range egI.DomainAns {
-				ip, _, err := net.ParseCIDR(domainAns)
-				if err == nil {
-					if ip.To4() != nil {
-						entry.Address = ip.String()
-					} else {
-						entry.Address6 = ip.String()
+		if IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
+			for _, name := range ConfiguredDomainsForEgress(egI) {
+				entry := models.DNSEntry{
+					Name: name,
+				}
+				for _, domainAns := range egI.DomainAns {
+					ip, _, err := net.ParseCIDR(domainAns)
+					if err == nil {
+						if ip.To4() != nil {
+							entry.Address = ip.String()
+						} else {
+							entry.Address6 = ip.String()
+						}
 					}
 				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
 		}
 	}
 	return

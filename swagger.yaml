@@ -691,6 +691,11 @@ definitions:
         type: string
       domain:
         type: string
+      domains:
+        description: Optional list of logical hostnames for domain-based egress (exact or *.example.com). Merged with domain; domain is treated as the primary entry when both are sent.
+        items:
+          type: string
+        type: array
       id:
         type: string
       is_internet_gateway:
@@ -2376,6 +2381,11 @@ definitions:
         type: string
       domain:
         type: string
+      domains:
+        description: Configured logical hostnames for domain-based egress when more than one applies.
+        items:
+          type: string
+        type: array
       domain_ans:
         items:
           type: string
