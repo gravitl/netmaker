@@ -103,6 +103,15 @@ func migrateNodes(ctx context.Context) error {
 			return err
 		}
 
+		var address, address6 string
+		if node.Address.IP != nil {
+			address = node.Address.String()
+		}
+
+		if node.Address6.IP != nil {
+			address6 = node.Address6.String()
+		}
+
 		network := &schema.Network{
 			Name: node.Network,
 		}
@@ -130,8 +139,8 @@ func migrateNodes(ctx context.Context) error {
 			ID:                                node.ID.String(),
 			HostID:                            node.HostID.String(),
 			NetworkID:                         network.ID,
-			Address:                           node.Address.String(),
-			Address6:                          node.Address6.String(),
+			Address:                           address,
+			Address6:                          address6,
 			Connected:                         node.Connected,
 			Action:                            node.Action,
 			Status:                            node.Status,

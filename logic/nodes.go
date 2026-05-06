@@ -679,6 +679,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		IsAutoRelay:                       _node.IsAutoRelay,
 		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                 _node.IsInternetGateway,
+		Tags:                              make(map[models.TagID]struct{}),
 		Status:                            _node.Status,
 		PostureChecksViolations:           violations,
 		PostureCheckVolationSeverityLevel: _node.PostureCheckSeverity,
@@ -723,6 +724,15 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	var address, address6 string
+	if node.Address.IP != nil {
+		address = node.Address.String()
+	}
+
+	if node.Address6.IP != nil {
+		address6 = node.Address6.String()
+	}
+
 	host := &schema.Host{
 		ID: node.HostID,
 	}
@@ -760,8 +770,8 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		Host:                              host,
 		NetworkID:                         network.ID,
 		Network:                           network,
-		Address:                           node.Address.String(),
-		Address6:                          node.Address6.String(),
+		Address:                           address,
+		Address6:                          address6,
 		Connected:                         node.Connected,
 		Action:                            node.Action,
 		Status:                            node.Status,
