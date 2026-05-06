@@ -78,11 +78,11 @@ func migrateUserInvites(ctx context.Context) error {
 			UserGroups:     datatypes.NewJSONType(userInvite.UserGroups),
 		}
 
-		logger.Log(4, fmt.Sprintf("migrating user invite %s", _userInvite.InviteCode))
+		logger.Log(4, fmt.Sprintf("migrating user invite %s/%s", _userInvite.InviteCode, _userInvite.Email))
 
 		err = _userInvite.Create(ctx)
 		if err != nil {
-			logger.Log(4, fmt.Sprintf("migrating user invite (%s/%s) failed: %v", _userInvite.InviteCode, _userInvite.Email, err))
+			logger.Log(4, fmt.Sprintf("migrating user invite %s/%s failed: %v", _userInvite.InviteCode, _userInvite.Email, err))
 			return err
 		}
 	}
@@ -159,7 +159,7 @@ func migrateNodes(ctx context.Context) error {
 
 		err = _node.Create(ctx)
 		if err != nil {
-			logger.Log(4, fmt.Sprintf("migrating node (%s) failed: %v", _node.ID, err))
+			logger.Log(4, fmt.Sprintf("migrating node %s failed: %v", _node.ID, err))
 			return err
 		}
 
@@ -178,8 +178,11 @@ func migrateNodes(ctx context.Context) error {
 				})
 			}
 
+			logger.Log(4, fmt.Sprintf("migrating node %s violations", _node.ID))
+
 			err = _node.UpsertViolations(ctx, violations)
 			if err != nil {
+				logger.Log(4, fmt.Sprintf("migrating node %s violations failed: %v", _node.ID, err))
 				return err
 			}
 		}

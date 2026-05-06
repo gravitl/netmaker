@@ -2,7 +2,6 @@ package schema
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -127,8 +126,6 @@ func (n *Node) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).Delete(n).Error
 }
 
-// TODO: Add pagination APIs
-
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
@@ -150,34 +147,18 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 }
 
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
-	tx := db.FromContext(ctx).Begin()
 	if len(violations) > 0 {
-		err := tx.Create(&violations).Error
+		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
 		if err != nil {
-			rollbackErr := tx.Rollback().Error
-			if rollbackErr != nil {
-				err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
-			}
-
-			return err
-		}
-
-		err = tx.Model(n).
-			Where("id = ?", n.ID).
-			Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
-			Update("posture_check_severity", n.PostureCheckSeverity).
-			Error
-		if err != nil {
-			rollbackErr := tx.Rollback().Error
-			if rollbackErr != nil {
-				err = fmt.Errorf("%v; rollback failed: %v", err, rollbackErr)
-			}
-
 			return err
 		}
 	}
 
-	return tx.Commit().Error
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
+		Update("posture_check_severity", n.PostureCheckSeverity).
+		Error
 }
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
