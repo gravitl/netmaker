@@ -268,7 +268,7 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	options = append(options, dbtypes.InAscOrder("created_at"))
 	options = append(options, dbtypes.WithPagination(page, pageSize))
 
-	nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
+	_nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
 	if err != nil {
 		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching nodes: %v", networkName, err)
 		logger.Log(0, r.Header.Get("user"), err.Error())
@@ -276,8 +276,12 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, node := range nodes {
-		nodes[i].Status = logic.GetNodeCheckInStatus(&node)
+	nodes := make([]models.NodeWithHost, 0, len(_nodes))
+	for _, _node := range _nodes {
+		var node models.NodeWithHost
+		_node.Status = logic.GetNodeCheckInStatus(&_node)
+		node.Fill(&_node)
+		nodes = append(nodes, node)
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched nodes in network", networkName)

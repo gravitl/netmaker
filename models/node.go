@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
@@ -277,4 +278,64 @@ func (node *Node) NetworkSettings(n Network) {
 	if err == nil {
 		node.NetworkRange6 = *cidr
 	}
+}
+
+type NodeWithHost struct {
+	ID                                string                                `json:"id"`
+	HostID                            string                                `json:"host_id"`
+	Host                              *ApiHost                              `json:"host,omitempty"`
+	NetworkID                         string                                `json:"network_id"`
+	Address                           string                                `json:"address"`
+	Address6                          string                                `json:"address6"`
+	Connected                         bool                                  `json:"connected"`
+	Action                            string                                `json:"action"`
+	Status                            schema.NodeStatus                     `json:"status"`
+	PendingDelete                     bool                                  `json:"pending_delete"`
+	AutoAssignGateway                 bool                                  `json:"auto_assign_gateway"`
+	IsGateway                         bool                                  `json:"is_gateway"`
+	IsAutoRelay                       bool                                  `json:"is_auto_relay"`
+	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
+	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
+	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
+	RelayingNodeID                    *string                               `json:"relaying_node_id"`
+	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
+	Tags                              datatypes.JSONMap                     `json:"tags"`
+	PostureCheckSeverity              schema.Severity                       `json:"posture_check_severity"`
+	PostureCheckLastEvaluationCycleID string                                `json:"posture_check_last_evaluation_cycle_id"`
+	Metadata                          string                                `json:"metadata"`
+	LastCheckIn                       time.Time                             `json:"last_check_in"`
+	ExpirationDateTime                time.Time                             `json:"expiration_date_time"`
+	CreatedAt                         time.Time                             `json:"created_at"`
+	UpdatedAt                         time.Time                             `json:"updated_at"`
+}
+
+func (n *NodeWithHost) Fill(_node *schema.Node) {
+	n.ID = _node.ID
+	n.HostID = _node.HostID
+	n.Host = NewApiHostFromSchemaHost(_node.Host)
+	n.NetworkID = _node.NetworkID
+	n.Address = _node.Address
+	n.Address6 = _node.Address6
+	n.Connected = _node.Connected
+	n.Action = _node.Action
+	n.Status = _node.Status
+	n.PendingDelete = _node.PendingDelete
+	n.AutoAssignGateway = _node.AutoAssignGateway
+	n.IsGateway = _node.IsGateway
+	n.IsAutoRelay = _node.IsAutoRelay
+	n.IsInternetGateway = _node.IsInternetGateway
+	n.RelayedClients = _node.RelayedClients
+	n.RelayedIGWClients = _node.RelayedIGWClients
+	n.RelayingNodeID = _node.RelayingNodeID
+	n.IsIGWClient = _node.IsIGWClient
+	n.AutoRelayedPeers = _node.AutoRelayedPeers
+	n.Tags = _node.Tags
+	n.PostureCheckSeverity = _node.PostureCheckSeverity
+	n.PostureCheckLastEvaluationCycleID = _node.PostureCheckLastEvaluationCycleID
+	n.Metadata = _node.Metadata
+	n.LastCheckIn = _node.LastCheckIn
+	n.ExpirationDateTime = _node.ExpirationDateTime
+	n.CreatedAt = _node.CreatedAt
+	n.UpdatedAt = _node.UpdatedAt
 }
