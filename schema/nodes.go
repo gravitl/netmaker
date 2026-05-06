@@ -164,7 +164,7 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
 	err := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ?", n.ID).
+		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID).
 		Find(&violations).
 		Error
 	return violations, err
