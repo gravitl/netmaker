@@ -265,7 +265,7 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	options = append(options, filters...)
-	options = append(options, dbtypes.InAscOrder("created_at"))
+	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", (&schema.Node{}).TableName())))
 	options = append(options, dbtypes.WithPagination(page, pageSize))
 
 	_nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
