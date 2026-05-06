@@ -38,34 +38,34 @@ const (
 // TODO: Add gateway configs list API.
 
 type Node struct {
-	ID                                string   `gorm:"primaryKey"`
-	HostID                            string   `gorm:"not null;index"`
-	Host                              *Host    `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE"`
-	NetworkID                         string   `gorm:"not null;index"`
-	Network                           *Network `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE"`
-	Address                           string
-	Address6                          string
-	Connected                         bool
-	Action                            string
-	Status                            NodeStatus
-	PendingDelete                     bool
-	AutoAssignGateway                 bool
-	IsGateway                         bool
-	IsAutoRelay                       bool
-	IsInternetGateway                 bool
-	RelayedClients                    datatypes.JSONMap
-	RelayedIGWClients                 datatypes.JSONMap
-	RelayingNodeID                    datatypes.NullString
-	IsIGWClient                       bool
-	AutoRelayedPeers                  datatypes.JSONType[map[string]string]
-	Tags                              datatypes.JSONMap
-	PostureCheckSeverity              Severity
-	PostureCheckLastEvaluationCycleID string
-	Metadata                          string
-	LastCheckIn                       time.Time
-	ExpirationDateTime                time.Time
-	CreatedAt                         time.Time
-	UpdatedAt                         time.Time
+	ID                                string                                `gorm:"primaryKey" json:"id"`
+	HostID                            string                                `gorm:"not null;index" json:"host_id"`
+	Host                              *Host                                 `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
+	NetworkID                         string                                `gorm:"not null;index" json:"network_id"`
+	Network                           *Network                              `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
+	Address                           string                                `json:"address"`
+	Address6                          string                                `json:"address6"`
+	Connected                         bool                                  `json:"connected"`
+	Action                            string                                `json:"action"`
+	Status                            NodeStatus                            `json:"status"`
+	PendingDelete                     bool                                  `json:"pending_delete"`
+	AutoAssignGateway                 bool                                  `json:"auto_assign_gateway"`
+	IsGateway                         bool                                  `json:"is_gateway"`
+	IsAutoRelay                       bool                                  `json:"is_auto_relay"`
+	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
+	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
+	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
+	RelayingNodeID                    datatypes.NullString                  `json:"relaying_node_id"`
+	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
+	Tags                              datatypes.JSONMap                     `json:"tags"`
+	PostureCheckSeverity              Severity                              `json:"posture_check_severity"`
+	PostureCheckLastEvaluationCycleID string                                `json:"posture_check_last_evaluation_cycle_id"`
+	Metadata                          string                                `json:"metadata"`
+	LastCheckIn                       time.Time                             `json:"last_check_in"`
+	ExpirationDateTime                time.Time                             `json:"expiration_date_time"`
+	CreatedAt                         time.Time                             `json:"created_at"`
+	UpdatedAt                         time.Time                             `json:"updated_at"`
 }
 
 func (n *Node) TableName() string {
