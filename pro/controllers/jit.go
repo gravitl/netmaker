@@ -174,7 +174,7 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitEnable,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -207,7 +207,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitDisable,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -228,13 +228,15 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 
 // handleUpdateJITUserGroups - updates JIT user-group allowlist while JIT stays enabled
 func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, userGroupIDs []string) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can update JIT user groups"), "forbidden"))
+		return
+	}
+
 	currNet := &schema.Network{Name: networkID}
 	err := (currNet).Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return
-	}
-	if !proLogic.IsNetworkAdmin(user, networkID) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can update JIT user groups"), "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
@@ -244,10 +246,15 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 	}
 	updatedNet := &schema.Network{Name: networkID}
 	err = (updatedNet).Get(db.WithContext(context.TODO()))
+
 	if err != nil {
+		slog.Error("failed to fetch updated network for JIT user-group audit diff", "network", networkID, "error", err)
 		return
 	}
-
+	diff := models.Diff{
+		Old: currNet,
+		New: updatedNet,
+	}
 	logic.LogEvent(&models.Event{
 		Action: schema.JitGroupsUpdate,
 		Source: models.Subject{
@@ -263,10 +270,7 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 		},
 		NetworkID: schema.NetworkID(networkID),
 		Origin:    schema.Dashboard,
-		Diff: models.Diff{
-			Old: currNet,
-			New: updatedNet,
-		},
+		Diff:      diff,
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT user groups updated")
@@ -325,7 +329,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitRequestApprove,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -373,7 +377,7 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitRequestDeny,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -497,7 +501,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Delete,
+		Action: schema.JitGrantRevoke,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -655,7 +659,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Create,
+		Action: schema.JitRequestCreate,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,

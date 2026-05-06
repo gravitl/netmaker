@@ -43,6 +43,12 @@ const (
 	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
 	GatewayAssign                        Action = "GATEWAY_ASSIGN"
 	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
+	JitEnable                            Action = "ENABLE_JIT"
+	JitDisable                           Action = "DISABLE_JIT"
+	JitRequestCreate                     Action = "CREATE_JIT_REQUEST"
+	JitRequestApprove                    Action = "APPROVE_JIT_REQUEST"
+	JitRequestDeny                       Action = "DENY_JIT_REQUEST"
+	JitGrantRevoke                       Action = "REVOKE_JIT_GRANT"
 	JitGroupsUpdate                      Action = "UPDATE_JIT_GROUPS"
 )
 

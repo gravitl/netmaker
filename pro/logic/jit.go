@@ -106,6 +106,10 @@ func UpdateJITUserGroupsOnNetwork(networkID string, jitUserGroupIDs []schema.Use
 	if err := logic.SaveNetwork(network); err != nil {
 		return fmt.Errorf("failed to save network: %w", err)
 	}
+
+	if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
+		logger.Log(0, "failed to disconnect ext clients when updating JIT user groups:", err.Error())
+	}
 	return nil
 }
 
