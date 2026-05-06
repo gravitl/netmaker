@@ -130,6 +130,8 @@ func migrateNodes(ctx context.Context) error {
 			relayedIGWClients[inetNodeClientID] = struct{}{}
 		}
 
+		relayedBy := node.RelayedBy
+
 		tags := make(datatypes.JSONMap)
 		for tagID := range node.Tags {
 			tags[tagID.String()] = struct{}{}
@@ -151,7 +153,7 @@ func migrateNodes(ctx context.Context) error {
 			IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 			RelayedClients:                    relayedClients,
 			RelayedIGWClients:                 relayedIGWClients,
-			RelayingNodeID:                    datatypes.NewNull(node.RelayedBy),
+			RelayingNodeID:                    &relayedBy,
 			IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 			AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 			Tags:                              tags,

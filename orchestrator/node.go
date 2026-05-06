@@ -130,7 +130,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 		err = gateway.Get(ctx)
 		if err == nil {
-			node.RelayingNodeID = datatypes.NewNull(ops.key.Relay.String())
+			relayID := ops.key.Relay.String()
+			node.RelayingNodeID = &relayID
 			err = node.UpdateRelayingNode(ctx)
 			if err != nil {
 				return nil, err
@@ -182,7 +183,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node)
 		return errors.New("node is already a gateway")
 	}
 
-	if node.RelayingNodeID.Valid {
+	if node.RelayingNodeID != nil {
 		return errors.New("gateway cannot be created on a relayed node")
 	}
 
