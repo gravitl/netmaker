@@ -74,10 +74,10 @@ func WithFilter(field string, value ...interface{}) Option {
 	}
 }
 
-// WithFilterNot applies a WHERE NOT clause for the given column.
+// WithNotFilter applies a WHERE NOT clause for the given column.
 // IMPORTANT: `field` MUST be a trusted, hardcoded column name.
 // NEVER pass user-supplied strings as `field`.
-func WithFilterNot(field string, value ...interface{}) Option {
+func WithNotFilter(field string, value ...interface{}) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(value) == 0 {
 			return db

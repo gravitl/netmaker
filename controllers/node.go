@@ -258,7 +258,7 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		case "igw":
 			filters = append(filters, dbtypes.WithFilter("is_internet_gateway", true))
 		case "gw_assigned":
-			filters = append(filters, dbtypes.WithFilterNot("relaying_node_id", nil))
+			filters = append(filters, dbtypes.WithNotFilter("relaying_node_id", nil))
 		case "gw_unassigned":
 			filters = append(filters, dbtypes.WithFilter("relaying_node_id", nil))
 		}
