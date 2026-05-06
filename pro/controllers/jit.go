@@ -53,7 +53,7 @@ func JITHandlers(r *mux.Router) {
 // @Accept      json
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Param       body body models.JITOperationRequest true "JIT operation request"
+// @Param       body body models.JITOperationRequest true "JIT operation request (user_group_ids for enable / update_jit_user_groups)"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -146,9 +146,11 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 
 	switch req.Action {
 	case "enable":
-		handleEnableJIT(w, r, networkID, user)
+		handleEnableJIT(w, r, networkID, user, req.UserGroupIDs)
 	case "disable":
 		handleDisableJIT(w, r, networkID, user)
+	case "update_jit_user_groups":
+		handleUpdateJITUserGroups(w, r, networkID, user, req.UserGroupIDs)
 	case "approve":
 		handleApproveRequest(w, r, networkID, user, req.RequestID, req.ExpiresAt)
 	case "deny":
@@ -159,14 +161,14 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 }
 
 // handleEnableJIT - enables JIT on a network
-func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
+func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, userGroupIDs []string) {
 	// Check if user is admin
 	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can enable JIT"), "forbidden"))
 		return
 	}
 
-	if err := proLogic.EnableJITOnNetwork(networkID); err != nil {
+	if err := proLogic.EnableJITOnNetwork(networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -222,6 +224,63 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT disabled on network")
+}
+
+// handleUpdateJITUserGroups - updates JIT user-group allowlist while JIT stays enabled
+func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, userGroupIDs []string) {
+	currNet := &schema.Network{Name: networkID}
+	err := (currNet).Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+	if !proLogic.IsNetworkAdmin(user, networkID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can update JIT user groups"), "forbidden"))
+		return
+	}
+
+	if err := proLogic.UpdateJITUserGroupsOnNetwork(networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	updatedNet := &schema.Network{Name: networkID}
+	err = (updatedNet).Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	logic.LogEvent(&models.Event{
+		Action: schema.JitGroupsUpdate,
+		Source: models.Subject{
+			ID:   user.Username,
+			Name: user.Username,
+			Type: schema.JITSub,
+		},
+		TriggeredBy: user.Username,
+		Target: models.Subject{
+			ID:   networkID,
+			Name: networkID,
+			Type: schema.JITSub,
+		},
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
+		Diff: models.Diff{
+			Old: currNet,
+			New: updatedNet,
+		},
+	})
+
+	logic.ReturnSuccessResponse(w, r, "JIT user groups updated")
+}
+
+func jitRequestToGroupIDs(ids []string) []schema.UserGroupID {
+	out := make([]schema.UserGroupID, 0, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		out = append(out, schema.UserGroupID(id))
+	}
+	return out
 }
 
 // handleApproveRequest - approves a JIT request
@@ -497,7 +556,7 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	userNetworks := logic.FilterNetworksByRole(allNetworks, user)
 
 	// Build response with JIT status for each network
-	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user.Username)
+	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

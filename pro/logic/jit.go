@@ -17,6 +17,25 @@ import (
 	"github.com/gravitl/netmaker/logic"
 )
 
+// userMustSatisfyJIT reports whether an active JIT grant is required for this user on the network.
+// Admins must be ruled out by the caller before invoking this. If jit_user_group_ids is empty,
+// all non-admin users are subject to JIT. If non-empty, only users belonging to at least one
+// listed group are subject; unknown users (nil) are not subject when the list is non-empty.
+func userMustSatisfyJIT(network *schema.Network, user *schema.User) bool {
+	if len(network.JITUserGroupIDs) == 0 {
+		return true
+	}
+	if user == nil {
+		return false
+	}
+	for _, gid := range network.JITUserGroupIDs {
+		if _, ok := user.UserGroups.Data()[gid]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // JITStatusResponse - response for JIT status check
 type JITStatusResponse struct {
 	HasAccess      bool               `json:"has_access"`
@@ -25,8 +44,9 @@ type JITStatusResponse struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
-// EnableJITOnNetwork - enables JIT on a network and disconnects existing ext clients
-func EnableJITOnNetwork(networkID string) error {
+// EnableJITOnNetwork - enables JIT on a network, optionally scoped to jitUserGroupIDs (empty = all non-admins).
+// Disconnects ext clients for users who are subject to JIT under the new configuration.
+func EnableJITOnNetwork(networkID string, jitUserGroupIDs []schema.UserGroupID) error {
 	// Check if JIT feature is enabled
 	featureFlags := GetFeatureFlags()
 	if !featureFlags.EnableJIT {
@@ -40,15 +60,14 @@ func EnableJITOnNetwork(networkID string) error {
 	}
 
 	network.JITEnabled = true
+	network.JITUserGroupIDs = jitUserGroupIDs
 
 	if err := logic.SaveNetwork(network); err != nil {
 		return fmt.Errorf("failed to save network: %w", err)
 	}
 
-	// Disconnect all ext clients from this network
-	if err := DisconnectExtClientsFromNetwork(networkID); err != nil {
+	if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
 		logger.Log(0, "failed to disconnect ext clients when enabling JIT:", err.Error())
-		// Don't fail the operation, just log
 	}
 
 	return nil
@@ -63,8 +82,31 @@ func DisableJITOnNetwork(networkID string) error {
 	}
 
 	network.JITEnabled = false
+	network.JITUserGroupIDs = nil
 
 	return logic.SaveNetwork(network)
+}
+
+// UpdateJITUserGroupsOnNetwork updates the JIT user-group allowlist while JIT remains enabled.
+func UpdateJITUserGroupsOnNetwork(networkID string, jitUserGroupIDs []schema.UserGroupID) error {
+	featureFlags := GetFeatureFlags()
+	if !featureFlags.EnableJIT {
+		return errors.New("JIT feature is not enabled")
+	}
+
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to get network: %w", err)
+	}
+	if !network.JITEnabled {
+		return errors.New("JIT is not enabled on this network")
+	}
+
+	network.JITUserGroupIDs = jitUserGroupIDs
+	if err := logic.SaveNetwork(network); err != nil {
+		return fmt.Errorf("failed to save network: %w", err)
+	}
+	return nil
 }
 
 // CreateJITRequest - creates a new JIT access request
@@ -86,6 +128,16 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 
 	if !network.JITEnabled {
 		return nil, errors.New("JIT is not enabled on this network")
+	}
+
+	reqUser := &schema.User{Username: userName}
+	userGetErr := reqUser.Get(db.WithContext(context.Background()))
+	var subjectUser *schema.User
+	if userGetErr == nil {
+		subjectUser = reqUser
+	}
+	if !userMustSatisfyJIT(network, subjectUser) {
+		return nil, errors.New("JIT does not apply to your account on this network")
 	}
 
 	// Check if user already has an active grant
@@ -218,8 +270,8 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 
 	// Check if user is super admin, admin, network admin, or global network admin - skip JIT check for them
 	user := &schema.User{Username: userID}
-	err := user.Get(db.WithContext(context.TODO()))
-	if err == nil {
+	userGetErr := user.Get(db.WithContext(context.TODO()))
+	if userGetErr == nil {
 		// Check platform role (super admin or admin)
 		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
 			// Super admin or admin - bypass JIT check
@@ -236,8 +288,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 				group := &schema.UserGroup{
 					ID: groupID,
 				}
-				err = group.Get(db.WithContext(context.TODO()))
-				if err != nil {
+				if err := group.Get(db.WithContext(context.TODO())); err != nil {
 					continue
 				}
 
@@ -269,13 +320,21 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 
 	// Check if network has JIT enabled
 	network := &schema.Network{Name: networkID}
-	err = network.Get(db.WithContext(context.TODO()))
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return false, nil, fmt.Errorf("network not found: %w", err)
 	}
 
 	if !network.JITEnabled {
 		// JIT not enabled, allow access
+		return true, nil, nil
+	}
+
+	var subjectUser *schema.User
+	if userGetErr == nil {
+		subjectUser = user
+	}
+	if !userMustSatisfyJIT(network, subjectUser) {
 		return true, nil, nil
 	}
 
@@ -447,13 +506,14 @@ func GetUserJITStatus(networkID, userID string) (*JITStatusResponse, error) {
 
 // UserJITNetworkStatus - represents JIT status for a network from user's perspective
 type UserJITNetworkStatus struct {
-	NetworkID      string             `json:"network_id"`
-	NetworkName    string             `json:"network_name,omitempty"`
-	JITEnabled     bool               `json:"jit_enabled"`
-	HasAccess      bool               `json:"has_access"`
-	Grant          *schema.JITGrant   `json:"grant,omitempty"`
-	Request        *schema.JITRequest `json:"request,omitempty"`
-	PendingRequest bool               `json:"pending_request"`
+	NetworkID        string             `json:"network_id"`
+	NetworkName      string             `json:"network_name,omitempty"`
+	JITEnabled       bool               `json:"jit_enabled"`
+	JitAppliesToUser bool               `json:"jit_applies_to_user"`
+	HasAccess        bool               `json:"has_access"`
+	Grant            *schema.JITGrant   `json:"grant,omitempty"`
+	Request          *schema.JITRequest `json:"request,omitempty"`
+	PendingRequest   bool               `json:"pending_request"`
 }
 
 // isUserAdminForNetwork - checks if user is super admin, admin, network admin, or global network admin
@@ -502,16 +562,10 @@ func isUserAdminForNetwork(user *schema.User, networkID string) bool {
 }
 
 // GetUserJITNetworksStatus - gets JIT status for multiple networks for a user
-func GetUserJITNetworksStatus(networks []schema.Network, userID string) ([]UserJITNetworkStatus, error) {
+func GetUserJITNetworksStatus(networks []schema.Network, user *schema.User) ([]UserJITNetworkStatus, error) {
 	ctx := db.WithContext(context.Background())
 	var result []UserJITNetworkStatus
-
-	// Get user to check admin status
-	user := &schema.User{Username: userID}
-	err := user.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
+	userID := user.Username
 
 	for _, network := range networks {
 		status := UserJITNetworkStatus{
@@ -525,13 +579,16 @@ func GetUserJITNetworksStatus(networks []schema.Network, userID string) ([]UserJ
 		// Check if user is admin - if so, show JIT as disabled and has access
 		if isUserAdminForNetwork(user, network.Name) {
 			status.JITEnabled = false
+			status.JitAppliesToUser = false
 			status.HasAccess = true
 			result = append(result, status)
 			continue
 		}
 
+		status.JitAppliesToUser = network.JITEnabled && userMustSatisfyJIT(&network, user)
+
 		// Only check JIT status if JIT is enabled on the network
-		if status.JITEnabled {
+		if network.JITEnabled {
 			// Check for active grant
 			hasAccess, grant, err := CheckJITAccess(network.Name, userID)
 			if err != nil {
@@ -616,21 +673,39 @@ func ExpireJITGrants() error {
 	return nil
 }
 
-// DisconnectExtClientsFromNetwork - disconnects all ext clients from a network
+// DisconnectExtClientsFromNetwork - disconnects ext clients whose owners are subject to JIT on this network.
 func DisconnectExtClientsFromNetwork(networkID string) error {
-	extClients, err := logic.GetNetworkExtClients(networkID)
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to get network: %w", err)
+	}
+	return DisconnectExtClientsFromNetworkForScope(network)
+}
+
+// DisconnectExtClientsFromNetworkForScope deletes ext clients for users who require a JIT grant
+// under the given network configuration (full JIT vs group-scoped).
+func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
+	extClients, err := logic.GetNetworkExtClients(network.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get ext clients: %w", err)
 	}
 
 	for _, client := range extClients {
-		if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
-			slog.Warn("failed to delete ext client when disabling JIT",
-				"client_id", client.ClientID, "network", networkID, "error", err)
+		owner := &schema.User{Username: client.OwnerID}
+		ownerErr := owner.Get(db.WithContext(context.TODO()))
+		var ownerPtr *schema.User
+		if ownerErr == nil {
+			ownerPtr = owner
+		}
+		if !userMustSatisfyJIT(network, ownerPtr) {
 			continue
 		}
 
-		// DeleteExtClient handles MQ notifications internally
+		if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
+			slog.Warn("failed to delete ext client when enabling JIT",
+				"client_id", client.ClientID, "network", network.Name, "error", err)
+			continue
+		}
 	}
 
 	return nil

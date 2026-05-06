@@ -43,6 +43,7 @@ const (
 	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
 	GatewayAssign                        Action = "GATEWAY_ASSIGN"
 	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
+	JitGroupsUpdate                      Action = "UPDATE_JIT_GROUPS"
 )
 
 type SubjectType string
@@ -67,6 +68,7 @@ const (
 	ClientAppSub       SubjectType = "CLIENT-APP"
 	NameserverSub      SubjectType = "NAMESERVER"
 	PostureCheckSub    SubjectType = "POSTURE_CHECK"
+	JITSub             SubjectType = "JIT"
 )
 
 func (sub SubjectType) String() string {
