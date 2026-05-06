@@ -7,14 +7,14 @@ import (
 const postureCheckViolationsTable = "posture_check_violations_v1"
 
 type PostureCheckViolation struct {
-	EvaluationCycleID string `gorm:"primaryKey"`
-	CheckID           string `gorm:"primaryKey"`
-	NodeID            string `gorm:"primaryKey"`
-	Name              string
-	Attribute         string
-	Message           string
-	Severity          Severity
-	EvaluatedAt       time.Time
+	EvaluationCycleID string    `gorm:"primaryKey" json:"evaluation_cycle_id"`
+	CheckID           string    `gorm:"primaryKey" json:"check_id"`
+	NodeID            string    `gorm:"primaryKey" json:"node_id"`
+	Name              string    `json:"name"`
+	Attribute         string    `json:"attribute"`
+	Message           string    `json:"message"`
+	Severity          Severity  `json:"severity"`
+	EvaluatedAt       time.Time `json:"evaluated_at"`
 }
 
 func (v *PostureCheckViolation) TableName() string {
