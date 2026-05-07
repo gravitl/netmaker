@@ -90,11 +90,7 @@ func DoesHostExistInTheNetworkAlready(h *schema.Host, networkID schema.NetworkID
 		NetworkID: networkID.String(),
 	}
 	err := node.GetByHostAndNetwork(db.WithContext(context.TODO()))
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 // CreateHost - creates a host if not exist
@@ -359,6 +355,33 @@ func UpdateHostNetwork(h *schema.Host, network string, add bool) (*models.Node, 
 	}
 
 	return nil, errors.New("host not part of the network " + network)
+}
+
+// AssociateNodeToHost - associates a node with a host and persists both.
+func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
+	if n == nil || h == nil {
+		return errors.New("node and host are required")
+	}
+	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
+		return ErrInvalidHostID
+	}
+
+	currentHost := &schema.Host{ID: h.ID}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node association: %w", err)
+	}
+
+	n.HostID = h.ID
+	if err := UpsertNode(n); err != nil {
+		return err
+	}
+
+	h.Nodes = currentHost.Nodes
+	if !StringSliceContains(h.Nodes, n.ID.String()) {
+		h.Nodes = append(h.Nodes, n.ID.String())
+	}
+
+	return UpsertHost(h)
 }
 
 // DissasociateNodeFromHost - deletes a node and removes from host nodes

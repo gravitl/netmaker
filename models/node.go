@@ -2,7 +2,6 @@ package models
 
 import (
 	"bytes"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -14,9 +13,6 @@ import (
 
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
-
-var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
 
 // NodeCheckin - struct for node checkins with server
 type NodeCheckin struct {
