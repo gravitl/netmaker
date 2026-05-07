@@ -598,8 +598,10 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 										IP:   node.Address.IP,
 										Mask: net.CIDRMask(32, 32),
 									},
-									DstIP: cidr,
-									Allow: true,
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
 								})
 							}
 						}
@@ -610,8 +612,10 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 										IP:   node.Address6.IP,
 										Mask: net.CIDRMask(128, 128),
 									},
-									DstIP: cidr,
-									Allow: true,
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
 								})
 							}
 						}
@@ -657,8 +661,10 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 										IP:   node.Address.IP,
 										Mask: net.CIDRMask(32, 32),
 									},
-									DstIP: cidr,
-									Allow: true,
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
 								})
 							}
 						}
@@ -669,8 +675,10 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 										IP:   node.Address6.IP,
 										Mask: net.CIDRMask(128, 128),
 									},
-									DstIP: cidr,
-									Allow: true,
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
 								})
 							}
 						}

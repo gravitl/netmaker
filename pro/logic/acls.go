@@ -209,6 +209,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
 
 	for _, policy := range allowedPolicies {
+		selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
 		// if static peer dst rule not for ingress node -> skip
 		if node.Address.IP != nil {
 			rules = append(rules, models.FwRule{
@@ -352,6 +353,37 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 					egressRange = e.VirtualRange
 				}
 				if egressRange != "" {
+					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						for _, cidr := range selectedIP4 {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
+						for _, cidr := range selectedIP6 {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
+						continue
+					}
 					dstI.Value = egressRange
 
 					ip, cidr, err := net.ParseCIDR(dstI.Value)
@@ -386,6 +418,37 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 					}
 				} else if len(e.DomainAns) > 0 {
+					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						for _, cidr := range selectedIP4 {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
+						for _, cidr := range selectedIP6 {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP:           cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
+						continue
+					}
 					for _, domainAnsI := range e.DomainAns {
 						dstI.Value = domainAnsI
 
