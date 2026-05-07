@@ -55,7 +55,7 @@ type Node struct {
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
-	RelayingNodeID                    *string                               `json:"relaying_node_id"`
+	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
@@ -199,7 +199,7 @@ func (n *Node) MarkForDeletion(ctx context.Context) error {
 func (n *Node) UpdateRelayingNode(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("relaying_node_id", n.RelayingNodeID).
+		Update("relaying_node_id", n.RelayedByNodeID).
 		Error
 }
 

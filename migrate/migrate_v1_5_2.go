@@ -153,7 +153,7 @@ func migrateNodes(ctx context.Context) error {
 			IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 			RelayedClients:                    relayedClients,
 			RelayedIGWClients:                 relayedIGWClients,
-			RelayingNodeID:                    &relayedBy,
+			RelayedByNodeID:                   &relayedBy,
 			IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 			AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 			Tags:                              tags,

@@ -323,7 +323,7 @@ func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.IsInternetGateway = _node.IsInternetGateway
 	n.RelayedClients = _node.RelayedClients
 	n.RelayedIGWClients = _node.RelayedIGWClients
-	n.RelayingNodeID = _node.RelayingNodeID
+	n.RelayingNodeID = _node.RelayedByNodeID
 	n.IsIGWClient = _node.IsIGWClient
 	n.AutoRelayedPeers = _node.AutoRelayedPeers
 	n.Tags = _node.Tags

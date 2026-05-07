@@ -707,12 +707,12 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 	}
 
-	if _node.RelayingNodeID != nil && *_node.RelayingNodeID != "" {
+	if _node.RelayedByNodeID != nil && *_node.RelayedByNodeID != "" {
 		node.IsRelayed = true
-		node.RelayedBy = *_node.RelayingNodeID
+		node.RelayedBy = *_node.RelayedByNodeID
 
 		if _node.IsIGWClient {
-			node.InternetGwID = *_node.RelayingNodeID
+			node.InternetGwID = *_node.RelayedByNodeID
 		}
 	}
 
@@ -788,7 +788,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,
-		RelayingNodeID:                    relayingNodeID,
+		RelayedByNodeID:                   relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
