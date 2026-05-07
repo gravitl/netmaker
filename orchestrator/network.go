@@ -47,8 +47,8 @@ func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.
 }
 
 func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	n.address6Lock.Unlock()
-	defer n.address6Lock.Lock()
+	n.address6Lock.Lock()
+	defer n.address6Lock.Unlock()
 
 	if network.AddressRange6 == "" {
 		return nil, fmt.Errorf("IPv6 not configured on network %s", network.Name)
