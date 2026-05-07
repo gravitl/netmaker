@@ -3,70 +3,18 @@ package migrate
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
-
-// ToSQLSchema migrates the data from key-value
-// db to sql db.
-func ToSQLSchema() error {
-	// begin a new transaction.
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	// future table migrations should be made below this block,
-	// with a different version number and a similar check for whether the
-	// migration was already done.
-	migrationJob := &schema.Job{
-		ID: "migration-v1.5.1",
-	}
-	err := migrationJob.Get(dbctx)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		logger.Log(1, fmt.Sprintf("running migration job %s", migrationJob.ID))
-		// migrate.
-		err = migrateV1_5_1(dbctx)
-		if err != nil {
-			return err
-		}
-
-		// mark migration job completed.
-		err = migrationJob.Create(dbctx)
-		if err != nil {
-			return err
-		}
-
-		logger.Log(1, fmt.Sprintf("migration job %s completed", migrationJob.ID))
-		commit = true
-	} else {
-		logger.Log(1, fmt.Sprintf("migration job %s already completed, skipping", migrationJob.ID))
-	}
-
-	return nil
-}
 
 func migrateV1_5_1(ctx context.Context) error {
 	err := migrateUsers(ctx)
@@ -93,7 +41,7 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
-	records, err := FetchAll(ctx, database.USERS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -116,7 +64,7 @@ func migrateUsers(ctx context.Context) error {
 			}
 		}
 
-		_user := schema.User{
+		_user := &schema.User{
 			ID:                         "",
 			Username:                   user.UserName,
 			DisplayName:                user.DisplayName,
@@ -147,7 +95,7 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
-	records, err := FetchAll(ctx, database.NETWORKS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.NETWORKS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -286,7 +234,7 @@ func migrateNetworks(ctx context.Context) error {
 }
 
 func migrateUserRoles(ctx context.Context) error {
-	records, err := FetchAll(ctx, database.USER_PERMISSIONS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.USER_PERMISSIONS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -311,7 +259,7 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
-	records, err := FetchAll(ctx, database.USER_GROUPS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.USER_GROUPS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -336,7 +284,7 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
-	records, err := FetchAll(ctx, database.HOSTS_TABLE_NAME)
+	records, err := fetchAll(ctx, database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -422,23 +370,4 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func FetchAll(ctx context.Context, tableName string) (map[string]string, error) {
-	row, err := db.FromContext(ctx).Raw("SELECT * FROM " + tableName + " ORDER BY key").Rows()
-	if err != nil {
-		return nil, err
-	}
-	records := make(map[string]string)
-	defer row.Close()
-	for row.Next() { // Iterate and fetch the records from result cursor
-		var key string
-		var value string
-		row.Scan(&key, &value)
-		records[key] = value
-	}
-	if len(records) == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return records, nil
 }

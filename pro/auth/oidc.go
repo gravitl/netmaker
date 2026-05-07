@@ -127,11 +127,11 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
-				err = logic.InsertPendingUser(&models.User{
-					UserName:                   content.Email,
+
+				err = (&schema.PendingUser{
+					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-					AuthType:                   schema.OAuth,
-				})
+				}).Create(r.Context())
 				if err != nil {
 					handleSomethingWentWrong(w)
 					return
