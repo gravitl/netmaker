@@ -66,6 +66,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 					peer = peer.StaticNode.ConvertToStaticNode()
 				}
 				for _, policy := range allowedPolicies {
+					selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
 					if userNodeI.StaticNode.Address != "" {
 						rules = append(rules, models.FwRule{
 							SrcIP: userNodeI.StaticNode.AddressIPNet4(),
@@ -124,6 +125,31 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 
 								ip, cidr, err := net.ParseCIDR(dstI.Value)
 								if err == nil {
+									if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+										for _, selectedCIDR := range selectedIP4 {
+											if userNodeI.StaticNode.Address != "" {
+												rules = append(rules, models.FwRule{
+													SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+													DstIP:           selectedCIDR,
+													AllowedProtocol: policy.Proto,
+													AllowedPorts:    policy.Port,
+													Allow:           true,
+												})
+											}
+										}
+										for _, selectedCIDR := range selectedIP6 {
+											if userNodeI.StaticNode.Address6 != "" {
+												rules = append(rules, models.FwRule{
+													SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+													DstIP:           selectedCIDR,
+													AllowedProtocol: policy.Proto,
+													AllowedPorts:    policy.Port,
+													Allow:           true,
+												})
+											}
+										}
+										continue
+									}
 									if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
 										rules = append(rules, models.FwRule{
 											SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
@@ -576,6 +602,28 @@ func listUserPolicies(netID schema.NetworkID) []models.Acl {
 	return deviceAcls
 }
 
+func getSelectedUserEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
+	for _, dst := range dstTags {
+		if dst.ID != models.NetmakerIPAclID {
+			continue
+		}
+		normalized, err := logic.NormalizeIPOrCIDR(dst.Value)
+		if err != nil {
+			continue
+		}
+		ip, cidr, err := net.ParseCIDR(normalized)
+		if err != nil {
+			continue
+		}
+		if ip.To4() != nil {
+			dst4 = append(dst4, *cidr)
+		} else {
+			dst6 = append(dst6, *cidr)
+		}
+	}
+	return
+}
+
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []models.Acl) {
 	var peerId string
@@ -975,6 +1023,7 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 				if !acl.Enabled {
 					continue
 				}
+				selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(acl.Dst)
 				r := models.AclRule{
 					ID:              acl.ID,
 					AllowedProtocol: acl.Proto,
@@ -1006,6 +1055,11 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 							egressRange = e.VirtualRange
 						}
 						if egressRange != "" {
+							if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+								r.Dst = append(r.Dst, selectedIP4...)
+								r.Dst6 = append(r.Dst6, selectedIP6...)
+								continue
+							}
 							ip, cidr, err := net.ParseCIDR(egressRange)
 							if err == nil {
 								if ip.To4() != nil {
@@ -1171,6 +1225,7 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 				}
 				egressRanges4 := []net.IPNet{}
 				egressRanges6 := []net.IPNet{}
+				selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(acl.Dst)
 
 				for _, dst := range acl.Dst {
 					if dst.Value == "*" {
@@ -1185,7 +1240,10 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 								nodeOwnsEgress = true
 							}
 							if nodeOwnsEgress {
-								if eI.Range != "" {
+								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+									egressRanges4 = append(egressRanges4, selectedIP4...)
+									egressRanges6 = append(egressRanges6, selectedIP6...)
+								} else if eI.Range != "" {
 									_, cidr, err := net.ParseCIDR(eI.Range)
 									if err == nil {
 										if cidr.IP.To4() != nil {
@@ -1229,7 +1287,10 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 								nodeOwnsEgress = true
 							}
 							if nodeOwnsEgress {
-								if e.Range != "" {
+								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+									egressRanges4 = append(egressRanges4, selectedIP4...)
+									egressRanges6 = append(egressRanges6, selectedIP6...)
+								} else if e.Range != "" {
 									_, cidr, err := net.ParseCIDR(e.Range)
 									if err == nil {
 										if cidr.IP.To4() != nil {
