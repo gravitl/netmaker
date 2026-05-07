@@ -633,7 +633,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	var netAddrRange, netAddr6Range net.IPNet
 	if _node.Network == nil {
 		_node.Network = &schema.Network{
-			ID: _node.Network.ID,
+			ID: _node.NetworkID,
 		}
 		err = _node.Network.Get(db.WithContext(context.TODO()))
 		if err != nil {
