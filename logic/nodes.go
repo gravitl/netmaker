@@ -707,7 +707,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 	}
 
-	if _node.RelayingNodeID != nil {
+	if _node.RelayingNodeID != nil && *_node.RelayingNodeID != "" {
 		node.IsRelayed = true
 		node.RelayedBy = *_node.RelayingNodeID
 
@@ -759,7 +759,11 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		relayedIGWClients[inetNodeClientID] = struct{}{}
 	}
 
-	relayedBy := node.RelayedBy
+	var relayingNodeID *string
+	if node.IsRelayed && node.RelayedBy != "" {
+		relayedBy := node.RelayedBy
+		relayingNodeID = &relayedBy
+	}
 
 	tags := make(datatypes.JSONMap)
 	for tagID := range node.Tags {
@@ -784,7 +788,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,
-		RelayingNodeID:                    &relayedBy,
+		RelayingNodeID:                    relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
