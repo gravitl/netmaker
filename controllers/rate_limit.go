@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,18 +20,22 @@ type visitor struct {
 }
 
 type RateLimiter struct {
-	visitors map[string]*visitor
-	mu       sync.Mutex
+	visitors      map[string]*visitor
+	lockoutUntil  map[string]time.Time
+	mu            sync.Mutex
 
-	rate  rate.Limit
-	burst int
+	rate            rate.Limit
+	burst           int
+	lockoutDuration time.Duration
 }
 
-func NewRateLimiter(ctx context.Context, r rate.Limit, b int) *RateLimiter {
+func NewRateLimiter(ctx context.Context, r rate.Limit, b int, lockout time.Duration) *RateLimiter {
 	rl := &RateLimiter{
-		visitors: make(map[string]*visitor),
-		rate:     r,
-		burst:    b,
+		visitors:        make(map[string]*visitor),
+		lockoutUntil:    make(map[string]time.Time),
+		rate:            r,
+		burst:           b,
+		lockoutDuration: lockout,
 	}
 
 	// cleanup goroutine
@@ -39,9 +44,22 @@ func NewRateLimiter(ctx context.Context, r rate.Limit, b int) *RateLimiter {
 	return rl
 }
 
-func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
+// allowAuthenticate returns whether the request may proceed; if false, retryAfterSecs is a
+// positive value suitable for the Retry-After header.
+func (rl *RateLimiter) allowAuthenticate(ip string) (ok bool, retryAfterSecs int) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+
+	if until, active := rl.lockoutUntil[ip]; active {
+		if time.Now().Before(until) {
+			s := int(time.Until(until).Round(time.Second).Seconds())
+			if s < 1 {
+				s = 1
+			}
+			return false, s
+		}
+		delete(rl.lockoutUntil, ip)
+	}
 
 	v, exists := rl.visitors[ip]
 	if !exists {
@@ -50,11 +68,20 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 			limiter:  limiter,
 			lastSeen: time.Now(),
 		}
-		return limiter
+		v = rl.visitors[ip]
+	} else {
+		v.lastSeen = time.Now()
 	}
 
-	v.lastSeen = time.Now()
-	return v.limiter
+	if !v.limiter.Allow() {
+		rl.lockoutUntil[ip] = time.Now().Add(rl.lockoutDuration)
+		s := int(rl.lockoutDuration.Seconds())
+		if s < 1 {
+			s = 1
+		}
+		return false, s
+	}
+	return true, 0
 }
 
 func (rl *RateLimiter) cleanupVisitors(ctx context.Context) {
@@ -64,9 +91,15 @@ func (rl *RateLimiter) cleanupVisitors(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			rl.mu.Lock()
+			now := time.Now()
 			for ip, v := range rl.visitors {
 				if time.Since(v.lastSeen) > 10*time.Minute {
 					delete(rl.visitors, ip)
+				}
+			}
+			for ip, until := range rl.lockoutUntil {
+				if !now.Before(until) {
+					delete(rl.lockoutUntil, ip)
 				}
 			}
 			rl.mu.Unlock()
@@ -87,9 +120,9 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		if r.Method == http.MethodPost && route == "/api/users/adm/authenticate" {
 			ip := clientIP(r)
 
-			limiter := rl.getVisitor(ip)
-
-			if !limiter.Allow() {
+			ok, retryAfter := rl.allowAuthenticate(ip)
+			if !ok {
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 				http.Error(w, "too many requests", http.StatusTooManyRequests)
 				return
 			}

@@ -69,7 +69,8 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 		r.Use(middleware)
 	}
 
-	rateLimiter := NewRateLimiter(ctx, rate.Every(time.Minute/10), 3)
+	lockout := time.Duration(servercfg.GetAuthRateLimitLockoutSecondsFromEnv()) * time.Second
+	rateLimiter := NewRateLimiter(ctx, rate.Every(time.Minute/10), 10, lockout)
 	r.Use(rateLimiter.Middleware)
 
 	for _, handler := range HttpHandlers {
