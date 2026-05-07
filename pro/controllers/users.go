@@ -1661,6 +1661,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !found && len(extClients) > 0 && deviceID == "" {
 			// TODO: prevent ip clashes.
 			gwClient = extClients[0]
+			found = true
 		}
 
 		host := &schema.Host{
@@ -1682,16 +1683,20 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		}
 
 		gws := userGws[node.Network]
-		if gwClient.DNS == "" {
-			logic.SetDNSOnWgConfig(&node, &gwClient)
+
+		if found {
+			if gwClient.DNS == "" {
+				logic.SetDNSOnWgConfig(&node, &gwClient)
+			}
+
+			gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+				host.EndpointIP,
+				host.EndpointIPv6,
+				logic.GetPeerListenPort(host),
+			)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
 		}
 
-		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
-			host.EndpointIP,
-			host.EndpointIPv6,
-			logic.GetPeerListenPort(host),
-		)
-		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
 		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
