@@ -22,8 +22,6 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
-var netHost schema.Host
-
 func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
