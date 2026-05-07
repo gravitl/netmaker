@@ -176,39 +176,44 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
 func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, sendPeerUpdate bool) {
+	var peerUpdateReasons []string
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "public_key")
 	}
-	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
-		currHost.ListenPort = newHost.ListenPort
-		sendPeerUpdate = true
+	if !currHost.IsStaticPort {
+		if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
+			currHost.ListenPort = newHost.ListenPort
+			sendPeerUpdate = true
+			peerUpdateReasons = append(peerUpdateReasons, "listen_port")
+		}
+		if newHost.WgPublicListenPort != 0 &&
+			currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+			currHost.WgPublicListenPort = newHost.WgPublicListenPort
+			sendPeerUpdate = true
+			peerUpdateReasons = append(peerUpdateReasons, "wg_public_listen_port")
+		}
 	}
-	if newHost.WgPublicListenPort != 0 &&
-		currHost.WgPublicListenPort != newHost.WgPublicListenPort {
-		currHost.WgPublicListenPort = newHost.WgPublicListenPort
-		sendPeerUpdate = true
+	if !currHost.IsStatic {
+		if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
+			currHost.EndpointIP = newHost.EndpointIP
+			sendPeerUpdate = true
+			isEndpointChanged = true
+			peerUpdateReasons = append(peerUpdateReasons, "endpoint_ip")
+		}
+		if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
+			currHost.EndpointIPv6 = newHost.EndpointIPv6
+			sendPeerUpdate = true
+			isEndpointChanged = true
+			peerUpdateReasons = append(peerUpdateReasons, "endpoint_ipv6")
+		}
 	}
-	if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
-		currHost.EndpointIP = newHost.EndpointIP
-		sendPeerUpdate = true
-		isEndpointChanged = true
-	}
-	if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
-		currHost.EndpointIPv6 = newHost.EndpointIPv6
-		sendPeerUpdate = true
-		isEndpointChanged = true
-	}
+
 	for i := range newHost.Interfaces {
 		newHost.Interfaces[i].AddressString = newHost.Interfaces[i].Address.String()
 	}
-	utils.SortIfacesByName(currHost.Interfaces)
 	utils.SortIfacesByName(newHost.Interfaces)
-	if !utils.CompareIfaces(currHost.Interfaces, newHost.Interfaces) {
-		currHost.Interfaces = newHost.Interfaces
-		sendPeerUpdate = true
-	}
-
 	if isEndpointChanged {
 		for _, nodeID := range currHost.Nodes {
 			node, err := GetNodeByID(nodeID)
@@ -231,6 +236,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 	currHost.Version = newHost.Version
 	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
+	currHost.Interfaces = newHost.Interfaces
 	currHost.MTU = newHost.MTU
 	if newHost.Location != "" {
 		currHost.Location = newHost.Location
@@ -261,8 +267,17 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "nat_type")
 	}
 
+	if sendPeerUpdate {
+		slog.Debug("UpdateHostFromClient: sendPeerUpdate",
+			"host", currHost.Name,
+			"id", currHost.ID.String(),
+			"reasons", peerUpdateReasons,
+			"isEndpointChanged", isEndpointChanged,
+		)
+	}
 	return
 }
 
