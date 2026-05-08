@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -66,6 +67,10 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	for _, middleware := range HttpMiddlewares {
 		r.Use(middleware)
 	}
+
+	lockout := time.Duration(servercfg.GetAuthRateLimitLockoutSecondsFromEnv()) * time.Second
+	rateLimiter := NewRateLimiter(ctx, rate.Every(time.Minute/10), 10, lockout)
+	r.Use(rateLimiter.Middleware)
 
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)
