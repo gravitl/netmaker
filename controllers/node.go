@@ -675,7 +675,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
+		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return

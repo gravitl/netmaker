@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -22,34 +23,8 @@ type NodeOrchestrator struct {
 	nodeExt extensions.NodeExtensions
 }
 
-type NodeOrchestratorOptions struct {
-	useKey                bool
-	key                   *models.EnrollmentKey
-	skipPublishPeerUpdate bool
-}
-
-type NodeOrchestratorOption func(options *NodeOrchestratorOptions) *NodeOrchestratorOptions
-
-func UseKey(key *models.EnrollmentKey) NodeOrchestratorOption {
-	return func(o *NodeOrchestratorOptions) *NodeOrchestratorOptions {
-		o.useKey = true
-		o.key = key
-		return o
-	}
-}
-
-func SkipPublishPeerUpdate() NodeOrchestratorOption {
-	return func(o *NodeOrchestratorOptions) *NodeOrchestratorOptions {
-		o.skipPublishPeerUpdate = true
-		return o
-	}
-}
-
-func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, network *schema.Network, options ...NodeOrchestratorOption) (*schema.Node, error) {
-	var ops NodeOrchestratorOptions
-	for _, option := range options {
-		option(&ops)
-	}
+func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, network *schema.Network, options ...Option) (*schema.Node, error) {
+	ops := applyOptions(options...)
 
 	node := &schema.Node{
 		ID:                 uuid.NewString(),
@@ -120,6 +95,11 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}()
 
 	if host.IsDefault {
+		err = n.ValidateCreateGateway(ctx, node, SkipPublishPeerUpdate())
+		if err != nil {
+			return nil, err
+		}
+
 		err = n.CreateGateway(ctx, node)
 		if err != nil {
 			return nil, err
@@ -174,35 +154,208 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	return node, nil
 }
 
-func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node) error {
-	if node.Host.OS != "linux" {
-		return errors.New("gateway can only be created on linux based node")
-	}
-
-	if node.IsGateway {
-		return errors.New("node is already a gateway")
-	}
-
-	if node.RelayedByNodeID != nil {
-		return errors.New("gateway cannot be created on a relayed node")
-	}
+func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
+	ops := applyOptions(options...)
 
 	node.IsGateway = true
-	node.IsInternetGateway = false
+
+	if ops.isInternetGateway {
+		node.Host.DNS = "yes"
+		node.Host.IsStaticPort = true
+		err := node.Host.Upsert(ctx)
+		if err != nil {
+			return err
+		}
+
+		node.IsInternetGateway = true
+	}
 
 	n.nodeExt.ConfigureAutoRelay(node)
+
+	node.Tags[fmt.Sprintf("%s.%s", node.NetworkID, models.GwTagName)] = struct{}{}
 
 	err := node.Update(ctx)
 	if err != nil {
 		return err
 	}
 
-	node.Tags[fmt.Sprintf("%s.%s", node.NetworkID, models.GwTagName)] = struct{}{}
-	err = node.UpdateTags(ctx)
+	for _, relayedClientID := range ops.relayedClients {
+		node.RelayedClients[relayedClientID] = struct{}{}
+	}
+
+	nodeID := node.ID
+	for _, igwClientID := range ops.igwClients {
+		igwClient := &schema.Node{
+			ID: igwClientID,
+		}
+		err = igwClient.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		node.RelayedClients[igwClientID] = struct{}{}
+
+		if igwClient.AutoAssignGateway {
+			err = igwClient.ResetAutoAssignGateway(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		igwClient.IsIGWClient = true
+		igwClient.RelayedByNodeID = &nodeID
+
+		err = igwClient.AssignInternetGateway(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = node.SetRelayedClients(ctx)
 	if err != nil {
 		return err
 	}
 
+	err = node.ResetAutoRelayedPeers(ctx)
+	if err != nil {
+		return err
+	}
+
+	for relayedClientID := range node.RelayedClients {
+		err = (&schema.Node{
+			ID:        relayedClientID,
+			NetworkID: node.NetworkID,
+		}).ResetAutoRelayedPeers(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	node.Network.NodesUpdatedAt = time.Now()
-	return node.Network.UpdateNodesUpdatedAt(ctx)
+	err = node.Network.UpdateNodesUpdatedAt(ctx)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := mq.NodeUpdate(logic.ConvertSchemaNodeToModelsNode(node))
+		if err != nil {
+			logger.Log(1, "failed to send node update for node", node.ID, err.Error())
+		}
+	}()
+
+	if !ops.skipPublishPeerUpdate {
+		go func() {
+			err := mq.PublishPeerUpdate(false)
+			if err != nil {
+				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
+			}
+		}()
+	}
+
+	return nil
+}
+
+func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
+	ops := applyOptions(options...)
+
+	if node.Host.OS != "linux" {
+		return fmt.Errorf("gateway can only be created on linux based node")
+	}
+
+	if node.AutoAssignGateway {
+		return fmt.Errorf("cannot set node %s as gateway while AutoAssignGateway is enabled", node.Host.Name)
+	}
+
+	if node.IsGateway {
+		return fmt.Errorf("node %s is already a gateway", node.Host.Name)
+	}
+
+	if node.RelayedByNodeID != nil {
+		return fmt.Errorf("relayed node %s cannot be used as a gateway", node.Host.Name)
+	}
+
+	for _, relayedClientID := range ops.relayedClients {
+		err := (&schema.Node{
+			ID: relayedClientID,
+		}).Get(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ops.isInternetGateway {
+		if node.Host.FirewallInUse == schema.FIREWALL_NONE {
+			return fmt.Errorf("host must have iptables or nftables installed")
+		}
+
+		if node.IsIGWClient {
+			return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
+		}
+
+		if node.RelayedByNodeID != nil {
+			return fmt.Errorf("node %s is being relayed", node.Host.Name)
+		}
+
+		for _, igwClientID := range ops.igwClients {
+			igwClient := &schema.Node{
+				ID: igwClientID,
+			}
+			err := igwClient.Get(ctx, dbtypes.WithPreloads("Host"))
+			if err != nil {
+				return err
+			}
+
+			if igwClient.Host.IsDefault {
+				return fmt.Errorf("default host %s cannot be set to use internet gateway", igwClient.Host.Name)
+			}
+
+			if igwClient.IsAutoRelay {
+				return fmt.Errorf("node %s acting as auto relay cannot use internet gateway", igwClient.Host.Name)
+			}
+
+			if igwClient.IsGateway {
+				return fmt.Errorf("node %s acting as gateway cannot use internet gateway", igwClient.Host.Name)
+			}
+
+			if igwClient.IsInternetGateway {
+				return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", igwClient.Host.Name)
+			}
+
+			if igwClient.IsIGWClient {
+				return fmt.Errorf("node %s is already using a internet gateway", igwClient.Host.Name)
+			}
+
+			if igwClient.RelayedByNodeID != nil && *igwClient.RelayedByNodeID != node.ID {
+				return fmt.Errorf("node %s is already being relayed", igwClient.Host.Name)
+			}
+
+			otherNodes, err := (&schema.Node{}).ListAll(
+				ctx,
+				dbtypes.WithFilter("host_id", igwClient.HostID),
+				dbtypes.WithNotFilter("id", igwClient.ID),
+			)
+			if err != nil {
+				return err
+			}
+
+			for _, otherNode := range otherNodes {
+				if otherNode.IsIGWClient && otherNode.RelayedByNodeID != nil {
+					otherNodeIGW := &schema.Node{
+						ID: *otherNode.RelayedByNodeID,
+					}
+					err = otherNodeIGW.Get(ctx)
+					if err != nil {
+						return err
+					}
+
+					if otherNodeIGW.HostID != node.HostID {
+						return errors.New("nodes on same host cannot use different internet gateway")
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }

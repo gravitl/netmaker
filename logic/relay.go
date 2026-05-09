@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 
 	"github.com/gravitl/netmaker/db"
@@ -11,40 +10,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
-
-// CreateRelay - creates a relay
-func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
-	var returnnodes []models.Node
-
-	node, err := GetNodeByID(relay.NodeID)
-	if err != nil {
-		return returnnodes, models.Node{}, err
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return returnnodes, models.Node{}, err
-	}
-	if host.OS != "linux" {
-		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be gateway nodes")
-	}
-	err = ValidateRelay(relay, false)
-	if err != nil {
-		return returnnodes, models.Node{}, err
-	}
-	node.IsRelay = true
-	node.IsGw = true
-	node.RelayedNodes = relay.RelayedNodes
-	node.SetLastModified()
-	err = UpsertNode(&node)
-	if err != nil {
-		return returnnodes, node, err
-	}
-	returnnodes = SetRelayedNodes(true, relay.NodeID, relay.RelayedNodes)
-	return returnnodes, node, nil
-}
 
 // SetRelayedNodes- sets and saves node as relayed
 func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Node {

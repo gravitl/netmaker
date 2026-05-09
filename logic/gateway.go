@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -135,72 +134,6 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	return node, nil
 }
 
-// CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, nodeid string, ingress models.IngressRequest) (models.Node, error) {
-
-	node, err := GetNodeByID(nodeid)
-	if err != nil {
-		return models.Node{}, err
-	}
-	if node.IsRelayed {
-		return models.Node{}, errors.New("gateway cannot be created on a relayed node")
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return models.Node{}, err
-	}
-	if host.OS != "linux" {
-		return models.Node{}, errors.New("gateway can only be created on linux based node")
-	}
-
-	network := &schema.Network{Name: netid}
-	err = network.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return models.Node{}, err
-	}
-	node.IsIngressGateway = true
-	node.IsGw = true
-	SetAutoRelay(&node)
-	node.IsInternetGateway = ingress.IsInternetGateway
-	node.IngressGatewayRange = network.AddressRange
-	node.IngressGatewayRange6 = network.AddressRange6
-	node.IngressDNS = ingress.ExtclientDNS
-	if node.IsInternetGateway && node.IngressDNS == "" {
-		node.IngressDNS = "1.1.1.1"
-	}
-	node.IngressPersistentKeepalive = 20
-	if ingress.PersistentKeepalive != 0 {
-		node.IngressPersistentKeepalive = ingress.PersistentKeepalive
-	}
-	node.IngressMTU = 1420
-	if ingress.MTU != 0 {
-		node.IngressMTU = ingress.MTU
-	}
-	if servercfg.IsPro {
-		ResetAutoRelayedPeer(&node)
-	}
-	node.SetLastModified()
-	node.Metadata = ingress.Metadata
-	if node.Metadata == "" {
-		node.Metadata = "This host can be used for remote access"
-	}
-	if node.Tags == nil {
-		node.Tags = make(map[models.TagID]struct{})
-	}
-	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
-	node.LastEvaluatedAt = time.Now().UTC()
-	err = UpsertNode(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = SetNetworkNodesLastModified(netid)
-	return node, err
-}
-
 // GetIngressGwUsers - lists the users having to access to ingressGW
 func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 
@@ -290,22 +223,15 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	return true
 }
 
-func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
-	inetHost := &schema.Host{
-		ID: inetNode.HostID,
-	}
-	err := inetHost.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if inetHost.FirewallInUse == schema.FIREWALL_NONE {
+func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) error {
+	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
-	if inetNode.InternetGwID != "" {
-		return fmt.Errorf("node %s is using a internet gateway already", inetHost.Name)
+	if node.IsIGWClient {
+		return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
 	}
-	if inetNode.IsRelayed {
-		return fmt.Errorf("node %s is being relayed", inetHost.Name)
+	if node.RelayedByNodeID != nil {
+		return fmt.Errorf("node %s is being relayed", node.Host.Name)
 	}
 
 	for _, clientNodeID := range req.InetNodeClientIDs {
@@ -330,7 +256,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
 		if update {
-			if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
+			if clientNode.InternetGwID != "" && clientNode.InternetGwID != node.ID {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
 		} else {
@@ -342,19 +268,18 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			ResetAutoRelayedPeer(&clientNode)
 		}
 
-		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {
+		if clientNode.IsRelayed && clientNode.RelayedBy != node.ID {
 			return fmt.Errorf("node %s is being relayed", clientHost.Name)
 		}
 
-		for _, nodeID := range clientHost.Nodes {
-			node, err := GetNodeByID(nodeID)
+		for _, clientID := range clientHost.Nodes {
+			otherNode, err := GetNodeByID(clientID)
 			if err != nil {
 				continue
 			}
-			if node.InternetGwID != "" && node.InternetGwID != inetNode.ID.String() {
+			if otherNode.InternetGwID != "" && otherNode.InternetGwID != node.ID {
 				return errors.New("nodes on same host cannot use different internet gateway")
 			}
-
 		}
 	}
 	return nil
