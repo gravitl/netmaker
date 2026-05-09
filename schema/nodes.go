@@ -2,9 +2,11 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
@@ -221,5 +223,89 @@ func (n *Node) UpdateLastCheckIn(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Update("last_check_in", n.LastCheckIn).
+		Error
+}
+
+func (n *Node) SetRelayedClients(ctx context.Context) error {
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("relayed_by_node_id = ?", n.ID).
+		Update("relayed_by_node_id", nil).
+		Error
+	if err != nil {
+		return err
+	}
+
+	err = db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("relayed_clients", n.RelayedClients).
+		Error
+	if err != nil {
+		return err
+	}
+
+	if len(n.RelayedClients) > 0 {
+		clientIDs := make([]string, 0, len(n.RelayedClients))
+		for clientID := range n.RelayedClients {
+			clientIDs = append(clientIDs, clientID)
+		}
+
+		err = db.FromContext(ctx).Model(&Node{}).
+			Where("id IN ?", clientIDs).
+			Update("relayed_by_node_id", n.ID).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (n *Node) AssignInternetGateway(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"is_igw_client":      n.IsIGWClient,
+			"relayed_by_node_id": n.RelayedByNodeID,
+		}).Error
+}
+
+func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
+	if n.NetworkID == "" {
+		return fmt.Errorf("ResetAutoAssignGateway: NetworkID not set")
+	}
+
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("auto_assign_gateway", false).
+		Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(datatypes.JSONQuery("relayed_clients").HasKey(n.ID)).
+		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
+		Error
+}
+
+func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
+	if n.NetworkID == "" {
+		return fmt.Errorf("ResetAutoAssignGateway: NetworkID not set")
+	}
+
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("auto_relayed_peers", datatypes.JSONMap{}).
+		Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(datatypes.JSONQuery("auto_relayed_peers").HasKey(n.ID)).
+		UpdateColumn("auto_relayed_peers", expr.Remove("auto_relayed_peers", n.ID)).
 		Error
 }
