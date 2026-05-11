@@ -667,6 +667,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			Address:           nodeAddr,
 			Address6:          nodeAddr6,
 			Action:            _node.Action,
+			IsIngressGateway:  _node.IsGateway,
 			IsRelay:           _node.IsGateway,
 			IsGw:              _node.IsGateway,
 			AutoAssignGateway: _node.AutoAssignGateway,
