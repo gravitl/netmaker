@@ -127,25 +127,28 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	action := models.JoinHostToNetwork
-	if len(host.Nodes) == 1 {
-		action = models.RequestPull
-	}
+	if !ops.skipHostUpdate {
+		go func() {
+			action := models.JoinHostToNetwork
+			if len(host.Nodes) == 1 {
+				action = models.RequestPull
+			}
 
-	// TODO: figure out mq placement.
-	go func() {
-		if err := mq.HostUpdate(&models.HostUpdate{
-			Action: action,
-			Host:   *host,
-			Node:   *logic.ConvertSchemaNodeToModelsNode(node),
-		}); err != nil {
-			logger.Log(1, "failed to send host update for node", node.ID, err.Error())
-		}
-	}()
+			err := mq.HostUpdate(&models.HostUpdate{
+				Action: action,
+				Host:   *host,
+				Node:   *logic.ConvertSchemaNodeToModelsNode(node),
+			})
+			if err != nil {
+				logger.Log(1, "failed to send host update for node", node.ID, err.Error())
+			}
+		}()
+	}
 
 	if !ops.skipPublishPeerUpdate {
 		go func() {
-			if err := mq.PublishPeerUpdate(false); err != nil {
+			err := mq.PublishPeerUpdate(false)
+			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
 		}()
@@ -183,31 +186,33 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		node.RelayedClients[relayedClientID] = struct{}{}
 	}
 
-	nodeID := node.ID
-	for _, igwClientID := range ops.igwClients {
-		igwClient := &schema.Node{
-			ID: igwClientID,
-		}
-		err = igwClient.Get(ctx)
-		if err != nil {
-			return err
-		}
-
-		node.RelayedClients[igwClientID] = struct{}{}
-
-		if igwClient.AutoAssignGateway {
-			err = igwClient.ResetAutoAssignGateway(ctx)
+	if ops.isInternetGateway {
+		nodeID := node.ID
+		for _, igwClientID := range ops.igwClients {
+			igwClient := &schema.Node{
+				ID: igwClientID,
+			}
+			err = igwClient.Get(ctx)
 			if err != nil {
 				return err
 			}
-		}
 
-		igwClient.IsIGWClient = true
-		igwClient.RelayedByNodeID = &nodeID
+			node.RelayedClients[igwClientID] = struct{}{}
 
-		err = igwClient.AssignInternetGateway(ctx)
-		if err != nil {
-			return err
+			if igwClient.AutoAssignGateway {
+				err = igwClient.ResetAutoAssignGateway(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			igwClient.IsIGWClient = true
+			igwClient.RelayedByNodeID = &nodeID
+
+			err = igwClient.AssignInternetGateway(ctx)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -237,12 +242,14 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		return err
 	}
 
-	go func() {
-		err := mq.NodeUpdate(logic.ConvertSchemaNodeToModelsNode(node))
-		if err != nil {
-			logger.Log(1, "failed to send node update for node", node.ID, err.Error())
-		}
-	}()
+	if !ops.skipNodeUpdate {
+		go func() {
+			err := mq.NodeUpdate(logic.ConvertSchemaNodeToModelsNode(node))
+			if err != nil {
+				logger.Log(1, "failed to send node update for node", node.ID, err.Error())
+			}
+		}()
+	}
 
 	if !ops.skipPublishPeerUpdate {
 		go func() {

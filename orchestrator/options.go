@@ -5,6 +5,8 @@ import "github.com/gravitl/netmaker/models"
 type Options struct {
 	useKey                bool
 	key                   *models.EnrollmentKey
+	skipHostUpdate        bool
+	skipNodeUpdate        bool
 	skipPublishPeerUpdate bool
 	relayedClients        []string
 	isInternetGateway     bool
@@ -25,6 +27,20 @@ func UseKey(key *models.EnrollmentKey) Option {
 	return func(o *Options) *Options {
 		o.useKey = true
 		o.key = key
+		return o
+	}
+}
+
+func SkipHostUpdate() Option {
+	return func(o *Options) *Options {
+		o.skipHostUpdate = true
+		return o
+	}
+}
+
+func SkipNodeUpdate() Option {
+	return func(o *Options) *Options {
+		o.skipNodeUpdate = true
 		return o
 	}
 }
