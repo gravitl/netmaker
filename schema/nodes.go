@@ -35,10 +35,6 @@ const (
 	Disconnected NodeStatus = "disconnected"
 )
 
-// TODO: check network and host delete cascade issues.
-// TODO: Add gateways list API.
-// TODO: Add gateway configs list API.
-
 type Node struct {
 	ID                                string                                `gorm:"primaryKey" json:"id"`
 	HostID                            string                                `gorm:"not null;index" json:"host_id"`
