@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	testutils "github.com/gravitl/netmaker/test/utils"
 	"github.com/stretchr/testify/suite"
+	"gorm.io/datatypes"
 )
 
 type CENodeOrchestratorTestSuite struct {
@@ -54,7 +55,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	networkIPv10 := testutils.CreateIPv10Network(c.T(), "network-ipv10")
 
 	c.Run("IPv4 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv4, SkipHostUpdate(), SkipPublishPeerUpdate())
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv4)
 		c.Require().NoError(err)
 		c.Require().Equal(node.HostID, host.ID.String())
 		c.Require().NotNil(node.Host)
@@ -72,7 +73,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	})
 
 	c.Run("IPv6 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv6, SkipHostUpdate(), SkipPublishPeerUpdate())
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv6)
 		c.Require().NoError(err)
 		c.Require().Equal(node.HostID, host.ID.String())
 		c.Require().NotNil(node.Host)
@@ -90,7 +91,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	})
 
 	c.Run("IPv10 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv10, SkipHostUpdate(), SkipPublishPeerUpdate())
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv10)
 		c.Require().NoError(err)
 		c.Require().Equal(node.HostID, host.ID.String())
 		c.Require().NotNil(node.Host)
@@ -119,5 +120,69 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	c.Require().NoError(err)
 
 	err = host.Delete(db.WithContext(context.TODO()))
+	c.Require().NoError(err)
+}
+
+func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
+	network := testutils.CreateIPv10Network(c.T(), "network-0")
+
+	c.Run("Linux", func() {
+		host := testutils.CreateHost(c.T(), "host-0")
+
+		host.OS = "linux"
+		host.IsDefault = true
+
+		err := host.Upsert(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		c.Require().NoError(err)
+		c.Require().True(node.IsGateway)
+		c.Require().False(node.IsInternetGateway)
+		c.Require().False(node.IsAutoRelay)
+		c.Require().Empty(node.RelayedClients)
+		c.Require().Empty(node.RelayedIGWClients)
+		c.Require().Equal(node.AutoRelayedPeers, datatypes.NewJSONType(map[string]string{}))
+
+		err = node.Delete(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+
+		err = host.Delete(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+	})
+
+	c.Run("Windows", func() {
+		host := testutils.CreateHost(c.T(), "host-0")
+
+		host.OS = "windows"
+		host.IsDefault = true
+
+		err := host.Upsert(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+
+		_, err = GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
+
+		err = host.Delete(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+	})
+
+	c.Run("Darwin", func() {
+		host := testutils.CreateHost(c.T(), "host-0")
+
+		host.OS = "darwin"
+		host.IsDefault = true
+
+		err := host.Upsert(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+
+		_, err = GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
+
+		err = host.Delete(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+	})
+
+	err := network.Delete(db.WithContext(context.TODO()))
 	c.Require().NoError(err)
 }
