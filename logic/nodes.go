@@ -641,6 +641,24 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 	}
 
+	if _node.Network.AddressRange != "" {
+		_, cidr, err := net.ParseCIDR(_node.Network.AddressRange)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		netAddrRange = *cidr
+	}
+
+	if _node.Network.AddressRange6 != "" {
+		_, cidr, err := net.ParseCIDR(_node.Network.AddressRange6)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		netAddr6Range = *cidr
+	}
+
 	var violations []models.Violation
 	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
 	if err == nil {
