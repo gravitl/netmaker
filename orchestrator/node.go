@@ -172,7 +172,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	n.nodeExt.ConfigureAutoRelay(node)
 
-	node.Tags[fmt.Sprintf("%s.%s", node.NetworkID, models.GwTagName)] = struct{}{}
+	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
 
 	err := node.Update(ctx)
 	if err != nil {
