@@ -134,6 +134,9 @@ func EgressDNs(network string) (entries []models.DNSEntry) {
 		Network: network,
 	}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, egI := range egs {
+		if !egI.Status {
+			continue
+		}
 		if IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
 			for _, name := range ConfiguredDomainsForEgress(egI) {
 				entry := models.DNSEntry{

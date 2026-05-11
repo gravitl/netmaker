@@ -36,6 +36,7 @@ func Run() {
 	updateNewAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	migrateEgressDomains()
 	updateNetworks()
 	resync()
 	deleteOldExtclients()
@@ -667,6 +668,31 @@ func migrateToEgressV1() {
 			node.EgressGatewayRanges = []string{}
 			logic.UpsertNode(&node)
 
+		}
+	}
+}
+
+func migrateEgressDomains() {
+	egs, err := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, "migration: failed to list egresses:", err.Error())
+		return
+	}
+	for _, eg := range egs {
+		legacyDomain := strings.TrimSpace(eg.Domain)
+		if legacyDomain == "" || len(eg.Domains) > 0 {
+			continue
+		}
+		normDomains, err := logic.NormalizeEgressReqDomains([]string{legacyDomain})
+		if err != nil || len(normDomains) == 0 {
+			logger.Log(0, "migration: invalid legacy egress domain:", eg.ID, legacyDomain)
+			continue
+		}
+		if err := db.FromContext(context.TODO()).Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
+			"domain":  normDomains[0],
+			"domains": datatypes.JSONSlice[string](normDomains),
+		}).Error; err != nil {
+			logger.Log(0, "migration: failed to update egress domains:", eg.ID, err.Error())
 		}
 	}
 }

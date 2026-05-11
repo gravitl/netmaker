@@ -339,5 +339,37 @@
     ],
     "group": "devtools",
     "suggestedDomain": "updates.jenkins.io"
+  },
+  {
+    "name": "Slack",
+    "id": "slack",
+    "sources": [
+      "https://slack.com/help/articles/360001603387-Manage-Slack-connection-issues"
+    ],
+    "domains": [
+      "*.slack.com",
+      "*.slack-edge.com",
+      "*.slack-msgs.com",
+      "slack.com"
+    ],
+    "group": "",
+    "suggestedDomain": "slack.com"
+  },
+  {
+    "name": "Intercom",
+    "id": "intercom",
+    "sources": [
+      "https://www.intercom.com/help/en/articles/3526516-intercom-s-ip-addresses-and-domains"
+    ],
+    "domains": [
+      "*.intercom.io",
+      "*.intercomcdn.com",
+      "*.intercomassets.com",
+      "api.intercom.io",
+      "app.intercom.com",
+      "intercom.com"
+    ],
+    "group": "",
+    "suggestedDomain": "app.intercom.com"
   }
 ]

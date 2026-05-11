@@ -67,7 +67,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	normDomains, err := logic.NormalizeEgressReqDomains(req.Domain, req.Domains)
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domains)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -76,10 +76,9 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		normDomains = nil
 	}
 	req.Domains = normDomains
+	primaryDomain := ""
 	if len(normDomains) > 0 {
-		req.Domain = normDomains[0]
-	} else {
-		req.Domain = ""
+		primaryDomain = normDomains[0]
 	}
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
@@ -91,21 +90,19 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	var egressRange string
 	if !req.IsInetGw {
-		if req.Range != "" {
+		if len(normDomains) > 0 {
+			egressRange = ""
+		} else if req.Range != "" {
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 		}
-
-		if len(normDomains) > 0 {
-			egressRange = ""
-		}
 	} else {
 		egressRange = "*"
-		req.Domain = ""
 		req.Domains = nil
+		primaryDomain = ""
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -124,7 +121,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Network:         req.Network,
 		Description:     req.Description,
 		Range:           egressRange,
-		Domain:          req.Domain,
+		Domain:          primaryDomain,
 		Domains:         datatypes.JSONSlice[string](normDomains),
 		DomainAns:       domainAns,
 		Nat:             req.Nat,
@@ -283,7 +280,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	normDomains, err := logic.NormalizeEgressReqDomains(req.Domain, req.Domains)
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domains)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -292,10 +289,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		normDomains = nil
 	}
 	req.Domains = normDomains
+	primaryDomain := ""
 	if len(normDomains) > 0 {
-		req.Domain = normDomains[0]
-	} else {
-		req.Domain = ""
+		primaryDomain = normDomains[0]
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -305,21 +301,19 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	var egressRange string
 	if !req.IsInetGw {
-		if req.Range != "" {
+		if len(normDomains) > 0 {
+			egressRange = ""
+		} else if req.Range != "" {
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 		}
-
-		if len(normDomains) > 0 {
-			egressRange = ""
-		}
 	} else {
 		egressRange = "*"
-		req.Domain = ""
 		req.Domains = nil
+		primaryDomain = ""
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -396,7 +390,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
-	e.Domain = req.Domain
+	e.Domain = primaryDomain
 	e.Domains = datatypes.JSONSlice[string](normDomains)
 	e.Status = req.Status
 	var resolvedCIDRs []string

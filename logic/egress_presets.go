@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 
@@ -12,8 +11,8 @@ import (
 
 // egressPreset catalog is built once in init (see egress_presets_catalog.go).
 var (
-	egressPresetList     []models.EgressPresetApp
-	egressPresetByID     map[string]models.EgressPresetApp
+	egressPresetList      []models.EgressPresetApp
+	egressPresetByID      map[string]models.EgressPresetApp
 	egressPresetIndexOnce sync.Once
 )
 
@@ -52,7 +51,8 @@ func GetEgressPresetByID(id string) (models.EgressPresetApp, bool) {
 // ErrUnknownEgressPreset is returned when preset_id does not match the catalog.
 var ErrUnknownEgressPreset = errors.New("unknown egress preset_id")
 
-// ApplyEgressPresetToEgressReq merges catalog defaults into req. Rules: explicit non-empty name, description, and domain in req override preset. PresetID must already be a known id.
+// ApplyEgressPresetToEgressReq merges catalog defaults into req. Rules: explicit non-empty
+// name, description, and domains in req override preset. PresetID must already be a known id.
 func ApplyEgressPresetToEgressReq(req *models.EgressReq) error {
 	if req == nil || req.PresetID == "" {
 		return nil
@@ -68,25 +68,21 @@ func ApplyEgressPresetToEgressReq(req *models.EgressReq) error {
 	if req.Description == "" && p.Description != "" {
 		req.Description = p.Description
 	}
-	if req.Domain == "" && len(req.Domains) == 0 {
+	if len(req.Domains) == 0 {
 		trimEgressPresetDomains(&p)
-		norm, err := NormalizeEgressReqDomains("", p.Domains)
+		norm, err := NormalizeEgressReqDomains(p.Domains)
 		if err != nil {
 			return err
 		}
 		if len(norm) > 0 {
 			req.Domains = norm
-			sd := strings.TrimSpace(strings.ToLower(p.SuggestedDomain))
-			if sd != "" && slices.Contains(norm, sd) {
-				req.Domain = sd
-			} else {
-				req.Domain = norm[0]
-			}
 		} else {
 			if p.SuggestedDomain == "" {
 				enrichSuggestedDomain(&p)
 			}
-			req.Domain = strings.TrimSpace(p.SuggestedDomain)
+			if sd := strings.TrimSpace(strings.ToLower(p.SuggestedDomain)); sd != "" {
+				req.Domains = []string{sd}
+			}
 		}
 	}
 	return nil

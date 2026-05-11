@@ -53,10 +53,9 @@ func validateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-// NormalizeEgressReqDomains merges legacy Domain with Domains, validates each entry (FQDN or *.suffix),
-// lowercases, and deduplicates. The single domain argument is processed first so it remains the primary
-// entry when present (backward compatible); additional names keep the order of the domains slice.
-func NormalizeEgressReqDomains(domain string, domains []string) ([]string, error) {
+// NormalizeEgressReqDomains validates each domain entry (FQDN or *.suffix),
+// lowercases, and deduplicates while preserving input order.
+func NormalizeEgressReqDomains(domains []string) ([]string, error) {
 	seen := make(map[string]struct{})
 	var out []string
 	add := func(s string) error {
@@ -73,9 +72,6 @@ func NormalizeEgressReqDomains(domain string, domains []string) ([]string, error
 		seen[s] = struct{}{}
 		out = append(out, s)
 		return nil
-	}
-	if err := add(domain); err != nil {
-		return nil, err
 	}
 	for _, d := range domains {
 		if err := add(d); err != nil {

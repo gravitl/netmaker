@@ -28,7 +28,7 @@ func TestIsEgressDomainPattern(t *testing.T) {
 }
 
 func TestNormalizeEgressReqDomains_primaryFirstAndDedupe(t *testing.T) {
-	got, err := NormalizeEgressReqDomains("github.com", []string{"*.github.com", "api.github.com", "github.com"})
+	got, err := NormalizeEgressReqDomains([]string{"github.com", "*.github.com", "api.github.com", "github.com"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestNormalizeEgressReqDomains_primaryFirstAndDedupe(t *testing.T) {
 }
 
 func TestNormalizeEgressReqDomains_invalidWildcard(t *testing.T) {
-	_, err := NormalizeEgressReqDomains("*.invalid", nil)
+	_, err := NormalizeEgressReqDomains([]string{"*.invalid"})
 	if err == nil {
 		t.Fatal("expected error")
 	}

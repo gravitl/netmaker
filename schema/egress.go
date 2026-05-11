@@ -29,18 +29,19 @@ type Egress struct {
 	Mode         EgressNATMode               `gorm:"mode;default:direct_nat" json:"mode"`
 	VirtualRange string                      `gorm:"virtual_range" json:"virtual_range"`
 	DomainAns    datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
-	Domain       string                      `gorm:"domain" json:"domain"`
-	Domains      datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
-	Nat          bool                        `gorm:"nat" json:"nat"`
+	// Deprecated: use Domains. Kept for backward compatibility with existing rows/clients.
+	Domain  string                      `gorm:"domain" json:"domain"`
+	Domains datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
+	Nat     bool                        `gorm:"nat" json:"nat"`
 	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID string `gorm:"preset_id" json:"preset_id"`
 	// StaticDomainAns when true: domain_ans was populated server-side; host check-in must not replace it.
-	StaticDomainAns bool `gorm:"static_domain_ans" json:"static_domain_ans"`
-	Status          bool `gorm:"status" json:"status"`
-	CreatedBy string    `gorm:"created_by" json:"created_by"`
-	CreatedAt time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt time.Time `gorm:"updated_at" json:"updated_at"`
+	StaticDomainAns bool      `gorm:"static_domain_ans" json:"static_domain_ans"`
+	Status          bool      `gorm:"status" json:"status"`
+	CreatedBy       string    `gorm:"created_by" json:"created_by"`
+	CreatedAt       time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 func (e *Egress) Table() string {

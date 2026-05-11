@@ -28,8 +28,8 @@ func TestApplyEgressPresetToEgressReq(t *testing.T) {
 	if err := ApplyEgressPresetToEgressReq(req); err != nil {
 		t.Fatal(err)
 	}
-	if req.Name == "" || req.Domain == "" {
-		t.Fatalf("expected name and domain filled: %#v", req)
+	if req.Name == "" || len(req.Domains) == 0 {
+		t.Fatalf("expected name and domains filled: %#v", req)
 	}
 }
 
