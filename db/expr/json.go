@@ -9,6 +9,7 @@
 package expr
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -109,16 +110,22 @@ func Remove(col string, keys ...string) clause.Expr {
 //
 //	db.Model(&u).UpdateColumn("meta", expr.Merge("meta", map[string]any{"theme": "dark", "lang": "en"}))
 func Merge(col string, patch map[string]interface{}) clause.Expr {
+	data, err := json.Marshal(patch)
+	if err != nil {
+		// fallback to empty object — or handle as you see fit
+		data = []byte("{}")
+	}
+
 	switch CurrentDialect() {
 	case DialectPostgres:
 		return clause.Expr{
 			SQL:  fmt.Sprintf("%s || ?::jsonb", col),
-			Vars: []interface{}{patch},
+			Vars: []interface{}{string(data)},
 		}
 	default:
 		return clause.Expr{
 			SQL:  fmt.Sprintf("json_patch(%s, ?)", col),
-			Vars: []interface{}{patch},
+			Vars: []interface{}{string(data)},
 		}
 	}
 }

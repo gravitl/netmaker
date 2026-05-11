@@ -128,6 +128,10 @@ func (n *Node) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).Delete(n).Error
 }
 
+func (n *Node) DeleteAll(ctx context.Context) error {
+	return db.FromContext(ctx).Exec("DELETE FROM nodes_v1").Error
+}
+
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
@@ -195,6 +199,29 @@ func (n *Node) MarkForDeletion(ctx context.Context) error {
 		Where("id = ?", n.ID).
 		Update("pending_delete", true).
 		Update("action", NODE_DELETE).
+		Error
+}
+
+func (n *Node) SetInternetGateway(ctx context.Context) error {
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumn("is_internet_gateway", n.IsInternetGateway).
+		UpdateColumn("relayed_clients", expr.Merge("relayed_clients", n.RelayedClients)).
+		UpdateColumn("relayed_igw_clients", expr.Merge("relayed_igw_clients", n.RelayedIGWClients)).
+		Error
+	if err != nil {
+		return err
+	}
+
+	relayedIGWClients := make([]string, 0, len(n.RelayedIGWClients))
+	for relayedIGWClientID := range n.RelayedIGWClients {
+		relayedIGWClients = append(relayedIGWClients, relayedIGWClientID)
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id IN ?", relayedIGWClients).
+		UpdateColumn("is_igw_client", true).
+		UpdateColumn("relayed_by_node_id", n.ID).
 		Error
 }
 

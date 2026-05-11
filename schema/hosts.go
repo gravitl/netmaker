@@ -210,3 +210,7 @@ func (h *Host) Delete(ctx context.Context) error {
 		Delete(h).
 		Error
 }
+
+func (h *Host) DeleteAll(ctx context.Context) error {
+	return db.FromContext(ctx).Exec("DELETE FROM hosts_v1").Error
+}
