@@ -171,7 +171,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			return errors.New("error converting models.Node to schema.Node")
 		}
 
-		return _node.Update(db.WithContext(context.TODO()))
+		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
