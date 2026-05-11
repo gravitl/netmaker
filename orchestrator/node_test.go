@@ -4,7 +4,9 @@ import (
 	"context"
 	"net"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	testutils "github.com/gravitl/netmaker/test/utils"
 	"github.com/stretchr/testify/suite"
@@ -184,5 +186,89 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 	})
 
 	err := network.Delete(db.WithContext(context.TODO()))
+	c.Require().NoError(err)
+}
+
+func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
+	host := testutils.CreateHost(c.T(), "host-0")
+	network := testutils.CreateIPv10Network(c.T(), "network-0")
+
+	c.Run("With AutoAssignGateway", func() {
+		key := &models.EnrollmentKey{
+			AutoAssignGateway: true,
+		}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+		c.Require().False(node.AutoAssignGateway)
+	})
+
+	c.Run("Without AutoAssignGateway", func() {
+		key := &models.EnrollmentKey{
+			AutoAssignGateway: false,
+		}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+		c.Require().False(node.AutoAssignGateway)
+	})
+
+	c.Run("With Tags", func() {
+		key := &models.EnrollmentKey{
+			Groups: []models.TagID{"tag-0"},
+		}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+		c.Require().Contains(node.Tags, string(key.Groups[0]))
+	})
+
+	c.Run("Without Tags", func() {
+		key := &models.EnrollmentKey{
+			Groups: []models.TagID{},
+		}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+		c.Require().Empty(node.Tags)
+	})
+
+	c.Run("With Gateway", func() {
+		gatewayHost := testutils.CreateHost(c.T(), "gateway-0")
+
+		gatewayHost.OS = "linux"
+		gatewayHost.IsDefault = true
+
+		gateway, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), gatewayHost, network)
+		c.Require().NoError(err)
+
+		key := &models.EnrollmentKey{
+			Relay: uuid.MustParse(gateway.ID),
+		}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+		c.Require().NotNil(node.RelayedByNodeID)
+		c.Require().Equal(*node.RelayedByNodeID, gateway.ID)
+
+		err = gateway.Get(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+		c.Require().Contains(gateway.RelayedClients, node.ID)
+	})
+
+	c.Run("Without Gateway", func() {
+		key := &models.EnrollmentKey{}
+
+		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		c.Require().NoError(err)
+
+		err = node.Delete(db.WithContext(context.TODO()))
+		c.Require().NoError(err)
+	})
+
+	err := network.Delete(db.WithContext(context.TODO()))
+	c.Require().NoError(err)
+
+	err = host.Delete(db.WithContext(context.TODO()))
 	c.Require().NoError(err)
 }

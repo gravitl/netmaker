@@ -224,7 +224,7 @@ func (n *Node) SetInternetGateway(ctx context.Context) error {
 func (n *Node) UpdateRelayingNode(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("relaying_node_id", n.RelayedByNodeID).
+		Update("relayed_by_node_id", n.RelayedByNodeID).
 		Error
 }
 

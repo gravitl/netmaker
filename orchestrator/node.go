@@ -33,10 +33,12 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		NetworkID:          network.ID,
 		Network:            network,
 		Connected:          true,
-		LastCheckIn:        time.Now(),
-		ExpirationDateTime: time.Now().AddDate(100, 1, 0),
+		RelayedClients:     make(datatypes.JSONMap),
+		RelayedIGWClients:  make(datatypes.JSONMap),
 		AutoRelayedPeers:   datatypes.NewJSONType(make(map[string]string)),
 		Tags:               make(datatypes.JSONMap),
+		LastCheckIn:        time.Now(),
+		ExpirationDateTime: time.Now().AddDate(100, 1, 0),
 	}
 
 	if ops.useKey {
@@ -110,6 +112,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 		err = gateway.Get(ctx)
 		if err == nil {
+			// TODO: merge operation
 			relayID := ops.key.Relay.String()
 			node.RelayedByNodeID = &relayID
 			err = node.UpdateRelayingNode(ctx)
