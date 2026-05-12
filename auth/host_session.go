@@ -195,7 +195,7 @@ func SessionHandler(conn *websocket.Conn) {
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
-					if isUserAllowed(result.User, newNet) {
+					if !isUserAllowed(result.User, newNet) {
 						err = fmt.Errorf("unauthorized user %s attempted to register to network %s", result.User, newNet)
 						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)
