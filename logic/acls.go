@@ -150,10 +150,122 @@ func IsEgressRoutingPolicyAllowedForNodes(policy models.Acl, node, peer models.N
 	return forwardAllowed || reverseAllowed
 }
 
+const egressSiteACLReverseSuffix = "-reverse"
+
+// crossSiteEgressIPNetPairs yields (src,dst) pairs with distinct CIDR strings so downstream
+// firewall generation does not expand reflexive allows (e.g. 10.110.0.0/20 -> 10.110.0.0/20)
+// when multiple egress LANs are merged into one policy.
+func crossSiteEgressIPNetPairs(srcs, dsts []net.IPNet) []struct{ Src, Dst net.IPNet } {
+	if len(srcs) == 0 || len(dsts) == 0 {
+		return nil
+	}
+	var out []struct{ Src, Dst net.IPNet }
+	for _, s := range srcs {
+		for _, d := range dsts {
+			if s.String() == d.String() {
+				continue
+			}
+			out = append(out, struct{ Src, Dst net.IPNet }{s, d})
+		}
+	}
+	return out
+}
+
+func egressSiteToSiteRuleKey(aclID string, reverse bool, idx int, total int) string {
+	suf := ""
+	if reverse {
+		suf = egressSiteACLReverseSuffix
+	}
+	if total == 1 {
+		return aclID + suf
+	}
+	return fmt.Sprintf("%s%s#xs%d", aclID, suf, idx)
+}
+
+func appendEgressSiteToSiteRules(
+	rules map[string]models.AclRule,
+	acl models.Acl,
+	direction models.AllowedTrafficDirection,
+	v4pairs, v6pairs []struct{ Src, Dst net.IPNet },
+	reverse bool,
+) {
+	total := len(v4pairs) + len(v6pairs)
+	if total == 0 {
+		return
+	}
+	if len(v4pairs) == 1 && len(v6pairs) == 0 {
+		id := egressSiteToSiteRuleKey(acl.ID, reverse, 0, 1)
+		rules[id] = models.AclRule{
+			ID:              id,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       direction,
+			Allowed:         true,
+			IPList:          []net.IPNet{v4pairs[0].Src},
+			Dst:             []net.IPNet{v4pairs[0].Dst},
+		}
+		return
+	}
+	if len(v6pairs) == 1 && len(v4pairs) == 0 {
+		id := egressSiteToSiteRuleKey(acl.ID, reverse, 0, 1)
+		rules[id] = models.AclRule{
+			ID:              id,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       direction,
+			Allowed:         true,
+			IP6List:         []net.IPNet{v6pairs[0].Src},
+			Dst6:            []net.IPNet{v6pairs[0].Dst},
+		}
+		return
+	}
+	if len(v4pairs) == 1 && len(v6pairs) == 1 {
+		id := egressSiteToSiteRuleKey(acl.ID, reverse, 0, 1)
+		rules[id] = models.AclRule{
+			ID:              id,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       direction,
+			Allowed:         true,
+			IPList:          []net.IPNet{v4pairs[0].Src},
+			Dst:             []net.IPNet{v4pairs[0].Dst},
+			IP6List:         []net.IPNet{v6pairs[0].Src},
+			Dst6:            []net.IPNet{v6pairs[0].Dst},
+		}
+		return
+	}
+	idx := 0
+	for _, p := range v4pairs {
+		id := egressSiteToSiteRuleKey(acl.ID, reverse, idx, total)
+		rules[id] = models.AclRule{
+			ID:              id,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       direction,
+			Allowed:         true,
+			IPList:          []net.IPNet{p.Src},
+			Dst:             []net.IPNet{p.Dst},
+		}
+		idx++
+	}
+	for _, p := range v6pairs {
+		id := egressSiteToSiteRuleKey(acl.ID, reverse, idx, total)
+		rules[id] = models.AclRule{
+			ID:              id,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       direction,
+			Allowed:         true,
+			IP6List:         []net.IPNet{p.Src},
+			Dst6:            []net.IPNet{p.Dst},
+		}
+		idx++
+	}
+}
+
 func getEgressAclRulesForTargetNode(targetnode models.Node) map[string]models.AclRule {
 	rules := make(map[string]models.AclRule)
 	policies := getEgressToEgressPoliciesForNode(targetnode)
-	const egressAclReverseSuffix = "-reverse"
 	targetID := targetnode.ID.String()
 	for _, acl := range policies {
 		srcEgresses := getEgressesFromPolicyTags(acl.Src, targetnode.Network)
@@ -189,28 +301,26 @@ func getEgressAclRulesForTargetNode(targetnode models.Node) map[string]models.Ac
 			}
 		}
 
-		aclRule := models.AclRule{
-			ID:              acl.ID,
-			AllowedProtocol: acl.Proto,
-			AllowedPorts:    acl.Port,
-			Direction:       acl.AllowedDirection,
-			Allowed:         true,
-			IPList:          fwdSrcIP4,
-			IP6List:         fwdSrcIP6,
-			Dst:             dstIP4,
-			Dst6:            dstIP6,
-		}
-		if len(aclRule.IPList) == 0 && len(aclRule.IP6List) == 0 {
+		fwdSrcIP4 = UniqueIPNetList(fwdSrcIP4)
+		fwdSrcIP6 = UniqueIPNetList(fwdSrcIP6)
+		dstIP4 = UniqueIPNetList(dstIP4)
+		dstIP6 = UniqueIPNetList(dstIP6)
+
+		if len(fwdSrcIP4) == 0 && len(fwdSrcIP6) == 0 {
 			continue
 		}
-		if len(aclRule.Dst) == 0 && len(aclRule.Dst6) == 0 {
+		if len(dstIP4) == 0 && len(dstIP6) == 0 {
 			continue
 		}
-		aclRule.IPList = UniqueIPNetList(aclRule.IPList)
-		aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
-		aclRule.Dst = UniqueIPNetList(aclRule.Dst)
-		aclRule.Dst6 = UniqueIPNetList(aclRule.Dst6)
-		rules[acl.ID] = aclRule
+
+		v4pairs := crossSiteEgressIPNetPairs(fwdSrcIP4, dstIP4)
+		v6pairs := crossSiteEgressIPNetPairs(fwdSrcIP6, dstIP6)
+		if len(v4pairs) == 0 && len(v6pairs) == 0 {
+			continue
+		}
+
+		appendEgressSiteToSiteRules(rules, acl, acl.AllowedDirection, v4pairs, v6pairs, false)
+
 		if acl.AllowedDirection == models.TrafficDirectionBi {
 			revSrcIP4 := append([]net.IPNet(nil), dstIP4...)
 			revSrcIP6 := append([]net.IPNet(nil), dstIP6...)
@@ -220,26 +330,19 @@ func getEgressAclRulesForTargetNode(targetnode models.Node) map[string]models.Ac
 					revSrcIP4, revSrcIP6 = m4, m6
 				}
 			}
-			rev := models.AclRule{
-				ID:              acl.ID + egressAclReverseSuffix,
-				AllowedProtocol: acl.Proto,
-				AllowedPorts:    acl.Port,
-				Direction:       models.TrafficDirectionUni,
-				Allowed:         true,
-				IPList:          revSrcIP4,
-				IP6List:         revSrcIP6,
-				Dst:             append([]net.IPNet(nil), origSrcIP4...),
-				Dst6:            append([]net.IPNet(nil), origSrcIP6...),
+			revDst4 := append([]net.IPNet(nil), origSrcIP4...)
+			revDst6 := append([]net.IPNet(nil), origSrcIP6...)
+			revSrcIP4 = UniqueIPNetList(revSrcIP4)
+			revSrcIP6 = UniqueIPNetList(revSrcIP6)
+			revDst4 = UniqueIPNetList(revDst4)
+			revDst6 = UniqueIPNetList(revDst6)
+
+			revV4 := crossSiteEgressIPNetPairs(revSrcIP4, revDst4)
+			revV6 := crossSiteEgressIPNetPairs(revSrcIP6, revDst6)
+			if len(revV4) == 0 && len(revV6) == 0 {
+				continue
 			}
-			rev.IPList = UniqueIPNetList(rev.IPList)
-			rev.IP6List = UniqueIPNetList(rev.IP6List)
-			rev.Dst = UniqueIPNetList(rev.Dst)
-			rev.Dst6 = UniqueIPNetList(rev.Dst6)
-			if len(rev.IPList) > 0 || len(rev.IP6List) > 0 {
-				if len(rev.Dst) > 0 || len(rev.Dst6) > 0 {
-					rules[rev.ID] = rev
-				}
-			}
+			appendEgressSiteToSiteRules(rules, acl, models.TrafficDirectionUni, revV4, revV6, true)
 		}
 	}
 	return rules
@@ -1133,6 +1236,52 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 	}
 	return rules
+}
+
+// GetEgressDefaultAllowAllFwRule returns one bidirectional allow from the node's VPN (mesh) CIDR(s)
+// to every egress LAN range this gateway advertises, for default all-resources device+user policies.
+// Netclients use this to install a single mesh → LAN ACCEPT (e.g. 100.64.0.0/16 → 10.104.0.0/20).
+func GetEgressDefaultAllowAllFwRule(node models.Node) (models.AclRule, bool) {
+	if !node.EgressDetails.IsEgressGateway || len(node.EgressDetails.EgressGatewayRequest.Ranges) == 0 {
+		return models.AclRule{}, false
+	}
+	if node.NetworkRange.IP == nil && node.NetworkRange6.IP == nil {
+		return models.AclRule{}, false
+	}
+	var dst4, dst6 []net.IPNet
+	for _, r := range node.EgressDetails.EgressGatewayRequest.Ranges {
+		_, cidr, err := net.ParseCIDR(r)
+		if err != nil {
+			continue
+		}
+		if cidr.IP.To4() != nil {
+			dst4 = append(dst4, *cidr)
+		} else {
+			dst6 = append(dst6, *cidr)
+		}
+	}
+	if len(dst4) == 0 && len(dst6) == 0 {
+		return models.AclRule{}, false
+	}
+	rule := models.AclRule{
+		ID:              fmt.Sprintf("%s-egress-all-rsrc-mesh", node.ID.String()),
+		AllowedProtocol: models.ALL,
+		Direction:       models.TrafficDirectionBi,
+		Allowed:         true,
+	}
+	if node.NetworkRange.IP != nil {
+		rule.IPList = []net.IPNet{node.NetworkRange}
+	}
+	if node.NetworkRange6.IP != nil {
+		rule.IP6List = []net.IPNet{node.NetworkRange6}
+	}
+	if len(dst4) > 0 {
+		rule.Dst = UniqueIPNetList(dst4)
+	}
+	if len(dst6) > 0 {
+		rule.Dst6 = UniqueIPNetList(dst6)
+	}
+	return rule, true
 }
 
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
