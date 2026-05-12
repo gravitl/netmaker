@@ -205,7 +205,8 @@ func AuthorizeHost(
 // @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
-// @Param       device_type query string false "Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
+// @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiNode
@@ -219,6 +220,11 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deviceType := r.URL.Query().Get("device_type")
+
+	var statusFilters []interface{}
+	for _, filter := range r.URL.Query()["status"] {
+		statusFilters = append(statusFilters, filter)
+	}
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -250,6 +256,7 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
 	filters = append(filters, dbtypes.WithJoin("Host", dbtypes.WithFilter("os", osFilters...)))
+	filters = append(filters, dbtypes.WithFilter("status", statusFilters...))
 
 	if deviceType != "" {
 		switch deviceType {
