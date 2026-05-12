@@ -286,7 +286,6 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	nodes := make([]models.NodeWithHost, 0, len(_nodes))
 	for _, _node := range _nodes {
 		var node models.NodeWithHost
-		_node.Status = logic.GetNodeCheckInStatus(&_node)
 		node.Fill(&_node)
 		nodes = append(nodes, node)
 	}
@@ -1011,6 +1010,12 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 
 		nodeUpdate := &schema.Node{
 			Connected: req.Connected,
+		}
+		if req.Connected {
+			nodeUpdate.LastCheckIn = time.Now().UTC()
+			nodeUpdate.Status = schema.OnlineSt
+		} else {
+			nodeUpdate.Status = schema.Disconnected
 		}
 		err := nodeUpdate.UpdateConnectedStatus(
 			db.WithContext(context.TODO()),

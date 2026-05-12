@@ -187,7 +187,14 @@ func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Opt
 	if n.ID != "" {
 		query = query.Where("id = ?", n.ID)
 	}
-	return query.Update("connected", n.Connected).Error
+
+	updates := make(map[string]interface{})
+	updates["connected"] = n.Connected
+	updates["status"] = n.Status
+	if n.Connected {
+		updates["last_check_in"] = n.LastCheckIn
+	}
+	return query.Updates(updates).Error
 }
 
 func (n *Node) MarkForDeletion(ctx context.Context) error {
