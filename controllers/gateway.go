@@ -278,7 +278,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 			New: node,
 		},
 	})
-	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
@@ -344,7 +343,6 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		}
 		node.AutoAssignGateway = true
 		logic.UpsertNode(&node)
-		logic.GetNodeStatus(&node, false)
 		go func() {
 			if len(node.AutoRelayedPeers) > 0 {
 				logic.ResetAutoRelayedPeer(&node)
@@ -412,7 +410,6 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 
 	go func() {
@@ -537,8 +534,6 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-
-	logic.GetNodeStatus(&node, false)
 
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {

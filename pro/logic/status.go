@@ -15,9 +15,11 @@ func getNodeStatusOld(node *models.Node) {
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
 			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		node.Status = schema.OnlineSt
+		node.StaticNode.Status = schema.OnlineSt
 		return
 	}
 	if !node.Connected {
@@ -36,17 +38,20 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
 			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
 		if err != nil {
 			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		if !defaultEnabledPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
 			if !allowed {
 				node.Status = schema.OnlineSt
+				node.StaticNode.Status = schema.OnlineSt
 				return
 			}
 		}
@@ -54,20 +59,24 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 		ingressMetrics, err := GetMetrics(node.StaticNode.IngressGatewayID)
 		if err != nil || ingressMetrics == nil || ingressMetrics.Connectivity == nil {
 			node.Status = schema.UnKnown
+			node.StaticNode.Status = schema.UnKnown
 			return
 		}
 
 		if metric, ok := ingressMetrics.Connectivity[node.StaticNode.ClientID]; ok {
 			if metric.Connected {
 				node.Status = schema.OnlineSt
+				node.StaticNode.Status = schema.OnlineSt
 				return
 			} else {
 				node.Status = schema.OfflineSt
+				node.StaticNode.Status = schema.OfflineSt
 				return
 			}
 		}
 
 		node.Status = schema.UnKnown
+		node.StaticNode.Status = schema.UnKnown
 		return
 	}
 	if !node.Connected {

@@ -330,7 +330,6 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -375,7 +374,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -412,7 +410,6 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, true)
 	// return all the nodes in JSON/API format
 	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -773,7 +770,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		schema.NetworkID(newNode.Network))
 	newNode.LastEvaluatedAt = time.Now().UTC()
 	logic.UpsertNode(newNode)
-	logic.GetNodeStatus(newNode, false)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(

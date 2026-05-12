@@ -543,7 +543,45 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 	case models.UpdateMetrics:
-		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+		nodeID := hostUpdate.Node.ID.String()
+		mq.UpdateMetricsFallBack(nodeID, hostUpdate.NewMetrics)
+
+		go func(nodeID string) {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
+				return
+			}
+
+			extclients, err := logic.GetExtClientsByID(nodeID, node.Network)
+			if err != nil {
+				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
+				return
+			}
+
+			nodes := make([]models.Node, 0, len(extclients)+1)
+			nodes = append(nodes, node)
+			for _, extclient := range extclients {
+				nodes = append(nodes, extclient.ConvertToStaticNode())
+			}
+
+			nodesWithStatus := logic.AddStatusToNodes(nodes, true)
+			for _, node := range nodesWithStatus {
+				if node.IsStatic {
+					err = logic.SaveExtClient(&node.StaticNode)
+					if err != nil {
+						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
+						continue
+					}
+				} else {
+					err = logic.UpsertNode(&node)
+					if err != nil {
+						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
+						continue
+					}
+				}
+			}
+		}(nodeID)
 	case models.EgressUpdate:
 		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
 		err = e.Get(db.WithContext(r.Context()))

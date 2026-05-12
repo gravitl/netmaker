@@ -14,9 +14,11 @@ func getNodeCheckInStatus(node *models.Node, t bool) {
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
 			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		node.Status = schema.OnlineSt
+		node.StaticNode.Status = schema.OnlineSt
 		return
 	}
 	if !node.Connected {

@@ -164,6 +164,10 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.ID == currentNode.ID {
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
+			newNode.Status = schema.OnlineSt
+		}
+		if currentNode.Connected && !newNode.Connected {
+			newNode.Status = schema.Disconnected
 		}
 
 		_node := ConvertModelsNodeToSchemaNode(newNode)
