@@ -207,6 +207,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		server := logic.GetServerInfo()
 		server.TrafficKey = key
+		host := result.Host
 		result.Host.HostPass = ""
 		response := models.RegisterResponse{
 			ServerConf:    server,
@@ -220,7 +221,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &result.Host, result.User)
+		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
