@@ -28,7 +28,7 @@ const (
 // CurrentDialect reads the DATABASE env var to determine the active dialect.
 func CurrentDialect() Dialect {
 	switch strings.ToLower(os.Getenv("DATABASE")) {
-	case "postgres", "postgresql", "pg":
+	case "postgres":
 		return DialectPostgres
 	default:
 		return DialectSQLite

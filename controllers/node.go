@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -207,6 +208,7 @@ func AuthorizeHost(
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
 // @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
+// @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiNode
@@ -225,6 +227,8 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	for _, filter := range r.URL.Query()["status"] {
 		statusFilters = append(statusFilters, filter)
 	}
+
+	q := r.URL.Query().Get("q")
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -271,6 +275,15 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	filters = append(filters, dbtypes.WithSearchQuery(
+		q,
+		fmt.Sprintf("%s.id", (&schema.Node{}).TableName()),
+		"name",
+		"address",
+		"address6",
+		expr.ByteaField("endpoint_ip"),
+		expr.ByteaField("endpoint_ipv6"),
+	))
 	options = append(options, filters...)
 	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", (&schema.Node{}).TableName())))
 	options = append(options, dbtypes.WithPagination(page, pageSize))

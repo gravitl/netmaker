@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -237,7 +238,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := (&schema.Host{}).ListAll(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
-		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -253,7 +254,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	total, err := (&schema.Host{}).Count(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
-		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gravitl/netmaker/db/expr"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -96,20 +97,27 @@ func WithNotFilter(field string, value ...interface{}) Option {
 // Uses LOWER() for case-insensitive matching across SQLite and PostgreSQL.
 // IMPORTANT: `fields` MUST be trusted, hardcoded column names.
 // NEVER pass user-supplied strings as `fields`.
-func WithSearchQuery(q string, fields ...string) Option {
+func WithSearchQuery(q string, fields ...interface{}) Option {
 	return func(db *gorm.DB) *gorm.DB {
 		if q == "" || len(fields) == 0 {
 			return db
 		}
-
 		clauses := make([]string, len(fields))
 		args := make([]interface{}, len(fields))
-
-		for i, field := range fields {
-			clauses[i] = fmt.Sprintf("LOWER(CAST(%s AS TEXT)) LIKE ?", db.Statement.Quote(field))
+		for i, f := range fields {
+			switch v := f.(type) {
+			case string:
+				clauses[i] = fmt.Sprintf("LOWER(CAST(%s AS TEXT)) LIKE ?", db.Statement.Quote(v))
+			case expr.SearchField:
+				quoted := db.Statement.Quote(v.Field)
+				if v.Formatter != nil {
+					clauses[i] = v.Formatter(quoted) + " LIKE ?"
+				} else {
+					clauses[i] = fmt.Sprintf("LOWER(CAST(%s AS TEXT)) LIKE ?", quoted)
+				}
+			}
 			args[i] = "%" + strings.ToLower(q) + "%"
 		}
-
 		return db.Where(strings.Join(clauses, " OR "), args...)
 	}
 }
