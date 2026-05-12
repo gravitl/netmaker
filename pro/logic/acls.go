@@ -618,6 +618,9 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 	if err := logic.NormalizeAndValidateAclEgressIPs(&acl); err != nil {
 		return err
 	}
+	if err := logic.ValidateSiteToSiteEgressNatForAcl(&acl); err != nil {
+		return err
+	}
 	return nil
 }
 

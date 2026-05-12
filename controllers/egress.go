@@ -112,6 +112,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.ValidateEgressNatAllowedForSiteToSitePolicies(e.ID, e.Network, e.Nat); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = e.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -339,6 +343,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Status = req.Status
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.ValidateEgressNatAllowedForSiteToSitePolicies(e.ID, e.Network, e.Nat); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

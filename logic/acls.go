@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1183,10 +1184,14 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		for egressID, egI := range egressIDMap {
 			if _, ok := dstTags[egressID]; ok || dstAll {
+				// "All resources" (dst *) must not expand to this gateway's own egress LAN
+				// CIDRs unless the policy explicitly names this egress by id. Otherwise the
+				// egress host gets broad mesh→LAN rules driven only by the wildcard.
+				_, explicitEgressInDst := dstTags[egressID]
 				if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 					aclRule.Dst = append(aclRule.Dst, selectedIP4...)
 					aclRule.Dst6 = append(aclRule.Dst6, selectedIP6...)
-				} else if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+				} else if explicitEgressInDst && servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
 					for _, domainAnsI := range egI.DomainAns {
 						ip, cidr, err := net.ParseCIDR(domainAnsI)
 						if err == nil {
@@ -1197,7 +1202,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 							}
 						}
 					}
-				} else {
+				} else if explicitEgressInDst {
 					ip, cidr, err := net.ParseCIDR(egI.Range)
 					if err == nil {
 						if ip.To4() != nil {
@@ -1458,6 +1463,129 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 	return nil
 }
 
+// explicitEgressIDsFromAclTags returns egress resource IDs from egress-id / egress-range tags, excluding "*".
+func explicitEgressIDsFromAclTags(tags []models.AclPolicyTag) []string {
+	var ids []string
+	seen := make(map[string]struct{})
+	for _, t := range tags {
+		if t.Value == "*" || t.Value == "" {
+			continue
+		}
+		if t.ID != models.EgressID && t.ID != models.EgressRange {
+			continue
+		}
+		if _, ok := seen[t.Value]; ok {
+			continue
+		}
+		seen[t.Value] = struct{}{}
+		ids = append(ids, t.Value)
+	}
+	return ids
+}
+
+// isExplicitCrossEgressDevicePolicy is true when src and dst each reference at least one explicit egress
+// and some source egress differs from some destination egress (site-to-site by explicit id).
+func isExplicitCrossEgressDevicePolicy(acl models.Acl) bool {
+	if acl.RuleType != models.DevicePolicy {
+		return false
+	}
+	srcIDs := explicitEgressIDsFromAclTags(acl.Src)
+	dstIDs := explicitEgressIDsFromAclTags(acl.Dst)
+	if len(srcIDs) == 0 || len(dstIDs) == 0 {
+		return false
+	}
+	for _, a := range srcIDs {
+		for _, b := range dstIDs {
+			if a != b {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func unionExplicitEgressIDs(acl models.Acl) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, id := range explicitEgressIDsFromAclTags(acl.Src) {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
+	}
+	for _, id := range explicitEgressIDsFromAclTags(acl.Dst) {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// listDevicePoliciesForSiteToSiteNatCheck lists device policies for NAT vs site-to-site ACL checks; tests may replace.
+var listDevicePoliciesForSiteToSiteNatCheck = ListDevicePolicies
+
+// ValidateSiteToSiteEgressNatForAcl requires NAT disabled on every egress explicitly referenced in a
+// cross-egress device policy. This matches getEgressAclRulesForTargetNode, which substitutes mesh
+// sources when the source-side egress uses NAT.
+func ValidateSiteToSiteEgressNatForAcl(acl *models.Acl) error {
+	if acl == nil {
+		return nil
+	}
+	if !isExplicitCrossEgressDevicePolicy(*acl) {
+		return nil
+	}
+	var natOn []string
+	for _, id := range unionExplicitEgressIDs(*acl) {
+		e, err := getEgressByID(id)
+		if err != nil {
+			return fmt.Errorf("site-to-site egress acl: invalid egress %q: %w", id, err)
+		}
+		if e.Nat {
+			label := e.Name
+			if label == "" {
+				label = e.ID
+			}
+			natOn = append(natOn, fmt.Sprintf("%s (%s)", e.ID, label))
+		}
+	}
+	if len(natOn) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"site-to-site egress acl %q (%s): NAT must be disabled on all explicitly referenced egresses; "+
+			"egress(es) still have NAT enabled: %s",
+		acl.Name, acl.ID, strings.Join(natOn, ", "),
+	)
+}
+
+// ValidateEgressNatAllowedForSiteToSitePolicies blocks enabling NAT on an egress when an enabled
+// explicit cross-egress device policy references that egress.
+func ValidateEgressNatAllowedForSiteToSitePolicies(egressID, network string, enablingNat bool) error {
+	if !enablingNat {
+		return nil
+	}
+	netID := schema.NetworkID(network)
+	for _, acl := range listDevicePoliciesForSiteToSiteNatCheck(netID) {
+		if !acl.Enabled {
+			continue
+		}
+		if !isExplicitCrossEgressDevicePolicy(acl) {
+			continue
+		}
+		for _, id := range unionExplicitEgressIDs(acl) {
+			if id == egressID {
+				return fmt.Errorf(
+					"cannot enable NAT on egress %q: it is part of enabled site-to-site device policy %q (%s); "+
+						"disable NAT on all egresses in that policy or update the ACL",
+					egressID, acl.Name, acl.ID,
+				)
+			}
+		}
+	}
+	return nil
+}
+
 func getSelectedEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
 	for _, dst := range dstTags {
 		if dst.ID != models.NetmakerIPAclID {
@@ -1548,6 +1676,9 @@ var IsAclPolicyValid = func(acl models.Acl) (err error) {
 		return errors.New("unknown acl policy type " + string(acl.RuleType))
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		return err
+	}
+	if err := ValidateSiteToSiteEgressNatForAcl(&acl); err != nil {
 		return err
 	}
 	return nil
