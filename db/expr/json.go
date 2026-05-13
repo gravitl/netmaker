@@ -112,7 +112,7 @@ func Remove(col string, keys ...string) clause.Expr {
 func Merge(col string, patch map[string]interface{}) clause.Expr {
 	data, err := json.Marshal(patch)
 	if err != nil {
-		// fallback to empty object — or handle as you see fit
+		// fallback to empty object
 		data = []byte("{}")
 	}
 

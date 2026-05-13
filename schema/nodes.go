@@ -243,11 +243,36 @@ func (n *Node) UpdateRelayedClients(ctx context.Context) error {
 		Error
 }
 
-func (n *Node) UpdateTags(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("id = ?", n.ID).
-		Update("tags", n.Tags).
-		Error
+func (n *Node) AssignTag(ctx context.Context, tag string, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if n.ID != "" {
+		query = query.Where("id = ?", n.ID)
+	}
+
+	return query.UpdateColumn(
+		"tags",
+		expr.Merge(
+			"tags",
+			map[string]interface{}{
+				tag: struct{}{},
+			},
+		),
+	).Error
+}
+
+func (n *Node) UnassignTag(ctx context.Context, tag string, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if n.ID != "" {
+		query = query.Where("id = ?", n.ID)
+	}
+
+	return query.UpdateColumn("tags", expr.Remove("tags", tag)).Error
 }
 
 func (n *Node) UpdateLastCheckIn(ctx context.Context) error {

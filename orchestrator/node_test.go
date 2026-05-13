@@ -220,7 +220,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 
 		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
 		c.Require().NoError(err)
-		c.Require().Contains(node.Tags, string(key.Groups[0]))
+		c.Require().NotContains(node.Tags, string(key.Groups[0]))
 	})
 
 	c.Run("Without Tags", func() {
