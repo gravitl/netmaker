@@ -1647,6 +1647,34 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	keyTags := make(map[models.TagID]struct{})
+	if len(key.Groups) > 0 {
+		for _, tagI := range key.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	}
+
+	violations, _ := logic.CheckPostureViolations(
+		models.PostureCheckDeviceInfo{
+			ClientLocation: host.Location,
+			ClientVersion:  host.Version,
+			OS:             host.OS,
+			OSFamily:       host.OSFamily,
+			OSVersion:      host.OSVersion,
+			KernelVersion:  host.KernelVersion,
+			AutoUpdate:     host.AutoUpdate,
+			SkipAutoUpdate: true,
+			Tags:           keyTags,
+		},
+		schema.NetworkID(network.Name),
+	)
+	if len(violations) > 0 {
+		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(&key))
 	if err != nil {
 		err = fmt.Errorf("failed to approve pending host (%s): error creating node: %w", id, err)
@@ -1702,6 +1730,26 @@ func addDefaultHostToNetworks(host *schema.Host) {
 		if !network.AutoJoin {
 			continue
 		}
+
+		violations, _ := logic.CheckPostureViolations(
+			models.PostureCheckDeviceInfo{
+				ClientLocation: host.Location,
+				ClientVersion:  host.Version,
+				OS:             host.OS,
+				OSFamily:       host.OSFamily,
+				OSVersion:      host.OSVersion,
+				KernelVersion:  host.KernelVersion,
+				AutoUpdate:     host.AutoUpdate,
+				SkipAutoUpdate: true,
+				Tags:           make(map[models.TagID]struct{}),
+			},
+			schema.NetworkID(network.Name),
+		)
+		if len(violations) > 0 {
+			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
+			continue
+		}
+
 		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network, orchestrator.SkipPublishPeerUpdate())
 		if err != nil {
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ":", err.Error())

@@ -238,9 +238,34 @@ func SessionHandler(conn *websocket.Conn) {
 func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
+	keyTags := make(map[models.TagID]struct{})
+	if len(key.Groups) > 0 {
+		for _, tagI := range key.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+			violations, _ := logic.CheckPostureViolations(
+				models.PostureCheckDeviceInfo{
+					ClientLocation: host.Location,
+					ClientVersion:  host.Version,
+					OS:             host.OS,
+					OSFamily:       host.OSFamily,
+					OSVersion:      host.OSVersion,
+					KernelVersion:  host.KernelVersion,
+					AutoUpdate:     host.AutoUpdate,
+					SkipAutoUpdate: true,
+					Tags:           keyTags,
+				},
+				schema.NetworkID(network.Name),
+			)
+			if len(violations) > 0 {
+				logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
+				continue
+			}
+
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
 				if logic.DoesHostExistInTheNetworkAlready(host, schema.NetworkID(netID)) {
 					continue
