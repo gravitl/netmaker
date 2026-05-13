@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -366,14 +365,13 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	pcviolations := []models.Violation{}
-	skipViolatedNetworks := []string{}
 	keyTags := make(map[models.TagID]struct{})
 	if len(enrollmentKey.Groups) > 0 {
 		for _, tagI := range enrollmentKey.Groups {
 			keyTags[tagI] = struct{}{}
 		}
 	}
+	var joinNetworks []string
 	for _, netI := range enrollmentKey.Networks {
 		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: newHost.CountryCode,
@@ -385,12 +383,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			SkipAutoUpdate: true,
 			Tags:           keyTags,
 		}, schema.NetworkID(netI))
-		pcviolations = append(pcviolations, violations...)
-		if len(violations) > 0 {
-			skipViolatedNetworks = append(skipViolatedNetworks, netI)
+		if len(violations) == 0 {
+			joinNetworks = append(joinNetworks, netI)
 		}
 	}
-	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
+	if len(joinNetworks) != len(enrollmentKey.Networks) {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
 		return
@@ -398,9 +395,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// copying the enrollment key so that edits don't end up in the enrollment key cache.
 	key := *enrollmentKey
 	// need to remove the networks that were skipped from the enrollment key
-	key.Networks = slices.DeleteFunc(key.Networks, func(netI string) bool {
-		return slices.Contains(skipViolatedNetworks, netI)
-	})
+	key.Networks = joinNetworks
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
