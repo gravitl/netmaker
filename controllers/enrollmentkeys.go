@@ -387,7 +387,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			joinNetworks = append(joinNetworks, netI)
 		}
 	}
-	if len(joinNetworks) != len(enrollmentKey.Networks) {
+	if len(joinNetworks) != len(enrollmentKey.Networks) && len(joinNetworks) == 0 {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
 		return
