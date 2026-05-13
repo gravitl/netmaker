@@ -716,6 +716,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		node.IngressGatewayRange6 = _node.Network.AddressRange6
 		node.IngressPersistentKeepalive = int32(_node.Host.PersistentKeepalive.Seconds())
 		node.IngressMTU = int32(_node.Host.MTU)
+		node.AdditionalRagIps = make([]net.IP, 0, len(_node.AdditionalGatewayEndpoints))
 		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
 		node.InetNodeReq = models.InetNodeReq{
 			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
@@ -727,6 +728,13 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+		}
+
+		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
+			endpointIP := net.ParseIP(additionalEndpoint)
+			if endpointIP != nil {
+				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
+			}
 		}
 	}
 
@@ -772,6 +780,14 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		return &schema.Node{}
 	}
 
+	additionalEndpoints := make([]string, 0, len(node.AdditionalRagIps))
+	for _, additionalEndpoint := range node.AdditionalRagIps {
+		endpointString := additionalEndpoint.String()
+		if endpointString != "<nil>" {
+			additionalEndpoints = append(additionalEndpoints, endpointString)
+		}
+	}
+
 	relayedClients := make(datatypes.JSONMap)
 	for _, relayedNodeID := range node.RelayedNodes {
 		relayedClients[relayedNodeID] = struct{}{}
@@ -809,6 +825,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsGateway:                         node.IsGw,
 		IsAutoRelay:                       node.IsAutoRelay,
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
+		AdditionalGatewayEndpoints:        additionalEndpoints,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayedByNodeID:                   relayingNodeID,

@@ -51,6 +51,7 @@ type Node struct {
 	IsGateway                         bool                                  `json:"is_gateway"`
 	IsAutoRelay                       bool                                  `json:"is_auto_relay"`
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
+	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`

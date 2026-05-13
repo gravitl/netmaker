@@ -120,6 +120,14 @@ func migrateNodes(ctx context.Context) error {
 			return err
 		}
 
+		additionalEndpoints := make([]string, 0, len(node.AdditionalRagIps))
+		for _, additionalEndpoint := range node.AdditionalRagIps {
+			endpointString := additionalEndpoint.String()
+			if endpointString != "<nil>" {
+				additionalEndpoints = append(additionalEndpoints, endpointString)
+			}
+		}
+
 		relayedClients := make(datatypes.JSONMap)
 		for _, relayedNodeID := range node.RelayedNodes {
 			relayedClients[relayedNodeID] = struct{}{}
@@ -151,6 +159,7 @@ func migrateNodes(ctx context.Context) error {
 			IsGateway:                         node.IsGw,
 			IsAutoRelay:                       node.IsAutoRelay,
 			IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
+			AdditionalGatewayEndpoints:        additionalEndpoints,
 			RelayedClients:                    relayedClients,
 			RelayedIGWClients:                 relayedIGWClients,
 			RelayedByNodeID:                   &relayedBy,
