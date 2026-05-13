@@ -816,3 +816,176 @@ func TestGetEgressAclRulesForTargetNode_NatUsesMeshSrcOnDstRoutingNode(t *testin
 		t.Fatalf("expected forward ip_list to use peer mesh IP when src egress NAT is on, got %v", fwd.IPList)
 	}
 }
+
+func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+	})
+
+	targetID := uuid.New()
+	peerID := uuid.New()
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      targetID,
+			Network: "netmaker",
+			Address: net.IPNet{
+				IP:   net.ParseIP("100.64.0.5"),
+				Mask: net.CIDRMask(32, 32),
+			},
+		},
+		Tags: map[models.TagID]struct{}{},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-1",
+			Network: network,
+			Status:  true,
+			Range:   "10.104.0.0/20",
+			Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
+		}}, nil
+	}
+	getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-bi-dev-egress",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionBi,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "snowy-waterfall"}},
+			Dst: []models.AclPolicyTag{
+				{ID: models.EgressID, Value: "egress-1"},
+				{ID: models.NetmakerIPAclID, Value: "10.104.0.1/32"},
+				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+			},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{
+			"snowy-waterfall": {{
+				CommonNode: models.CommonNode{
+					ID: peerID,
+					Address: net.IPNet{
+						IP:   net.ParseIP("100.64.0.7"),
+						Mask: net.CIDRMask(32, 32),
+					},
+				},
+			}},
+		}
+	}
+
+	rules := GetEgressRulesForNode(targetNode)
+	fwd, ok := rules["acl-bi-dev-egress"]
+	if !ok {
+		t.Fatalf("expected forward rule keyed by acl.ID, got: %+v", rules)
+	}
+	fwdSrcSet := make(map[string]struct{}, len(fwd.IPList))
+	for _, n := range fwd.IPList {
+		fwdSrcSet[n.String()] = struct{}{}
+	}
+	if _, ok := fwdSrcSet["100.64.0.7/32"]; !ok {
+		t.Fatalf("expected forward IPList to contain device peer /32, got %v", fwd.IPList)
+	}
+	fwdDstSet := make(map[string]struct{}, len(fwd.Dst))
+	for _, n := range fwd.Dst {
+		fwdDstSet[n.String()] = struct{}{}
+	}
+	if _, ok := fwdDstSet["10.104.0.1/32"]; !ok {
+		t.Fatalf("expected forward Dst to contain selected egress IP 10.104.0.1/32, got %v", fwd.Dst)
+	}
+	if _, ok := fwdDstSet["10.104.0.16/32"]; !ok {
+		t.Fatalf("expected forward Dst to contain selected egress IP 10.104.0.16/32, got %v", fwd.Dst)
+	}
+
+	rev, ok := rules["acl-bi-dev-egress-reverse"]
+	if !ok {
+		t.Fatalf("expected explicit reverse rule keyed by acl.ID + \"-reverse\" for Bi policy, got: %+v", rules)
+	}
+	revSrcSet := make(map[string]struct{}, len(rev.IPList))
+	for _, n := range rev.IPList {
+		revSrcSet[n.String()] = struct{}{}
+	}
+	if _, ok := revSrcSet["10.104.0.1/32"]; !ok {
+		t.Fatalf("expected reverse IPList to be the forward Dst (egress IPs), missing 10.104.0.1/32, got %v", rev.IPList)
+	}
+	if _, ok := revSrcSet["10.104.0.16/32"]; !ok {
+		t.Fatalf("expected reverse IPList to contain 10.104.0.16/32, got %v", rev.IPList)
+	}
+	revDstSet := make(map[string]struct{}, len(rev.Dst))
+	for _, n := range rev.Dst {
+		revDstSet[n.String()] = struct{}{}
+	}
+	if _, ok := revDstSet["100.64.0.7/32"]; !ok {
+		t.Fatalf("expected reverse Dst to be the forward IPList (device peer /32), got %v", rev.Dst)
+	}
+}
+
+func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+	})
+
+	targetID := uuid.New()
+	peerID := uuid.New()
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      targetID,
+			Network: "netmaker",
+			Address: net.IPNet{
+				IP:   net.ParseIP("100.64.0.5"),
+				Mask: net.CIDRMask(32, 32),
+			},
+		},
+		Tags: map[models.TagID]struct{}{},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-1",
+			Network: network,
+			Status:  true,
+			Range:   "10.104.0.0/20",
+			Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
+		}}, nil
+	}
+	getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-uni-dev-egress",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionUni,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "snowy-waterfall"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-1"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{
+			"snowy-waterfall": {{
+				CommonNode: models.CommonNode{
+					ID: peerID,
+					Address: net.IPNet{
+						IP:   net.ParseIP("100.64.0.7"),
+						Mask: net.CIDRMask(32, 32),
+					},
+				},
+			}},
+		}
+	}
+
+	rules := GetEgressRulesForNode(targetNode)
+	if _, ok := rules["acl-uni-dev-egress"]; !ok {
+		t.Fatalf("expected forward rule for uni policy, got: %+v", rules)
+	}
+	if _, ok := rules["acl-uni-dev-egress-reverse"]; ok {
+		t.Fatalf("did not expect explicit reverse rule for uni-directional policy, rules: %+v", rules)
+	}
+}

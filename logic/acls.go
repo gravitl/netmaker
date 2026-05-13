@@ -1291,7 +1291,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 	}()
 	taggedNodes := GetTagMapWithNodesByNetwork(schema.NetworkID(targetnode.Network), true)
 
-	acls := ListDevicePolicies(schema.NetworkID(targetnode.Network))
+	acls := getDevicePoliciesByNetwork(schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
@@ -1299,7 +1299,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnode.Network, models.GwTagName))] = struct{}{}
 	}
 
-	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	egs, _ := getEgressByNetwork(targetnode.Network)
 	if len(egs) == 0 {
 		return
 	}
@@ -1395,7 +1395,29 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
 			aclRule.IPList = UniqueIPNetList(aclRule.IPList)
 			aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
+			aclRule.Dst = UniqueIPNetList(aclRule.Dst)
+			aclRule.Dst6 = UniqueIPNetList(aclRule.Dst6)
 			rules[acl.ID] = aclRule
+
+			// Bi-directional device->egress policies need an explicit reverse rule
+			// (egress IPs/range -> src devices) emitted as a separate AclRule, because the
+			// downstream firewall generator pairs IPList x Dst rather than expanding the
+			// Bi direction into both legs.
+			if acl.AllowedDirection == models.TrafficDirectionBi &&
+				(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
+				revID := acl.ID + egressSiteACLReverseSuffix
+				rules[revID] = models.AclRule{
+					ID:              revID,
+					AllowedProtocol: acl.Proto,
+					AllowedPorts:    acl.Port,
+					Direction:       acl.AllowedDirection,
+					Allowed:         true,
+					IPList:          append([]net.IPNet(nil), aclRule.Dst...),
+					IP6List:         append([]net.IPNet(nil), aclRule.Dst6...),
+					Dst:             append([]net.IPNet(nil), aclRule.IPList...),
+					Dst6:            append([]net.IPNet(nil), aclRule.IP6List...),
+				}
+			}
 		}
 
 	}
