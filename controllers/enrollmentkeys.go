@@ -350,7 +350,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	key, keyErr := logic.RetrievePublicTrafficKey()
+	trafficKey, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
@@ -395,8 +395,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
 		return
 	}
+	// copying the enrollment key so that edits don't end up in the enrollment key cache.
+	key := *enrollmentKey
 	// need to remove the networks that were skipped from the enrollment key
-	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
+	key.Networks = slices.DeleteFunc(key.Networks, func(netI string) bool {
 		return slices.Contains(skipViolatedNetworks, netI)
 	})
 	var host *schema.Host
@@ -438,7 +440,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// ready the response
 	server := logic.GetServerInfo()
-	server.TrafficKey = key
+	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,
 		RequestedHost: *host,
@@ -448,5 +450,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(*enrollmentKey, host, r.Header.Get("user"))
+	go auth.CheckNetRegAndHostUpdate(key, host, r.Header.Get("user"))
 }
