@@ -45,7 +45,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
 		for _, tag := range ops.key.Groups {
-			node.Tags[string(tag)] = true
+			n.nodeExt.ConfigureTag(node, tag)
 		}
 	}
 
