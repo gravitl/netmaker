@@ -80,10 +80,7 @@ func SessionHandler(conn *websocket.Conn) {
 			Password: registerMessage.Password,
 		}, logic.NetclientApp)
 		if err != nil {
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
+			handleHostRegErr(conn, err)
 			return
 		}
 		req.Pass = req.Host.ID.String()
@@ -112,14 +109,8 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 	} else { // handle SSO / OAuth
 		if !logic.IsOAuthConfigured() {
-			err = conn.WriteMessage(messageType, []byte("Oauth not configured"))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
+			err = fmt.Errorf("oauth not configured")
+			handleHostRegErr(conn, err)
 			return
 		}
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "via SSO")
@@ -196,7 +187,7 @@ func SessionHandler(conn *websocket.Conn) {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
 					if !isUserAllowed(result.User, newNet) {
-						err = fmt.Errorf("unauthorized user %s attempted to register to network %s", result.User, newNet)
+						err = fmt.Errorf("user %s does not have access to network %s", result.User, newNet)
 						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)
 						return
@@ -354,9 +345,13 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 	}
 }
 
+// handleHostRegErr sends a close message on the websocket connection
+// along with the error reason. Clients can assume an error close when
+// the text is non-empty and a successful close when the text is empty.
 func handleHostRegErr(conn *websocket.Conn, err error) {
-	_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	logger.Log(0, "error during host registration via auth:", err.Error())
+	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, err.Error()))
 	if err != nil {
-		logger.Log(0, "error during host registration via auth:", err.Error())
+		logger.Log(0, "error during message writing:", err.Error())
 	}
 }
