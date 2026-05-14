@@ -300,6 +300,10 @@ func migrateHosts(ctx context.Context) error {
 			return err
 		}
 
+		if !logic.GetServerSettings().NetclientAutoUpdate {
+			host.AutoUpdate = false
+		}
+
 		_host := &schema.Host{
 			ID:                 host.ID,
 			Verbosity:          host.Verbosity,
