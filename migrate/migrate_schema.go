@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/gorm"
 )
@@ -16,6 +17,8 @@ type migrationFunc func(ctx context.Context) error
 // ToSQLSchema migrates the data from key-value
 // db to sql db.
 func ToSQLSchema() error {
+	// load server settings in cache.
+	_ = logic.GetServerSettings()
 	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
 	// future table migrations should be made below this block,
 	// with a different version number and a similar check for whether the
