@@ -384,36 +384,6 @@ func ensureNodeMutex(node *models.Node) {
 	}
 }
 
-// SetNodeDefaults - sets the defaults of a node to avoid empty fields
-func SetNodeDefaults(node *models.Node, resetConnected bool) {
-	ensureNodeMutex(node)
-	parentNetwork := &schema.Network{Name: node.Network}
-	_ = parentNetwork.Get(db.WithContext(context.TODO()))
-	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-	if err == nil {
-		node.NetworkRange = *cidr
-	}
-	_, cidr, err = net.ParseCIDR(parentNetwork.AddressRange6)
-	if err == nil {
-		node.NetworkRange6 = *cidr
-	}
-
-	if node.FailOverPeers == nil {
-		node.FailOverPeers = make(map[string]struct{})
-	}
-
-	node.SetLastModified()
-	//node.SetLastCheckIn()
-
-	if resetConnected {
-		node.SetDefaultConnected()
-	}
-	node.SetExpirationDateTime()
-	if node.Tags == nil {
-		node.Tags = make(map[models.TagID]struct{})
-	}
-}
-
 // GetRecordKey - get record key
 // depricated
 func GetRecordKey(id string, network string) (string, error) {
@@ -450,8 +420,6 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
-
-	SetNodeDefaults(&node, true)
 
 	return node, nil
 }

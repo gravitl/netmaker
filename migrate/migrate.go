@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/serverctl"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 
@@ -44,7 +43,6 @@ func Run() {
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
-	_ = serverctl.SetDefaults()
 }
 
 func updateNetworks() {

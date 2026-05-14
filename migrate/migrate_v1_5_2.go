@@ -112,6 +112,10 @@ func migrateNodes(ctx context.Context) error {
 			address6 = node.Address6.String()
 		}
 
+		if node.ExpirationDateTime.IsZero() {
+			node.ExpirationDateTime = time.Now().AddDate(100, 1, 0)
+		}
+
 		network := &schema.Network{
 			Name: node.Network,
 		}

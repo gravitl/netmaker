@@ -64,6 +64,10 @@ func migrateUsers(ctx context.Context) error {
 			}
 		}
 
+		if user.UserGroups == nil {
+			user.UserGroups = make(map[schema.UserGroupID]struct{})
+		}
+
 		_user := &schema.User{
 			ID:                         "",
 			Username:                   user.UserName,
