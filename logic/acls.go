@@ -425,6 +425,49 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), true)...)
 	rules = GetFwRulesForUserNodesOnGw(node, nodes)
 	if defaultDevicePolicy.Enabled {
+		if len(node.RelayedNodes) > 0 {
+			for _, relayedNodeID := range node.RelayedNodes {
+				relayedNode, err := GetNodeByID(relayedNodeID)
+				if err != nil {
+					continue
+				}
+	
+				if relayedNode.Address.IP != nil {
+					rules = append(rules, models.FwRule{
+						AllowedProtocol: models.ALL,
+						AllowedPorts:    []string{},
+						Allow:           true,
+						DstIP:           relayedNode.AddressIPNet4(),
+						SrcIP:           node.NetworkRange,
+					})
+					rules = append(rules, models.FwRule{
+						AllowedProtocol: models.ALL,
+						AllowedPorts:    []string{},
+						Allow:           true,
+						DstIP:           node.NetworkRange,
+						SrcIP:           relayedNode.AddressIPNet4(),
+					})
+				}
+	
+				if relayedNode.Address6.IP != nil {
+					rules = append(rules, models.FwRule{
+						AllowedProtocol: models.ALL,
+						AllowedPorts:    []string{},
+						Allow:           true,
+						DstIP:           relayedNode.AddressIPNet6(),
+						SrcIP:           node.NetworkRange6,
+					})
+					rules = append(rules, models.FwRule{
+						AllowedProtocol: models.ALL,
+						AllowedPorts:    []string{},
+						Allow:           true,
+						DstIP:           node.NetworkRange6,
+						SrcIP:           relayedNode.AddressIPNet6(),
+					})
+				}
+	
+			}
+		}
 		return
 	}
 	defer func() {
