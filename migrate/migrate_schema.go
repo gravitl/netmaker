@@ -75,22 +75,3 @@ func ensureMigrationCompleted(ctx context.Context, version string, migrate migra
 	commit = true
 	return nil
 }
-
-func fetchAll(ctx context.Context, tableName string) (map[string]string, error) {
-	row, err := db.FromContext(ctx).Raw("SELECT * FROM " + tableName + " ORDER BY key").Rows()
-	if err != nil {
-		return nil, err
-	}
-	records := make(map[string]string)
-	defer row.Close()
-	for row.Next() { // Iterate and fetch the records from result cursor
-		var key string
-		var value string
-		row.Scan(&key, &value)
-		records[key] = value
-	}
-	if len(records) == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return records, nil
-}

@@ -41,7 +41,7 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.USERS_TABLE_NAME)
+	records, err := kvList(ctx, database.USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -99,7 +99,7 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.NETWORKS_TABLE_NAME)
+	records, err := kvList(ctx, database.NETWORKS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -238,7 +238,7 @@ func migrateNetworks(ctx context.Context) error {
 }
 
 func migrateUserRoles(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.USER_PERMISSIONS_TABLE_NAME)
+	records, err := kvList(ctx, database.USER_PERMISSIONS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -263,7 +263,7 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.USER_GROUPS_TABLE_NAME)
+	records, err := kvList(ctx, database.USER_GROUPS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -288,7 +288,7 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.HOSTS_TABLE_NAME)
+	records, err := kvList(ctx, database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}

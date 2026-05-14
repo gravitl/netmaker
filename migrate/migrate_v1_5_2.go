@@ -3,14 +3,18 @@ package migrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func migrateV1_5_2(ctx context.Context) error {
@@ -28,7 +32,7 @@ func migrateV1_5_2(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.PENDING_USERS_TABLE_NAME)
+	records, err := kvList(ctx, database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -58,7 +62,7 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.USER_INVITES_TABLE_NAME)
+	records, err := kvList(ctx, database.USER_INVITES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -91,7 +95,7 @@ func migrateUserInvites(ctx context.Context) error {
 }
 
 func migrateNodes(ctx context.Context) error {
-	records, err := fetchAll(ctx, database.NODES_TABLE_NAME)
+	records, err := kvList(ctx, database.NODES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -187,29 +191,252 @@ func migrateNodes(ctx context.Context) error {
 			return err
 		}
 
-		if !node.LastEvaluatedAt.IsZero() {
-			violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
-			for _, violation := range node.PostureChecksViolations {
-				violations = append(violations, schema.PostureCheckViolation{
-					EvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
-					CheckID:           violation.CheckID,
-					NodeID:            _node.ID,
-					Name:              violation.Name,
-					Attribute:         violation.Attribute,
-					Message:           violation.Message,
-					Severity:          violation.Severity,
-					EvaluatedAt:       node.LastEvaluatedAt,
+		logger.Log(4, fmt.Sprintf("migrating node %s egress", _node.ID))
+
+		err = migrateNodes_Egress(ctx, &node)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating node %s egress failed: %v", _node.ID, err))
+			return err
+		}
+
+		logger.Log(4, fmt.Sprintf("migrating node %s nameserver", _node.ID))
+
+		err = migrateNodes_Nameserver(ctx, &node)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating node %s nameserver failed: %v", _node.ID, err))
+			return err
+		}
+
+		logger.Log(4, fmt.Sprintf("migrating node %s violations", _node.ID))
+
+		err = migrateNodes_PostureCheckViolations(ctx, &node, _node)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating node %s violations failed: %v", _node.ID, err))
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
+	if node.IsEgressGateway {
+		superAdmin := &schema.User{}
+		err := superAdmin.GetSuperAdmin(ctx)
+		if err != nil {
+			return err
+		}
+
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		egressRanges, update := removeInterGw(node.EgressGatewayRanges)
+		if update {
+			node.EgressGatewayRequest.Ranges = egressRanges
+			node.EgressGatewayRanges = egressRanges
+		}
+		if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
+			for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
+				node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
+					Network:     egressRangeI,
+					RouteMetric: 256,
 				})
 			}
+		}
 
-			logger.Log(4, fmt.Sprintf("migrating node %s violations", _node.ID))
-
-			err = _node.UpsertViolations(ctx, violations)
+		for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
+			egressCheck := &schema.Egress{
+				Range: rangeMetric.Network,
+			}
+			err = egressCheck.DoesEgressRouteExists(ctx)
 			if err != nil {
-				logger.Log(4, fmt.Sprintf("migrating node %s violations failed: %v", _node.ID, err))
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+			} else {
+				egressCheck.Nodes[node.ID.String()] = rangeMetric.RouteMetric
+				err = egressCheck.Update(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			egress := &schema.Egress{
+				ID:          uuid.New().String(),
+				Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
+				Description: "",
+				Network:     node.Network,
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): rangeMetric.RouteMetric,
+				},
+				Tags:      make(datatypes.JSONMap),
+				Range:     rangeMetric.Network,
+				Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+				Status:    true,
+				CreatedBy: superAdmin.Username,
+				CreatedAt: time.Now().UTC(),
+			}
+			if !egress.Nat {
+				egress.Mode = schema.DisabledNAT
+			}
+			err = egress.Create(ctx)
+			if err != nil {
+				return err
+			}
+
+			acl := models.Acl{
+				ID:          uuid.New().String(),
+				Name:        "egress node policy",
+				MetaData:    "",
+				Default:     false,
+				ServiceType: models.Any,
+				NetworkID:   schema.NetworkID(node.Network),
+				Proto:       models.ALL,
+				RuleType:    models.DevicePolicy,
+				Src: []models.AclPolicyTag{
+
+					{
+						ID:    models.NodeTagID,
+						Value: "*",
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.EgressID,
+						Value: egress.ID,
+					},
+				},
+
+				AllowedDirection: models.TrafficDirectionBi,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			}
+			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			if err != nil {
+				return err
+			}
+
+			acl = models.Acl{
+				ID:          uuid.New().String(),
+				Name:        "egress node policy",
+				MetaData:    "",
+				Default:     false,
+				ServiceType: models.Any,
+				NetworkID:   schema.NetworkID(node.Network),
+				Proto:       models.ALL,
+				RuleType:    models.UserPolicy,
+				Src: []models.AclPolicyTag{
+
+					{
+						ID:    models.UserAclID,
+						Value: "*",
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.EgressID,
+						Value: egress.ID,
+					},
+				},
+
+				AllowedDirection: models.TrafficDirectionBi,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			}
+			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			if err != nil {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func migrateNodes_Nameserver(ctx context.Context, node *models.Node) error {
+	if !node.IsGw {
+		return nil
+	}
+
+	if node.IngressDNS != "" {
+		superAdmin := &schema.User{}
+		err := superAdmin.GetSuperAdmin(ctx)
+		if err != nil {
+			return err
+		}
+
+		var nsIPs []string
+		for _, nsIP := range strings.Split(node.IngressDNS, ",") {
+			nsIP = strings.TrimSpace(nsIP)
+
+			if (node.Address.IP != nil && node.Address.IP.String() == nsIP) ||
+				(node.Address6.IP != nil && node.Address6.IP.String() == nsIP) {
+				continue
+			}
+			if nsIP == "8.8.8.8" || nsIP == "1.1.1.1" || nsIP == "9.9.9.9" {
+				continue
+			}
+
+			nsIPs = append(nsIPs, nsIP)
+		}
+
+		if len(nsIPs) > 0 {
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			err = host.Get(ctx)
+			if err != nil {
+				return err
+			}
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      fmt.Sprintf("%s gw nameservers", host.Name),
+				NetworkID: node.Network,
+				Servers:   nsIPs,
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): struct{}{},
+				},
+				Tags:      make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: superAdmin.Username,
+			}
+			return ns.Create(ctx)
+		}
+	}
+
+	return nil
+}
+
+func migrateNodes_PostureCheckViolations(ctx context.Context, node *models.Node, _node *schema.Node) error {
+	if !node.LastEvaluatedAt.IsZero() {
+		violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
+		for _, violation := range node.PostureChecksViolations {
+			violations = append(violations, schema.PostureCheckViolation{
+				EvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
+				CheckID:           violation.CheckID,
+				NodeID:            _node.ID,
+				Name:              violation.Name,
+				Attribute:         violation.Attribute,
+				Message:           violation.Message,
+				Severity:          violation.Severity,
+				EvaluatedAt:       node.LastEvaluatedAt,
+			})
+		}
+
+		return _node.UpsertViolations(ctx, violations)
 	}
 
 	return nil
