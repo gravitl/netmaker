@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -70,16 +71,17 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
 		if !logic.IsBasicAuthEnabled() {
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
+			handleHostRegErr(conn, errors.New("basic auth is disabled"))
+			return
 		}
 		_, err := logic.VerifyAuthRequest(models.UserAuthParams{
 			UserName: registerMessage.User,
 			Password: registerMessage.Password,
 		}, logic.NetclientApp)
 		if err != nil {
+			if err.Error() != "incorrect credentials" {
+				err = fmt.Errorf("failed to authenticate user %s", registerMessage.User)
+			}
 			handleHostRegErr(conn, err)
 			return
 		}
@@ -109,8 +111,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 	} else { // handle SSO / OAuth
 		if !logic.IsOAuthConfigured() {
-			err = fmt.Errorf("oauth not configured")
-			handleHostRegErr(conn, err)
+			handleHostRegErr(conn, errors.New("oauth not configured"))
 			return
 		}
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "via SSO")
@@ -161,13 +162,13 @@ func SessionHandler(conn *websocket.Conn) {
 			}
 			_ = logic.CheckHostPorts(&result.Host)
 			if err := logic.CreateHost(&result.Host); err != nil {
-				handleHostRegErr(conn, err)
+				handleHostRegErr(conn, errors.New("host creation failed"))
 				return
 			}
 		}
 		key, keyErr := logic.RetrievePublicTrafficKey()
 		if keyErr != nil {
-			handleHostRegErr(conn, err)
+			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
 			return
 		}
 		var currentNetworks []string
@@ -204,12 +205,12 @@ func SessionHandler(conn *websocket.Conn) {
 			ServerConf:    server,
 			RequestedHost: result.Host,
 		}
-		reponseData, err := json.Marshal(&response)
+		responseData, err := json.Marshal(&response)
 		if err != nil {
-			handleHostRegErr(conn, err)
+			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
 			return
 		}
-		if err = conn.WriteMessage(messageType, reponseData); err != nil {
+		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
 		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
