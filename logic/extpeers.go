@@ -162,13 +162,6 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 		return err
 	}
 	if servercfg.CacheEnabled() {
-		// recycle ip address
-		if extClient.Address != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address)
-		}
-		if extClient.Address6 != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address6)
-		}
 		deleteExtClientFromCache(key)
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
@@ -276,94 +269,6 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	return extclient, err
 }
 
-// GetGwExtclients - return all ext clients attached to the passed gw id
-func GetGwExtclients(nodeID, network string) []models.ExtClient {
-	gwClients := []models.ExtClient{}
-	clients, err := GetNetworkExtClients(network)
-	if err != nil {
-		return gwClients
-	}
-	for _, client := range clients {
-		if client.IngressGatewayID == nodeID {
-			gwClients = append(gwClients, client)
-		}
-	}
-	return gwClients
-}
-
-// GetExtClient - gets a single ext client on a network
-func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, error) {
-	netClients, err := GetNetworkExtClients(network)
-	if err != nil {
-		return nil, err
-	}
-	for i := range netClients {
-		ec := netClients[i]
-		if ec.PublicKey == publicKey {
-			return &ec, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no client found")
-}
-
-// CreateExtClient - creates and saves an extclient
-func CreateExtClient(extclient *models.ExtClient) error {
-	// lock because we may need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
-	addressLock.Lock()
-	defer addressLock.Unlock()
-
-	if len(extclient.PublicKey) == 0 {
-		privateKey, err := wgtypes.GeneratePrivateKey()
-		if err != nil {
-			return err
-		}
-		extclient.PrivateKey = privateKey.String()
-		extclient.PublicKey = privateKey.PublicKey().String()
-	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
-		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
-	}
-	if extclient.ExtraAllowedIPs == nil {
-		extclient.ExtraAllowedIPs = []string{}
-	}
-
-	parentNetwork := &schema.Network{Name: extclient.Network}
-	err := parentNetwork.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if extclient.Address == "" {
-		if parentNetwork.AddressRange != "" {
-			newAddress, err := UniqueAddress(extclient.Network, true)
-			if err != nil {
-				return err
-			}
-			extclient.Address = newAddress.String()
-		}
-	}
-
-	if extclient.Address6 == "" {
-		if parentNetwork.AddressRange6 != "" {
-			addr6, err := UniqueAddress6(extclient.Network, true)
-			if err != nil {
-				return err
-			}
-			extclient.Address6 = addr6.String()
-		}
-	}
-
-	if extclient.ClientID == "" {
-		extclient.ClientID, err = GenerateNodeName(extclient.Network)
-		if err != nil {
-			return err
-		}
-	}
-
-	extclient.LastModified = time.Now().Unix()
-	return SaveExtClient(extclient)
-}
-
-// GenerateNodeName - generates a random node name
 func GenerateNodeName(network string) (string, error) {
 	seed := time.Now().UTC().UnixNano()
 	nameGenerator := namegenerator.NewNameGenerator(seed)
@@ -403,12 +308,6 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
-		if extclient.Address != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
-		}
-		if extclient.Address6 != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
-		}
 	}
 
 	return SetNetworkNodesLastModified(extclient.Network)
@@ -501,7 +400,7 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 
 // GetAllExtClientsWithStatus - returns all external clients with
 // given status.
-func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, error) {
+func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]models.ExtClient, error) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return nil, err
@@ -509,10 +408,7 @@ func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, e
 
 	var validExtClients []models.ExtClient
 	for _, extClient := range extClients {
-		node := extClient.ConvertToStaticNode()
-		GetNodeStatus(&node, false)
-
-		if node.Status == status {
+		if extClient.Status == status {
 			validExtClients = append(validExtClients, extClient)
 		}
 	}
@@ -684,6 +580,7 @@ func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRo
 		NodeAddr:      node.Address,
 		NodeAddr6:     node.Address6,
 		EgressRanges:  extPeer.ExtraAllowedIPs,
+		Network:       node.Network,
 	}
 	for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
 		r.EgressRangesWithMetric = append(r.EgressRangesWithMetric, models.EgressRangeMetric{

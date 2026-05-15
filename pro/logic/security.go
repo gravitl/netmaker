@@ -83,9 +83,6 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
-	if targetRsrc == schema.MetricRsrc.String() {
-		return nil
-	}
 
 	for groupID := range user.UserGroups.Data() {
 
@@ -174,6 +171,9 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	}
 
 	if userRole.ID == schema.Auditor {
+		if strings.Contains(r.URL.Path, "/api/v1/enrollment-keys") {
+			return errors.New("access denied")
+		}
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
@@ -216,9 +216,6 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 	if r.Method == http.MethodGet && targetRsrc == schema.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
-		return nil
-	}
-	if r.Method == http.MethodGet && user.PlatformRoleID == schema.PlatformUser && (route == "/api/v1/network/activity" || route == "/api/v1/flows") {
 		return nil
 	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.RsrcType(targetRsrc)]
