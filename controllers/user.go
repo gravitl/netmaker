@@ -1741,9 +1741,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = logic.DeleteUserInvite(user.Username)
 		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
@@ -1868,9 +1865,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(false)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
 		}
 		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
 	}()

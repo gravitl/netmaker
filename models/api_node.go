@@ -10,10 +10,10 @@ import (
 )
 
 type ApiNodeStatus struct {
-	ID         string     `json:"id"`
-	IsStatic   bool       `json:"is_static"`
-	IsUserNode bool       `json:"is_user_node"`
-	Status     NodeStatus `json:"status"`
+	ID         string            `json:"id"`
+	IsStatic   bool              `json:"is_static"`
+	IsUserNode bool              `json:"is_user_node"`
+	Status     schema.NodeStatus `json:"status"`
 }
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
@@ -66,7 +66,7 @@ type ApiNode struct {
 	IsStatic                          bool                `json:"is_static"`
 	IsUserNode                        bool                `json:"is_user_node"`
 	StaticNode                        ExtClient           `json:"static_node"`
-	Status                            NodeStatus          `json:"status"`
+	Status                            schema.NodeStatus   `json:"status"`
 	Location                          string              `json:"location"`
 	Country                           string              `json:"country"`
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`

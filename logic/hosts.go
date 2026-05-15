@@ -49,7 +49,7 @@ const (
 
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
-func GetAllHostsWithStatus(status models.NodeStatus) ([]schema.Host, error) {
+func GetAllHostsWithStatus(status schema.NodeStatus) ([]schema.Host, error) {
 	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
@@ -84,16 +84,13 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
-func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) bool {
-	if len(h.Nodes) > 0 {
-		for _, nodeID := range h.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err == nil && node.Network == network.String() {
-				return true
-			}
-		}
+func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) bool {
+	node := &schema.Node{
+		HostID:    h.ID.String(),
+		NetworkID: network.ID,
 	}
-	return false
+	err := node.GetByHostAndNetwork(db.WithContext(context.TODO()))
+	return err == nil
 }
 
 // CreateHost - creates a host if not exist
@@ -221,9 +218,6 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 				slog.Error("failed to get node:", "id", node.ID, "error", err)
 				continue
 			}
-			if node.FailedOverBy != uuid.Nil {
-				ResetFailedOverPeer(&node)
-			}
 			if len(node.AutoRelayedPeers) > 0 {
 				ResetAutoRelayedPeer(&node)
 			}
@@ -302,7 +296,6 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		}
 	}
 	publishPeerUpdate = true
-	ResetFailedOverPeer(newNode)
 	ResetAutoRelayedPeer(newNode)
 
 	return
@@ -346,17 +339,7 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 		}
 	}
 
-	err := h.Delete(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	go func() {
-		if servercfg.IsDNSMode() {
-			SetDNS()
-		}
-	}()
-
-	return nil
+	return h.Delete(db.WithContext(context.TODO()))
 }
 
 // UpdateHostNetwork - adds/deletes host from a network
@@ -367,45 +350,37 @@ func UpdateHostNetwork(h *schema.Host, network string, add bool) (*models.Node, 
 			continue
 		}
 		if node.Network == network {
-			if !add {
-				return &node, nil
-			} else {
-				return &node, errors.New("host already part of network " + network)
-			}
+			return &node, nil
 		}
 	}
-	if !add {
-		return nil, errors.New("host not part of the network " + network)
-	} else {
-		newNode := models.Node{}
-		newNode.Server = servercfg.GetServer()
-		newNode.Network = network
-		newNode.HostID = h.ID
-		if err := AssociateNodeToHost(&newNode, h); err != nil {
-			return nil, err
-		}
-		return &newNode, nil
-	}
+
+	return nil, errors.New("host not part of the network " + network)
 }
 
-// AssociateNodeToHost - associates and creates a node with a given host
-// should be the only way nodes get created as of 0.18
+// AssociateNodeToHost - associates a node with a host and persists both.
 func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
+	if n == nil || h == nil {
+		return errors.New("node and host are required")
+	}
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
-	n.HostID = h.ID
-	err := createNode(n)
-	if err != nil {
-		return err
-	}
+
 	currentHost := &schema.Host{ID: h.ID}
 	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
 		return fmt.Errorf("failed to fetch host before node association: %w", err)
 	}
+
+	n.HostID = h.ID
+	if err := UpsertNode(n); err != nil {
+		return err
+	}
+
 	h.Nodes = currentHost.Nodes
-	h.HostPass = currentHost.HostPass
-	h.Nodes = append(h.Nodes, n.ID.String())
+	if !StringSliceContains(h.Nodes, n.ID.String()) {
+		h.Nodes = append(h.Nodes, n.ID.String())
+	}
+
 	return UpsertHost(h)
 }
 

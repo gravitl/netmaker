@@ -191,9 +191,6 @@ func DeleteAndCleanupHost(h *schema.Host) {
 		slog.Error("failed to delete host", "id", h.ID, "error", err)
 		return
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func SignalPeer(signal models.Signal) {
@@ -274,7 +271,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			if database.IsEmptyRecord(err) {
 				fakeNode := models.Node{}
 				fakeNode.ID, _ = uuid.Parse(currNodeID)
-				fakeNode.Action = models.NODE_DELETE
+				fakeNode.Action = schema.NODE_DELETE
 				fakeNode.PendingDelete = true
 				if err := NodeUpdate(&fakeNode); err != nil {
 					slog.Warn("failed to inform host to remove node", "host", currentHost.Name, "hostid", currentHost.ID, "nodeid", currNodeID, "error", err)
@@ -282,7 +279,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 			continue
 		}
-		if err := logic.UpdateNodeCheckin(&node); err != nil {
+		if err := logic.UpdateNodeCheckin(node.ID.String()); err != nil {
 			slog.Warn("failed to update node on checkin", "nodeid", node.ID, "error", err)
 		}
 	}
