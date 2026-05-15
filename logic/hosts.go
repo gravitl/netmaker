@@ -84,10 +84,10 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
-func DoesHostExistInTheNetworkAlready(h *schema.Host, networkID schema.NetworkID) bool {
+func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) bool {
 	node := &schema.Node{
 		HostID:    h.ID.String(),
-		NetworkID: networkID.String(),
+		NetworkID: network.ID,
 	}
 	err := node.GetByHostAndNetwork(db.WithContext(context.TODO()))
 	return err == nil

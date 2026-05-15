@@ -267,7 +267,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 			}
 
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if logic.DoesHostExistInTheNetworkAlready(host, schema.NetworkID(netID)) {
+				if logic.DoesHostExistInTheNetworkAlready(host, network) {
 					continue
 				}
 				if err := (&schema.PendingHost{
