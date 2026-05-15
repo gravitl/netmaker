@@ -15,10 +15,13 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
 	"github.com/gravitl/netmaker/pro/email"
+	"github.com/gravitl/netmaker/pro/license"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -27,6 +30,7 @@ import (
 // InitPro - Initialize Pro Logic
 func InitPro() {
 	servercfg.IsPro = true
+	orchestrator.InitializeRepository(extensions.NewProFactory())
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
@@ -38,7 +42,6 @@ func InitPro() {
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
 		proControllers.UserHandlers,
-		proControllers.FailOverHandlers,
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
@@ -48,6 +51,7 @@ func InitPro() {
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
 		proControllers.JITHandlers,
+		proControllers.ServerHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -80,8 +84,8 @@ func InitPro() {
 
 		if enableLicenseHook {
 			logger.Log(0, "starting license checker")
-			ClearLicenseCache()
-			if err := ValidateLicense(); err != nil {
+			license.ClearLicenseCache()
+			if err := license.ValidateLicense(); err != nil {
 				slog.Error(err.Error())
 				return
 			}
@@ -89,7 +93,7 @@ func InitPro() {
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
 			// License validation runs on all pods to avoid audit issues
-			AddLicenseHooks()
+			license.AddLicenseHooks()
 		} else {
 			logger.Log(0, "starting trial license hook")
 			addTrialLicenseHook()
@@ -104,7 +108,6 @@ func InitPro() {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 		proLogic.LoadNodeMetricsToCache()
-		proLogic.InitFailOverCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -140,11 +143,6 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 	})
-	logic.ResetFailOver = proLogic.ResetFailOver
-	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
-	logic.FailOverExists = proLogic.FailOverExists
-	logic.CreateFailOver = proLogic.CreateFailOver
-	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
 	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer

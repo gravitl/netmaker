@@ -106,7 +106,8 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if caller.Username != username && caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
+	if caller.Username != username && caller.PlatformRoleID != schema.SuperAdminRole &&
+		caller.PlatformRoleID != schema.AdminRole && caller.PlatformRoleID != schema.Auditor {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusForbidden,
 			Message: "you are not authorized to view this user's activity",
