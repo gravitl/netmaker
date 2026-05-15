@@ -1178,9 +1178,160 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 			}
 
 		}
+
+		appendUserExtClientRemoteEgressFwdRules(targetnode, acls, egs, userNodes, userGrpMap, rules)
 	}
 
 	return rules
+}
+
+// appendUserExtClientRemoteEgressFwdRules mirrors the device-path fix from logic/acls.go
+// for user-policy static extclients: when a user is permitted to reach an egress
+// hosted on a DIFFERENT node, targetnode's forward chain needs an explicit allow rule
+// or the packet is dropped here even though the ingress chain permitted it. Emitted
+// rules are keyed with the "#ext-fwd" suffix to avoid collision with the local-egress
+// rules keyed by acl.ID, and a "-reverse" companion is added for Bi policies.
+func appendUserExtClientRemoteEgressFwdRules(
+	targetnode *models.Node,
+	acls []models.Acl,
+	egs []schema.Egress,
+	userNodes []models.Node,
+	userGrpMap map[schema.UserGroupID]map[string]struct{},
+	rules map[string]models.AclRule,
+) {
+	remoteEgresses := make(map[string]schema.Egress)
+	for _, egI := range egs {
+		if !egI.Status {
+			continue
+		}
+		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+			continue
+		}
+		remoteEgresses[egI.ID] = egI
+	}
+	if len(remoteEgresses) == 0 {
+		return
+	}
+
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		dstTags := logic.ConvAclTagToValueMap(acl.Dst)
+		_, dstAll := dstTags["*"]
+		selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(acl.Dst)
+
+		var dst4, dst6 []net.IPNet
+		for egID, egI := range remoteEgresses {
+			if _, ok := dstTags[egID]; !ok && !dstAll {
+				continue
+			}
+			if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+				dst4 = append(dst4, selectedIP4...)
+				dst6 = append(dst6, selectedIP6...)
+				continue
+			}
+			egressRange := egI.Range
+			if egI.VirtualRange != "" {
+				egressRange = egI.VirtualRange
+			}
+			if egressRange != "" {
+				ip, cidr, parseErr := net.ParseCIDR(egressRange)
+				if parseErr == nil {
+					if ip.To4() != nil {
+						dst4 = append(dst4, *cidr)
+					} else {
+						dst6 = append(dst6, *cidr)
+					}
+				}
+				continue
+			}
+			if len(egI.DomainAns) > 0 {
+				for _, domainAnsI := range egI.DomainAns {
+					ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
+					if parseErr != nil {
+						continue
+					}
+					if ip.To4() != nil {
+						dst4 = append(dst4, *cidr)
+					} else {
+						dst6 = append(dst6, *cidr)
+					}
+				}
+			}
+		}
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+
+		allowedOwners := make(map[string]struct{})
+		for _, srcAcl := range acl.Src {
+			if srcAcl.ID == models.UserAclID {
+				allowedOwners[srcAcl.Value] = struct{}{}
+			} else if srcAcl.ID == models.UserGroupAclID {
+				if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {
+					for userName := range usersMap {
+						allowedOwners[userName] = struct{}{}
+					}
+				}
+			}
+		}
+		if len(allowedOwners) == 0 {
+			continue
+		}
+
+		var srcIP4, srcIP6 []net.IPNet
+		for _, userNode := range userNodes {
+			if !userNode.StaticNode.Enabled {
+				continue
+			}
+			if userNode.StaticNode.IngressGatewayID != targetnode.ID.String() {
+				continue
+			}
+			if _, ok := allowedOwners[userNode.StaticNode.OwnerID]; !ok {
+				continue
+			}
+			if userNode.StaticNode.Address != "" {
+				srcIP4 = append(srcIP4, userNode.StaticNode.AddressIPNet4())
+			}
+			if userNode.StaticNode.Address6 != "" {
+				srcIP6 = append(srcIP6, userNode.StaticNode.AddressIPNet6())
+			}
+		}
+		if len(srcIP4) == 0 && len(srcIP6) == 0 {
+			continue
+		}
+
+		ruleID := acl.ID + "#ext-fwd"
+		aclRule := models.AclRule{
+			ID:              ruleID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+			IPList:          logic.UniqueIPNetList(srcIP4),
+			IP6List:         logic.UniqueIPNetList(srcIP6),
+			Dst:             logic.UniqueIPNetList(dst4),
+			Dst6:            logic.UniqueIPNetList(dst6),
+		}
+		rules[ruleID] = aclRule
+
+		if acl.AllowedDirection == models.TrafficDirectionBi &&
+			(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
+			revID := ruleID + "-reverse"
+			rules[revID] = models.AclRule{
+				ID:              revID,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Direction:       acl.AllowedDirection,
+				Allowed:         true,
+				IPList:          append([]net.IPNet(nil), aclRule.Dst...),
+				IP6List:         append([]net.IPNet(nil), aclRule.Dst6...),
+				Dst:             append([]net.IPNet(nil), aclRule.IPList...),
+				Dst6:            append([]net.IPNet(nil), aclRule.IP6List...),
+			}
+		}
+	}
 }
 
 func GetUserAclRulesForNode(targetnode *models.Node,

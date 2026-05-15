@@ -34,6 +34,16 @@ var getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
 	return ListDevicePolicies(netID)
 }
 
+// listNetworkExtClients fetches all extclients in a network; tests may override.
+var listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	return GetNetworkExtClients(network)
+}
+
+// getNodeByID fetches a node by its UUID; tests may override.
+var getNodeByID = func(uuid string) (models.Node, error) {
+	return GetNodeByID(uuid)
+}
+
 // getNodeByIDForEgressFw resolves routing-node mesh addresses for NAT-aware egress firewall rules (tests may override).
 var getNodeByIDForEgressFw = GetNodeByID
 
@@ -74,12 +84,12 @@ func isEgressToEgressPolicyForTarget(policy models.Acl, targetnode models.Node) 
 	}
 	targetRoutesSrcEgress := targetNodeRoutesAnyEgress(targetnode, srcEgresses)
 	targetRoutesDstEgress := targetNodeRoutesAnyEgress(targetnode, dstEgresses)
-
-	if policy.AllowedDirection == models.TrafficDirectionBi {
-		return targetRoutesSrcEgress || targetRoutesDstEgress
-	}
-	// For uni-directional (src -> dst), target must route source-side egress.
-	return targetRoutesSrcEgress
+	// Both Uni and Bi policies require a forward rule on EVERY node the packet
+	// traverses, i.e. both the src-egress router AND the dst-egress router.
+	// (Bi additionally needs a reverse leg, emitted further down the pipeline.)
+	// Only skip when this node hosts neither egress and therefore would never
+	// see the packet.
+	return targetRoutesSrcEgress || targetRoutesDstEgress
 }
 
 func getEgressesFromPolicyTags(tags []models.AclPolicyTag, network string) []schema.Egress {
@@ -127,6 +137,17 @@ func targetNodeRoutesAnyEgress(targetnode models.Node, egresses []schema.Egress)
 	return false
 }
 
+// IsEgressRoutingPolicyAllowedForNodes reports whether `policy` permits a
+// peering relationship (and corresponding mesh peer ACL rule) between `node`
+// and `peer` on either side of an egress<->egress flow. WireGuard peering is
+// inherently bidirectional: even a Uni "src-egress -> dst-egress" policy
+// requires the src-router and dst-router hosts to complete a wg handshake so
+// the tunnel can carry the one-way L4 traffic. The L4 direction (Uni vs Bi)
+// is then enforced downstream by the FORWARD/INPUT rule generators, not at
+// peer-allow time. We therefore accept the policy whenever EITHER side of the
+// pair routes the matching egress, otherwise the dst-side router would never
+// add the src-side router as a peer (callers query symmetrically as
+// (X, Y) and (Y, X)) and the handshake would silently never occur.
 func IsEgressRoutingPolicyAllowedForNodes(policy models.Acl, node, peer models.Node) bool {
 	srcEgresses := getEgressesFromPolicyTags(policy.Src, node.Network)
 	if len(srcEgresses) == 0 {
@@ -143,9 +164,6 @@ func IsEgressRoutingPolicyAllowedForNodes(policy models.Acl, node, peer models.N
 	peerRoutesDst := targetNodeRoutesAnyEgress(peer, dstEgresses)
 
 	forwardAllowed := nodeRoutesSrc && peerRoutesDst
-	if policy.AllowedDirection == models.TrafficDirectionUni {
-		return forwardAllowed
-	}
 	reverseAllowed := nodeRoutesDst && peerRoutesSrc
 	return forwardAllowed || reverseAllowed
 }
@@ -171,13 +189,17 @@ func crossSiteEgressIPNetPairs(srcs, dsts []net.IPNet) []struct{ Src, Dst net.IP
 	return out
 }
 
-func egressSiteToSiteRuleKey(aclID string, reverse bool, idx int, total int) string {
+// egressSiteToSiteRuleKey returns the rules-map key for a site-to-site rule.
+// The "#xs<idx>" suffix is always added (even for a single pair) so the key
+// never collides with the main-loop's `acl.ID` (or `acl.ID-reverse`) rules,
+// which are emitted from GetEgressRulesForNode for the same acl when its src
+// also references mesh devices (NodeID/NodeTagID). Without the suffix the
+// site-to-site rule would overwrite the device-mesh-IP rule under that key.
+// The `total` arg is retained for call-site symmetry; idx is always used.
+func egressSiteToSiteRuleKey(aclID string, reverse bool, idx int, _ int) string {
 	suf := ""
 	if reverse {
 		suf = egressSiteACLReverseSuffix
-	}
-	if total == 1 {
-		return aclID + suf
 	}
 	return fmt.Sprintf("%s%s#xs%d", aclID, suf, idx)
 }
@@ -275,10 +297,12 @@ func getEgressAclRulesForTargetNode(targetnode models.Node) map[string]models.Ac
 		}
 		srcRouted := targetNodeRoutesAnyEgress(targetnode, srcEgresses)
 		dstRouted := targetNodeRoutesAnyEgress(targetnode, dstEgresses)
-		if acl.AllowedDirection == models.TrafficDirectionUni && !srcRouted {
-			continue
-		}
-		if acl.AllowedDirection == models.TrafficDirectionBi && !srcRouted && !dstRouted {
+		// A node only needs a rule for this policy when it actually sits on the
+		// packet path. For both Uni (src -> dst) and Bi traffic, that means
+		// either it routes the src-egress (LAN behind it is the source) or it
+		// routes the dst-egress (LAN behind it is the destination). The Bi-only
+		// reverse leg is appended after the forward leg below.
+		if !srcRouted && !dstRouted {
 			continue
 		}
 		origSrcIP4, origSrcIP6 := getSelectedEgressIPNets(acl.Src)
@@ -556,6 +580,21 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			}
 		}
 	}
+
+	// For each extclient attached to this gateway, emit explicit allow rules to every
+	// egress range it has policy access to (including egresses hosted on other nodes).
+	// The peer-iteration above only adds the rule when it happens to iterate the
+	// egress-owning peer; that misses orphan/stale egresses and is also brittle when
+	// the egress->node ownership map is partial. This pass keys directly off the
+	// extclient + egress, which is what netclient needs on the forward chain so
+	// EC -> remote_egress traffic isn't dropped at this gateway.
+	rules = append(rules, getExtClientEgressFwRulesOnIngressGw(node)...)
+	// Same idea, but for relayed mesh devices: the blanket NetworkRange <-> relayed
+	// rule below covers in-mesh traffic; it does not cover traffic from a relayed
+	// device to an external egress range (LAN CIDR / VirtualRange / domain CIDRs),
+	// so those packets would otherwise be dropped on the relay's forward chain.
+	rules = append(rules, getDeviceEgressFwRulesOnIngressGw(node)...)
+
 	if len(node.RelayedNodes) > 0 {
 		for _, relayedNodeID := range node.RelayedNodes {
 			relayedNode, err := GetNodeByID(relayedNodeID)
@@ -1003,7 +1042,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	} else {
 		taggedNodes = GetTagMapWithNodesByNetwork(schema.NetworkID(targetnode.Network), true)
 	}
-	acls := ListDevicePolicies(schema.NetworkID(targetnode.Network))
+	acls := getDevicePoliciesByNetwork(schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
@@ -1023,6 +1062,29 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		dstTags := ConvAclTagToValueMap(acl.Dst)
+		// Expand any EgressID entries on the src side into the egress's owner
+		// node IDs. ConvAclTagToValueMap collapses every tag to its raw Value,
+		// so an "EgressID:blr-eg" entry only ends up in srcTags as the literal
+		// "blr-eg" key, which never matches any node in taggedNodes/GetNodeByID
+		// below. As a result, a site-to-site policy whose src is "an egress"
+		// (rather than a node-tag/node-id) would emit a rule on the dst-side
+		// egress node with no entries from the src-egress mesh routers in the
+		// IPList - so the dst node's INPUT chain would silently drop incoming
+		// wg traffic from the src-egress router and the handshake/connection
+		// would never establish. Inserting the egress's owner node IDs into
+		// srcTags lets the existing taggedNodes[NodeID] / GetNodeByID(NodeID)
+		// resolution add their mesh AddressIPNet4/6 to the rule's IPList.
+		for _, src := range acl.Src {
+			if src.ID != models.EgressID {
+				continue
+			}
+			e, err := getEgressByID(src.Value)
+			if err == nil && e.Status {
+				for nodeID := range e.Nodes {
+					srcTags[nodeID] = struct{}{}
+				}
+			}
+		}
 		egressRanges4 := []net.IPNet{}
 		egressRanges6 := []net.IPNet{}
 		selectedIP4, selectedIP6 := getSelectedEgressIPNets(acl.Dst)
@@ -1079,8 +1141,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 				break
 			}
 			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
+				e, err := getEgressByID(dst.Value)
 				if err == nil && e.Status && len(e.Nodes) > 0 {
 					nodeOwnsEgress := false
 					if _, ok := e.Nodes[targetnode.ID.String()]; ok {
@@ -1347,15 +1408,18 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		return
 	}
 	var egressIDMap = make(map[string]schema.Egress)
+	var remoteEgresses = make(map[string]schema.Egress)
 	for _, egI := range egs {
 		if !egI.Status {
 			continue
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
 			egressIDMap[egI.ID] = egI
+		} else {
+			remoteEgresses[egI.ID] = egI
 		}
 	}
-	if len(egressIDMap) == 0 {
+	if len(egressIDMap) == 0 && len(remoteEgresses) == 0 {
 		return
 	}
 	for _, acl := range acls {
@@ -1465,11 +1529,548 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 
 	}
 
+	for aclID, aclRule := range appendExtClientRemoteEgressFwdRules(targetnode, acls, remoteEgresses) {
+		rules[aclID] = aclRule
+	}
+
+	for aclID, aclRule := range appendDeviceRemoteEgressFwdRules(targetnode, acls, remoteEgresses) {
+		rules[aclID] = aclRule
+	}
+
 	for aclID, aclRule := range getEgressAclRulesForTargetNode(targetnode) {
 		rules[aclID] = aclRule
 	}
 
 	return
+}
+
+// appendExtClientRemoteEgressFwdRules emits forward-chain rules for extclients attached
+// to targetnode (as their ingress gateway) so traffic to egress ranges hosted on OTHER
+// nodes is not dropped at targetnode. Without these, even when the per-policy ingress
+// rule allows the packet at the ingress chain, the egress/forward chain on targetnode
+// has no matching rule because the remote egress is not in egressIDMap. The emitted
+// rules are keyed with the "#ext-fwd" suffix to avoid colliding with the local-egress
+// rules keyed by acl.ID, and a "-reverse" companion is added for Bi policies.
+func appendExtClientRemoteEgressFwdRules(
+	targetnode models.Node,
+	acls []models.Acl,
+	remoteEgresses map[string]schema.Egress,
+) map[string]models.AclRule {
+	out := make(map[string]models.AclRule)
+	if len(remoteEgresses) == 0 {
+		return out
+	}
+	extclients, err := listNetworkExtClients(targetnode.Network)
+	if err != nil {
+		return out
+	}
+	attached := extclients[:0:0]
+	for _, ec := range extclients {
+		if !ec.Enabled {
+			continue
+		}
+		if ec.IngressGatewayID != targetnode.ID.String() {
+			continue
+		}
+		// user-policy extclients are handled by GetEgressUserRulesForNode
+		if ec.RemoteAccessClientID != "" {
+			continue
+		}
+		attached = append(attached, ec)
+	}
+	if len(attached) == 0 {
+		return out
+	}
+
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := ConvAclTagToValueMap(acl.Src)
+		dstTags := ConvAclTagToValueMap(acl.Dst)
+		_, srcAll := srcTags["*"]
+		_, dstAll := dstTags["*"]
+		selectedIP4, selectedIP6 := getSelectedEgressIPNets(acl.Dst)
+
+		var dst4, dst6 []net.IPNet
+		for egID, egI := range remoteEgresses {
+			if _, ok := dstTags[egID]; !ok && !dstAll {
+				continue
+			}
+			if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+				dst4 = append(dst4, selectedIP4...)
+				dst6 = append(dst6, selectedIP6...)
+				continue
+			}
+			if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+				for _, domainAnsI := range egI.DomainAns {
+					ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
+					if parseErr != nil {
+						continue
+					}
+					if ip.To4() != nil {
+						dst4 = append(dst4, *cidr)
+					} else {
+						dst6 = append(dst6, *cidr)
+					}
+				}
+				continue
+			}
+			// at the forward chain on the ingress gw, packets carry the address the
+			// extclient was told to use (virtual_range when set, else range).
+			egressRange := egI.Range
+			if egI.VirtualRange != "" {
+				egressRange = egI.VirtualRange
+			}
+			if egressRange == "" {
+				continue
+			}
+			ip, cidr, parseErr := net.ParseCIDR(egressRange)
+			if parseErr != nil {
+				continue
+			}
+			if ip.To4() != nil {
+				dst4 = append(dst4, *cidr)
+			} else {
+				dst6 = append(dst6, *cidr)
+			}
+		}
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+
+		var srcIP4, srcIP6 []net.IPNet
+		for _, ec := range attached {
+			if !extclientMatchesAclSrc(ec, srcTags, srcAll) {
+				continue
+			}
+			if ec.Address != "" {
+				srcIP4 = append(srcIP4, ec.AddressIPNet4())
+			}
+			if ec.Address6 != "" {
+				srcIP6 = append(srcIP6, ec.AddressIPNet6())
+			}
+		}
+		if len(srcIP4) == 0 && len(srcIP6) == 0 {
+			continue
+		}
+
+		ruleID := acl.ID + "#ext-fwd"
+		aclRule := models.AclRule{
+			ID:              ruleID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+			IPList:          UniqueIPNetList(srcIP4),
+			IP6List:         UniqueIPNetList(srcIP6),
+			Dst:             UniqueIPNetList(dst4),
+			Dst6:            UniqueIPNetList(dst6),
+		}
+		out[ruleID] = aclRule
+
+		if acl.AllowedDirection == models.TrafficDirectionBi &&
+			(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
+			revID := ruleID + egressSiteACLReverseSuffix
+			out[revID] = models.AclRule{
+				ID:              revID,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Direction:       acl.AllowedDirection,
+				Allowed:         true,
+				IPList:          append([]net.IPNet(nil), aclRule.Dst...),
+				IP6List:         append([]net.IPNet(nil), aclRule.Dst6...),
+				Dst:             append([]net.IPNet(nil), aclRule.IPList...),
+				Dst6:            append([]net.IPNet(nil), aclRule.IP6List...),
+			}
+		}
+	}
+
+	return out
+}
+
+// appendDeviceRemoteEgressFwdRules is the relayed-mesh-device twin of
+// appendExtClientRemoteEgressFwdRules: for nodes relayed by targetnode, emit
+// forward-chain AclRules so traffic from a relayed device to egress ranges
+// hosted on OTHER nodes is not dropped at targetnode. Rules are keyed
+// "<acl.ID>#dev-fwd" to avoid colliding with the extclient or local-egress
+// keys, and a "-reverse" companion is added for Bi policies.
+func appendDeviceRemoteEgressFwdRules(
+	targetnode models.Node,
+	acls []models.Acl,
+	remoteEgresses map[string]schema.Egress,
+) map[string]models.AclRule {
+	out := make(map[string]models.AclRule)
+	if len(remoteEgresses) == 0 || len(targetnode.RelayedNodes) == 0 {
+		return out
+	}
+	var relayed []models.Node
+	for _, id := range targetnode.RelayedNodes {
+		r, err := getNodeByID(id)
+		if err != nil {
+			continue
+		}
+		relayed = append(relayed, r)
+	}
+	if len(relayed) == 0 {
+		return out
+	}
+
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := ConvAclTagToValueMap(acl.Src)
+		_, srcAll := srcTags["*"]
+		dst4, dst6 := computeEgressDstsForAcl(targetnode.ID.String(), acl, remoteEgresses)
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+
+		var srcIP4, srcIP6 []net.IPNet
+		for _, r := range relayed {
+			if !nodeMatchesAclSrc(r, srcTags, srcAll) {
+				continue
+			}
+			if r.Address.IP != nil {
+				srcIP4 = append(srcIP4, r.AddressIPNet4())
+			}
+			if r.Address6.IP != nil {
+				srcIP6 = append(srcIP6, r.AddressIPNet6())
+			}
+		}
+		if len(srcIP4) == 0 && len(srcIP6) == 0 {
+			continue
+		}
+
+		ruleID := acl.ID + "#dev-fwd"
+		aclRule := models.AclRule{
+			ID:              ruleID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+			IPList:          UniqueIPNetList(srcIP4),
+			IP6List:         UniqueIPNetList(srcIP6),
+			Dst:             UniqueIPNetList(dst4),
+			Dst6:            UniqueIPNetList(dst6),
+		}
+		out[ruleID] = aclRule
+
+		if acl.AllowedDirection == models.TrafficDirectionBi &&
+			(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
+			revID := ruleID + egressSiteACLReverseSuffix
+			out[revID] = models.AclRule{
+				ID:              revID,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Direction:       acl.AllowedDirection,
+				Allowed:         true,
+				IPList:          append([]net.IPNet(nil), aclRule.Dst...),
+				IP6List:         append([]net.IPNet(nil), aclRule.Dst6...),
+				Dst:             append([]net.IPNet(nil), aclRule.IPList...),
+				Dst6:            append([]net.IPNet(nil), aclRule.IP6List...),
+			}
+		}
+	}
+
+	return out
+}
+
+// getExtClientEgressFwRulesOnIngressGw emits []models.FwRule entries for every
+// (attached extclient, egress range) pair allowed by an enabled device policy.
+// This is the FwRule (IngressInfo.Rules) twin of appendExtClientRemoteEgressFwdRules
+// and exists so the ingress gateway's forward chain has the rule even when this
+// gateway is not itself an egress gateway (in which case GetEgressRulesForNode
+// is never called for it).
+func getExtClientEgressFwRulesOnIngressGw(node models.Node) (rules []models.FwRule) {
+	extclients, err := listNetworkExtClients(node.Network)
+	if err != nil {
+		return
+	}
+	var attached []models.ExtClient
+	for _, ec := range extclients {
+		if !ec.Enabled {
+			continue
+		}
+		if ec.IngressGatewayID != node.ID.String() {
+			continue
+		}
+		// user-policy extclients are handled by GetFwRulesForUserNodesOnGw
+		if ec.RemoteAccessClientID != "" {
+			continue
+		}
+		attached = append(attached, ec)
+	}
+	if len(attached) == 0 {
+		return
+	}
+
+	egs, err := getEgressByNetwork(node.Network)
+	if err != nil || len(egs) == 0 {
+		return
+	}
+	egByID := make(map[string]schema.Egress, len(egs))
+	for _, eg := range egs {
+		if !eg.Status {
+			continue
+		}
+		egByID[eg.ID] = eg
+	}
+	if len(egByID) == 0 {
+		return
+	}
+
+	acls := getDevicePoliciesByNetwork(schema.NetworkID(node.Network))
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := ConvAclTagToValueMap(acl.Src)
+		_, srcAll := srcTags["*"]
+		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, egByID)
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+		for _, ec := range attached {
+			if !extclientMatchesAclSrc(ec, srcTags, srcAll) {
+				continue
+			}
+			var src4, src6 net.IPNet
+			if ec.Address != "" {
+				src4 = ec.AddressIPNet4()
+			}
+			if ec.Address6 != "" {
+				src6 = ec.AddressIPNet6()
+			}
+			rules = append(rules, emitEgressFwRulesForSrc(acl, src4, src6, dst4, dst6)...)
+		}
+	}
+	return
+}
+
+// getDeviceEgressFwRulesOnIngressGw is the relayed-mesh-device twin of
+// getExtClientEgressFwRulesOnIngressGw: for every node relayed by this gateway,
+// emit allow rules to every egress range the relayed device has policy access to.
+// Without this the relay's forward chain only allows traffic between the mesh
+// network range and the relayed device, so relayed_device -> external_egress_range
+// traffic gets dropped here.
+func getDeviceEgressFwRulesOnIngressGw(node models.Node) (rules []models.FwRule) {
+	if len(node.RelayedNodes) == 0 {
+		return
+	}
+	var relayed []models.Node
+	for _, id := range node.RelayedNodes {
+		r, err := getNodeByID(id)
+		if err != nil {
+			continue
+		}
+		relayed = append(relayed, r)
+	}
+	if len(relayed) == 0 {
+		return
+	}
+
+	egs, err := getEgressByNetwork(node.Network)
+	if err != nil || len(egs) == 0 {
+		return
+	}
+	egByID := make(map[string]schema.Egress, len(egs))
+	for _, eg := range egs {
+		if !eg.Status {
+			continue
+		}
+		egByID[eg.ID] = eg
+	}
+	if len(egByID) == 0 {
+		return
+	}
+
+	acls := getDevicePoliciesByNetwork(schema.NetworkID(node.Network))
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := ConvAclTagToValueMap(acl.Src)
+		_, srcAll := srcTags["*"]
+		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, egByID)
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+		for _, r := range relayed {
+			if !nodeMatchesAclSrc(r, srcTags, srcAll) {
+				continue
+			}
+			var src4, src6 net.IPNet
+			if r.Address.IP != nil {
+				src4 = r.AddressIPNet4()
+			}
+			if r.Address6.IP != nil {
+				src6 = r.AddressIPNet6()
+			}
+			rules = append(rules, emitEgressFwRulesForSrc(acl, src4, src6, dst4, dst6)...)
+		}
+	}
+	return
+}
+
+// computeEgressDstsForAcl returns the IPv4 and IPv6 destination CIDRs an acl
+// grants access to across egByID, viewed from `nodeID`'s perspective: the
+// destination address a source on this node sees depends on whether the node
+// owns the egress (use Range) or not (prefer VirtualRange when set). Selected
+// egress IPs (NetmakerIPAclID entries in acl.Dst) take precedence over the
+// egress range, and domain answers take precedence over Range when configured.
+func computeEgressDstsForAcl(
+	nodeID string,
+	acl models.Acl,
+	egByID map[string]schema.Egress,
+) (dst4, dst6 []net.IPNet) {
+	dstTags := ConvAclTagToValueMap(acl.Dst)
+	_, dstAll := dstTags["*"]
+	selectedIP4, selectedIP6 := getSelectedEgressIPNets(acl.Dst)
+	for egID, egI := range egByID {
+		if _, ok := dstTags[egID]; !ok && !dstAll {
+			continue
+		}
+		if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+			dst4 = append(dst4, selectedIP4...)
+			dst6 = append(dst6, selectedIP6...)
+			continue
+		}
+		if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+			for _, domainAnsI := range egI.DomainAns {
+				ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
+				if parseErr != nil {
+					continue
+				}
+				if ip.To4() != nil {
+					dst4 = append(dst4, *cidr)
+				} else {
+					dst6 = append(dst6, *cidr)
+				}
+			}
+			continue
+		}
+		nodeOwnsEgress := false
+		if _, ok := egI.Nodes[nodeID]; ok {
+			nodeOwnsEgress = true
+		}
+		egressRange := egI.Range
+		if !nodeOwnsEgress && egI.VirtualRange != "" {
+			egressRange = egI.VirtualRange
+		}
+		if egressRange == "" {
+			continue
+		}
+		ip, cidr, parseErr := net.ParseCIDR(egressRange)
+		if parseErr != nil {
+			continue
+		}
+		if ip.To4() != nil {
+			dst4 = append(dst4, *cidr)
+		} else {
+			dst6 = append(dst6, *cidr)
+		}
+	}
+	return
+}
+
+// emitEgressFwRulesForSrc emits FwRule entries for a single src address pair
+// against the dst CIDRs. For Bi-directional acls a reverse leg is also emitted
+// so return traffic from the egress range back to the source is allowed.
+// Zero-valued IPNets (IP == nil) are treated as "this address family not present".
+func emitEgressFwRulesForSrc(acl models.Acl, src4, src6 net.IPNet, dst4, dst6 []net.IPNet) (rules []models.FwRule) {
+	if src4.IP != nil {
+		for _, cidr := range dst4 {
+			rules = append(rules, models.FwRule{
+				SrcIP:           src4,
+				DstIP:           cidr,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Allow:           true,
+			})
+		}
+	}
+	if src6.IP != nil {
+		for _, cidr := range dst6 {
+			rules = append(rules, models.FwRule{
+				SrcIP:           src6,
+				DstIP:           cidr,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Allow:           true,
+			})
+		}
+	}
+	if acl.AllowedDirection != models.TrafficDirectionBi {
+		return
+	}
+	if src4.IP != nil {
+		for _, cidr := range dst4 {
+			rules = append(rules, models.FwRule{
+				SrcIP:           cidr,
+				DstIP:           src4,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Allow:           true,
+			})
+		}
+	}
+	if src6.IP != nil {
+		for _, cidr := range dst6 {
+			rules = append(rules, models.FwRule{
+				SrcIP:           cidr,
+				DstIP:           src6,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Allow:           true,
+			})
+		}
+	}
+	return
+}
+
+// extclientMatchesAclSrc reports whether an extclient is permitted as a source by an acl,
+// matching on its ClientID or any of its tags (mirroring how AddTagMapWithStaticNodes
+// keys the tag map).
+func extclientMatchesAclSrc(ec models.ExtClient, srcTags map[string]struct{}, srcAll bool) bool {
+	if srcAll {
+		return true
+	}
+	if _, ok := srcTags[ec.ClientID]; ok {
+		return true
+	}
+	if ec.Mutex != nil {
+		ec.Mutex.Lock()
+		defer ec.Mutex.Unlock()
+	}
+	for tag := range ec.Tags {
+		if _, ok := srcTags[tag.String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// nodeMatchesAclSrc reports whether a mesh node is permitted as a source by an acl,
+// matching on its node UUID or any of its tags.
+func nodeMatchesAclSrc(n models.Node, srcTags map[string]struct{}, srcAll bool) bool {
+	if srcAll {
+		return true
+	}
+	if _, ok := srcTags[n.ID.String()]; ok {
+		return true
+	}
+	if n.Mutex != nil {
+		n.Mutex.Lock()
+		defer n.Mutex.Unlock()
+	}
+	for tag := range n.Tags {
+		if _, ok := srcTags[tag.String()]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRule) {
