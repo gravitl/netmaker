@@ -11,7 +11,7 @@ services:
       - PROMETHEUS_RETENTION_SIZE=${PROMETHEUS_RETENTION_SIZE:-0}
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tmpl:ro
-      - prometheus_data:/prometheus
+      - prometheus-data:/prometheus
     entrypoint: /bin/sh
     command:
       - -c
@@ -44,7 +44,7 @@ services:
       - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
       - ./grafana/dashboard-config.yaml:/etc/grafana/provisioning/dashboards/dashboard-config.yaml:ro
       - ./grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json:ro
-      - grafana_data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
     restart: unless-stopped
 
 
@@ -77,7 +77,7 @@ services:
 #      - clickhouse_logs:/var/log/clickhouse-server
 
 volumes:
-  prometheus_data: { }
-  grafana_data: { }
+  prometheus-data: { }
+  grafana-data: { }
 #  clickhouse_data: { }
 #  clickhouse_logs: { }

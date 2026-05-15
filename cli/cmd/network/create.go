@@ -31,9 +31,6 @@ var networkCreateCmd = &cobra.Command{
 			if address6 != "" {
 				network.AddressRange6 = address6
 			}
-			if defaultACL {
-				network.DefaultACL = "yes"
-			}
 			network.DefaultKeepAlive = defaultKeepalive
 			network.DefaultMTU = int32(defaultMTU)
 		}
@@ -47,7 +44,6 @@ func init() {
 	networkCreateCmd.MarkFlagsMutuallyExclusive("file", "name")
 	networkCreateCmd.Flags().StringVar(&address, "ipv4_addr", "", "IPv4 address of the network")
 	networkCreateCmd.Flags().StringVar(&address6, "ipv6_addr", "", "IPv6 address of the network")
-	networkCreateCmd.Flags().BoolVar(&defaultACL, "default_acl", false, "Enable default Access Control List ?")
 	networkCreateCmd.Flags().IntVar(&defaultKeepalive, "keep_alive", 20, "Keep Alive in seconds")
 	networkCreateCmd.Flags().IntVar(&defaultMTU, "mtu", 1280, "MTU size")
 	rootCmd.AddCommand(networkCreateCmd)

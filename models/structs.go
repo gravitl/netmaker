@@ -4,16 +4,9 @@ import (
 	"net"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-)
-
-const (
-	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
-	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
-	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
 type FeatureFlags struct {
@@ -46,24 +39,24 @@ type IngressGwUsers struct {
 
 // UserRemoteGws - struct to hold user's remote gws
 type UserRemoteGws struct {
-	GwID              string       `json:"remote_access_gw_id"`
-	GWName            string       `json:"gw_name"`
-	Network           string       `json:"network"`
-	Connected         bool         `json:"connected"`
-	IsInternetGateway bool         `json:"is_internet_gateway"`
-	GwClient          ExtClient    `json:"gw_client"`
-	GwPeerPublicKey   string       `json:"gw_peer_public_key"`
-	GwListenPort      int          `json:"gw_listen_port"`
-	Metadata          string       `json:"metadata"`
-	AllowedEndpoints  []string     `json:"allowed_endpoints"`
-	NetworkAddresses  []string     `json:"network_addresses"`
-	Status            NodeStatus   `json:"status"`
-	ManageDNS         bool         `json:"manage_dns"`
-	DnsAddress        string       `json:"dns_address"`
-	Addresses         string       `json:"addresses"`
-	MatchDomains      []string     `json:"match_domains"`
-	SearchDomains     []string     `json:"search_domains"`
-	Nameservers       []Nameserver `json:"nameservers"`
+	GwID              string            `json:"remote_access_gw_id"`
+	GWName            string            `json:"gw_name"`
+	Network           string            `json:"network"`
+	Connected         bool              `json:"connected"`
+	IsInternetGateway bool              `json:"is_internet_gateway"`
+	GwClient          ExtClient         `json:"gw_client"`
+	GwPeerPublicKey   string            `json:"gw_peer_public_key"`
+	GwListenPort      int               `json:"gw_listen_port"`
+	Metadata          string            `json:"metadata"`
+	AllowedEndpoints  []string          `json:"allowed_endpoints"`
+	NetworkAddresses  []string          `json:"network_addresses"`
+	Status            schema.NodeStatus `json:"status"`
+	ManageDNS         bool              `json:"manage_dns"`
+	DnsAddress        string            `json:"dns_address"`
+	Addresses         string            `json:"addresses"`
+	MatchDomains      []string          `json:"match_domains"`
+	SearchDomains     []string          `json:"search_domains"`
+	Nameservers       []Nameserver      `json:"nameservers"`
 }
 
 // UserRAGs - struct for user access gws
@@ -244,13 +237,6 @@ type IngressRequest struct {
 // InetNodeReq - exit node request struct
 type InetNodeReq struct {
 	InetNodeClientIDs []string `json:"inet_node_client_ids"`
-}
-
-// ServerUpdateData - contains data to configure server
-// and if it should set peers
-type ServerUpdateData struct {
-	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers"`
-	Node        LegacyNode `json:"servernode" bson:"servernode"`
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
@@ -472,17 +458,17 @@ type IDPSyncTestRequest struct {
 }
 
 type PostureCheckDeviceInfo struct {
-	ClientLocation  string
-	ClientVersion   string
-	OS              string
-	OSFamily        string
-	OSVersion       string
-	KernelVersion   string
-	AutoUpdate      bool
-	SkipAutoUpdate  bool
-	Tags            map[TagID]struct{}
-	IsUser          bool
-	UserGroups      map[schema.UserGroupID]struct{}
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	SkipAutoUpdate bool
+	Tags           map[TagID]struct{}
+	IsUser         bool
+	UserGroups     map[schema.UserGroupID]struct{}
 }
 
 type Violation struct {
@@ -491,4 +477,38 @@ type Violation struct {
 	Attribute string          `json:"attribute"`
 	Message   string          `json:"message"`
 	Severity  schema.Severity `json:"severity"`
+}
+
+type BulkDeleteRequest struct {
+	IDs []string `json:"ids"`
+}
+
+type BulkDeleteError struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+type BulkDeleteResponse struct {
+	Deleted []string          `json:"deleted"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkUserStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Disable bool     `json:"disable"`
+}
+
+type BulkStatusResponse struct {
+	Updated []string          `json:"updated"`
+	Failed  []BulkDeleteError `json:"failed,omitempty"`
+}
+
+type BulkNodeStatusUpdate struct {
+	IDs       []string `json:"ids"`
+	Connected bool     `json:"connected"`
+}
+
+type BulkExtClientStatusUpdate struct {
+	IDs     []string `json:"ids"`
+	Enabled bool     `json:"enabled"`
 }

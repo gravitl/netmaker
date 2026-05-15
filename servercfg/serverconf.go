@@ -50,6 +50,20 @@ func GetJwtValidityDurationFromEnv() int {
 	return defaultDuration
 }
 
+// GetAuthRateLimitLockoutSecondsFromEnv returns how long (in seconds) an IP is blocked after
+// exceeding the admin auth rate limit. Env AUTH_RATE_LIMIT_LOCKOUT_DURATION overrides the
+// default of 3600 (one hour).
+func GetAuthRateLimitLockoutSecondsFromEnv() int {
+	const defaultSecs = 3600
+	if os.Getenv("AUTH_RATE_LIMIT_LOCKOUT_DURATION") != "" {
+		t, err := strconv.Atoi(os.Getenv("AUTH_RATE_LIMIT_LOCKOUT_DURATION"))
+		if err == nil && t > 0 {
+			return t
+		}
+	}
+	return defaultSecs
+}
+
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
 func GetRacRestrictToSingleNetwork() bool {
 	return os.Getenv("RAC_RESTRICT_TO_SINGLE_NETWORK") == "true"

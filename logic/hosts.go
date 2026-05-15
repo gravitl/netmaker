@@ -49,7 +49,7 @@ const (
 
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
-func GetAllHostsWithStatus(status models.NodeStatus) ([]schema.Host, error) {
+func GetAllHostsWithStatus(status schema.NodeStatus) ([]schema.Host, error) {
 	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
@@ -84,24 +84,24 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
-func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) bool {
-	if len(h.Nodes) > 0 {
-		for _, nodeID := range h.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err == nil && node.Network == network.String() {
-				return true
-			}
-		}
+func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) bool {
+	node := &schema.Node{
+		HostID:    h.ID.String(),
+		NetworkID: network.ID,
 	}
-	return false
+	err := node.GetByHostAndNetwork(db.WithContext(context.TODO()))
+	return err == nil
 }
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *schema.Host) error {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {
+	if err == nil {
 		return ErrHostExists
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to check host existence: %w", err)
 	}
 
 	// encrypt that password so we never see it
@@ -166,53 +166,57 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
+	if newHost.IsDefault {
+		newHost.IsStaticPort = true
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
-func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) {
+func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, sendPeerUpdate bool) {
+	var peerUpdateReasons []string
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "public_key")
 	}
-	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
-		currHost.ListenPort = newHost.ListenPort
-		sendPeerUpdate = true
+	if !currHost.IsStaticPort {
+		if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
+			currHost.ListenPort = newHost.ListenPort
+			sendPeerUpdate = true
+			peerUpdateReasons = append(peerUpdateReasons, "listen_port")
+		}
+		if newHost.WgPublicListenPort != 0 &&
+			currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+			currHost.WgPublicListenPort = newHost.WgPublicListenPort
+			sendPeerUpdate = true
+			peerUpdateReasons = append(peerUpdateReasons, "wg_public_listen_port")
+		}
 	}
-	if newHost.WgPublicListenPort != 0 &&
-		currHost.WgPublicListenPort != newHost.WgPublicListenPort {
-		currHost.WgPublicListenPort = newHost.WgPublicListenPort
-		sendPeerUpdate = true
+	if !currHost.IsStatic {
+		if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
+			currHost.EndpointIP = newHost.EndpointIP
+			sendPeerUpdate = true
+			isEndpointChanged = true
+			peerUpdateReasons = append(peerUpdateReasons, "endpoint_ip")
+		}
+		if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
+			currHost.EndpointIPv6 = newHost.EndpointIPv6
+			sendPeerUpdate = true
+			isEndpointChanged = true
+			peerUpdateReasons = append(peerUpdateReasons, "endpoint_ipv6")
+		}
 	}
-	isEndpointChanged := false
-	if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
-		currHost.EndpointIP = newHost.EndpointIP
-		sendPeerUpdate = true
-		isEndpointChanged = true
-	}
-	if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
-		currHost.EndpointIPv6 = newHost.EndpointIPv6
-		sendPeerUpdate = true
-		isEndpointChanged = true
-	}
+
 	for i := range newHost.Interfaces {
 		newHost.Interfaces[i].AddressString = newHost.Interfaces[i].Address.String()
 	}
-	utils.SortIfacesByName(currHost.Interfaces)
 	utils.SortIfacesByName(newHost.Interfaces)
-	if !utils.CompareIfaces(currHost.Interfaces, newHost.Interfaces) {
-		currHost.Interfaces = newHost.Interfaces
-		sendPeerUpdate = true
-	}
-
 	if isEndpointChanged {
 		for _, nodeID := range currHost.Nodes {
 			node, err := GetNodeByID(nodeID)
 			if err != nil {
 				slog.Error("failed to get node:", "id", node.ID, "error", err)
 				continue
-			}
-			if node.FailedOverBy != uuid.Nil {
-				ResetFailedOverPeer(&node)
 			}
 			if len(node.AutoRelayedPeers) > 0 {
 				ResetAutoRelayedPeer(&node)
@@ -226,6 +230,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) 
 	currHost.Version = newHost.Version
 	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
+	currHost.Interfaces = newHost.Interfaces
 	currHost.MTU = newHost.MTU
 	if newHost.Location != "" {
 		currHost.Location = newHost.Location
@@ -256,8 +261,17 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (sendPeerUpdate bool) 
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "nat_type")
 	}
 
+	if sendPeerUpdate {
+		slog.Debug("UpdateHostFromClient: sendPeerUpdate",
+			"host", currHost.Name,
+			"id", currHost.ID.String(),
+			"reasons", peerUpdateReasons,
+			"isEndpointChanged", isEndpointChanged,
+		)
+	}
 	return
 }
 
@@ -267,27 +281,50 @@ func UpsertHost(h *schema.Host) error {
 }
 
 // UpdateHostNode -  handles updates from client nodes
-func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
+func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
 	currentNode, err := GetNodeByID(newNode.ID.String())
 	if err != nil {
 		return
 	}
-	ifaceDelta := IfaceDelta(&currentNode, newNode)
-	newNode.SetLastCheckIn()
-	if err := UpdateNode(&currentNode, newNode); err != nil {
-		slog.Error("error saving node", "name", h.Name, "network", newNode.Network, "error", err)
-		return
-	}
-	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if !newNode.Connected {
-			publishDeletedNodeUpdate = true
+	currentNode.Connected = newNode.Connected
+	currentNode.SetLastCheckIn()
+	UpsertNode(&currentNode)
+	if !newNode.Connected {
+		publishDeletedNodeUpdate = true
+		if servercfg.IsPro {
+			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
 		}
-		publishPeerUpdate = true
-		// reset failover data for this node
-		ResetFailedOverPeer(newNode)
-		ResetAutoRelayedPeer(newNode)
 	}
+	publishPeerUpdate = true
+	ResetAutoRelayedPeer(newNode)
+
 	return
+}
+
+// DisplaceAutoRelayedNodes removes auto-assigned nodes from a disconnected gateway
+// and returns the displaced nodes that need re-assignment.
+func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
+	gwNode, err := GetNodeByID(nodeID)
+	if err != nil || !gwNode.IsGw || len(gwNode.RelayedNodes) == 0 {
+		return nil
+	}
+	var newRelayedNodes []string
+	var displacedNodes []models.Node
+	for _, relayedNodeID := range gwNode.RelayedNodes {
+		relayedNode, err := GetNodeByID(relayedNodeID)
+		if err != nil {
+			continue
+		}
+		if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
+			displacedNodes = append(displacedNodes, relayedNode)
+			continue
+		}
+		newRelayedNodes = append(newRelayedNodes, relayedNodeID)
+	}
+	if len(displacedNodes) > 0 {
+		UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+	}
+	return displacedNodes
 }
 
 // RemoveHost - removes a given host from server
@@ -302,17 +339,7 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 		}
 	}
 
-	err := h.Delete(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	go func() {
-		if servercfg.IsDNSMode() {
-			SetDNS()
-		}
-	}()
-
-	return nil
+	return h.Delete(db.WithContext(context.TODO()))
 }
 
 // UpdateHostNetwork - adds/deletes host from a network
@@ -323,44 +350,37 @@ func UpdateHostNetwork(h *schema.Host, network string, add bool) (*models.Node, 
 			continue
 		}
 		if node.Network == network {
-			if !add {
-				return &node, nil
-			} else {
-				return &node, errors.New("host already part of network " + network)
-			}
+			return &node, nil
 		}
 	}
-	if !add {
-		return nil, errors.New("host not part of the network " + network)
-	} else {
-		newNode := models.Node{}
-		newNode.Server = servercfg.GetServer()
-		newNode.Network = network
-		newNode.HostID = h.ID
-		if err := AssociateNodeToHost(&newNode, h); err != nil {
-			return nil, err
-		}
-		return &newNode, nil
-	}
+
+	return nil, errors.New("host not part of the network " + network)
 }
 
-// AssociateNodeToHost - associates and creates a node with a given host
-// should be the only way nodes get created as of 0.18
+// AssociateNodeToHost - associates a node with a host and persists both.
 func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
+	if n == nil || h == nil {
+		return errors.New("node and host are required")
+	}
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
-	n.HostID = h.ID
-	err := createNode(n)
-	if err != nil {
-		return err
-	}
+
 	currentHost := &schema.Host{ID: h.ID}
-	if err = currentHost.Get(db.WithContext(context.TODO())); err != nil {
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node association: %w", err)
+	}
+
+	n.HostID = h.ID
+	if err := UpsertNode(n); err != nil {
 		return err
 	}
-	h.HostPass = currentHost.HostPass
-	h.Nodes = append(currentHost.Nodes, n.ID.String())
+
+	h.Nodes = currentHost.Nodes
+	if !StringSliceContains(h.Nodes, n.ID.String()) {
+		h.Nodes = append(h.Nodes, n.ID.String())
+	}
+
 	return UpsertHost(h)
 }
 
@@ -370,12 +390,14 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
-	if n.HostID != h.ID { // check if node actually belongs to host
+	if n.HostID != h.ID {
 		return fmt.Errorf("node is not associated with host")
 	}
-	if len(h.Nodes) == 0 {
-		return fmt.Errorf("no nodes present in given host")
+	currentHost := &schema.Host{ID: h.ID}
+	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to fetch host before node dissociation: %w", err)
 	}
+	h.Nodes = currentHost.Nodes
 	nList := []string{}
 	for i := range h.Nodes {
 		if h.Nodes[i] != n.ID.String() {
@@ -383,22 +405,15 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		}
 	}
 	h.Nodes = nList
-	go func() {
-		if servercfg.IsPro {
-			if clients, err := GetNetworkExtClients(n.Network); err != nil {
-				for i := range clients {
-					AllowClientNodeAccess(&clients[i], n.ID.String())
-				}
-			}
-		}
-	}()
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
 	return UpsertHost(h)
 }
 
-// DisassociateAllNodesFromHost - deletes all nodes of the host
+// DisassociateAllNodesFromHost - deletes all nodes of the host.
+// Performs reference cleanup and directly deletes each node record,
+// bypassing host-association updates since the host itself is being removed.
 func DisassociateAllNodesFromHost(hostIDStr string) error {
 	hostID, err := uuid.Parse(hostIDStr)
 	if err != nil {
@@ -409,20 +424,29 @@ func DisassociateAllNodesFromHost(hostIDStr string) error {
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
+	var failedNodes []string
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
-		if err := DeleteNode(&node, true); err != nil {
-			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
+		cleanupNodeReferences(&node)
+		if err := DeleteNodeByID(&node); err != nil {
+			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)
+			failedNodes = append(failedNodes, nodeID)
 			continue
 		}
 		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
 	}
-	host.Nodes = []string{}
-	return UpsertHost(host)
+	host.Nodes = failedNodes
+	if err := UpsertHost(host); err != nil {
+		slog.Error("failed to upsert host after node cleanup", "host", hostIDStr, "error", err)
+	}
+	if len(failedNodes) > 0 {
+		slog.Warn("some nodes could not be deleted during host cleanup", "host", hostIDStr, "failed_count", len(failedNodes), "failed_nodes", failedNodes)
+	}
+	return nil
 }
 
 // GetDefaultHosts - retrieve all hosts marked as default from DB
@@ -612,7 +636,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
-	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
+	return err == nil
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil

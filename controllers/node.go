@@ -1,22 +1,30 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var hostIDHeader = "host-id"
@@ -25,6 +33,7 @@ func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", logic.SecurityCheck(true, http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(listNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
@@ -33,8 +42,9 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateNodeStatus))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/nodes/{network}/status", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {
@@ -189,6 +199,136 @@ func AuthorizeHost(
 	}
 }
 
+// @Summary     List all nodes in the network
+// @Router      /api/v1/nodes/{network} [get]
+// @Tags        Nodes
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
+// @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
+// @Param       q query string false "Search across fields"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
+	networkName := mux.Vars(r)["network"]
+
+	var osFilters []interface{}
+	for _, filter := range r.URL.Query()["os"] {
+		osFilters = append(osFilters, filter)
+	}
+
+	deviceType := r.URL.Query().Get("device_type")
+
+	var statusFilters []interface{}
+	for _, filter := range r.URL.Query()["status"] {
+		statusFilters = append(statusFilters, filter)
+	}
+
+	q := r.URL.Query().Get("q")
+
+	var page, pageSize int
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page == 0 {
+		page = 1
+	}
+
+	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	network := &schema.Network{
+		Name: networkName,
+	}
+	err := network.Get(r.Context())
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.BadReq
+		}
+
+		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching network: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+
+	var filters, options []dbtypes.Option
+	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
+	filters = append(filters, dbtypes.WithJoin("Host", dbtypes.WithFilter("os", osFilters...)))
+	filters = append(filters, dbtypes.WithFilter("status", statusFilters...))
+
+	if deviceType != "" {
+		switch deviceType {
+		case "gw":
+			filters = append(filters, dbtypes.WithFilter("is_gateway", true))
+		case "igw":
+			filters = append(filters, dbtypes.WithFilter("is_internet_gateway", true))
+		case "gw_assigned":
+			filters = append(filters, dbtypes.WithNotFilter("relayed_by_node_id", nil))
+		case "gw_unassigned":
+			filters = append(filters, dbtypes.WithFilter("relayed_by_node_id", nil))
+		}
+	}
+
+	filters = append(filters, dbtypes.WithSearchQuery(
+		q,
+		fmt.Sprintf("%s.id", (&schema.Node{}).TableName()),
+		"name",
+		"address",
+		"address6",
+		expr.ByteaField("endpoint_ip"),
+		expr.ByteaField("endpoint_ipv6"),
+	))
+	options = append(options, filters...)
+	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", (&schema.Node{}).TableName())))
+	options = append(options, dbtypes.WithPagination(page, pageSize))
+
+	_nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch nodes in network %s: error fetching nodes: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	nodes := make([]models.NodeWithHost, 0, len(_nodes))
+	for _, _node := range _nodes {
+		var node models.NodeWithHost
+		node.Fill(&_node)
+		nodes = append(nodes, node)
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched nodes in network", networkName)
+
+	total, err := (&schema.Node{}).Count(r.Context(), filters...)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch nodes in network %s: error constructing page: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       nodes,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched network nodes")
+}
+
 // @Summary     Gets all nodes associated with network including pending nodes
 // @Router      /api/nodes/{network} [get]
 // @Tags        Nodes
@@ -209,7 +349,6 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -254,7 +393,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -291,7 +429,6 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, true)
 	// return all the nodes in JSON/API format
 	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -514,10 +651,27 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.ValidateNodeIp(&currentNode, &newData)
+
+	network := &schema.Network{Name: currentNode.Network}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+
+	if currentNode.Address.IP != nil && currentNode.Address.String() != newData.Address {
+		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv4Unique(r.Context(), network, newData.Address) {
+			err = errors.New("ip specified is already allocated:  " + newData.Address)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newData.Address6 {
+		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv6Unique(r.Context(), network, newData.Address6) {
+			err = errors.New("ip specified is already allocated:  " + newData.Address6)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	if !servercfg.IsPro {
@@ -537,7 +691,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
+		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -574,7 +728,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertHost(host)
 		}
 	}
-	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
 	err = logic.UpdateNode(&currentNode, newNode)
 	if err != nil {
@@ -636,7 +789,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		schema.NetworkID(newNode.Network))
 	newNode.LastEvaluatedAt = time.Now().UTC()
 	logic.UpsertNode(newNode)
-	logic.GetNodeStatus(newNode, false)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(
@@ -670,7 +822,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
+	go func(relayupdate bool, newNode *models.Node) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -686,10 +838,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
-		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 		if !newNode.Connected {
 			metrics, err := logic.GetMetrics(newNode.ID.String())
 			if err == nil {
@@ -700,8 +848,20 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
 			}
+			if servercfg.IsPro {
+				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
+				for _, dNode := range displacedNodes {
+					dHost := &schema.Host{ID: dNode.HostID}
+					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
+						continue
+					}
+					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
+				}
+			}
 		}
-	}(aclUpdate, relayUpdate, newNode)
+		mq.PublishPeerUpdate(false)
+	}(relayUpdate, newNode)
 }
 
 // @Summary     Delete an individual node
@@ -741,4 +901,179 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode)
+}
+
+// @Summary     Bulk delete nodes
+// @Router      /api/v1/nodes/{network}/bulk [delete]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkDeleteRequest true "List of node IDs to delete"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
+
+	go func() {
+		deleted := 0
+		var deletedNodes []models.Node
+		for _, nodeID := range req.IDs {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
+				continue
+			}
+			if node.Network != network {
+				continue
+			}
+			if err := logic.DeleteNode(&node, true); err != nil {
+				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
+				continue
+			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   node.ID.String(),
+					Name: node.ID.String(),
+					Type: schema.NodeSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+				Diff:      models.Diff{Old: node, New: nil},
+			})
+			logger.Log(1, user, "Deleted node", nodeID, "from network", network)
+			deletedNodes = append(deletedNodes, node)
+			deleted++
+		}
+		for _, node := range deletedNodes {
+			mq.PublishMqUpdatesForDeletedNode(node, true)
+		}
+		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
+}
+
+// @Summary     Bulk update node connected status
+// @Router      /api/v1/nodes/{network}/bulk/status [put]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkNodeStatusUpdate true "Node IDs and desired connected state"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+	var req models.BulkNodeStatusUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
+		return
+	}
+
+	eventAction := schema.Connect
+	if !req.Connected {
+		eventAction = schema.Disconnect
+	}
+	user := r.Header.Get("user")
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", eventAction, len(req.IDs)))
+
+	go func() {
+		var nodeIDs []interface{}
+		// filter out invalid node IDs.
+		for _, nodeID := range req.IDs {
+			node := &schema.Node{
+				ID: nodeID,
+			}
+			exists, err := node.Exists(db.WithContext(context.TODO()))
+			if err == nil && exists {
+				nodeIDs = append(nodeIDs, nodeID)
+			}
+		}
+
+		if len(nodeIDs) == 0 {
+			return
+		}
+
+		nodeUpdate := &schema.Node{
+			Connected: req.Connected,
+		}
+		if req.Connected {
+			nodeUpdate.LastCheckIn = time.Now().UTC()
+			nodeUpdate.Status = schema.OnlineSt
+		} else {
+			nodeUpdate.Status = schema.Disconnected
+		}
+		err := nodeUpdate.UpdateConnectedStatus(
+			db.WithContext(context.TODO()),
+			dbtypes.WithFilter("id", nodeIDs...),
+		)
+		if err != nil {
+			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
+			return
+		}
+
+		for i := range nodeIDs {
+			nodeID := nodeIDs[i].(string)
+			if !req.Connected {
+				metrics, err := logic.GetMetrics(nodeID)
+				if err == nil {
+					for peer, connectivity := range metrics.Connectivity {
+						connectivity.Connected = false
+						metrics.Connectivity[peer] = connectivity
+					}
+					_ = logic.UpdateMetrics(nodeID, metrics)
+				}
+			}
+			logic.LogEvent(&models.Event{
+				Action: eventAction,
+				Source: models.Subject{
+					ID:   user,
+					Name: user,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: user,
+				Target: models.Subject{
+					ID:   nodeID,
+					Name: nodeID,
+					Type: schema.NodeSub,
+				},
+				NetworkID: schema.NetworkID(network),
+				Origin:    schema.Dashboard,
+			})
+		}
+
+		mq.PublishPeerUpdate(false)
+		slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
+	}()
 }

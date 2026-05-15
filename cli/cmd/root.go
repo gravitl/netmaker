@@ -4,13 +4,11 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/access_token"
-	"github.com/gravitl/netmaker/cli/cmd/acl"
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/cmd/context"
 	"github.com/gravitl/netmaker/cli/cmd/dns"
 	"github.com/gravitl/netmaker/cli/cmd/enrollment_key"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
-	"github.com/gravitl/netmaker/cli/cmd/failover"
 	"github.com/gravitl/netmaker/cli/cmd/gateway"
 	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
@@ -48,7 +46,6 @@ func init() {
 	// Bind subcommands here
 	rootCmd.AddCommand(network.GetRoot())
 	rootCmd.AddCommand(context.GetRoot())
-	rootCmd.AddCommand(acl.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())
 	rootCmd.AddCommand(server.GetRoot())
@@ -57,7 +54,6 @@ func init() {
 	rootCmd.AddCommand(metrics.GetRoot())
 	rootCmd.AddCommand(host.GetRoot())
 	rootCmd.AddCommand(enrollment_key.GetRoot())
-	rootCmd.AddCommand(failover.GetRoot())
 	rootCmd.AddCommand(gateway.GetRoot())
 	rootCmd.AddCommand(access_token.GetRoot())
 }

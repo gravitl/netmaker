@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,22 +13,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	dbtypes "github.com/gravitl/netmaker/db/types"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 )
 
@@ -55,9 +55,11 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
@@ -889,6 +891,33 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		mq.PublishPeerUpdate(false)
 	}()
 
+	src := logic.MasterUser
+	if !isMaster {
+		src = _caller.Username
+	}
+
+	event := schema.EnableUser
+	if disableAccount {
+		event = schema.DisableUser
+	}
+
+	logic.LogEvent(&models.Event{
+		Action: event,
+		Source: models.Subject{
+			ID:   src,
+			Name: src,
+			Type: schema.UserSub,
+		},
+		TriggeredBy: src,
+		Target: models.Subject{
+			ID:   _user.Username,
+			Name: _user.Username,
+			Type: schema.UserSub,
+			Info: logic.ToReturnUser(_user),
+		},
+		Origin: schema.Dashboard,
+	})
+
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", action))
 }
 
@@ -944,7 +973,7 @@ func updateUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username query string true "Username"
-// @Success     200 {object} models.ReturnUserWithRolesAndGroups
+// @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getUserV1(w http.ResponseWriter, r *http.Request) {
@@ -1028,6 +1057,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Param       mfa_status query string false "Filter by MFA Status" Enums(enabled, disabled)
 // @Param       role query []string false "Filter by Role" Enums(super-admin, admin, platform-user, service-user, auditor)
 // @Param       auth_type query string false "Filter by Auth Type" Enums(basic, oauth)
+// @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ReturnUser
@@ -1064,6 +1094,8 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		authTypeFilter = append(authTypeFilter, filter)
 	}
 
+	q := r.URL.Query().Get("q")
+
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
@@ -1081,6 +1113,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter("platform_role_id", roleFilter...),
 		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithSearchQuery(q, "username"),
 		dbtypes.InAscOrder("username"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -1107,6 +1140,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter("platform_role_id", roleFilter...),
 		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithSearchQuery(q, "username"),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -1136,7 +1170,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Accept      json
 // @Produce     json
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -1251,7 +1285,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to create"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1347,7 +1381,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to update"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1525,8 +1559,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(&oldUser),
-			New: logic.ToReturnUser(&userchange),
+			Old: logic.ToUserEventLog(&oldUser),
+			New: logic.ToUserEventLog(&userchange),
 		},
 		Origin: schema.Dashboard,
 	}
@@ -1701,7 +1735,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			Old: logic.ToReturnUser(user),
+			Old: logic.ToUserEventLog(user),
 			New: nil,
 		},
 	})
@@ -1734,12 +1768,273 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = logic.DeleteUserInvite(user.Username)
 		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+// @Summary     Bulk delete users
+// @Router      /api/v1/users/bulk [delete]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkDeleteRequest true "List of usernames to delete"
+// @Param       force_delete_configs query bool false "Force delete associated ext-client configs"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no usernames provided"), logic.BadReq))
+		return
+	}
+
+	callerName := r.Header.Get("user")
+	var caller *schema.User
+	var callerRole *schema.UserRole
+	var isMaster bool
+	if callerName == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller = &schema.User{Username: callerName}
+		if err := caller.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		callerRole = &schema.UserRole{ID: caller.PlatformRoleID}
+		if err := callerRole.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
+
+	go func() {
+		ownerExtClients := make(map[string][]models.ExtClient)
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			slog.Error("bulk user delete: failed to get extclients", "error", err)
+		} else {
+			for _, ec := range extclients {
+				ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
+			}
+		}
+
+		deleted := 0
+		for _, username := range req.IDs {
+			user := &schema.User{Username: username}
+			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user delete: user not found", "username", username, "error", err)
+				continue
+			}
+			if !isMaster && username == caller.Username {
+				slog.Error("bulk user delete: cannot delete own account", "username", username)
+				continue
+			}
+			if user.PlatformRoleID == schema.SuperAdminRole {
+				slog.Error("bulk user delete: cannot delete superadmin", "username", username)
+				continue
+			}
+			if !isMaster {
+				if callerRole.ID != schema.SuperAdminRole {
+					if callerRole.ID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
+						slog.Error("bulk user delete: admin cannot delete another admin", "username", username)
+						continue
+					}
+				}
+			}
+			if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
+				slog.Error("bulk user delete: cannot delete idp user", "username", username)
+				continue
+			}
+			if err := logic.DeleteUser(username); err != nil {
+				slog.Error("bulk user delete: failed to delete user", "username", username, "error", err)
+				continue
+			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Delete,
+				Source: models.Subject{
+					ID:   callerName,
+					Name: callerName,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: callerName,
+				Target: models.Subject{
+					ID:   user.Username,
+					Name: user.Username,
+					Type: schema.UserSub,
+				},
+				Origin: schema.Dashboard,
+				Diff:   models.Diff{Old: logic.ToUserEventLog(user), New: nil},
+			})
+			logger.Log(1, username, "was deleted")
+			deleted++
+
+			for _, extclient := range ownerExtClients[user.Username] {
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+					continue
+				}
+				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
+					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
+					}
+				}
+			}
+			_ = logic.DeleteUserInvite(user.Username)
+		}
+		if deleted > 0 {
+			mq.PublishPeerUpdate(false)
+		}
+		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
+	}()
+}
+
+// @Summary     Bulk disable/enable user accounts
+// @Router      /api/v1/users/bulk/status [post]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.BulkUserStatusUpdate true "List of usernames and desired status"
+// @Param       force_toggle_configs query bool false "Also toggle associated ext-client connectivity"
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	var req models.BulkUserStatusUpdate
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if len(req.IDs) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no usernames provided"), logic.BadReq))
+		return
+	}
+
+	callerName := r.Header.Get("user")
+	var caller *schema.User
+	var isMaster bool
+	if callerName == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller = &schema.User{Username: callerName}
+		if err := caller.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	forceToggle := r.URL.Query().Get("force_toggle_configs") == "true"
+	action := "enable"
+	if req.Disable {
+		action = "disable"
+	}
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
+
+	go func() {
+		var ownerExtClients map[string][]models.ExtClient
+		if forceToggle {
+			extclients, err := logic.GetAllExtClients()
+			if err != nil {
+				slog.Error("bulk user status: failed to get extclients", "error", err)
+			} else {
+				ownerExtClients = make(map[string][]models.ExtClient, len(req.IDs))
+				for _, ec := range extclients {
+					ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
+				}
+			}
+		}
+
+		updated := 0
+		for _, username := range req.IDs {
+			user := &schema.User{Username: username}
+			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user status: user not found", "username", username, "error", err)
+				continue
+			}
+			if !isMaster && caller.Username == username {
+				slog.Error("bulk user status: cannot change own account status", "username", username)
+				continue
+			}
+			if !isMaster {
+				skip := false
+				switch user.PlatformRoleID {
+				case schema.SuperAdminRole:
+					if req.Disable {
+						slog.Error("bulk user status: cannot disable superadmin", "username", username)
+						skip = true
+					}
+				case schema.AdminRole:
+					if caller.PlatformRoleID != schema.SuperAdminRole {
+						slog.Error("bulk user status: insufficient role to change admin status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				case schema.PlatformUser:
+					if caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
+						slog.Error("bulk user status: insufficient role to change platform-user status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				case schema.ServiceUser:
+					if caller.PlatformRoleID != schema.SuperAdminRole && caller.PlatformRoleID != schema.AdminRole {
+						slog.Error("bulk user status: insufficient role to change service-user status", "username", username, "caller_role", caller.PlatformRoleID)
+						skip = true
+					}
+				}
+				if skip {
+					continue
+				}
+			}
+			oldUser := *user
+			user.AccountDisabled = req.Disable
+			if err := user.UpdateAccountStatus(db.WithContext(context.TODO())); err != nil {
+				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
+				continue
+			}
+			logic.LogEvent(&models.Event{
+				Action: schema.Update,
+				Source: models.Subject{
+					ID:   callerName,
+					Name: callerName,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: callerName,
+				Target: models.Subject{
+					ID:   user.Username,
+					Name: user.Username,
+					Type: schema.UserSub,
+				},
+				Diff: models.Diff{
+					Old: logic.ToUserEventLog(&oldUser),
+					New: logic.ToUserEventLog(user),
+				},
+				Origin: schema.Dashboard,
+			})
+			logger.Log(1, username, "was", action+"d")
+			updated++
+
+			if forceToggle && ownerExtClients != nil {
+				extclientStatus := !req.Disable
+				for _, extclient := range ownerExtClients[user.Username] {
+					if extclient.Enabled != extclientStatus {
+						if _, err := logic.ToggleExtClientConnectivity(&extclient, extclientStatus); err != nil {
+							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
+						}
+					}
+				}
+			}
+		}
+		if updated > 0 && forceToggle {
+			mq.PublishPeerUpdate(false)
+		}
+		slog.Info("bulk user status update completed", "action", action, "updated", updated, "total", len(req.IDs))
+	}()
 }
 
 // Called when vpn client dials in to start the auth flow and first stage is to get register URL itself

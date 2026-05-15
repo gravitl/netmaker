@@ -77,24 +77,37 @@ func RunPostureChecks() error {
 		}
 		networkNodes = logic.AddStaticNodestoList(networkNodes)
 		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
-		if err != nil || len(pcLi) == 0 {
+		if err != nil {
 			continue
 		}
+		noChecks := len(pcLi) == 0
 
 		for _, nodeI := range networkNodes {
 			if nodeI.IsStatic && !nodeI.IsUserNode {
 				continue
 			}
-			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
+			var postureChecksViolations []models.Violation
+			var postureCheckVolationSeverityLevel schema.Severity
+			if noChecks {
+				postureCheckVolationSeverityLevel = schema.SeverityUnknown
+			} else {
+				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
+			}
 			if nodeI.IsUserNode {
 				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
+					if noChecks && len(extclient.PostureChecksViolations) == 0 {
+						continue
+					}
 					extclient.PostureChecksViolations = postureChecksViolations
 					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
 					extclient.LastEvaluatedAt = time.Now().UTC()
 					logic.SaveExtClient(&extclient)
 				}
 			} else {
+				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
+					continue
+				}
 				nodeI.PostureChecksViolations, nodeI.PostureCheckVolationSeverityLevel = postureChecksViolations,
 					postureCheckVolationSeverityLevel
 				nodeI.LastEvaluatedAt = time.Now().UTC()
@@ -489,6 +502,24 @@ func compareVersions(a, b string) int {
 		}
 	}
 	return 0
+}
+
+// PopulatePostureCheckGroupNames sets group name as the value for each user group key
+func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
+	for i := range pcs {
+		for groupID := range pcs[i].UserGroups {
+			if groupID == "*" {
+				pcs[i].UserGroups[groupID] = "*"
+				continue
+			}
+			grp, err := logic.GetUserGroup(schema.UserGroupID(groupID))
+			if err == nil {
+				pcs[i].UserGroups[groupID] = grp.Name
+			} else {
+				pcs[i].UserGroups[groupID] = groupID
+			}
+		}
+	}
 }
 
 func ValidatePostureCheck(pc *schema.PostureCheck) error {

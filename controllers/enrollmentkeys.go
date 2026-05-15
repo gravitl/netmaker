@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -350,7 +349,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	key, keyErr := logic.RetrievePublicTrafficKey()
+	trafficKey, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
@@ -366,14 +365,13 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	pcviolations := []models.Violation{}
-	skipViolatedNetworks := []string{}
 	keyTags := make(map[models.TagID]struct{})
 	if len(enrollmentKey.Groups) > 0 {
 		for _, tagI := range enrollmentKey.Groups {
 			keyTags[tagI] = struct{}{}
 		}
 	}
+	var joinNetworks []string
 	for _, netI := range enrollmentKey.Networks {
 		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: newHost.CountryCode,
@@ -385,20 +383,20 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			SkipAutoUpdate: true,
 			Tags:           keyTags,
 		}, schema.NetworkID(netI))
-		pcviolations = append(pcviolations, violations...)
-		if len(violations) > 0 {
-			skipViolatedNetworks = append(skipViolatedNetworks, netI)
+		if len(violations) == 0 {
+			joinNetworks = append(joinNetworks, netI)
 		}
 	}
-	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
+	if len(joinNetworks) != len(enrollmentKey.Networks) && len(joinNetworks) == 0 {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
 		return
 	}
+	// copying the enrollment key so that edits don't end up in the enrollment key cache.
+	key := *enrollmentKey
 	// need to remove the networks that were skipped from the enrollment key
-	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
-		return slices.Contains(skipViolatedNetworks, netI)
-	})
+	key.Networks = joinNetworks
+	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
@@ -412,56 +410,32 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err = logic.CreateHost(&newHost); err != nil {
-			logger.Log(
-				0,
-				"host",
-				newHost.ID.String(),
-				newHost.Name,
-				"failed registration -",
-				err.Error(),
-			)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		host = &newHost
 	} else {
-		// need to revise the list of networks from key
-		// based on the ones host currently has
-		// networksToAdd := []string{}
-		// currentNets := logic.GetHostNetworks(newHost.ID.String())
-		// for _, newNet := range enrollmentKey.Networks {
-		// 	if !logic.StringSliceContains(currentNets, newNet) {
-		// 		networksToAdd = append(networksToAdd, newNet)
-		// 	}
-		// }
-		// enrollmentKey.Networks = networksToAdd
 		currHost := &schema.Host{
 			ID: newHost.ID,
 		}
 		err := currHost.Get(r.Context())
 		if err != nil {
-			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		logic.UpdateHostFromClient(&newHost, currHost)
-		err = logic.UpsertHost(currHost)
-		if err != nil {
-			slog.Error("failed to update host", "id", currHost.ID, "error", err)
+		endpointChanged, _ := logic.UpdateHostFromClient(&newHost, currHost)
+		if endpointChanged {
+			logic.CheckHostPorts(currHost)
+		}
+		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	}
-	host := &schema.Host{
-		ID: newHost.ID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+		host = currHost
 	}
 	// ready the response
 	server := logic.GetServerInfo()
-	server.TrafficKey = key
+	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,
 		RequestedHost: *host,
@@ -471,5 +445,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(*enrollmentKey, host, r.Header.Get("user"))
+	go auth.CheckNetRegAndHostUpdate(key, host, r.Header.Get("user"))
 }

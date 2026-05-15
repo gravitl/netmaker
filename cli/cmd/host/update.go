@@ -40,16 +40,34 @@ var hostUpdateCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 		} else {
-			apiHost.ID = args[0]
-			apiHost.EndpointIP = endpoint
-			apiHost.EndpointIPv6 = endpoint6
-			apiHost.Name = name
-			apiHost.ListenPort = listenPort
-			apiHost.MTU = mtu
-			apiHost.IsStaticPort = isStaticPort
-			apiHost.IsStatic = isStatic
-			apiHost.IsDefault = isDefault
-			apiHost.PersistentKeepalive = keepAlive
+			apiHost = functions.GetHost(args[0])
+			if cmd.Flags().Changed("endpoint") {
+				apiHost.EndpointIP = endpoint
+			}
+			if cmd.Flags().Changed("endpoint6") {
+				apiHost.EndpointIPv6 = endpoint6
+			}
+			if cmd.Flags().Changed("name") {
+				apiHost.Name = name
+			}
+			if cmd.Flags().Changed("listen_port") {
+				apiHost.ListenPort = listenPort
+			}
+			if cmd.Flags().Changed("mtu") {
+				apiHost.MTU = mtu
+			}
+			if cmd.Flags().Changed("static_port") {
+				apiHost.IsStaticPort = isStaticPort
+			}
+			if cmd.Flags().Changed("static_endpoint") {
+				apiHost.IsStatic = isStatic
+			}
+			if cmd.Flags().Changed("default") {
+				apiHost.IsDefault = isDefault
+			}
+			if cmd.Flags().Changed("keep_alive") {
+				apiHost.PersistentKeepalive = keepAlive
+			}
 		}
 		functions.PrettyPrint(functions.UpdateHost(args[0], apiHost))
 	},
