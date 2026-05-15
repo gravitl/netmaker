@@ -703,6 +703,11 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 	}
 
+	if err := RemoveUserGroupFromAllJITScopes(group.ID); err != nil {
+		slog.Warn("failed to clean up JIT scopes for deleted user group",
+			"group_id", group.ID, "error", err)
+	}
+
 	return nil
 }
 

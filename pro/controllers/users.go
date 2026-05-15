@@ -653,6 +653,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		for netID := range removedNetworks {
 			if _, ok := keptNetworks[netID]; !ok {
 				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
+				if err := proLogic.RemoveUserGroupFromNetworkJITScope(netID.String(), userGroup.ID); err != nil {
+					slog.Warn("failed to clean up JIT scope for removed user group",
+						"group_id", userGroup.ID, "network", netID, "error", err)
+				}
 			}
 		}
 	}()

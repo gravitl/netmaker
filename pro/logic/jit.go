@@ -721,6 +721,82 @@ func ExpireJITGrants() error {
 	return nil
 }
 
+// RemoveUserGroupFromAllJITScopes removes the given user-group ID from the
+// JITUserGroupIDs allowlist of every network. Intended for use when a user
+// group is deleted, so networks don't keep stale references that could
+// silently change JIT scope semantics.
+func RemoveUserGroupFromAllJITScopes(groupID schema.UserGroupID) error {
+	if groupID == "" {
+		return nil
+	}
+
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		return fmt.Errorf("failed to list networks: %w", err)
+	}
+
+	for i := range networks {
+		network := &networks[i]
+		if err := pruneUserGroupFromNetworkJITScope(network, groupID); err != nil {
+			slog.Warn("failed to clean up JIT user group on network",
+				"network", network.Name, "group_id", groupID, "error", err)
+		}
+	}
+	return nil
+}
+
+// RemoveUserGroupFromNetworkJITScope removes the given user-group ID from the
+// network's JITUserGroupIDs allowlist. Intended for use when a user group is
+// removed from a network's roles, so the JIT scope is kept consistent with the
+// group's actual network membership.
+func RemoveUserGroupFromNetworkJITScope(networkID string, groupID schema.UserGroupID) error {
+	if networkID == "" || groupID == "" {
+		return nil
+	}
+
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+		return fmt.Errorf("failed to get network %s: %w", networkID, err)
+	}
+	return pruneUserGroupFromNetworkJITScope(network, groupID)
+}
+
+// pruneUserGroupFromNetworkJITScope removes groupID from network.JITUserGroupIDs
+// and persists the change only if the allowlist actually contained the group.
+// Ext clients are re-evaluated against the updated scope so that users who are
+// no longer subject to JIT (because the listed group went away) regain access.
+func pruneUserGroupFromNetworkJITScope(network *schema.Network, groupID schema.UserGroupID) error {
+	if network == nil || len(network.JITUserGroupIDs) == 0 {
+		return nil
+	}
+
+	filtered := make([]schema.UserGroupID, 0, len(network.JITUserGroupIDs))
+	changed := false
+	for _, gid := range network.JITUserGroupIDs {
+		if gid == groupID {
+			changed = true
+			continue
+		}
+		filtered = append(filtered, gid)
+	}
+	if !changed {
+		return nil
+	}
+
+	network.JITUserGroupIDs = filtered
+	if err := logic.SaveNetwork(network); err != nil {
+		return fmt.Errorf("failed to save network %s: %w", network.Name, err)
+	}
+
+	if network.JITEnabled {
+		if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
+			slog.Warn("failed to reconcile ext clients after pruning JIT user group",
+				"network", network.Name, "group_id", groupID, "error", err)
+		}
+	}
+	return nil
+}
+
 // DisconnectExtClientsFromNetwork - disconnects ext clients whose owners are subject to JIT on this network.
 func DisconnectExtClientsFromNetwork(networkID string) error {
 	network := &schema.Network{Name: networkID}
