@@ -165,6 +165,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
 			newNode.Status = schema.OnlineSt
+			go TriggerCollectMetrics(newNode.HostID.String(), newNode.ID.String(), "reconnect")
 		}
 		if currentNode.Connected && !newNode.Connected {
 			newNode.Status = schema.Disconnected

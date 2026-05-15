@@ -1,17 +1,21 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"maps"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -296,4 +300,27 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 	}
 
 	slog.Debug("[metrics] node metrics data", "node ID", currentNode.ID, "metrics", newMetrics)
+}
+
+// PublishCollectMetrics asks the host (over MQTT) to collect and publish metrics now.
+// Triggered on events like node join and reconnect. Best-effort; logs and returns on failure.
+func PublishCollectMetrics(hostID, nodeID, reason string) {
+	hostUUID, err := uuid.Parse(hostID)
+	if err != nil {
+		slog.Warn("collect_metrics: invalid host id", "hostid", hostID, "reason", reason, "err", err)
+		return
+	}
+	host := &schema.Host{ID: hostUUID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		slog.Warn("collect_metrics: host not found", "hostid", hostID, "reason", reason, "err", err)
+		return
+	}
+	if err := mq.HostUpdate(&models.HostUpdate{
+		Action: models.CollectMetrics,
+		Host:   *host,
+	}); err != nil {
+		slog.Warn("collect_metrics: failed to publish", "hostid", hostID, "nodeid", nodeID, "reason", reason, "err", err)
+		return
+	}
+	slog.Debug("collect_metrics: requested", "hostid", hostID, "nodeid", nodeID, "reason", reason)
 }

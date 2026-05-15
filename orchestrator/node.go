@@ -155,6 +155,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
+			time.Sleep(time.Second * 30)
+			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
 		}()
 	}
 

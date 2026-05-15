@@ -85,3 +85,7 @@ var GetMetrics = func(string) (*models.Metrics, error) {
 var DeleteNodeMetricsFromPeers = func(string) {}
 
 var SetPeerMetricsDisconnected = func(string) {}
+
+// TriggerCollectMetrics - asks the client to push metrics now. Overridden in Pro.
+// reason is a short label (e.g. "join", "reconnect", "checkin_recovered") used for logging.
+var TriggerCollectMetrics = func(hostID, nodeID, reason string) {}
