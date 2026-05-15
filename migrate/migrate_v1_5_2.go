@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -182,6 +183,8 @@ func migrateNodes(ctx context.Context) error {
 			CreatedAt:                         node.LastModified,
 			UpdatedAt:                         node.LastModified,
 		}
+
+		_node.Status = logic.GetNodeCheckInStatus(_node)
 
 		logger.Log(4, fmt.Sprintf("migrating node %s", _node.ID))
 
