@@ -1021,6 +1021,10 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		if len(nodeIDs) == 0 {
+			return
+		}
+
 		nodeUpdate := &schema.Node{
 			Connected: req.Connected,
 		}
