@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -17,7 +20,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func networkHandlers(r *mux.Router) {
@@ -217,8 +219,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
 	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
-	//delete network from allocated ip map
-	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
@@ -226,16 +226,13 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		for _, node := range networkNodes {
 			node := node
 			node.PendingDelete = true
-			node.Action = models.NODE_DELETE
+			node.Action = schema.NODE_DELETE
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
 		}
 
 		_ = logic.DeleteNetworkNameservers(network)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
@@ -359,7 +356,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))
-	logic.AddNetworkToAllocatedIpMap(network.Name)
 	logic.CreateFallbackNameserver(network.Name)
 	if featureFlags.EnableOverlappingEgressRanges {
 		if err := logic.AllocateUniqueVNATPool(&network); err != nil {
@@ -371,65 +367,21 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {
-			currHost := &defaultHosts[i]
-			newNode, err := logic.UpdateHostNetwork(currHost, network.Name, true)
+			host := &defaultHosts[i]
+			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network)
 			if err != nil {
 				logger.Log(
 					0,
 					r.Header.Get("user"),
 					"failed to add host to network:",
-					currHost.ID.String(),
+					host.ID.String(),
 					network.Name,
 					err.Error(),
 				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-			if len(currHost.Nodes) == 1 {
-				if err = mq.HostUpdate(&models.HostUpdate{
-					Action: models.RequestPull,
-					Host:   *currHost,
-					Node:   *newNode,
-				}); err != nil {
-					logger.Log(
-						0,
-						r.Header.Get("user"),
-						"failed to add host to network:",
-						currHost.ID.String(),
-						network.Name,
-						err.Error(),
-					)
-				}
-			} else {
-				if err = mq.HostUpdate(&models.HostUpdate{
-					Action: models.JoinHostToNetwork,
-					Host:   *currHost,
-					Node:   *newNode,
-				}); err != nil {
-					logger.Log(
-						0,
-						r.Header.Get("user"),
-						"failed to add host to network:",
-						currHost.ID.String(),
-						network.Name,
-						err.Error(),
-					)
-				}
-			}
-
-			// make  host failover
-			logic.CreateFailOver(*newNode)
-			// make host remote access gateway
-			logic.CreateIngressGateway(network.Name, newNode.ID.String(), models.IngressRequest{})
-			logic.CreateRelay(models.RelayRequest{
-				NodeID: newNode.ID.String(),
-				NetID:  network.Name,
-			})
-		}
-		// send peer updates
-		if err = mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(1, "failed to publish peer update for default hosts after network is added")
+			logger.Log(1, "added new node", newNode.ID, "to host", host.Name)
 		}
 	}()
 	logic.LogEvent(&models.Event{

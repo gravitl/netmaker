@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -703,6 +702,11 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 	}
 
+	if err := RemoveUserGroupFromAllJITScopes(group.ID); err != nil {
+		slog.Warn("failed to clean up JIT scopes for deleted user group",
+			"group_id", group.ID, "error", err)
+	}
+
 	return nil
 }
 
@@ -833,7 +837,7 @@ func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID
 }
 
 // PrepareOauthUserFromInvite - init oauth user before create
-func PrepareOauthUserFromInvite(in models.UserInvite) (schema.User, error) {
+func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
 	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return schema.User{}, fetchErr
@@ -842,7 +846,7 @@ func PrepareOauthUserFromInvite(in models.UserInvite) (schema.User, error) {
 		Username: in.Email,
 		Password: newPass,
 	}
-	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
+	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = schema.ServiceUser
@@ -919,9 +923,6 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 		}
 
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
@@ -986,11 +987,6 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			}
 		}
 	}
-
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
@@ -1041,10 +1037,6 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 		}
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {

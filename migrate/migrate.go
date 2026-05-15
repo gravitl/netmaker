@@ -33,11 +33,15 @@ func Run() {
 	updateNodes()
 	updateNewAcls()
 	logic.MigrateToGws()
-	migrateToEgressV1()
 	updateNetworks()
 	resync()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
+	migrateNameservers()
+	migrateEgressNatMode()
+
+	logic.InitialiseRoles()
+	logic.IntialiseGroups()
 }
 
 func updateNetworks() {
@@ -315,10 +319,6 @@ func updateNodes() {
 	}
 	for _, node := range nodes {
 		node := node
-		if node.Tags == nil {
-			node.Tags = make(map[models.TagID]struct{})
-			logic.UpsertNode(&node)
-		}
 		if node.IsIngressGateway {
 			host := &schema.Host{
 				ID: node.HostID,
@@ -327,24 +327,6 @@ func updateNodes() {
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
-		}
-		if node.IsEgressGateway {
-			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
-			if update {
-				node.EgressGatewayRequest.Ranges = egressRanges
-				node.EgressGatewayRanges = egressRanges
-				logic.UpsertNode(&node)
-			}
-			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
-				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
-					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
-						Network:     egressRangeI,
-						RouteMetric: 256,
-					})
-				}
-				logic.UpsertNode(&node)
-			}
-
 		}
 	}
 	extclients, _ := logic.GetAllExtClients()
@@ -551,116 +533,6 @@ func createDefaultTagsAndPolicies() {
 	}
 }
 
-func migrateToEgressV1() {
-	nodes, _ := logic.GetAllNodes()
-	user, err := logic.GetSuperAdmin()
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if node.IsEgressGateway {
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			err := host.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				continue
-			}
-			for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
-				e := &schema.Egress{Range: rangeMetric.Network}
-				if err := e.DoesEgressRouteExists(db.WithContext(context.TODO())); err == nil {
-					e.Nodes[node.ID.String()] = rangeMetric.RouteMetric
-					e.Update(db.WithContext(context.TODO()))
-					continue
-				}
-				e = &schema.Egress{
-					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
-					Description: "",
-					Network:     node.Network,
-					Nodes: datatypes.JSONMap{
-						node.ID.String(): rangeMetric.RouteMetric,
-					},
-					Tags:      make(datatypes.JSONMap),
-					Range:     rangeMetric.Network,
-					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
-					Status:    true,
-					CreatedBy: user.UserName,
-					CreatedAt: time.Now().UTC(),
-				}
-				err = e.Create(db.WithContext(context.TODO()))
-				if err == nil {
-					acl := models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.DevicePolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.NodeTagID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-					acl = models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.UserPolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.UserAclID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-				}
-
-			}
-			node.IsEgressGateway = false
-			node.EgressGatewayRequest = models.EgressGatewayRequest{}
-			node.EgressGatewayNatEnabled = false
-			node.EgressGatewayRanges = []string{}
-			logic.UpsertNode(&node)
-
-		}
-	}
-}
-
 func migrateSettings() {
 	settingsD := make(map[string]interface{})
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
@@ -737,8 +609,10 @@ func cleanupDeletedUserGroupRefs() {
 		existingGroups[group.ID] = group
 	}
 
+	existingUsers := make(map[string]schema.User)
 	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	for _, user := range users {
+		existingUsers[user.Username] = user
 		var update bool
 		for groupID := range user.UserGroups.Data() {
 			if _, ok := existingGroups[groupID]; !ok {
@@ -770,6 +644,10 @@ func cleanupDeletedUserGroupRefs() {
 						newSrc = append(newSrc, src)
 					}
 				}
+			} else if src.ID == models.UserAclID && src.Value != "*" {
+				if _, ok := existingUsers[src.Value]; ok {
+					newSrc = append(newSrc, src)
+				}
 			} else {
 				newSrc = append(newSrc, src)
 			}
@@ -796,5 +674,42 @@ func cleanupDeletedUserGroupRefs() {
 		if update {
 			_ = postureCheck.Update(db.WithContext(context.TODO()))
 		}
+	}
+}
+
+func migrateNameservers() {
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		_ = logic.CreateFallbackNameserver(network.Name)
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		if len(nameserver.Domains) != 0 {
+			for _, matchDomain := range nameserver.MatchDomains {
+				nameserver.Domains = append(nameserver.Domains, schema.NameserverDomain{
+					Domain: matchDomain,
+				})
+			}
+
+			nameserver.MatchDomains = []string{}
+
+			_ = nameserver.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+
+func migrateEgressNatMode() {
+	egresses, _ := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		if egress.Nat {
+			if egress.Mode == "" {
+				egress.Mode = schema.DirectNAT
+			}
+		} else {
+			egress.Mode = schema.DisabledNAT
+		}
+
+		_ = egress.Update(db.WithContext(context.TODO()))
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -34,7 +33,7 @@ func TestGetNetworkNodes(t *testing.T) {
 		createTestNode()
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.NotEqual(t, []models.LegacyNode(nil), node)
+		assert.NotEqual(t, []models.Node(nil), node)
 	})
 
 }
@@ -50,9 +49,6 @@ func TestValidateEgressGateway(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	if servercfg.CacheEnabled() {
-		logic.ClearNodeCache()
-	}
 	database.DeleteAllRecords(database.NODES_TABLE_NAME)
 }
 
