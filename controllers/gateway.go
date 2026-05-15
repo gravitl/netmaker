@@ -8,16 +8,18 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 func gwHandlers(r *mux.Router) {
@@ -44,89 +46,81 @@ func gwHandlers(r *mux.Router) {
 func createGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	node, err := logic.ValidateParams(nodeid, netid)
+	nodeID := params["nodeid"]
+	networkName := params["network"]
+
+	node := &schema.Node{
+		ID: nodeID,
+	}
+	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.BadReq
+		}
+
+		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error fetching node (%s): %v", nodeID, networkName, nodeID, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	if node.AutoAssignGateway {
-		err = fmt.Errorf("cannot set node as gateway while AutoAssignGateway is enabled")
+
+	if node.Network.Name != networkName {
+		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): node (%s) not in network (%s)", nodeID, networkName, nodeID, networkName)
+		logger.Log(0, r.Header.Get("user"), err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	var req models.CreateGwReq
 	err = json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if req.IsInternetGateway && len(req.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(node, req.InetNodeReq, false)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-	}
-
-	node, err = logic.CreateIngressGateway(netid, nodeid, req.IngressRequest)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to create gateway on node [%s] on network [%s]: %v",
-				nodeid, netid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	req.RelayRequest.NetID = netid
-	req.RelayRequest.NodeID = nodeid
-	_, relayNode, err := logic.CreateRelay(req.RelayRequest)
 	if err != nil {
 		logger.Log(
 			0,
 			r.Header.Get("user"),
-			fmt.Sprintf(
-				"failed to create relay on node [%s] on network [%s]: %v",
-				req.RelayRequest.NodeID,
-				req.RelayRequest.NetID,
-				err,
-			),
+			fmt.Sprintf("failed to create gateway on node (%s) in network (%s): error parsing request: %v", nodeID, networkName, err),
 		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if req.IsInternetGateway {
-		if host.DNS != "yes" {
-			host.DNS = "yes"
-			logic.UpsertHost(host)
-		}
+
+	var options []orchestrator.Option
+	if len(req.RelayedNodes) > 0 {
+		options = append(options, orchestrator.WithRelayedClients(req.RelayedNodes))
 	}
 
-	if len(req.InetNodeClientIDs) > 0 {
-		logic.SetInternetGw(&node, req.InetNodeReq)
-		if node.IsGw && node.IngressDNS == "" {
-			node.IngressDNS = "1.1.1.1"
-		}
-		logic.UpsertNode(&node)
+	if req.IsInternetGateway {
+		options = append(options, orchestrator.WithInternetGateway(req.InetNodeClientIDs))
 	}
+
+	err = orchestrator.GetRepository().NodeOrchestrator().ValidateCreateGateway(r.Context(), node, options...)
+	if err != nil {
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			fmt.Sprintf("failed to create gateway on node (%s) in network (%s): error validating request: %v", nodeID, networkName, err),
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	err = orchestrator.GetRepository().NodeOrchestrator().CreateGateway(r.Context(), node, options...)
+	if err != nil {
+		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error creating gateway: %v", nodeID, networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	logger.Log(
-		1,
+		0,
 		r.Header.Get("user"),
-		"created gw node",
-		req.RelayRequest.NodeID,
-		"on network",
-		req.RelayRequest.NetID,
+		fmt.Sprintf("created gw node %s on network %s", nodeID, networkName),
 	)
-	logic.GetNodeStatus(&relayNode, false)
-	apiNode := relayNode.ConvertToAPINode()
+
+	node.Status = logic.GetNodeCheckInStatus(node)
+	apiNode := logic.ConvertSchemaNodeToApiNode(node)
+
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
@@ -136,35 +130,15 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   node.ID.String(),
-			Name: host.Name,
+			ID:   node.ID,
+			Name: node.Host.Name,
 			Type: schema.GatewaySub,
 		},
 		Origin: schema.Dashboard,
 	})
-	host.IsStaticPort = true
-	logic.UpsertHost(host)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		for _, relayedNodeID := range relayNode.RelayedNodes {
-			relayedNode, err := logic.GetNodeByID(relayedNodeID)
-			if err == nil {
-				if relayedNode.FailedOverBy != uuid.Nil {
-					logic.ResetFailedOverPeer(&relayedNode)
-				}
-				if len(relayedNode.AutoRelayedPeers) > 0 {
-					logic.ResetAutoRelayedPeer(&relayedNode)
-				}
-			}
-		}
-		logic.ResetAutoRelayedPeer(&node)
-		if err := mq.NodeUpdate(&node); err != nil {
-			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-		}
-		mq.PublishPeerUpdate(false)
-	}()
 
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(apiNode)
 }
 
 // @Summary     Delete a gateway
@@ -281,10 +255,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 					err,
 				)
 			}
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
-
 		}
 
 		logic.RemoveNodeFromEnrollmentKeys(&node)
@@ -308,7 +278,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 			New: node,
 		},
 	})
-	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
@@ -374,11 +343,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		}
 		node.AutoAssignGateway = true
 		logic.UpsertNode(&node)
-		logic.GetNodeStatus(&node, false)
 		go func() {
-			if node.FailedOverBy != uuid.Nil {
-				logic.ResetFailedOverPeer(&node)
-			}
 			if len(node.AutoRelayedPeers) > 0 {
 				logic.ResetAutoRelayedPeer(&node)
 			}
@@ -445,14 +410,9 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 
 	go func() {
-
-		if node.FailedOverBy != uuid.Nil {
-			logic.ResetFailedOverPeer(&node)
-		}
 		if len(node.AutoRelayedPeers) > 0 {
 			logic.ResetAutoRelayedPeer(&node)
 		}
@@ -574,8 +534,6 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-
-	logic.GetNodeStatus(&node, false)
 
 	go func() {
 		if err := mq.NodeUpdate(&node); err != nil {

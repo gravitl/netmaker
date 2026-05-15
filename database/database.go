@@ -98,7 +98,6 @@ const (
 )
 
 var Tables = []string{
-	NODES_TABLE_NAME,
 	CERTS_TABLE_NAME,
 	DELETED_NODES_TABLE_NAME,
 	DNS_TABLE_NAME,
@@ -127,6 +126,7 @@ var Tables = []string{
 	HOSTS_TABLE_NAME,
 	PENDING_USERS_TABLE_NAME,
 	USER_INVITES_TABLE_NAME,
+	NODES_TABLE_NAME,
 }
 
 func getCurrentDB() map[string]interface{} {

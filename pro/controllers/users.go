@@ -9,13 +9,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	proAuth "github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/pro/email"
 	"github.com/gravitl/netmaker/pro/idp"
@@ -27,6 +30,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -652,7 +656,17 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		for netID := range removedNetworks {
 			if _, ok := keptNetworks[netID]; !ok {
 				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
+				if err := proLogic.RemoveUserGroupFromNetworkJITScope(netID.String(), userGroup.ID); err != nil {
+					slog.Warn("failed to clean up JIT scope for removed user group",
+						"group_id", userGroup.ID, "network", netID, "error", err)
+				}
 			}
+		}
+		// Members of an admin group bypass JIT, so any network where the
+		// group now grants admin access must drop it from its JIT scope.
+		if err := proLogic.ReconcileUserGroupJITScope(&userGroup); err != nil {
+			slog.Warn("failed to reconcile JIT scope for updated user group",
+				"group_id", userGroup.ID, "error", err)
 		}
 	}()
 	go mq.PublishPeerUpdate(replacePeers)
@@ -1334,9 +1348,6 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}(user, remoteGwID)
 
 	err = logic.UpsertUser(*user)
@@ -1516,7 +1527,89 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		userConf.Tags = make(map[models.TagID]struct{})
 		// userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
 		// 	models.RemoteAccessTagName))] = struct{}{}
-		if err = logic.CreateExtClient(&userConf); err != nil {
+		if len(userConf.PublicKey) == 0 {
+			privateKey, err := wgtypes.GeneratePrivateKey()
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			userConf.PrivateKey = privateKey.String()
+			userConf.PublicKey = privateKey.PublicKey().String()
+		} else if len(userConf.PrivateKey) == 0 && len(userConf.PublicKey) > 0 {
+			userConf.PrivateKey = "[ENTER PRIVATE KEY]"
+		}
+		if userConf.ExtraAllowedIPs == nil {
+			userConf.ExtraAllowedIPs = []string{}
+		}
+
+		if userConf.Address == "" {
+			if network.AddressRange != "" {
+				newAddress, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(r.Context(), network)
+				if err != nil {
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				userConf.Address = newAddress.String()
+			}
+		}
+
+		if userConf.Address6 == "" {
+			if network.AddressRange6 != "" {
+				addr6, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
+				if err != nil {
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				userConf.Address6 = addr6.String()
+			}
+		}
+
+		if userConf.ClientID == "" {
+			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+		}
+
+		userConf.LastModified = time.Now().Unix()
+		if err = logic.SaveExtClient(&userConf); err != nil {
 			slog.Error(
 				"failed to create extclient",
 				"user",
@@ -1676,10 +1769,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node network", "error", err)
 			continue
 		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-		if len(nodesWithStatus) > 0 {
-			node = nodesWithStatus[0]
-		}
 
 		gws := userGws[node.Network]
 
@@ -1749,10 +1838,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		err = host.Get(r.Context())
 		if err != nil {
 			continue
-		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-		if len(nodesWithStatus) > 0 {
-			node = nodesWithStatus[0]
 		}
 		network := &schema.Network{Name: node.Network}
 		err = network.Get(r.Context())
