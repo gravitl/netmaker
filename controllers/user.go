@@ -13,22 +13,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	dbtypes "github.com/gravitl/netmaker/db/types"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 )
 
@@ -1171,7 +1170,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Accept      json
 // @Produce     json
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -1286,7 +1285,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to create"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1382,7 +1381,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to update"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1769,9 +1768,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = logic.DeleteUserInvite(user.Username)
 		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
@@ -1896,9 +1892,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(false)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
 		}
 		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
 	}()

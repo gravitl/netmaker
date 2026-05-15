@@ -117,6 +117,10 @@ func (n *Network) Delete(ctx context.Context) error {
 		Error
 }
 
+func (n *Network) DeleteAll(ctx context.Context) error {
+	return db.FromContext(ctx).Exec("DELETE FROM networks_v1").Error
+}
+
 func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {
 	if n.ID == "" && n.Name == "" {
 		return ErrNetworkIdentifiersNotProvided

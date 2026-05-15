@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,10 +11,10 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -197,9 +195,9 @@ func SessionHandler(conn *websocket.Conn) {
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
-					_, err := isUserIsAllowed(result.User, newNet)
-					if err != nil {
-						logger.Log(0, "unauthorized user", result.User, "attempted to register to network", newNet)
+					if !isUserAllowed(result.User, newNet) {
+						err = fmt.Errorf("unauthorized user %s attempted to register to network %s", result.User, newNet)
+						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)
 						return
 					}
@@ -209,6 +207,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		server := logic.GetServerInfo()
 		server.TrafficKey = key
+		host := result.Host
 		result.Host.HostPass = ""
 		response := models.RegisterResponse{
 			ServerConf:    server,
@@ -222,7 +221,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &result.Host, result.User)
+		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -236,18 +235,43 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username string) {
+func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
+	keyTags := make(map[models.TagID]struct{})
+	if len(key.Groups) > 0 {
+		for _, tagI := range key.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+			violations, _ := logic.CheckPostureViolations(
+				models.PostureCheckDeviceInfo{
+					ClientLocation: host.Location,
+					ClientVersion:  host.Version,
+					OS:             host.OS,
+					OSFamily:       host.OSFamily,
+					OSVersion:      host.OSVersion,
+					KernelVersion:  host.KernelVersion,
+					AutoUpdate:     host.AutoUpdate,
+					SkipAutoUpdate: true,
+					Tags:           keyTags,
+				},
+				schema.NetworkID(network.Name),
+			)
+			if len(violations) > 0 {
+				logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
+				continue
+			}
+
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if logic.DoesHostExistinTheNetworkAlready(h, schema.NetworkID(netID)) {
+				if logic.DoesHostExistInTheNetworkAlready(host, network) {
 					continue
 				}
 				if err := (&schema.PendingHost{
-					HostID:  h.ID.String(),
+					HostID:  host.ID.String(),
 					Network: netID,
 				}).CheckIfPendingHostExists(db.WithContext(context.TODO())); err == nil {
 					continue
@@ -256,13 +280,13 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username
 				// add host to pending host table
 				p := schema.PendingHost{
 					ID:            uuid.NewString(),
-					HostID:        h.ID.String(),
-					Hostname:      h.Name,
+					HostID:        host.ID.String(),
+					Hostname:      host.Name,
 					Network:       netID,
-					PublicKey:     h.PublicKey.String(),
-					OS:            h.OS,
-					Location:      h.Location,
-					Version:       h.Version,
+					PublicKey:     host.PublicKey.String(),
+					OS:            host.OS,
+					Location:      host.Location,
+					Version:       host.Version,
 					EnrollmentKey: keyB,
 					RequestedAt:   time.Now().UTC(),
 				}
@@ -270,102 +294,58 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username
 				continue
 			}
 
-			if len(username) > 0 {
-				logic.LogEvent(&models.Event{
-					Action: schema.JoinHostToNet,
-					Source: models.Subject{
-						ID:   username,
-						Name: username,
-						Type: schema.UserSub,
-					},
-					TriggeredBy: username,
-					Target: models.Subject{
-						ID:   h.ID.String(),
-						Name: h.Name,
-						Type: schema.DeviceSub,
-					},
-					NetworkID: schema.NetworkID(netID),
-					Origin:    schema.Dashboard,
-				})
+			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
+				db.WithContext(context.TODO()),
+				host,
+				network,
+				orchestrator.UseKey(&key),
+				orchestrator.SkipPublishPeerUpdate(),
+			)
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			} else {
-				logic.LogEvent(&models.Event{
-					Action: schema.JoinHostToNet,
-					Source: models.Subject{
-						ID:   key.Value,
-						Name: key.Tags[0],
-						Type: schema.EnrollmentKeySub,
-					},
-					TriggeredBy: username,
-					Target: models.Subject{
-						ID:   h.ID.String(),
-						Name: h.Name,
-						Type: schema.DeviceSub,
-					},
-					NetworkID: schema.NetworkID(netID),
-					Origin:    schema.Dashboard,
-				})
-			}
-
-			newNode, err := logic.UpdateHostNetwork(h, netID, true)
-			if servercfg.IsPro && key.AutoAssignGateway {
-				newNode.AutoAssignGateway = true
-				logic.UpsertNode(newNode)
-			}
-			if err == nil || strings.Contains(err.Error(), "host already part of network") {
-				if len(key.Groups) > 0 {
-					newNode.Tags = make(map[models.TagID]struct{})
-					for _, tagI := range key.Groups {
-						newNode.Tags[tagI] = struct{}{}
-					}
-					logic.UpsertNode(newNode)
+				if len(username) > 0 {
+					logic.LogEvent(&models.Event{
+						Action: schema.JoinHostToNet,
+						Source: models.Subject{
+							ID:   username,
+							Name: username,
+							Type: schema.UserSub,
+						},
+						TriggeredBy: username,
+						Target: models.Subject{
+							ID:   host.ID.String(),
+							Name: host.Name,
+							Type: schema.DeviceSub,
+						},
+						NetworkID: schema.NetworkID(netID),
+						Origin:    schema.Dashboard,
+					})
+				} else {
+					logic.LogEvent(&models.Event{
+						Action: schema.JoinHostToNet,
+						Source: models.Subject{
+							ID:   key.Value,
+							Name: key.Tags[0],
+							Type: schema.EnrollmentKeySub,
+						},
+						TriggeredBy: username,
+						Target: models.Subject{
+							ID:   host.ID.String(),
+							Name: host.Name,
+							Type: schema.DeviceSub,
+						},
+						NetworkID: schema.NetworkID(netID),
+						Origin:    schema.Dashboard,
+					})
 				}
-				if key.Relay != uuid.Nil && !newNode.IsRelayed {
-					// check if relay node exists and acting as relay
-					relaynode, err := logic.GetNodeByID(key.Relay.String())
-					if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
-						slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), key.Relay.String(), netID))
-						newNode.IsRelayed = true
-						newNode.RelayedBy = key.Relay.String()
-						updatedRelayNode := relaynode
-						updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
-						logic.UpdateRelayed(&relaynode, &updatedRelayNode)
-						if err := logic.UpsertNode(&updatedRelayNode); err != nil {
-							slog.Error("failed to update node", "nodeid", key.Relay.String())
-						}
-						if err := logic.UpsertNode(newNode); err != nil {
-							slog.Error("failed to update node", "nodeid", key.Relay.String())
-						}
-					} else {
-						slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
-					}
-				}
-				if err != nil && strings.Contains(err.Error(), "host already part of network") {
-					continue
-				}
-			} else {
-				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, netID, err.Error())
-				continue
-			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-			hostactions.AddAction(models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *h,
-				Node:   *newNode,
-			})
-			if h.IsDefault {
-				// make host gateway
-				logic.CreateIngressGateway(netID, newNode.ID.String(), models.IngressRequest{})
-				logic.CreateRelay(models.RelayRequest{
-					NodeID: newNode.ID.String(),
-					NetID:  netID,
-				})
 			}
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.RequestAck,
-			Host:   *h,
+			Host:   *host,
 		})
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
