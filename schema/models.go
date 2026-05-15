@@ -17,5 +17,9 @@ func ListModels() []interface{} {
 		&JITRequest{},
 		&JITGrant{},
 		&Host{},
+		&PendingUser{},
+		&UserInvite{},
+		&Node{},
+		&PostureCheckViolation{},
 	}
 }

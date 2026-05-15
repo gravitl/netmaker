@@ -8,6 +8,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
 
@@ -100,7 +101,7 @@ func FetchTelemetryData() telemetryData {
 	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
-	nodes, _ := GetAllNodes()
+	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithPreloads("Host"))
 	data.Nodes = len(nodes)
 	data.Count = getClientCount(nodes)
 	endDate, _ := GetTrialEndDate()
@@ -143,17 +144,10 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
-func getClientCount(nodes []models.Node) clientCount {
+func getClientCount(nodes []schema.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
-		host := &schema.Host{
-			ID: node.HostID,
-		}
-		err := host.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			continue
-		}
-		switch host.OS {
+		switch node.Host.OS {
 		case "darwin":
 			count.MacOS += 1
 		case "windows":

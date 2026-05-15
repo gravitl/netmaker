@@ -466,9 +466,6 @@ func deleteAndCleanUpUser(user *schema.User) error {
 
 		go logic.DeleteUserInvite(user.Username)
 		go mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			go logic.SetDNS()
-		}
 	}()
 
 	return nil
