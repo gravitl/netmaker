@@ -721,6 +721,75 @@ func ExpireJITGrants() error {
 	return nil
 }
 
+// ReconcileUserGroupJITScope ensures the given user group is removed from the
+// JIT allowlist of every network where the group now grants network-admin
+// access. Admin group members bypass the JIT check (see CheckJITAccess), so
+// leaving an admin group inside JITUserGroupIDs is dead config that confuses
+// the UI and audit log. Intended to be called whenever a user group's
+// network roles are updated (e.g. user -> admin transition).
+func ReconcileUserGroupJITScope(group *schema.UserGroup) error {
+	if group == nil || group.ID == "" {
+		return nil
+	}
+
+	// A group with global network-admin (either via the all-networks scope
+	// holding the network-admin role, or via the global-network-admin role)
+	// implicitly makes every member an admin everywhere. Prune from every
+	// network's JIT scope rather than just the ones it has direct roles on.
+	if groupGrantsGlobalNetworkAdmin(group) {
+		return RemoveUserGroupFromAllJITScopes(group.ID)
+	}
+
+	for netID := range group.NetworkRoles.Data() {
+		if netID == schema.AllNetworks {
+			continue
+		}
+		if !groupGrantsNetworkAdminOn(group, netID) {
+			continue
+		}
+		if err := RemoveUserGroupFromNetworkJITScope(netID.String(), group.ID); err != nil {
+			slog.Warn("failed to clean up JIT scope for admin user group",
+				"group_id", group.ID, "network", netID, "error", err)
+		}
+	}
+	return nil
+}
+
+// groupGrantsNetworkAdminOn reports whether the group grants network-admin
+// access on the specific network (network-scoped role only; global admin is
+// handled separately by callers via groupGrantsGlobalNetworkAdmin).
+func groupGrantsNetworkAdminOn(g *schema.UserGroup, netID schema.NetworkID) bool {
+	if g == nil {
+		return false
+	}
+	roles, ok := g.NetworkRoles.Data()[netID]
+	if !ok {
+		return false
+	}
+	_, isAdmin := roles[schema.NetworkAdmin]
+	return isAdmin
+}
+
+// groupGrantsGlobalNetworkAdmin reports whether the group grants admin access
+// across all networks, via either the network-admin role under the
+// all-networks scope or the dedicated global-network-admin role.
+func groupGrantsGlobalNetworkAdmin(g *schema.UserGroup) bool {
+	if g == nil {
+		return false
+	}
+	roles, ok := g.NetworkRoles.Data()[schema.AllNetworks]
+	if !ok {
+		return false
+	}
+	if _, ok := roles[schema.NetworkAdmin]; ok {
+		return true
+	}
+	if _, ok := roles[globalNetworksAdminRoleID]; ok {
+		return true
+	}
+	return false
+}
+
 // RemoveUserGroupFromAllJITScopes removes the given user-group ID from the
 // JITUserGroupIDs allowlist of every network. Intended for use when a user
 // group is deleted, so networks don't keep stale references that could

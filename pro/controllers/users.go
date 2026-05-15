@@ -659,6 +659,12 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Members of an admin group bypass JIT, so any network where the
+		// group now grants admin access must drop it from its JIT scope.
+		if err := proLogic.ReconcileUserGroupJITScope(&userGroup); err != nil {
+			slog.Warn("failed to reconcile JIT scope for updated user group",
+				"group_id", userGroup.ID, "error", err)
+		}
 	}()
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")

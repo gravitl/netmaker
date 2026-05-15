@@ -240,6 +240,11 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 		return
 	}
 
+	// Snapshot the previous group names before we mutate the network, so the
+	// audit diff retains human-readable names even if any of the listed groups
+	// are deleted later.
+	oldSnapshot := newJITNetworkAuditSnapshot(currNet)
+
 	if err := proLogic.UpdateJITUserGroupsOnNetwork(networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -252,8 +257,8 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 		return
 	}
 	diff := models.Diff{
-		Old: currNet,
-		New: updatedNet,
+		Old: oldSnapshot,
+		New: newJITNetworkAuditSnapshot(updatedNet),
 	}
 	logic.LogEvent(&models.Event{
 		Action: schema.JitGroupsUpdate,
@@ -274,6 +279,40 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT user groups updated")
+}
+
+// jitUserGroupRef pins a user-group ID alongside its display name at the moment
+// of an audit event, so the event remains human-readable even after the
+// underlying group is deleted.
+type jitUserGroupRef struct {
+	ID   schema.UserGroupID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// jitNetworkAuditSnapshot is the payload stored in JIT audit-event diffs.
+// It embeds the network so existing consumers continue to see the same
+// fields (including jit_user_group_ids), and adds a parallel jit_user_groups
+// list with the resolved names captured at event time.
+type jitNetworkAuditSnapshot struct {
+	*schema.Network
+	JITUserGroups []jitUserGroupRef `json:"jit_user_groups"`
+}
+
+func newJITNetworkAuditSnapshot(network *schema.Network) jitNetworkAuditSnapshot {
+	snap := jitNetworkAuditSnapshot{Network: network}
+	if network == nil {
+		return snap
+	}
+	snap.JITUserGroups = make([]jitUserGroupRef, 0, len(network.JITUserGroupIDs))
+	for _, gid := range network.JITUserGroupIDs {
+		ref := jitUserGroupRef{ID: gid}
+		grp := &schema.UserGroup{ID: gid}
+		if err := grp.Get(db.WithContext(context.TODO())); err == nil {
+			ref.Name = grp.Name
+		}
+		snap.JITUserGroups = append(snap.JITUserGroups, ref)
+	}
+	return snap
 }
 
 func jitRequestToGroupIDs(ids []string) []schema.UserGroupID {
