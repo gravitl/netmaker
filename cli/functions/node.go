@@ -42,10 +42,10 @@ func DeleteEgress(networkName, nodeID string) *models.ApiNode {
 }
 
 // CreateIngress - turn a node into an ingress
-func CreateIngress(networkName, nodeID string, failover bool) *models.ApiNode {
+func CreateIngress(networkName, nodeID string) *models.ApiNode {
 	return request[models.ApiNode](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/createingress", networkName, nodeID), &struct {
 		Failover bool `json:"failover"`
-	}{Failover: failover})
+	}{Failover: false})
 }
 
 // DeleteIngress - remove ingress role from a node

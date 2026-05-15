@@ -5,121 +5,31 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net"
-	"slices"
 	"sort"
 	"sync"
 	"time"
 
-	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/validation"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 var (
-	nodeCacheMutex        = &sync.RWMutex{}
-	nodeNetworkCacheMutex = &sync.RWMutex{}
-	nodesCacheMap         = make(map[string]models.Node)
-	nodesNetworkCacheMap  = make(map[string]map[string]models.Node)
-	DeleteNodesCh         = make(chan *models.Node, 100)
-)
-
-func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
-	nodeCacheMutex.RLock()
-	node, ok = nodesCacheMap[nodeID]
-	if node.Mutex == nil {
-		node.Mutex = &sync.Mutex{}
-	}
-	nodeCacheMutex.RUnlock()
-	return
-}
-func getNodesFromCache() (nodes []models.Node) {
-	nodeCacheMutex.RLock()
-	for _, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
-		nodes = append(nodes, node)
-	}
-	nodeCacheMutex.RUnlock()
-	return
-}
-
-func deleteNodeFromCache(nodeID string) {
-	nodeCacheMutex.Lock()
-	delete(nodesCacheMap, nodeID)
-	nodeCacheMutex.Unlock()
-}
-func deleteNodeFromNetworkCache(nodeID string, network string) {
-	nodeNetworkCacheMutex.Lock()
-	delete(nodesNetworkCacheMap[network], nodeID)
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func storeNodeInNetworkCache(node models.Node, network string) {
-	nodeNetworkCacheMutex.Lock()
-	if nodesNetworkCacheMap[network] == nil {
-		nodesNetworkCacheMap[network] = make(map[string]models.Node)
-	}
-	nodesNetworkCacheMap[network][node.ID.String()] = node
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func storeNodeInCache(node models.Node) {
-	nodeCacheMutex.Lock()
-	nodesCacheMap[node.ID.String()] = node
-	nodeCacheMutex.Unlock()
-}
-func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
-	nodeNetworkCacheMutex.Lock()
-	for _, v := range nMap {
-		network := v.Network
-		if nodesNetworkCacheMap[network] == nil {
-			nodesNetworkCacheMap[network] = make(map[string]models.Node)
-		}
-		nodesNetworkCacheMap[network][v.ID.String()] = v
-	}
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func loadNodesIntoCache(nMap map[string]models.Node) {
-	nodeCacheMutex.Lock()
-	nodesCacheMap = nMap
-	nodeCacheMutex.Unlock()
-}
-func ClearNodeCache() {
-	nodeCacheMutex.Lock()
-	nodesCacheMap = make(map[string]models.Node)
-	nodesNetworkCacheMap = make(map[string]map[string]models.Node)
-	nodeCacheMutex.Unlock()
-}
-
-const (
-	// RELAY_NODE_ERR - error to return if relay node is unfound
-	RELAY_NODE_ERR = "could not find relay for node"
-	// NodePurgeTime time to wait for node to response to a NODE_DELETE actions
-	NodePurgeTime = time.Second * 10
-	// NodePurgeCheckTime is how often to check nodes for Pending Delete
-	NodePurgeCheckTime = time.Second * 30
+	DeleteNodesCh = make(chan *models.Node, 100)
 )
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-
-	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes)), nil
-	}
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
@@ -142,12 +52,6 @@ func GetHostNodes(host *schema.Host) []models.Node {
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
-
-	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes))
-	}
 	var nodes = make([]models.Node, 0, len(allNodes))
 	for i := range allNodes {
 		node := allNodes[i]
@@ -159,29 +63,26 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 }
 
 var (
-	pendingCheckins   = make(map[string]models.Node)
+	pendingCheckins   = make(map[string]time.Time)
 	pendingCheckinsMu sync.Mutex
 )
 
 // UpdateNodeCheckin - buffers the checkin timestamp in memory when caching is enabled.
 // The actual DB write is deferred to FlushNodeCheckins (every 30s).
 // When caching is disabled (HA mode), writes directly to the DB.
-func UpdateNodeCheckin(node *models.Node) error {
-	node.SetLastCheckIn()
-	node.EgressDetails = models.EgressDetails{}
+func UpdateNodeCheckin(nodeID string) error {
 	if servercfg.CacheEnabled() {
 		pendingCheckinsMu.Lock()
-		pendingCheckins[node.ID.String()] = *node
+		pendingCheckins[nodeID] = time.Now().UTC()
 		pendingCheckinsMu.Unlock()
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
 		return nil
 	}
-	data, err := json.Marshal(node)
-	if err != nil {
-		return err
+
+	node := &schema.Node{
+		ID:          nodeID,
+		LastCheckIn: time.Now().UTC(),
 	}
-	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	return node.UpdateLastCheckIn(db.WithContext(context.TODO()))
 }
 
 // FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
@@ -189,19 +90,19 @@ func UpdateNodeCheckin(node *models.Node) error {
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
-	pendingCheckins = make(map[string]models.Node)
+	pendingCheckins = make(map[string]time.Time)
 	pendingCheckinsMu.Unlock()
 	if len(batch) == 0 {
 		return
 	}
 	var failed int
-	for id, node := range batch {
-		data, err := json.Marshal(node)
-		if err != nil {
-			failed++
-			continue
+	for id, checkin := range batch {
+		node := &schema.Node{
+			ID:          id,
+			LastCheckIn: checkin,
 		}
-		if err := database.Insert(id, string(data), database.NODES_TABLE_NAME); err != nil {
+		err := node.UpdateLastCheckIn(db.WithContext(context.TODO()))
+		if err != nil {
 			failed++
 		}
 	}
@@ -212,20 +113,39 @@ func FlushNodeCheckins() {
 
 // UpsertNode - updates node in the DB
 func UpsertNode(newNode *models.Node) error {
-	newNode.SetLastModified()
-	data, err := json.Marshal(newNode)
+	_node := ConvertModelsNodeToSchemaNode(newNode)
+	if _node.ID == "" {
+		return errors.New("error converting models.Node to schema.Node")
+	}
+
+	err := _node.Upsert(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	newNode.EgressDetails = models.EgressDetails{}
-	err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
+
+	if _node.PostureCheckLastEvaluationCycleID != "" {
+		evaluatedAt, err := time.Parse(time.RFC3339, _node.PostureCheckLastEvaluationCycleID)
+		if err != nil {
+			return err
+		}
+
+		violations := make([]schema.PostureCheckViolation, 0, len(newNode.PostureChecksViolations))
+		for _, violation := range newNode.PostureChecksViolations {
+			violations = append(violations, schema.PostureCheckViolation{
+				EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+				CheckID:           violation.CheckID,
+				NodeID:            _node.ID,
+				Name:              violation.Name,
+				Attribute:         violation.Attribute,
+				Message:           violation.Message,
+				Severity:          violation.Severity,
+				EvaluatedAt:       evaluatedAt,
+			})
+		}
+
+		return _node.UpsertViolations(db.WithContext(context.TODO()), violations)
 	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*newNode)
-		storeNodeInNetworkCache(*newNode, newNode.Network)
-	}
+
 	return nil
 }
 
@@ -241,38 +161,21 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	}
 	newNode.Fill(currentNode, servercfg.IsPro)
 
-	// check for un-settable server values
-	if err := ValidateNode(newNode, true); err != nil {
-		return err
-	}
-
 	if newNode.ID == currentNode.ID {
-		newNode.EgressDetails = models.EgressDetails{}
-		newNode.SetLastModified()
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
+			newNode.Status = schema.OnlineSt
 		}
-		if data, err := json.Marshal(newNode); err != nil {
-			return err
-		} else {
-			err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
-			if err != nil {
-				return err
-			}
-			if servercfg.CacheEnabled() {
-				storeNodeInCache(*newNode)
-				storeNodeInNetworkCache(*newNode, newNode.Network)
-				if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-					AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-				}
-				if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-					AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-					RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-				}
-			}
-			return nil
+		if currentNode.Connected && !newNode.Connected {
+			newNode.Status = schema.Disconnected
 		}
+
+		_node := ConvertModelsNodeToSchemaNode(newNode)
+		if _node.ID == "" {
+			return errors.New("error converting models.Node to schema.Node")
+		}
+
+		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
@@ -301,9 +204,6 @@ func cleanupNodeReferences(node *models.Node) {
 			relayNode.RelayedNodes = relayedNodes
 			UpsertNode(&relayNode)
 		}
-	}
-	if node.FailedOverBy != uuid.Nil {
-		ResetFailedOverPeer(node)
 	}
 	if len(node.AutoRelayedPeers) > 0 {
 		ResetAutoRelayedPeer(node)
@@ -354,16 +254,21 @@ func cleanupNodeReferences(node *models.Node) {
 }
 
 func DeleteNode(node *models.Node, purge bool) error {
-	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
-	node.Action = models.NODE_DELETE
+	alreadyDeleted := node.PendingDelete || node.Action == schema.NODE_DELETE
+	node.Action = schema.NODE_DELETE
 
 	if !purge && !alreadyDeleted {
-		newnode := *node
-		newnode.PendingDelete = true
-		if err := UpdateNode(node, &newnode); err != nil {
+		nodeID := node.ID
+		node := &schema.Node{
+			ID:            nodeID.String(),
+			Action:        schema.NODE_DELETE,
+			PendingDelete: true,
+		}
+		err := node.MarkForDeletion(db.WithContext(context.TODO()))
+		if err != nil {
 			return err
 		}
-		newZombie <- node.ID
+		newZombie <- nodeID
 		return nil
 	}
 	if alreadyDeleted {
@@ -404,100 +309,33 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 
 // DeleteNodeByID - deletes a node from database
 func DeleteNodeByID(node *models.Node) error {
-	var err error
-	var key = node.ID.String()
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		if !database.IsEmptyRecord(err) {
-			return err
-		}
+	_node := &schema.Node{
+		ID: node.ID.String(),
 	}
-	if servercfg.CacheEnabled() {
-		deleteNodeFromCache(node.ID.String())
-		deleteNodeFromNetworkCache(node.ID.String(), node.Network)
+	err := _node.Delete(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	if servercfg.IsDNSMode() {
-		SetDNS()
-	}
-	// removeZombie <- node.ID
+
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
 	go DeleteNodeMetricsFromPeers(node.ID.String())
-	//recycle ip address
-	if servercfg.CacheEnabled() {
-		if node.Address.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
-		}
-		if node.Address6.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
-		}
-	}
-
 	return nil
-}
-
-// IsNodeIDUnique - checks if node id is unique
-func IsNodeIDUnique(node *models.Node) (bool, error) {
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID.String())
-	return database.IsEmptyRecord(err), err
-}
-
-// ValidateNode - validates node values
-func ValidateNode(node *models.Node, isUpdate bool) error {
-	v := validator.New()
-	_ = v.RegisterValidation("id_unique", func(fl validator.FieldLevel) bool {
-		if isUpdate {
-			return true
-		}
-		isFieldUnique, _ := IsNodeIDUnique(node)
-		return isFieldUnique
-	})
-	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		err := (&schema.Network{Name: node.Network}).Get(db.WithContext(context.TODO()))
-		return err == nil
-	})
-	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
-		return validation.CheckYesOrNoOrUnset(f1)
-	})
-	err := v.Struct(node)
-	return err
 }
 
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-	if servercfg.CacheEnabled() {
-		nodes = getNodesFromCache()
-		if len(nodes) != 0 {
-			return nodes, nil
-		}
-	}
-	nodesMap := make(map[string]models.Node)
-	if servercfg.CacheEnabled() {
-		defer loadNodesIntoCache(nodesMap)
-		defer loadNodesIntoNetworkCache(nodesMap)
-	}
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return []models.Node{}, err
+		return nil, err
 	}
 
-	for _, value := range collection {
-		var node models.Node
-		// ignore legacy nodes in database
-		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			logger.Log(3, "legacy node detected: ", err.Error())
-			continue
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
-		nodesMap[node.ID.String()] = node
+	for _, _node := range _nodes {
+		node := ConvertSchemaNodeToModelsNode(&_node)
+		ensureNodeMutex(node)
+		nodes = append(nodes, *node)
 	}
 
 	return nodes, nil
@@ -536,32 +374,14 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
-// SetNodeDefaults - sets the defaults of a node to avoid empty fields
-func SetNodeDefaults(node *models.Node, resetConnected bool) {
-	parentNetwork := &schema.Network{Name: node.Network}
-	_ = parentNetwork.Get(db.WithContext(context.TODO()))
-	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-	if err == nil {
-		node.NetworkRange = *cidr
+// ensureNodeMutex sets node.Mutex if nil. Mutex is never persisted (json:"-"); unmarshaled
+// and freshly constructed nodes need a mutex for in-memory coordination of shared maps.
+func ensureNodeMutex(node *models.Node) {
+	if node == nil {
+		return
 	}
-	_, cidr, err = net.ParseCIDR(parentNetwork.AddressRange6)
-	if err == nil {
-		node.NetworkRange6 = *cidr
-	}
-
-	if node.FailOverPeers == nil {
-		node.FailOverPeers = make(map[string]struct{})
-	}
-
-	node.SetLastModified()
-	//node.SetLastCheckIn()
-
-	if resetConnected {
-		node.SetDefaultConnected()
-	}
-	node.SetExpirationDateTime()
-	if node.Tags == nil {
-		node.Tags = make(map[models.TagID]struct{})
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
 	}
 }
 
@@ -574,25 +394,18 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-func GetNodeByID(uuid string) (models.Node, error) {
-	if servercfg.CacheEnabled() {
-		if node, ok := getNodeFromCache(uuid); ok {
-			return node, nil
-		}
+func GetNodeByID(nodeID string) (models.Node, error) {
+	_node := &schema.Node{
+		ID: nodeID,
 	}
-	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
+	err := _node.Get(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
 	if err != nil {
 		return models.Node{}, err
 	}
-	var node models.Node
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(node)
-		storeNodeInNetworkCache(node, node.Network)
-	}
-	return node, nil
+
+	node := ConvertSchemaNodeToModelsNode(_node)
+	ensureNodeMutex(node)
+	return *node, nil
 }
 
 // GetDeletedNodeByID - get a deleted node
@@ -609,19 +422,7 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 
-	SetNodeDefaults(&node, true)
-
 	return node, nil
-}
-
-// FindRelay - returns the node that is the relay for a relayed node
-func FindRelay(node *models.Node) *models.Node {
-	relay, err := GetNodeByID(node.RelayedBy)
-	if err != nil {
-		logger.Log(0, "FindRelay: "+err.Error())
-		return nil
-	}
-	return &relay
 }
 
 // GetAllNodesAPI - get all nodes for api usage
@@ -686,111 +487,20 @@ func DeleteExpiredNodes(ctx context.Context) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			allnodes, err := GetAllNodes()
+			nodes, err := (&schema.Node{}).ListAll(db.WithContext(ctx))
 			if err != nil {
 				slog.Error("failed to retrieve all nodes", "error", err.Error())
 				return
 			}
-			for _, node := range allnodes {
-				node := node
+			for _, node := range nodes {
+				node := ConvertSchemaNodeToModelsNode(&node)
 				if time.Now().After(node.ExpirationDateTime) {
-					DeleteNodesCh <- &node
-					slog.Info("deleting expired node", "nodeid", node.ID.String())
+					DeleteNodesCh <- node
+					slog.Info("deleting expired node", "nodeid", node.ID)
 				}
 			}
 		}
 	}
-}
-
-// createNode - creates a node in database
-func createNode(node *models.Node) error {
-	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
-	addressLock.Lock()
-	defer addressLock.Unlock()
-
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err := host.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	SetNodeDefaults(node, true)
-	parentNetwork := &schema.Network{Name: node.Network}
-	err = parentNetwork.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if node.Address.IP == nil {
-		if parentNetwork.AddressRange != "" {
-			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err != nil {
-				return err
-			}
-			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
-	}
-	if node.Address6.IP == nil {
-		if parentNetwork.AddressRange6 != "" {
-			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
-				return err
-			}
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err != nil {
-				return err
-			}
-			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
-		}
-	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 %s is not unique", node.Address6.String())
-	}
-	node.ID = uuid.New()
-	//Create a JWT for the node
-	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
-	if tokenString == "" {
-		//logic.ReturnErrorResponse(w, r, errorResponse)
-		return err
-	}
-	err = ValidateNode(node, false)
-	if err != nil {
-		return err
-	}
-	CheckZombies(node)
-	node.SetLastCheckIn()
-	nodebytes, err := json.Marshal(&node)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
-		if node.Address.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-		}
-		if node.Address6.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-		}
-	}
-
-	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
-		logger.Log(1, "failed to initialize metrics for node", node.ID.String(), err.Error())
-	}
-
-	SetNetworkNodesLastModified(node.Network)
-	if servercfg.IsDNSMode() {
-		err = SetDNS()
-	}
-	return err
 }
 
 // SortApiNodes - Sorts slice of ApiNodes by their ID alphabetically with numbers first
@@ -811,24 +521,6 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 		return node, fmt.Errorf("network url param does not match node network")
 	}
 	return node, nil
-}
-
-func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
-
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		if !IsIPUnique(newNode.Network, newNode.Address, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(newNode.Network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address)
-		}
-	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		if !IsIPUnique(newNode.Network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
-			!IsIPUnique(newNode.Network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address6)
-		}
-	}
-
-	return nil
 }
 
 func ValidateEgressRange(netID string, ranges []string) error {
@@ -865,17 +557,261 @@ func ContainsCIDR(net1, net2 string) bool {
 	return one.Contains(two) || two.Contains(one)
 }
 
-// GetAllFailOvers - gets all the nodes that are failovers
-func GetAllFailOvers() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
+func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
+	return ConvertSchemaNodeToModelsNode(_node).ConvertToAPINode()
+}
+
+func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
+	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
-		return nil, err
+		return &models.Node{}
 	}
-	igs := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsFailOver {
-			igs = append(igs, node)
+
+	var nodeAddr, nodeAddr6 net.IPNet
+	if _node.Address != "" {
+		ip, cidr, err := net.ParseCIDR(_node.Address)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		cidr.IP = ip
+		nodeAddr = *cidr
+	}
+
+	if _node.Address6 != "" {
+		ip6, cidr, err := net.ParseCIDR(_node.Address6)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		cidr.IP = ip6
+		nodeAddr6 = *cidr
+	}
+
+	hostID, err := uuid.Parse(_node.HostID)
+	if err != nil {
+		return &models.Node{}
+	}
+
+	if _node.Host == nil {
+		_node.Host = &schema.Host{
+			ID: hostID,
+		}
+		err = _node.Host.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			return &models.Node{}
 		}
 	}
-	return igs, nil
+
+	var netAddrRange, netAddr6Range net.IPNet
+	if _node.Network == nil {
+		_node.Network = &schema.Network{
+			ID: _node.NetworkID,
+		}
+		err = _node.Network.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			return &models.Node{}
+		}
+	}
+
+	if _node.Network.AddressRange != "" {
+		_, cidr, err := net.ParseCIDR(_node.Network.AddressRange)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		netAddrRange = *cidr
+	}
+
+	if _node.Network.AddressRange6 != "" {
+		_, cidr, err := net.ParseCIDR(_node.Network.AddressRange6)
+		if err != nil {
+			return &models.Node{}
+		}
+
+		netAddr6Range = *cidr
+	}
+
+	var violations []models.Violation
+	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
+	if err == nil {
+		for _, _violation := range _violations {
+			violations = append(violations, models.Violation{
+				CheckID:   _violation.CheckID,
+				Name:      _violation.Name,
+				Attribute: _violation.Attribute,
+				Message:   _violation.Message,
+				Severity:  _violation.Severity,
+			})
+		}
+	}
+
+	node := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:                nodeID,
+			HostID:            hostID,
+			Network:           _node.Network.Name,
+			NetworkRange:      netAddrRange,
+			NetworkRange6:     netAddr6Range,
+			Server:            servercfg.GetServer(),
+			Connected:         _node.Connected,
+			Address:           nodeAddr,
+			Address6:          nodeAddr6,
+			Action:            _node.Action,
+			IsIngressGateway:  _node.IsGateway,
+			IsRelay:           _node.IsGateway,
+			IsGw:              _node.IsGateway,
+			AutoAssignGateway: _node.AutoAssignGateway,
+		},
+		PendingDelete:                     _node.PendingDelete,
+		LastModified:                      _node.UpdatedAt,
+		LastCheckIn:                       _node.LastCheckIn,
+		ExpirationDateTime:                _node.ExpirationDateTime,
+		Metadata:                          _node.Metadata,
+		IsAutoRelay:                       _node.IsAutoRelay == "yes",
+		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
+		IsInternetGateway:                 _node.IsInternetGateway,
+		Tags:                              make(map[models.TagID]struct{}),
+		Status:                            _node.Status,
+		PostureChecksViolations:           violations,
+		PostureCheckVolationSeverityLevel: _node.PostureCheckSeverity,
+		LastEvaluatedAt:                   _node.UpdatedAt,
+		Location:                          _node.Host.Location,
+		CountryCode:                       _node.Host.CountryCode,
+	}
+
+	if _node.IsGateway {
+		node.IngressGatewayRange = _node.Network.AddressRange
+		node.IngressGatewayRange6 = _node.Network.AddressRange6
+		node.IngressPersistentKeepalive = int32(_node.Host.PersistentKeepalive.Seconds())
+		node.IngressMTU = int32(_node.Host.MTU)
+		node.AdditionalRagIps = make([]net.IP, 0, len(_node.AdditionalGatewayEndpoints))
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+		}
+
+		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
+			endpointIP := net.ParseIP(additionalEndpoint)
+			if endpointIP != nil {
+				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
+			}
+		}
+	}
+
+	if _node.RelayedByNodeID != nil && *_node.RelayedByNodeID != "" {
+		node.IsRelayed = true
+		node.RelayedBy = *_node.RelayedByNodeID
+
+		if _node.IsIGWClient {
+			node.InternetGwID = *_node.RelayedByNodeID
+		}
+	}
+
+	for tagID := range _node.Tags {
+		node.Tags[models.TagID(tagID)] = struct{}{}
+	}
+
+	return node
+}
+
+func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	var address, address6 string
+	if node.Address.IP != nil {
+		address = node.Address.String()
+	}
+
+	if node.Address6.IP != nil {
+		address6 = node.Address6.String()
+	}
+
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return &schema.Node{}
+	}
+
+	network := &schema.Network{
+		Name: node.Network,
+	}
+	err = network.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return &schema.Node{}
+	}
+
+	isAutoRelay := "no"
+	if node.IsAutoRelay {
+		isAutoRelay = "yes"
+	}
+
+	additionalEndpoints := make([]string, 0, len(node.AdditionalRagIps))
+	for _, additionalEndpoint := range node.AdditionalRagIps {
+		endpointString := additionalEndpoint.String()
+		if endpointString != "<nil>" {
+			additionalEndpoints = append(additionalEndpoints, endpointString)
+		}
+	}
+
+	relayedClients := make(datatypes.JSONMap)
+	for _, relayedNodeID := range node.RelayedNodes {
+		relayedClients[relayedNodeID] = struct{}{}
+	}
+
+	relayedIGWClients := make(datatypes.JSONMap)
+	for _, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
+		relayedIGWClients[inetNodeClientID] = struct{}{}
+	}
+
+	var relayingNodeID *string
+	if node.IsRelayed && node.RelayedBy != "" {
+		relayedBy := node.RelayedBy
+		relayingNodeID = &relayedBy
+	}
+
+	tags := make(datatypes.JSONMap)
+	for tagID := range node.Tags {
+		tags[tagID.String()] = struct{}{}
+	}
+
+	return &schema.Node{
+		ID:                                node.ID.String(),
+		HostID:                            host.ID.String(),
+		Host:                              host,
+		NetworkID:                         network.ID,
+		Network:                           network,
+		Address:                           address,
+		Address6:                          address6,
+		Connected:                         node.Connected,
+		Action:                            node.Action,
+		Status:                            node.Status,
+		PendingDelete:                     node.PendingDelete,
+		AutoAssignGateway:                 node.AutoAssignGateway,
+		IsGateway:                         node.IsGw,
+		IsAutoRelay:                       isAutoRelay,
+		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
+		AdditionalGatewayEndpoints:        additionalEndpoints,
+		RelayedClients:                    relayedClients,
+		RelayedIGWClients:                 relayedIGWClients,
+		RelayedByNodeID:                   relayingNodeID,
+		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
+		Tags:                              tags,
+		PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
+		PostureCheckLastEvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
+		Metadata:                          node.Metadata,
+		LastCheckIn:                       node.LastCheckIn,
+		ExpirationDateTime:                node.ExpirationDateTime,
+		CreatedAt:                         node.LastModified,
+		UpdatedAt:                         node.LastModified,
+	}
 }

@@ -225,6 +225,12 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
 	}
+	if scfg.EmailSenderPassword != "" {
+		scfg.EmailSenderPassword = logic.Mask()
+	}
+	if scfg.OktaAPIToken != "" {
+		scfg.OktaAPIToken = logic.Mask()
+	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
@@ -327,6 +333,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
+		logic.NotifyMetricExportIntervalChanged()
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
@@ -336,7 +343,8 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
 	// On force FlowLogs enable, enable FlowLogs for all hosts.
 	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
-	if force || !new.EnableFlowLogs {
+	// On NetclientAutoUpdate disable, forced or not, disable AutoUpdate for all hosts.
+	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
 			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))

@@ -16,13 +16,14 @@ import (
 
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate"
@@ -30,7 +31,6 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
@@ -51,6 +51,10 @@ var version = "v1.5.1"
 
 // Start DB Connection and start API Request Handler
 func main() {
+	// Initializes repository with a CE extensions factory as the default. If built with 'ee' tag, the EE init()
+	// will have already registered the Pro factory and this call will be a no-op.
+	orchestrator.InitializeRepository(extensions.NewCEFactory())
+
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
 	setVerbosity()
@@ -58,8 +62,6 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
-	logic.SetAllocatedIpMap()
-	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
 	defer db.CloseDB()
 	defer database.CloseDB()
@@ -140,36 +142,15 @@ func initialize() { // Client Mode Prereq Check
 	initializeUUID()
 
 	//initialize cache
-	_, _ = logic.GetAllNodes()
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
 	_ = logic.CleanExpiredSSOStates()
 
 	logic.SetJWTSecret()
-	logic.InitialiseRoles()
-	logic.IntialiseGroups()
-	err = serverctl.SetDefaults()
-	if err != nil {
-		logger.FatalLog("error setting defaults: ", err.Error())
-	}
-	if servercfg.IsDNSMode() {
-		err := functions.SetDNSDir()
-		if err != nil {
-			logger.FatalLog(err.Error())
-		}
-	}
-
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
-	if servercfg.IsDNSMode() {
-		err := logic.SetDNS()
-		if err != nil {
-			logger.Log(0, "error occurred initializing DNS: ", err.Error())
-		}
-	}
-
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
 		if !servercfg.DisableRemoteIPCheck() && servercfg.GetAPIHost() == "127.0.0.1" {
@@ -230,7 +211,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 				continue
 			}
 			node := nodeUpdate
-			node.Action = models.NODE_DELETE
+			node.Action = schema.NODE_DELETE
 			node.PendingDelete = true
 			if err := mq.NodeUpdate(node); err != nil {
 				logger.Log(
@@ -244,7 +225,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 				slog.Error(
 					"error deleting expired node",
 					"nodeid",
-					node.ID.String(),
+					node.ID,
 					"error",
 					err.Error(),
 				)

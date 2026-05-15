@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"maps"
 	"sync"
 	"time"
 
@@ -31,6 +32,19 @@ func storeMetricsInCache(key string, metrics models.Metrics) {
 	metricsCacheMutex.Lock()
 	metricsCacheMap[key] = metrics
 	metricsCacheMutex.Unlock()
+}
+
+// metricsReadCopy returns a shallow copy of m with Connectivity deep-cloned so callers never
+// share the cached map with MQTT / UpdateMetrics / metrics monitor goroutines that mutate it.
+func metricsReadCopy(m *models.Metrics) *models.Metrics {
+	if m == nil {
+		return nil
+	}
+	out := *m
+	if out.Connectivity != nil {
+		out.Connectivity = maps.Clone(out.Connectivity)
+	}
+	return &out
 }
 
 func deleteNetworkFromCache(key string) {
@@ -69,8 +83,8 @@ func LoadNodeMetricsToCache() error {
 func GetMetrics(nodeid string) (*models.Metrics, error) {
 	var metrics models.Metrics
 	if servercfg.CacheEnabled() {
-		if metrics, ok := getMetricsFromCache(nodeid); ok {
-			return &metrics, nil
+		if m, ok := getMetricsFromCache(nodeid); ok {
+			return metricsReadCopy(&m), nil
 		}
 	}
 	record, err := database.FetchRecord(database.METRICS_TABLE_NAME, nodeid)
@@ -86,6 +100,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 	}
 	if servercfg.CacheEnabled() {
 		storeMetricsInCache(nodeid, metrics)
+		return metricsReadCopy(&metrics), nil
 	}
 	return &metrics, nil
 }

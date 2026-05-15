@@ -120,6 +120,73 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 	return false
 }
 
+func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e *schema.Egress, acls []models.Acl) bool {
+	if node == nil || targetNode == nil || e == nil {
+		return false
+	}
+	if _, ok := e.Nodes[targetNode.ID.String()]; !ok {
+		return false
+	}
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		if !IsEgressRoutingPolicyAllowedForNodes(acl, *node, *targetNode) {
+			continue
+		}
+		srcEgresses := getEgressesFromPolicyTags(acl.Src, node.Network)
+		dstEgresses := getEgressesFromPolicyTags(acl.Dst, node.Network)
+		nodeRoutesSrc := targetNodeRoutesAnyEgress(*node, srcEgresses)
+		nodeRoutesDst := targetNodeRoutesAnyEgress(*node, dstEgresses)
+		targetRoutesSrc := targetNodeRoutesAnyEgress(*targetNode, srcEgresses)
+		targetRoutesDst := targetNodeRoutesAnyEgress(*targetNode, dstEgresses)
+		if acl.AllowedDirection == models.TrafficDirectionUni {
+			if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
+				return true
+			}
+			continue
+		}
+		if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
+			return true
+		}
+		if nodeRoutesDst && targetRoutesSrc && egressListContainsID(srcEgresses, e.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+func egressListContainsID(egresses []schema.Egress, id string) bool {
+	for _, e := range egresses {
+		if e.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// snapshotNodeTagIDs copies tag keys from n.Tags. When n.Mutex is set, reads are serialized
+// with writers on the same node (shallow copies may share the Tags map). When Mutex is nil,
+// tags are still read so tag-based egress matching applies; that matches patterns like
+// maps.Clone(node.Tags) elsewhere for nodes without an initialized mutex.
+func snapshotNodeTagIDs(n *models.Node) []models.TagID {
+	if n == nil {
+		return nil
+	}
+	if n.Mutex != nil {
+		n.Mutex.Lock()
+		defer n.Mutex.Unlock()
+	}
+	if len(n.Tags) == 0 {
+		return nil
+	}
+	out := make([]models.TagID, 0, len(n.Tags))
+	for tid := range n.Tags {
+		out = append(out, tid)
+	}
+	return out
+}
+
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
@@ -127,12 +194,14 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		NetID:      targetNode.Network,
 		NatEnabled: "yes",
 	}
+	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			if !DoesNodeHaveAccessToEgress(node, &e, acls) &&
+				!doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
 					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
 						continue
@@ -188,7 +257,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 
 			}
 		}
-		for tagID := range targetNode.Tags {
+		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
 				m64, err := metric.(json.Number).Int64()
 				if err != nil {
@@ -326,6 +395,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 		NetID:      targetNode.Network,
 		NatEnabled: "yes",
 	}
+	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -370,7 +440,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 			}
 
 		}
-		for tagID := range targetNode.Tags {
+		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
 				m64, err := metric.(json.Number).Int64()
 				if err != nil {

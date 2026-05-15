@@ -2,17 +2,13 @@ package controller
 
 import (
 	"fmt"
-	"net"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
-	"github.com/txn2/txeh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -49,51 +45,6 @@ func TestGetAllDNS(t *testing.T) {
 	})
 }
 
-func TestGetNodeDNS(t *testing.T) {
-	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
-	createHost()
-	err := functions.SetDNSDir()
-	assert.Nil(t, err)
-	t.Run("NoNodes", func(t *testing.T) {
-		dns, _ := logic.GetNodeDNS("skynet")
-		assert.Equal(t, []models.DNSEntry(nil), dns)
-	})
-	t.Run("NodeExists", func(t *testing.T) {
-		createHost()
-		_, ipnet, _ := net.ParseCIDR("10.0.0.1/32")
-		tmpCNode := models.CommonNode{
-			ID:      uuid.New(),
-			Network: "skynet",
-			Address: *ipnet,
-		}
-		createnode := models.Node{
-			CommonNode: tmpCNode,
-		}
-		err := logic.AssociateNodeToHost(&createnode, &dnsHost)
-		assert.Nil(t, err)
-		dns, err := logic.GetNodeDNS("skynet")
-		assert.Nil(t, err)
-		assert.Equal(t, "10.0.0.1", dns[0].Address)
-	})
-	t.Run("MultipleNodes", func(t *testing.T) {
-		_, ipnet, _ := net.ParseCIDR("10.100.100.3/32")
-		tmpCNode := models.CommonNode{
-			ID:      uuid.New(),
-			Network: "skynet",
-			Address: *ipnet,
-		}
-		createnode := models.Node{
-			CommonNode: tmpCNode,
-		}
-		err := logic.AssociateNodeToHost(&createnode, &dnsHost)
-		assert.Nil(t, err)
-		dns, err := logic.GetNodeDNS("skynet")
-		assert.Nil(t, err)
-		assert.Equal(t, 2, len(dns))
-	})
-}
 func TestGetCustomDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
@@ -201,59 +152,6 @@ func TestCreateDNS(t *testing.T) {
 	dns, err := logic.CreateDNS(entry)
 	assert.Nil(t, err)
 	assert.Equal(t, "newhost", dns.Name)
-}
-
-func TestSetDNS(t *testing.T) {
-	deleteAllDNS(t)
-	deleteAllNetworks()
-	etc, err := txeh.NewHosts(&txeh.HostsConfig{})
-	assert.Nil(t, err)
-	err = functions.SetDNSDir()
-	assert.Nil(t, err)
-	t.Run("NoNetworks", func(t *testing.T) {
-		err := logic.SetDNS()
-		assert.Nil(t, err)
-		info, err := txeh.NewHosts(&txeh.HostsConfig{
-			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
-		})
-		assert.Nil(t, err)
-		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
-	})
-	t.Run("NoEntries", func(t *testing.T) {
-		createNet()
-		err := logic.SetDNS()
-		assert.Nil(t, err)
-		info, err := txeh.NewHosts(&txeh.HostsConfig{
-			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
-		})
-		assert.Nil(t, err)
-		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
-	})
-	t.Run("NodeExists", func(t *testing.T) {
-		createTestNode()
-		err := logic.SetDNS()
-		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
-		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
-		assert.Nil(t, err)
-		assert.Contains(t, string(content), "linuxhost")
-	})
-	t.Run("EntryExists", func(t *testing.T) {
-		entry := models.DNSEntry{Address: "10.0.0.3", Name: "newhost", Network: "skynet"}
-		_, err := logic.CreateDNS(entry)
-		assert.Nil(t, err)
-		err = logic.SetDNS()
-		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
-		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
-		assert.Nil(t, err)
-		assert.Contains(t, string(content), "newhost")
-	})
-
 }
 
 func TestGetDNSEntry(t *testing.T) {
