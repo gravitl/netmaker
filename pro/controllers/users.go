@@ -656,7 +656,17 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		for netID := range removedNetworks {
 			if _, ok := keptNetworks[netID]; !ok {
 				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
+				if err := proLogic.RemoveUserGroupFromNetworkJITScope(netID.String(), userGroup.ID); err != nil {
+					slog.Warn("failed to clean up JIT scope for removed user group",
+						"group_id", userGroup.ID, "network", netID, "error", err)
+				}
 			}
+		}
+		// Members of an admin group bypass JIT, so any network where the
+		// group now grants admin access must drop it from its JIT scope.
+		if err := proLogic.ReconcileUserGroupJITScope(&userGroup); err != nil {
+			slog.Warn("failed to reconcile JIT scope for updated user group",
+				"group_id", userGroup.ID, "error", err)
 		}
 	}()
 	go mq.PublishPeerUpdate(replacePeers)

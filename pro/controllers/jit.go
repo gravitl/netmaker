@@ -53,7 +53,7 @@ func JITHandlers(r *mux.Router) {
 // @Accept      json
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Param       body body models.JITOperationRequest true "JIT operation request"
+// @Param       body body models.JITOperationRequest true "JIT operation request (user_group_ids for enable / update_jit_user_groups)"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -146,9 +146,11 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 
 	switch req.Action {
 	case "enable":
-		handleEnableJIT(w, r, networkID, user)
+		handleEnableJIT(w, r, networkID, user, req.UserGroupIDs)
 	case "disable":
 		handleDisableJIT(w, r, networkID, user)
+	case "update_jit_user_groups":
+		handleUpdateJITUserGroups(w, r, networkID, user, req.UserGroupIDs)
 	case "approve":
 		handleApproveRequest(w, r, networkID, user, req.RequestID, req.ExpiresAt)
 	case "deny":
@@ -159,20 +161,20 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 }
 
 // handleEnableJIT - enables JIT on a network
-func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
+func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, userGroupIDs []string) {
 	// Check if user is admin
 	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can enable JIT"), "forbidden"))
 		return
 	}
 
-	if err := proLogic.EnableJITOnNetwork(networkID); err != nil {
+	if err := proLogic.EnableJITOnNetwork(networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitEnable,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -205,7 +207,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitDisable,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -222,6 +224,106 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT disabled on network")
+}
+
+// handleUpdateJITUserGroups - updates JIT user-group allowlist while JIT stays enabled
+func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, userGroupIDs []string) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can update JIT user groups"), "forbidden"))
+		return
+	}
+
+	currNet := &schema.Network{Name: networkID}
+	err := (currNet).Get(db.WithContext(context.TODO()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	// Snapshot the previous group names before we mutate the network, so the
+	// audit diff retains human-readable names even if any of the listed groups
+	// are deleted later.
+	oldSnapshot := newJITNetworkAuditSnapshot(currNet)
+
+	if err := proLogic.UpdateJITUserGroupsOnNetwork(networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	updatedNet := &schema.Network{Name: networkID}
+	err = (updatedNet).Get(db.WithContext(context.TODO()))
+
+	if err != nil {
+		slog.Error("failed to fetch updated network for JIT user-group audit diff", "network", networkID, "error", err)
+		return
+	}
+	diff := models.Diff{
+		Old: oldSnapshot,
+		New: newJITNetworkAuditSnapshot(updatedNet),
+	}
+	logic.LogEvent(&models.Event{
+		Action: schema.JitGroupsUpdate,
+		Source: models.Subject{
+			ID:   user.Username,
+			Name: user.Username,
+			Type: schema.JITSub,
+		},
+		TriggeredBy: user.Username,
+		Target: models.Subject{
+			ID:   networkID,
+			Name: networkID,
+			Type: schema.JITSub,
+		},
+		NetworkID: schema.NetworkID(networkID),
+		Origin:    schema.Dashboard,
+		Diff:      diff,
+	})
+
+	logic.ReturnSuccessResponse(w, r, "JIT user groups updated")
+}
+
+// jitUserGroupRef pins a user-group ID alongside its display name at the moment
+// of an audit event, so the event remains human-readable even after the
+// underlying group is deleted.
+type jitUserGroupRef struct {
+	ID   schema.UserGroupID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// jitNetworkAuditSnapshot is the payload stored in JIT audit-event diffs.
+// It embeds the network so existing consumers continue to see the same
+// fields (including jit_user_group_ids), and adds a parallel jit_user_groups
+// list with the resolved names captured at event time.
+type jitNetworkAuditSnapshot struct {
+	*schema.Network
+	JITUserGroups []jitUserGroupRef `json:"jit_user_groups"`
+}
+
+func newJITNetworkAuditSnapshot(network *schema.Network) jitNetworkAuditSnapshot {
+	snap := jitNetworkAuditSnapshot{Network: network}
+	if network == nil {
+		return snap
+	}
+	snap.JITUserGroups = make([]jitUserGroupRef, 0, len(network.JITUserGroupIDs))
+	for _, gid := range network.JITUserGroupIDs {
+		ref := jitUserGroupRef{ID: gid}
+		grp := &schema.UserGroup{ID: gid}
+		if err := grp.Get(db.WithContext(context.TODO())); err == nil {
+			ref.Name = grp.Name
+		}
+		snap.JITUserGroups = append(snap.JITUserGroups, ref)
+	}
+	return snap
+}
+
+func jitRequestToGroupIDs(ids []string) []schema.UserGroupID {
+	out := make([]schema.UserGroupID, 0, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		out = append(out, schema.UserGroupID(id))
+	}
+	return out
 }
 
 // handleApproveRequest - approves a JIT request
@@ -266,7 +368,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		}
 	}()
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitRequestApprove,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -274,9 +376,9 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   requestID,
-			Name: networkID,
-			Type: schema.NetworkSub,
+			ID:   grant.UserID,
+			Name: grant.UserID,
+			Type: schema.UserSub,
 		},
 		NetworkID: schema.NetworkID(networkID),
 		Origin:    schema.Dashboard,
@@ -314,7 +416,7 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Update,
+		Action: schema.JitRequestDeny,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -322,9 +424,9 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   requestID,
-			Name: networkID,
-			Type: schema.NetworkSub,
+			ID:   request.UserID,
+			Name: request.UserID,
+			Type: schema.UserSub,
 		},
 		NetworkID: schema.NetworkID(networkID),
 		Origin:    schema.Dashboard,
@@ -438,7 +540,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Delete,
+		Action: schema.JitGrantRevoke,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
@@ -446,9 +548,9 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: user.Username,
 		Target: models.Subject{
-			ID:   grantID,
-			Name: networkID,
-			Type: schema.NetworkSub,
+			ID:   grant.UserID,
+			Name: grant.UserID,
+			Type: schema.UserSub,
 		},
 		NetworkID: schema.NetworkID(networkID),
 		Origin:    schema.Dashboard,
@@ -497,7 +599,7 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	userNetworks := logic.FilterNetworksByRole(allNetworks, user)
 
 	// Build response with JIT status for each network
-	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user.Username)
+	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -596,7 +698,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.LogEvent(&models.Event{
-		Action: schema.Create,
+		Action: schema.JitRequestCreate,
 		Source: models.Subject{
 			ID:   user.Username,
 			Name: user.Username,
