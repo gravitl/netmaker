@@ -142,14 +142,16 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			nodeIDs = append(nodeIDs, node.ID)
 		}
 
-		err = (&schema.Node{}).AssignTag(
-			db.WithContext(context.TODO()),
-			tag.ID.String(),
-			dbtypes.WithFilter("network_id", network.ID),
-			dbtypes.WithFilter("id", nodeIDs...),
-		)
-		if err != nil {
-			logger.Log(0, fmt.Sprintf("failed to assign tag %s to nodes: %v", tag.TagName, err.Error()))
+		if len(nodeIDs) > 0 {
+			err = (&schema.Node{}).AssignTag(
+				db.WithContext(context.TODO()),
+				tag.ID.String(),
+				dbtypes.WithFilter("network_id", network.ID),
+				dbtypes.WithFilter("id", nodeIDs...),
+			)
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("failed to assign tag %s to nodes: %v", tag.TagName, err.Error()))
+			}
 		}
 	}()
 	logic.LogEvent(&models.Event{
