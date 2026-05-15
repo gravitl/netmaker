@@ -151,11 +151,6 @@ type FwUpdate struct {
 	AclRules        map[string]AclRule     `json:"acl_rules"`
 }
 
-// FailOverMeReq - struct for failover req
-type FailOverMeReq struct {
-	NodeID string `json:"node_id"`
-}
-
 // AutoRelayMeReq - struct for autorelay req
 type AutoRelayMeReq struct {
 	NodeID        string `json:"node_id"`

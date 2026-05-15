@@ -54,6 +54,16 @@ func ReturnSuccessResponse(response http.ResponseWriter, request *http.Request, 
 	json.NewEncoder(response).Encode(httpResponse)
 }
 
+// ReturnAcceptedResponse - returns 202 Accepted for async operations
+func ReturnAcceptedResponse(response http.ResponseWriter, request *http.Request, message string) {
+	var httpResponse models.SuccessResponse
+	httpResponse.Code = http.StatusAccepted
+	httpResponse.Message = message
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(response).Encode(httpResponse)
+}
+
 // ReturnSuccessResponseWithJson - processes message and adds header
 func ReturnSuccessResponseWithJson(response http.ResponseWriter, request *http.Request, res interface{}, message string) {
 	var httpResponse models.SuccessResponse

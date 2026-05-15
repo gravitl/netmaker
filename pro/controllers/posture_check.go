@@ -4,18 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 )
 
 func PostureCheckHandlers(r *mux.Router) {
@@ -110,6 +113,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	go mq.PublishPeerUpdate(false)
 	go proLogic.RunPostureChecks()
+	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "created posture check")
 }
 
@@ -148,6 +152,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
+		proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
@@ -161,6 +166,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	proLogic.PopulatePostureCheckGroupNames(list)
 	logic.ReturnSuccessResponseWithJson(w, r, list, "fetched posture checks")
 }
 
@@ -246,6 +252,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)
 	go proLogic.RunPostureChecks()
+	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "updated posture check")
 }
 
@@ -299,6 +306,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go mq.PublishPeerUpdate(false)
+	go proLogic.RunPostureChecks()
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
 }
 
@@ -315,15 +323,15 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 
-	network := r.URL.Query().Get("network")
-	if network == "" {
+	networkName := r.URL.Query().Get("network")
+	if networkName == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
 	listViolatedusers := r.URL.Query().Get("users") == "true"
 	violatedNodes := []models.Node{}
 	if listViolatedusers {
-		extclients, err := logic.GetNetworkExtClients(network)
+		extclients, err := logic.GetNetworkExtClients(networkName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
@@ -336,16 +344,37 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		nodes, err := logic.GetNetworkNodes(network)
+		network := &schema.Network{
+			Name: networkName,
+		}
+		err := network.Get(r.Context())
 		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			errType := logic.Internal
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				errType = logic.BadReq
+			}
+
+			err = fmt.Errorf("failed to list posture check violated nodes in network %s: error fetching network: %v", networkName, err)
+			logger.Log(0, r.Header.Get("user"), err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 			return
 		}
 
-		for _, node := range nodes {
-			if len(node.PostureChecksViolations) > 0 {
-				violatedNodes = append(violatedNodes, node)
-			}
+		_nodes, err := (&schema.Node{}).ListAll(
+			r.Context(),
+			dbtypes.WithPreloads("Host"),
+			dbtypes.WithFilter("network_id", network.ID),
+			dbtypes.WithNotFilter("posture_check_severity", schema.SeverityUnknown),
+		)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+
+		for _, _node := range _nodes {
+			_node.Network = network
+			node := logic.ConvertSchemaNodeToModelsNode(&_node)
+			violatedNodes = append(violatedNodes, *node)
 		}
 	}
 	apiNodes := logic.GetAllNodesAPI(violatedNodes)

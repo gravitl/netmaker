@@ -2,7 +2,7 @@ Copyright (c) 2023 Netmaker,Inc.
 
 Portions of this software are licensed as follows:
 
-* All content that resides under the "pro/" directory of this repository, if that directory exists, is licensed under the license defined in "pro/LICENSE".
+* All content that resides under the "pro/" directory of this repository, if that directory exists, is licensed under the license defined in "pro/PRO_LICENSE".
 * All third party components incorporated into the Netmaker Software are licensed under the original license provided by the owner of the applicable component.
 * Content outside of the above mentioned directories or restrictions above is available under the "Apache Version 2.0" license as defined below.
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
+
 	"github.com/gravitl/netmaker/db"
 	_ "github.com/lib/pq"
 )
@@ -142,6 +144,7 @@ func pgCloseDB() {
 }
 
 func pgIsConnected() bool {
-	stats := PGDB.Stats()
-	return stats.OpenConnections > 0
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return PGDB.PingContext(ctx) == nil
 }

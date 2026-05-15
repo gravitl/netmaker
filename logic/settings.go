@@ -12,15 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"context"
-
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -98,10 +92,6 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	if !s.OldAClsSupport {
-		// set defaults for old acl settings
-		go setDefaultsforOldAclCfg()
-	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -115,36 +105,6 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		PublishServerSync(SyncTypeSettings)
 	}
 	return nil
-}
-
-func setDefaultsforOldAclCfg() {
-	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	for _, netI := range nets {
-		if netI.DefaultACL != "yes" {
-			netI.DefaultACL = "yes"
-			UpsertNetwork(&netI)
-		}
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
-		if err != nil {
-			continue
-		}
-		for id, aclNode := range networkACL {
-			for aclID, allowed := range aclNode {
-				if allowed != acls.Allowed {
-					aclNode.Allow(aclID)
-				}
-			}
-			networkACL.UpdateACL(id, aclNode)
-		}
-		networkACL.Save(acls.ContainerID(netI.Name))
-	}
-	nodes, _ := GetAllNodes()
-	for _, node := range nodes {
-		if node.DefaultACL != "yes" {
-			node.DefaultACL = "yes"
-			UpsertNode(&node)
-		}
-	}
 }
 
 func GetUserSettings(userID string) models.UserSettings {
@@ -228,7 +188,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
-		OldAClsSupport:             false,
 	}
 
 	return
@@ -333,7 +292,6 @@ func GetServerInfo() models.ServerConfig {
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
 	cfg.PeerConnectionCheckInterval = serverSettings.PeerConnectionCheckInterval
-	cfg.OldAClsSupport = serverSettings.OldAClsSupport
 	key, _ := RetrievePublicTrafficKey()
 	cfg.TrafficKey = key
 	return cfg
@@ -454,19 +412,42 @@ func GetMetricsPort() int {
 	return GetServerSettings().MetricsPort
 }
 
-// GetMetricInterval - get the publish metric interval
+// GetMetricIntervalInMinutes returns the publish-to-exporter interval from server
+// settings (dashboard), with fallback to servercfg / env when unset or invalid.
 func GetMetricIntervalInMinutes() time.Duration {
-	//default 15 minutes
-	mi := "15"
-	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
-		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	mi := strings.TrimSpace(GetServerSettings().MetricInterval)
+	if mi != "" {
+		if interval, err := strconv.Atoi(mi); err == nil && interval > 0 {
+			return time.Duration(interval) * time.Minute
+		}
 	}
-	interval, err := strconv.Atoi(mi)
-	if err != nil {
-		interval = 15
-	}
+	return servercfg.GetMetricIntervalInMinutes()
+}
 
-	return time.Duration(interval) * time.Minute
+var (
+	metricExportIntervalMu   sync.Mutex
+	metricExportIntervalSubs []chan struct{}
+)
+
+// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval setting changes.
+func SubscribeMetricExportIntervalReset() <-chan struct{} {
+	ch := make(chan struct{}, 1)
+	metricExportIntervalMu.Lock()
+	metricExportIntervalSubs = append(metricExportIntervalSubs, ch)
+	metricExportIntervalMu.Unlock()
+	return ch
+}
+
+// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
+func NotifyMetricExportIntervalChanged() {
+	metricExportIntervalMu.Lock()
+	defer metricExportIntervalMu.Unlock()
+	for _, ch := range metricExportIntervalSubs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // GetMetricInterval - get the publish metric interval

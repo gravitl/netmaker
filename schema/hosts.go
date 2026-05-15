@@ -16,6 +16,15 @@ import (
 	"gorm.io/datatypes"
 )
 
+const (
+	// FIREWALL_IPTABLES - indicates that iptables is the firewall in use
+	FIREWALL_IPTABLES = "iptables"
+	// FIREWALL_NFTABLES - indicates nftables is in use (Linux only)
+	FIREWALL_NFTABLES = "nftables"
+	// FIREWALL_NONE - indicates that no supported firewall in use
+	FIREWALL_NONE = "none"
+)
+
 // Iface struct for local interfaces of a node
 type Iface struct {
 	Name          string    `json:"name"`
@@ -148,6 +157,8 @@ type Host struct {
 	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode         string                      `json:"country_code" yaml:"country_code"`
 	EnableFlowLogs      bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	CreatedAt           time.Time                   `json:"created_at" yaml:"created_at"`
+	UpdatedAt           time.Time                   `json:"updated_at" yaml:"updated_at"`
 }
 
 func (h *Host) TableName() string {
@@ -198,4 +209,8 @@ func (h *Host) Delete(ctx context.Context) error {
 		Where("id = ?", h.ID).
 		Delete(h).
 		Error
+}
+
+func (h *Host) DeleteAll(ctx context.Context) error {
+	return db.FromContext(ctx).Exec("DELETE FROM hosts_v1").Error
 }
