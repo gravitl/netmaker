@@ -61,9 +61,9 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 	c.Run("IPv4 Network", func() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv4)
 		c.Require().NoError(err)
-		c.Require().Equal(node.HostID, host.ID.String())
+		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
-		c.Require().Equal(node.NetworkID, networkIPv4.ID)
+		c.Require().Equal(networkIPv4.ID, node.NetworkID)
 		c.Require().NotNil(node.Network)
 		c.Require().True(node.Connected)
 		c.Require().NotEmpty(node.Address)
@@ -72,16 +72,15 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().Empty(node.Address6)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		err = node.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("IPv6 Network", func() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv6)
 		c.Require().NoError(err)
-		c.Require().Equal(node.HostID, host.ID.String())
+		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
-		c.Require().Equal(node.NetworkID, networkIPv6.ID)
+		c.Require().Equal(networkIPv6.ID, node.NetworkID)
 		c.Require().NotNil(node.Network)
 		c.Require().True(node.Connected)
 		c.Require().Empty(node.Address)
@@ -90,8 +89,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		err = node.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("IPv10 Network", func() {
@@ -99,7 +97,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Equal(node.HostID, host.ID.String())
 		c.Require().NotNil(node.Host)
-		c.Require().Equal(node.NetworkID, networkIPv10.ID)
+		c.Require().Equal(networkIPv10.ID, node.NetworkID)
 		c.Require().NotNil(node.Network)
 		c.Require().True(node.Connected)
 		c.Require().NotEmpty(node.Address)
@@ -110,21 +108,13 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		err = node.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteNode(c.T(), node)
 	})
 
-	err := networkIPv4.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
-
-	err = networkIPv6.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
-
-	err = networkIPv10.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
-
-	err = host.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
+	testutils.DeleteNetwork(c.T(), networkIPv4)
+	testutils.DeleteNetwork(c.T(), networkIPv6)
+	testutils.DeleteNetwork(c.T(), networkIPv10)
+	testutils.DeleteHost(c.T(), host)
 }
 
 func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
@@ -143,16 +133,13 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		c.Require().NoError(err)
 		c.Require().True(node.IsGateway)
 		c.Require().False(node.IsInternetGateway)
-		c.Require().Equal(node.IsAutoRelay, "yes")
+		c.Require().Equal("yes", node.IsAutoRelay)
 		c.Require().Empty(node.RelayedClients)
 		c.Require().Empty(node.RelayedIGWClients)
-		c.Require().Equal(node.AutoRelayedPeers, datatypes.NewJSONType(map[string]string{}))
+		c.Require().Equal(datatypes.NewJSONType(map[string]string{}), node.AutoRelayedPeers)
 
-		err = node.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
-
-		err = host.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteHost(c.T(), host)
 	})
 
 	c.Run("Windows", func() {
@@ -167,8 +154,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		_, err = core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		err = host.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteHost(c.T(), host)
 	})
 
 	c.Run("Darwin", func() {
@@ -183,12 +169,10 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		_, err = core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		err = host.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteHost(c.T(), host)
 	})
 
-	err := network.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
+	testutils.DeleteNetwork(c.T(), network)
 }
 
 func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
@@ -204,6 +188,8 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().True(node.AutoAssignGateway)
+
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("Without AutoAssignGateway", func() {
@@ -214,6 +200,8 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
+
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("With Tags", func() {
@@ -224,6 +212,8 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().Contains(node.Tags, string(key.Groups[0]))
+
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("Without Tags", func() {
@@ -234,6 +224,8 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().Empty(node.Tags)
+
+		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("With Gateway", func() {
@@ -252,11 +244,15 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().NotNil(node.RelayedByNodeID)
-		c.Require().Equal(*node.RelayedByNodeID, gateway.ID)
+		c.Require().Equal(gateway.ID, *node.RelayedByNodeID)
 
 		err = gateway.Get(db.WithContext(context.TODO()))
 		c.Require().NoError(err)
 		c.Require().Contains(gateway.RelayedClients, node.ID)
+
+		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), gateway)
+		testutils.DeleteHost(c.T(), gatewayHost)
 	})
 
 	c.Run("Without Gateway", func() {
@@ -265,15 +261,10 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
 		c.Require().NoError(err)
 
-		err = node.Delete(db.WithContext(context.TODO()))
-		c.Require().NoError(err)
+		testutils.DeleteNode(c.T(), node)
 	})
 
-	testutils.DeleteTag(c.T(), tag.ID.String())
-
-	err := network.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
-
-	err = host.Delete(db.WithContext(context.TODO()))
-	c.Require().NoError(err)
+	testutils.DeleteTag(c.T(), tag)
+	testutils.DeleteNetwork(c.T(), network)
+	testutils.DeleteHost(c.T(), host)
 }

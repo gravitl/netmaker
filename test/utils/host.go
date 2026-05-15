@@ -28,3 +28,8 @@ func CreateHost(t *testing.T, name string) *schema.Host {
 
 	return host
 }
+
+func DeleteHost(t *testing.T, host *schema.Host) {
+	err := host.Delete(db.WithContext(context.TODO()))
+	require.NoError(t, err)
+}

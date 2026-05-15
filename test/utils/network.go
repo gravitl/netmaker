@@ -57,3 +57,8 @@ func CreateIPv10Network(t *testing.T, name string) *schema.Network {
 
 	return network
 }
+
+func DeleteNetwork(t *testing.T, network *schema.Network) {
+	err := network.Delete(db.WithContext(context.TODO()))
+	require.NoError(t, err)
+}

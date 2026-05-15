@@ -24,7 +24,7 @@ func CreateTag(t *testing.T, tagID, network string) *models.Tag {
 	return &tag
 }
 
-func DeleteTag(t *testing.T, tagID string) {
-	err := database.DeleteRecord(database.TAG_TABLE_NAME, tagID)
+func DeleteTag(t *testing.T, tag *models.Tag) {
+	err := database.DeleteRecord(database.TAG_TABLE_NAME, tag.ID.String())
 	require.NoError(t, err)
 }
