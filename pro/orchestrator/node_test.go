@@ -194,6 +194,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	host := testutils.CreateHost(c.T(), "host-0")
 	network := testutils.CreateIPv10Network(c.T(), "network-0")
+	tag := testutils.CreateTag(c.T(), "tag-0", network.Name)
 
 	c.Run("With AutoAssignGateway", func() {
 		key := &models.EnrollmentKey{
@@ -217,7 +218,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 
 	c.Run("With Tags", func() {
 		key := &models.EnrollmentKey{
-			Groups: []models.TagID{"tag-0"},
+			Groups: []models.TagID{tag.ID},
 		}
 
 		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
@@ -267,6 +268,8 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		err = node.Delete(db.WithContext(context.TODO()))
 		c.Require().NoError(err)
 	})
+
+	testutils.DeleteTag(c.T(), tag.ID.String())
 
 	err := network.Delete(db.WithContext(context.TODO()))
 	c.Require().NoError(err)
