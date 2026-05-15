@@ -159,77 +159,82 @@ func migrateNetworks(ctx context.Context) error {
 			return err
 		}
 
+		logger.Log(4, fmt.Sprintf("migrating network %s nameserver", _network.Name))
+
+		err = migrateNetworks_Nameserver(ctx, &network)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating network %s nameserver failed: %v", _network.Name, err))
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateNetworks_Nameserver(ctx context.Context, network *models.Network) error {
+	if len(network.NameServers) > 0 {
 		var cidr, cidrv6 *net.IPNet
+		var err error
 		if len(network.AddressRange) != 0 {
 			_, cidr, err = net.ParseCIDR(network.AddressRange)
 			if err != nil {
-				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange, err)
-				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-				return err
+				return fmt.Errorf("error parsing network (%s) cidr (%s): %v", network.NetID, network.AddressRange, err)
 			}
 		}
 
 		if len(network.AddressRange6) != 0 {
 			_, cidrv6, err = net.ParseCIDR(network.AddressRange6)
 			if err != nil {
-				err = fmt.Errorf("error parsing network (%s) cidr (%s): %v", _network.Name, network.AddressRange6, err)
-				logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-				return err
+				return fmt.Errorf("error parsing network (%s) cidr (%s): %v", network.NetID, network.AddressRange6, err)
 			}
 		}
 
 		superAdmin := &schema.User{}
 		err = superAdmin.GetSuperAdmin(ctx)
 		if err != nil {
-			err = fmt.Errorf("error getting superadmin: %v", err)
-			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-			return err
+			return fmt.Errorf("error getting superadmin: %v", err)
 		}
 
-		if len(network.NameServers) > 0 {
-			ns := schema.Nameserver{
-				ID:        uuid.NewString(),
-				Name:      "upstream nameservers",
-				NetworkID: _network.Name,
-				Servers:   []string{},
-				MatchAll:  true,
-				Domains: []schema.NameserverDomain{
-					{
-						Domain: ".",
-					},
+		ns := schema.Nameserver{
+			ID:        uuid.NewString(),
+			Name:      "upstream nameservers",
+			NetworkID: network.NetID,
+			Servers:   []string{},
+			MatchAll:  true,
+			Domains: []schema.NameserverDomain{
+				{
+					Domain: ".",
 				},
-				Tags: datatypes.JSONMap{
-					"*": struct{}{},
-				},
-				Nodes:     make(datatypes.JSONMap),
-				Status:    true,
-				CreatedBy: superAdmin.Username,
+			},
+			Tags: datatypes.JSONMap{
+				"*": struct{}{},
+			},
+			Nodes:     make(datatypes.JSONMap),
+			Status:    true,
+			CreatedBy: superAdmin.Username,
+		}
+
+		for _, nsIP := range network.NameServers {
+			ip := net.ParseIP(nsIP)
+			if ip == nil {
+				continue
 			}
 
-			for _, nsIP := range network.NameServers {
-				ip := net.ParseIP(nsIP)
-				if ip == nil {
-					continue
+			if ip.To4() != nil {
+				if cidr != nil && !cidr.Contains(ip) {
+					ns.Servers = append(ns.Servers, nsIP)
 				}
-
-				if ip.To4() != nil {
-					if cidr != nil && !cidr.Contains(ip) {
-						ns.Servers = append(ns.Servers, nsIP)
-					}
-				} else {
-					if cidrv6 != nil && !cidrv6.Contains(ip) {
-						ns.Servers = append(ns.Servers, nsIP)
-					}
+			} else {
+				if cidrv6 != nil && !cidrv6.Contains(ip) {
+					ns.Servers = append(ns.Servers, nsIP)
 				}
 			}
+		}
 
-			if len(ns.Servers) > 0 {
-				err = ns.Create(ctx)
-				if err != nil {
-					err = fmt.Errorf("error creating upstream nameserver for network (%s): %v", _network.Name, err)
-					logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
-					return err
-				}
+		if len(ns.Servers) > 0 {
+			err = ns.Create(ctx)
+			if err != nil {
+				return fmt.Errorf("error creating upstream nameserver for network (%s): %v", network.NetID, err)
 			}
 		}
 	}
