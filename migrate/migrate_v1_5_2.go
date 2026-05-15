@@ -129,6 +129,11 @@ func migrateNodes(ctx context.Context) error {
 			return err
 		}
 
+		isAutoRelay := "no"
+		if node.IsAutoRelay {
+			isAutoRelay = "yes"
+		}
+
 		additionalEndpoints := make([]string, 0, len(node.AdditionalRagIps))
 		for _, additionalEndpoint := range node.AdditionalRagIps {
 			endpointString := additionalEndpoint.String()
@@ -166,7 +171,7 @@ func migrateNodes(ctx context.Context) error {
 			PendingDelete:                     node.PendingDelete,
 			AutoAssignGateway:                 node.AutoAssignGateway,
 			IsGateway:                         node.IsGw,
-			IsAutoRelay:                       node.IsAutoRelay,
+			IsAutoRelay:                       isAutoRelay,
 			IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 			AdditionalGatewayEndpoints:        additionalEndpoints,
 			RelayedClients:                    relayedClients,

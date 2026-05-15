@@ -33,6 +33,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		NetworkID:          network.ID,
 		Network:            network,
 		Connected:          true,
+		IsAutoRelay:        "no",
 		RelayedClients:     make(datatypes.JSONMap),
 		RelayedIGWClients:  make(datatypes.JSONMap),
 		AutoRelayedPeers:   datatypes.NewJSONType(make(map[string]string)),
@@ -320,7 +321,7 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 				return fmt.Errorf("default host %s cannot be set to use internet gateway", igwClient.Host.Name)
 			}
 
-			if igwClient.IsAutoRelay {
+			if igwClient.IsAutoRelay == "yes" {
 				return fmt.Errorf("node %s acting as auto relay cannot use internet gateway", igwClient.Host.Name)
 			}
 

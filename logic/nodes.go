@@ -667,7 +667,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		LastCheckIn:                       _node.LastCheckIn,
 		ExpirationDateTime:                _node.ExpirationDateTime,
 		Metadata:                          _node.Metadata,
-		IsAutoRelay:                       _node.IsAutoRelay,
+		IsAutoRelay:                       _node.IsAutoRelay == "yes",
 		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                 _node.IsInternetGateway,
 		Tags:                              make(map[models.TagID]struct{}),
@@ -748,6 +748,11 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		return &schema.Node{}
 	}
 
+	isAutoRelay := "no"
+	if node.IsAutoRelay {
+		isAutoRelay = "yes"
+	}
+
 	additionalEndpoints := make([]string, 0, len(node.AdditionalRagIps))
 	for _, additionalEndpoint := range node.AdditionalRagIps {
 		endpointString := additionalEndpoint.String()
@@ -791,7 +796,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		PendingDelete:                     node.PendingDelete,
 		AutoAssignGateway:                 node.AutoAssignGateway,
 		IsGateway:                         node.IsGw,
-		IsAutoRelay:                       node.IsAutoRelay,
+		IsAutoRelay:                       isAutoRelay,
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 		AdditionalGatewayEndpoints:        additionalEndpoints,
 		RelayedClients:                    relayedClients,

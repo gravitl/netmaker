@@ -319,7 +319,7 @@ func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.PendingDelete = _node.PendingDelete
 	n.AutoAssignGateway = _node.AutoAssignGateway
 	n.IsGateway = _node.IsGateway
-	n.IsAutoRelay = _node.IsAutoRelay
+	n.IsAutoRelay = _node.IsAutoRelay == "yes"
 	n.IsInternetGateway = _node.IsInternetGateway
 	n.RelayedClients = _node.RelayedClients
 	n.RelayedIGWClients = _node.RelayedIGWClients

@@ -49,7 +49,7 @@ type Node struct {
 	PendingDelete                     bool                                  `json:"pending_delete"`
 	AutoAssignGateway                 bool                                  `json:"auto_assign_gateway"`
 	IsGateway                         bool                                  `json:"is_gateway"`
-	IsAutoRelay                       bool                                  `json:"is_auto_relay"`
+	IsAutoRelay                       string                                `json:"is_auto_relay"`
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
 	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
