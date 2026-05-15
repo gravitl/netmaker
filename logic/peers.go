@@ -637,6 +637,15 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				}
 				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
 				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
+			} else if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+				if r, ok := GetEgressDefaultAllowAllFwRule(node); ok {
+					egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+					if egressInfo.EgressFwRules == nil {
+						egressInfo.EgressFwRules = make(map[string]models.AclRule)
+					}
+					egressInfo.EgressFwRules[r.ID] = r
+					hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
+				}
 			}
 
 		}

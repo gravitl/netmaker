@@ -120,6 +120,51 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 	return false
 }
 
+func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e *schema.Egress, acls []models.Acl) bool {
+	if node == nil || targetNode == nil || e == nil {
+		return false
+	}
+	if _, ok := e.Nodes[targetNode.ID.String()]; !ok {
+		return false
+	}
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		if !IsEgressRoutingPolicyAllowedForNodes(acl, *node, *targetNode) {
+			continue
+		}
+		srcEgresses := getEgressesFromPolicyTags(acl.Src, node.Network)
+		dstEgresses := getEgressesFromPolicyTags(acl.Dst, node.Network)
+		nodeRoutesSrc := targetNodeRoutesAnyEgress(*node, srcEgresses)
+		nodeRoutesDst := targetNodeRoutesAnyEgress(*node, dstEgresses)
+		targetRoutesSrc := targetNodeRoutesAnyEgress(*targetNode, srcEgresses)
+		targetRoutesDst := targetNodeRoutesAnyEgress(*targetNode, dstEgresses)
+		if acl.AllowedDirection == models.TrafficDirectionUni {
+			if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
+				return true
+			}
+			continue
+		}
+		if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
+			return true
+		}
+		if nodeRoutesDst && targetRoutesSrc && egressListContainsID(srcEgresses, e.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+func egressListContainsID(egresses []schema.Egress, id string) bool {
+	for _, e := range egresses {
+		if e.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // snapshotNodeTagIDs copies tag keys from n.Tags. When n.Mutex is set, reads are serialized
 // with writers on the same node (shallow copies may share the Tags map). When Mutex is nil,
 // tags are still read so tag-based egress matching applies; that matches patterns like
@@ -155,7 +200,8 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			if !DoesNodeHaveAccessToEgress(node, &e, acls) &&
+				!doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
 					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
 						continue
