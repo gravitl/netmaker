@@ -180,12 +180,18 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 		tagID = newID
 	}
 
-	_ = (&schema.Node{}).AssignTag(
-		db.WithContext(context.TODO()),
-		tagID.String(),
-		dbtypes.WithFilter("network_id", network.ID),
-		dbtypes.WithFilter("id", taggedNodeIDs...),
-	)
+	// WithFilter skips adding the filter when no values are passed.
+	// So, even though it is expected to work, the effective query
+	// that's executed assigns the tag to all the nodes in the network.
+	// To avoid that ensure the taggedNodeIDs is non-empty.
+	if len(taggedNodeIDs) > 0 {
+		_ = (&schema.Node{}).AssignTag(
+			db.WithContext(context.TODO()),
+			tagID.String(),
+			dbtypes.WithFilter("network_id", network.ID),
+			dbtypes.WithFilter("id", taggedNodeIDs...),
+		)
+	}
 
 	extclients, _ := logic.GetNetworkExtClients(req.Network.String())
 	for _, extclient := range extclients {
