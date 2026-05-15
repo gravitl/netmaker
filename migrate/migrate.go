@@ -38,6 +38,7 @@ func Run() {
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
+	migrateEgressNatMode()
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
@@ -695,5 +696,20 @@ func migrateNameservers() {
 
 			_ = nameserver.Update(db.WithContext(context.TODO()))
 		}
+	}
+}
+
+func migrateEgressNatMode() {
+	egresses, _ := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		if egress.Nat {
+			if egress.Mode == "" {
+				egress.Mode = schema.DirectNAT
+			}
+		} else {
+			egress.Mode = schema.DisabledNAT
+		}
+
+		_ = egress.Update(db.WithContext(context.TODO()))
 	}
 }
