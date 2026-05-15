@@ -46,6 +46,11 @@ func (ns *Nameserver) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).Create(&ns).Error
 }
 
+func (ns *Nameserver) ListAll(ctx context.Context) (dnsli []Nameserver, err error) {
+	err = db.FromContext(ctx).Model(&Nameserver{}).Find(&dnsli).Error
+	return
+}
+
 func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, err error) {
 	err = db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Find(&dnsli).Error
 	return

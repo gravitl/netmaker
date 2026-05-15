@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -16,8 +17,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -32,44 +31,17 @@ func Run() {
 	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
-	updateAcls()
 	updateNewAcls()
 	logic.MigrateToGws()
-	migrateToEgressV1()
 	updateNetworks()
 	resync()
 	deleteOldExtclients()
-	checkAndDeprecateOldAcls()
-}
+	cleanupDeletedUserGroupRefs()
+	migrateNameservers()
+	migrateEgressNatMode()
 
-func checkAndDeprecateOldAcls() {
-	// check if everything is allowed on old acl and disable old acls
-	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	disableOldAcls := true
-	for _, netI := range nets {
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
-		if err != nil {
-			continue
-		}
-		for _, aclNode := range networkACL {
-			for _, allowed := range aclNode {
-				if allowed != acls.Allowed {
-					disableOldAcls = false
-					break
-				}
-			}
-		}
-		if disableOldAcls {
-			netI.DefaultACL = "yes"
-			logic.UpsertNetwork(&netI)
-		}
-	}
-	if disableOldAcls {
-		settings := logic.GetServerSettings()
-		settings.OldAClsSupport = false
-		logic.UpsertServerSettings(settings)
-	}
-
+	logic.InitialiseRoles()
+	logic.IntialiseGroups()
 }
 
 func updateNetworks() {
@@ -347,10 +319,6 @@ func updateNodes() {
 	}
 	for _, node := range nodes {
 		node := node
-		if node.Tags == nil {
-			node.Tags = make(map[models.TagID]struct{})
-			logic.UpsertNode(&node)
-		}
 		if node.IsIngressGateway {
 			host := &schema.Host{
 				ID: node.HostID,
@@ -359,24 +327,6 @@ func updateNodes() {
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
-		}
-		if node.IsEgressGateway {
-			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
-			if update {
-				node.EgressGatewayRequest.Ranges = egressRanges
-				node.EgressGatewayRanges = egressRanges
-				logic.UpsertNode(&node)
-			}
-			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
-				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
-					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
-						Network:     egressRangeI,
-						RouteMetric: 256,
-					})
-				}
-				logic.UpsertNode(&node)
-			}
-
 		}
 	}
 	extclients, _ := logic.GetAllExtClients()
@@ -399,172 +349,116 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 	return egressRanges, update
 }
 
-func updateAcls() {
-	// get all networks
-	if !logic.GetServerSettings().OldAClsSupport {
-		return
-	}
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		slog.Error("acls migration failed. error getting networks", "error", err)
-		return
-	}
-
-	// get current acls per network
-	for _, network := range networks {
-		var networkAcl acls.ACLContainer
-		networkAcl, err := networkAcl.Get(acls.ContainerID(network.Name))
-		if err != nil {
-			if database.IsEmptyRecord(err) {
-				continue
-			}
-			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.Name), "error", err)
-			continue
-		}
-		// convert old acls to new acls with clients
-		// TODO: optimise O(n^2) operation
-		clients, err := logic.GetNetworkExtClients(network.Name)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error getting clients for network: %s", network.Name), "error", err)
-			continue
-		}
-		clientsIdMap := make(map[string]struct{})
-		for _, client := range clients {
-			clientsIdMap[client.ClientID] = struct{}{}
-		}
-		nodeIdsMap := make(map[string]struct{})
-		for nodeId := range networkAcl {
-			nodeIdsMap[string(nodeId)] = struct{}{}
-		}
-		/*
-			initially, networkACL has only node acls so we add client acls to it
-			final shape:
-			{
-				"node1": {
-					"node2": 2,
-					"client1": 2,
-					"client2": 1,
-				},
-				"node2": {
-					"node1": 2,
-					"client1": 2,
-					"client2": 1,
-				},
-				"client1": {
-					"node1": 2,
-					"node2": 2,
-					"client2": 1,
-				},
-				"client2": {
-					"node1": 1,
-					"node2": 1,
-					"client1": 1,
-				},
-			}
-		*/
-		for _, client := range clients {
-			networkAcl[acls.AclID(client.ClientID)] = acls.ACL{}
-			// add client values to node acls and create client acls with node values
-			for id, nodeAcl := range networkAcl {
-				// skip if not a node
-				if _, ok := nodeIdsMap[string(id)]; !ok {
-					continue
-				}
-				if nodeAcl == nil {
-					slog.Warn("acls migration bad data: nil node acl", "node", id, "network", network.Name)
-					continue
-				}
-				nodeAcl[acls.AclID(client.ClientID)] = acls.Allowed
-				networkAcl[acls.AclID(client.ClientID)][id] = acls.Allowed
-				if client.DeniedACLs == nil {
-					continue
-				} else if _, ok := client.DeniedACLs[string(id)]; ok {
-					nodeAcl[acls.AclID(client.ClientID)] = acls.NotAllowed
-					networkAcl[acls.AclID(client.ClientID)][id] = acls.NotAllowed
-				}
-			}
-			// add clients to client acls response
-			for _, c := range clients {
-				if c.ClientID == client.ClientID {
-					continue
-				}
-				networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.Allowed
-				if client.DeniedACLs == nil {
-					continue
-				} else if _, ok := client.DeniedACLs[c.ClientID]; ok {
-					networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.NotAllowed
-				}
-			}
-			// delete oneself from its own acl
-			delete(networkAcl[acls.AclID(client.ClientID)], acls.AclID(client.ClientID))
-		}
-
-		// remove non-existent client and node acls
-		for objId := range networkAcl {
-			if _, ok := nodeIdsMap[string(objId)]; ok {
-				continue
-			}
-			if _, ok := clientsIdMap[string(objId)]; ok {
-				continue
-			}
-			// remove all occurances of objId from all acls
-			for objId2 := range networkAcl {
-				delete(networkAcl[objId2], objId)
-			}
-			delete(networkAcl, objId)
-		}
-
-		// save new acls
-		slog.Debug(fmt.Sprintf("(migration) saving new acls for network: %s", network.Name), "networkAcl", networkAcl)
-		if _, err := networkAcl.Save(acls.ContainerID(network.Name)); err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.Name), "error", err)
-			continue
-		}
-		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.Name))
-	}
-}
-
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-		userGroupMap := make(map[schema.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
-			userGroupMap[userGroup.ID] = userGroup
-		}
+			group := userGroup
+			if group.Default {
+				continue
+			}
 
-		acls := logic.ListAcls()
-		for _, acl := range acls {
-			aclSrc := make([]models.AclPolicyTag, 0)
-			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID {
-					userGroup, ok := userGroupMap[schema.UserGroupID(src.Value)]
-					if !ok {
-						// if the group doesn't exist, don't add it to the acl's src.
-						continue
-					} else {
-						_, allNetworkAccess := userGroup.NetworkRoles.Data()[schema.AllNetworks]
-						if !allNetworkAccess {
-							_, ok := userGroup.NetworkRoles.Data()[acl.NetworkID]
-							if !ok {
-								// if the group doesn't have permissions for the acl's
-								// network, don't add it to the acl's src.
-								continue
-							}
+			networks, err := logic.GetGroupNetworksMap(&group)
+			if err != nil {
+				continue
+			}
+
+			for networkID, network := range networks {
+				createSeparateACL := false
+				enableSeparateACL := true
+				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range adminAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							createSeparateACL = true
+							enableSeparateACL = adminAcl.Enabled
+						} else {
+							newAclSrc = append(newAclSrc, src)
 						}
 					}
+
+					adminAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(adminAcl)
 				}
-				aclSrc = append(aclSrc, src)
+
+				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
+				if err == nil {
+					var newAclSrc []models.AclPolicyTag
+					for _, src := range userAcl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+							if !createSeparateACL {
+								// if group src not found in adminACL, then create.
+								createSeparateACL = true
+								enableSeparateACL = userAcl.Enabled
+							} else {
+								// if group src found in adminACL, then create.
+								// additionally, if either policy allows access, then allow access.
+								if !enableSeparateACL {
+									enableSeparateACL = adminAcl.Enabled
+								}
+							}
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					userAcl.Src = newAclSrc
+					_ = logic.UpsertAcl(userAcl)
+				}
+
+				expectedAcl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s group", group.Name),
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     true,
+					ServiceType: models.Any,
+					NetworkID:   schema.NetworkID(network.Name),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: group.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+
+				acls, _ := logic.ListAclsByNetwork(networkID)
+				for _, acl := range acls {
+					if acl.Name == expectedAcl.Name &&
+						acl.MetaData == expectedAcl.MetaData &&
+						acl.ServiceType == expectedAcl.ServiceType &&
+						acl.NetworkID == expectedAcl.NetworkID &&
+						acl.Proto == expectedAcl.Proto &&
+						acl.RuleType == expectedAcl.RuleType &&
+						slices.Equal(acl.Src, expectedAcl.Src) &&
+						slices.Equal(acl.Dst, expectedAcl.Dst) &&
+						acl.AllowedDirection == expectedAcl.AllowedDirection {
+
+						acl.Default = true
+						_ = logic.UpsertAcl(acl)
+						createSeparateACL = false
+						break
+					}
+				}
+
+				if createSeparateACL {
+					expectedAcl.Enabled = enableSeparateACL
+					_ = logic.InsertAcl(expectedAcl)
+				}
 			}
 
-			if len(aclSrc) == 0 {
-				// if there are no acl sources, delete the acl.
-				_ = logic.DeleteAcl(acl)
-			} else if len(aclSrc) != len(acl.Src) {
-				// if some user groups were removed from the acl source,
-				// update the acl.
-				acl.Src = aclSrc
-				_ = logic.UpsertAcl(acl)
-			}
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group)
 		}
 	}
 }
@@ -639,116 +533,6 @@ func createDefaultTagsAndPolicies() {
 	}
 }
 
-func migrateToEgressV1() {
-	nodes, _ := logic.GetAllNodes()
-	user, err := logic.GetSuperAdmin()
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if node.IsEgressGateway {
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			err := host.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				continue
-			}
-			for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
-				e := &schema.Egress{Range: rangeMetric.Network}
-				if err := e.DoesEgressRouteExists(db.WithContext(context.TODO())); err == nil {
-					e.Nodes[node.ID.String()] = rangeMetric.RouteMetric
-					e.Update(db.WithContext(context.TODO()))
-					continue
-				}
-				e = &schema.Egress{
-					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
-					Description: "",
-					Network:     node.Network,
-					Nodes: datatypes.JSONMap{
-						node.ID.String(): rangeMetric.RouteMetric,
-					},
-					Tags:      make(datatypes.JSONMap),
-					Range:     rangeMetric.Network,
-					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
-					Status:    true,
-					CreatedBy: user.UserName,
-					CreatedAt: time.Now().UTC(),
-				}
-				err = e.Create(db.WithContext(context.TODO()))
-				if err == nil {
-					acl := models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.DevicePolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.NodeTagID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-					acl = models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.UserPolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.UserAclID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-				}
-
-			}
-			node.IsEgressGateway = false
-			node.EgressGatewayRequest = models.EgressGatewayRequest{}
-			node.EgressGatewayNatEnabled = false
-			node.EgressGatewayRanges = []string{}
-			logic.UpsertNode(&node)
-
-		}
-	}
-}
-
 func migrateSettings() {
 	settingsD := make(map[string]interface{})
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
@@ -758,9 +542,6 @@ func migrateSettings() {
 		json.Unmarshal([]byte(data), &settingsD)
 	}
 	settings := logic.GetServerSettings()
-	if _, ok := settingsD["old_acl_support"]; !ok {
-		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
-	}
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
 	}
@@ -813,5 +594,122 @@ func deleteOldExtclients() {
 				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
 			}
 		}
+	}
+}
+
+func cleanupDeletedUserGroupRefs() {
+	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		// skip if we can't list all groups.
+		return
+	}
+
+	existingGroups := make(map[schema.UserGroupID]schema.UserGroup)
+	for _, group := range groups {
+		existingGroups[group.ID] = group
+	}
+
+	existingUsers := make(map[string]schema.User)
+	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	for _, user := range users {
+		existingUsers[user.Username] = user
+		var update bool
+		for groupID := range user.UserGroups.Data() {
+			if _, ok := existingGroups[groupID]; !ok {
+				delete(user.UserGroups.Data(), groupID)
+				update = true
+			}
+		}
+
+		if update {
+			_ = user.Update(db.WithContext(context.TODO()))
+		}
+	}
+
+	for _, acl := range logic.ListAcls() {
+		var newSrc []models.AclPolicyTag
+		for _, src := range acl.Src {
+			if src.ID == models.UserGroupAclID {
+				if group, ok := existingGroups[schema.UserGroupID(src.Value)]; ok {
+					var hasAccess bool
+					if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
+						hasAccess = true
+					}
+
+					if _, ok := group.NetworkRoles.Data()[acl.NetworkID]; ok {
+						hasAccess = true
+					}
+
+					if hasAccess {
+						newSrc = append(newSrc, src)
+					}
+				}
+			} else if src.ID == models.UserAclID && src.Value != "*" {
+				if _, ok := existingUsers[src.Value]; ok {
+					newSrc = append(newSrc, src)
+				}
+			} else {
+				newSrc = append(newSrc, src)
+			}
+		}
+
+		if len(newSrc) == 0 {
+			_ = logic.DeleteAcl(acl)
+		} else if len(acl.Src) != len(newSrc) {
+			acl.Src = newSrc
+			_ = logic.UpsertAcl(acl)
+		}
+	}
+
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		var update bool
+		for groupID := range postureCheck.UserGroups {
+			if _, ok := existingGroups[schema.UserGroupID(groupID)]; !ok {
+				delete(postureCheck.UserGroups, groupID)
+				update = true
+			}
+		}
+
+		if update {
+			_ = postureCheck.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+
+func migrateNameservers() {
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		_ = logic.CreateFallbackNameserver(network.Name)
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		if len(nameserver.Domains) != 0 {
+			for _, matchDomain := range nameserver.MatchDomains {
+				nameserver.Domains = append(nameserver.Domains, schema.NameserverDomain{
+					Domain: matchDomain,
+				})
+			}
+
+			nameserver.MatchDomains = []string{}
+
+			_ = nameserver.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+
+func migrateEgressNatMode() {
+	egresses, _ := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		if egress.Nat {
+			if egress.Mode == "" {
+				egress.Mode = schema.DirectNAT
+			}
+		} else {
+			egress.Mode = schema.DisabledNAT
+		}
+
+		_ = egress.Update(db.WithContext(context.TODO()))
 	}
 }

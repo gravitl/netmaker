@@ -13,11 +13,10 @@ var nodeCreateIngressCmd = &cobra.Command{
 	Deprecated: "in favour of the `gateway` subcommand, in Netmaker v0.90.0.",
 	Aliases:    []string{"create_rag"},
 	Run: func(cmd *cobra.Command, args []string) {
-		functions.PrettyPrint(functions.CreateIngress(args[0], args[1], failover))
+		functions.PrettyPrint(functions.CreateIngress(args[0], args[1]))
 	},
 }
 
 func init() {
-	nodeCreateIngressCmd.Flags().BoolVar(&failover, "failover", false, "Enable FailOver ?")
 	rootCmd.AddCommand(nodeCreateIngressCmd)
 }

@@ -58,13 +58,21 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
+		oldInterval := logic.GetMetricInterval()
 		logic.InvalidateServerSettingsCache()
+		if logic.GetMetricInterval() != oldInterval {
+			logic.NotifyMetricExportIntervalChanged()
+		}
 	case logic.SyncTypePeerUpdate:
 		logic.InvalidateHostPeerCaches()
 		go warmPeerCaches()
-	case logic.SyncTypeIDPSync:
+	case logic.SyncTypeIDPReset:
 		if servercfg.IsMasterPod() {
 			logic.ResetIDPSyncHook()
+		}
+	case logic.SyncTypeIDPSync:
+		if servercfg.IsMasterPod() {
+			logic.SyncFromIDP()
 		}
 	}
 }
