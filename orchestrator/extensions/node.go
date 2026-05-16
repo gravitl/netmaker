@@ -13,7 +13,9 @@ type NodeExtensions interface {
 
 type CENodeExtensions struct{}
 
-func (c *CENodeExtensions) ConfigureAutoRelay(_ *schema.Node) {}
+func (c *CENodeExtensions) ConfigureAutoRelay(node *schema.Node) {
+	node.IsAutoRelay = "no"
+}
 
 func (c *CENodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, _ *models.EnrollmentKey) {
 	node.AutoAssignGateway = false
