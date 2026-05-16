@@ -33,6 +33,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		NetworkID:          network.ID,
 		Network:            network,
 		Connected:          true,
+		Status:             schema.OnlineSt,
 		IsAutoRelay:        "no",
 		RelayedClients:     make(datatypes.JSONMap),
 		RelayedIGWClients:  make(datatypes.JSONMap),
