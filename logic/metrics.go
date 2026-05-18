@@ -55,7 +55,7 @@ func (m *MetricsMonitor) Start() {
 
 						_ = UpdateMetrics(node.ID.String(), nodeMetrics)
 					}
-					SetPeerMetricsDisconnected(node.ID.String())
+					go SetPeerMetricsDisconnected(node.ID.String())
 				}
 			case <-ctx.Done():
 				return
