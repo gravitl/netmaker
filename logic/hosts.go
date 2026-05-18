@@ -289,6 +289,13 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 	if err != nil {
 		return
 	}
+	if !currentNode.Connected && newNode.Connected {
+		newNode.SetLastCheckIn()
+		newNode.Status = schema.OnlineSt
+	}
+	if currentNode.Connected && !newNode.Connected {
+		newNode.Status = schema.Disconnected
+	}
 	currentNode.Connected = newNode.Connected
 	currentNode.SetLastCheckIn()
 	UpsertNode(&currentNode)
