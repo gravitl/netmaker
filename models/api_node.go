@@ -1,10 +1,12 @@
 package models
 
 import (
+	"context"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
@@ -105,13 +107,19 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.OwnerID = currentNode.OwnerID
-	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
-	if err == nil {
-		convertedNode.NetworkRange = *networkRange
+	network := &schema.Network{
+		Name: a.Network,
 	}
-	_, networkRange6, err := net.ParseCIDR(a.NetworkRange6)
+	err := network.Get(db.WithContext(context.TODO()))
 	if err == nil {
-		convertedNode.NetworkRange6 = *networkRange6
+		_, networkRange, err := net.ParseCIDR(network.AddressRange)
+		if err == nil {
+			convertedNode.NetworkRange = *networkRange
+		}
+		_, networkRange6, err := net.ParseCIDR(network.AddressRange6)
+		if err == nil {
+			convertedNode.NetworkRange6 = *networkRange6
+		}
 	}
 	if len(a.LocalAddress) > 0 {
 		_, localAddr, err := net.ParseCIDR(a.LocalAddress)
