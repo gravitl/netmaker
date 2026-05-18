@@ -256,7 +256,7 @@ func migrateNodes(ctx context.Context) error {
 
 	}
 
-	logger.Log(4, fmt.Sprintf("cleaning up nodes post migration"))
+	logger.Log(4, "cleaning up nodes post migration")
 
 	err = migrateNodes_CleanUp(ctx)
 	if err != nil {
