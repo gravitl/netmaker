@@ -290,11 +290,10 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		return
 	}
 	if !currentNode.Connected && newNode.Connected {
-		newNode.SetLastCheckIn()
-		newNode.Status = schema.OnlineSt
+		currentNode.Status = schema.OnlineSt
 	}
 	if currentNode.Connected && !newNode.Connected {
-		newNode.Status = schema.Disconnected
+		currentNode.Status = schema.Disconnected
 	}
 	currentNode.Connected = newNode.Connected
 	currentNode.SetLastCheckIn()
