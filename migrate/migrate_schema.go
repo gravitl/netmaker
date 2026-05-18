@@ -57,7 +57,7 @@ func ensureMigrationCompleted(ctx context.Context, version string, migrate migra
 			return err
 		}
 
-		logger.Log(1, fmt.Sprintf("running migration job %s", migrationJob.ID))
+		logger.Log(0, fmt.Sprintf("running migration job %s", migrationJob.ID))
 		// migrate.
 		err = migrate(dbctx)
 		if err != nil {
@@ -70,9 +70,9 @@ func ensureMigrationCompleted(ctx context.Context, version string, migrate migra
 			return err
 		}
 
-		logger.Log(1, fmt.Sprintf("migration job %s completed", migrationJob.ID))
+		logger.Log(0, fmt.Sprintf("migration job %s completed", migrationJob.ID))
 	} else {
-		logger.Log(1, fmt.Sprintf("migration job %s already completed, skipping", migrationJob.ID))
+		logger.Log(0, fmt.Sprintf("migration job %s already completed, skipping", migrationJob.ID))
 	}
 
 	commit = true

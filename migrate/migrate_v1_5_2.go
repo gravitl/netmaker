@@ -126,6 +126,10 @@ func migrateNodes(ctx context.Context) error {
 		}
 		err = network.Get(ctx)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Log(0, fmt.Sprintf("skipping orphaned node %s: referenced network %q not found", node.ID.String(), node.Network))
+				continue
+			}
 			return err
 		}
 
@@ -231,14 +235,6 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 	if node.IsEgressGateway {
 		superAdmin := &schema.User{}
 		err := superAdmin.GetSuperAdmin(ctx)
-		if err != nil {
-			return err
-		}
-
-		host := &schema.Host{
-			ID: node.HostID,
-		}
-		err = host.Get(ctx)
 		if err != nil {
 			return err
 		}
@@ -401,6 +397,10 @@ func migrateNodes_Nameserver(ctx context.Context, node *models.Node) error {
 			}
 			err = host.Get(ctx)
 			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					logger.Log(0, fmt.Sprintf("skipping nameserver migration for node %s: referenced host %s not found", node.ID.String(), node.HostID))
+					return nil
+				}
 				return err
 			}
 			ns := schema.Nameserver{
