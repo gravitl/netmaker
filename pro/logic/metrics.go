@@ -51,7 +51,7 @@ func metricsReadCopy(m *models.Metrics) *models.Metrics {
 	return &out
 }
 
-func deleteNetworkFromCache(key string) {
+func deleteMetricsFromCache(key string) {
 	metricsCacheMutex.Lock()
 	delete(metricsCacheMap, key)
 	metricsCacheMutex.Unlock()
@@ -133,7 +133,7 @@ func DeleteMetrics(nodeid string) error {
 		return err
 	}
 	if servercfg.CacheEnabled() {
-		deleteNetworkFromCache(nodeid)
+		deleteMetricsFromCache(nodeid)
 	}
 	return nil
 }
