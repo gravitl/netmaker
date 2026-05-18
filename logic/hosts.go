@@ -241,6 +241,21 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 	if newHost.Interface != "" {
 		currHost.Interface = newHost.Interface
 	}
+	// MDM device-matching identifiers: only overwrite if the netclient reported
+	// a non-empty value, so we don't clobber a previously reported identifier
+	// when a later check-in omits the field.
+	if newHost.EntraDeviceID != "" {
+		currHost.EntraDeviceID = newHost.EntraDeviceID
+	}
+	if newHost.SerialNumber != "" {
+		currHost.SerialNumber = newHost.SerialNumber
+	}
+	if newHost.HardwareUUID != "" {
+		currHost.HardwareUUID = newHost.HardwareUUID
+	}
+	if newHost.UserEmail != "" {
+		currHost.UserEmail = newHost.UserEmail
+	}
 	if isEndpointChanged || currHost.Location == "" || currHost.CountryCode == "" {
 		var nodeIP net.IP
 		if currHost.EndpointIP != nil {

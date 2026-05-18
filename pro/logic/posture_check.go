@@ -62,6 +62,10 @@ func RunPostureChecks() error {
 	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
+	// Refresh MDM device state before evaluating; a no-op when no provider
+	// is configured. Errors are already logged inside; we don't want a
+	// remote-API hiccup to block the rest of the posture cycle.
+	_ = RunMDMSync(context.TODO())
 	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -86,12 +90,13 @@ func RunPostureChecks() error {
 			if nodeI.IsStatic && !nodeI.IsUserNode {
 				continue
 			}
+			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
 			var postureChecksViolations []models.Violation
 			var postureCheckVolationSeverityLevel schema.Severity
 			if noChecks {
 				postureCheckVolationSeverityLevel = schema.SeverityUnknown
 			} else {
-				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
+				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, deviceInfo)
 			}
 			if nodeI.IsUserNode {
 				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
@@ -99,6 +104,7 @@ func RunPostureChecks() error {
 					if noChecks && len(extclient.PostureChecksViolations) == 0 {
 						continue
 					}
+					emitNewMDMViolationEvents(extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
 					extclient.PostureChecksViolations = postureChecksViolations
 					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
 					extclient.LastEvaluatedAt = time.Now().UTC()
@@ -108,6 +114,7 @@ func RunPostureChecks() error {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
 					continue
 				}
+				emitNewMDMViolationEvents(nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
 				nodeI.PostureChecksViolations, nodeI.PostureCheckVolationSeverityLevel = postureChecksViolations,
 					postureCheckVolationSeverityLevel
 				nodeI.LastEvaluatedAt = time.Now().UTC()
@@ -320,6 +327,15 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			KernelVersion:  h.KernelVersion,
 			AutoUpdate:     h.AutoUpdate,
 			Tags:           node.Tags,
+			HostID:         h.ID.String(),
+		}
+		// Attach the MDM snapshot for the currently configured provider, if any.
+		settings := logic.GetServerSettings()
+		if settings.MDMProvider != "" {
+			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: settings.MDMProvider}
+			if err := state.Get(db.WithContext(context.TODO())); err == nil {
+				deviceInfo.MDMState = state
+			}
 		}
 	} else if node.IsUserNode {
 		deviceInfo = models.PostureCheckDeviceInfo{
@@ -462,6 +478,26 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		if !required && d.AutoUpdate {
 			return true, "auto update must be disabled"
 		}
+
+	// ------------------------
+	// 6. MDM compliance check
+	// Config: {require_enrolled, require_compliant, max_state_age_hours}
+	// ------------------------
+	case schema.MDMCompliance:
+		cfg := ParseMDMComplianceConfig(check.Config)
+		if d.MDMState == nil {
+			return true, "no_mdm_state_for_host"
+		}
+		if cfg.RequireEnrolled && !d.MDMState.Enrolled {
+			return true, "device_not_mdm_enrolled"
+		}
+		if cfg.RequireCompliant && !d.MDMState.Compliant {
+			return true, "device_not_mdm_compliant"
+		}
+		if cfg.MaxStateAgeHours > 0 &&
+			time.Since(d.MDMState.LastSyncedAt) > time.Duration(cfg.MaxStateAgeHours)*time.Hour {
+			return true, "mdm_state_stale"
+		}
 	}
 
 	return false, ""
@@ -530,10 +566,27 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if err != nil {
 		return errors.New("invalid network")
 	}
-	allowedAttrvaluesMap, ok := schema.PostureCheckAttrValuesMap[pc.Attribute]
+	_, ok := schema.PostureCheckAttrValuesMap[pc.Attribute]
 	if !ok {
 		return errors.New("unkown attribute")
 	}
+	// MDMCompliance uses Config, not Values. Validate the Config payload and
+	// short-circuit the Values flow (Values is set to a placeholder so the
+	// rest of the system stays happy).
+	if pc.Attribute == schema.MDMCompliance {
+		if err := validateMDMComplianceConfig(pc); err != nil {
+			return err
+		}
+		pc.Values = datatypes.JSONSlice[string]{"mdm"}
+		if len(pc.Tags) == 0 {
+			pc.Tags = make(datatypes.JSONMap)
+		}
+		if len(pc.UserGroups) == 0 {
+			pc.UserGroups = make(datatypes.JSONMap)
+		}
+		return nil
+	}
+	allowedAttrvaluesMap := schema.PostureCheckAttrValuesMap[pc.Attribute]
 	if len(pc.Values) == 0 {
 		return errors.New("attribute value cannot be empty")
 	}
@@ -602,4 +655,155 @@ func CountryNameFromISO(code string) string {
 		return ""
 	}
 	return c.Info().Name
+}
+
+// MDMComplianceConfig is the typed view of PostureCheck.Config when
+// Attribute == MDMCompliance.
+type MDMComplianceConfig struct {
+	RequireEnrolled  bool
+	RequireCompliant bool
+	MaxStateAgeHours int
+}
+
+// ParseMDMComplianceConfig decodes the JSONMap stored on PostureCheck.Config
+// into a typed MDMComplianceConfig. Unknown keys are ignored.
+func ParseMDMComplianceConfig(cfg datatypes.JSONMap) MDMComplianceConfig {
+	out := MDMComplianceConfig{}
+	if cfg == nil {
+		return out
+	}
+	if v, ok := cfg["require_enrolled"]; ok {
+		out.RequireEnrolled = asBool(v)
+	}
+	if v, ok := cfg["require_compliant"]; ok {
+		out.RequireCompliant = asBool(v)
+	}
+	if v, ok := cfg["max_state_age_hours"]; ok {
+		out.MaxStateAgeHours = asInt(v)
+	}
+	return out
+}
+
+func asBool(v interface{}) bool {
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		return strings.EqualFold(x, "true")
+	case float64:
+		return x != 0
+	case int:
+		return x != 0
+	}
+	return false
+}
+
+func asInt(v interface{}) int {
+	switch x := v.(type) {
+	case int:
+		return x
+	case int64:
+		return int(x)
+	case float64:
+		return int(x)
+	case string:
+		if i, err := strconv.Atoi(x); err == nil {
+			return i
+		}
+	}
+	return 0
+}
+
+// emitNewMDMViolationEvents emits a posture_check_failed audit event for every
+// MDM compliance violation that is newly present (not in oldVi) in newVi.
+// Old violations don't re-fire; cleared violations are also ignored here.
+func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+	if len(newVi) == 0 {
+		return
+	}
+	prev := make(map[string]struct{}, len(oldVi))
+	for _, v := range oldVi {
+		prev[v.CheckID+"|"+v.Message] = struct{}{}
+	}
+	settings := logic.GetServerSettings()
+	for _, v := range newVi {
+		if v.Attribute != string(schema.MDMCompliance) {
+			continue
+		}
+		if _, ok := prev[v.CheckID+"|"+v.Message]; ok {
+			continue
+		}
+		diff := models.Diff{
+			Old: nil,
+			New: map[string]interface{}{
+				"event":     "posture_check_failed",
+				"type":      string(schema.MDMCompliance),
+				"host_id":   d.HostID,
+				"check_id":  v.CheckID,
+				"check":     v.Name,
+				"reason":    v.Message,
+				"severity":  v.Severity,
+				"provider":  settings.MDMProvider,
+				"enrolled":  mdmStateEnrolled(d.MDMState),
+				"compliant": mdmStateCompliant(d.MDMState),
+			},
+		}
+		logic.LogEvent(&models.Event{
+			Action: schema.PostureCheckFailed,
+			Source: models.Subject{
+				ID:   d.HostID,
+				Name: d.HostID,
+				Type: schema.DeviceSub,
+			},
+			TriggeredBy: "system",
+			Target: models.Subject{
+				ID:   v.CheckID,
+				Name: v.Name,
+				Type: schema.PostureCheckSub,
+			},
+			NetworkID: network,
+			Origin:    schema.Api,
+			Diff:      diff,
+		})
+	}
+}
+
+func mdmStateEnrolled(s *schema.DeviceMDMState) bool {
+	if s == nil {
+		return false
+	}
+	return s.Enrolled
+}
+
+func mdmStateCompliant(s *schema.DeviceMDMState) bool {
+	if s == nil {
+		return false
+	}
+	return s.Compliant
+}
+
+// validateMDMComplianceConfig enforces the MDMCompliance posture-check
+// invariants: an MDM provider must be configured in ServerSettings, at least
+// one of require_enrolled/require_compliant must be true, and
+// max_state_age_hours must be non-negative.
+func validateMDMComplianceConfig(pc *schema.PostureCheck) error {
+	settings := logic.GetServerSettings()
+	if settings.MDMProvider == "" {
+		return errors.New("no MDM provider configured in Settings > Integrations > MDM")
+	}
+	cfg := ParseMDMComplianceConfig(pc.Config)
+	if !cfg.RequireEnrolled && !cfg.RequireCompliant {
+		return errors.New("at least one of require_enrolled or require_compliant must be true")
+	}
+	if cfg.MaxStateAgeHours < 0 {
+		return errors.New("max_state_age_hours must be >= 0")
+	}
+	// Normalise the Config map so it's always present after validation.
+	if pc.Config == nil {
+		pc.Config = make(datatypes.JSONMap)
+	}
+	pc.Config["require_enrolled"] = cfg.RequireEnrolled
+	pc.Config["require_compliant"] = cfg.RequireCompliant
+	pc.Config["max_state_age_hours"] = cfg.MaxStateAgeHours
+	return nil
 }

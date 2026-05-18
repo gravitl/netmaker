@@ -70,6 +70,12 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
+	if s.MDMIntuneClientSecret == Mask() {
+		s.MDMIntuneClientSecret = currSettings.MDMIntuneClientSecret
+	}
+	if s.MDMJamfClientSecret == Mask() {
+		s.MDMJamfClientSecret = currSettings.MDMJamfClientSecret
+	}
 
 	if servercfg.DeployedByOperator() {
 		s.BasicAuth = true

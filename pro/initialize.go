@@ -21,6 +21,10 @@ import (
 	"github.com/gravitl/netmaker/pro/email"
 	"github.com/gravitl/netmaker/pro/license"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	// Blank-import MDM provider packages so their init() registers with
+	// the pro/mdm registry. Add new providers by appending another import.
+	_ "github.com/gravitl/netmaker/pro/mdm/intune"
+	_ "github.com/gravitl/netmaker/pro/mdm/jamf"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -51,6 +55,7 @@ func InitPro() {
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
 		proControllers.JITHandlers,
+		proControllers.MDMHandlers,
 		proControllers.ServerHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles

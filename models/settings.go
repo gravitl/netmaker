@@ -54,6 +54,22 @@ type ServerSettings struct {
 	PostureCheckInterval           string `json:"posture_check_interval"` // in minutes
 	CleanUpInterval                int    `json:"clean_up_interval_in_mins"`
 	EnableFlowLogs                 bool   `json:"enable_flow_logs"`
+
+	// MDM integration (Settings / Integrations / MDM).
+	// MDMProvider selects which MDM is active ("" = disabled).
+	MDMProvider            string `json:"mdm_provider"`
+	MDMSyncEnabled         bool   `json:"mdm_sync_enabled"`
+	MDMSyncIntervalMinutes int    `json:"mdm_sync_interval_minutes"`
+
+	// Intune-specific (used when MDMProvider == "intune").
+	MDMIntuneTenantID     string `json:"mdm_intune_tenant_id"`
+	MDMIntuneClientID     string `json:"mdm_intune_client_id"`
+	MDMIntuneClientSecret string `json:"mdm_intune_client_secret"`
+
+	// Jamf Pro-specific (used when MDMProvider == "jamf").
+	MDMJamfBaseURL      string `json:"mdm_jamf_base_url"`
+	MDMJamfClientID     string `json:"mdm_jamf_client_id"`
+	MDMJamfClientSecret string `json:"mdm_jamf_client_secret"`
 }
 
 type UserSettings struct {

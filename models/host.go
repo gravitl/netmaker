@@ -80,6 +80,14 @@ type Host struct {
 	Location            string           `json:"location"` // Format: "lat,lon"
 	CountryCode         string           `json:"country_code"`
 	EnableFlowLogs      bool             `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+
+	// MDM device-matching identifiers. Reported by netclient on host check-in
+	// and consumed by the MDM sync worker to match a Netmaker host to its
+	// upstream MDM-managed device record.
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	UserEmail     string `json:"user_email"      yaml:"user_email"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

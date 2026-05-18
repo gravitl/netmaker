@@ -79,6 +79,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		UserGroups:  req.UserGroups,
 		Attribute:   req.Attribute,
 		Values:      req.Values,
+		Config:      req.Config,
 		Severity:    req.Severity,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
@@ -231,6 +232,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	pc.UserGroups = updatePc.UserGroups
 	pc.Attribute = updatePc.Attribute
 	pc.Values = updatePc.Values
+	pc.Config = updatePc.Config
 	pc.Description = updatePc.Description
 	pc.Name = updatePc.Name
 	pc.Severity = updatePc.Severity

@@ -398,6 +398,31 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		slog.Info("updated host after check-in", "name", currentHost.Name, "id", currentHost.ID)
 	}
 
+	// Persist MDM device-matching identifiers if the netclient reported any
+	// new values. These don't affect peers, so don't roll into ifaceDelta.
+	mdmChanged := false
+	if h.EntraDeviceID != "" && h.EntraDeviceID != currentHost.EntraDeviceID {
+		currentHost.EntraDeviceID = h.EntraDeviceID
+		mdmChanged = true
+	}
+	if h.SerialNumber != "" && h.SerialNumber != currentHost.SerialNumber {
+		currentHost.SerialNumber = h.SerialNumber
+		mdmChanged = true
+	}
+	if h.HardwareUUID != "" && h.HardwareUUID != currentHost.HardwareUUID {
+		currentHost.HardwareUUID = h.HardwareUUID
+		mdmChanged = true
+	}
+	if h.UserEmail != "" && h.UserEmail != currentHost.UserEmail {
+		currentHost.UserEmail = h.UserEmail
+		mdmChanged = true
+	}
+	if mdmChanged {
+		if err := logic.UpsertHost(currentHost); err != nil {
+			slog.Error("failed to update mdm identifiers after check-in", "name", h.Name, "id", h.ID, "error", err)
+		}
+	}
+
 	slog.Info("check-in processed for host", "name", h.Name, "id", h.ID)
 	return ifaceDelta
 }

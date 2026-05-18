@@ -69,6 +69,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/host/{hostid}/peer_info", AuthorizeHost(http.HandlerFunc(getHostPeerInfo))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/posture_status", AuthorizeHost(http.HandlerFunc(getHostPostureStatus))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost))).
@@ -1567,6 +1569,85 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, peerInfo, "fetched host peer info")
+}
+
+// @Summary     Get the host's last-evaluated posture status
+// @Router      /api/v1/host/{hostid}/posture_status [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       hostid path string true "Host ID"
+// @Success     200 {object} models.HostPostureStatus
+// @Failure     400 {object} models.ErrorResponse
+func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
+	hostIDStr := mux.Vars(r)["hostid"]
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to parse host id: %w", err), logic.BadReq))
+		return
+	}
+
+	host := &schema.Host{ID: hostID}
+	if err := host.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
+		return
+	}
+
+	resp := models.HostPostureStatus{
+		HostID:   hostIDStr,
+		Networks: []models.NetworkPostureStatus{},
+	}
+
+	// MDM block - best-effort: only populated if a provider is configured and
+	// a sync row exists for the host.
+	settings := logic.GetServerSettings()
+	if settings.MDMProvider != "" {
+		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: settings.MDMProvider}
+		if err := state.Get(r.Context()); err == nil {
+			resp.MDM = &models.HostMDMStatus{
+				Provider:     state.Provider,
+				MatchedBy:    state.MatchedBy,
+				Enrolled:     state.Enrolled,
+				Compliant:    state.Compliant,
+				LastSyncedAt: state.LastSyncedAt,
+			}
+		}
+	}
+
+	// Per-network status - copy from already-evaluated nodes belonging to the
+	// host. No new posture computation happens on this read path (v1).
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
+		return
+	}
+	var latest time.Time
+	for _, n := range nodes {
+		if n.HostID != hostID || n.IsStatic {
+			continue
+		}
+		entry := models.NetworkPostureStatus{
+			NetworkID:  n.Network,
+			NodeID:     n.ID.String(),
+			Severity:   n.PostureCheckVolationSeverityLevel,
+			Violations: append([]models.Violation{}, n.PostureChecksViolations...),
+		}
+		switch {
+		case len(entry.Violations) == 0:
+			entry.Status = models.PostureStatusPass
+		case entry.Severity >= schema.SeverityHigh:
+			entry.Status = models.PostureStatusFail
+		default:
+			entry.Status = models.PostureStatusWarn
+		}
+		if n.LastEvaluatedAt.After(latest) {
+			latest = n.LastEvaluatedAt
+		}
+		resp.Networks = append(resp.Networks, entry)
+	}
+	resp.EvaluatedAt = latest
+
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched posture status")
 }
 
 // @Summary     List pending hosts in a network
