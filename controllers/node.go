@@ -1071,6 +1071,14 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				NetworkID: schema.NetworkID(network),
 				Origin:    schema.Dashboard,
 			})
+
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				err = mq.NodeUpdate(&node)
+				if err != nil {
+					slog.Error("failed to publish node update", "id", nodeID, "error", err)
+				}
+			}
 		}
 
 		mq.PublishPeerUpdate(false)
