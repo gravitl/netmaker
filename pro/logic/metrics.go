@@ -174,6 +174,21 @@ func SetPeerMetricsDisconnected(nodeID string) {
 	for _, peer := range peers {
 		peerID := peer.ID.String()
 		if peerID == nodeID {
+			nodeMetrics, err := GetMetrics(nodeID)
+			if err != nil || nodeMetrics.Connectivity == nil {
+				continue
+			}
+			for peerID, metric := range nodeMetrics.Connectivity {
+				metric.Connected = false
+				metric.Latency = 999
+				nodeMetrics.Connectivity[peerID] = metric
+
+			}
+			if err := UpdateMetrics(nodeID, nodeMetrics); err != nil {
+				slog.Error("failed to set peer metric disconnected",
+					"peer", peerID, "disconnected_node", nodeID, "error", err)
+			}
+
 			continue
 		}
 		peerMetrics, err := GetMetrics(peerID)
@@ -200,7 +215,9 @@ func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
 		slog.Error("error getting node", "id", nodeid, "error", err)
 		return
 	}
-
+	if !currentNode.Connected {
+		return
+	}
 	updateNodeMetrics(&currentNode, &newMetrics)
 	if err = logic.UpdateMetrics(nodeid, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", nodeid, "error", err)
