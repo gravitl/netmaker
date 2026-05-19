@@ -76,10 +76,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		normDomains = nil
 	}
 	req.Domains = normDomains
-	primaryDomain := ""
-	if len(normDomains) > 0 {
-		primaryDomain = normDomains[0]
-	}
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
 		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
@@ -102,7 +98,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	} else {
 		egressRange = "*"
 		req.Domains = nil
-		primaryDomain = ""
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -121,8 +116,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Network:         req.Network,
 		Description:     req.Description,
 		Range:           egressRange,
-		Domain:          primaryDomain,
-		Domains:         datatypes.JSONSlice[string](normDomains),
 		DomainAns:       domainAns,
 		Nat:             req.Nat,
 		Mode:            req.Mode,
@@ -134,6 +127,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:       r.Header.Get("user"),
 		CreatedAt:       time.Now().UTC(),
 	}
+	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -289,10 +283,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		normDomains = nil
 	}
 	req.Domains = normDomains
-	primaryDomain := ""
-	if len(normDomains) > 0 {
-		primaryDomain = normDomains[0]
-	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
 	if err != nil {
@@ -313,7 +303,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	} else {
 		egressRange = "*"
 		req.Domains = nil
-		primaryDomain = ""
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -390,8 +379,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
-	e.Domain = primaryDomain
-	e.Domains = datatypes.JSONSlice[string](normDomains)
+	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	e.Status = req.Status
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
@@ -420,7 +408,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		"name":              e.Name,
 		"description":       e.Description,
 		"range":             e.Range,
-		"domain":            e.Domain,
 		"domains":           e.Domains,
 		"nat":               e.Nat,
 		"mode":              e.Mode,

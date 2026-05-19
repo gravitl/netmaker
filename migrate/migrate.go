@@ -541,9 +541,18 @@ func migrateEgressDomains() {
 		logger.Log(0, "migration: failed to list egresses:", err.Error())
 		return
 	}
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
 	for _, eg := range egs {
-		legacyDomain := strings.TrimSpace(eg.Domain)
-		if legacyDomain == "" || len(eg.Domains) > 0 {
+		if len(eg.Domains) > 0 {
+			continue
+		}
+		var legacyDomain string
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Pluck("domain", &legacyDomain).Error; err != nil {
+			logger.Log(0, "migration: failed to read legacy egress domain:", eg.ID, err.Error())
+			continue
+		}
+		legacyDomain = strings.TrimSpace(legacyDomain)
+		if legacyDomain == "" {
 			continue
 		}
 		normDomains, err := logic.NormalizeEgressReqDomains([]string{legacyDomain})
@@ -551,8 +560,7 @@ func migrateEgressDomains() {
 			logger.Log(0, "migration: invalid legacy egress domain:", eg.ID, legacyDomain)
 			continue
 		}
-		if err := db.FromContext(context.TODO()).Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
-			"domain":  normDomains[0],
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
 			"domains": datatypes.JSONSlice[string](normDomains),
 		}).Error; err != nil {
 			logger.Log(0, "migration: failed to update egress domains:", eg.ID, err.Error())

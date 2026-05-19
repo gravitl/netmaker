@@ -28,10 +28,8 @@ type Egress struct {
 	Range        string                      `gorm:"range" json:"range"`
 	Mode         EgressNATMode               `gorm:"mode;default:direct_nat" json:"mode"`
 	VirtualRange string                      `gorm:"virtual_range" json:"virtual_range"`
-	DomainAns    datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
-	// Deprecated: use Domains. Kept for backward compatibility with existing rows/clients.
-	Domain  string                      `gorm:"domain" json:"domain"`
-	Domains datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
+	DomainAns datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
+	Domains   datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
 	Nat     bool                        `gorm:"nat" json:"nat"`
 	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).

@@ -81,17 +81,19 @@ func NormalizeEgressReqDomains(domains []string) ([]string, error) {
 	return out, nil
 }
 
-// ConfiguredDomainsForEgress returns logical domain names: Domains JSON when non-empty, else legacy Domain.
+// ConfiguredDomainsForEgress returns configured logical domain names from Domains.
 func ConfiguredDomainsForEgress(e schema.Egress) []string {
-	if len(e.Domains) > 0 {
-		out := make([]string, len(e.Domains))
-		copy(out, e.Domains)
-		return out
+	if len(e.Domains) == 0 {
+		return nil
 	}
-	if e.Domain != "" {
-		return []string{e.Domain}
-	}
-	return nil
+	out := make([]string, len(e.Domains))
+	copy(out, e.Domains)
+	return out
+}
+
+// ApplyConfiguredDomainsToEgress sets Domains on the egress record.
+func ApplyConfiguredDomainsToEgress(e *schema.Egress, domains []string) {
+	e.Domains = datatypes.JSONSlice[string](domains)
 }
 
 // IsDomainBasedEgress is true when this egress has at least one configured logical domain.

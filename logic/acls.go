@@ -1602,7 +1602,7 @@ func appendExtClientRemoteEgressFwdRules(
 				dst6 = append(dst6, selectedIP6...)
 				continue
 			}
-			if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+			if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
 				for _, domainAnsI := range egI.DomainAns {
 					ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
 					if parseErr != nil {
@@ -1937,7 +1937,7 @@ func computeEgressDstsForAcl(
 			dst6 = append(dst6, selectedIP6...)
 			continue
 		}
-		if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+		if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
 			for _, domainAnsI := range egI.DomainAns {
 				ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
 				if parseErr != nil {

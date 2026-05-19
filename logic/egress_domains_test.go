@@ -54,21 +54,26 @@ func TestEgressDomainsEqual(t *testing.T) {
 	}
 }
 
-func TestConfiguredDomainsForEgress_legacyDomainOnly(t *testing.T) {
-	e := schema.Egress{Domain: "z.example.com"}
-	got := ConfiguredDomainsForEgress(e)
-	if len(got) != 1 || got[0] != "z.example.com" {
-		t.Fatalf("got %v", got)
-	}
-}
-
-func TestConfiguredDomainsForEgress_domainsJSONWins(t *testing.T) {
-	e := schema.Egress{
-		Domain:  "legacy.only",
-		Domains: datatypes.JSONSlice[string]{"a.example.com", "b.example.com"},
-	}
+func TestConfiguredDomainsForEgress(t *testing.T) {
+	e := schema.Egress{Domains: datatypes.JSONSlice[string]{"a.example.com", "b.example.com"}}
 	got := ConfiguredDomainsForEgress(e)
 	if !slices.Equal(got, []string{"a.example.com", "b.example.com"}) {
 		t.Fatalf("got %v", got)
+	}
+	e = schema.Egress{}
+	if got := ConfiguredDomainsForEgress(e); got != nil {
+		t.Fatalf("expected nil, got %v", got)
+	}
+}
+
+func TestApplyConfiguredDomainsToEgress(t *testing.T) {
+	var e schema.Egress
+	ApplyConfiguredDomainsToEgress(&e, []string{"a.example.com", "b.example.com"})
+	if !slices.Equal([]string(e.Domains), []string{"a.example.com", "b.example.com"}) {
+		t.Fatalf("domains got %v", e.Domains)
+	}
+	ApplyConfiguredDomainsToEgress(&e, nil)
+	if len(e.Domains) != 0 {
+		t.Fatalf("clear got domains=%v", e.Domains)
 	}
 }
