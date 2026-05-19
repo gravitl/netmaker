@@ -26,7 +26,7 @@
       "app-frankfurt.salesforceiq.com",
       "app.salesforceiq.com"
     ],
-    "group": "",
+    "group": "sales",
     "suggestedDomain": "login.salesforce.com"
   },
   {
@@ -59,7 +59,7 @@
       "*.visualforce.com",
       "trailblazer.me"
     ],
-    "group": "",
+    "group": "sales",
     "suggestedDomain": "login.salesforce.com"
   },
   {
@@ -87,7 +87,7 @@
       "visualstudio.com",
       "vscode-webview.net"
     ],
-    "group": "",
+    "group": "devtools",
     "suggestedDomain": "github.com"
   },
   {
@@ -104,7 +104,7 @@
       "fastly.net",
       "fastlylb.net"
     ],
-    "group": "",
+    "group": "cdn",
     "suggestedDomain": "fastly.com"
   },
   {
@@ -132,7 +132,7 @@
       "*.wp.com",
       "recaptcha.net"
     ],
-    "group": "",
+    "group": "collaboration",
     "suggestedDomain": "atlassian.net"
   },
   {
@@ -160,7 +160,7 @@
       "*.wp.com",
       "recaptcha.net"
     ],
-    "group": "",
+    "group": "collaboration",
     "suggestedDomain": "atlassian.net"
   },
   {
@@ -191,7 +191,7 @@
       "www.googleapis.com",
       "www.gstatic.com"
     ],
-    "group": "",
+    "group": "productivity",
     "suggestedDomain": "www.google.com"
   },
   {
@@ -251,7 +251,7 @@
       "teams.cloud.microsoft",
       "teams.microsoft.com"
     ],
-    "group": "",
+    "group": "productivity",
     "suggestedDomain": "outlook.office.com"
   },
   {
@@ -277,7 +277,7 @@
       "*.oktacdn.com",
       "*.oktapreview.com"
     ],
-    "group": "",
+    "group": "identity",
     "suggestedDomain": "okta.com"
   },
   {
@@ -318,7 +318,7 @@
       "uploads.stripe.com",
       "verify.stripe.com"
     ],
-    "group": "",
+    "group": "payments",
     "suggestedDomain": "stripe.com"
   },
   {
@@ -352,7 +352,7 @@
       "*.slack-msgs.com",
       "slack.com"
     ],
-    "group": "",
+    "group": "collaboration",
     "suggestedDomain": "slack.com"
   },
   {
@@ -369,7 +369,137 @@
       "app.intercom.com",
       "intercom.com"
     ],
-    "group": "",
+    "group": "support",
     "suggestedDomain": "app.intercom.com"
+  },
+  {
+    "name": "Zoom",
+    "id": "zoom",
+    "sources": [
+      "https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060548",
+      "https://library.zoom.com/admin-corner/network-management/quality-of-service-and-network-best-practices-explainer/configuring-network-components-for-zoom"
+    ],
+    "domains": [
+      "*.cloudfront.net",
+      "*.zoom.com",
+      "*.zoom.us",
+      "*.zoomconnector.com",
+      "*.zoomgov.com",
+      "zoom.com",
+      "zoom.us"
+    ],
+    "group": "collaboration",
+    "suggestedDomain": "zoom.us"
+  },
+  {
+    "name": "Datadog",
+    "id": "datadog",
+    "sources": [
+      "https://docs.datadoghq.com/agent/configuration/network/",
+      "https://docs.datadoghq.com/api/latest/ip-ranges/"
+    ],
+    "domains": [
+      "*.datadoghq.com",
+      "*.datadoghq.eu",
+      "*.ddog-gov.com",
+      "api.datadoghq.com",
+      "app.datadoghq.com",
+      "install.datadoghq.com"
+    ],
+    "group": "observability",
+    "suggestedDomain": "app.datadoghq.com"
+  },
+  {
+    "name": "Zendesk",
+    "id": "zendesk",
+    "sources": [
+      "https://support.zendesk.com/hc/en-us/articles/4408842860186-Configuring-your-firewall-for-use-with-Zendesk",
+      "https://developer.zendesk.com/api-reference/ticketing/account-configuration/public_ips/"
+    ],
+    "domains": [
+      "*.zendesk.com",
+      "*.zdassets.com",
+      "*.zopim.com",
+      "assets.zendesk.com",
+      "static.zdassets.com",
+      "zendesk.com"
+    ],
+    "group": "support",
+    "suggestedDomain": "zendesk.com"
+  },
+  {
+    "name": "HubSpot",
+    "id": "hubspot",
+    "sources": [
+      "https://developers.hubspot.com/docs/api-reference/latest/account/ip-ranges/guide",
+      "https://community.hubspot.com/t5/APIs-Integrations/Getting-CSP-errors-even-after-allowlisting-Hubspot-Tracking-Code/m-p/687443"
+    ],
+    "domains": [
+      "*.hs-analytics.net",
+      "*.hs-banner.com",
+      "*.hs-scripts.com",
+      "*.hsforms.com",
+      "*.hsappstatic.net",
+      "*.hubapi.com",
+      "*.hubspot.com",
+      "*.usemessages.com",
+      "hubspot.com"
+    ],
+    "group": "sales",
+    "suggestedDomain": "app.hubspot.com"
+  },
+  {
+    "name": "Cloudflare",
+    "id": "cloudflare",
+    "sources": [
+      "https://www.cloudflare.com/ips/",
+      "https://developers.cloudflare.com/fundamentals/reference/network-ports/"
+    ],
+    "domains": [
+      "*.cloudflare.com",
+      "*.cloudflare.net",
+      "*.cloudflarecdn.com",
+      "*.cloudflareinsights.com",
+      "cloudflare.com",
+      "cloudflare.net"
+    ],
+    "group": "cdn",
+    "suggestedDomain": "cloudflare.com"
+  },
+  {
+    "name": "GitLab",
+    "id": "gitlab",
+    "sources": [
+      "https://docs.gitlab.com/ee/user/gitlab_com/",
+      "https://docs.gitlab.com/ee/security/webhooks.html"
+    ],
+    "domains": [
+      "*.gitlab.com",
+      "*.gitlab.io",
+      "gitlab.com",
+      "gitlab.io",
+      "registry.gitlab.com"
+    ],
+    "group": "devtools",
+    "suggestedDomain": "gitlab.com"
+  },
+  {
+    "name": "DocuSign",
+    "id": "docusign",
+    "sources": [
+      "https://www.docusign.com/trust/security/esignature",
+      "https://support.docusign.com/s/document-item?language=en_US&bundleId=fsx&topicId=xlv_technical_requirements.html"
+    ],
+    "domains": [
+      "*.docusign.com",
+      "*.docusign.net",
+      "*.docucdn-a.akamaihd.net",
+      "account.docusign.com",
+      "apps.docusign.com",
+      "docusign.com",
+      "docusign.net"
+    ],
+    "group": "compliance",
+    "suggestedDomain": "apps.docusign.com"
   }
 ]
