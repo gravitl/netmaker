@@ -843,11 +843,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				for peer, connectivity := range metrics.Connectivity {
 					connectivity.Connected = false
+					connectivity.Latency = 999
 					metrics.Connectivity[peer] = connectivity
 				}
 
 				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
 			}
+			go logic.SetPeerMetricsDisconnected(newNode.ID.String())
 			if servercfg.IsPro {
 				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
 				for _, dNode := range displacedNodes {
@@ -1050,10 +1052,12 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				if err == nil {
 					for peer, connectivity := range metrics.Connectivity {
 						connectivity.Connected = false
+						connectivity.Latency = 999
 						metrics.Connectivity[peer] = connectivity
 					}
 					_ = logic.UpdateMetrics(nodeID, metrics)
 				}
+				go logic.SetPeerMetricsDisconnected(nodeID)
 			}
 			logic.LogEvent(&models.Event{
 				Action: eventAction,

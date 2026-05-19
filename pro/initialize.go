@@ -152,6 +152,9 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
+	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
+	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
+	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
 	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack

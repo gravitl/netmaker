@@ -286,6 +286,13 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 	if err != nil {
 		return
 	}
+	if !currentNode.Connected && newNode.Connected {
+		newNode.SetLastCheckIn()
+		currentNode.Status = schema.OnlineSt
+	}
+	if currentNode.Connected && !newNode.Connected {
+		currentNode.Status = schema.Disconnected
+	}
 	currentNode.Connected = newNode.Connected
 	currentNode.SetLastCheckIn()
 	UpsertNode(&currentNode)
@@ -294,6 +301,7 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		if servercfg.IsPro {
 			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
 		}
+		go SetPeerMetricsDisconnected(newNode.ID.String())
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(newNode)
