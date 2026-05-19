@@ -203,6 +203,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			}
 
 			node.RelayedClients[igwClientID] = struct{}{}
+			node.RelayedIGWClients[igwClientID] = struct{}{}
 
 			if igwClient.AutoAssignGateway {
 				err = igwClient.ResetAutoAssignGateway(ctx)

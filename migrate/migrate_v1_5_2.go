@@ -143,9 +143,9 @@ func migrateNodes(ctx context.Context) error {
 			node.IsAutoRelay = false
 			for _, relayedNodeID := range node.RelayedNodes {
 				relayedClients[relayedNodeID] = struct{}{}
-				relayedIGWClients[relayedNodeID] = struct{}{}
 			}
 			for _, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
+				relayedClients[inetNodeClientID] = struct{}{}
 				relayedIGWClients[inetNodeClientID] = struct{}{}
 			}
 			if servercfg.IsPro {
