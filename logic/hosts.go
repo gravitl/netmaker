@@ -84,6 +84,9 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
+// DoesHostExistInTheNetworkAlready checks if the host is in the network already.
+// Must be called before creating the node.
+// TODO: create (*orchestrator.NodeOrchestrator).ValidateCreateNode and move this there.
 func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) bool {
 	node := &schema.Node{
 		HostID:    h.ID.String(),
@@ -287,7 +290,6 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		return
 	}
 	if !currentNode.Connected && newNode.Connected {
-		newNode.SetLastCheckIn()
 		currentNode.Status = schema.OnlineSt
 	}
 	if currentNode.Connected && !newNode.Connected {

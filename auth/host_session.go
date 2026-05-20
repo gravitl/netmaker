@@ -247,6 +247,10 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+			if logic.DoesHostExistInTheNetworkAlready(host, network) {
+				continue
+			}
+
 			violations, _ := logic.CheckPostureViolations(
 				models.PostureCheckDeviceInfo{
 					ClientLocation: host.Location,
@@ -267,9 +271,6 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 			}
 
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if logic.DoesHostExistInTheNetworkAlready(host, network) {
-					continue
-				}
 				if err := (&schema.PendingHost{
 					HostID:  host.ID.String(),
 					Network: netID,

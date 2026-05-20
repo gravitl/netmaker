@@ -221,11 +221,11 @@ func migrateNetworks_Nameserver(ctx context.Context, network *models.Network) er
 			}
 
 			if ip.To4() != nil {
-				if cidr != nil && !cidr.Contains(ip) {
+				if cidr == nil || !cidr.Contains(ip) {
 					ns.Servers = append(ns.Servers, nsIP)
 				}
 			} else {
-				if cidrv6 != nil && !cidrv6.Contains(ip) {
+				if cidrv6 == nil || !cidrv6.Contains(ip) {
 					ns.Servers = append(ns.Servers, nsIP)
 				}
 			}
