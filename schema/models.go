@@ -21,5 +21,6 @@ func ListModels() []interface{} {
 		&UserInvite{},
 		&Node{},
 		&PostureCheckViolation{},
+		&Integration{},
 	}
 }
