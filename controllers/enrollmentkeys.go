@@ -283,6 +283,12 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if enrollmentKeyBody.Default && len(enrollmentKeyBody.Networks) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("default enrollment keys require at least one network or tag"), "badrequest"))
+		return
+	}
+
 	relayId := uuid.Nil
 	if enrollmentKeyBody.Relay != "" {
 		relayId, err = uuid.Parse(enrollmentKeyBody.Relay)
@@ -301,7 +307,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		enrollmentKeyBody.Groups,
 		enrollmentKeyBody.Unlimited,
 		relayId,
-		false,
+		enrollmentKeyBody.Default,
 		enrollmentKeyBody.AutoEgress,
 		enrollmentKeyBody.AutoAssignGateway,
 	)

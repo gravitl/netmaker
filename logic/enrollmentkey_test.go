@@ -78,6 +78,32 @@ func TestCreateEnrollmentKey(t *testing.T) {
 	removeAllEnrollments()
 }
 
+func TestDefaultEnrollmentKeyUniquenessPerNetwork(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
+	database.InitializeDatabase()
+	defer database.CloseDB()
+
+	first, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, true, false, false)
+	assert.Nil(t, err)
+	assert.True(t, first.Default)
+
+	second, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, true, false, false)
+	assert.Nil(t, err)
+	assert.True(t, second.Default)
+
+	firstAgain, err := GetEnrollmentKey(first.Value)
+	assert.Nil(t, err)
+	assert.False(t, firstAgain.Default)
+
+	found, err := GetDefaultEnrollmentKeyForNetwork("mynet")
+	assert.Nil(t, err)
+	assert.Equal(t, second.Value, found.Value)
+
+	removeAllEnrollments()
+}
+
 func TestRegenerate_EnrollmentKeyToken(t *testing.T) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
