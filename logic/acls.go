@@ -963,25 +963,7 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 	return
 }
 
-var MigrateToGws = func() {
-
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
-			node.IsGw = true
-			node.IsIngressGateway = true
-			node.IsRelay = true
-			if node.Tags == nil {
-				node.Tags = make(map[models.TagID]struct{})
-			}
-			UpsertNode(&node)
-		}
-	}
-
-}
+var CleanupGwsMigration = func() {}
 
 var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []models.Acl) bool {
 	return false

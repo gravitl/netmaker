@@ -892,6 +892,13 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 		ClientLocation: host.CountryCode,
 		ClientVersion:  host.Version,
@@ -1650,6 +1657,13 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to approve pending host (%s): host already in network", hostID)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	keyTags := make(map[models.TagID]struct{})
 	if len(key.Groups) > 0 {
 		for _, tagI := range key.Groups {
@@ -1731,6 +1745,10 @@ func addDefaultHostToNetworks(host *schema.Host) {
 	}
 	for _, network := range networks {
 		if !network.AutoJoin {
+			continue
+		}
+
+		if logic.DoesHostExistInTheNetworkAlready(host, &network) {
 			continue
 		}
 

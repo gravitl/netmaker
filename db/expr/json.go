@@ -47,17 +47,23 @@ const (
 	Lte Op = "<="
 )
 
+// sqlitePath returns a JSONPath string that safely handles keys containing
+// dots or other special characters, e.g. $."netmaker.asdfasdf"
+func sqlitePath(key string) string {
+	return fmt.Sprintf(`$."%s"`, key)
+}
+
 // scalarSQL returns the SQL fragment that extracts a scalar text value from
 // a JSON column at key.
 //
-//	SQLite:   json_extract(col, '$.key')
+//	SQLite:   json_extract(col, '$."key"')
 //	Postgres: col->>'key'
 func scalarSQL(d Dialect, col, key string) string {
 	switch d {
 	case DialectPostgres:
 		return fmt.Sprintf("%s->>'%s'", col, key)
 	default:
-		return fmt.Sprintf("json_extract(%s, '$.%s')", col, key)
+		return fmt.Sprintf("json_extract(%s, '%s')", col, sqlitePath(key))
 	}
 }
 
@@ -77,7 +83,7 @@ func Set(col, key string, value interface{}) clause.Expr {
 		}
 	default:
 		return clause.Expr{
-			SQL:  fmt.Sprintf("json_set(%s, '$.%s', ?)", col, key),
+			SQL:  fmt.Sprintf("json_set(%s, '%s', ?)", col, sqlitePath(key)),
 			Vars: []interface{}{value},
 		}
 	}
@@ -97,10 +103,10 @@ func Remove(col string, keys ...string) clause.Expr {
 		}
 		return clause.Expr{SQL: s}
 	default:
-		// json_remove(col, '$.a', '$.b', '$.c')
+		// json_remove(col, '$."a"', '$."b"', '$."c"')
 		paths := make([]string, len(keys))
 		for i, k := range keys {
-			paths[i] = fmt.Sprintf("'$.%s'", k)
+			paths[i] = fmt.Sprintf("'%s'", sqlitePath(k))
 		}
 		return clause.Expr{SQL: fmt.Sprintf("json_remove(%s, %s)", col, strings.Join(paths, ", "))}
 	}
