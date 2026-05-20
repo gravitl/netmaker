@@ -151,26 +151,6 @@ func SessionHandler(conn *websocket.Conn) {
 
 	select {
 	case result := <-answer: // a read from req.answerCh has occurred
-		// add the host, if not exists, handle like enrollment registration
-		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
-			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
-			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
-					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
-					return
-				}
-			}
-			_ = logic.CheckHostPorts(&result.Host)
-			if err := logic.CreateHost(&result.Host); err != nil {
-				handleHostRegErr(conn, errors.New("host creation failed"))
-				return
-			}
-		}
-		key, keyErr := logic.RetrievePublicTrafficKey()
-		if keyErr != nil {
-			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
-			return
-		}
 		var currentNetworks []string
 		if result.ALL {
 			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
@@ -196,6 +176,27 @@ func SessionHandler(conn *websocket.Conn) {
 				}
 				netsToAdd = append(netsToAdd, newNet)
 			}
+		}
+
+		// add the host, if not exists, handle like enrollment registration
+		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
+			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
+					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
+					return
+				}
+			}
+			_ = logic.CheckHostPorts(&result.Host)
+			if err := logic.CreateHost(&result.Host); err != nil {
+				handleHostRegErr(conn, errors.New("host creation failed"))
+				return
+			}
+		}
+		key, keyErr := logic.RetrievePublicTrafficKey()
+		if keyErr != nil {
+			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
+			return
 		}
 		server := logic.GetServerInfo()
 		server.TrafficKey = key
