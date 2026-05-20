@@ -165,6 +165,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if !currentNode.Connected && newNode.Connected {
 			newNode.SetLastCheckIn()
 			newNode.Status = schema.OnlineSt
+			//go TriggerCollectMetrics(newNode.HostID.String(), newNode.ID.String(), "reconnect")
 		}
 		if currentNode.Connected && !newNode.Connected {
 			newNode.Status = schema.Disconnected
@@ -320,6 +321,7 @@ func DeleteNodeByID(node *models.Node) error {
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
+	go DeleteNodeMetricsFromPeers(node.ID.String())
 	return nil
 }
 

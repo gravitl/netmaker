@@ -553,7 +553,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-
 			extclients, err := logic.GetExtClientsByID(nodeID, node.Network)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)

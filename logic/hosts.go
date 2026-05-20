@@ -303,6 +303,7 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		if servercfg.IsPro {
 			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
 		}
+		go SetPeerMetricsDisconnected(newNode.ID.String())
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(newNode)
