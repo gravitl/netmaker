@@ -35,7 +35,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.URL.Query().Get("network_id") != "" {
 			r.Header.Set("NET_ID", r.URL.Query().Get("network_id"))
 		}
-		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
+		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") || strings.Contains(route, "pending_hosts") {
 			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {

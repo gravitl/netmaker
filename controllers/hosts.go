@@ -1615,6 +1615,15 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	netID := r.URL.Query().Get("network")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), logic.BadReq))
+		return
+	}
+	if p.Network != netID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), logic.BadReq))
+		return
+	}
 	hostID, err := uuid.Parse(p.HostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)

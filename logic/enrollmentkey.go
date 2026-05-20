@@ -95,6 +95,40 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks,
 	return k, nil
 }
 
+// RegenerateEnrollmentKeyToken replaces the enrollment key value, invalidating any
+// previously issued registration tokens while preserving key configuration.
+func RegenerateEnrollmentKeyToken(keyID string) (*models.EnrollmentKey, error) {
+	key, err := GetEnrollmentKey(keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	oldValue := key.Value
+	newValue, err := getUniqueEnrollmentID()
+	if err != nil {
+		return nil, err
+	}
+
+	key.Value = newValue
+	key.Token = ""
+	if err := key.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, oldValue); err != nil {
+		if !database.IsEmptyRecord(err) {
+			return nil, err
+		}
+	}
+	if servercfg.CacheEnabled() {
+		deleteEnrollmentkeyFromCache(oldValue)
+	}
+	if err := upsertEnrollmentKey(&key); err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
 // UpdateEnrollmentKey - updates an existing enrollment key's associated relay
 func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*models.EnrollmentKey, error) {
 	key, err := GetEnrollmentKey(keyId)
@@ -145,6 +179,26 @@ func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
 		currentKeysList = append(currentKeysList, currentKeys[k])
 	}
 	return currentKeysList, nil
+}
+
+// GetDefaultEnrollmentKeyForNetwork returns the default enrollment key for a network.
+func GetDefaultEnrollmentKeyForNetwork(network string) (models.EnrollmentKey, error) {
+	keys, err := GetAllEnrollmentKeys()
+	if err != nil {
+		return models.EnrollmentKey{}, err
+	}
+	for _, key := range keys {
+		if !key.Default {
+			continue
+		}
+		if slices.Contains(key.Networks, network) {
+			return key, nil
+		}
+		if len(key.Tags) > 0 && key.Tags[0] == network {
+			return key, nil
+		}
+	}
+	return models.EnrollmentKey{}, EnrollmentErrors.NoKeyFound
 }
 
 // GetEnrollmentKey - fetches a single enrollment key

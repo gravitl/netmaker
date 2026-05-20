@@ -193,6 +193,21 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
+
+	username := r.Header.Get("user")
+	if username != logic.MasterUser {
+		user := &schema.User{Username: username}
+		if err := user.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), logic.Forbidden))
+			return
+		}
+		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("only platform admins can delete networks"), logic.Forbidden))
+			return
+		}
+	}
+
 	force := r.URL.Query().Get("force") == "true"
 	var params = mux.Vars(r)
 	network := params["networkname"]
