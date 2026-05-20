@@ -182,6 +182,7 @@ func migrateNodes(ctx context.Context) error {
 				igwID := node.InternetGwID
 				relayedByNodeID = &igwID
 				isIGWClient = true
+				node.AutoAssignGateway = false
 			}
 		}
 
