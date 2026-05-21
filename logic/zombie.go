@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,7 +95,7 @@ func ManageZombies(ctx context.Context) {
 			hostZombies = append(hostZombies, id)
 		case <-ticker.C: // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
-			//cleanupOrphanedNodes()
+			cleanupOrphanedNodes()
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i].String())
@@ -155,7 +156,7 @@ func cleanupOrphanedNodes() {
 		}
 		host := &schema.Host{ID: node.HostID}
 		if err := host.Get(db.WithContext(context.TODO())); err != nil {
-			logger.Log(0, "orphaned node found (no host record), scheduling deletion", node.ID.String())
+			logger.Log(0, fmt.Sprintf("orphaned node found (no host record), scheduling deletion, %+v", node))
 			DeleteNodesCh <- &node
 		}
 	}
@@ -202,5 +203,5 @@ func InitializeZombies() {
 			}
 		}
 	}
-	//cleanupOrphanedNodes()
+	cleanupOrphanedNodes()
 }
