@@ -407,3 +407,5 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	slog.Info("check-in processed for host", "name", h.Name, "id", h.ID)
 	return ifaceDelta
 }
+
+var HandleExporterIntegrationPull = func(client mqtt.Client, msg mqtt.Message) {}

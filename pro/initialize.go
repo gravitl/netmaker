@@ -211,6 +211,7 @@ func InitPro() {
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
+	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
 
 // addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications

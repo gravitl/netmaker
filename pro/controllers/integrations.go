@@ -1,22 +1,26 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/grpc/siem"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
 	"github.com/gravitl/netmaker/schema"
+	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 func IntegrationHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(getIntegration))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/{type}", logic.SecurityCheck(true, http.HandlerFunc(getIntegration))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", logic.SecurityCheck(true, http.HandlerFunc(testIntegration))).Methods(http.MethodPost)
@@ -43,30 +47,33 @@ func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (inte
 // @Security    oauth
 // @Produce     json
 // @Param       type            path string true "Integration type (e.g. siem)"
-// @Param       id              path string true "Provider ID (e.g. splunk)"
 // @Success     200 {object} schema.Integration
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getIntegration(w http.ResponseWriter, r *http.Request) {
-	_, id, ok := extractAndValidateIntegration(w, r)
-	if !ok {
-		return
-	}
+	intType := integration.Type(mux.Vars(r)["type"])
 
-	ctx := db.WithContext(r.Context())
-	intg := &schema.Integration{IntegrationID: string(id)}
-	err := intg.Get(ctx)
+	intg := &schema.Integration{
+		Type: string(intType),
+	}
+	integrations, err := intg.ListByType(r.Context())
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("integration not found"), logic.NotFound))
-			return
-		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
-	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration retrieved")
+	if len(integrations) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("integration not found"), logic.NotFound))
+		return
+	}
+
+	if len(integrations) > 1 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("cannot have more than one integration of type %s", intType), logic.Internal))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, integrations[0], "integration retrieved")
 }
 
 // @Summary     Upsert an integration
@@ -107,12 +114,36 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		Config:        datatypes.JSON(config),
 	}
 
-	ctx := db.WithContext(r.Context())
-	err = intg.Upsert(ctx)
+	err = intg.Upsert(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	go func(configBytes json.RawMessage) {
+		config := make(map[string]interface{})
+		err = json.Unmarshal(configBytes, &config)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("error unmarshaling config: %s", err.Error()))
+			return
+		}
+
+		configStruct, err := structpb.NewStruct(config)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("error constructing struct val: %s", err.Error()))
+			return
+		}
+
+		err = siem.Client().Init(context.Background(), string(id), configStruct)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("error upserting siem integration %s on exporter: %v", id, err))
+
+			err = mq.PublishIntegrationUpsert(string(id))
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("error publishing siem integration upsert event %s on exporter: %v", id, err))
+			}
+		}
+	}(config)
 
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration saved")
 }
@@ -134,9 +165,8 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := db.WithContext(r.Context())
 	intg := &schema.Integration{IntegrationID: string(id)}
-	err := intg.Get(ctx)
+	err := intg.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("integration not found"), logic.NotFound))
@@ -146,11 +176,23 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = intg.Delete(ctx)
+	err = intg.Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	go func() {
+		err := siem.Client().Terminate(context.Background())
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("error terminating siem integration %s on exporter: %v", id, err))
+
+			err = mq.PublishIntegrationDelete(string(id))
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("error publishing siem integration delete event %s on exporter: %v", id, err))
+			}
+		}
+	}()
 
 	logic.ReturnSuccessResponse(w, r, "integration deleted")
 }
