@@ -26,6 +26,10 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/enrollment-keys/network/{network}/default", logic.SecurityCheck(true, http.HandlerFunc(getDefaultEnrollmentKeyForNetwork))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}/regenerate-token", logic.SecurityCheck(true, http.HandlerFunc(regenerateEnrollmentKeyToken))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).
@@ -63,6 +67,115 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ret)
+}
+
+// @Summary     Get the default enrollment key for a network
+// @Router      /api/v1/enrollment-keys/network/{network}/default [get]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.EnrollmentKey
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getDefaultEnrollmentKeyForNetwork(w http.ResponseWriter, r *http.Request) {
+	network := mux.Vars(r)["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+
+	net := &schema.Network{Name: network}
+	if err := net.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network not found"), "badrequest"))
+		return
+	}
+
+	key, err := logic.GetDefaultEnrollmentKeyForNetwork(network)
+	if err != nil {
+		if errors.Is(err, logic.EnrollmentErrors.NoKeyFound) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		logger.Log(0, r.Header.Get("user"), "failed to fetch default enrollment key for network", network, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if err = logic.Tokenize(&key, servercfg.GetAPIHost()); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to tokenize default enrollment key:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched default enrollment key for network", network)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&key)
+}
+
+// @Summary     Regenerate an enrollment key token
+// @Description Replaces the enrollment key value and invalidates any previously issued registration tokens.
+// @Router      /api/v1/enrollment-keys/{keyID}/regenerate-token [post]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       keyID path string true "Enrollment Key ID"
+// @Produce     json
+// @Success     200 {object} models.EnrollmentKey
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func regenerateEnrollmentKeyToken(w http.ResponseWriter, r *http.Request) {
+	keyID := mux.Vars(r)["keyID"]
+	if keyID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("key id is required"), "badrequest"))
+		return
+	}
+
+	currKey, err := logic.GetEnrollmentKey(keyID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	newKey, err := logic.RegenerateEnrollmentKeyToken(keyID)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to regenerate enrollment key token:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if err = logic.Tokenize(newKey, servercfg.GetAPIHost()); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to tokenize regenerated enrollment key:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	eventName := ""
+	if len(newKey.Tags) > 0 {
+		eventName = newKey.Tags[0]
+	}
+	logic.LogEvent(&models.Event{
+		Action: schema.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: schema.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newKey.Value,
+			Name: eventName,
+			Type: schema.EnrollmentKeySub,
+		},
+		Diff: models.Diff{
+			Old: currKey,
+			New: newKey,
+		},
+		Origin: schema.Dashboard,
+	})
+
+	logger.Log(2, r.Header.Get("user"), "regenerated enrollment key token", keyID)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(newKey)
 }
 
 // @Summary     Deletes an EnrollmentKey from Netmaker server
@@ -170,6 +283,12 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if enrollmentKeyBody.Default && len(enrollmentKeyBody.Networks) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("default enrollment keys require at least one network or tag"), "badrequest"))
+		return
+	}
+
 	relayId := uuid.Nil
 	if enrollmentKeyBody.Relay != "" {
 		relayId, err = uuid.Parse(enrollmentKeyBody.Relay)
@@ -188,7 +307,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		enrollmentKeyBody.Groups,
 		enrollmentKeyBody.Unlimited,
 		relayId,
-		false,
+		enrollmentKeyBody.Default,
 		enrollmentKeyBody.AutoEgress,
 		enrollmentKeyBody.AutoAssignGateway,
 	)
