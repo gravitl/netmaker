@@ -139,6 +139,21 @@ func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, 
 	return nodes, err
 }
 
+// ListByIDs fetches nodes whose IDs are in the given slice using a single
+// `WHERE id IN (?)` query. Returns an empty slice when ids is empty.
+func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.Option) ([]Node, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Where("id IN ?", ids).Find(&nodes).Error
+	return nodes, err
+}
+
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})

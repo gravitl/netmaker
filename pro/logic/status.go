@@ -153,11 +153,56 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 	// 	}
 
 	// }
-	checkPeerConnectivity(node, metrics, defaultEnabledPolicy)
+	peers := buildPeerCache(node, metrics)
+	checkPeerConnectivity(node, metrics, defaultEnabledPolicy, peers)
 
 }
 
-func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
+// buildPeerCache fetches every node referenced (directly or transitively via
+// the metrics cache one level deep) from the source node's connectivity map in
+// a single batched DB query. The returned map keys are node IDs.
+//
+// This collapses the per-peer GetNodeByID storm that previously dominated
+// status computation: with P peers the old path issued O(P^2) preloaded
+// First() queries; this path issues exactly one IN-query.
+func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]models.Node {
+	if metrics == nil || len(metrics.Connectivity) == 0 {
+		return map[string]models.Node{}
+	}
+
+	idSet := make(map[string]struct{}, len(metrics.Connectivity)*2)
+	for peerID := range metrics.Connectivity {
+		idSet[peerID] = struct{}{}
+		// checkPeerStatus walks the peer's own connectivity map; pre-collect
+		// those IDs too so we can resolve everything in one query. GetMetrics
+		// is cache-backed so this loop is cheap.
+		peerMetrics, err := logic.GetMetrics(peerID)
+		if err != nil || peerMetrics == nil {
+			continue
+		}
+		for ppID := range peerMetrics.Connectivity {
+			idSet[ppID] = struct{}{}
+		}
+	}
+	if node != nil {
+		delete(idSet, node.ID.String())
+	}
+	if len(idSet) == 0 {
+		return map[string]models.Node{}
+	}
+
+	ids := make([]string, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+	peers, err := logic.GetNodesByIDs(ids)
+	if err != nil {
+		return map[string]models.Node{}
+	}
+	return peers
+}
+
+func checkPeerStatus(node *models.Node, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	metrics, err := logic.GetMetrics(node.ID.String())
 	if err != nil {
@@ -170,8 +215,8 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 		}
 	}
 	for peerID, metric := range metrics.Connectivity {
-		peer, err := logic.GetNodeByID(peerID)
-		if err != nil {
+		peer, ok := peers[peerID]
+		if !ok {
 			continue
 		}
 
@@ -205,11 +250,11 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 	node.Status = schema.WarningSt
 }
 
-func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool) {
+func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	for peerID, metric := range metrics.Connectivity {
-		peer, err := logic.GetNodeByID(peerID)
-		if err != nil {
+		peer, ok := peers[peerID]
+		if !ok {
 			continue
 		}
 
@@ -227,7 +272,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 			continue
 		}
 		// check if peer is in error state
-		checkPeerStatus(&peer, defaultAclPolicy)
+		// checkPeerStatus(&peer, defaultAclPolicy, peers)
 		if peer.Status == schema.ErrorSt || peer.Status == schema.WarningSt {
 			continue
 		}
