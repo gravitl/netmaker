@@ -148,8 +148,8 @@ func cleanupOrphanedNodes() {
 		logger.Log(1, "failed to retrieve nodes for orphan cleanup", err.Error())
 		return
 	}
-	for _, node := range nodes {
-		node := node
+	for _, n := range nodes {
+		node := n
 		if node.PendingDelete || node.Action == schema.NODE_DELETE {
 			continue
 		}
