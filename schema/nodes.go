@@ -213,6 +213,29 @@ func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Opt
 	return query.Updates(updates).Error
 }
 
+// UpdateStatus updates only the status column for a single node by ID.
+// Lighter than Upsert: no preloads, no full row write, no association handling.
+func (n *Node) UpdateStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("status", n.Status).
+		Error
+}
+
+// MarkStaleOffline sets status=offline for every node whose last_check_in is
+// older than the given threshold and which is not already offline, not
+// pending deletion, and not flagged for the delete action. Returns the number
+// of rows updated. Issues exactly one SQL statement.
+func (n *Node) MarkStaleOffline(ctx context.Context, threshold time.Time) (int64, error) {
+	result := db.FromContext(ctx).Model(&Node{}).
+		Where("last_check_in < ?", threshold).
+		Where("status <> ?", OfflineSt).
+		Where("pending_delete = ?", false).
+		Where("action <> ?", NODE_DELETE).
+		Update("status", OfflineSt)
+	return result.RowsAffected, result.Error
+}
+
 func (n *Node) MarkForDeletion(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
