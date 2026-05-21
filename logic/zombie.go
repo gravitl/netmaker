@@ -94,6 +94,7 @@ func ManageZombies(ctx context.Context) {
 			hostZombies = append(hostZombies, id)
 		case <-ticker.C: // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
+			cleanupOrphanedNodes()
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i].String())
@@ -139,6 +140,27 @@ func ManageZombies(ctx context.Context) {
 		}
 	}
 }
+
+// cleanupOrphanedNodes removes nodes whose host_id references a missing host record.
+func cleanupOrphanedNodes() {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		logger.Log(1, "failed to retrieve nodes for orphan cleanup", err.Error())
+		return
+	}
+	for _, node := range nodes {
+		node := node
+		if node.PendingDelete || node.Action == schema.NODE_DELETE {
+			continue
+		}
+		host := &schema.Host{ID: node.HostID}
+		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+			logger.Log(0, "orphaned node found (no host record), scheduling deletion", node.ID.String())
+			DeleteNodesCh <- &node
+		}
+	}
+}
+
 func checkPendingRemovalNodes() {
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {
@@ -180,4 +202,5 @@ func InitializeZombies() {
 			}
 		}
 	}
+	cleanupOrphanedNodes()
 }
