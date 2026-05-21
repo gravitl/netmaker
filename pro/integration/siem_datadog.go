@@ -1,12 +1,13 @@
 package integration
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
-	"time"
+
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 )
 
 type DatadogConfig struct {
@@ -36,38 +37,61 @@ func (d *datadogProvider) Test(configJSON json.RawMessage) error {
 	if err != nil {
 		return fmt.Errorf("invalid datadog config: %w", err)
 	}
-	if cfg.Site == "" {
-		cfg.Site = "datadoghq.com"
+
+	testEvent := map[string]any{
+		"message": "netmaker siem integration test",
+		"source":  "netmaker",
+	}
+	return NewDatadogSIEMClient(cfg).Export(context.Background(), []any{testEvent})
+}
+
+type DatadogSIEMClient struct {
+	DatadogConfig
+}
+
+func NewDatadogSIEMClient(config DatadogConfig) *DatadogSIEMClient {
+	if config.Site == "" {
+		config.Site = "datadoghq.com"
 	}
 
-	logs := []map[string]interface{}{
-		{
-			"ddsource": "netmaker",
-			"ddtags":   strings.Join(cfg.Tags, ","),
-			"hostname": "netmaker",
-			"message":  "netmaker siem integration test",
-			"service":  cfg.Service,
+	return &DatadogSIEMClient{
+		DatadogConfig: config,
+	}
+}
+
+func (d *DatadogSIEMClient) Export(ctx context.Context, events []any) error {
+	ctx = context.WithValue(
+		ctx,
+		datadog.ContextAPIKeys,
+		map[string]datadog.APIKey{
+			"apiKeyAuth": {Key: d.APIKey},
 		},
-	}
-	body, _ := json.Marshal(logs)
+	)
+	ctx = context.WithValue(ctx, datadog.ContextServerVariables, map[string]string{
+		"site": d.Site,
+	})
 
-	url := fmt.Sprintf("https://http-intake.logs.%s/api/v2/logs", cfg.Site)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	items := make([]datadogV2.HTTPLogItem, 0, len(events))
+	for _, e := range events {
+		msg, _ := json.Marshal(e)
+		item := datadogV2.HTTPLogItem{
+			Message:  string(msg),
+			Ddsource: datadog.PtrString("netmaker"),
+		}
+		if d.Service != "" {
+			item.Service = datadog.PtrString(d.Service)
+		}
+		if len(d.Tags) > 0 {
+			item.Ddtags = datadog.PtrString(strings.Join(d.Tags, ","))
+		}
+		items = append(items, item)
+	}
+
+	apiClient := datadog.NewAPIClient(datadog.NewConfiguration())
+	api := datadogV2.NewLogsApi(apiClient)
+	_, _, err := api.SubmitLog(ctx, items, *datadogV2.NewSubmitLogOptionalParameters())
 	if err != nil {
-		return fmt.Errorf("failed to build request: %w", err)
-	}
-	req.Header.Set("DD-API-KEY", cfg.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to reach datadog: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("datadog returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("failed to export to datadog: %w", err)
 	}
 	return nil
 }

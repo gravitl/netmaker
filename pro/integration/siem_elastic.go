@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -40,33 +41,53 @@ func (e *elasticProvider) Validate(configJSON json.RawMessage) error {
 
 func (e *elasticProvider) Test(configJSON json.RawMessage) error {
 	var cfg ElasticConfig
-	json.Unmarshal(configJSON, &cfg) //nolint:errcheck // Validate must be called first
+	err := json.Unmarshal(configJSON, &cfg)
+	if err != nil {
+		return fmt.Errorf("invalid elastic config: %w", err)
+	}
 
-	doc := map[string]interface{}{
+	testEvent := map[string]any{
 		"@timestamp": time.Now().UTC().Format(time.RFC3339),
 		"message":    "netmaker siem integration test",
 		"source":     "netmaker",
 	}
-	body, _ := json.Marshal(doc)
+	return NewElasticSIEMClient(cfg).Export(context.Background(), []any{testEvent})
+}
+
+type ElasticSIEMClient struct {
+	ElasticConfig
+}
+
+func NewElasticSIEMClient(config ElasticConfig) *ElasticSIEMClient {
+	return &ElasticSIEMClient{ElasticConfig: config}
+}
+
+func (e *ElasticSIEMClient) Export(ctx context.Context, events []any) error {
+	metaLine, _ := json.Marshal(map[string]any{"index": map[string]any{"_index": e.Index}})
+	var buf bytes.Buffer
+	for _, ev := range events {
+		buf.Write(metaLine)
+		buf.WriteByte('\n')
+		docLine, _ := json.Marshal(ev)
+		buf.Write(docLine)
+		buf.WriteByte('\n')
+	}
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !cfg.TLSVerify},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !e.TLSVerify},
 		},
 	}
-
-	url := fmt.Sprintf("%s/%s/_doc", cfg.Endpoint, cfg.Index)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/_bulk", e.Endpoint), &buf)
 	if err != nil {
 		return fmt.Errorf("failed to build request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-
-	if cfg.APIKey != "" {
-		req.Header.Set("Authorization", "ApiKey "+cfg.APIKey)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	if e.APIKey != "" {
+		req.Header.Set("Authorization", "ApiKey "+e.APIKey)
 	} else {
-		req.SetBasicAuth(cfg.Username, cfg.Password)
+		req.SetBasicAuth(e.Username, e.Password)
 	}
 
 	resp, err := client.Do(req)
