@@ -94,7 +94,7 @@ func ManageZombies(ctx context.Context) {
 			hostZombies = append(hostZombies, id)
 		case <-ticker.C: // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
-			cleanupOrphanedNodes()
+			//cleanupOrphanedNodes()
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i].String())
@@ -202,5 +202,5 @@ func InitializeZombies() {
 			}
 		}
 	}
-	cleanupOrphanedNodes()
+	//cleanupOrphanedNodes()
 }
