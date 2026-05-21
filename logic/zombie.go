@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,8 +155,11 @@ func cleanupOrphanedNodes() {
 		}
 		host := &schema.Host{ID: node.HostID}
 		if err := host.Get(db.WithContext(context.TODO())); err != nil {
-			logger.Log(0, fmt.Sprintf("orphaned node found (no host record), scheduling deletion, %+v", node))
-			DeleteNodesCh <- &node
+			logger.Log(0, "orphaned node found (no host record), deleting", node.ID.String())
+			if err := DeleteNode(&node, true); err != nil {
+				logger.Log(0, "error deleting orphaned node", node.ID.String(), err.Error())
+				continue
+			}
 		}
 	}
 }
