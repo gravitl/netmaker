@@ -600,7 +600,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 		err = _node.Host.Get(db.WithContext(context.TODO()))
 		if err != nil {
-			return &models.Node{}
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				_node.Host = &schema.Host{}
+			} else {
+				return &models.Node{}
+			}
 		}
 	}
 
