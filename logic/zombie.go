@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 )
 
 const (
@@ -155,7 +157,7 @@ func cleanupOrphanedNodes() {
 			continue
 		}
 		host := &schema.Host{ID: node.HostID}
-		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		if err := host.Get(db.WithContext(context.TODO())); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Log(0, fmt.Sprintf("orphaned node found (no host record), scheduling deletion, %+v", node))
 			DeleteNodesCh <- &node
 		}
