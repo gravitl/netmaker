@@ -205,6 +205,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		if servercfg.IsMasterPod() {
 			go logic.ManageZombies(ctx)
 			go logic.DeleteExpiredNodes(ctx)
+			go logic.MarkStaleNodesOffline(ctx)
 		}
 		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {

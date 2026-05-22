@@ -156,7 +156,11 @@ func cleanupOrphanedNodes() {
 			continue
 		}
 		host := &schema.Host{ID: node.HostID}
-		if err := host.Get(db.WithContext(context.TODO())); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Log(0, "error checking host for orphaned node", node.ID.String(), err.Error())
+				continue
+			}
 			logger.Log(0, "orphaned node found (no host record), deleting", node.ID.String())
 			if err := DeleteNode(&node, true); err != nil {
 				logger.Log(0, "error deleting orphaned node", node.ID.String(), err.Error())
