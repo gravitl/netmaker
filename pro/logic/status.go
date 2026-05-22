@@ -202,7 +202,7 @@ func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]model
 	return peers
 }
 
-func checkPeerStatus(node *models.Node, defaultAclPolicy bool, peers map[string]models.Node) {
+func CheckPeerStatus(node *models.Node, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	metrics, err := logic.GetMetrics(node.ID.String())
 	if err != nil {

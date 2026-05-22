@@ -33,7 +33,7 @@ func getNodeCheckInStatus(node *models.Node, t bool) {
 		node.Status = schema.Disconnected
 		return
 	}
-	if time.Since(node.LastCheckIn) > time.Minute*10 {
+	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
 		node.Status = schema.OfflineSt
 		return
 	}
@@ -44,7 +44,7 @@ func GetNodeCheckInStatus(node *schema.Node) schema.NodeStatus {
 	if !node.Connected {
 		return schema.Disconnected
 	}
-	if time.Since(node.LastCheckIn) > time.Minute*10 {
+	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
 		return schema.OfflineSt
 	}
 	return schema.OnlineSt
