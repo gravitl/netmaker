@@ -16,6 +16,10 @@ type Integration struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
+func (i *Integration) TableName() string {
+	return "integrations_v1"
+}
+
 func (i *Integration) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(i).Error
 }
