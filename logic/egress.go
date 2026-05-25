@@ -81,7 +81,8 @@ func NormalizeEgressReqDomains(domains []string) ([]string, error) {
 	return out, nil
 }
 
-// ConfiguredDomainsForEgress returns configured logical domain names from Domains.
+// ConfiguredDomainsForEgress returns the user-configured hostname list from e.Domains (JSON).
+// It does not read the legacy DB column "domain" (singular); that is migrated once in migrateEgressDomains.
 func ConfiguredDomainsForEgress(e schema.Egress) []string {
 	if len(e.Domains) == 0 {
 		return nil
@@ -289,7 +290,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				}
 				req.Ranges = append(req.Ranges, egressRange)
 			} else {
-				req.Ranges = append(req.Ranges, e.DomainAns...)
+				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
 			}
 
 			if e.Range != "" {
@@ -303,9 +304,9 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 					RouteMetric:    m,
 				})
 			}
-			if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
-				req.Ranges = append(req.Ranges, e.DomainAns...)
-				for _, domainAnsI := range e.DomainAns {
+			if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+				for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
 						EgressName:     e.Name,
@@ -334,7 +335,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 					}
 					req.Ranges = append(req.Ranges, egressRange)
 				} else {
-					req.Ranges = append(req.Ranges, e.DomainAns...)
+					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
 				}
 
 				if e.Range != "" {
@@ -348,9 +349,9 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 						RouteMetric:    m,
 					})
 				}
-				if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
-					req.Ranges = append(req.Ranges, e.DomainAns...)
-					for _, domainAnsI := range e.DomainAns {
+				if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+					for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 							EgressID:       e.ID,
 							EgressName:     e.Name,
@@ -400,7 +401,7 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 				continue
 			}
 		}
-		if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
+		if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
 			for _, d := range ConfiguredDomainsForEgress(e) {
 				bd := BaseDomain(d)
 				if _, ok := seen[bd]; ok {
@@ -429,7 +430,7 @@ func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver
 				continue
 			}
 		}
-		if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
+		if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
 			var routingNodeIPs []string
 			// Collect IPs from all routing nodes for this egress
 			for nodeID := range e.Nodes {
@@ -495,9 +496,9 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 					RouteMetric:    m,
 				})
 			}
-			if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
-				req.Ranges = append(req.Ranges, e.DomainAns...)
-				for _, domainAnsI := range e.DomainAns {
+			if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+				for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
 						EgressName:     e.Name,
@@ -527,7 +528,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 					}
 					req.Ranges = append(req.Ranges, egressRange)
 				} else {
-					req.Ranges = append(req.Ranges, e.DomainAns...)
+					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
 				}
 
 				if e.Range != "" {
@@ -541,9 +542,9 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 						RouteMetric:    m,
 					})
 				}
-				if IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
-					req.Ranges = append(req.Ranges, e.DomainAns...)
-					for _, domainAnsI := range e.DomainAns {
+				if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+					for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 							EgressID:       e.ID,
 							EgressName:     e.Name,
@@ -663,10 +664,11 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 		if _, ok := egI.Nodes[nodeID]; ok {
 			for _, d := range ConfiguredDomainsForEgress(egI) {
 				egWithDomain = append(egWithDomain, models.EgressDomain{
-					ID:     egI.ID,
-					Domain: d,
-					Node:   node,
-					Host:   *host,
+					ID:          egI.ID,
+					Domain:      d,
+					ResolvedIPs: DomainAnsForDomain(egI, d),
+					Node:        node,
+					Host:        *host,
 				})
 			}
 

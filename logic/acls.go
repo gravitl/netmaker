@@ -774,7 +774,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if _, ok := e.Nodes[node.ID.String()]; ok {
 					nodeOwnsEgress = true
 				}
-				if len(e.DomainAns) > 0 {
+				if HasEgressDomainAns(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 						for _, cidr := range selectedIP4 {
 							if node.Address.IP != nil {
@@ -806,7 +806,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 						continue
 					}
-					for _, domainAnsI := range e.DomainAns {
+					for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 						dstI.Value = domainAnsI
 
 						ip, cidr, err := net.ParseCIDR(dstI.Value)
@@ -1087,8 +1087,8 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 							egressRanges4 = append(egressRanges4, selectedIP4...)
 							egressRanges6 = append(egressRanges6, selectedIP6...)
-						} else if servercfg.IsPro && IsDomainBasedEgress(eI) && len(eI.DomainAns) > 0 {
-							for _, domainAnsI := range eI.DomainAns {
+						} else if servercfg.IsPro && IsDomainBasedEgress(eI) && HasEgressDomainAns(eI) {
+							for _, domainAnsI := range AllDomainAnsFromEgress(eI) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
 									if ip.To4() != nil {
@@ -1134,8 +1134,8 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 							egressRanges4 = append(egressRanges4, selectedIP4...)
 							egressRanges6 = append(egressRanges6, selectedIP6...)
-						} else if servercfg.IsPro && IsDomainBasedEgress(e) && len(e.DomainAns) > 0 {
-							for _, domainAnsI := range e.DomainAns {
+						} else if servercfg.IsPro && IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+							for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
 									if ip.To4() != nil {
@@ -1424,8 +1424,8 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 				if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 					aclRule.Dst = append(aclRule.Dst, selectedIP4...)
 					aclRule.Dst6 = append(aclRule.Dst6, selectedIP6...)
-				} else if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
-					for _, domainAnsI := range egI.DomainAns {
+				} else if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
+					for _, domainAnsI := range AllDomainAnsFromEgress(egI) {
 						ip, cidr, err := net.ParseCIDR(domainAnsI)
 						if err == nil {
 							if ip.To4() != nil {
@@ -1584,8 +1584,8 @@ func appendExtClientRemoteEgressFwdRules(
 				dst6 = append(dst6, selectedIP6...)
 				continue
 			}
-			if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
-				for _, domainAnsI := range egI.DomainAns {
+			if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
+				for _, domainAnsI := range AllDomainAnsFromEgress(egI) {
 					ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
 					if parseErr != nil {
 						continue
@@ -1919,8 +1919,8 @@ func computeEgressDstsForAcl(
 			dst6 = append(dst6, selectedIP6...)
 			continue
 		}
-		if servercfg.IsPro && IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
-			for _, domainAnsI := range egI.DomainAns {
+		if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
+			for _, domainAnsI := range AllDomainAnsFromEgress(egI) {
 				ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
 				if parseErr != nil {
 					continue

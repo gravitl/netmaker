@@ -8,20 +8,6 @@
       "https://help.salesforce.com/s/articleView?id=xcloud.setup_domains.htm&type=5"
     ],
     "domains": [
-      "*.force-user-content.com",
-      "*.force.com",
-      "*.forceusercontent.com",
-      "*.salesforce-experience.com",
-      "*.salesforce-hub.com",
-      "*.salesforce-scrt.com",
-      "*.salesforce-setup.com",
-      "*.salesforce-sites.com",
-      "*.salesforce.com",
-      "*.salesforceliveagent.com",
-      "*.sfdcopens.com",
-      "*.site.com",
-      "*.svc.sfdcfc.net",
-      "*.trailhead.com",
       ".trailblazer.me",
       "app-frankfurt.salesforceiq.com",
       "app.salesforceiq.com"
@@ -37,26 +23,6 @@
       "https://help.salesforce.com/s/articleView?id=sf.setup_domains.htm&type=5"
     ],
     "domains": [
-      "*.bluetail.salesforce.com",
-      "*.documentforce.com",
-      "*.force-user-content.com",
-      "*.force.com",
-      "*.forceusercontent.com",
-      "*.lightning.com",
-      "*.lightningdesignsystem.com",
-      "*.salesforce-communities.com",
-      "*.salesforce-experience.com",
-      "*.salesforce-hub.com",
-      "*.salesforce-scrt.com",
-      "*.salesforce-setup.com",
-      "*.salesforce-sites.com",
-      "*.salesforce.com",
-      "*.salesforceliveagent.com",
-      "*.sfdcopens.com",
-      "*.sfdcstatic.com",
-      "*.site.com",
-      "*.trailhead.com",
-      "*.visualforce.com",
       "trailblazer.me"
     ],
     "group": "sales",
@@ -69,14 +35,6 @@
       "https://api.github.com/meta"
     ],
     "domains": [
-      "*.api.github.com",
-      "*.github.com",
-      "*.github.dev",
-      "*.github.io",
-      "*.githubcopilot.com",
-      "*.msecnd.net",
-      "*.visualstudio.com",
-      "*.vscode-webview.net",
       "api.github.com",
       "default.exp-tas.com",
       "github.com",
@@ -97,9 +55,6 @@
       "https://api.fastly.com/public-ip-list"
     ],
     "domains": [
-      "*.fastly.com",
-      "*.fastly.net",
-      "*.fastlylb.net",
       "fastly.com",
       "fastly.net",
       "fastlylb.net"
@@ -115,21 +70,6 @@
       "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
     ],
     "domains": [
-      "*.atl-paas.net",
-      "*.atlassian.com",
-      "*.atlassian.net",
-      "*.cloudfront.net",
-      "*.cookielaw.org",
-      "*.googleapis.com",
-      "*.gravatar.com",
-      "*.jira.com",
-      "*.launchdarkly.com",
-      "*.optimizely.com",
-      "*.pndsn.com",
-      "*.segment.io",
-      "*.sentry-cdn.com",
-      "*.slack-edge.com",
-      "*.wp.com",
       "recaptcha.net"
     ],
     "group": "collaboration",
@@ -143,21 +83,6 @@
       "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
     ],
     "domains": [
-      "*.atl-paas.net",
-      "*.atlassian.com",
-      "*.atlassian.net",
-      "*.cloudfront.net",
-      "*.cookielaw.org",
-      "*.googleapis.com",
-      "*.gravatar.com",
-      "*.jira.com",
-      "*.launchdarkly.com",
-      "*.optimizely.com",
-      "*.pndsn.com",
-      "*.segment.io",
-      "*.sentry-cdn.com",
-      "*.slack-edge.com",
-      "*.wp.com",
       "recaptcha.net"
     ],
     "group": "collaboration",
@@ -171,11 +96,6 @@
       "https://www.gstatic.com/ipranges/goog.json"
     ],
     "domains": [
-      "*.googleapis.com",
-      "*.googleusercontent.com",
-      "*.googlevideo.com",
-      "*.youtube-nocookie.com",
-      "*.ytimg.com",
       "accounts.google.com",
       "accounts.youtube.com",
       "apps-apis.google.com",
@@ -202,20 +122,6 @@
       "https://endpoints.office.com/endpoints/worldwide?clientrequestid=b10c5ed1-bad1-445f-b386-b919946339a7"
     ],
     "domains": [
-      "*.auth.microsoft.com",
-      "*.lync.com",
-      "*.mail.protection.outlook.com",
-      "*.msftidentity.com",
-      "*.msidentity.com",
-      "*.mx.microsoft",
-      "*.officeapps.live.com",
-      "*.online.office.com",
-      "*.protection.office.com",
-      "*.protection.outlook.com",
-      "*.security.microsoft.com",
-      "*.sharepoint.com",
-      "*.teams.cloud.microsoft",
-      "*.teams.microsoft.com",
       "account.activedirectory.windowsazure.com",
       "accounts.accesscontrol.windows.net",
       "adminwebservice.microsoftonline.com",
@@ -261,22 +167,7 @@
       "https://help.okta.com/en-us/content/topics/security/ip-address-allow-listing",
       "https://s3.amazonaws.com/okta-ip-ranges/ip_ranges.json"
     ],
-    "domains": [
-      "*.kerberos.okta-emea.com",
-      "*.kerberos.okta.com",
-      "*.kerberos.oktapreview.com",
-      "*.mtls.okta-emea.com",
-      "*.mtls.okta-gov.com",
-      "*.mtls.okta.com",
-      "*.mtls.okta.mil",
-      "*.mtls.oktapreview.com",
-      "*.okta-emea.com",
-      "*.okta-gov.com",
-      "*.okta.com",
-      "*.okta.mil",
-      "*.oktacdn.com",
-      "*.oktapreview.com"
-    ],
+    "domains": [],
     "group": "identity",
     "suggestedDomain": "okta.com"
   },
@@ -329,7 +220,6 @@
       "https://www.jenkins.io/changelog-stable/"
     ],
     "domains": [
-      "*.jenkins.io",
       "jenkins.io",
       "updates.jenkins.io",
       "get.jenkins.io",
@@ -347,9 +237,6 @@
       "https://slack.com/help/articles/360001603387-Manage-Slack-connection-issues"
     ],
     "domains": [
-      "*.slack.com",
-      "*.slack-edge.com",
-      "*.slack-msgs.com",
       "slack.com"
     ],
     "group": "collaboration",
@@ -362,9 +249,6 @@
       "https://www.intercom.com/help/en/articles/3526516-intercom-s-ip-addresses-and-domains"
     ],
     "domains": [
-      "*.intercom.io",
-      "*.intercomcdn.com",
-      "*.intercomassets.com",
       "api.intercom.io",
       "app.intercom.com",
       "intercom.com"
@@ -380,11 +264,6 @@
       "https://library.zoom.com/admin-corner/network-management/quality-of-service-and-network-best-practices-explainer/configuring-network-components-for-zoom"
     ],
     "domains": [
-      "*.cloudfront.net",
-      "*.zoom.com",
-      "*.zoom.us",
-      "*.zoomconnector.com",
-      "*.zoomgov.com",
       "zoom.com",
       "zoom.us"
     ],
@@ -399,9 +278,6 @@
       "https://docs.datadoghq.com/api/latest/ip-ranges/"
     ],
     "domains": [
-      "*.datadoghq.com",
-      "*.datadoghq.eu",
-      "*.ddog-gov.com",
       "api.datadoghq.com",
       "app.datadoghq.com",
       "install.datadoghq.com"
@@ -417,9 +293,6 @@
       "https://developer.zendesk.com/api-reference/ticketing/account-configuration/public_ips/"
     ],
     "domains": [
-      "*.zendesk.com",
-      "*.zdassets.com",
-      "*.zopim.com",
       "assets.zendesk.com",
       "static.zdassets.com",
       "zendesk.com"
@@ -435,14 +308,6 @@
       "https://community.hubspot.com/t5/APIs-Integrations/Getting-CSP-errors-even-after-allowlisting-Hubspot-Tracking-Code/m-p/687443"
     ],
     "domains": [
-      "*.hs-analytics.net",
-      "*.hs-banner.com",
-      "*.hs-scripts.com",
-      "*.hsforms.com",
-      "*.hsappstatic.net",
-      "*.hubapi.com",
-      "*.hubspot.com",
-      "*.usemessages.com",
       "hubspot.com"
     ],
     "group": "sales",
@@ -456,10 +321,6 @@
       "https://developers.cloudflare.com/fundamentals/reference/network-ports/"
     ],
     "domains": [
-      "*.cloudflare.com",
-      "*.cloudflare.net",
-      "*.cloudflarecdn.com",
-      "*.cloudflareinsights.com",
       "cloudflare.com",
       "cloudflare.net"
     ],
@@ -474,8 +335,6 @@
       "https://docs.gitlab.com/ee/security/webhooks.html"
     ],
     "domains": [
-      "*.gitlab.com",
-      "*.gitlab.io",
       "gitlab.com",
       "gitlab.io",
       "registry.gitlab.com"
@@ -491,9 +350,6 @@
       "https://support.docusign.com/s/document-item?language=en_US&bundleId=fsx&topicId=xlv_technical_requirements.html"
     ],
     "domains": [
-      "*.docusign.com",
-      "*.docusign.net",
-      "*.docucdn-a.akamaihd.net",
       "account.docusign.com",
       "apps.docusign.com",
       "docusign.com",

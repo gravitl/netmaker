@@ -132,12 +132,12 @@ func EgressDNs(network string) (entries []models.DNSEntry) {
 		if !egI.Status {
 			continue
 		}
-		if IsDomainBasedEgress(egI) && len(egI.DomainAns) > 0 {
+		if IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
 			for _, name := range ConfiguredDomainsForEgress(egI) {
 				entry := models.DNSEntry{
 					Name: name,
 				}
-				for _, domainAns := range egI.DomainAns {
+				for _, domainAns := range DomainAnsForDomain(egI, name) {
 					ip, _, err := net.ParseCIDR(domainAns)
 					if err == nil {
 						if ip.To4() != nil {

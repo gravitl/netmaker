@@ -105,29 +105,25 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	domainAns := datatypes.JSONSlice[string]([]string{})
-	if len(resolvedCIDRs) > 0 {
-		domainAns = resolvedCIDRs
-	}
-	staticDomainAns := len(resolvedCIDRs) > 0
 	e := schema.Egress{
-		ID:              uuid.New().String(),
-		Name:            req.Name,
-		Network:         req.Network,
-		Description:     req.Description,
-		Range:           egressRange,
-		DomainAns:       domainAns,
-		Nat:             req.Nat,
-		Mode:            req.Mode,
-		Nodes:           make(datatypes.JSONMap),
-		Tags:            make(datatypes.JSONMap),
-		PresetID:        req.PresetID,
-		StaticDomainAns: staticDomainAns,
-		Status:          true,
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		Network:     req.Network,
+		Description: req.Description,
+		Range:       egressRange,
+		Nat:         req.Nat,
+		Mode:        req.Mode,
+		Nodes:       make(datatypes.JSONMap),
+		Tags:        make(datatypes.JSONMap),
+		PresetID:    req.PresetID,
+		Status:      true,
 		CreatedBy:       r.Header.Get("user"),
 		CreatedAt:       time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
+	if len(resolvedCIDRs) > 0 {
+		logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
+	}
 	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -181,7 +177,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
-	if len(normDomains) > 0 && !e.StaticDomainAns {
+	if len(normDomains) > 0 {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -210,7 +206,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-	} else if len(normDomains) == 0 || e.StaticDomainAns {
+	} else {
 		go mq.PublishPeerUpdate(false)
 	}
 
@@ -373,7 +369,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !logic.EgressDomainsEqual(oldConfigured, normDomains) {
-		e.DomainAns = datatypes.JSONSlice[string]{}
+		logic.ClearEgressDomainAns(&e)
 	}
 	// Update fields from request (Mode and Nat are already set correctly above)
 	e.Range = egressRange
@@ -390,10 +386,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(resolvedCIDRs) > 0 {
-			e.DomainAns = resolvedCIDRs
-			e.StaticDomainAns = true
-		} else {
-			e.StaticDomainAns = false
+			logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
 		}
 	}
 	e.UpdatedAt = time.Now().UTC()
@@ -414,11 +407,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		"status":            e.Status,
 		"nodes":             e.Nodes,
 		"tags":              e.Tags,
-		"domain_ans":        e.DomainAns,
-		"virtual_range":     e.VirtualRange,
-		"preset_id":         e.PresetID,
-		"static_domain_ans": e.StaticDomainAns,
-		"updated_at":        e.UpdatedAt,
+		"domain_ans_by_domain": e.DomainAnsByDomain,
+		"virtual_range":         e.VirtualRange,
+		"preset_id":  e.PresetID,
+		"updated_at": e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values
@@ -433,7 +425,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
-	if len(normDomains) > 0 && !e.StaticDomainAns {
+	if len(normDomains) > 0 {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -462,7 +454,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-
 	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")

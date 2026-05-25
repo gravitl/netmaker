@@ -123,9 +123,9 @@ func AssignVirtualRangeToEgress(nw *schema.Network, eg *schema.Egress) error {
 				logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv4 address, defaulting to /%d", eg.Range, egressPrefixLen))
 			}
 		}
-	} else if len(eg.DomainAns) > 0 {
-		// If Range is empty or "*", check DomainAns for IP addresses
-		for _, domainAns := range eg.DomainAns {
+	} else if logic.HasEgressDomainAns(*eg) {
+		// If Range is empty or "*", check domain answers for IP addresses
+		for _, domainAns := range logic.AllDomainAnsFromEgress(*eg) {
 			_, ipNet, err := net.ParseCIDR(domainAns)
 			if err == nil && ipNet != nil {
 				if ipNet.IP.To4() == nil {

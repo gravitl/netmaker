@@ -607,6 +607,11 @@ definitions:
     properties:
       domain:
         type: string
+      resolved_ips:
+        description: Resolved CIDRs for this domain on the egress resource.
+        items:
+          type: string
+        type: array
       host:
         $ref: '#/definitions/schema.Host'
       id:
@@ -2384,10 +2389,13 @@ definitions:
         items:
           type: string
         type: array
-      domain_ans:
-        items:
-          type: string
-        type: array
+      domain_ans_by_domain:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Maps each configured domain to its resolved CIDRs.
+        type: object
       id:
         type: string
       mode:
@@ -2405,9 +2413,6 @@ definitions:
         type: string
       range:
         type: string
-      static_domain_ans:
-        description: StaticDomainAns when true: domain_ans was populated server-side; host check-in must not replace it.
-        type: boolean
       status:
         description: IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
         type: boolean

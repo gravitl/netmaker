@@ -37,10 +37,10 @@ func buildEgressPresetCatalog() []models.EgressPresetApp {
 	if err := json.Unmarshal(egressPresetExtrasJSON, &extras); err != nil {
 		logger.Log(0, "egress preset extras unmarshal: ", err.Error())
 	} else {
-		for i := range extras {
-			trimEgressPresetDomains(&extras[i])
-		}
 		out = append(out, extras...)
+	}
+	for i := range out {
+		trimEgressPresetDomains(&out[i])
 	}
 	return out
 }
@@ -51,8 +51,6 @@ func awsS3Preset(region string) models.EgressPresetApp {
 		ID:      "aws-s3-" + region,
 		Sources: []string{awsIPRangesURL},
 		Domains: []string{
-			"*.s3-website-" + region + ".amazonaws.com",
-			"*.s3." + region + ".amazonaws.com",
 			"s3-website-" + region + ".amazonaws.com",
 			"s3." + region + ".amazonaws.com",
 		},
@@ -67,8 +65,6 @@ func awsEC2ELBPreset(region string) models.EgressPresetApp {
 		ID:      "aws-ec2-" + region,
 		Sources: []string{awsIPRangesURL},
 		Domains: []string{
-			"*." + region + ".compute.amazonaws.com",
-			"*." + region + ".elb.amazonaws.com",
 			region + ".compute.amazonaws.com",
 			region + ".elb.amazonaws.com",
 		},
@@ -83,9 +79,6 @@ func awsS3Global() models.EgressPresetApp {
 		ID:      "aws-s3-global",
 		Sources: []string{awsIPRangesURL},
 		Domains: []string{
-			"*.s3-accelerate.amazonaws.com",
-			"*.s3-accelerate.dualstack.amazonaws.com",
-			"*.s3.amazonaws.com",
 			"s3-accelerate.amazonaws.com",
 			"s3-accelerate.dualstack.amazonaws.com",
 			"s3.amazonaws.com",
@@ -101,7 +94,6 @@ func awsCloudFrontGlobal() models.EgressPresetApp {
 		ID:      "aws-cloudfront-global",
 		Sources: []string{awsIPRangesURL},
 		Domains: []string{
-			"*.cloudfront.net",
 			"cloudfront.net",
 		},
 		Group:           "aws",

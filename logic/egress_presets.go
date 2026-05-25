@@ -89,9 +89,15 @@ func ApplyEgressPresetToEgressReq(req *models.EgressReq) error {
 }
 
 func trimEgressPresetDomains(p *models.EgressPresetApp) {
-	for i := range p.Domains {
-		p.Domains[i] = strings.TrimSpace(p.Domains[i])
+	var out []string
+	for _, d := range p.Domains {
+		d = strings.TrimSpace(d)
+		if d == "" || strings.HasPrefix(d, "*.") {
+			continue
+		}
+		out = append(out, d)
 	}
+	p.Domains = out
 }
 
 func enrichSuggestedDomain(p *models.EgressPresetApp) {
