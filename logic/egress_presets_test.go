@@ -18,8 +18,8 @@ func TestGetEgressPresetByID_GitHub(t *testing.T) {
 	if p.SuggestedDomain == "" {
 		t.Fatal("expected suggested domain")
 	}
-	if !PresetYieldsStaticDomainAns(p) {
-		t.Fatal("github should yield static CIDRs")
+	if len(p.Sources) == 0 {
+		t.Fatal("expected catalog source metadata")
 	}
 }
 

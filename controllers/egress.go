@@ -76,14 +76,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		normDomains = nil
 	}
 	req.Domains = normDomains
-	var resolvedCIDRs []string
-	if req.PresetID != "" {
-		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
-			if c, err := logic.ResolveEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
-				resolvedCIDRs = c
-			}
-		}
-	}
 	var egressRange string
 	if !req.IsInetGw {
 		if len(normDomains) > 0 {
@@ -121,9 +113,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
-	if len(resolvedCIDRs) > 0 {
-		logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
-	}
 	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -377,17 +366,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Name = req.Name
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	e.Status = req.Status
-	var resolvedCIDRs []string
 	if req.PresetID != "" {
 		e.PresetID = req.PresetID
-		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsStaticDomainAns(p) {
-			if c, err := logic.ResolveEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
-				resolvedCIDRs = c
-			}
-		}
-		if len(resolvedCIDRs) > 0 {
-			logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
-		}
 	}
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {

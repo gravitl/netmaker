@@ -2,7 +2,6 @@ package logic
 
 import (
 	"errors"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -112,49 +111,4 @@ func enrichSuggestedDomain(p *models.EgressPresetApp) {
 			return
 		}
 	}
-}
-
-// PresetYieldsStaticDomainAns returns true if this preset can resolve CIDRs server-side (no dependency on help/docs-only sources).
-func PresetYieldsStaticDomainAns(p models.EgressPresetApp) bool {
-	trimEgressPresetDomains(&p)
-	for _, src := range p.Sources {
-		src = strings.TrimSpace(src)
-		if isFetchableCIDRSource(src) {
-			return true
-		}
-	}
-	return false
-}
-
-func isFetchableCIDRSource(u string) bool {
-	switch {
-	case strings.HasPrefix(u, "https://ip-ranges.amazonaws.com/"):
-		return true
-	case u == "https://api.github.com/meta":
-		return true
-	case strings.HasPrefix(u, "https://api.fastly.com/"):
-		return true
-	}
-	return false
-}
-
-// ResolveEgressPresetCIDRs fetches public CIDR data when the preset is backed by a supported first fetchable source.
-func ResolveEgressPresetCIDRs(client *http.Client, p models.EgressPresetApp) (cidrs []string, err error) {
-	trimEgressPresetDomains(&p)
-	for _, src := range p.Sources {
-		src = strings.TrimSpace(src)
-		if !isFetchableCIDRSource(src) {
-			continue
-		}
-		if strings.HasPrefix(src, "https://ip-ranges.amazonaws.com/") {
-			return resolveAWSPresetCIDRs(client, p)
-		}
-		if src == "https://api.github.com/meta" {
-			return resolveGitHubMetaCIDRs(client)
-		}
-		if strings.HasPrefix(src, "https://api.fastly.com/") {
-			return resolveFastlyPublicCIDRs(client, src)
-		}
-	}
-	return nil, nil
 }
