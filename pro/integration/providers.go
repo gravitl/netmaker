@@ -14,10 +14,10 @@ const (
 )
 
 const (
-	ProviderSplunk   ProviderID = "splunk"
 	ProviderDatadog  ProviderID = "datadog"
 	ProviderElastic  ProviderID = "elastic"
 	ProviderSentinel ProviderID = "sentinel"
+	ProviderSplunk   ProviderID = "splunk"
 )
 
 type Provider interface {
