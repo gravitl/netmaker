@@ -270,6 +270,31 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	return dns, err
 }
 
+func DeleteNetworkDNS(network string) error {
+	records, err := database.FetchRecords(database.DNS_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	for key, record := range records {
+		var entry models.DNSEntry
+		err := json.Unmarshal([]byte(record), &entry)
+		if err != nil {
+			continue
+		}
+
+		if entry.Network == network {
+			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
+	}
+
+	return nil
+}
+
 // SetCorefile - sets the core file of the system
 func SetCorefile(domains string) error {
 	dir, err := os.Getwd()

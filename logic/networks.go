@@ -73,6 +73,8 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 		}
 	}
 
+	go DeleteNetworkDNS(network)
+
 	return nil
 }
 

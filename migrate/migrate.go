@@ -38,6 +38,7 @@ func Run() {
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
 	migrateEgressNatMode()
+	cleanUpDNSRecords()
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
@@ -667,5 +668,27 @@ func migrateEgressNatMode() {
 		}
 
 		_ = egress.Update(db.WithContext(context.TODO()))
+	}
+}
+
+func cleanUpDNSRecords() {
+	networksMap := make(map[string]bool)
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		networksMap[network.Name] = true
+	}
+
+	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
+	for key, record := range records {
+		var entry models.DNSEntry
+		err := json.Unmarshal([]byte(record), &entry)
+		if err != nil {
+			continue
+		}
+
+		_, ok := networksMap[entry.Network]
+		if !ok {
+			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
 	}
 }
