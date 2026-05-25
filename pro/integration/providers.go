@@ -37,11 +37,11 @@ var registry = map[Type]map[ProviderID]Provider{
 func Lookup(intType Type, id ProviderID) (Provider, error) {
 	providers, ok := registry[intType]
 	if !ok {
-		return nil, fmt.Errorf("unknown integration type %q", intType)
+		return nil, fmt.Errorf("unknown integration type '%s'", intType)
 	}
 	p, ok := providers[id]
 	if !ok {
-		return nil, fmt.Errorf("unknown provider %q for type %q", id, intType)
+		return nil, fmt.Errorf("unknown provider '%s' for type '%s'", id, intType)
 	}
 	return p, nil
 }
