@@ -26,16 +26,13 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 		// Delete default network enrollment key
 		keys, _ := GetAllEnrollmentKeys()
 		for _, key := range keys {
-			if key.Tags[0] == network {
-				if key.Default {
-					DeleteEnrollmentKey(key.Value, true)
-					break
-				}
-
+			if key.Default && len(key.Tags) > 0 && key.Tags[0] == network {
+				_ = DeleteEnrollmentKey(key.Value, true)
+				break
 			}
 		}
 
-		DeleteNetworkDNS(network)
+		_ = DeleteNetworkDNS(network)
 	}()
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
