@@ -102,8 +102,32 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	intg := &schema.Integration{
+		Type: string(intType),
+	}
+	integrations, err := intg.ListByType(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if len(integrations) > 0 {
+		var isUpsert bool
+		if len(integrations) == 1 {
+			intg := integrations[0]
+			if intg.ID == string(id) && intg.Type == string(intType) {
+				isUpsert = true
+			}
+		}
+
+		if !isUpsert {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("cannot have more than one integration of type %s", intType), logic.BadReq))
+			return
+		}
+	}
+
 	var config json.RawMessage
-	err := json.NewDecoder(r.Body).Decode(&config)
+	err = json.NewDecoder(r.Body).Decode(&config)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
 		return
