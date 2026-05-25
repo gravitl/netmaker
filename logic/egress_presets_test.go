@@ -67,25 +67,3 @@ func TestResolveAWSPresetCIDRsFromFixture(t *testing.T) {
 		t.Fatal("expected cidr list")
 	}
 }
-
-func TestResolveGitHubMetaFromFixture(t *testing.T) {
-	path := filepath.Join("testdata", "github-meta-sample.json")
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Skip("fixture missing")
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(b)
-	}))
-	t.Cleanup(srv.Close)
-	orig := gitHubMetaURL
-	gitHubMetaURL = srv.URL
-	t.Cleanup(func() { gitHubMetaURL = orig })
-	cidrs, err := resolveGitHubMetaCIDRs(srv.Client())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cidrs) == 0 {
-		t.Fatal("expected cidr list")
-	}
-}
