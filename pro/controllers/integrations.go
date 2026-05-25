@@ -108,10 +108,10 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intg := &schema.Integration{
-		IntegrationID: string(id),
-		Type:          string(intType),
-		Config:        datatypes.JSON(config),
+	intg = &schema.Integration{
+		ID:     string(id),
+		Type:   string(intType),
+		Config: datatypes.JSON(config),
 	}
 
 	err = intg.Upsert(r.Context())
@@ -165,7 +165,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intg := &schema.Integration{IntegrationID: string(id)}
+	intg := &schema.Integration{ID: string(id)}
 	err := intg.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

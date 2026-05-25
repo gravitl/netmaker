@@ -9,11 +9,11 @@ import (
 )
 
 type Integration struct {
-	IntegrationID string         `gorm:"primaryKey;column:integration_id" json:"integration_id"`
-	Type          string         `gorm:"not null;column:type"              json:"type"`
-	Config        datatypes.JSON `gorm:"not null;column:config"            json:"config"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID        string         `gorm:"primaryKey;column:id" json:"id"`
+	Type      string         `gorm:"not null;column:type"              json:"type"`
+	Config    datatypes.JSON `gorm:"not null;column:config"            json:"config"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 func (i *Integration) Upsert(ctx context.Context) error {
@@ -21,11 +21,11 @@ func (i *Integration) Upsert(ctx context.Context) error {
 }
 
 func (i *Integration) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(i, "integration_id = ?", i.IntegrationID).Error
+	return db.FromContext(ctx).First(i, "id = ?", i.ID).Error
 }
 
 func (i *Integration) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(i, "integration_id = ?", i.IntegrationID).Error
+	return db.FromContext(ctx).Delete(i, "id = ?", i.ID).Error
 }
 
 func (i *Integration) ListByType(ctx context.Context) ([]Integration, error) {
