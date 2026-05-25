@@ -54,6 +54,14 @@ func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (inte
 func getIntegration(w http.ResponseWriter, r *http.Request) {
 	intType := integration.Type(mux.Vars(r)["type"])
 
+	// hardcoding a correct provider id to do use the same function for validating integration type is siem.
+	// TODO: change provider when other integration types are introduced.
+	_, err := integration.Lookup(intType, integration.ProviderDatadog)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	intg := &schema.Integration{
 		Type: string(intType),
 	}
