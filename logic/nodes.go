@@ -409,6 +409,34 @@ func GetNodeByID(nodeID string) (models.Node, error) {
 	return *node, nil
 }
 
+// GetNodesByIDs fetches all nodes whose IDs are in the given slice in a single
+// preloaded query and returns them as a map keyed by node ID. IDs that don't
+// resolve to a node row are simply absent from the result map.
+//
+// This avoids the N+1 (and N^2) query patterns that arise when callers loop
+// over peer IDs and call GetNodeByID per peer (e.g. status / connectivity
+// checks driven by metrics).
+func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
+	if len(ids) == 0 {
+		return map[string]models.Node{}, nil
+	}
+	_nodes, err := (&schema.Node{}).ListByIDs(
+		db.WithContext(context.TODO()),
+		ids,
+		dbtypes.WithAllPreloads(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]models.Node, len(_nodes))
+	for i := range _nodes {
+		n := ConvertSchemaNodeToModelsNode(&_nodes[i])
+		ensureNodeMutex(n)
+		result[_nodes[i].ID] = *n
+	}
+	return result, nil
+}
+
 // GetDeletedNodeByID - get a deleted node
 func GetDeletedNodeByID(uuid string) (models.Node, error) {
 
@@ -600,7 +628,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 		err = _node.Host.Get(db.WithContext(context.TODO()))
 		if err != nil {
-			return &models.Node{}
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				_node.Host = &schema.Host{}
+			} else {
+				return &models.Node{}
+			}
 		}
 	}
 
@@ -611,7 +643,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 		err = _node.Network.Get(db.WithContext(context.TODO()))
 		if err != nil {
-			return &models.Node{}
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				_node.Network = &schema.Network{}
+			} else {
+				return &models.Node{}
+			}
 		}
 	}
 

@@ -67,6 +67,8 @@ definitions:
         type: boolean
       auto_egress:
         type: boolean
+      default:
+        type: boolean
       expiration:
         format: int64
         type: integer
