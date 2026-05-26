@@ -32,8 +32,6 @@ const (
 	DATABASE_FILENAME = "netmaker.db"
 	// GENERATED_TABLE_NAME - stores server generated k/v
 	GENERATED_TABLE_NAME = "generated"
-	// NODE_ACLS_TABLE_NAME - stores the node ACL rules
-	NODE_ACLS_TABLE_NAME = "nodeacls"
 	// ACLS_TABLE_NAME - table for acls v2
 	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
@@ -93,7 +91,6 @@ var Tables = []string{
 	SERVERCONF_TABLE_NAME,
 	SERVER_UUID_TABLE_NAME,
 	GENERATED_TABLE_NAME,
-	NODE_ACLS_TABLE_NAME,
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
 	CACHE_TABLE_NAME,
