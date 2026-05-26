@@ -30,7 +30,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
 	if !e.Nat {
-		e.Mode = ""
+		e.Mode = schema.DisabledNAT
 		e.VirtualRange = ""
 	}
 	if logic.IsDomainBasedEgress(*e) && e.Nat {

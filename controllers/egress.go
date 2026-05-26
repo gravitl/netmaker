@@ -109,8 +109,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Tags:        make(datatypes.JSONMap),
 		PresetID:    req.PresetID,
 		Status:      true,
-		CreatedBy:       r.Header.Get("user"),
-		CreatedAt:       time.Now().UTC(),
+		CreatedBy:   r.Header.Get("user"),
+		CreatedAt:   time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
@@ -378,19 +378,19 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Build update map with all fields including zero values
 	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
 	updateMap := map[string]any{
-		"name":              e.Name,
-		"description":       e.Description,
-		"range":             e.Range,
-		"domains":           e.Domains,
-		"nat":               e.Nat,
-		"mode":              e.Mode,
-		"status":            e.Status,
-		"nodes":             e.Nodes,
-		"tags":              e.Tags,
+		"name":                 e.Name,
+		"description":          e.Description,
+		"range":                e.Range,
+		"domains":              e.Domains,
+		"nat":                  e.Nat,
+		"mode":                 e.Mode,
+		"status":               e.Status,
+		"nodes":                e.Nodes,
+		"tags":                 e.Tags,
 		"domain_ans_by_domain": e.DomainAnsByDomain,
-		"virtual_range":         e.VirtualRange,
-		"preset_id":  e.PresetID,
-		"updated_at": e.UpdatedAt,
+		"virtual_range":        e.VirtualRange,
+		"preset_id":            e.PresetID,
+		"updated_at":           e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values
