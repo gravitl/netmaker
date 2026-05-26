@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -41,6 +42,10 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.USERS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -99,6 +104,10 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.NETWORKS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.NETWORKS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -243,6 +252,10 @@ func migrateNetworks_Nameserver(ctx context.Context, network *models.Network) er
 }
 
 func migrateUserRoles(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.USER_PERMISSIONS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.USER_PERMISSIONS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -268,6 +281,10 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.USER_GROUPS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.USER_GROUPS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -293,6 +310,10 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.HOSTS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err

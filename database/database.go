@@ -97,16 +97,6 @@ var Tables = []string{
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	SERVER_SETTINGS,
-	// The following tables are to be migrated, but we still need them so that the migration function
-	// doesn't fail with table does not exist.
-	USERS_TABLE_NAME,
-	USER_GROUPS_TABLE_NAME,
-	USER_PERMISSIONS_TABLE_NAME,
-	NETWORKS_TABLE_NAME,
-	HOSTS_TABLE_NAME,
-	PENDING_USERS_TABLE_NAME,
-	USER_INVITES_TABLE_NAME,
-	NODES_TABLE_NAME,
 }
 
 func getCurrentDB() map[string]interface{} {
