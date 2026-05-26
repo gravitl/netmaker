@@ -54,8 +54,6 @@ const (
 	USER_INVITES_TABLE_NAME = "user_invites"
 	// TAG_TABLE_NAME - table for tags
 	TAG_TABLE_NAME = "tags"
-	// PEER_ACK_TABLE - table for failover peer ack
-	PEER_ACK_TABLE = "peer_ack"
 	// SERVER_SETTINGS - table for server settings
 	SERVER_SETTINGS = "server_settings"
 	// == ERROR CONSTS ==
@@ -98,7 +96,6 @@ var Tables = []string{
 	HOST_ACTIONS_TABLE_NAME,
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
-	PEER_ACK_TABLE,
 	SERVER_SETTINGS,
 	// The following tables are to be migrated, but we still need them so that the migration function
 	// doesn't fail with table does not exist.
