@@ -14,8 +14,6 @@ const (
 	NETWORKS_TABLE_NAME = "networks"
 	// NODES_TABLE_NAME - nodes table
 	NODES_TABLE_NAME = "nodes"
-	// DELETED_NODES_TABLE_NAME - deleted nodes table
-	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
@@ -96,7 +94,6 @@ const (
 )
 
 var Tables = []string{
-	DELETED_NODES_TABLE_NAME,
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
 	PEERS_TABLE_NAME,
