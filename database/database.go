@@ -22,8 +22,6 @@ const (
 	DNS_TABLE_NAME = "dns"
 	// EXT_CLIENT_TABLE_NAME - ext client table
 	EXT_CLIENT_TABLE_NAME = "extclients"
-	// PEERS_TABLE_NAME - peers table
-	PEERS_TABLE_NAME = "peers"
 	// SERVERCONF_TABLE_NAME - stores server conf
 	SERVERCONF_TABLE_NAME = "serverconf"
 	// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
@@ -77,8 +75,6 @@ const (
 	CREATE_TABLE = "createtable"
 	// INSERT - insert into db const
 	INSERT = "insert"
-	// INSERT_PEER - insert peer into db const
-	INSERT_PEER = "insertpeer"
 	// DELETE - delete db record const
 	DELETE = "delete"
 	// DELETE_ALL - delete a table const
@@ -96,7 +92,6 @@ const (
 var Tables = []string{
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
-	PEERS_TABLE_NAME,
 	SERVERCONF_TABLE_NAME,
 	SERVER_UUID_TABLE_NAME,
 	GENERATED_TABLE_NAME,
