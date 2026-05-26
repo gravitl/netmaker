@@ -307,11 +307,15 @@ func getEgressAclRulesForTargetNode(targetnode models.Node) map[string]models.Ac
 		}
 		origSrcIP4, origSrcIP6 := getSelectedEgressIPNets(acl.Src)
 		if len(origSrcIP4) == 0 && len(origSrcIP6) == 0 {
-			origSrcIP4, origSrcIP6 = getEgressCIDRs(srcEgresses)
+			origSrcIP4, origSrcIP6 = getEgressCIDRsForSiteToSite(targetID, srcEgresses)
+		} else {
+			origSrcIP4, origSrcIP6 = selectedEgressIPNetsForSiteToSiteEgresses(targetID, srcEgresses, origSrcIP4, origSrcIP6)
 		}
 		dstIP4, dstIP6 := getSelectedEgressIPNets(acl.Dst)
 		if len(dstIP4) == 0 && len(dstIP6) == 0 {
-			dstIP4, dstIP6 = getEgressCIDRs(dstEgresses)
+			dstIP4, dstIP6 = getEgressCIDRsForSiteToSite(targetID, dstEgresses)
+		} else {
+			dstIP4, dstIP6 = selectedEgressIPNetsForSiteToSiteEgresses(targetID, dstEgresses, dstIP4, dstIP6)
 		}
 		srcNat := egressListHasNAT(srcEgresses)
 		dstNat := egressListHasNAT(dstEgresses)
@@ -391,6 +395,75 @@ func getEgressCIDRs(egresses []schema.Egress) (ip4 []net.IPNet, ip6 []net.IPNet)
 		}
 	}
 	return
+}
+
+// getEgressCIDRsForSiteToSite returns full egress range CIDRs from the routing
+// node's perspective (virtual range when the node does not own the egress).
+func getEgressCIDRsForSiteToSite(nodeID string, egresses []schema.Egress) (ip4, ip6 []net.IPNet) {
+	for _, e := range egresses {
+		if !e.Status {
+			continue
+		}
+		egressRange := e.Range
+		if _, owns := e.Nodes[nodeID]; !owns && e.VirtualRange != "" {
+			egressRange = e.VirtualRange
+		}
+		if egressRange == "" {
+			continue
+		}
+		_, cidr, err := net.ParseCIDR(egressRange)
+		if err != nil {
+			continue
+		}
+		if cidr.IP.To4() != nil {
+			ip4 = append(ip4, *cidr)
+		} else {
+			ip6 = append(ip6, *cidr)
+		}
+	}
+	return
+}
+
+func egressContainingIPNet(egresses []schema.Egress, cidr net.IPNet) (schema.Egress, bool) {
+	for _, e := range egresses {
+		if e.Range == "" {
+			continue
+		}
+		_, realNet, err := net.ParseCIDR(e.Range)
+		if err != nil {
+			continue
+		}
+		if cidrContainsCIDR(realNet, &cidr) {
+			return e, true
+		}
+	}
+	return schema.Egress{}, false
+}
+
+// selectedEgressIPNetsForSiteToSiteEgresses maps restricted IPs per egress using
+// the site-to-site routing node's perspective (real on owner, virtual elsewhere).
+func selectedEgressIPNetsForSiteToSiteEgresses(
+	nodeID string,
+	egresses []schema.Egress,
+	selected4, selected6 []net.IPNet,
+) (v4, v6 []net.IPNet) {
+	for _, cidr := range selected4 {
+		e, ok := egressContainingIPNet(egresses, cidr)
+		if !ok {
+			continue
+		}
+		m4, _ := SelectedEgressDstNetsForNode(nodeID, e, []net.IPNet{cidr}, nil)
+		v4 = append(v4, m4...)
+	}
+	for _, cidr := range selected6 {
+		e, ok := egressContainingIPNet(egresses, cidr)
+		if !ok {
+			continue
+		}
+		_, m6 := SelectedEgressDstNetsForNode(nodeID, e, nil, []net.IPNet{cidr})
+		v6 = append(v6, m6...)
+	}
+	return v4, v6
 }
 
 func egressListHasNAT(egresses []schema.Egress) bool {
@@ -776,7 +849,8 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				}
 				if HasEgressDomainAns(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-						for _, cidr := range selectedIP4 {
+						sel4, sel6 := SelectedEgressDstNetsForNode(node.ID.String(), e, selectedIP4, selectedIP6)
+						for _, cidr := range sel4 {
 							if node.Address.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -790,7 +864,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 								})
 							}
 						}
-						for _, cidr := range selectedIP6 {
+						for _, cidr := range sel6 {
 							if node.Address6.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -839,7 +913,8 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 					}
 				} else {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-						for _, cidr := range selectedIP4 {
+						sel4, sel6 := SelectedEgressDstNetsForNode(node.ID.String(), e, selectedIP4, selectedIP6)
+						for _, cidr := range sel4 {
 							if node.Address.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -853,7 +928,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 								})
 							}
 						}
-						for _, cidr := range selectedIP6 {
+						for _, cidr := range sel6 {
 							if node.Address6.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -1085,8 +1160,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 					}
 					if nodeOwnsEgress {
 						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-							egressRanges4 = append(egressRanges4, selectedIP4...)
-							egressRanges6 = append(egressRanges6, selectedIP6...)
+							sel4, sel6 := SelectedEgressDstNetsForNode(targetnode.ID.String(), eI, selectedIP4, selectedIP6)
+							egressRanges4 = append(egressRanges4, sel4...)
+							egressRanges6 = append(egressRanges6, sel6...)
 						} else if servercfg.IsPro && IsDomainBasedEgress(eI) && HasEgressDomainAns(eI) {
 							for _, domainAnsI := range AllDomainAnsFromEgress(eI) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
@@ -1108,6 +1184,10 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
+					} else if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						sel4, sel6 := SelectedEgressDstNetsForNode(targetnode.ID.String(), eI, selectedIP4, selectedIP6)
+						egressRanges4 = append(egressRanges4, sel4...)
+						egressRanges6 = append(egressRanges6, sel6...)
 					} else if eI.VirtualRange != "" {
 						// Use virtual range if target node doesn't own the egress
 						_, cidr, err := net.ParseCIDR(eI.VirtualRange)
@@ -1132,8 +1212,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 					}
 					if nodeOwnsEgress {
 						if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-							egressRanges4 = append(egressRanges4, selectedIP4...)
-							egressRanges6 = append(egressRanges6, selectedIP6...)
+							sel4, sel6 := SelectedEgressDstNetsForNode(targetnode.ID.String(), e, selectedIP4, selectedIP6)
+							egressRanges4 = append(egressRanges4, sel4...)
+							egressRanges6 = append(egressRanges6, sel6...)
 						} else if servercfg.IsPro && IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
 							for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
@@ -1155,6 +1236,10 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
+					} else if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+						sel4, sel6 := SelectedEgressDstNetsForNode(targetnode.ID.String(), e, selectedIP4, selectedIP6)
+						egressRanges4 = append(egressRanges4, sel4...)
+						egressRanges6 = append(egressRanges6, sel6...)
 					} else if e.VirtualRange != "" {
 						// Use virtual range if target node doesn't own the egress
 						_, cidr, err := net.ParseCIDR(e.VirtualRange)
@@ -1580,8 +1665,9 @@ func appendExtClientRemoteEgressFwdRules(
 				continue
 			}
 			if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-				dst4 = append(dst4, selectedIP4...)
-				dst6 = append(dst6, selectedIP6...)
+				sel4, sel6 := SelectedEgressDstNetsForNode(targetnode.ID.String(), egI, selectedIP4, selectedIP6)
+				dst4 = append(dst4, sel4...)
+				dst6 = append(dst6, sel6...)
 				continue
 			}
 			if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
@@ -1915,8 +2001,9 @@ func computeEgressDstsForAcl(
 			continue
 		}
 		if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-			dst4 = append(dst4, selectedIP4...)
-			dst6 = append(dst6, selectedIP6...)
+			sel4, sel6 := SelectedEgressDstNetsForNode(nodeID, egI, selectedIP4, selectedIP6)
+			dst4 = append(dst4, sel4...)
+			dst6 = append(dst6, sel6...)
 			continue
 		}
 		if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
@@ -2158,6 +2245,78 @@ func cidrContainsCIDR(parent, child *net.IPNet) bool {
 	return parent.Contains(last)
 }
 
+// MapEgressIPNetToVirtualNAT maps a real LAN CIDR from an egress range into the
+// corresponding address in the egress virtual NAT range (host offset preserved).
+func MapEgressIPNetToVirtualNAT(cidr net.IPNet, e schema.Egress) (net.IPNet, bool) {
+	if e.VirtualRange == "" || e.Range == "" {
+		return net.IPNet{}, false
+	}
+	_, realNet, err := net.ParseCIDR(e.Range)
+	if err != nil {
+		return net.IPNet{}, false
+	}
+	_, virtNet, err := net.ParseCIDR(e.VirtualRange)
+	if err != nil {
+		return net.IPNet{}, false
+	}
+	if realNet.IP.To4() == nil || virtNet.IP.To4() == nil || cidr.IP.To4() == nil {
+		return net.IPNet{}, false
+	}
+	if !realNet.Contains(cidr.IP) {
+		return net.IPNet{}, false
+	}
+	virtBase := virtNet.IP.Mask(virtNet.Mask)
+	mapped := make(net.IP, 4)
+	copy(mapped, virtBase.To4())
+	for i := 0; i < 4; i++ {
+		mapped[i] |= cidr.IP[i] & ^realNet.Mask[i]
+	}
+	return net.IPNet{IP: mapped, Mask: cidr.Mask}, true
+}
+
+// MapSelectedEgressIPNetsToVirtualNAT maps restricted egress IPs that fall within
+// e.Range into e.VirtualRange; entries outside the real range are skipped.
+func MapSelectedEgressIPNetsToVirtualNAT(selected4, selected6 []net.IPNet, e schema.Egress) (v4, v6 []net.IPNet) {
+	for _, cidr := range selected4 {
+		if mapped, ok := MapEgressIPNetToVirtualNAT(cidr, e); ok {
+			v4 = append(v4, mapped)
+		}
+	}
+	for _, cidr := range selected6 {
+		if mapped, ok := MapEgressIPNetToVirtualNAT(cidr, e); ok {
+			v6 = append(v6, mapped)
+		}
+	}
+	return v4, v6
+}
+
+// SelectedEgressDstNetsForNode returns restricted-IP dst CIDRs from the node's
+// perspective: real LAN on the egress owner, virtual NAT addresses elsewhere.
+func SelectedEgressDstNetsForNode(nodeID string, e schema.Egress, selected4, selected6 []net.IPNet) (dst4, dst6 []net.IPNet) {
+	if _, ok := e.Nodes[nodeID]; ok || e.VirtualRange == "" {
+		return selected4, selected6
+	}
+	return MapSelectedEgressIPNetsToVirtualNAT(selected4, selected6, e)
+}
+
+func appendEgressAllowedCIDRs(cidrs *[]*net.IPNet, e schema.Egress) error {
+	if e.Range != "" {
+		_, cidr, err := net.ParseCIDR(e.Range)
+		if err != nil {
+			return errors.New("invalid egress range")
+		}
+		*cidrs = append(*cidrs, cidr)
+	}
+	if e.VirtualRange != "" {
+		_, cidr, err := net.ParseCIDR(e.VirtualRange)
+		if err != nil {
+			return errors.New("invalid egress virtual range")
+		}
+		*cidrs = append(*cidrs, cidr)
+	}
+	return nil
+}
+
 func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 	if acl == nil {
 		return nil
@@ -2171,14 +2330,9 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-		if e.Range == "" {
-			continue
+		if err := appendEgressAllowedCIDRs(&egressCIDRs, e); err != nil {
+			return err
 		}
-		_, cidr, err := net.ParseCIDR(e.Range)
-		if err != nil {
-			return errors.New("invalid egress range")
-		}
-		egressCIDRs = append(egressCIDRs, cidr)
 	}
 	for i := range acl.Dst {
 		if acl.Dst[i].ID != models.NetmakerIPAclID {
@@ -2216,14 +2370,9 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-		if e.Range == "" {
-			continue
+		if err := appendEgressAllowedCIDRs(&srcEgressCIDRs, e); err != nil {
+			return err
 		}
-		_, cidr, err := net.ParseCIDR(e.Range)
-		if err != nil {
-			return errors.New("invalid egress range")
-		}
-		srcEgressCIDRs = append(srcEgressCIDRs, cidr)
 	}
 	for i := range acl.Src {
 		if acl.Src[i].ID != models.NetmakerIPAclID {

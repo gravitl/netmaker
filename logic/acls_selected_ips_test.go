@@ -2540,3 +2540,329 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		t.Fatalf("expected exactly one IPList entry (MacBook); got %d: %v", len(got), rule.IPList)
 	}
 }
+
+func TestMapEgressIPNetToVirtualNAT(t *testing.T) {
+	_, realHost, _ := net.ParseCIDR("10.104.0.16/32")
+	e := schema.Egress{
+		Range:        "10.104.0.0/24",
+		VirtualRange: "100.64.5.0/24",
+		Nat:          true,
+		Mode:         schema.VirtualNAT,
+	}
+	mapped, ok := MapEgressIPNetToVirtualNAT(*realHost, e)
+	if !ok {
+		t.Fatal("expected successful virtual NAT mapping")
+	}
+	if mapped.String() != "100.64.5.16/32" {
+		t.Fatalf("expected 100.64.5.16/32, got %s", mapped.String())
+	}
+}
+
+func TestNormalizeAndValidateAclEgressIPs_AcceptsVirtualRangeIP(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() {
+		getEgressByID = originalGetEgressByID
+	})
+
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		return schema.Egress{
+			ID:           egressID,
+			Range:        "10.104.0.0/24",
+			VirtualRange: "100.64.5.0/24",
+			Nat:          true,
+			Mode:         schema.VirtualNAT,
+		}, nil
+	}
+
+	acl := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "eg-1"},
+			{ID: models.NetmakerIPAclID, Value: "100.64.5.16"},
+		},
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		t.Fatalf("expected virtual range ip to validate, got: %v", err)
+	}
+}
+
+func TestComputeEgressDstsForAcl_VirtualNATRestrictedIP(t *testing.T) {
+	ownerID := uuid.New().String()
+	remoteID := uuid.New().String()
+	eg := schema.Egress{
+		ID:           "eg-vnat",
+		Range:        "10.104.0.0/24",
+		VirtualRange: "100.64.5.0/24",
+		Nat:          true,
+		Mode:         schema.VirtualNAT,
+		Nodes:        datatypes.JSONMap{ownerID: json.Number("100")},
+	}
+	egByID := map[string]schema.Egress{"eg-vnat": eg}
+	acl := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "eg-vnat"},
+			{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+		},
+	}
+
+	owner4, _ := computeEgressDstsForAcl(ownerID, acl, egByID)
+	if len(owner4) != 1 || owner4[0].String() != "10.104.0.16/32" {
+		t.Fatalf("owner should see real LAN ip, got %v", owner4)
+	}
+
+	remote4, _ := computeEgressDstsForAcl(remoteID, acl, egByID)
+	if len(remote4) != 1 || remote4[0].String() != "100.64.5.16/32" {
+		t.Fatalf("remote node should see virtual ip, got %v", remote4)
+	}
+}
+
+func TestGetEgressRulesForNode_SiteToSiteVirtualNATRestrictedIP(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalListExtClients := listNetworkExtClients
+	t.Cleanup(func() {
+		getEgressByID = originalGetEgressByID
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		listNetworkExtClients = originalListExtClients
+	})
+
+	targetID := uuid.New()
+	srcEgressOwnerID := uuid.New()
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      targetID,
+			Network: "netmaker",
+		},
+		Tags: map[models.TagID]struct{}{},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{
+			{
+				ID:           "src-egress",
+				Network:      network,
+				Status:       true,
+				Range:        "10.110.0.0/24",
+				VirtualRange: "100.64.10.0/24",
+				Nat:          true,
+				Mode:         schema.VirtualNAT,
+				Nodes:        datatypes.JSONMap{srcEgressOwnerID.String(): json.Number("100")},
+			},
+			{
+				ID:      "dst-egress",
+				Network: network,
+				Status:  true,
+				Range:   "10.104.0.0/24",
+				Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
+			},
+		}, nil
+	}
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		for _, e := range []schema.Egress{
+			{
+				ID:           "src-egress",
+				Status:       true,
+				Range:        "10.110.0.0/24",
+				VirtualRange: "100.64.10.0/24",
+				Nat:          true,
+				Mode:         schema.VirtualNAT,
+				Nodes:        datatypes.JSONMap{srcEgressOwnerID.String(): json.Number("100")},
+			},
+			{
+				ID:     "dst-egress",
+				Status: true,
+				Range:  "10.104.0.0/24",
+				Nodes:  datatypes.JSONMap{targetID.String(): json.Number("100")},
+			},
+		} {
+			if e.ID == egressID {
+				return e, nil
+			}
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+	getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "site-acl",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionBi,
+			Proto:            models.ALL,
+			Src: []models.AclPolicyTag{
+				{ID: models.EgressID, Value: "src-egress"},
+				{ID: models.NetmakerIPAclID, Value: "10.110.0.112/32"},
+			},
+			Dst: []models.AclPolicyTag{
+				{ID: models.EgressID, Value: "dst-egress"},
+				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+			},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{}
+	}
+	listNetworkExtClients = func(network string) ([]models.ExtClient, error) { return nil, nil }
+
+	rules := GetEgressRulesForNode(targetNode)
+
+	s2s, ok := rules["site-acl#xs0"]
+	if !ok {
+		t.Fatalf("expected site-to-site rule keyed by acl.ID + \"#xs0\", got: %+v", rules)
+	}
+	s2sSrcs := map[string]struct{}{}
+	for _, n := range s2s.IPList {
+		s2sSrcs[n.String()] = struct{}{}
+	}
+	if _, ok := s2sSrcs["100.64.10.112/32"]; !ok {
+		t.Fatalf("expected site-to-site IPList to contain virtual src IP 100.64.10.112/32, got %v", s2s.IPList)
+	}
+	if _, ok := s2sSrcs["10.110.0.112/32"]; ok {
+		t.Fatalf("site-to-site IPList should not contain real remote src on dst owner, got %v", s2s.IPList)
+	}
+	s2sDsts := map[string]struct{}{}
+	for _, n := range s2s.Dst {
+		s2sDsts[n.String()] = struct{}{}
+	}
+	if _, ok := s2sDsts["10.104.0.16/32"]; !ok {
+		t.Fatalf("expected site-to-site Dst to contain local real dst IP 10.104.0.16/32, got %v", s2s.Dst)
+	}
+}
+
+func TestGetEgressRulesForNode_SiteToSiteVirtualNATOnSrcOwner(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalListExtClients := listNetworkExtClients
+	t.Cleanup(func() {
+		getEgressByID = originalGetEgressByID
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		listNetworkExtClients = originalListExtClients
+	})
+
+	srcOwnerID := uuid.New()
+	dstEgressOwnerID := uuid.New()
+	srcOwnerNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcOwnerID,
+			Network: "netmaker",
+		},
+		Tags: map[models.TagID]struct{}{},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{
+			{
+				ID:      "src-egress",
+				Network: network,
+				Status:  true,
+				Range:   "10.110.0.0/24",
+				Nodes:   datatypes.JSONMap{srcOwnerID.String(): json.Number("100")},
+			},
+			{
+				ID:           "dst-egress",
+				Network:      network,
+				Status:       true,
+				Range:        "10.104.0.0/24",
+				VirtualRange: "100.64.5.0/24",
+				Nat:          true,
+				Mode:         schema.VirtualNAT,
+				Nodes:        datatypes.JSONMap{dstEgressOwnerID.String(): json.Number("100")},
+			},
+		}, nil
+	}
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		switch egressID {
+		case "src-egress":
+			return schema.Egress{
+				ID:     "src-egress",
+				Status: true,
+				Range:  "10.110.0.0/24",
+				Nodes:  datatypes.JSONMap{srcOwnerID.String(): json.Number("100")},
+			}, nil
+		case "dst-egress":
+			return schema.Egress{
+				ID:           "dst-egress",
+				Status:       true,
+				Range:        "10.104.0.0/24",
+				VirtualRange: "100.64.5.0/24",
+				Nat:          true,
+				Mode:         schema.VirtualNAT,
+				Nodes:        datatypes.JSONMap{dstEgressOwnerID.String(): json.Number("100")},
+			}, nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+	getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "site-acl",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionBi,
+			Proto:            models.ALL,
+			Src: []models.AclPolicyTag{
+				{ID: models.EgressID, Value: "src-egress"},
+				{ID: models.NetmakerIPAclID, Value: "10.110.0.112/32"},
+			},
+			Dst: []models.AclPolicyTag{
+				{ID: models.EgressID, Value: "dst-egress"},
+				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+			},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{}
+	}
+	listNetworkExtClients = func(network string) ([]models.ExtClient, error) { return nil, nil }
+
+	rules := GetEgressRulesForNode(srcOwnerNode)
+
+	s2s, ok := rules["site-acl#xs0"]
+	if !ok {
+		t.Fatalf("expected site-to-site rule, got: %+v", rules)
+	}
+	s2sSrcs := map[string]struct{}{}
+	for _, n := range s2s.IPList {
+		s2sSrcs[n.String()] = struct{}{}
+	}
+	if _, ok := s2sSrcs["10.110.0.112/32"]; !ok {
+		t.Fatalf("expected real local src 10.110.0.112/32, got %v", s2s.IPList)
+	}
+	s2sDsts := map[string]struct{}{}
+	for _, n := range s2s.Dst {
+		s2sDsts[n.String()] = struct{}{}
+	}
+	if _, ok := s2sDsts["100.64.5.16/32"]; !ok {
+		t.Fatalf("expected virtual remote dst 100.64.5.16/32, got %v", s2s.Dst)
+	}
+	if _, ok := s2sDsts["10.104.0.16/32"]; ok {
+		t.Fatalf("src owner should not use real remote dst in site-to-site rule, got %v", s2s.Dst)
+	}
+}
+
+func TestSelectedEgressDstNetsForNode_VirtualNATRestrictedIP(t *testing.T) {
+	ownerID := uuid.New().String()
+	remoteID := uuid.New().String()
+	eg := schema.Egress{
+		Range:        "10.104.0.0/24",
+		VirtualRange: "100.64.5.0/24",
+		Nat:          true,
+		Mode:         schema.VirtualNAT,
+		Nodes:        datatypes.JSONMap{ownerID: json.Number("100")},
+	}
+	_, selected, _ := net.ParseCIDR("10.104.0.16/32")
+	selected4 := []net.IPNet{*selected}
+
+	owner4, _ := SelectedEgressDstNetsForNode(ownerID, eg, selected4, nil)
+	if len(owner4) != 1 || owner4[0].String() != "10.104.0.16/32" {
+		t.Fatalf("owner should see real LAN ip, got %v", owner4)
+	}
+
+	remote4, _ := SelectedEgressDstNetsForNode(remoteID, eg, selected4, nil)
+	if len(remote4) != 1 || remote4[0].String() != "100.64.5.16/32" {
+		t.Fatalf("remote node should see virtual ip, got %v", remote4)
+	}
+}

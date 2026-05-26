@@ -126,7 +126,8 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 								ip, cidr, err := net.ParseCIDR(dstI.Value)
 								if err == nil {
 									if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-										for _, selectedCIDR := range selectedIP4 {
+										sel4, sel6 := logic.SelectedEgressDstNetsForNode(node.ID.String(), e, selectedIP4, selectedIP6)
+										for _, selectedCIDR := range sel4 {
 											if userNodeI.StaticNode.Address != "" {
 												rules = append(rules, models.FwRule{
 													SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
@@ -137,7 +138,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 												})
 											}
 										}
-										for _, selectedCIDR := range selectedIP6 {
+										for _, selectedCIDR := range sel6 {
 											if userNodeI.StaticNode.Address6 != "" {
 												rules = append(rules, models.FwRule{
 													SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
@@ -354,7 +355,8 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				}
 				if egressRange != "" {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-						for _, cidr := range selectedIP4 {
+						sel4, sel6 := logic.SelectedEgressDstNetsForNode(node.ID.String(), e, selectedIP4, selectedIP6)
+						for _, cidr := range sel4 {
 							if node.Address.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -368,7 +370,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 								})
 							}
 						}
-						for _, cidr := range selectedIP6 {
+						for _, cidr := range sel6 {
 							if node.Address6.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -419,7 +421,8 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 					}
 				} else if logic.HasEgressDomainAns(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-						for _, cidr := range selectedIP4 {
+						sel4, sel6 := logic.SelectedEgressDstNetsForNode(node.ID.String(), e, selectedIP4, selectedIP6)
+						for _, cidr := range sel4 {
 							if node.Address.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -433,7 +436,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 								})
 							}
 						}
-						for _, cidr := range selectedIP6 {
+						for _, cidr := range sel6 {
 							if node.Address6.IP != nil {
 								rules = append(rules, models.FwRule{
 									SrcIP: net.IPNet{
@@ -1119,8 +1122,9 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 						}
 						if egressRange != "" {
 							if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-								r.Dst = append(r.Dst, selectedIP4...)
-								r.Dst6 = append(r.Dst6, selectedIP6...)
+								sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), e, selectedIP4, selectedIP6)
+								r.Dst = append(r.Dst, sel4...)
+								r.Dst6 = append(r.Dst6, sel6...)
 								continue
 							}
 							ip, cidr, err := net.ParseCIDR(egressRange)
@@ -1227,8 +1231,9 @@ func appendUserExtClientRemoteEgressFwdRules(
 				continue
 			}
 			if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-				dst4 = append(dst4, selectedIP4...)
-				dst6 = append(dst6, selectedIP6...)
+				sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), egI, selectedIP4, selectedIP6)
+				dst4 = append(dst4, sel4...)
+				dst6 = append(dst6, sel6...)
 				continue
 			}
 			egressRange := egI.Range
@@ -1455,8 +1460,9 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 							}
 							if nodeOwnsEgress {
 								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-									egressRanges4 = append(egressRanges4, selectedIP4...)
-									egressRanges6 = append(egressRanges6, selectedIP6...)
+									sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), eI, selectedIP4, selectedIP6)
+									egressRanges4 = append(egressRanges4, sel4...)
+									egressRanges6 = append(egressRanges6, sel6...)
 								} else if eI.Range != "" {
 									_, cidr, err := net.ParseCIDR(eI.Range)
 									if err == nil {
@@ -1478,6 +1484,10 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 										}
 									}
 								}
+							} else if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+								sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), eI, selectedIP4, selectedIP6)
+								egressRanges4 = append(egressRanges4, sel4...)
+								egressRanges6 = append(egressRanges6, sel6...)
 							} else if eI.VirtualRange != "" {
 								// Use virtual range if target node doesn't own the egress
 								_, cidr, err := net.ParseCIDR(eI.VirtualRange)
@@ -1502,8 +1512,9 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 							}
 							if nodeOwnsEgress {
 								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-									egressRanges4 = append(egressRanges4, selectedIP4...)
-									egressRanges6 = append(egressRanges6, selectedIP6...)
+									sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), e, selectedIP4, selectedIP6)
+									egressRanges4 = append(egressRanges4, sel4...)
+									egressRanges6 = append(egressRanges6, sel6...)
 								} else if e.Range != "" {
 									_, cidr, err := net.ParseCIDR(e.Range)
 									if err == nil {
@@ -1525,6 +1536,10 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 										}
 									}
 								}
+							} else if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+								sel4, sel6 := logic.SelectedEgressDstNetsForNode(targetnode.ID.String(), e, selectedIP4, selectedIP6)
+								egressRanges4 = append(egressRanges4, sel4...)
+								egressRanges6 = append(egressRanges6, sel6...)
 							} else if e.VirtualRange != "" {
 								// Use virtual range if target node doesn't own the egress
 								_, cidr, err := net.ParseCIDR(e.VirtualRange)
