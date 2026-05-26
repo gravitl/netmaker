@@ -8,7 +8,15 @@
       "https://help.salesforce.com/s/articleView?id=xcloud.setup_domains.htm&type=5"
     ],
     "domains": [
-      ".trailblazer.me",
+      "cloudforce.com",
+      "database.com",
+      "documentforce.com",
+      "force.com",
+      "login.salesforce.com",
+      "salesforce.com",
+      "salesforceiq.com",
+      "trailblazer.me",
+      "visualforce.com",
       "app-frankfurt.salesforceiq.com",
       "app.salesforceiq.com"
     ],
@@ -23,7 +31,15 @@
       "https://help.salesforce.com/s/articleView?id=sf.setup_domains.htm&type=5"
     ],
     "domains": [
-      "trailblazer.me"
+      "cloudforce.com",
+      "database.com",
+      "documentforce.com",
+      "force.com",
+      "login.salesforce.com",
+      "salesforce.com",
+      "salesforceiq.com",
+      "trailblazer.me",
+      "visualforce.com"
     ],
     "group": "sales",
     "suggestedDomain": "login.salesforce.com"
@@ -70,7 +86,22 @@
       "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
     ],
     "domains": [
-      "recaptcha.net"
+      "atl-paas.net",
+      "atlassian.com",
+      "atlassian.net",
+      "atlassian-3p.com",
+      "awswaf.com",
+      "cloudfront.net",
+      "cookielaw.org",
+      "googleapis.com",
+      "gstatic.com",
+      "jira.com",
+      "launchdarkly.com",
+      "optimizely.com",
+      "pndsn.com",
+      "recaptcha.net",
+      "sentry-cdn.com",
+      "ss-inf.net"
     ],
     "group": "collaboration",
     "suggestedDomain": "atlassian.net"
@@ -83,7 +114,22 @@
       "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
     ],
     "domains": [
-      "recaptcha.net"
+      "atl-paas.net",
+      "atlassian.com",
+      "atlassian.net",
+      "atlassian-3p.com",
+      "awswaf.com",
+      "cloudfront.net",
+      "cookielaw.org",
+      "googleapis.com",
+      "gstatic.com",
+      "jira.com",
+      "launchdarkly.com",
+      "optimizely.com",
+      "pndsn.com",
+      "recaptcha.net",
+      "sentry-cdn.com",
+      "ss-inf.net"
     ],
     "group": "collaboration",
     "suggestedDomain": "atlassian.net"
@@ -101,7 +147,11 @@
       "apps-apis.google.com",
       "chat.google.com",
       "classroom.googleapis.com",
+      "docs.google.com",
+      "drive.google.com",
       "fonts.gstatic.com",
+      "gmail.com",
+      "googleusercontent.com",
       "mail.google.com",
       "oauth2.googleapis.com",
       "sheets.googleapis.com",
@@ -167,7 +217,20 @@
       "https://help.okta.com/en-us/content/topics/security/ip-address-allow-listing",
       "https://s3.amazonaws.com/okta-ip-ranges/ip_ranges.json"
     ],
-    "domains": [],
+    "domains": [
+      "awsglobalaccelerator.com",
+      "azureedge.net",
+      "crl3.digicert.com",
+      "crl4.digicert.com",
+      "ocsp.digicert.com",
+      "okta-emea.com",
+      "okta-gov.com",
+      "okta.com",
+      "okta.mil",
+      "okta-featureflag-edge.azureedge.net",
+      "oktacdn.com",
+      "oktapreview.com"
+    ],
     "group": "identity",
     "suggestedDomain": "okta.com"
   },
@@ -237,7 +300,14 @@
       "https://slack.com/help/articles/360001603387-Manage-Slack-connection-issues"
     ],
     "domains": [
-      "slack.com"
+      "slack-core.com",
+      "slack-edge.com",
+      "slack-files.com",
+      "slack-imgs.com",
+      "slack-msgs.com",
+      "slack-redir.net",
+      "slack.com",
+      "slackb.com"
     ],
     "group": "collaboration",
     "suggestedDomain": "slack.com"
@@ -251,7 +321,9 @@
     "domains": [
       "api.intercom.io",
       "app.intercom.com",
-      "intercom.com"
+      "intercom.com",
+      "intercom.io",
+      "intercomcdn.com"
     ],
     "group": "support",
     "suggestedDomain": "app.intercom.com"
@@ -264,8 +336,17 @@
       "https://library.zoom.com/admin-corner/network-management/quality-of-service-and-network-best-practices-explainer/configuring-network-components-for-zoom"
     ],
     "domains": [
+      "cookielaw.org",
+      "digicert.com",
+      "godaddy.com",
+      "googleapis.com",
+      "googletagmanager.com",
+      "gstatic.com",
+      "hcaptcha.com",
       "zoom.com",
-      "zoom.us"
+      "zoom.us",
+      "zoomapp.cloud",
+      "zoomstatus.com"
     ],
     "group": "collaboration",
     "suggestedDomain": "zoom.us"
@@ -280,7 +361,13 @@
     "domains": [
       "api.datadoghq.com",
       "app.datadoghq.com",
-      "install.datadoghq.com"
+      "browser-intake-datadoghq.com",
+      "datadog.com",
+      "datadoghq.com",
+      "datadoghq.eu",
+      "install.datadoghq.com",
+      "intake.logs.datadoghq.com",
+      "process.datadoghq.com"
     ],
     "group": "observability",
     "suggestedDomain": "app.datadoghq.com"
@@ -294,7 +381,10 @@
     ],
     "domains": [
       "assets.zendesk.com",
+      "smooch.io",
       "static.zdassets.com",
+      "zdassets.com",
+      "zdusercontent.com",
       "zendesk.com"
     ],
     "group": "support",
@@ -308,7 +398,16 @@
       "https://community.hubspot.com/t5/APIs-Integrations/Getting-CSP-errors-even-after-allowlisting-Hubspot-Tracking-Code/m-p/687443"
     ],
     "domains": [
-      "hubspot.com"
+      "hs-analytics.net",
+      "hs-scripts.com",
+      "hsappstatic.net",
+      "hscollectedforms.net",
+      "hsforms.com",
+      "hsforms.net",
+      "hubapi.com",
+      "hubspot.com",
+      "hubspotusercontent.net",
+      "hubspotusercontent.com"
     ],
     "group": "sales",
     "suggestedDomain": "app.hubspot.com"
@@ -335,8 +434,10 @@
       "https://docs.gitlab.com/ee/security/webhooks.html"
     ],
     "domains": [
+      "cdn.gitlab.com",
       "gitlab.com",
       "gitlab.io",
+      "gitlab-static.net",
       "registry.gitlab.com"
     ],
     "group": "devtools",

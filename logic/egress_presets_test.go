@@ -1,14 +1,42 @@
 package logic
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gravitl/netmaker/models"
 )
+
+func TestEgressPresetExtras_AllHaveUsableDomains(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("egress_preset_extras.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var extras []models.EgressPresetApp
+	if err := json.Unmarshal(b, &extras); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range extras {
+		trimEgressPresetDomains(&p)
+		if len(p.Domains) == 0 {
+			t.Errorf("preset %q (%s) has no domains after trim", p.ID, p.Name)
+			continue
+		}
+		for _, d := range p.Domains {
+			if strings.HasPrefix(d, "*.") {
+				t.Errorf("preset %q: wildcard domain %q is stripped at runtime; use apex FQDN", p.ID, d)
+			}
+			if !IsEgressDomainPattern(d) {
+				t.Errorf("preset %q: invalid domain %q", p.ID, d)
+			}
+		}
+	}
+}
 
 func TestGetEgressPresetByID_GitHub(t *testing.T) {
 	p, ok := GetEgressPresetByID("github")
@@ -30,6 +58,50 @@ func TestApplyEgressPresetToEgressReq(t *testing.T) {
 	}
 	if req.Name == "" || len(req.Domains) == 0 {
 		t.Fatalf("expected name and domains filled: %#v", req)
+	}
+}
+
+func TestGetEgressPresetByID_JiraIncludesAtlassianDomains(t *testing.T) {
+	p, ok := GetEgressPresetByID("jira")
+	if !ok {
+		t.Fatal("expected jira preset")
+	}
+	domains := make(map[string]struct{}, len(p.Domains))
+	for _, d := range p.Domains {
+		domains[d] = struct{}{}
+	}
+	for _, want := range []string{"atlassian.net", "atlassian.com", "jira.com", "recaptcha.net"} {
+		if _, ok := domains[want]; !ok {
+			t.Fatalf("expected domain %q in jira preset, got %v", want, p.Domains)
+		}
+	}
+}
+
+func TestApplyEgressPresetToEgressReq_SparsePresets(t *testing.T) {
+	for _, id := range []string{"slack", "hubspot", "salesforce", "zoom"} {
+		req := &models.EgressReq{PresetID: id}
+		if err := ApplyEgressPresetToEgressReq(req); err != nil {
+			t.Fatalf("preset %s: %v", id, err)
+		}
+		if len(req.Domains) < 3 {
+			t.Fatalf("preset %s: expected multiple domains, got %v", id, req.Domains)
+		}
+	}
+}
+
+func TestGetEgressPresetByID_OktaIncludesRequiredDomains(t *testing.T) {
+	p, ok := GetEgressPresetByID("okta")
+	if !ok {
+		t.Fatal("expected okta preset")
+	}
+	domains := make(map[string]struct{}, len(p.Domains))
+	for _, d := range p.Domains {
+		domains[d] = struct{}{}
+	}
+	for _, want := range []string{"okta.com", "oktacdn.com", "oktapreview.com", "ocsp.digicert.com"} {
+		if _, ok := domains[want]; !ok {
+			t.Fatalf("expected domain %q in okta preset, got %v", want, p.Domains)
+		}
 	}
 }
 
