@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
 
@@ -93,7 +94,7 @@ func (e *Egress) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Create(&e).Error
 }
 
-func (e *Egress) List(ctx context.Context) (egs []Egress, err error) {
+func (e *Egress) ListAll(ctx context.Context) (egs []Egress, err error) {
 	err = db.FromContext(ctx).Table(e.Table()).Find(&egs).Error
 	return
 }
@@ -109,6 +110,13 @@ func (e *Egress) Count(ctx context.Context) (int, error) {
 	return int(count), err
 }
 
-func (e *Egress) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Delete(&e).Error
+func (e *Egress) Delete(ctx context.Context, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Egress{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if e.ID != "" {
+		query = query.Where("id = ?", e.ID)
+	}
+	return query.Delete(&Egress{}).Error
 }

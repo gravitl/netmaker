@@ -102,12 +102,6 @@ func CreateFallbackNameserver(networkID string) error {
 	return ns.Create(db.WithContext(context.TODO()))
 }
 
-func DeleteNetworkNameservers(networkID string) error {
-	return (&schema.Nameserver{
-		NetworkID: networkID,
-	}).Delete(db.WithContext(context.TODO()))
-}
-
 // GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 

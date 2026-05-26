@@ -38,7 +38,7 @@ func Run() {
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
 	migrateEgressNatMode()
-	cleanUpDNSRecords()
+	cleanUpDeleteNetworksRefs()
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
@@ -657,7 +657,7 @@ func migrateNameservers() {
 }
 
 func migrateEgressNatMode() {
-	egresses, _ := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
 	for _, egress := range egresses {
 		if egress.Nat {
 			if egress.Mode == "" {
@@ -671,7 +671,7 @@ func migrateEgressNatMode() {
 	}
 }
 
-func cleanUpDNSRecords() {
+func cleanUpDeleteNetworksRefs() {
 	networksMap := make(map[string]bool)
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
@@ -689,6 +689,30 @@ func cleanUpDNSRecords() {
 		_, ok := networksMap[entry.Network]
 		if !ok {
 			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		_, ok := networksMap[nameserver.NetworkID]
+		if !ok {
+			_ = nameserver.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		_, ok := networksMap[egress.Network]
+		if !ok {
+			_ = egress.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		_, ok := networksMap[postureCheck.NetworkID.String()]
+		if !ok {
+			_ = postureCheck.Delete(db.WithContext(context.TODO()))
 		}
 	}
 }
