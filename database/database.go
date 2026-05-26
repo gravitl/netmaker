@@ -40,8 +40,6 @@ const (
 	SSO_STATE_CACHE = "ssostatecache"
 	// METRICS_TABLE_NAME - stores network metrics
 	METRICS_TABLE_NAME = "metrics"
-	// NETWORK_USER_TABLE_NAME - network user table tracks stats for a network user per network
-	NETWORK_USER_TABLE_NAME = "networkusers"
 	// USER_GROUPS_TABLE_NAME - table for storing usergroups
 	USER_GROUPS_TABLE_NAME = "usergroups"
 	// CACHE_TABLE_NAME - caching table
@@ -98,7 +96,6 @@ var Tables = []string{
 	NODE_ACLS_TABLE_NAME,
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
-	NETWORK_USER_TABLE_NAME,
 	CACHE_TABLE_NAME,
 	ENROLLMENT_KEYS_TABLE_NAME,
 	HOST_ACTIONS_TABLE_NAME,
