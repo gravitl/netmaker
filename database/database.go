@@ -20,8 +20,6 @@ const (
 	USERS_TABLE_NAME = "users"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
-	// CERTS_TABLE_NAME - certificates table
-	CERTS_TABLE_NAME = "certs"
 	// DNS_TABLE_NAME - dns table
 	DNS_TABLE_NAME = "dns"
 	// EXT_CLIENT_TABLE_NAME - ext client table
@@ -98,7 +96,6 @@ const (
 )
 
 var Tables = []string{
-	CERTS_TABLE_NAME,
 	DELETED_NODES_TABLE_NAME,
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
