@@ -89,18 +89,7 @@ func resetExtClientJITFields(networkID string) error {
 			continue
 		}
 
-		// Re-enable clients that were disabled by JIT enforcement so they regain
-		// connectivity once JIT no longer applies on this network.
-		wasDisabledByJIT := !client.Enabled
 		client.JITExpiresAt = nil
-
-		if wasDisabledByJIT {
-			if _, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
-				slog.Warn("failed to re-enable ext client when disabling JIT",
-					"client_id", client.ClientID, "network", networkID, "error", err)
-			}
-			continue
-		}
 
 		if err := logic.SaveExtClient(&client); err != nil {
 			slog.Warn("failed to clear JIT expiry on ext client",
