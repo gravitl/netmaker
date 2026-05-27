@@ -77,7 +77,6 @@ func DisableJITOnNetwork(networkID string) error {
 }
 
 // resetExtClientJITFields clears JIT-related fields on all ext clients in the network.
-// Ext clients that were disabled by JIT (i.e. had a JIT expiry set and are disabled) are re-enabled.
 func resetExtClientJITFields(networkID string) error {
 	extClients, err := logic.GetNetworkExtClients(networkID)
 	if err != nil {
