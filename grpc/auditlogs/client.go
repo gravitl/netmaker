@@ -31,9 +31,9 @@ type GrpcClient struct {
 	mu     sync.Mutex
 	events []*AuditLogEvent
 
-	startOnce sync.Once
-	stopCh    chan struct{}
-	wg        sync.WaitGroup
+	batchLoopOnce sync.Once
+	stopCh        chan struct{}
+	wg            sync.WaitGroup
 }
 
 func NewAuditLogsGrpcClient(serverAddr string, optFns ...func(*options.Options)) *GrpcClient {
@@ -56,18 +56,21 @@ func Client() *GrpcClient {
 			fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain()),
 			options.WithTLS(&tls.Config{}),
 		)
+
+		// The default client is lazy. It connects only when an export is requested.
+		// But it still needs to start a batch loop to flush the events cache.
+		defaultClient.ensureBatchLoop()
 	})
 	return defaultClient
 }
 
 func (c *GrpcClient) Start() error {
-	if err := c.connect(); err != nil {
+	err := c.connect()
+	if err != nil {
 		return err
 	}
 
-	c.wg.Add(1)
-	go c.batchLoop()
-
+	defaultClient.ensureBatchLoop()
 	return nil
 }
 
@@ -85,15 +88,18 @@ func (c *GrpcClient) Export(event *AuditLogEvent) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.startOnce.Do(func() {
-		_ = c.Start()
-	})
-
 	c.events = append(c.events, event)
 	if len(c.events) >= c.opts.BatchSize {
 		go c.flush()
 	}
 	return nil
+}
+
+func (c *GrpcClient) ensureBatchLoop() {
+	c.batchLoopOnce.Do(func() {
+		c.wg.Add(1)
+		go c.batchLoop()
+	})
 }
 
 func (c *GrpcClient) batchLoop() {
