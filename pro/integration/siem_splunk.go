@@ -45,7 +45,6 @@ func (s *splunkProvider) Test(configJSON json.RawMessage) error {
 
 	testEvent := map[string]any{
 		"message": "netmaker siem integration test",
-		"source":  "netmaker",
 	}
 	return NewSplunkSIEMClient(cfg).Export(context.Background(), []any{testEvent})
 }
@@ -55,6 +54,9 @@ type SplunkSIEMClient struct {
 }
 
 func NewSplunkSIEMClient(config SplunkConfig) *SplunkSIEMClient {
+	if config.SourceType == "" {
+		config.SourceType = "_json"
+	}
 	return &SplunkSIEMClient{SplunkConfig: config}
 }
 

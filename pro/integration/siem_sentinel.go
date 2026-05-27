@@ -47,9 +47,7 @@ func (s *sentinelProvider) Test(configJSON json.RawMessage) error {
 	}
 
 	testEvent := map[string]any{
-		"TimeGenerated": time.Now().UTC().Format(time.RFC3339),
-		"Message":       "netmaker siem integration test",
-		"Source":        "netmaker",
+		"message": "netmaker siem integration test",
 	}
 	return NewSentinelSIEMClient(cfg).Export(context.Background(), []any{testEvent})
 }
@@ -66,7 +64,17 @@ func NewSentinelSIEMClient(config SentinelConfig) *SentinelSIEMClient {
 }
 
 func (s *SentinelSIEMClient) Export(ctx context.Context, events []any) error {
-	body, _ := json.Marshal(events)
+	enriched := make([]map[string]any, 0, len(events))
+	for _, ev := range events {
+		var evMap map[string]any
+		data, _ := json.Marshal(ev)
+		json.Unmarshal(data, &evMap)
+		if _, ok := evMap["TimeGenerated"]; !ok {
+			evMap["TimeGenerated"] = time.Now().UTC().Format(time.RFC3339)
+		}
+		enriched = append(enriched, evMap)
+	}
+	body, _ := json.Marshal(enriched)
 
 	now := time.Now().UTC().Format(http.TimeFormat)
 	contentLength := len(body)

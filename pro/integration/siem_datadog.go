@@ -40,7 +40,6 @@ func (d *datadogProvider) Test(configJSON json.RawMessage) error {
 
 	testEvent := map[string]any{
 		"message": "netmaker siem integration test",
-		"source":  "netmaker",
 	}
 	return NewDatadogSIEMClient(cfg).Export(context.Background(), []any{testEvent})
 }

@@ -31,8 +31,9 @@ type GrpcClient struct {
 	mu     sync.Mutex
 	events []*AuditLogEvent
 
-	stopCh chan struct{}
-	wg     sync.WaitGroup
+	startOnce sync.Once
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
 }
 
 func NewAuditLogsGrpcClient(serverAddr string, optFns ...func(*options.Options)) *GrpcClient {
@@ -84,6 +85,10 @@ func (c *GrpcClient) Export(event *AuditLogEvent) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.startOnce.Do(func() {
+		_ = c.Start()
+	})
+
 	c.events = append(c.events, event)
 	if len(c.events) >= c.opts.BatchSize {
 		go c.flush()
@@ -109,6 +114,7 @@ func (c *GrpcClient) batchLoop() {
 }
 
 func (c *GrpcClient) flush() {
+	fmt.Println("FLUSHING AUDIT LOGS")
 	c.mu.Lock()
 	if len(c.events) == 0 {
 		c.mu.Unlock()
@@ -129,6 +135,7 @@ func (c *GrpcClient) sendWithRetries(env *AuditLogEnvelope) error {
 	var err error
 
 	for attempt := 1; attempt <= c.opts.RetryCount; attempt++ {
+		fmt.Println("FLUSHING AUDIT LOGS ATTEMPT:", attempt)
 		err = c.sendOnce(env)
 		if err == nil {
 			return nil
@@ -143,11 +150,13 @@ func (c *GrpcClient) sendWithRetries(env *AuditLogEnvelope) error {
 
 func (c *GrpcClient) sendOnce(env *AuditLogEnvelope) error {
 	if c.stream == nil {
+		fmt.Println("FLUSHING AUDIT LOGS CONNECTING")
 		if err := c.reconnect(); err != nil {
 			return err
 		}
 	}
 
+	fmt.Println("FLUSHING AUDIT LOGS CONNECTED")
 	if err := c.stream.Send(env); err != nil {
 		return c.handleStreamError(err)
 	}

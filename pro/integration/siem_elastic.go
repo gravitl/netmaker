@@ -47,9 +47,7 @@ func (e *elasticProvider) Test(configJSON json.RawMessage) error {
 	}
 
 	testEvent := map[string]any{
-		"@timestamp": time.Now().UTC().Format(time.RFC3339),
-		"message":    "netmaker siem integration test",
-		"source":     "netmaker",
+		"message": "netmaker siem integration test",
 	}
 	return NewElasticSIEMClient(cfg).Export(context.Background(), []any{testEvent})
 }
@@ -68,7 +66,13 @@ func (e *ElasticSIEMClient) Export(ctx context.Context, events []any) error {
 	for _, ev := range events {
 		buf.Write(metaLine)
 		buf.WriteByte('\n')
-		docLine, _ := json.Marshal(ev)
+		var evMap map[string]any
+		data, _ := json.Marshal(ev)
+		json.Unmarshal(data, &evMap)
+		if _, ok := evMap["@timestamp"]; !ok {
+			evMap["@timestamp"] = time.Now().UTC().Format(time.RFC3339)
+		}
+		docLine, _ := json.Marshal(evMap)
 		buf.Write(docLine)
 		buf.WriteByte('\n')
 	}
