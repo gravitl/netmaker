@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -435,23 +433,6 @@ func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
 		result[_nodes[i].ID] = *n
 	}
 	return result, nil
-}
-
-// GetDeletedNodeByID - get a deleted node
-func GetDeletedNodeByID(uuid string) (models.Node, error) {
-
-	var node models.Node
-
-	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, uuid)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	return node, nil
 }
 
 // GetAllNodesAPI - get all nodes for api usage

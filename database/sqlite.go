@@ -22,7 +22,6 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initSqliteDB,
 	CREATE_TABLE: sqliteCreateTable,
 	INSERT:       sqliteInsert,
-	INSERT_PEER:  sqliteInsertPeer,
 	DELETE:       sqliteDeleteRecord,
 	DELETE_ALL:   sqliteDeleteAllRecords,
 	FETCH_ALL:    sqliteFetchRecords,
@@ -77,17 +76,6 @@ func sqliteInsert(key string, value string, tableName string) error {
 		return nil
 	}
 	return errors.New("invalid insert " + key + " : " + value)
-}
-
-func sqliteInsertPeer(key string, value string) error {
-	if key != "" && value != "" {
-		err := sqliteInsert(key, value, PEERS_TABLE_NAME)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	return errors.New("invalid peer insert " + key + " : " + value)
 }
 
 func sqliteDeleteRecord(tableName string, key string) error {

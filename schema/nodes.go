@@ -379,14 +379,14 @@ func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
-		Where(datatypes.JSONQuery("relayed_clients").HasKey(n.ID)).
+		Where(expr.WhereNotNull("relayed_clients", n.ID)).
 		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
 		Error
 }
 
 func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 	if n.NetworkID == "" {
-		return fmt.Errorf("ResetAutoAssignGateway: NetworkID not set")
+		return fmt.Errorf("ResetAutoRelayedPeers: NetworkID not set")
 	}
 
 	err := db.FromContext(ctx).Model(&Node{}).
@@ -399,7 +399,7 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
-		Where(datatypes.JSONQuery("auto_relayed_peers").HasKey(n.ID)).
+		Where(expr.WhereNotNull("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.Remove("auto_relayed_peers", n.ID)).
 		Error
 }
