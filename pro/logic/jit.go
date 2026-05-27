@@ -104,7 +104,7 @@ func resetExtClientJITFields(networkID string) error {
 	}
 
 	for _, client := range extClients {
-		if client.JITExpiresAt == nil || client.DeviceID == "" {
+		if client.JITExpiresAt == nil {
 			continue
 		}
 		client.JITExpiresAt = nil
