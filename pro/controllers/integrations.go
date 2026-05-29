@@ -81,7 +81,81 @@ func getIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.ReturnSuccessResponseWithJson(w, r, integrations[0], "integration retrieved")
+	intg = &integrations[0]
+
+	switch integration.ProviderID(intg.ID) {
+	case integration.ProviderDatadog:
+		var config integration.DatadogConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to parse integration config: %v", err), logic.Internal))
+			return
+		}
+
+		config.APIKey = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
+			return
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderElastic:
+		var config integration.ElasticConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
+			return
+		}
+
+		if config.APIKey != "" {
+			config.APIKey = logic.Mask()
+		}
+		if config.Password != "" {
+			config.Password = logic.Mask()
+		}
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
+			return
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderSentinel:
+		var config integration.SentinelConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
+			return
+		}
+
+		config.SharedKey = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
+			return
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderSplunk:
+		var config integration.SplunkConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
+			return
+		}
+
+		config.HECToken = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
+			return
+		}
+
+		intg.Config = configBytes
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration retrieved")
 }
 
 // @Summary     Upsert an integration
