@@ -11,12 +11,12 @@ import (
 )
 
 type SplunkConfig struct {
-	HECEndpoint string `json:"hec_endpoint"`
-	HECToken    string `json:"hec_token"`
-	Index       string `json:"index"`
-	Source      string `json:"source"`
-	SourceType  string `json:"source_type"`
-	TLSVerify   bool   `json:"tls_verify"`
+	HECEndpoint   string `json:"hec_endpoint"`
+	HECToken      string `json:"hec_token"`
+	Index         string `json:"index"`
+	Source        string `json:"source"`
+	SourceType    string `json:"source_type"`
+	SkipTLSVerify bool   `json:"skip_tls_verify"`
 }
 
 type splunkProvider struct{}
@@ -77,7 +77,7 @@ func (s *SplunkSIEMClient) Export(ctx context.Context, events []any) error {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.TLSVerify},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: s.SkipTLSVerify},
 		},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.HECEndpoint, &buf)

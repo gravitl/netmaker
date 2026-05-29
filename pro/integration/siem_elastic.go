@@ -11,12 +11,12 @@ import (
 )
 
 type ElasticConfig struct {
-	Endpoint  string `json:"endpoint"`
-	APIKey    string `json:"api_key"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	Index     string `json:"index"`
-	TLSVerify bool   `json:"tls_verify"`
+	Endpoint      string `json:"endpoint"`
+	APIKey        string `json:"api_key"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	Index         string `json:"index"`
+	SkipTLSVerify bool   `json:"skip_tls_verify"`
 }
 
 type elasticProvider struct{}
@@ -80,7 +80,7 @@ func (e *ElasticSIEMClient) Export(ctx context.Context, events []any) error {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: !e.TLSVerify},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: e.SkipTLSVerify},
 		},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/_bulk", e.Endpoint), &buf)
