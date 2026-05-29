@@ -27,6 +27,9 @@ func validateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
+	if err := ValidateEgressAppNATMode(*e); err != nil {
+		return err
+	}
 	if e.Nat {
 		e.Mode = schema.DirectNAT
 	} else {

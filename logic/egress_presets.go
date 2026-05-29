@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // egressPreset catalog is built once in init (see egress_presets_catalog.go).
@@ -50,6 +51,22 @@ func GetEgressPresetByID(id string) (models.EgressPresetApp, bool) {
 
 // ErrUnknownEgressPreset is returned when preset_id does not match the catalog.
 var ErrUnknownEgressPreset = errors.New("unknown egress preset_id")
+
+// ErrVirtualNATNotForEgressApps is returned when virtual NAT is requested for a preset egress app.
+var ErrVirtualNATNotForEgressApps = errors.New("virtual NAT is not supported for egress apps")
+
+// IsEgressAppEgress reports whether the egress was created from a catalog preset (egress app).
+func IsEgressAppEgress(e schema.Egress) bool {
+	return strings.TrimSpace(e.PresetID) != ""
+}
+
+// ValidateEgressAppNATMode rejects virtual NAT for preset-based egress apps.
+func ValidateEgressAppNATMode(e schema.Egress) error {
+	if IsEgressAppEgress(e) && e.Mode == schema.VirtualNAT {
+		return ErrVirtualNATNotForEgressApps
+	}
+	return nil
+}
 
 // ApplyEgressPresetToEgressReq merges catalog defaults into req. Rules: explicit non-empty
 // name, description, and domains in req override preset. PresetID must already be a known id.

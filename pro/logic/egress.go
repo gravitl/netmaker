@@ -26,6 +26,9 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}
+	if err := logic.ValidateEgressAppNATMode(*e); err != nil {
+		return err
+	}
 	if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
 		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
@@ -33,8 +36,9 @@ func ValidateEgressReq(e *schema.Egress) error {
 		e.Mode = schema.DisabledNAT
 		e.VirtualRange = ""
 	}
-	if logic.IsDomainBasedEgress(*e) && e.Nat {
+	if (logic.IsDomainBasedEgress(*e) || logic.IsEgressAppEgress(*e)) && e.Nat {
 		e.Mode = schema.DirectNAT
+		e.VirtualRange = ""
 	}
 	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {

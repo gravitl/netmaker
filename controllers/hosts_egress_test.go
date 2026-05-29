@@ -51,8 +51,8 @@ func TestShouldApplyEgressDomainAnsUpdate(t *testing.T) {
 
 func TestShouldApplyEgressDomainAnsUpdate_AWSGuardUsesHasEgressDomainAns(t *testing.T) {
 	e := schema.Egress{PresetID: "aws-ec2-us-west-2"}
-	if shouldApplyEgressDomainAnsUpdate(e, []string{"10.0.0.0/8"}) {
-		t.Fatal("expected skip when aws preset has no domain answers yet")
+	if !shouldApplyEgressDomainAnsUpdate(e, []string{"10.0.0.0/8"}) {
+		t.Fatal("expected apply when aws preset has no domain answers yet")
 	}
 	logic.SetEgressDomainAnsForDomain(&e, "us-west-2.compute.amazonaws.com", []string{"10.0.0.0/8"})
 	if shouldApplyEgressDomainAnsUpdate(e, []string{"192.168.0.0/24"}) {

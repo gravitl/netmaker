@@ -126,12 +126,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	if len(resolvedCIDRs) > 0 {
 		logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
 	}
-	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
-		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	if len(req.Tags) > 0 {
 		for tagID, metric := range req.Tags {
 			e.Tags[tagID] = metric
@@ -146,6 +140,12 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
+		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	err = e.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -311,35 +311,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	oldPresetID := e.PresetID
-	// Store old mode for comparison (before we modify e)
 	oldMode := e.Mode
 
-	// Update Range first so AssignVirtualRangeToEgress can use the correct range
 	e.Range = egressRange
-
-	// Update mode and NAT before calling AssignVirtualRangeToEgress
-	// This ensures the function sees the new values
-	if req.Mode != schema.VirtualNAT || !req.Nat {
-		e.Mode = schema.DirectNAT
-		if !req.Nat {
-			e.Mode = ""
-		}
-		e.Nat = req.Nat
-		e.VirtualRange = ""
-	} else {
-		// Switching to virtual NAT mode
-		e.Mode = req.Mode
-		e.Nat = req.Nat
-		// Assign virtual range if switching to virtual NAT mode from a different mode,
-		// or if already in virtual NAT mode but virtual range is empty
-		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
-			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
-				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	}
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -374,14 +348,24 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if !logic.EgressDomainsEqual(oldConfigured, normDomains) {
 		logic.ClearEgressDomainAns(&e)
 	}
-	// Update fields from request (Mode and Nat are already set correctly above)
-	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	e.Status = req.Status
 	if req.PresetID != "" {
 		e.PresetID = req.PresetID
+	}
+	if !req.Nat {
+		e.Nat = false
+		e.Mode = schema.DisabledNAT
+		e.VirtualRange = ""
+	} else if req.Mode == schema.VirtualNAT {
+		e.Nat = true
+		e.Mode = schema.VirtualNAT
+	} else {
+		e.Nat = true
+		e.Mode = schema.DirectNAT
+		e.VirtualRange = ""
 	}
 	presetChanged := req.PresetID != "" && req.PresetID != oldPresetID
 	domainsChanged := !logic.EgressDomainsEqual(oldConfigured, normDomains)
@@ -398,6 +382,15 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if err := logic.ValidateEgressReq(&e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+	if e.Nat && e.Mode == schema.VirtualNAT {
+		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
+			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
+				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		}
 	}
 
 	// Build update map with all fields including zero values

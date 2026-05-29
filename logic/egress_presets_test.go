@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 func TestEgressPresetExtras_AllHaveUsableDomains(t *testing.T) {
@@ -200,5 +201,32 @@ func TestResolveAWSPresetCIDRsFromFixture(t *testing.T) {
 	}
 	if len(cidrs) == 0 {
 		t.Fatal("expected cidr list")
+	}
+}
+
+func TestIsEgressAppEgress(t *testing.T) {
+	if !IsEgressAppEgress(schema.Egress{PresetID: "github"}) {
+		t.Fatal("expected preset egress to be an egress app")
+	}
+	if IsEgressAppEgress(schema.Egress{}) {
+		t.Fatal("expected custom egress not to be an egress app")
+	}
+}
+
+func TestValidateEgressAppNATMode(t *testing.T) {
+	err := ValidateEgressAppNATMode(schema.Egress{
+		PresetID: "github",
+		Mode:     schema.VirtualNAT,
+		Nat:      true,
+	})
+	if err != ErrVirtualNATNotForEgressApps {
+		t.Fatalf("expected ErrVirtualNATNotForEgressApps, got %v", err)
+	}
+	if err := ValidateEgressAppNATMode(schema.Egress{
+		PresetID: "github",
+		Mode:     schema.DirectNAT,
+		Nat:      true,
+	}); err != nil {
+		t.Fatalf("expected nil, got %v", err)
 	}
 }
