@@ -159,7 +159,10 @@
       "ssl.gstatic.com",
       "www.google.com",
       "www.googleapis.com",
-      "www.gstatic.com"
+      "www.gstatic.com",
+      "google.com",
+      "googleapis.com",
+      "gstatic.com"
     ],
     "group": "productivity",
     "suggestedDomain": "www.google.com"
