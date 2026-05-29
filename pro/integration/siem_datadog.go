@@ -17,6 +17,17 @@ type DatadogConfig struct {
 	Tags    []string `json:"tags"`
 }
 
+var validSites = map[string]bool{
+	"datadoghq.com":     true,
+	"us3.datadoghq.com": true,
+	"us5.datadoghq.com": true,
+	"datadoghq.eu":      true,
+	"ddog-gov.com":      true,
+	"us2.ddog-gov.com":  true,
+	"ap1.datadoghq.com": true,
+	"ap2.datadoghq.com": true,
+}
+
 type datadogProvider struct{}
 
 func (d *datadogProvider) Validate(configJSON json.RawMessage) error {
@@ -27,6 +38,12 @@ func (d *datadogProvider) Validate(configJSON json.RawMessage) error {
 	}
 	if cfg.APIKey == "" {
 		return fmt.Errorf("api_key is required")
+	}
+	if cfg.Site != "" {
+		_, ok := validSites[cfg.Site]
+		if !ok {
+			return fmt.Errorf("invalid site")
+		}
 	}
 	return nil
 }
