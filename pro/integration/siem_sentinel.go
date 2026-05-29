@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type SentinelConfig struct {
@@ -28,6 +30,10 @@ func (s *sentinelProvider) Validate(configJSON json.RawMessage) error {
 	}
 	if cfg.WorkspaceID == "" {
 		return fmt.Errorf("workspace_id is required")
+	}
+	_, err = uuid.Parse(cfg.WorkspaceID)
+	if err != nil {
+		return fmt.Errorf("invalid sentinel workspace_id '%s': must be a uuid: %w", cfg.WorkspaceID, err)
 	}
 	if cfg.SharedKey == "" {
 		return fmt.Errorf("shared_key is required")
