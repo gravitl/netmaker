@@ -82,77 +82,10 @@ func getIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	intg = &integrations[0]
-
-	switch integration.ProviderID(intg.ID) {
-	case integration.ProviderDatadog:
-		var config integration.DatadogConfig
-		err := json.Unmarshal(intg.Config, &config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to parse integration config: %v", err), logic.Internal))
-			return
-		}
-
-		config.APIKey = logic.Mask()
-		configBytes, err := json.Marshal(config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
-			return
-		}
-
-		intg.Config = configBytes
-	case integration.ProviderElastic:
-		var config integration.ElasticConfig
-		err := json.Unmarshal(intg.Config, &config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
-			return
-		}
-
-		if config.APIKey != "" {
-			config.APIKey = logic.Mask()
-		}
-		if config.Password != "" {
-			config.Password = logic.Mask()
-		}
-		configBytes, err := json.Marshal(config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
-			return
-		}
-
-		intg.Config = configBytes
-	case integration.ProviderSentinel:
-		var config integration.SentinelConfig
-		err := json.Unmarshal(intg.Config, &config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
-			return
-		}
-
-		config.SharedKey = logic.Mask()
-		configBytes, err := json.Marshal(config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
-			return
-		}
-
-		intg.Config = configBytes
-	case integration.ProviderSplunk:
-		var config integration.SplunkConfig
-		err := json.Unmarshal(intg.Config, &config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid integration config: %v", err), logic.Internal))
-			return
-		}
-
-		config.HECToken = logic.Mask()
-		configBytes, err := json.Marshal(config)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to marshal integration config: %v", err), logic.Internal))
-			return
-		}
-
-		intg.Config = configBytes
+	err = redactConfig(intg)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to redact integration config: %v", err), logic.Internal))
+		return
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration retrieved")
@@ -251,6 +184,12 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		}
 	}(config)
 
+	err = redactConfig(intg)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to redact integration config: %v", err), logic.Internal))
+		return
+	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration saved")
 }
 
@@ -342,4 +281,72 @@ func testIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ReturnSuccessResponse(w, r, "integration test passed")
+}
+
+func redactConfig(intg *schema.Integration) error {
+	switch integration.ProviderID(intg.ID) {
+	case integration.ProviderDatadog:
+		var config integration.DatadogConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			return err
+		}
+
+		config.APIKey = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderElastic:
+		var config integration.ElasticConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			return err
+		}
+
+		if config.APIKey != "" {
+			config.APIKey = logic.Mask()
+		}
+		if config.Password != "" {
+			config.Password = logic.Mask()
+		}
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderSentinel:
+		var config integration.SentinelConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			return err
+		}
+
+		config.SharedKey = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+		intg.Config = configBytes
+	case integration.ProviderSplunk:
+		var config integration.SplunkConfig
+		err := json.Unmarshal(intg.Config, &config)
+		if err != nil {
+			return err
+		}
+
+		config.HECToken = logic.Mask()
+		configBytes, err := json.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+		intg.Config = configBytes
+	}
+
+	return nil
 }
