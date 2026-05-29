@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 )
 
@@ -32,6 +33,10 @@ func (e *elasticProvider) Validate(configJSON json.RawMessage) error {
 	}
 	if cfg.Index == "" {
 		return fmt.Errorf("index is required")
+	}
+	_, err = regexp.MatchString("^[a-z0-9._-]+$", cfg.Index)
+	if err != nil {
+		return fmt.Errorf("invalid index: %w", err)
 	}
 	if cfg.APIKey == "" && cfg.Username == "" {
 		return fmt.Errorf("either api_key or username+password is required")
