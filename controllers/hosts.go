@@ -622,7 +622,13 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
-	return len(reportedRanges) > 0
+	if len(reportedRanges) == 0 {
+		return false
+	}
+	if logic.IsAWSEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
+		return false
+	}
+	return true
 }
 
 // @Summary     Deletes a Netclient host from Netmaker server

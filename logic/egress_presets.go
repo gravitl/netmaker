@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -111,4 +112,28 @@ func enrichSuggestedDomain(p *models.EgressPresetApp) {
 			return
 		}
 	}
+}
+
+// IsAWSEgressPreset reports whether presetID refers to an AWS catalog entry.
+func IsAWSEgressPreset(presetID string) bool {
+	return strings.HasPrefix(presetID, "aws-")
+}
+
+// PresetYieldsAWSIPRanges reports whether the preset is backed by AWS ip-ranges.json.
+func PresetYieldsAWSIPRanges(p models.EgressPresetApp) bool {
+	for _, src := range p.Sources {
+		src = strings.TrimSpace(src)
+		if strings.HasPrefix(src, "https://ip-ranges.amazonaws.com/") {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveAWSEgressPresetCIDRs fetches public AWS CIDR data for a supported AWS preset.
+func ResolveAWSEgressPresetCIDRs(client *http.Client, p models.EgressPresetApp) ([]string, error) {
+	if !PresetYieldsAWSIPRanges(p) {
+		return nil, nil
+	}
+	return resolveAWSPresetCIDRs(client, p)
 }

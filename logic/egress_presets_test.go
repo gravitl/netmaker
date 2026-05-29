@@ -113,6 +113,69 @@ func TestApplyEgressPreset_UnknownID(t *testing.T) {
 	}
 }
 
+func TestIsAWSEgressPreset(t *testing.T) {
+	if !IsAWSEgressPreset("aws-s3-us-east-1") {
+		t.Fatal("expected aws preset id")
+	}
+	if IsAWSEgressPreset("github") {
+		t.Fatal("github is not an aws preset")
+	}
+}
+
+func TestPresetYieldsAWSIPRanges(t *testing.T) {
+	p, ok := GetEgressPresetByID("aws-s3-us-east-1")
+	if !ok {
+		t.Fatal("expected aws preset")
+	}
+	if !PresetYieldsAWSIPRanges(p) {
+		t.Fatal("expected aws ip ranges source")
+	}
+	p, ok = GetEgressPresetByID("github")
+	if !ok {
+		t.Fatal("expected github preset")
+	}
+	if PresetYieldsAWSIPRanges(p) {
+		t.Fatal("github preset should not yield aws ip ranges")
+	}
+}
+
+func TestApplyEgressPresetToEgressReq_AWS(t *testing.T) {
+	req := &models.EgressReq{PresetID: "aws-s3-us-east-1"}
+	if err := ApplyEgressPresetToEgressReq(req); err != nil {
+		t.Fatal(err)
+	}
+	if req.Name == "" || len(req.Domains) == 0 {
+		t.Fatalf("expected name and domains filled: %#v", req)
+	}
+}
+
+func TestResolveAWSEgressPresetCIDRsFromFixture(t *testing.T) {
+	p, ok := GetEgressPresetByID("aws-s3-us-east-1")
+	if !ok {
+		t.Fatal("expected aws s3 us-east-1")
+	}
+	path := filepath.Join("testdata", "aws-ip-ranges-sample.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Skip("fixture missing")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(b)
+	}))
+	t.Cleanup(srv.Close)
+	client := srv.Client()
+	orig := awsIPRangesURL
+	awsIPRangesURL = srv.URL
+	t.Cleanup(func() { awsIPRangesURL = orig })
+	cidrs, err := ResolveAWSEgressPresetCIDRs(client, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cidrs) == 0 {
+		t.Fatal("expected cidr list")
+	}
+}
+
 func TestResolveAWSPresetCIDRsFromFixture(t *testing.T) {
 	p, ok := GetEgressPresetByID("aws-s3-us-east-1")
 	if !ok {
