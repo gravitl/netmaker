@@ -157,9 +157,9 @@
       "sheets.googleapis.com",
       "slides.googleapis.com",
       "ssl.gstatic.com",
-      "google.com",
-      "googleapis.com",
-      "gstatic.com"
+      "www.google.com",
+      "www.googleapis.com",
+      "www.gstatic.com"
     ],
     "group": "productivity",
     "suggestedDomain": "www.google.com"
