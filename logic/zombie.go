@@ -2,12 +2,14 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 )
 
 const (
@@ -94,6 +96,7 @@ func ManageZombies(ctx context.Context) {
 			hostZombies = append(hostZombies, id)
 		case <-ticker.C: // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
+			cleanupOrphanedNodes()
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
 					node, err := GetNodeByID(zombies[i].String())
@@ -139,6 +142,34 @@ func ManageZombies(ctx context.Context) {
 		}
 	}
 }
+
+// cleanupOrphanedNodes removes nodes whose host_id references a missing host record.
+func cleanupOrphanedNodes() {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		logger.Log(1, "failed to retrieve nodes for orphan cleanup", err.Error())
+		return
+	}
+	for _, n := range nodes {
+		node := n
+		if node.PendingDelete || node.Action == schema.NODE_DELETE {
+			continue
+		}
+		host := &schema.Host{ID: node.HostID}
+		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Log(0, "error checking host for orphaned node", node.ID.String(), err.Error())
+				continue
+			}
+			logger.Log(0, "orphaned node found (no host record), deleting", node.ID.String())
+			if err := DeleteNode(&node, true); err != nil {
+				logger.Log(0, "error deleting orphaned node", node.ID.String(), err.Error())
+				continue
+			}
+		}
+	}
+}
+
 func checkPendingRemovalNodes() {
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {
@@ -180,4 +211,5 @@ func InitializeZombies() {
 			}
 		}
 	}
+	cleanupOrphanedNodes()
 }

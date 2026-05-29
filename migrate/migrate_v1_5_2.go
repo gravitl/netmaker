@@ -10,10 +10,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -33,6 +35,10 @@ func migrateV1_5_2(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.PENDING_USERS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -63,6 +69,10 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.USER_INVITES_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.USER_INVITES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -96,6 +106,10 @@ func migrateUserInvites(ctx context.Context) error {
 }
 
 func migrateNodes(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.NODES_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.NODES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -133,6 +147,34 @@ func migrateNodes(ctx context.Context) error {
 			return err
 		}
 
+		if node.AutoRelayedPeers == nil {
+			node.AutoRelayedPeers = make(map[string]string)
+		}
+
+		relayedClients := make(datatypes.JSONMap)
+		relayedIGWClients := make(datatypes.JSONMap)
+		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || node.IsFailOver {
+			node.IsGw = true
+			node.IsIngressGateway = true
+			node.IsRelay = true
+			node.IsAutoRelay = false
+			for _, relayedNodeID := range node.RelayedNodes {
+				relayedClients[relayedNodeID] = struct{}{}
+			}
+			for _, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
+				relayedClients[inetNodeClientID] = struct{}{}
+				relayedIGWClients[inetNodeClientID] = struct{}{}
+			}
+			if servercfg.IsPro {
+				node.IsAutoRelay = true
+				if node.Tags == nil {
+					node.Tags = make(map[models.TagID]struct{})
+				}
+				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+				delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+			}
+		}
+
 		isAutoRelay := "no"
 		if node.IsAutoRelay {
 			isAutoRelay = "yes"
@@ -146,17 +188,20 @@ func migrateNodes(ctx context.Context) error {
 			}
 		}
 
-		relayedClients := make(datatypes.JSONMap)
-		for _, relayedNodeID := range node.RelayedNodes {
-			relayedClients[relayedNodeID] = struct{}{}
+		var relayedByNodeID *string
+		var isIGWClient bool
+		if !node.IsGw {
+			if node.IsRelayed {
+				relayedBy := node.RelayedBy
+				relayedByNodeID = &relayedBy
+			}
+			if node.InternetGwID != "" {
+				igwID := node.InternetGwID
+				relayedByNodeID = &igwID
+				isIGWClient = true
+				node.AutoAssignGateway = false
+			}
 		}
-
-		relayedIGWClients := make(datatypes.JSONMap)
-		for _, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
-			relayedIGWClients[inetNodeClientID] = struct{}{}
-		}
-
-		relayedBy := node.RelayedBy
 
 		tags := make(datatypes.JSONMap)
 		for tagID := range node.Tags {
@@ -180,8 +225,8 @@ func migrateNodes(ctx context.Context) error {
 			AdditionalGatewayEndpoints:        additionalEndpoints,
 			RelayedClients:                    relayedClients,
 			RelayedIGWClients:                 relayedIGWClients,
-			RelayedByNodeID:                   &relayedBy,
-			IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+			RelayedByNodeID:                   relayedByNodeID,
+			IsIGWClient:                       isIGWClient,
 			AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 			Tags:                              tags,
 			PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
@@ -226,6 +271,15 @@ func migrateNodes(ctx context.Context) error {
 			logger.Log(4, fmt.Sprintf("migrating node %s violations failed: %v", _node.ID, err))
 			return err
 		}
+
+	}
+
+	logger.Log(4, "cleaning up nodes post migration")
+
+	err = migrateNodes_CleanUp(ctx)
+	if err != nil {
+		logger.Log(4, fmt.Sprintf("post migration nodes clean up failed: %v", err))
+		return err
 	}
 
 	return nil
@@ -445,6 +499,76 @@ func migrateNodes_PostureCheckViolations(ctx context.Context, node *models.Node,
 		}
 
 		return _node.UpsertViolations(ctx, violations)
+	}
+
+	return nil
+}
+
+func migrateNodes_CleanUp(ctx context.Context) error {
+	nodes, _ := (&schema.Node{}).ListAll(ctx)
+	for _, node := range nodes {
+		err := node.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		if node.IsGateway {
+			for clientID := range node.RelayedClients {
+				client := &schema.Node{
+					ID: clientID,
+				}
+				err = client.Get(ctx)
+				if err != nil {
+					// ignore if extclient or does not exist.
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						continue
+					}
+
+					return err
+				}
+
+				relayedByNodeID := node.ID
+				client.RelayedByNodeID = &relayedByNodeID
+				client.IsIGWClient = false
+
+				_, ok := node.RelayedIGWClients[clientID]
+				if ok {
+					client.IsIGWClient = true
+				}
+
+				err = client.Upsert(ctx)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if node.RelayedByNodeID != nil {
+			gateway := &schema.Node{
+				ID: *node.RelayedByNodeID,
+			}
+			err = gateway.Get(ctx)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					node.RelayedByNodeID = nil
+					node.IsIGWClient = false
+				} else {
+					return fmt.Errorf("failed to fetch gateway %s for node %s: %w", *node.RelayedByNodeID, node.ID, err)
+				}
+			} else {
+				if !gateway.IsGateway {
+					node.RelayedByNodeID = nil
+					node.IsIGWClient = false
+				} else if !gateway.IsInternetGateway {
+					node.IsIGWClient = false
+				}
+			}
+
+			err = node.Upsert(ctx)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

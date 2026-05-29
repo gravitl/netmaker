@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -247,6 +248,10 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+			if logic.DoesHostExistInTheNetworkAlready(host, network) {
+				continue
+			}
+
 			violations, _ := logic.CheckPostureViolations(
 				models.PostureCheckDeviceInfo{
 					ClientLocation: host.Location,
@@ -267,9 +272,6 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 			}
 
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if logic.DoesHostExistInTheNetworkAlready(host, network) {
-					continue
-				}
 				if err := (&schema.PendingHost{
 					HostID:  host.ID.String(),
 					Network: netID,
@@ -294,16 +296,24 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 				continue
 			}
 
-			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
+			node, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
 				db.WithContext(context.TODO()),
 				host,
 				network,
 				orchestrator.UseKey(&key),
+				orchestrator.SkipHostUpdate(),
 				orchestrator.SkipPublishPeerUpdate(),
 			)
 			if err != nil {
 				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			} else {
+				newNode := logic.ConvertSchemaNodeToModelsNode(node)
+				hostactions.AddAction(models.HostUpdate{
+					Action: models.JoinHostToNetwork,
+					Host:   *host,
+					Node:   *newNode,
+				})
+
 				if len(username) > 0 {
 					logic.LogEvent(&models.Event{
 						Action: schema.JoinHostToNet,

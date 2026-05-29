@@ -888,6 +888,13 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 		ClientLocation: host.CountryCode,
 		ClientVersion:  host.Version,
@@ -1615,6 +1622,15 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	netID := r.URL.Query().Get("network")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), logic.BadReq))
+		return
+	}
+	if p.Network != netID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), logic.BadReq))
+		return
+	}
 	hostID, err := uuid.Parse(p.HostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)
@@ -1641,6 +1657,13 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	err = network.Get(r.Context())
 	if err != nil {
 		err = fmt.Errorf("failed to approve pending host (%s): error getting network (%s): %w", id, p.Network, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to approve pending host (%s): host already in network", hostID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -1727,6 +1750,10 @@ func addDefaultHostToNetworks(host *schema.Host) {
 	}
 	for _, network := range networks {
 		if !network.AutoJoin {
+			continue
+		}
+
+		if logic.DoesHostExistInTheNetworkAlready(host, &network) {
 			continue
 		}
 

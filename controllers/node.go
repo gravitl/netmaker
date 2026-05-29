@@ -82,15 +82,10 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	var err error
 	result, err = logic.GetNodeByID(authRequest.ID)
 	if err != nil {
-		result, err = logic.GetDeletedNodeByID(authRequest.ID)
-		if err != nil {
-			errorResponse.Code = http.StatusBadRequest
-			errorResponse.Message = err.Error()
-			logger.Log(0, request.Header.Get("user"),
-				fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
-			logic.ReturnErrorResponse(response, request, errorResponse)
-			return
-		}
+		err = fmt.Errorf("failed to get node info [%s]: %v", authRequest.ID, err)
+		logger.Log(0, request.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, logic.BadReq))
+		return
 	}
 	host := &schema.Host{
 		ID: result.HostID,
@@ -1075,6 +1070,14 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				NetworkID: schema.NetworkID(network),
 				Origin:    schema.Dashboard,
 			})
+
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				err = mq.NodeUpdate(&node)
+				if err != nil {
+					slog.Error("failed to publish node update", "id", nodeID, "error", err)
+				}
+			}
 		}
 
 		mq.PublishPeerUpdate(false)
