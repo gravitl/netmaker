@@ -1,0 +1,465 @@
+[
+  {
+    "name": "Salesforce (Hyperforce environment)",
+    "id": "salesforce-hyperforce",
+    "sources": [
+      "https://ip-ranges.salesforce.com/ip-ranges.json",
+      "https://help.salesforce.com/s/articleView?id=003876184&type=1",
+      "https://help.salesforce.com/s/articleView?id=xcloud.setup_domains.htm&type=5"
+    ],
+    "domains": [
+      "cloudforce.com",
+      "database.com",
+      "documentforce.com",
+      "force.com",
+      "login.salesforce.com",
+      "salesforce.com",
+      "salesforceiq.com",
+      "trailblazer.me",
+      "visualforce.com",
+      "app-frankfurt.salesforceiq.com",
+      "app.salesforceiq.com"
+    ],
+    "group": "sales",
+    "suggestedDomain": "login.salesforce.com"
+  },
+  {
+    "name": "Salesforce (Salesforce-hosted)",
+    "id": "salesforce",
+    "sources": [
+      "https://help.salesforce.com/s/articleView?id=000384438&type=1",
+      "https://help.salesforce.com/s/articleView?id=sf.setup_domains.htm&type=5"
+    ],
+    "domains": [
+      "cloudforce.com",
+      "database.com",
+      "documentforce.com",
+      "force.com",
+      "login.salesforce.com",
+      "salesforce.com",
+      "salesforceiq.com",
+      "trailblazer.me",
+      "visualforce.com"
+    ],
+    "group": "sales",
+    "suggestedDomain": "login.salesforce.com"
+  },
+  {
+    "name": "GitHub",
+    "id": "github",
+    "sources": [
+      "https://api.github.com/meta"
+    ],
+    "domains": [
+      "api.github.com",
+      "default.exp-tas.com",
+      "github.com",
+      "github.dev",
+      "github.io",
+      "githubcopilot.com",
+      "msecnd.net",
+      "visualstudio.com",
+      "vscode-webview.net"
+    ],
+    "group": "devtools",
+    "suggestedDomain": "github.com"
+  },
+  {
+    "name": "Fastly",
+    "id": "fastly",
+    "sources": [
+      "https://api.fastly.com/public-ip-list"
+    ],
+    "domains": [
+      "fastly.com",
+      "fastly.net",
+      "fastlylb.net"
+    ],
+    "group": "cdn",
+    "suggestedDomain": "fastly.com"
+  },
+  {
+    "name": "Confluence",
+    "id": "confluence",
+    "sources": [
+      "https://ip-ranges.atlassian.com/",
+      "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
+    ],
+    "domains": [
+      "atl-paas.net",
+      "atlassian.com",
+      "atlassian.net",
+      "atlassian-3p.com",
+      "awswaf.com",
+      "cloudfront.net",
+      "cookielaw.org",
+      "googleapis.com",
+      "gstatic.com",
+      "jira.com",
+      "launchdarkly.com",
+      "optimizely.com",
+      "pndsn.com",
+      "recaptcha.net",
+      "sentry-cdn.com",
+      "ss-inf.net"
+    ],
+    "group": "collaboration",
+    "suggestedDomain": "atlassian.net"
+  },
+  {
+    "name": "Jira",
+    "id": "jira",
+    "sources": [
+      "https://ip-ranges.atlassian.com/",
+      "https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/"
+    ],
+    "domains": [
+      "atl-paas.net",
+      "atlassian.com",
+      "atlassian.net",
+      "atlassian-3p.com",
+      "awswaf.com",
+      "cloudfront.net",
+      "cookielaw.org",
+      "googleapis.com",
+      "gstatic.com",
+      "jira.com",
+      "launchdarkly.com",
+      "optimizely.com",
+      "pndsn.com",
+      "recaptcha.net",
+      "sentry-cdn.com",
+      "ss-inf.net"
+    ],
+    "group": "collaboration",
+    "suggestedDomain": "atlassian.net"
+  },
+  {
+    "name": "Google Workspace",
+    "id": "google-workspace",
+    "sources": [
+      "https://support.google.com/a/answer/9012184",
+      "https://www.gstatic.com/ipranges/goog.json"
+    ],
+    "domains": [
+      "accounts.google.com",
+      "accounts.youtube.com",
+      "apps-apis.google.com",
+      "chat.google.com",
+      "classroom.googleapis.com",
+      "docs.google.com",
+      "drive.google.com",
+      "fonts.gstatic.com",
+      "gmail.com",
+      "googleusercontent.com",
+      "mail.google.com",
+      "oauth2.googleapis.com",
+      "sheets.googleapis.com",
+      "slides.googleapis.com",
+      "ssl.gstatic.com",
+      "www.google.com",
+      "www.googleapis.com",
+      "www.gstatic.com",
+      "google.com",
+      "googleapis.com",
+      "gstatic.com"
+    ],
+    "group": "productivity",
+    "suggestedDomain": "www.google.com"
+  },
+  {
+    "name": "Microsoft 365",
+    "id": "microsoft-365",
+    "sources": [
+      "https://learn.microsoft.com/en-us/microsoft-365/enterprise/urls-and-ip-address-ranges?view=o365-worldwide",
+      "https://endpoints.office.com/endpoints/worldwide?clientrequestid=b10c5ed1-bad1-445f-b386-b919946339a7"
+    ],
+    "domains": [
+      "account.activedirectory.windowsazure.com",
+      "accounts.accesscontrol.windows.net",
+      "adminwebservice.microsoftonline.com",
+      "api.passwordreset.microsoftonline.com",
+      "autologon.microsoftazuread-sso.com",
+      "becws.microsoftonline.com",
+      "ccs.login.microsoftonline.com",
+      "clientconfig.microsoftonline-p.net",
+      "companymanager.microsoftonline.com",
+      "compliance.microsoft.com",
+      "defender.microsoft.com",
+      "device.login.microsoftonline.com",
+      "graph.microsoft.com",
+      "graph.windows.net",
+      "login-us.microsoftonline.com",
+      "login.microsoft.com",
+      "login.microsoftonline-p.com",
+      "login.microsoftonline.com",
+      "login.windows.net",
+      "logincert.microsoftonline.com",
+      "loginex.microsoftonline.com",
+      "nexus.microsoftonline-p.com",
+      "office.live.com",
+      "outlook.cloud.microsoft",
+      "outlook.office.com",
+      "outlook.office365.com",
+      "passwordreset.microsoftonline.com",
+      "protection.office.com",
+      "provisioningapi.microsoftonline.com",
+      "purview.microsoft.com",
+      "security.microsoft.com",
+      "smtp.office365.com",
+      "teams.cloud.microsoft",
+      "teams.microsoft.com"
+    ],
+    "group": "productivity",
+    "suggestedDomain": "outlook.office.com"
+  },
+  {
+    "name": "Okta",
+    "id": "okta",
+    "sources": [
+      "https://help.okta.com/en-us/content/topics/security/ip-address-allow-listing",
+      "https://s3.amazonaws.com/okta-ip-ranges/ip_ranges.json"
+    ],
+    "domains": [
+      "awsglobalaccelerator.com",
+      "azureedge.net",
+      "crl3.digicert.com",
+      "crl4.digicert.com",
+      "ocsp.digicert.com",
+      "okta-emea.com",
+      "okta-gov.com",
+      "okta.com",
+      "okta.mil",
+      "okta-featureflag-edge.azureedge.net",
+      "oktacdn.com",
+      "oktapreview.com"
+    ],
+    "group": "identity",
+    "suggestedDomain": "okta.com"
+  },
+  {
+    "name": "Stripe",
+    "id": "stripe",
+    "sources": [
+      "https://stripe.com/docs/ips"
+    ],
+    "domains": [
+      "express.stripe.com",
+      "a.stripecdn.com",
+      "api.stripe.com",
+      "atlas.stripe.com",
+      "auth.stripe.com",
+      "b.stripecdn.com",
+      "billing.stripe.com",
+      "buy.stripe.com",
+      "c.stripecdn.com",
+      "checkout.stripe.com",
+      "climate.stripe.com",
+      "connect.stripe.com",
+      "dashboard.stripe.com",
+      "files.stripe.com",
+      "hooks.stripe.com",
+      "invoice.stripe.com",
+      "invoicedata.stripe.com",
+      "js.stripe.com",
+      "m.stripe.com",
+      "m.stripe.network",
+      "manage.stripe.com",
+      "pay.stripe.com",
+      "payments.stripe.com",
+      "q.stripe.com",
+      "qr.stripe.com",
+      "r.stripe.com",
+      "stripe.com",
+      "terminal.stripe.com",
+      "uploads.stripe.com",
+      "verify.stripe.com"
+    ],
+    "group": "payments",
+    "suggestedDomain": "stripe.com"
+  },
+  {
+    "name": "Jenkins",
+    "id": "jenkins",
+    "sources": [
+      "https://updates.jenkins.io/current/update-center.json",
+      "https://www.jenkins.io/changelog-stable/"
+    ],
+    "domains": [
+      "jenkins.io",
+      "updates.jenkins.io",
+      "get.jenkins.io",
+      "mirrors.jenkins.io",
+      "plugins.jenkins.io",
+      "pkg.jenkins.io"
+    ],
+    "group": "devtools",
+    "suggestedDomain": "updates.jenkins.io"
+  },
+  {
+    "name": "Slack",
+    "id": "slack",
+    "sources": [
+      "https://slack.com/help/articles/360001603387-Manage-Slack-connection-issues"
+    ],
+    "domains": [
+      "slack-core.com",
+      "slack-edge.com",
+      "slack-files.com",
+      "slack-imgs.com",
+      "slack-msgs.com",
+      "slack-redir.net",
+      "slack.com",
+      "slackb.com"
+    ],
+    "group": "collaboration",
+    "suggestedDomain": "slack.com"
+  },
+  {
+    "name": "Intercom",
+    "id": "intercom",
+    "sources": [
+      "https://www.intercom.com/help/en/articles/3526516-intercom-s-ip-addresses-and-domains"
+    ],
+    "domains": [
+      "api.intercom.io",
+      "app.intercom.com",
+      "intercom.com",
+      "intercom.io",
+      "intercomcdn.com"
+    ],
+    "group": "support",
+    "suggestedDomain": "app.intercom.com"
+  },
+  {
+    "name": "Zoom",
+    "id": "zoom",
+    "sources": [
+      "https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060548",
+      "https://library.zoom.com/admin-corner/network-management/quality-of-service-and-network-best-practices-explainer/configuring-network-components-for-zoom"
+    ],
+    "domains": [
+      "cookielaw.org",
+      "digicert.com",
+      "godaddy.com",
+      "googleapis.com",
+      "googletagmanager.com",
+      "gstatic.com",
+      "hcaptcha.com",
+      "zoom.com",
+      "zoom.us",
+      "zoomapp.cloud",
+      "zoomstatus.com"
+    ],
+    "group": "collaboration",
+    "suggestedDomain": "zoom.us"
+  },
+  {
+    "name": "Datadog",
+    "id": "datadog",
+    "sources": [
+      "https://docs.datadoghq.com/agent/configuration/network/",
+      "https://docs.datadoghq.com/api/latest/ip-ranges/"
+    ],
+    "domains": [
+      "api.datadoghq.com",
+      "app.datadoghq.com",
+      "browser-intake-datadoghq.com",
+      "datadog.com",
+      "datadoghq.com",
+      "datadoghq.eu",
+      "install.datadoghq.com",
+      "intake.logs.datadoghq.com",
+      "process.datadoghq.com"
+    ],
+    "group": "observability",
+    "suggestedDomain": "app.datadoghq.com"
+  },
+  {
+    "name": "Zendesk",
+    "id": "zendesk",
+    "sources": [
+      "https://support.zendesk.com/hc/en-us/articles/4408842860186-Configuring-your-firewall-for-use-with-Zendesk",
+      "https://developer.zendesk.com/api-reference/ticketing/account-configuration/public_ips/"
+    ],
+    "domains": [
+      "assets.zendesk.com",
+      "smooch.io",
+      "static.zdassets.com",
+      "zdassets.com",
+      "zdusercontent.com",
+      "zendesk.com"
+    ],
+    "group": "support",
+    "suggestedDomain": "zendesk.com"
+  },
+  {
+    "name": "HubSpot",
+    "id": "hubspot",
+    "sources": [
+      "https://developers.hubspot.com/docs/api-reference/latest/account/ip-ranges/guide",
+      "https://community.hubspot.com/t5/APIs-Integrations/Getting-CSP-errors-even-after-allowlisting-Hubspot-Tracking-Code/m-p/687443"
+    ],
+    "domains": [
+      "hs-analytics.net",
+      "hs-scripts.com",
+      "hsappstatic.net",
+      "hscollectedforms.net",
+      "hsforms.com",
+      "hsforms.net",
+      "hubapi.com",
+      "hubspot.com",
+      "hubspotusercontent.net",
+      "hubspotusercontent.com"
+    ],
+    "group": "sales",
+    "suggestedDomain": "app.hubspot.com"
+  },
+  {
+    "name": "Cloudflare",
+    "id": "cloudflare",
+    "sources": [
+      "https://www.cloudflare.com/ips/",
+      "https://developers.cloudflare.com/fundamentals/reference/network-ports/"
+    ],
+    "domains": [
+      "cloudflare.com",
+      "cloudflare.net"
+    ],
+    "group": "cdn",
+    "suggestedDomain": "cloudflare.com"
+  },
+  {
+    "name": "GitLab",
+    "id": "gitlab",
+    "sources": [
+      "https://docs.gitlab.com/ee/user/gitlab_com/",
+      "https://docs.gitlab.com/ee/security/webhooks.html"
+    ],
+    "domains": [
+      "cdn.gitlab.com",
+      "gitlab.com",
+      "gitlab.io",
+      "gitlab-static.net",
+      "registry.gitlab.com"
+    ],
+    "group": "devtools",
+    "suggestedDomain": "gitlab.com"
+  },
+  {
+    "name": "DocuSign",
+    "id": "docusign",
+    "sources": [
+      "https://www.docusign.com/trust/security/esignature",
+      "https://support.docusign.com/s/document-item?language=en_US&bundleId=fsx&topicId=xlv_technical_requirements.html"
+    ],
+    "domains": [
+      "account.docusign.com",
+      "apps.docusign.com",
+      "docusign.com",
+      "docusign.net"
+    ],
+    "group": "compliance",
+    "suggestedDomain": "apps.docusign.com"
+  }
+]

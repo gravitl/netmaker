@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -589,8 +590,13 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
 		}
-		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
-			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
+		if shouldApplyEgressDomainAnsUpdate(e, hostUpdate.Node.EgressGatewayRanges) {
+			domain := strings.TrimSpace(hostUpdate.EgressDomain.Domain)
+			if domain != "" {
+				logic.SetEgressDomainAnsForDomain(&e, domain, hostUpdate.Node.EgressGatewayRanges)
+			} else {
+				logic.SetEgressDomainAnsForDomains(&e, logic.ConfiguredDomainsForEgress(e), hostUpdate.Node.EgressGatewayRanges)
+			}
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
@@ -613,6 +619,16 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
+	if len(reportedRanges) == 0 {
+		return false
+	}
+	if logic.IsAWSEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
+		return false
+	}
+	return true
 }
 
 // @Summary     Deletes a Netclient host from Netmaker server
