@@ -28,14 +28,18 @@ type Egress struct {
 	Range        string                      `gorm:"range" json:"range"`
 	Mode         EgressNATMode               `gorm:"mode;default:direct_nat" json:"mode"`
 	VirtualRange string                      `gorm:"virtual_range" json:"virtual_range"`
-	DomainAns    datatypes.JSONSlice[string] `gorm:"domain_ans" json:"domain_ans"`
-	Domain       string                      `gorm:"domain" json:"domain"`
-	Nat          bool                        `gorm:"nat" json:"nat"`
+	// Domains is the user-configured hostname list (exact or *.suffix).
+	Domains datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
+	// DomainAnsByDomain maps each configured domain to its resolved CIDRs.
+	DomainAnsByDomain datatypes.JSONMap `gorm:"domain_ans_by_domain" json:"domain_ans_by_domain"`
+	Nat     bool                        `gorm:"nat" json:"nat"`
 	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
-	Status    bool      `gorm:"status" json:"status"`
-	CreatedBy string    `gorm:"created_by" json:"created_by"`
-	CreatedAt time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt time.Time `gorm:"updated_at" json:"updated_at"`
+	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
+	PresetID string `gorm:"preset_id" json:"preset_id"`
+	Status   bool      `gorm:"status" json:"status"`
+	CreatedBy       string    `gorm:"created_by" json:"created_by"`
+	CreatedAt       time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 func (e *Egress) Table() string {
@@ -64,7 +68,9 @@ func (e *Egress) UpdateEgressStatus(ctx context.Context) error {
 
 func (e *Egress) ResetDomain(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
-		"domain": "",
+		"domain":               "",
+		"domains":              datatypes.JSONSlice[string]([]string{}),
+		"domain_ans_by_domain": datatypes.JSONMap{},
 	}).Error
 }
 

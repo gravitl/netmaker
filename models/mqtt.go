@@ -55,10 +55,11 @@ type HostPeerUpdate struct {
 }
 
 type EgressDomain struct {
-	ID     string      `json:"id"`
-	Node   Node        `json:"node"`
-	Host   schema.Host `json:"host"`
-	Domain string      `json:"domain"`
+	ID          string      `json:"id"`
+	Node        Node        `json:"node"`
+	Host        schema.Host `json:"host"`
+	Domain      string      `json:"domain"`
+	ResolvedIPs []string    `json:"resolved_ips,omitempty"`
 }
 type Nameserver struct {
 	IPs            []string `json:"ips"`

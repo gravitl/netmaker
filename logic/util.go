@@ -276,6 +276,18 @@ func compareIface(a, b schema.Iface) bool {
 		a.AddressString == b.AddressString
 }
 
+// IsEgressDomainPattern returns true for a normal FQDN or a single-label wildcard prefix form (*.example.com).
+func IsEgressDomainPattern(domain string) bool {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return false
+	}
+	if strings.HasPrefix(domain, "*.") {
+		return IsFQDN(strings.TrimPrefix(domain, "*."))
+	}
+	return IsFQDN(domain)
+}
+
 // IsFQDN checks if the given string is a valid Fully Qualified Domain Name (FQDN)
 func IsFQDN(domain string) bool {
 	// Basic check to ensure the domain is not empty and has at least one dot (.)

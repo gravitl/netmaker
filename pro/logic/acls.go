@@ -168,8 +168,8 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 										})
 									}
 								}
-							} else if len(e.DomainAns) > 0 {
-								for _, domainAns := range e.DomainAns {
+							} else if logic.HasEgressDomainAns(e) {
+								for _, domainAns := range logic.AllDomainAnsFromEgress(e) {
 									dstI.Value = domainAns
 
 									ip, cidr, err := net.ParseCIDR(dstI.Value)
@@ -417,7 +417,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 
 					}
-				} else if len(e.DomainAns) > 0 {
+				} else if logic.HasEgressDomainAns(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 						for _, cidr := range selectedIP4 {
 							if node.Address.IP != nil {
@@ -449,7 +449,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 						continue
 					}
-					for _, domainAnsI := range e.DomainAns {
+					for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 						dstI.Value = domainAnsI
 
 						ip, cidr, err := net.ParseCIDR(dstI.Value)
@@ -983,8 +983,8 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
 			if egI.Range != "" {
 				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
-			} else if len(egI.DomainAns) > 0 {
-				for _, domainAnsI := range egI.DomainAns {
+			} else if logic.HasEgressDomainAns(egI) {
+				for _, domainAnsI := range logic.AllDomainAnsFromEgress(egI) {
 					targetNodeTags[models.TagID(domainAnsI)] = struct{}{}
 				}
 			}
@@ -1008,8 +1008,8 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 						}
 						if e.Range != "" {
 							dstTags[e.Range] = struct{}{}
-						} else if len(e.DomainAns) > 0 {
-							for _, domainAnsI := range e.DomainAns {
+						} else if logic.HasEgressDomainAns(e) {
+							for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 								dstTags[domainAnsI] = struct{}{}
 							}
 						}
@@ -1132,8 +1132,8 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 								}
 
 							}
-						} else if len(e.DomainAns) > 0 {
-							for _, domainAnsI := range e.DomainAns {
+						} else if logic.HasEgressDomainAns(e) {
+							for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
 								if err == nil {
 									if ip.To4() != nil {
@@ -1246,8 +1246,8 @@ func appendUserExtClientRemoteEgressFwdRules(
 				}
 				continue
 			}
-			if len(egI.DomainAns) > 0 {
-				for _, domainAnsI := range egI.DomainAns {
+			if logic.HasEgressDomainAns(egI) {
+				for _, domainAnsI := range logic.AllDomainAnsFromEgress(egI) {
 					ip, cidr, parseErr := net.ParseCIDR(domainAnsI)
 					if parseErr != nil {
 						continue
@@ -1466,8 +1466,8 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges6 = append(egressRanges6, *cidr)
 										}
 									}
-								} else if len(eI.DomainAns) > 0 {
-									for _, domainAnsI := range eI.DomainAns {
+								} else if logic.HasEgressDomainAns(eI) {
+									for _, domainAnsI := range logic.AllDomainAnsFromEgress(eI) {
 										_, cidr, err := net.ParseCIDR(domainAnsI)
 										if err == nil {
 											if cidr.IP.To4() != nil {
@@ -1513,8 +1513,8 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges6 = append(egressRanges6, *cidr)
 										}
 									}
-								} else if len(e.DomainAns) > 0 {
-									for _, domainAnsI := range e.DomainAns {
+								} else if logic.HasEgressDomainAns(e) {
+									for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 										_, cidr, err := net.ParseCIDR(domainAnsI)
 										if err == nil {
 											if cidr.IP.To4() != nil {

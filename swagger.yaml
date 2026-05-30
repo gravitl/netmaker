@@ -607,6 +607,11 @@ definitions:
     properties:
       domain:
         type: string
+      resolved_ips:
+        description: Resolved CIDRs for this domain on the egress resource.
+        items:
+          type: string
+        type: array
       host:
         $ref: '#/definitions/schema.Host'
       id:
@@ -691,8 +696,11 @@ definitions:
     properties:
       description:
         type: string
-      domain:
-        type: string
+      domains:
+        description: Optional list of logical hostnames for domain-based egress (exact or *.example.com).
+        items:
+          type: string
+        type: array
       id:
         type: string
       is_internet_gateway:
@@ -709,6 +717,9 @@ definitions:
         additionalProperties:
           type: integer
         type: object
+      preset_id:
+        description: PresetID optional: reference to a catalog preset (see GET /api/v1/egress/presets). Explicit name/domain in the body override preset defaults.
+        type: string
       range:
         type: string
       status:
@@ -2373,12 +2384,18 @@ definitions:
         type: string
       description:
         type: string
-      domain:
-        type: string
-      domain_ans:
+      domains:
+        description: Configured logical hostnames for domain-based egress when more than one applies.
         items:
           type: string
         type: array
+      domain_ans_by_domain:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Maps each configured domain to its resolved CIDRs.
+        type: object
       id:
         type: string
       mode:
@@ -2391,6 +2408,9 @@ definitions:
         type: string
       nodes:
         $ref: '#/definitions/datatypes.JSONMap'
+      preset_id:
+        description: PresetID is the catalog id when this egress was created from a preset (empty if custom).
+        type: string
       range:
         type: string
       status:
@@ -5395,6 +5415,24 @@ paths:
       summary: Get config file HA configuration
       tags:
       - Config Files
+  /api/v1/egress/presets:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List egress domain presets
+      tags:
+      - Egress
   /api/v1/egress:
     delete:
       parameters:
