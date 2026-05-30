@@ -406,12 +406,15 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 		}
 		if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
 			for _, d := range ConfiguredDomainsForEgress(e) {
-				bd := BaseDomain(d)
-				if _, ok := seen[bd]; ok {
+				d = normalizeEgressDomain(d)
+				if d == "" {
 					continue
 				}
-				seen[bd] = struct{}{}
-				domains = append(domains, bd)
+				if _, ok := seen[d]; ok {
+					continue
+				}
+				seen[d] = struct{}{}
+				domains = append(domains, d)
 			}
 
 		}
@@ -452,9 +455,13 @@ func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver
 				}
 			}
 			for _, d := range ConfiguredDomainsForEgress(e) {
+				d = normalizeEgressDomain(d)
+				if d == "" {
+					continue
+				}
 				returnNsLi = append(returnNsLi, models.Nameserver{
 					IPs:            routingNodeIPs,
-					MatchDomain:    BaseDomain(d),
+					MatchDomain:    d,
 					IsSearchDomain: false,
 				})
 			}
@@ -680,10 +687,6 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 	return
 }
 
-func BaseDomain(host string) string {
-	parts := strings.Split(host, ".")
-	if len(parts) < 2 {
-		return host // not a FQDN
-	}
-	return strings.Join(parts[len(parts)-2:], ".")
+func normalizeEgressDomain(domain string) string {
+	return strings.TrimSpace(strings.ToLower(domain))
 }

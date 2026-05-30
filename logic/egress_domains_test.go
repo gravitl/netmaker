@@ -77,3 +77,12 @@ func TestApplyConfiguredDomainsToEgress(t *testing.T) {
 		t.Fatalf("clear got domains=%v", e.Domains)
 	}
 }
+
+func TestNormalizeEgressDomain_preservesFullHostname(t *testing.T) {
+	if got := normalizeEgressDomain("oauth2.googleapis.com"); got != "oauth2.googleapis.com" {
+		t.Fatalf("got %q, want oauth2.googleapis.com", got)
+	}
+	if got := normalizeEgressDomain("  OAuth2.Googleapis.COM  "); got != "oauth2.googleapis.com" {
+		t.Fatalf("got %q, want lowercased full hostname", got)
+	}
+}
