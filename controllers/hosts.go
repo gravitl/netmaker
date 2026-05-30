@@ -625,7 +625,7 @@ func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) 
 	if len(reportedRanges) == 0 {
 		return false
 	}
-	if logic.IsAWSEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
+	if logic.IsServerFetchedEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
 		return false
 	}
 	return true

@@ -36,6 +36,17 @@ func TestShouldApplyEgressDomainAnsUpdate(t *testing.T) {
 			ranges:   []string{"10.0.0.0/24"},
 			expected: false,
 		},
+		{
+			name: "skips azure preset with server-seeded domain answers",
+			egress: schema.Egress{
+				PresetID: "azure-storage-eastus",
+				DomainAnsByDomain: datatypes.JSONMap{
+					"eastus.blob.core.windows.net": []interface{}{"13.64.0.0/11"},
+				},
+			},
+			ranges:   []string{"10.0.0.0/24"},
+			expected: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -57,5 +68,16 @@ func TestShouldApplyEgressDomainAnsUpdate_AWSGuardUsesHasEgressDomainAns(t *test
 	logic.SetEgressDomainAnsForDomain(&e, "us-west-2.compute.amazonaws.com", []string{"10.0.0.0/8"})
 	if shouldApplyEgressDomainAnsUpdate(e, []string{"192.168.0.0/24"}) {
 		t.Fatal("expected skip when aws preset already has domain answers")
+	}
+}
+
+func TestShouldApplyEgressDomainAnsUpdate_AzureGuardUsesHasEgressDomainAns(t *testing.T) {
+	e := schema.Egress{PresetID: "azure-storage-eastus"}
+	if !shouldApplyEgressDomainAnsUpdate(e, []string{"10.0.0.0/8"}) {
+		t.Fatal("expected apply when azure preset has no domain answers yet")
+	}
+	logic.SetEgressDomainAnsForDomain(&e, "eastus.blob.core.windows.net", []string{"13.64.0.0/11"})
+	if shouldApplyEgressDomainAnsUpdate(e, []string{"192.168.0.0/24"}) {
+		t.Fatal("expected skip when azure preset already has domain answers")
 	}
 }

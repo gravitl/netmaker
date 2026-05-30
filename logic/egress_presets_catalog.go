@@ -23,6 +23,30 @@ var awsEgressRegionCodes = []string{
 // awsIPRangesURL is the public AWS IP ranges document (overridable in tests).
 var awsIPRangesURL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
 
+// azureServiceTagsDownloadPageURL is the Microsoft download page for Azure Service Tags.
+const azureServiceTagsDownloadPageURL = "https://www.microsoft.com/en-us/download/details.aspx?id=56519"
+
+// azureEgressRegionCodes is the public Azure region set covered by the preset catalog.
+var azureEgressRegionCodes = []string{
+	"australiaeast", "australiasoutheast", "australiacentral", "australiacentral2",
+	"brazilsouth", "brazilsoutheast",
+	"canadacentral", "canadaeast",
+	"centralindia", "southindia", "westindia", "jioindiawest", "jioindiacentral",
+	"eastasia", "southeastasia",
+	"japaneast", "japanwest",
+	"koreacentral", "koreasouth",
+	"northeurope", "westeurope", "uksouth", "ukwest",
+	"francecentral", "francesouth",
+	"germanywestcentral", "germanynorth",
+	"norwayeast", "norwaywest",
+	"swedencentral", "switzerlandnorth", "switzerlandwest",
+	"polandcentral", "italynorth", "spaincentral",
+	"eastus", "eastus2", "westus", "westus2", "westus3",
+	"centralus", "northcentralus", "southcentralus", "westcentralus",
+	"uaenorth", "qatarcentral", "southafricanorth", "israelcentral",
+	"mexicocentral", "chilecentral",
+}
+
 //go:embed egress_preset_extras.json
 var egressPresetExtrasJSON []byte
 
@@ -32,6 +56,11 @@ func buildEgressPresetCatalog() []models.EgressPresetApp {
 		out = append(out, awsS3Preset(r), awsEC2ELBPreset(r))
 	}
 	out = append(out, awsS3Global(), awsCloudFrontGlobal())
+
+	for _, r := range azureEgressRegionCodes {
+		out = append(out, azureStoragePreset(r), azureCloudPreset(r))
+	}
+	out = append(out, azureStorageGlobal())
 
 	var extras []models.EgressPresetApp
 	if err := json.Unmarshal(egressPresetExtrasJSON, &extras); err != nil {
@@ -98,5 +127,46 @@ func awsCloudFrontGlobal() models.EgressPresetApp {
 		},
 		Group:           "aws",
 		SuggestedDomain: "cloudfront.net",
+	}
+}
+
+func azureStoragePreset(region string) models.EgressPresetApp {
+	return models.EgressPresetApp{
+		Name:    fmt.Sprintf("Azure Storage (%s)", region),
+		ID:      "azure-storage-" + region,
+		Sources: []string{azureServiceTagsDownloadPageURL, azureServiceTagsConfirmURL},
+		Domains: []string{
+			region + ".blob.core.windows.net",
+			region + ".file.core.windows.net",
+		},
+		Group:           "azure",
+		SuggestedDomain: region + ".blob.core.windows.net",
+	}
+}
+
+func azureCloudPreset(region string) models.EgressPresetApp {
+	return models.EgressPresetApp{
+		Name:    fmt.Sprintf("Azure Cloud (%s)", region),
+		ID:      "azure-cloud-" + region,
+		Sources: []string{azureServiceTagsDownloadPageURL, azureServiceTagsConfirmURL},
+		Domains: []string{
+			region + ".cloudapp.azure.com",
+		},
+		Group:           "azure",
+		SuggestedDomain: region + ".cloudapp.azure.com",
+	}
+}
+
+func azureStorageGlobal() models.EgressPresetApp {
+	return models.EgressPresetApp{
+		Name:    "Azure Storage (global)",
+		ID:      "azure-storage-global",
+		Sources: []string{azureServiceTagsDownloadPageURL, azureServiceTagsConfirmURL},
+		Domains: []string{
+			"blob.core.windows.net",
+			"core.windows.net",
+		},
+		Group:           "azure",
+		SuggestedDomain: "blob.core.windows.net",
 	}
 }

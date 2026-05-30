@@ -154,3 +154,49 @@ func ResolveAWSEgressPresetCIDRs(client *http.Client, p models.EgressPresetApp) 
 	}
 	return resolveAWSPresetCIDRs(client, p)
 }
+
+// IsAzureEgressPreset reports whether presetID refers to an Azure catalog entry.
+func IsAzureEgressPreset(presetID string) bool {
+	return strings.HasPrefix(presetID, "azure-")
+}
+
+// PresetYieldsAzureIPRanges reports whether the preset is backed by Azure Service Tags JSON.
+func PresetYieldsAzureIPRanges(p models.EgressPresetApp) bool {
+	for _, src := range p.Sources {
+		src = strings.TrimSpace(src)
+		if strings.Contains(src, "download/details.aspx?id="+azureServiceTagsDownloadID) ||
+			strings.Contains(src, "download/confirmation.aspx?id="+azureServiceTagsDownloadID) {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveAzureEgressPresetCIDRs fetches public Azure CIDR data for a supported Azure preset.
+func ResolveAzureEgressPresetCIDRs(client *http.Client, p models.EgressPresetApp) ([]string, error) {
+	if !PresetYieldsAzureIPRanges(p) {
+		return nil, nil
+	}
+	return resolveAzurePresetCIDRs(client, p)
+}
+
+// PresetYieldsServerIPRanges reports whether CIDRs are fetched server-side at create/update.
+func PresetYieldsServerIPRanges(p models.EgressPresetApp) bool {
+	return PresetYieldsAWSIPRanges(p) || PresetYieldsAzureIPRanges(p)
+}
+
+// IsServerFetchedEgressPreset reports whether presetID uses server-side IP range fetch.
+func IsServerFetchedEgressPreset(presetID string) bool {
+	return IsAWSEgressPreset(presetID) || IsAzureEgressPreset(presetID)
+}
+
+// ResolveServerEgressPresetCIDRs fetches server-resolved CIDRs for AWS or Azure presets.
+func ResolveServerEgressPresetCIDRs(client *http.Client, p models.EgressPresetApp) ([]string, error) {
+	if PresetYieldsAWSIPRanges(p) {
+		return resolveAWSPresetCIDRs(client, p)
+	}
+	if PresetYieldsAzureIPRanges(p) {
+		return resolveAzurePresetCIDRs(client, p)
+	}
+	return nil, nil
+}

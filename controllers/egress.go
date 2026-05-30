@@ -78,11 +78,11 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	req.Domains = normDomains
 	var resolvedCIDRs []string
 	if req.PresetID != "" {
-		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsAWSIPRanges(p) {
-			if c, err := logic.ResolveAWSEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsServerIPRanges(p) {
+			if c, err := logic.ResolveServerEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
 				resolvedCIDRs = c
 			} else if err != nil {
-				logger.Log(0, "aws preset ip fetch failed:", req.PresetID, err.Error())
+				logger.Log(0, "server preset ip fetch failed:", req.PresetID, err.Error())
 			}
 		}
 	}
@@ -370,11 +370,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	presetChanged := req.PresetID != "" && req.PresetID != oldPresetID
 	domainsChanged := !logic.EgressDomainsEqual(oldConfigured, normDomains)
 	if req.PresetID != "" && (presetChanged || domainsChanged) {
-		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsAWSIPRanges(p) {
-			if c, err := logic.ResolveAWSEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsServerIPRanges(p) {
+			if c, err := logic.ResolveServerEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
 				logic.SetEgressDomainAnsForDomains(&e, normDomains, c)
 			} else if err != nil {
-				logger.Log(0, "aws preset ip fetch failed:", req.PresetID, err.Error())
+				logger.Log(0, "server preset ip fetch failed:", req.PresetID, err.Error())
 			}
 		}
 	}

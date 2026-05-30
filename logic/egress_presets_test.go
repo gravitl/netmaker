@@ -230,3 +230,116 @@ func TestValidateEgressAppNATMode(t *testing.T) {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
+
+func TestIsAzureEgressPreset(t *testing.T) {
+	if !IsAzureEgressPreset("azure-storage-eastus") {
+		t.Fatal("expected azure preset id")
+	}
+	if IsAzureEgressPreset("github") {
+		t.Fatal("github is not an azure preset")
+	}
+}
+
+func TestIsServerFetchedEgressPreset(t *testing.T) {
+	if !IsServerFetchedEgressPreset("aws-s3-us-east-1") {
+		t.Fatal("expected aws preset")
+	}
+	if !IsServerFetchedEgressPreset("azure-storage-eastus") {
+		t.Fatal("expected azure preset")
+	}
+	if IsServerFetchedEgressPreset("github") {
+		t.Fatal("github is not server-fetched")
+	}
+}
+
+func TestPresetYieldsAzureIPRanges(t *testing.T) {
+	p, ok := GetEgressPresetByID("azure-storage-eastus")
+	if !ok {
+		t.Fatal("expected azure preset")
+	}
+	if !PresetYieldsAzureIPRanges(p) {
+		t.Fatal("expected azure ip ranges source")
+	}
+	if !PresetYieldsServerIPRanges(p) {
+		t.Fatal("expected server ip ranges")
+	}
+	p, ok = GetEgressPresetByID("github")
+	if !ok {
+		t.Fatal("expected github preset")
+	}
+	if PresetYieldsAzureIPRanges(p) {
+		t.Fatal("github preset should not yield azure ip ranges")
+	}
+}
+
+func TestApplyEgressPresetToEgressReq_Azure(t *testing.T) {
+	req := &models.EgressReq{PresetID: "azure-storage-eastus"}
+	if err := ApplyEgressPresetToEgressReq(req); err != nil {
+		t.Fatal(err)
+	}
+	if req.Name == "" || len(req.Domains) == 0 {
+		t.Fatalf("expected name and domains filled: %#v", req)
+	}
+}
+
+func TestResolveAzureEgressPresetCIDRsFromFixture(t *testing.T) {
+	p, ok := GetEgressPresetByID("azure-storage-eastus")
+	if !ok {
+		t.Fatal("expected azure storage eastus")
+	}
+	path := filepath.Join("testdata", "azure-service-tags-sample.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Skip("fixture missing")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(b)
+	}))
+	t.Cleanup(srv.Close)
+	client := srv.Client()
+	orig := azureServiceTagsJSONURLOverride
+	azureServiceTagsJSONURLOverride = srv.URL
+	t.Cleanup(func() { azureServiceTagsJSONURLOverride = orig })
+	cidrs, err := ResolveAzureEgressPresetCIDRs(client, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cidrs) != 2 {
+		t.Fatalf("expected 2 cidrs, got %v", cidrs)
+	}
+}
+
+func TestResolveServerEgressPresetCIDRs_AzureFromFixture(t *testing.T) {
+	p, ok := GetEgressPresetByID("azure-cloud-westus")
+	if !ok {
+		t.Fatal("expected azure cloud westus")
+	}
+	path := filepath.Join("testdata", "azure-service-tags-sample.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Skip("fixture missing")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(b)
+	}))
+	t.Cleanup(srv.Close)
+	client := srv.Client()
+	orig := azureServiceTagsJSONURLOverride
+	azureServiceTagsJSONURLOverride = srv.URL
+	t.Cleanup(func() { azureServiceTagsJSONURLOverride = orig })
+	cidrs, err := ResolveServerEgressPresetCIDRs(client, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cidrs) != 1 || cidrs[0] != "40.64.0.0/10" {
+		t.Fatalf("unexpected cidrs: %v", cidrs)
+	}
+}
+
+func TestDiscoverAzureServiceTagsJSONURL_ExtractsMicrosoftLink(t *testing.T) {
+	html := `<a data-bi-id="downloadretry" href="https://download.microsoft.com/download/abc/ServiceTags_Public_20260101.json">`
+	match := azureServiceTagsJSONURLPattern.FindString(html)
+	if match != "https://download.microsoft.com/download/abc/ServiceTags_Public_20260101.json" {
+		t.Fatalf("unexpected match: %q", match)
+	}
+}

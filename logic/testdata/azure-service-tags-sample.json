@@ -1,0 +1,40 @@
+{
+  "changeNumber": 1,
+  "cloud": "Public",
+  "values": [
+    {
+      "name": "Storage",
+      "id": "Storage",
+      "properties": {
+        "changeNumber": 1,
+        "region": "",
+        "addressPrefixes": [
+          "20.0.0.0/8"
+        ]
+      }
+    },
+    {
+      "name": "Storage.EastUS",
+      "id": "Storage.EastUS",
+      "properties": {
+        "changeNumber": 1,
+        "region": "eastus",
+        "addressPrefixes": [
+          "13.64.0.0/11",
+          "52.224.0.0/11"
+        ]
+      }
+    },
+    {
+      "name": "AzureCloud.WestUS",
+      "id": "AzureCloud.WestUS",
+      "properties": {
+        "changeNumber": 1,
+        "region": "westus",
+        "addressPrefixes": [
+          "40.64.0.0/10"
+        ]
+      }
+    }
+  ]
+}
