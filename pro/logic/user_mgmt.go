@@ -1126,6 +1126,14 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 
 	// For each network removed, remove the group as the src from all the ACLs.
 	for networkID := range networksRemoved {
+		if new != nil {
+			RemoveUserGroupFromPostureChecks(new.ID, networkID)
+			if err := RemoveUserGroupFromNetworkJITScope(networkID.String(), new.ID); err != nil {
+				slog.Warn("failed to clean up JIT scope for removed user group",
+					"group_id", new.ID, "network", networkID, "error", err)
+			}
+		}
+
 		acls, err := logic.ListAclsByNetwork(networkID)
 		if err != nil {
 			continue
@@ -1162,6 +1170,15 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 					_ = logic.UpsertAcl(acl)
 				}
 			}
+		}
+	}
+
+	// Members of an admin group bypass JIT, so any network where the group now
+	// grants admin access must drop it from its JIT scope.
+	if new != nil {
+		if err := ReconcileUserGroupJITScope(new); err != nil {
+			slog.Warn("failed to reconcile JIT scope for updated user group",
+				"group_id", new.ID, "error", err)
 		}
 	}
 

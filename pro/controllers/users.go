@@ -650,25 +650,6 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	go func() {
-		removedNetworks, _ := proLogic.GetGroupNetworksMap(&currUserG)
-		keptNetworks, _ := proLogic.GetGroupNetworksMap(&userGroup)
-		for netID := range removedNetworks {
-			if _, ok := keptNetworks[netID]; !ok {
-				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
-				if err := proLogic.RemoveUserGroupFromNetworkJITScope(netID.String(), userGroup.ID); err != nil {
-					slog.Warn("failed to clean up JIT scope for removed user group",
-						"group_id", userGroup.ID, "network", netID, "error", err)
-				}
-			}
-		}
-		// Members of an admin group bypass JIT, so any network where the
-		// group now grants admin access must drop it from its JIT scope.
-		if err := proLogic.ReconcileUserGroupJITScope(&userGroup); err != nil {
-			slog.Warn("failed to reconcile JIT scope for updated user group",
-				"group_id", userGroup.ID, "error", err)
-		}
-	}()
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }

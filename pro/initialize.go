@@ -157,6 +157,9 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
+	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
+	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
+	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
 	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
@@ -196,7 +199,7 @@ func InitPro() {
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
 	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
-	logic.MigrateToGws = proLogic.MigrateToGws
+	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetFeatureFlags = proLogic.GetFeatureFlags

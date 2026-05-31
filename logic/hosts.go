@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -84,6 +85,9 @@ func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
+// DoesHostExistInTheNetworkAlready checks if the host is in the network already.
+// Must be called before creating the node.
+// TODO: create (*orchestrator.NodeOrchestrator).ValidateCreateNode and move this there.
 func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) bool {
 	node := &schema.Node{
 		HostID:    h.ID.String(),
@@ -301,6 +305,12 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 	if err != nil {
 		return
 	}
+	if !currentNode.Connected && newNode.Connected {
+		currentNode.Status = schema.OnlineSt
+	}
+	if currentNode.Connected && !newNode.Connected {
+		currentNode.Status = schema.Disconnected
+	}
 	currentNode.Connected = newNode.Connected
 	currentNode.SetLastCheckIn()
 	UpsertNode(&currentNode)
@@ -309,6 +319,7 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		if servercfg.IsPro {
 			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
 		}
+		go SetPeerMetricsDisconnected(newNode.ID.String())
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(newNode)
@@ -344,16 +355,24 @@ func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
 
 // RemoveHost - removes a given host from server
 func RemoveHost(h *schema.Host, forceDelete bool) error {
-	if !forceDelete && len(h.Nodes) > 0 {
+	hostNodes, err := (&schema.Node{}).ListAll(
+		db.WithContext(context.TODO()),
+		dbtypes.WithFilter("host_id", h.ID.String()),
+	)
+	if err != nil {
+		return err
+	}
+	if !forceDelete && len(hostNodes) > 0 {
 		return fmt.Errorf("host still has associated nodes")
 	}
-
-	if len(h.Nodes) > 0 {
-		if err := DisassociateAllNodesFromHost(h.ID.String()); err != nil {
-			return err
+	for _, hostNode := range hostNodes {
+		node := ConvertSchemaNodeToModelsNode(&hostNode)
+		cleanupNodeReferences(node)
+		err = DeleteNodeByID(node)
+		if err != nil {
+			slog.Error("failed to delete node", "node", node.ID, "host", h.ID, "error", err)
 		}
 	}
-
 	return h.Delete(db.WithContext(context.TODO()))
 }
 

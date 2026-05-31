@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -279,8 +280,23 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 			continue
 		}
+		wasOffline := node.Status == schema.OfflineSt ||
+			(node.Connected && time.Since(node.LastCheckIn) > models.LastCheckInThreshold)
 		if err := logic.UpdateNodeCheckin(node.ID.String()); err != nil {
 			slog.Warn("failed to update node on checkin", "nodeid", node.ID, "error", err)
+			continue
+		}
+		if wasOffline {
+			if node.Status == schema.OfflineSt {
+				promoted := &schema.Node{
+					ID:     node.ID.String(),
+					Status: schema.OnlineSt,
+				}
+				if err := promoted.UpdateStatus(db.WithContext(context.TODO())); err != nil {
+					slog.Warn("failed to promote node from offline on checkin", "nodeid", node.ID, "error", err)
+				}
+			}
+			go logic.TriggerCollectMetrics(currentHost.ID.String(), node.ID.String(), "checkin_recovered")
 		}
 	}
 

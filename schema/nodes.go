@@ -139,6 +139,21 @@ func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, 
 	return nodes, err
 }
 
+// ListByIDs fetches nodes whose IDs are in the given slice using a single
+// `WHERE id IN (?)` query. Returns an empty slice when ids is empty.
+func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.Option) ([]Node, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := db.FromContext(ctx).Model(&Node{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Where("id IN ?", ids).Find(&nodes).Error
+	return nodes, err
+}
+
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
@@ -196,6 +211,29 @@ func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Opt
 		updates["last_check_in"] = n.LastCheckIn
 	}
 	return query.Updates(updates).Error
+}
+
+// UpdateStatus updates only the status column for a single node by ID.
+// Lighter than Upsert: no preloads, no full row write, no association handling.
+func (n *Node) UpdateStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Update("status", n.Status).
+		Error
+}
+
+// MarkStaleOffline sets status=offline for every node whose last_check_in is
+// older than the given threshold and which is not already offline, not
+// pending deletion, and not flagged for the delete action. Returns the number
+// of rows updated. Issues exactly one SQL statement.
+func (n *Node) MarkStaleOffline(ctx context.Context, threshold time.Time) (int64, error) {
+	result := db.FromContext(ctx).Model(&Node{}).
+		Where("last_check_in < ?", threshold).
+		Where("status <> ?", OfflineSt).
+		Where("pending_delete = ?", false).
+		Where("action <> ?", NODE_DELETE).
+		Update("status", OfflineSt)
+	return result.RowsAffected, result.Error
 }
 
 func (n *Node) MarkForDeletion(ctx context.Context) error {
@@ -341,14 +379,14 @@ func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
-		Where(datatypes.JSONQuery("relayed_clients").HasKey(n.ID)).
+		Where(expr.WhereNotNull("relayed_clients", n.ID)).
 		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
 		Error
 }
 
 func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 	if n.NetworkID == "" {
-		return fmt.Errorf("ResetAutoAssignGateway: NetworkID not set")
+		return fmt.Errorf("ResetAutoRelayedPeers: NetworkID not set")
 	}
 
 	err := db.FromContext(ctx).Model(&Node{}).
@@ -361,7 +399,7 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
-		Where(datatypes.JSONQuery("auto_relayed_peers").HasKey(n.ID)).
+		Where(expr.WhereNotNull("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.Remove("auto_relayed_peers", n.ID)).
 		Error
 }

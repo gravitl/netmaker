@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -555,7 +556,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-
 			extclients, err := logic.GetExtClientsByID(nodeID, node.Network)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
@@ -592,8 +592,13 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
 		}
-		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
-			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
+		if shouldApplyEgressDomainAnsUpdate(e, hostUpdate.Node.EgressGatewayRanges) {
+			domain := strings.TrimSpace(hostUpdate.EgressDomain.Domain)
+			if domain != "" {
+				logic.SetEgressDomainAnsForDomain(&e, domain, hostUpdate.Node.EgressGatewayRanges)
+			} else {
+				logic.SetEgressDomainAnsForDomains(&e, logic.ConfiguredDomainsForEgress(e), hostUpdate.Node.EgressGatewayRanges)
+			}
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
@@ -616,6 +621,16 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
+	if len(reportedRanges) == 0 {
+		return false
+	}
+	if logic.IsAWSEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
+		return false
+	}
+	return true
 }
 
 // @Summary     Deletes a Netclient host from Netmaker server
@@ -886,6 +901,13 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	err = network.Get(r.Context())
 	if err != nil {
 		err = fmt.Errorf("failed to add host (%s) to network (%s): error getting network: %v", hostID, networkID, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -1697,6 +1719,15 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	netID := r.URL.Query().Get("network")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), logic.BadReq))
+		return
+	}
+	if p.Network != netID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), logic.BadReq))
+		return
+	}
 	hostID, err := uuid.Parse(p.HostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)
@@ -1723,6 +1754,13 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	err = network.Get(r.Context())
 	if err != nil {
 		err = fmt.Errorf("failed to approve pending host (%s): error getting network (%s): %w", id, p.Network, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to approve pending host (%s): host already in network", hostID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -1809,6 +1847,10 @@ func addDefaultHostToNetworks(host *schema.Host) {
 	}
 	for _, network := range networks {
 		if !network.AutoJoin {
+			continue
+		}
+
+		if logic.DoesHostExistInTheNetworkAlready(host, &network) {
 			continue
 		}
 

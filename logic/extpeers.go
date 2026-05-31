@@ -78,15 +78,15 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		if !eI.Status {
 			continue
 		}
-		if eI.Domain == "" && eI.Range == "" {
+		if !IsDomainBasedEgress(eI) && eI.Range == "" {
 			continue
 		}
-		if eI.Domain != "" && len(eI.DomainAns) == 0 {
+		if IsDomainBasedEgress(eI) && !HasEgressDomainAns(eI) {
 			continue
 		}
 		rangesToBeAdded := []string{}
-		if eI.Domain != "" {
-			rangesToBeAdded = append(rangesToBeAdded, eI.DomainAns...)
+		if IsDomainBasedEgress(eI) {
+			rangesToBeAdded = append(rangesToBeAdded, AllDomainAnsFromEgress(eI)...)
 		} else {
 			// Use virtual NAT range if enabled, otherwise use original range
 			egressRange := eI.Range

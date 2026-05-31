@@ -15,7 +15,6 @@ var RQLITE_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initRqliteDatabase,
 	CREATE_TABLE: rqliteCreateTable,
 	INSERT:       rqliteInsert,
-	INSERT_PEER:  rqliteInsertPeer,
 	DELETE:       rqliteDeleteRecord,
 	DELETE_ALL:   rqliteDeleteAllRecords,
 	FETCH_ALL:    rqliteFetchRecords,
@@ -52,17 +51,6 @@ func rqliteInsert(key string, value string, tableName string) error {
 		return nil
 	}
 	return errors.New("invalid insert " + key + " : " + value)
-}
-
-func rqliteInsertPeer(key string, value string) error {
-	if key != "" && value != "" {
-		_, err := RQliteDatabase.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	return errors.New("invalid peer insert " + key + " : " + value)
 }
 
 func rqliteDeleteRecord(tableName string, key string) error {

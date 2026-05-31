@@ -33,6 +33,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		NetworkID:          network.ID,
 		Network:            network,
 		Connected:          true,
+		Status:             schema.OnlineSt,
 		IsAutoRelay:        "no",
 		RelayedClients:     make(datatypes.JSONMap),
 		RelayedIGWClients:  make(datatypes.JSONMap),
@@ -155,6 +156,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
+			time.Sleep(time.Second * 30)
+			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
 		}()
 	}
 
@@ -202,6 +205,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			}
 
 			node.RelayedClients[igwClientID] = struct{}{}
+			node.RelayedIGWClients[igwClientID] = struct{}{}
 
 			if igwClient.AutoAssignGateway {
 				err = igwClient.ResetAutoAssignGateway(ctx)

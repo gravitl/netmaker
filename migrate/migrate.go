@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -28,13 +29,14 @@ func Run() {
 	migrateSettings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	updateNewAcls()
 	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
 	updateNewAcls()
-	logic.MigrateToGws()
+	migrateEgressDomains()
+	logic.CleanupGwsMigration()
 	updateNetworks()
-	resync()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
@@ -131,49 +133,6 @@ func isValidVNATPool(pool string) bool {
 	}
 	_, _, err := net.ParseCIDR(pool)
 	return err == nil
-}
-
-// removes if any stale configurations from previous run.
-func resync() {
-
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		if !node.IsGw {
-			if len(node.RelayedNodes) > 0 {
-				logic.DeleteRelay(node.Network, node.ID.String())
-			}
-			if node.IsIngressGateway {
-				logic.DeleteIngressGateway(node.ID.String())
-			}
-			if len(node.InetNodeReq.InetNodeClientIDs) > 0 || node.IsInternetGateway {
-				logic.UnsetInternetGw(&node)
-				logic.UpsertNode(&node)
-			}
-		}
-		if node.IsRelayed {
-			if node.RelayedBy == "" {
-				node.IsRelayed = false
-				node.InternetGwID = ""
-				logic.UpsertNode(&node)
-			}
-			if node.RelayedBy != "" {
-				// check if node exists
-				_, err := logic.GetNodeByID(node.RelayedBy)
-				if err != nil {
-					node.RelayedBy = ""
-					node.InternetGwID = ""
-					logic.UpsertNode(&node)
-				}
-			}
-		}
-		if node.InternetGwID != "" {
-			_, err := logic.GetNodeByID(node.InternetGwID)
-			if err != nil {
-				node.InternetGwID = ""
-				logic.UpsertNode(&node)
-			}
-		}
-	}
 }
 
 func assignSuperAdmin() {
@@ -529,6 +488,41 @@ func createDefaultTagsAndPolicies() {
 				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
 				logic.UpsertNode(&node)
 			}
+		}
+	}
+}
+
+// migrateEgressDomains copies the legacy DB column "domain" (singular) into "domains" only.
+// Resolved IPs use domain_ans_by_domain at runtime; legacy domain_ans is not migrated.
+func migrateEgressDomains() {
+	egs, err := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, "migration: failed to list egresses:", err.Error())
+		return
+	}
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+	for _, eg := range egs {
+		if len(eg.Domains) > 0 {
+			continue
+		}
+		var legacyDomain string
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Pluck("domain", &legacyDomain).Error; err != nil {
+			logger.Log(0, "migration: failed to read legacy egress domain:", eg.ID, err.Error())
+			continue
+		}
+		legacyDomain = strings.TrimSpace(legacyDomain)
+		if legacyDomain == "" {
+			continue
+		}
+		normDomains, err := logic.NormalizeEgressReqDomains([]string{legacyDomain})
+		if err != nil || len(normDomains) == 0 {
+			logger.Log(0, "migration: invalid legacy egress domain:", eg.ID, legacyDomain)
+			continue
+		}
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
+			"domains": datatypes.JSONSlice[string](normDomains),
+		}).Error; err != nil {
+			logger.Log(0, "migration: failed to update egress domains:", eg.ID, err.Error())
 		}
 	}
 }
