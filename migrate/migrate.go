@@ -496,7 +496,7 @@ func createDefaultTagsAndPolicies() {
 // migrateEgressDomains copies the legacy DB column "domain" (singular) into "domains" only.
 // Resolved IPs use domain_ans_by_domain at runtime; legacy domain_ans is not migrated.
 func migrateEgressDomains() {
-	egs, err := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	egs, err := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "migration: failed to list egresses:", err.Error())
 		return
