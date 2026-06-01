@@ -14,6 +14,7 @@ var (
 	networks      string
 	unlimited     bool
 	tags          string
+	defaultKey    bool
 )
 
 var enrollmentKeyCreateCmd = &cobra.Command{
@@ -26,6 +27,7 @@ var enrollmentKeyCreateCmd = &cobra.Command{
 			Expiration:    int64(expiration),
 			UsesRemaining: usesRemaining,
 			Unlimited:     unlimited,
+			Default:       defaultKey,
 		}
 		if networks != "" {
 			enrollKey.Networks = strings.Split(networks, ",")
@@ -43,5 +45,6 @@ func init() {
 	enrollmentKeyCreateCmd.Flags().StringVar(&networks, "networks", "", "Comma-separated list of networks which the enrollment key can access")
 	enrollmentKeyCreateCmd.Flags().BoolVar(&unlimited, "unlimited", false, "Should the key have unlimited uses ?")
 	enrollmentKeyCreateCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of any additional tags")
+	enrollmentKeyCreateCmd.Flags().BoolVar(&defaultKey, "default", false, "Mark as the default enrollment key for the given network(s)")
 	rootCmd.AddCommand(enrollmentKeyCreateCmd)
 }

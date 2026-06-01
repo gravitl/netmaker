@@ -14,68 +14,77 @@ func getNodeStatusOld(node *models.Node) {
 	// On CE check only last check-in time
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
-			node.Status = models.OfflineSt
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
-		node.Status = models.OnlineSt
+		node.Status = schema.OnlineSt
+		node.StaticNode.Status = schema.OnlineSt
 		return
 	}
 	if !node.Connected {
-		node.Status = models.Disconnected
+		node.Status = schema.Disconnected
 		return
 	}
 	if time.Since(node.LastCheckIn) > time.Minute*10 {
-		node.Status = models.OfflineSt
+		node.Status = schema.OfflineSt
 		return
 	}
-	node.Status = models.OnlineSt
+	node.Status = schema.OnlineSt
 }
 
 func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
-			node.Status = models.OfflineSt
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
 		if err != nil {
-			node.Status = models.OfflineSt
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
 		if !defaultEnabledPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
 			if !allowed {
-				node.Status = models.OnlineSt
+				node.Status = schema.OnlineSt
+				node.StaticNode.Status = schema.OnlineSt
 				return
 			}
 		}
 		// check extclient connection from metrics
 		ingressMetrics, err := GetMetrics(node.StaticNode.IngressGatewayID)
 		if err != nil || ingressMetrics == nil || ingressMetrics.Connectivity == nil {
-			node.Status = models.UnKnown
+			node.Status = schema.UnKnown
+			node.StaticNode.Status = schema.UnKnown
 			return
 		}
 
 		if metric, ok := ingressMetrics.Connectivity[node.StaticNode.ClientID]; ok {
 			if metric.Connected {
-				node.Status = models.OnlineSt
+				node.Status = schema.OnlineSt
+				node.StaticNode.Status = schema.OnlineSt
 				return
 			} else {
-				node.Status = models.OfflineSt
+				node.Status = schema.OfflineSt
+				node.StaticNode.Status = schema.OfflineSt
 				return
 			}
 		}
 
-		node.Status = models.UnKnown
+		node.Status = schema.UnKnown
+		node.StaticNode.Status = schema.UnKnown
 		return
 	}
 	if !node.Connected {
-		node.Status = models.Disconnected
+		node.Status = schema.Disconnected
 		return
 	}
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
-		node.Status = models.OfflineSt
+		node.Status = schema.OfflineSt
 		return
 	}
 	host := &schema.Host{
@@ -83,12 +92,12 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 	}
 	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		node.Status = models.UnKnown
+		node.Status = schema.UnKnown
 		return
 	}
 	vlt, err := logic.VersionLessThan(host.Version, "v0.30.0")
 	if err != nil {
-		node.Status = models.UnKnown
+		node.Status = schema.UnKnown
 		return
 	}
 	if vlt {
@@ -101,11 +110,11 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 	}
 	if metrics == nil || metrics.Connectivity == nil || len(metrics.Connectivity) == 0 {
 		if time.Since(node.LastCheckIn) < models.LastCheckInThreshold {
-			node.Status = models.OnlineSt
+			node.Status = schema.OnlineSt
 			return
 		}
 		if node.LastCheckIn.IsZero() {
-			node.Status = models.OfflineSt
+			node.Status = schema.OfflineSt
 			return
 		}
 	}
@@ -144,11 +153,56 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 	// 	}
 
 	// }
-	checkPeerConnectivity(node, metrics, defaultEnabledPolicy)
+	peers := buildPeerCache(node, metrics)
+	checkPeerConnectivity(node, metrics, defaultEnabledPolicy, peers)
 
 }
 
-func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
+// buildPeerCache fetches every node referenced (directly or transitively via
+// the metrics cache one level deep) from the source node's connectivity map in
+// a single batched DB query. The returned map keys are node IDs.
+//
+// This collapses the per-peer GetNodeByID storm that previously dominated
+// status computation: with P peers the old path issued O(P^2) preloaded
+// First() queries; this path issues exactly one IN-query.
+func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]models.Node {
+	if metrics == nil || len(metrics.Connectivity) == 0 {
+		return map[string]models.Node{}
+	}
+
+	idSet := make(map[string]struct{}, len(metrics.Connectivity)*2)
+	for peerID := range metrics.Connectivity {
+		idSet[peerID] = struct{}{}
+		// checkPeerStatus walks the peer's own connectivity map; pre-collect
+		// those IDs too so we can resolve everything in one query. GetMetrics
+		// is cache-backed so this loop is cheap.
+		peerMetrics, err := logic.GetMetrics(peerID)
+		if err != nil || peerMetrics == nil {
+			continue
+		}
+		for ppID := range peerMetrics.Connectivity {
+			idSet[ppID] = struct{}{}
+		}
+	}
+	if node != nil {
+		delete(idSet, node.ID.String())
+	}
+	if len(idSet) == 0 {
+		return map[string]models.Node{}
+	}
+
+	ids := make([]string, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+	peers, err := logic.GetNodesByIDs(ids)
+	if err != nil {
+		return map[string]models.Node{}
+	}
+	return peers
+}
+
+func CheckPeerStatus(node *models.Node, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	metrics, err := logic.GetMetrics(node.ID.String())
 	if err != nil {
@@ -156,13 +210,13 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 	}
 	if metrics == nil || metrics.Connectivity == nil {
 		if time.Since(node.LastCheckIn) < models.LastCheckInThreshold {
-			node.Status = models.OnlineSt
+			node.Status = schema.OnlineSt
 			return
 		}
 	}
 	for peerID, metric := range metrics.Connectivity {
-		peer, err := logic.GetNodeByID(peerID)
-		if err != nil {
+		peer, ok := peers[peerID]
+		if !ok {
 			continue
 		}
 
@@ -179,28 +233,28 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 		if metric.Connected {
 			continue
 		}
-		if peer.Status == models.ErrorSt {
+		if peer.Status == schema.ErrorSt {
 			continue
 		}
 		peerNotConnectedCnt++
 
 	}
 	if peerNotConnectedCnt == 0 {
-		node.Status = models.OnlineSt
+		node.Status = schema.OnlineSt
 		return
 	}
 	if len(metrics.Connectivity) > 0 && peerNotConnectedCnt == len(metrics.Connectivity) {
-		node.Status = models.ErrorSt
+		node.Status = schema.ErrorSt
 		return
 	}
-	node.Status = models.WarningSt
+	node.Status = schema.WarningSt
 }
 
-func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool) {
+func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	for peerID, metric := range metrics.Connectivity {
-		peer, err := logic.GetNodeByID(peerID)
-		if err != nil {
+		peer, ok := peers[peerID]
+		if !ok {
 			continue
 		}
 
@@ -218,8 +272,8 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 			continue
 		}
 		// check if peer is in error state
-		checkPeerStatus(&peer, defaultAclPolicy)
-		if peer.Status == models.ErrorSt || peer.Status == models.WarningSt {
+		// checkPeerStatus(&peer, defaultAclPolicy, peers)
+		if peer.Status == schema.ErrorSt || peer.Status == schema.WarningSt {
 			continue
 		}
 		peerNotConnectedCnt++
@@ -227,15 +281,15 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 	}
 
 	if peerNotConnectedCnt > len(metrics.Connectivity)/2 {
-		node.Status = models.WarningSt
+		node.Status = schema.WarningSt
 		return
 	}
 
 	if len(metrics.Connectivity) > 0 && peerNotConnectedCnt == len(metrics.Connectivity) {
-		node.Status = models.ErrorSt
+		node.Status = schema.ErrorSt
 		return
 	}
 
-	node.Status = models.OnlineSt
+	node.Status = schema.OnlineSt
 
 }

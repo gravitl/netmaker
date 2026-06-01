@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
 
@@ -56,12 +57,15 @@ func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, er
 	return
 }
 
-func (ns *Nameserver) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Delete(&ns).Error
-}
-
-func (ns *Nameserver) DeleteByNetwork(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Delete(&ns).Error
+func (ns *Nameserver) Delete(ctx context.Context, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&Nameserver{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if ns.ID != "" {
+		query = query.Where("id = ?", ns.ID)
+	}
+	return query.Delete(&Nameserver{}).Error
 }
 
 func (ns *Nameserver) UpdateStatus(ctx context.Context) error {

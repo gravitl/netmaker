@@ -10,11 +10,11 @@ import (
 
 func GetCurrentServerUsage() (limits models.Usage) {
 	limits.SetDefaults()
-	hosts, hErr := GetAllHostsWithStatus(models.OnlineSt)
+	hosts, hErr := GetAllHostsWithStatus(schema.OnlineSt)
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
-	clients, cErr := GetAllExtClientsWithStatus(models.OnlineSt)
+	clients, cErr := GetAllExtClientsWithStatus(schema.OnlineSt)
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
