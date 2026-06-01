@@ -177,6 +177,10 @@ func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*model
 			return nil, errors.New("default enrollment keys require at least one network or tag")
 		}
 		key.Default = true
+		err = clearDefaultEnrollmentKeysForNetworks(networksForDefaultEnrollmentKey(key.Networks, key.Tags), "")
+		if err != nil {
+			return nil, err
+		}
 	} else if key.Default && !updates.Default {
 		key.Default = false
 	}
