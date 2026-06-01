@@ -226,6 +226,9 @@ func TestValidateEgressProOnlyFeatures(t *testing.T) {
 	if err := ValidateEgressProOnlyFeatures(schema.Egress{Domains: datatypes.JSONSlice[string]{"example.com"}}); err != ErrEgressProOnlyFeature {
 		t.Fatalf("domain egress on CE: got %v", err)
 	}
+	if err := ValidateEgressProOnlyFeatures(schema.Egress{Range: "*", Domains: datatypes.JSONSlice[string]{"example.com"}}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("domain egress on CE with inet gw range: got %v", err)
+	}
 	if err := ValidateEgressProOnlyFeatures(schema.Egress{Range: "192.168.0.0/16"}); err != nil {
 		t.Fatalf("cidr egress on CE: got %v", err)
 	}
@@ -244,8 +247,14 @@ func TestValidateEgressReqProLimits(t *testing.T) {
 	if err := ValidateEgressReqProLimits(&models.EgressReq{Domains: []string{"a.com"}}); err != ErrEgressProOnlyFeature {
 		t.Fatalf("domains on CE: got %v", err)
 	}
-	if err := ValidateEgressReqProLimits(&models.EgressReq{Range: "*", Domains: []string{"a.com"}}); err != nil {
-		t.Fatalf("inet gw should skip pro check: got %v", err)
+	if err := ValidateEgressReqProLimits(&models.EgressReq{Range: "", PresetID: "github"}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("preset on CE with empty range: got %v", err)
+	}
+	if err := ValidateEgressReqProLimits(&models.EgressReq{Range: "*", PresetID: "github"}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("preset on CE with inet gw range: got %v", err)
+	}
+	if err := ValidateEgressReqProLimits(&models.EgressReq{Range: "*", Domains: []string{"a.com"}}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("domains on CE with inet gw range: got %v", err)
 	}
 }
 

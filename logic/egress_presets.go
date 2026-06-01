@@ -71,7 +71,7 @@ func RequiresProEgressType(e schema.Egress) bool {
 
 // ValidateEgressProOnlyFeatures rejects domain and app egress on Community Edition.
 func ValidateEgressProOnlyFeatures(e schema.Egress) error {
-	if servercfg.IsPro || IsEgressInternetGateway(e) {
+	if servercfg.IsPro {
 		return nil
 	}
 	if RequiresProEgressType(e) {
@@ -82,7 +82,7 @@ func ValidateEgressProOnlyFeatures(e schema.Egress) error {
 
 // ValidateEgressReqProLimits rejects domain/app fields on the API request before CE builds an egress.
 func ValidateEgressReqProLimits(req *models.EgressReq) error {
-	if req == nil || servercfg.IsPro || IsEgressReqInternetGateway(req) {
+	if req == nil || servercfg.IsPro {
 		return nil
 	}
 	if strings.TrimSpace(req.PresetID) != "" {
