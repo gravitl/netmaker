@@ -172,6 +172,14 @@ func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*model
 	key.Relay = relayID
 	key.Groups = updates.Groups
 	key.AutoAssignGateway = updates.AutoAssignGateway
+	if !key.Default && updates.Default {
+		if len(key.Groups) == 0 && len(key.Networks) == 0 {
+			return nil, errors.New("default enrollment keys require at least one network or tag")
+		}
+		key.Default = true
+	} else if key.Default && !updates.Default {
+		key.Default = false
+	}
 	if err = upsertEnrollmentKey(&key); err != nil {
 		return nil, err
 	}
