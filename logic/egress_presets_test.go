@@ -11,6 +11,8 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 func TestEgressPresetExtras_AllHaveUsableDomains(t *testing.T) {
@@ -210,6 +212,40 @@ func TestIsEgressAppEgress(t *testing.T) {
 	}
 	if IsEgressAppEgress(schema.Egress{}) {
 		t.Fatal("expected custom egress not to be an egress app")
+	}
+}
+
+func TestValidateEgressProOnlyFeatures(t *testing.T) {
+	wasPro := servercfg.IsPro
+	t.Cleanup(func() { servercfg.IsPro = wasPro })
+
+	servercfg.IsPro = false
+	if err := ValidateEgressProOnlyFeatures(schema.Egress{PresetID: "github"}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("app egress on CE: got %v", err)
+	}
+	if err := ValidateEgressProOnlyFeatures(schema.Egress{Domains: datatypes.JSONSlice[string]{"example.com"}}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("domain egress on CE: got %v", err)
+	}
+	if err := ValidateEgressProOnlyFeatures(schema.Egress{Range: "192.168.0.0/16"}); err != nil {
+		t.Fatalf("cidr egress on CE: got %v", err)
+	}
+
+	servercfg.IsPro = true
+	if err := ValidateEgressProOnlyFeatures(schema.Egress{PresetID: "github"}); err != nil {
+		t.Fatalf("app egress on pro: got %v", err)
+	}
+}
+
+func TestValidateEgressReqProLimits(t *testing.T) {
+	wasPro := servercfg.IsPro
+	t.Cleanup(func() { servercfg.IsPro = wasPro })
+	servercfg.IsPro = false
+
+	if err := ValidateEgressReqProLimits(&models.EgressReq{Domains: []string{"a.com"}}); err != ErrEgressProOnlyFeature {
+		t.Fatalf("domains on CE: got %v", err)
+	}
+	if err := ValidateEgressReqProLimits(&models.EgressReq{Range: "*", Domains: []string{"a.com"}}); err != nil {
+		t.Fatalf("inet gw should skip pro check: got %v", err)
 	}
 }
 

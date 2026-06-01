@@ -703,8 +703,6 @@ definitions:
         type: array
       id:
         type: string
-      is_internet_gateway:
-        type: boolean
       mode:
         $ref: '#/definitions/schema.EgressNATMode'
       name:
@@ -721,6 +719,7 @@ definitions:
         description: PresetID optional: reference to a catalog preset (see GET /api/v1/egress/presets). Explicit name/domain in the body override preset defaults.
         type: string
       range:
+        description: CIDR for routed egress, or "*" for internet gateway egress.
         type: string
       status:
         type: boolean
