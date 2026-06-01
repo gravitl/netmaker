@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
@@ -193,6 +194,21 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
+
+	username := r.Header.Get("user")
+	if username != logic.MasterUser {
+		user := &schema.User{Username: username}
+		if err := user.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), logic.Forbidden))
+			return
+		}
+		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("only platform admins can delete networks"), logic.Forbidden))
+			return
+		}
+	}
+
 	force := r.URL.Query().Get("force") == "true"
 	var params = mux.Vars(r)
 	network := params["networkname"]
@@ -232,7 +248,20 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		_ = logic.DeleteNetworkNameservers(network)
+		err = (&schema.Nameserver{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network_id", network))
+		if err != nil {
+			slog.Error("error deleting network nameservers", "network", network, "error", err)
+		}
+
+		err = (&schema.Egress{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network", network))
+		if err != nil {
+			slog.Error("error deleting network egress rules", "network", network, "error", err)
+		}
+
+		err = (&schema.PostureCheck{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network_id", network))
+		if err != nil {
+			slog.Error("error deleting network posture checks", "network", network, "error", err)
+		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,

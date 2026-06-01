@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -32,12 +33,15 @@ func Run() {
 	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
+	updateNewAcls()
+	migrateEgressDomains()
 	logic.CleanupGwsMigration()
 	updateNetworks()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
 	migrateEgressNatMode()
+	cleanUpDeleteNetworksRefs()
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
@@ -489,6 +493,41 @@ func createDefaultTagsAndPolicies() {
 	}
 }
 
+// migrateEgressDomains copies the legacy DB column "domain" (singular) into "domains" only.
+// Resolved IPs use domain_ans_by_domain at runtime; legacy domain_ans is not migrated.
+func migrateEgressDomains() {
+	egs, err := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, "migration: failed to list egresses:", err.Error())
+		return
+	}
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+	for _, eg := range egs {
+		if len(eg.Domains) > 0 {
+			continue
+		}
+		var legacyDomain string
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Pluck("domain", &legacyDomain).Error; err != nil {
+			logger.Log(0, "migration: failed to read legacy egress domain:", eg.ID, err.Error())
+			continue
+		}
+		legacyDomain = strings.TrimSpace(legacyDomain)
+		if legacyDomain == "" {
+			continue
+		}
+		normDomains, err := logic.NormalizeEgressReqDomains([]string{legacyDomain})
+		if err != nil || len(normDomains) == 0 {
+			logger.Log(0, "migration: invalid legacy egress domain:", eg.ID, legacyDomain)
+			continue
+		}
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
+			"domains": datatypes.JSONSlice[string](normDomains),
+		}).Error; err != nil {
+			logger.Log(0, "migration: failed to update egress domains:", eg.ID, err.Error())
+		}
+	}
+}
+
 func migrateSettings() {
 	settingsD := make(map[string]interface{})
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
@@ -656,7 +695,7 @@ func migrateNameservers() {
 }
 
 func migrateEgressNatMode() {
-	egresses, _ := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
 	for _, egress := range egresses {
 		if egress.Nat {
 			if egress.Mode == "" {
@@ -667,5 +706,51 @@ func migrateEgressNatMode() {
 		}
 
 		_ = egress.Update(db.WithContext(context.TODO()))
+	}
+}
+
+func cleanUpDeleteNetworksRefs() {
+	networksMap := make(map[string]bool)
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		networksMap[network.Name] = true
+	}
+
+	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
+	for key, record := range records {
+		var entry models.DNSEntry
+		err := json.Unmarshal([]byte(record), &entry)
+		if err != nil {
+			continue
+		}
+
+		_, ok := networksMap[entry.Network]
+		if !ok {
+			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
+	}
+
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		_, ok := networksMap[nameserver.NetworkID]
+		if !ok {
+			_ = nameserver.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		_, ok := networksMap[egress.Network]
+		if !ok {
+			_ = egress.Delete(db.WithContext(context.TODO()))
+		}
+	}
+
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		_, ok := networksMap[postureCheck.NetworkID.String()]
+		if !ok {
+			_ = postureCheck.Delete(db.WithContext(context.TODO()))
+		}
 	}
 }

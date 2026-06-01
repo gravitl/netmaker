@@ -19,10 +19,25 @@ import (
 )
 
 func egressHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/egress/presets", logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(createEgress))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(listEgress))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(updateEgress))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(deleteEgress))).Methods(http.MethodDelete)
+}
+
+// @Summary     List egress domain presets
+// @Router      /api/v1/egress/presets [get]
+// @Tags        Egress
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     401 {object} models.ErrorResponse
+func getEgressPresets(w http.ResponseWriter, r *http.Request) {
+	presets := logic.ListEgressPresets()
+	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{
+		"presetApps": presets,
+	}, "fetched egress preset catalog")
 }
 
 // @Summary     Create Egress Resource
@@ -46,29 +61,45 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.PresetID != "" {
+		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domains)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.IsInetGw {
+		normDomains = nil
+	}
+	req.Domains = normDomains
+	var resolvedCIDRs []string
+	if req.PresetID != "" {
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsAWSIPRanges(p) {
+			if c, err := logic.ResolveAWSEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+				resolvedCIDRs = c
+			} else if err != nil {
+				logger.Log(0, "aws preset ip fetch failed:", req.PresetID, err.Error())
+			}
+		}
+	}
 	var egressRange string
 	if !req.IsInetGw {
-		if req.Range != "" {
-			var err error
+		if len(normDomains) > 0 {
+			egressRange = ""
+		} else if req.Range != "" {
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 		}
-
-		if req.Domain != "" {
-			isDomain := logic.IsFQDN(req.Domain)
-			if !isDomain {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
-				return
-			}
-
-			egressRange = ""
-		}
 	} else {
 		egressRange = "*"
-		req.Domain = ""
+		req.Domains = nil
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -82,22 +113,19 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Network:     req.Network,
 		Description: req.Description,
 		Range:       egressRange,
-		Domain:      req.Domain,
-		DomainAns:   []string{},
 		Nat:         req.Nat,
 		Mode:        req.Mode,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
+		PresetID:    req.PresetID,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
-		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
+	if len(resolvedCIDRs) > 0 {
+		logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
 	}
-	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	if len(req.Tags) > 0 {
 		for tagID, metric := range req.Tags {
 			e.Tags[tagID] = metric
@@ -112,6 +140,12 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
+		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	err = e.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -145,7 +179,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
-	if req.Domain != "" {
+	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -159,20 +193,21 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				mq.HostUpdate(&models.HostUpdate{
-					Action: models.EgressUpdate,
-					Host:   *host,
-					EgressDomain: models.EgressDomain{
-						ID:     e.ID,
+				for _, dom := range normDomains {
+					mq.HostUpdate(&models.HostUpdate{
+						Action: models.EgressUpdate,
 						Host:   *host,
-						Node:   node,
-						Domain: e.Domain,
-					},
-					Node: node,
-				})
+						EgressDomain: models.EgressDomain{
+							ID:     e.ID,
+							Host:   *host,
+							Node:   node,
+							Domain: dom,
+						},
+						Node: node,
+					})
+				}
 			}
 		}
-
 	} else {
 		go mq.PublishPeerUpdate(false)
 	}
@@ -231,6 +266,21 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.PresetID != "" {
+		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	normDomains, err := logic.NormalizeEgressReqDomains(req.Domains)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.IsInetGw {
+		normDomains = nil
+	}
+	req.Domains = normDomains
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
 	if err != nil {
@@ -239,27 +289,18 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	var egressRange string
 	if !req.IsInetGw {
-		if req.Range != "" {
-			var err error
+		if len(normDomains) > 0 {
+			egressRange = ""
+		} else if req.Range != "" {
 			egressRange, err = logic.NormalizeCIDR(req.Range)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 		}
-
-		if req.Domain != "" {
-			isDomain := logic.IsFQDN(req.Domain)
-			if !isDomain {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
-				return
-			}
-
-			egressRange = ""
-		}
 	} else {
 		egressRange = "*"
-		req.Domain = ""
+		req.Domains = nil
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -268,35 +309,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// Store old mode for comparison (before we modify e)
+	oldConfigured := logic.ConfiguredDomainsForEgress(e)
+	oldPresetID := e.PresetID
 	oldMode := e.Mode
 
-	// Update Range first so AssignVirtualRangeToEgress can use the correct range
 	e.Range = egressRange
-
-	// Update mode and NAT before calling AssignVirtualRangeToEgress
-	// This ensures the function sees the new values
-	if req.Mode != schema.VirtualNAT || !req.Nat {
-		e.Mode = schema.DirectNAT
-		if !req.Nat {
-			e.Mode = ""
-		}
-		e.Nat = req.Nat
-		e.VirtualRange = ""
-	} else {
-		// Switching to virtual NAT mode
-		e.Mode = req.Mode
-		e.Nat = req.Nat
-		// Assign virtual range if switching to virtual NAT mode from a different mode,
-		// or if already in virtual NAT mode but virtual range is empty
-		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
-			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
-				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	}
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -328,36 +345,70 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			e.Nodes[nodeID] = metric
 		}
 	}
-	if e.Domain != req.Domain {
-		e.DomainAns = datatypes.JSONSlice[string]{}
+	if !logic.EgressDomainsEqual(oldConfigured, normDomains) {
+		logic.ClearEgressDomainAns(&e)
 	}
-	// Update fields from request (Mode and Nat are already set correctly above)
-	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
-	e.Domain = req.Domain
+	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	e.Status = req.Status
+	if req.PresetID != "" {
+		e.PresetID = req.PresetID
+	}
+	if !req.Nat {
+		e.Nat = false
+		e.Mode = schema.DisabledNAT
+		e.VirtualRange = ""
+	} else if req.Mode == schema.VirtualNAT {
+		e.Nat = true
+		e.Mode = schema.VirtualNAT
+	} else {
+		e.Nat = true
+		e.Mode = schema.DirectNAT
+		e.VirtualRange = ""
+	}
+	presetChanged := req.PresetID != "" && req.PresetID != oldPresetID
+	domainsChanged := !logic.EgressDomainsEqual(oldConfigured, normDomains)
+	if req.PresetID != "" && (presetChanged || domainsChanged) {
+		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsAWSIPRanges(p) {
+			if c, err := logic.ResolveAWSEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
+				logic.SetEgressDomainAnsForDomains(&e, normDomains, c)
+			} else if err != nil {
+				logger.Log(0, "aws preset ip fetch failed:", req.PresetID, err.Error())
+			}
+		}
+	}
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if e.Nat && e.Mode == schema.VirtualNAT {
+		if (oldMode != schema.VirtualNAT) || (e.VirtualRange == "") {
+			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
+				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		}
+	}
 
 	// Build update map with all fields including zero values
 	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
 	updateMap := map[string]any{
-		"name":          e.Name,
-		"description":   e.Description,
-		"range":         e.Range,
-		"domain":        e.Domain,
-		"nat":           e.Nat,
-		"mode":          e.Mode,
-		"status":        e.Status,
-		"nodes":         e.Nodes,
-		"tags":          e.Tags,
-		"domain_ans":    e.DomainAns,
-		"virtual_range": e.VirtualRange,
-		"updated_at":    e.UpdatedAt,
+		"name":                 e.Name,
+		"description":          e.Description,
+		"range":                e.Range,
+		"domains":              e.Domains,
+		"nat":                  e.Nat,
+		"mode":                 e.Mode,
+		"status":               e.Status,
+		"nodes":                e.Nodes,
+		"tags":                 e.Tags,
+		"domain_ans_by_domain": e.DomainAnsByDomain,
+		"virtual_range":        e.VirtualRange,
+		"preset_id":            e.PresetID,
+		"updated_at":           e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values
@@ -372,7 +423,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
-	if req.Domain != "" {
+	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -386,20 +437,21 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				mq.HostUpdate(&models.HostUpdate{
-					Action: models.EgressUpdate,
-					Host:   *host,
-					EgressDomain: models.EgressDomain{
-						ID:     e.ID,
+				for _, dom := range normDomains {
+					mq.HostUpdate(&models.HostUpdate{
+						Action: models.EgressUpdate,
 						Host:   *host,
-						Node:   node,
-						Domain: e.Domain,
-					},
-					Node: node,
-				})
+						EgressDomain: models.EgressDomain{
+							ID:     e.ID,
+							Host:   *host,
+							Node:   node,
+							Domain: dom,
+						},
+						Node: node,
+					})
+				}
 			}
 		}
-
 	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")

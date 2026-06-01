@@ -147,6 +147,9 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 func getClientCount(nodes []schema.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
+		if node.Host == nil {
+			continue
+		}
 		switch node.Host.OS {
 		case "darwin":
 			count.MacOS += 1

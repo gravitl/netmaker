@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -34,6 +35,10 @@ func migrateV1_5_2(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.PENDING_USERS_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -64,6 +69,10 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.USER_INVITES_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.USER_INVITES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -97,6 +106,10 @@ func migrateUserInvites(ctx context.Context) error {
 }
 
 func migrateNodes(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.NODES_TABLE_NAME) {
+		return nil
+	}
+
 	records, err := kvList(ctx, database.NODES_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
