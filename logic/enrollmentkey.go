@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -89,10 +90,54 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks,
 			return nil, errors.New("relay node is not a relay")
 		}
 	}
+	if defaultKey {
+		if err := clearDefaultEnrollmentKeysForNetworks(networksForDefaultEnrollmentKey(k.Networks, k.Tags), ""); err != nil {
+			return nil, err
+		}
+	}
 	if err = upsertEnrollmentKey(k); err != nil {
 		return nil, err
 	}
 	return k, nil
+}
+
+// RegenerateEnrollmentKeyToken replaces the enrollment key value, invalidating any
+// previously issued registration tokens while preserving key configuration.
+func RegenerateEnrollmentKeyToken(keyID string) (*models.EnrollmentKey, error) {
+	key, err := GetEnrollmentKey(keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	oldValue := key.Value
+	newValue, err := getUniqueEnrollmentID()
+	if err != nil {
+		return nil, err
+	}
+
+	key.Value = newValue
+	key.Token = ""
+	if err := key.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := upsertEnrollmentKey(&key); err != nil {
+		return nil, err
+	}
+	if err := database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, oldValue); err != nil {
+		if !database.IsEmptyRecord(err) {
+			// best-effort rollback: remove the newly written key to avoid duplicates
+			_ = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, key.Value)
+			if servercfg.CacheEnabled() {
+				deleteEnrollmentkeyFromCache(key.Value)
+			}
+			return nil, err
+		}
+	}
+	if servercfg.CacheEnabled() {
+		deleteEnrollmentkeyFromCache(oldValue)
+	}
+	return &key, nil
 }
 
 // UpdateEnrollmentKey - updates an existing enrollment key's associated relay
@@ -145,6 +190,89 @@ func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
 		currentKeysList = append(currentKeysList, currentKeys[k])
 	}
 	return currentKeysList, nil
+}
+
+func enrollmentKeyAppliesToNetwork(key models.EnrollmentKey, network string) bool {
+	if slices.Contains(key.Networks, network) {
+		return true
+	}
+	return len(key.Tags) > 0 && key.Tags[0] == network
+}
+
+func networksForDefaultEnrollmentKey(networks, tags []string) []string {
+	seen := make(map[string]struct{}, len(networks)+1)
+	out := make([]string, 0, len(networks)+1)
+	add := func(n string) {
+		if n == "" {
+			return
+		}
+		if _, ok := seen[n]; ok {
+			return
+		}
+		seen[n] = struct{}{}
+		out = append(out, n)
+	}
+	for _, n := range networks {
+		add(n)
+	}
+	if len(tags) > 0 {
+		add(tags[0])
+	}
+	return out
+}
+
+// clearDefaultEnrollmentKeysForNetworks unsets Default on any existing default keys
+// for the given networks, except the key identified by exceptValue (if non-empty).
+func clearDefaultEnrollmentKeysForNetworks(networks []string, exceptValue string) error {
+	if len(networks) == 0 {
+		return nil
+	}
+	keys, err := GetAllEnrollmentKeys()
+	if err != nil {
+		return err
+	}
+	networkSet := make(map[string]struct{}, len(networks))
+	for _, n := range networks {
+		networkSet[n] = struct{}{}
+	}
+	for i := range keys {
+		if !keys[i].Default || keys[i].Value == exceptValue {
+			continue
+		}
+		applies := false
+		for network := range networkSet {
+			if enrollmentKeyAppliesToNetwork(keys[i], network) {
+				applies = true
+				break
+			}
+		}
+		if !applies {
+			continue
+		}
+		keys[i].Default = false
+		if err := upsertEnrollmentKey(&keys[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetDefaultEnrollmentKeyForNetwork returns the default enrollment key for a network.
+func GetDefaultEnrollmentKeyForNetwork(network string) (models.EnrollmentKey, error) {
+	keys, err := GetAllEnrollmentKeys()
+	if err != nil {
+		return models.EnrollmentKey{}, err
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Value < keys[j].Value })
+	for _, key := range keys {
+		if !key.Default {
+			continue
+		}
+		if enrollmentKeyAppliesToNetwork(key, network) {
+			return key, nil
+		}
+	}
+	return models.EnrollmentKey{}, EnrollmentErrors.NoKeyFound
 }
 
 // GetEnrollmentKey - fetches a single enrollment key

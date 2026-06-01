@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/serverctl"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 
@@ -30,21 +29,22 @@ func Run() {
 	migrateSettings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	updateNewAcls()
 	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
 	updateNewAcls()
-	logic.MigrateToGws()
-	migrateToEgressV1()
+	migrateEgressDomains()
+	logic.CleanupGwsMigration()
 	updateNetworks()
-	resync()
 	deleteOldExtclients()
 	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
+	migrateEgressNatMode()
+	cleanUpDeleteNetworksRefs()
 
 	logic.InitialiseRoles()
 	logic.IntialiseGroups()
-	_ = serverctl.SetDefaults()
 }
 
 func updateNetworks() {
@@ -134,49 +134,6 @@ func isValidVNATPool(pool string) bool {
 	}
 	_, _, err := net.ParseCIDR(pool)
 	return err == nil
-}
-
-// removes if any stale configurations from previous run.
-func resync() {
-
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		if !node.IsGw {
-			if len(node.RelayedNodes) > 0 {
-				logic.DeleteRelay(node.Network, node.ID.String())
-			}
-			if node.IsIngressGateway {
-				logic.DeleteIngressGateway(node.ID.String())
-			}
-			if len(node.InetNodeReq.InetNodeClientIDs) > 0 || node.IsInternetGateway {
-				logic.UnsetInternetGw(&node)
-				logic.UpsertNode(&node)
-			}
-		}
-		if node.IsRelayed {
-			if node.RelayedBy == "" {
-				node.IsRelayed = false
-				node.InternetGwID = ""
-				logic.UpsertNode(&node)
-			}
-			if node.RelayedBy != "" {
-				// check if node exists
-				_, err := logic.GetNodeByID(node.RelayedBy)
-				if err != nil {
-					node.RelayedBy = ""
-					node.InternetGwID = ""
-					logic.UpsertNode(&node)
-				}
-			}
-		}
-		if node.InternetGwID != "" {
-			_, err := logic.GetNodeByID(node.InternetGwID)
-			if err != nil {
-				node.InternetGwID = ""
-				logic.UpsertNode(&node)
-			}
-		}
-	}
 }
 
 func assignSuperAdmin() {
@@ -322,10 +279,6 @@ func updateNodes() {
 	}
 	for _, node := range nodes {
 		node := node
-		if node.Tags == nil {
-			node.Tags = make(map[models.TagID]struct{})
-			logic.UpsertNode(&node)
-		}
 		if node.IsIngressGateway {
 			host := &schema.Host{
 				ID: node.HostID,
@@ -334,24 +287,6 @@ func updateNodes() {
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
-		}
-		if node.IsEgressGateway {
-			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
-			if update {
-				node.EgressGatewayRequest.Ranges = egressRanges
-				node.EgressGatewayRanges = egressRanges
-				logic.UpsertNode(&node)
-			}
-			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
-				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
-					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
-						Network:     egressRangeI,
-						RouteMetric: 256,
-					})
-				}
-				logic.UpsertNode(&node)
-			}
-
 		}
 	}
 	extclients, _ := logic.GetAllExtClients()
@@ -558,115 +493,37 @@ func createDefaultTagsAndPolicies() {
 	}
 }
 
-func migrateToEgressV1() {
-	nodes, _ := logic.GetAllNodes()
-	user, err := logic.GetSuperAdmin()
+// migrateEgressDomains copies the legacy DB column "domain" (singular) into "domains" only.
+// Resolved IPs use domain_ans_by_domain at runtime; legacy domain_ans is not migrated.
+func migrateEgressDomains() {
+	egs, err := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
+		logger.Log(0, "migration: failed to list egresses:", err.Error())
 		return
 	}
-	for _, node := range nodes {
-		if node.IsEgressGateway {
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			err := host.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				continue
-			}
-			for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
-				e := &schema.Egress{Range: rangeMetric.Network}
-				if err := e.DoesEgressRouteExists(db.WithContext(context.TODO())); err == nil {
-					e.Nodes[node.ID.String()] = rangeMetric.RouteMetric
-					e.Update(db.WithContext(context.TODO()))
-					continue
-				}
-				e = &schema.Egress{
-					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
-					Description: "",
-					Network:     node.Network,
-					Nodes: datatypes.JSONMap{
-						node.ID.String(): rangeMetric.RouteMetric,
-					},
-					Tags:      make(datatypes.JSONMap),
-					Range:     rangeMetric.Network,
-					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
-					Status:    true,
-					CreatedBy: user.UserName,
-					CreatedAt: time.Now().UTC(),
-				}
-				if !e.Nat {
-					e.Mode = schema.DisabledNAT
-				}
-				err = e.Create(db.WithContext(context.TODO()))
-				if err == nil {
-					acl := models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.DevicePolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.NodeTagID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-					acl = models.Acl{
-						ID:          uuid.New().String(),
-						Name:        "egress node policy",
-						MetaData:    "",
-						Default:     false,
-						ServiceType: models.Any,
-						NetworkID:   schema.NetworkID(node.Network),
-						Proto:       models.ALL,
-						RuleType:    models.UserPolicy,
-						Src: []models.AclPolicyTag{
-
-							{
-								ID:    models.UserAclID,
-								Value: "*",
-							},
-						},
-						Dst: []models.AclPolicyTag{
-							{
-								ID:    models.EgressID,
-								Value: e.ID,
-							},
-						},
-
-						AllowedDirection: models.TrafficDirectionBi,
-						Enabled:          true,
-						CreatedBy:        "auto",
-						CreatedAt:        time.Now().UTC(),
-					}
-					logic.InsertAcl(acl)
-				}
-
-			}
-			node.IsEgressGateway = false
-			node.EgressGatewayRequest = models.EgressGatewayRequest{}
-			node.EgressGatewayNatEnabled = false
-			node.EgressGatewayRanges = []string{}
-			logic.UpsertNode(&node)
-
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+	for _, eg := range egs {
+		if len(eg.Domains) > 0 {
+			continue
+		}
+		var legacyDomain string
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Pluck("domain", &legacyDomain).Error; err != nil {
+			logger.Log(0, "migration: failed to read legacy egress domain:", eg.ID, err.Error())
+			continue
+		}
+		legacyDomain = strings.TrimSpace(legacyDomain)
+		if legacyDomain == "" {
+			continue
+		}
+		normDomains, err := logic.NormalizeEgressReqDomains([]string{legacyDomain})
+		if err != nil || len(normDomains) == 0 {
+			logger.Log(0, "migration: invalid legacy egress domain:", eg.ID, legacyDomain)
+			continue
+		}
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Updates(map[string]any{
+			"domains": datatypes.JSONSlice[string](normDomains),
+		}).Error; err != nil {
+			logger.Log(0, "migration: failed to update egress domains:", eg.ID, err.Error())
 		}
 	}
 }
@@ -835,65 +692,65 @@ func migrateNameservers() {
 			_ = nameserver.Update(db.WithContext(context.TODO()))
 		}
 	}
+}
 
-	superAdmin := &schema.User{}
-	err := superAdmin.GetSuperAdmin(db.WithContext(context.TODO()))
-	if err != nil {
-		return
+func migrateEgressNatMode() {
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		if egress.Nat {
+			if egress.Mode == "" {
+				egress.Mode = schema.DirectNAT
+			}
+		} else {
+			egress.Mode = schema.DisabledNAT
+		}
+
+		_ = egress.Update(db.WithContext(context.TODO()))
+	}
+}
+
+func cleanUpDeleteNetworksRefs() {
+	networksMap := make(map[string]bool)
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		networksMap[network.Name] = true
 	}
 
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		if !node.IsGw {
+	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
+	for key, record := range records {
+		var entry models.DNSEntry
+		err := json.Unmarshal([]byte(record), &entry)
+		if err != nil {
 			continue
 		}
 
-		if node.IngressDNS != "" {
-			var nsIPs []string
-			for _, nsIP := range strings.Split(node.IngressDNS, ",") {
-				nsIP = strings.TrimSpace(nsIP)
+		_, ok := networksMap[entry.Network]
+		if !ok {
+			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
+	}
 
-				if (node.Address.IP != nil && node.Address.IP.String() == nsIP) ||
-					(node.Address6.IP != nil && node.Address6.IP.String() == nsIP) {
-					continue
-				}
-				if nsIP == "8.8.8.8" || nsIP == "1.1.1.1" || nsIP == "9.9.9.9" {
-					continue
-				}
+	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
+	for _, nameserver := range nameservers {
+		_, ok := networksMap[nameserver.NetworkID]
+		if !ok {
+			_ = nameserver.Delete(db.WithContext(context.TODO()))
+		}
+	}
 
-				nsIPs = append(nsIPs, nsIP)
-			}
+	egresses, _ := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
+	for _, egress := range egresses {
+		_, ok := networksMap[egress.Network]
+		if !ok {
+			_ = egress.Delete(db.WithContext(context.TODO()))
+		}
+	}
 
-			if len(nsIPs) > 0 {
-				host := &schema.Host{
-					ID: node.HostID,
-				}
-				err := host.Get(db.WithContext(context.TODO()))
-				if err != nil {
-					continue
-				}
-				ns := schema.Nameserver{
-					ID:        uuid.NewString(),
-					Name:      fmt.Sprintf("%s gw nameservers", host.Name),
-					NetworkID: node.Network,
-					Servers:   nsIPs,
-					MatchAll:  true,
-					Domains: []schema.NameserverDomain{
-						{
-							Domain: ".",
-						},
-					},
-					Nodes: datatypes.JSONMap{
-						node.ID.String(): struct{}{},
-					},
-					Tags:      make(datatypes.JSONMap),
-					Status:    true,
-					CreatedBy: superAdmin.Username,
-				}
-				_ = ns.Create(db.WithContext(context.TODO()))
-				node.IngressDNS = ""
-				_ = logic.UpsertNode(&node)
-			}
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	for _, postureCheck := range postureChecks {
+		_, ok := networksMap[postureCheck.NetworkID.String()]
+		if !ok {
+			_ = postureCheck.Delete(db.WithContext(context.TODO()))
 		}
 	}
 }

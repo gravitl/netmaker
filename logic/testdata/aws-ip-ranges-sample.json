@@ -1,0 +1,20 @@
+{
+  "syncToken": "1",
+  "createDate": "2024-01-01-00-00-00",
+  "prefixes": [
+    {
+      "ip_prefix": "10.0.0.0/16",
+      "region": "us-east-1",
+      "service": "S3",
+      "network_border_group": "us-east-1"
+    }
+  ],
+  "ipv6_prefixes": [
+    {
+      "ipv6_prefix": "2001:db8::/32",
+      "region": "us-east-1",
+      "service": "S3",
+      "network_border_group": "us-east-1"
+    }
+  ]
+}

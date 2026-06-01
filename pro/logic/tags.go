@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -64,17 +67,20 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 	if err != nil {
 		return err
 	}
-	nodes, err := logic.GetNetworkNodes(tag.Network.String())
+	network := &schema.Network{
+		Name: tag.Network.String(),
+	}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	for _, nodeI := range nodes {
-		nodeI := nodeI
-		if _, ok := nodeI.Tags[tagID]; ok {
-			delete(nodeI.Tags, tagID)
-			logic.UpsertNode(&nodeI)
-		}
-	}
+
+	_ = (&schema.Node{}).UnassignTag(
+		db.WithContext(context.TODO()),
+		tag.ID.String(),
+		dbtypes.WithFilter("network_id", network.ID),
+	)
+
 	if removeFromPolicy {
 		// remove tag used on acl policy
 		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
@@ -115,27 +121,7 @@ func DeleteAllNetworkTags(networkID schema.NetworkID) {
 	}
 }
 
-// ListTags - lists all tags from DB
-func ListTags() ([]models.Tag, error) {
-	tagMutex.RLock()
-	defer tagMutex.RUnlock()
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return []models.Tag{}, err
-	}
-	tags := []models.Tag{}
-	for _, dataI := range data {
-		tag := models.Tag{}
-		err := json.Unmarshal([]byte(dataI), &tag)
-		if err != nil {
-			continue
-		}
-		tags = append(tags, tag)
-	}
-	return tags, nil
-}
-
-// ListTags - lists all tags from DB
+// ListNetworkTags - lists all tags in network
 func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
@@ -162,104 +148,70 @@ func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	var err error
-	tagNodesMap := GetNodesWithTag(req.ID)
-	for _, apiNode := range req.TaggedNodes {
-		node := models.Node{}
-		var nodeID string
-		if apiNode.IsStatic {
-			if apiNode.StaticNode.RemoteAccessClientID != "" {
-				continue
-			}
-			extclient, err := logic.GetExtClient(apiNode.StaticNode.ClientID, apiNode.StaticNode.Network)
-			if err != nil {
-				continue
-			}
-			node.IsStatic = true
-			nodeID = extclient.ClientID
-			node.StaticNode = extclient
-		} else {
-			node, err = logic.GetNodeByID(apiNode.ID)
-			if err != nil {
-				continue
-			}
-			nodeID = node.ID.String()
-		}
-
-		if _, ok := tagNodesMap[nodeID]; !ok {
-			if node.StaticNode.Tags == nil {
-				node.StaticNode.Tags = make(map[models.TagID]struct{})
-			}
-			if node.Tags == nil {
-				node.Tags = make(map[models.TagID]struct{})
-			}
-			if newID != "" {
-				if node.IsStatic {
-					node.StaticNode.Tags[newID] = struct{}{}
-					logic.SaveExtClient(&node.StaticNode)
-				} else {
-					node.Tags[newID] = struct{}{}
-					logic.UpsertNode(&node)
-				}
-
-			} else {
-				if node.IsStatic {
-					node.StaticNode.Tags[req.ID] = struct{}{}
-					logic.SaveExtClient(&node.StaticNode)
-				} else {
-					node.Tags[req.ID] = struct{}{}
-					logic.UpsertNode(&node)
-				}
-			}
-		} else {
-			if newID != "" {
-				delete(node.Tags, req.ID)
-				delete(node.StaticNode.Tags, req.ID)
-				if node.IsStatic {
-					node.StaticNode.Tags[newID] = struct{}{}
-					logic.SaveExtClient(&node.StaticNode)
-				} else {
-					node.Tags[newID] = struct{}{}
-					logic.UpsertNode(&node)
-				}
-			}
-			delete(tagNodesMap, nodeID)
-		}
-
+	network := &schema.Network{
+		Name: req.Network.String(),
 	}
-	for _, deletedTaggedNode := range tagNodesMap {
-		delete(deletedTaggedNode.Tags, req.ID)
-		delete(deletedTaggedNode.StaticNode.Tags, req.ID)
-		if deletedTaggedNode.IsStatic {
-			logic.SaveExtClient(&deletedTaggedNode.StaticNode)
+	err := network.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	var taggedNodeIDs []interface{}
+	taggedExtclientIDs := map[string]struct{}{}
+	for _, node := range req.TaggedNodes {
+		if !node.IsStatic {
+			taggedNodeIDs = append(taggedNodeIDs, node.ID)
 		} else {
-			logic.UpsertNode(&deletedTaggedNode)
+			if node.StaticNode.RemoteAccessClientID != "" {
+				continue
+			}
+			taggedExtclientIDs[node.StaticNode.ClientID] = struct{}{}
 		}
 	}
-	go func(req models.UpdateTagReq) {
-		if newID != "" {
-			tagNodesMap = GetNodesWithTag(req.ID)
-			for _, nodeI := range tagNodesMap {
-				nodeI := nodeI
-				if nodeI.StaticNode.Tags == nil {
-					nodeI.StaticNode.Tags = make(map[models.TagID]struct{})
-				}
-				if nodeI.Tags == nil {
-					nodeI.Tags = make(map[models.TagID]struct{})
-				}
-				delete(nodeI.Tags, req.ID)
-				delete(nodeI.StaticNode.Tags, req.ID)
-				nodeI.Tags[newID] = struct{}{}
-				nodeI.StaticNode.Tags[newID] = struct{}{}
-				if nodeI.IsStatic {
-					logic.SaveExtClient(&nodeI.StaticNode)
-				} else {
-					logic.UpsertNode(&nodeI)
-				}
+
+	_ = (&schema.Node{}).UnassignTag(
+		db.WithContext(context.TODO()),
+		req.ID.String(),
+		dbtypes.WithFilter("network_id", network.ID),
+	)
+
+	tagID := req.ID
+	if newID != "" {
+		tagID = newID
+	}
+
+	// WithFilter skips adding the filter when no values are passed.
+	// So, even though it is expected to work, the effective query
+	// that's executed assigns the tag to all the nodes in the network.
+	// To avoid that ensure the taggedNodeIDs is non-empty.
+	if len(taggedNodeIDs) > 0 {
+		_ = (&schema.Node{}).AssignTag(
+			db.WithContext(context.TODO()),
+			tagID.String(),
+			dbtypes.WithFilter("network_id", network.ID),
+			dbtypes.WithFilter("id", taggedNodeIDs...),
+		)
+	}
+
+	extclients, _ := logic.GetNetworkExtClients(req.Network.String())
+	for _, extclient := range extclients {
+		if extclient.Tags == nil {
+			extclient.Tags = make(map[models.TagID]struct{})
+		}
+
+		// unassign old tag
+		if _, ok := extclient.Tags[req.ID]; ok {
+			if newID != "" {
+				delete(extclient.Tags, req.ID)
 			}
 		}
-	}(req)
 
+		// assign tag if in taggedExtclientIDs.
+		if _, ok := taggedExtclientIDs[extclient.ClientID]; ok {
+			extclient.Tags[tagID] = struct{}{}
+		}
+		_ = logic.SaveExtClient(&extclient)
+	}
 }
 
 // SortTagEntrys - Sorts slice of Tag entries by their id

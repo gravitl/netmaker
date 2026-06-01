@@ -7,17 +7,20 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -236,7 +239,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := (&schema.Host{}).ListAll(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
-		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -252,7 +255,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	total, err := (&schema.Host{}).Count(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
-		dbtypes.WithSearchQuery(q, "id", "name", "public_key", "endpoint_ip", "endpoint_ipv6"),
+		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -318,7 +321,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			logic.ResetFailedOverPeer(&node)
 			logic.ResetAutoRelayedPeer(&node)
 		}
 		go mq.PublishPeerUpdate(false)
@@ -446,11 +448,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-		if newHost.Name != currHost.Name {
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
-		}
 	}()
 
 	logic.LogEvent(&models.Event{
@@ -548,7 +545,44 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 	case models.UpdateMetrics:
-		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+		nodeID := hostUpdate.Node.ID.String()
+		mq.UpdateMetricsFallBack(nodeID, hostUpdate.NewMetrics)
+
+		go func(nodeID string) {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
+				return
+			}
+			extclients, err := logic.GetExtClientsByID(nodeID, node.Network)
+			if err != nil {
+				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
+				return
+			}
+
+			nodes := make([]models.Node, 0, len(extclients)+1)
+			nodes = append(nodes, node)
+			for _, extclient := range extclients {
+				nodes = append(nodes, extclient.ConvertToStaticNode())
+			}
+
+			nodesWithStatus := logic.AddStatusToNodes(nodes, true)
+			for _, node := range nodesWithStatus {
+				if node.IsStatic {
+					err = logic.SaveExtClient(&node.StaticNode)
+					if err != nil {
+						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
+						continue
+					}
+				} else {
+					err = logic.UpsertNode(&node)
+					if err != nil {
+						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
+						continue
+					}
+				}
+			}
+		}(nodeID)
 	case models.EgressUpdate:
 		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
 		err = e.Get(db.WithContext(r.Context()))
@@ -556,8 +590,13 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
 		}
-		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
-			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
+		if shouldApplyEgressDomainAnsUpdate(e, hostUpdate.Node.EgressGatewayRanges) {
+			domain := strings.TrimSpace(hostUpdate.EgressDomain.Domain)
+			if domain != "" {
+				logic.SetEgressDomainAnsForDomain(&e, domain, hostUpdate.Node.EgressGatewayRanges)
+			} else {
+				logic.SetEgressDomainAnsForDomains(&e, logic.ConfiguredDomainsForEgress(e), hostUpdate.Node.EgressGatewayRanges)
+			}
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
@@ -571,6 +610,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
 		if sendPeerUpdate {
+			slog.Debug("host update fallback", "action", hostUpdate.Action, "replacePeers", replacePeers)
 			err := mq.PublishPeerUpdate(replacePeers)
 			if err != nil {
 				slog.Error("failed to publish peer update", "error", err)
@@ -579,6 +619,16 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
+	if len(reportedRanges) == 0 {
+		return false
+	}
+	if logic.IsAWSEgressPreset(e.PresetID) && logic.HasEgressDomainAns(e) {
+		return false
+	}
+	return true
 }
 
 // @Summary     Deletes a Netclient host from Netmaker server
@@ -816,8 +866,8 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	hostIDStr := params["hostid"]
-	network := params["network"]
-	if hostIDStr == "" || network == "" {
+	networkID := params["network"]
+	if hostIDStr == "" || networkID == "" {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -833,67 +883,61 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// confirm host exists
-	currHost := &schema.Host{
+	host := &schema.Host{
 		ID: hostID,
 	}
-	err = currHost.Get(r.Context())
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to find host:", hostIDStr, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
+	network := &schema.Network{
+		Name: networkID,
+	}
+	err = network.Get(r.Context())
+	if err != nil {
+		err = fmt.Errorf("failed to add host (%s) to network (%s): error getting network: %v", hostID, networkID, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
-		ClientLocation: currHost.CountryCode,
-		ClientVersion:  currHost.Version,
-		OS:             currHost.OS,
-		OSFamily:       currHost.OSFamily,
-		OSVersion:      currHost.OSVersion,
-		KernelVersion:  currHost.KernelVersion,
+		ClientLocation: host.CountryCode,
+		ClientVersion:  host.Version,
+		OS:             host.OS,
+		OSFamily:       host.OSFamily,
+		OSVersion:      host.OSVersion,
+		KernelVersion:  host.KernelVersion,
 
 		SkipAutoUpdate: true,
-	}, schema.NetworkID(network))
+	}, schema.NetworkID(networkID))
 	if len(violations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
 	}
-	newNode, err := logic.UpdateHostNetwork(currHost, network, true)
+
+	_, err = orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network)
 	if err != nil {
-		logger.Log(
-			0,
-			r.Header.Get("user"),
-			"failed to add host to network:",
-			hostIDStr,
-			network,
-			err.Error(),
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		err = fmt.Errorf("failed to add host (%s) to network (%s): error creating node: %v", hostID, networkID, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-	if currHost.IsDefault {
-		// make host gateway
-		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
-		logic.CreateRelay(models.RelayRequest{
-			NodeID: newNode.ID.String(),
-			NetID:  network,
-		})
-	}
-	go func() {
-		mq.HostUpdate(&models.HostUpdate{
-			Action: models.JoinHostToNetwork,
-			Host:   *currHost,
-			Node:   *newNode,
-		})
-		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
-	}()
+
 	logger.Log(
 		2,
 		r.Header.Get("user"),
-		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
+		fmt.Sprintf("added host %s to network %s", host.Name, networkID),
 	)
 	logic.LogEvent(&models.Event{
 		Action: schema.JoinHostToNet,
@@ -904,11 +948,11 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   currHost.ID.String(),
-			Name: currHost.Name,
+			ID:   host.ID.String(),
+			Name: host.Name,
 			Type: schema.DeviceSub,
 		},
-		NetworkID: schema.NetworkID(network),
+		NetworkID: schema.NetworkID(networkID),
 		Origin:    schema.Dashboard,
 	})
 	w.WriteHeader(http.StatusOK)
@@ -1043,9 +1087,6 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		mq.PublishMqUpdatesForDeletedNode(*node, true)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.RemoveHostFromNet,
@@ -1597,16 +1638,25 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	netID := r.URL.Query().Get("network")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), logic.BadReq))
+		return
+	}
+	if p.Network != netID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), logic.BadReq))
+		return
+	}
 	hostID, err := uuid.Parse(p.HostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	h := &schema.Host{
+	host := &schema.Host{
 		ID: hostID,
 	}
-	err = h.Get(r.Context())
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,
@@ -1616,66 +1666,63 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	}
 	key := models.EnrollmentKey{}
 	json.Unmarshal(p.EnrollmentKey, &key)
-	newNode, err := logic.UpdateHostNetwork(h, p.Network, true)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
-			Code:    http.StatusBadRequest,
-			Message: err.Error(),
-		})
-		return
-	}
-	if key.AutoAssignGateway {
-		newNode.AutoAssignGateway = true
-	}
-	if len(key.Groups) > 0 {
-		newNode.Tags = make(map[models.TagID]struct{})
-		for _, tagI := range key.Groups {
-			newNode.Tags[tagI] = struct{}{}
-		}
-	}
-	if key.Relay != uuid.Nil && !newNode.IsRelayed {
-		// check if relay node exists and acting as relay
-		relaynode, err := logic.GetNodeByID(key.Relay.String())
-		if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
-			slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), key.Relay.String(), p.Network))
-			newNode.IsRelayed = true
-			newNode.RelayedBy = key.Relay.String()
-			updatedRelayNode := relaynode
-			updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
-			logic.UpdateRelayed(&relaynode, &updatedRelayNode)
-			if err := logic.UpsertNode(&updatedRelayNode); err != nil {
-				slog.Error("failed to update node", "nodeid", key.Relay.String())
-			}
-		} else {
-			slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
-		}
-	}
 
-	err = logic.UpsertNode(newNode)
+	network := &schema.Network{
+		Name: p.Network,
+	}
+	err = network.Get(r.Context())
 	if err != nil {
-		err = fmt.Errorf("failed to update node: %w", err)
-		slog.Error("failed to update node", "nodeid", newNode.ID.String())
+		err = fmt.Errorf("failed to approve pending host (%s): error getting network (%s): %w", id, p.Network, err)
+		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
-	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-	mq.HostUpdate(&models.HostUpdate{
-		Action: models.JoinHostToNetwork,
-		Host:   *h,
-		Node:   *newNode,
-	})
-	if h.IsDefault {
-		// make host gateway
-		logic.CreateIngressGateway(p.Network, newNode.ID.String(), models.IngressRequest{})
-		logic.CreateRelay(models.RelayRequest{
-			NodeID: newNode.ID.String(),
-			NetID:  p.Network,
-		})
+	if logic.DoesHostExistInTheNetworkAlready(host, network) {
+		err = fmt.Errorf("failed to approve pending host (%s): host already in network", hostID)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
 	}
+
+	keyTags := make(map[models.TagID]struct{})
+	if len(key.Groups) > 0 {
+		for _, tagI := range key.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	}
+
+	violations, _ := logic.CheckPostureViolations(
+		models.PostureCheckDeviceInfo{
+			ClientLocation: host.Location,
+			ClientVersion:  host.Version,
+			OS:             host.OS,
+			OSFamily:       host.OSFamily,
+			OSVersion:      host.OSVersion,
+			KernelVersion:  host.KernelVersion,
+			AutoUpdate:     host.AutoUpdate,
+			SkipAutoUpdate: true,
+			Tags:           keyTags,
+		},
+		schema.NetworkID(network.Name),
+	)
+	if len(violations) > 0 {
+		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(&key))
+	if err != nil {
+		err = fmt.Errorf("failed to approve pending host (%s): error creating node: %w", id, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	p.Delete(db.WithContext(r.Context()))
-	go mq.PublishPeerUpdate(false)
-	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ConvertSchemaNodeToApiNode(newNode), "added pending host to "+p.Network)
 }
 
 // @Summary     Reject pending host in a network
@@ -1721,29 +1768,34 @@ func addDefaultHostToNetworks(host *schema.Host) {
 		if !network.AutoJoin {
 			continue
 		}
-		newNode, err := logic.UpdateHostNetwork(host, network.Name, true)
+
+		if logic.DoesHostExistInTheNetworkAlready(host, &network) {
+			continue
+		}
+
+		violations, _ := logic.CheckPostureViolations(
+			models.PostureCheckDeviceInfo{
+				ClientLocation: host.Location,
+				ClientVersion:  host.Version,
+				OS:             host.OS,
+				OSFamily:       host.OSFamily,
+				OSVersion:      host.OSVersion,
+				KernelVersion:  host.KernelVersion,
+				AutoUpdate:     host.AutoUpdate,
+				SkipAutoUpdate: true,
+				Tags:           make(map[models.TagID]struct{}),
+			},
+			schema.NetworkID(network.Name),
+		)
+		if len(violations) > 0 {
+			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
+			continue
+		}
+
+		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network, orchestrator.SkipPublishPeerUpdate())
 		if err != nil {
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ":", err.Error())
 			continue
 		}
-		logger.Log(1, "added default host", host.Name, "to network", network.Name)
-		if len(host.Nodes) == 1 {
-			mq.HostUpdate(&models.HostUpdate{
-				Action: models.RequestPull,
-				Host:   *host,
-				Node:   *newNode,
-			})
-		} else {
-			mq.HostUpdate(&models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *host,
-				Node:   *newNode,
-			})
-		}
-		logic.CreateIngressGateway(network.Name, newNode.ID.String(), models.IngressRequest{})
-		logic.CreateRelay(models.RelayRequest{
-			NodeID: newNode.ID.String(),
-			NetID:  network.Name,
-		})
 	}
 }

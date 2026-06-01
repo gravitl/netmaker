@@ -22,29 +22,6 @@ import (
 )
 
 var (
-	// ResetFailOver - function to reset failOvered peers on this node
-	ResetFailOver = func(failOverNode *models.Node) error {
-		return nil
-	}
-	// ResetFailedOverPeer - removes failed over node from network peers
-	ResetFailedOverPeer = func(failedOverNode *models.Node) error {
-		return nil
-	}
-	// FailOverExists - check if failover node existed or not
-	FailOverExists = func(network string) (failOverNode models.Node, exists bool) {
-		return failOverNode, exists
-	}
-	// GetFailOverPeerIps - gets failover peerips
-	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
-		return []net.IPNet{}
-	}
-	// CreateFailOver - creates failover in a network
-	CreateFailOver = func(node models.Node) error {
-		return nil
-	}
-)
-
-var (
 	// ResetAutoRelay - function to reset autorelayed peers on this node
 	ResetAutoRelay = func(autoRelayNode *models.Node) error {
 		return nil
@@ -176,7 +153,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			continue
 		}
 
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
+		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE {
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
@@ -204,7 +181,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			} else {
 				allowedToComm = IsPeerAllowed(node, peer, false)
 			}
-			if peer.Action != models.NODE_DELETE &&
+			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				(allowedToComm) {
@@ -306,7 +283,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			continue
 		}
 
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE ||
+		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE ||
 			(!node.LastCheckIn.IsZero() && time.Since(node.LastCheckIn) > time.Hour) {
 			if deletedNode == nil || deletedNode.ID != node.ID {
 				continue
@@ -400,7 +377,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			if node.Mutex != nil {
 				node.Mutex.Lock()
 			}
-			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
+
 			peerAutoRelayID, isAutoRelayPeer := node.AutoRelayedPeers[peer.ID.String()]
 			if node.Mutex != nil {
 				node.Mutex.Unlock()
@@ -408,19 +385,6 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
-				if isFailOverPeer && peer.FailedOverBy.String() != node.ID.String() {
-					// get relay host
-					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
-					if err == nil {
-						relayHost := &schema.Host{
-							ID: failOverNode.HostID,
-						}
-						err := relayHost.Get(db.WithContext(context.TODO()))
-						if err == nil {
-							peerKey = relayHost.PublicKey.String()
-						}
-					}
-				}
 				if isAutoRelayPeer && peerAutoRelayID != node.ID.String() {
 					// get relay host
 					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
@@ -470,7 +434,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			}
 
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || isAutoRelayPeer {
+				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isAutoRelayPeer {
 				// if node is relayed and peer is not the relay, set remove to true
 				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 					continue
@@ -522,9 +486,6 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}
-			if isFailOverPeer && peer.FailedOverBy == node.ID && !peer.IsStatic {
-				peerEndpoint = nil
-			}
 			if isAutoRelayPeer && peerAutoRelayID == node.ID.String() && !peer.IsStatic {
 				peerEndpoint = nil
 			}
@@ -538,7 +499,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 
-			if peer.Action != models.NODE_DELETE &&
+			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				(allowedToComm) &&
@@ -676,6 +637,15 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				}
 				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
 				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
+			} else if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+				if r, ok := GetEgressDefaultAllowAllFwRule(node); ok {
+					egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+					if egressInfo.EgressFwRules == nil {
+						egressInfo.EgressFwRules = make(map[string]models.AclRule)
+					}
+					egressInfo.EgressFwRules[r.ID] = r
+					hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
+				}
 			}
 
 		}
@@ -925,9 +895,6 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	}
 	if peer.IsRelay {
 		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
-	}
-	if peer.IsFailOver {
-		allowedips = append(allowedips, GetFailOverPeerIps(peer, node)...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)

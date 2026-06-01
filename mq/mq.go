@@ -90,6 +90,9 @@ func SetupMQTT(fatal bool) {
 			if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 				logger.Log(0, "node metrics subscription failed")
 			}
+			if token := client.Subscribe(fmt.Sprintf("integration/%s/pull", serverName), 0, mqtt.MessageHandler(HandleExporterIntegrationPull)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+				logger.Log(0, "exporter integration pull subscription failed")
+			}
 			logger.Log(0, "MQ subscriptions established (master pod)")
 		} else {
 			logger.Log(0, "MQ publish-only mode (worker pod)")

@@ -14,20 +14,14 @@ const (
 	NETWORKS_TABLE_NAME = "networks"
 	// NODES_TABLE_NAME - nodes table
 	NODES_TABLE_NAME = "nodes"
-	// DELETED_NODES_TABLE_NAME - deleted nodes table
-	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
-	// CERTS_TABLE_NAME - certificates table
-	CERTS_TABLE_NAME = "certs"
 	// DNS_TABLE_NAME - dns table
 	DNS_TABLE_NAME = "dns"
 	// EXT_CLIENT_TABLE_NAME - ext client table
 	EXT_CLIENT_TABLE_NAME = "extclients"
-	// PEERS_TABLE_NAME - peers table
-	PEERS_TABLE_NAME = "peers"
 	// SERVERCONF_TABLE_NAME - stores server conf
 	SERVERCONF_TABLE_NAME = "serverconf"
 	// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
@@ -38,16 +32,12 @@ const (
 	DATABASE_FILENAME = "netmaker.db"
 	// GENERATED_TABLE_NAME - stores server generated k/v
 	GENERATED_TABLE_NAME = "generated"
-	// NODE_ACLS_TABLE_NAME - stores the node ACL rules
-	NODE_ACLS_TABLE_NAME = "nodeacls"
 	// ACLS_TABLE_NAME - table for acls v2
 	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 	SSO_STATE_CACHE = "ssostatecache"
 	// METRICS_TABLE_NAME - stores network metrics
 	METRICS_TABLE_NAME = "metrics"
-	// NETWORK_USER_TABLE_NAME - network user table tracks stats for a network user per network
-	NETWORK_USER_TABLE_NAME = "networkusers"
 	// USER_GROUPS_TABLE_NAME - table for storing usergroups
 	USER_GROUPS_TABLE_NAME = "usergroups"
 	// CACHE_TABLE_NAME - caching table
@@ -64,8 +54,6 @@ const (
 	USER_INVITES_TABLE_NAME = "user_invites"
 	// TAG_TABLE_NAME - table for tags
 	TAG_TABLE_NAME = "tags"
-	// PEER_ACK_TABLE - table for failover peer ack
-	PEER_ACK_TABLE = "peer_ack"
 	// SERVER_SETTINGS - table for server settings
 	SERVER_SETTINGS = "server_settings"
 	// == ERROR CONSTS ==
@@ -81,8 +69,6 @@ const (
 	CREATE_TABLE = "createtable"
 	// INSERT - insert into db const
 	INSERT = "insert"
-	// INSERT_PEER - insert peer into db const
-	INSERT_PEER = "insertpeer"
 	// DELETE - delete db record const
 	DELETE = "delete"
 	// DELETE_ALL - delete a table const
@@ -98,35 +84,19 @@ const (
 )
 
 var Tables = []string{
-	NODES_TABLE_NAME,
-	CERTS_TABLE_NAME,
-	DELETED_NODES_TABLE_NAME,
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
-	PEERS_TABLE_NAME,
 	SERVERCONF_TABLE_NAME,
 	SERVER_UUID_TABLE_NAME,
 	GENERATED_TABLE_NAME,
-	NODE_ACLS_TABLE_NAME,
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
-	NETWORK_USER_TABLE_NAME,
 	CACHE_TABLE_NAME,
 	ENROLLMENT_KEYS_TABLE_NAME,
 	HOST_ACTIONS_TABLE_NAME,
-	PENDING_USERS_TABLE_NAME,
-	USER_INVITES_TABLE_NAME,
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
-	PEER_ACK_TABLE,
 	SERVER_SETTINGS,
-	// The following tables are to be migrated, but we still need them so that the migration function
-	// doesn't fail with table does not exist.
-	USERS_TABLE_NAME,
-	USER_GROUPS_TABLE_NAME,
-	USER_PERMISSIONS_TABLE_NAME,
-	NETWORKS_TABLE_NAME,
-	HOSTS_TABLE_NAME,
 }
 
 func getCurrentDB() map[string]interface{} {

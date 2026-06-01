@@ -62,6 +62,73 @@ func TestCreateEnrollmentKey(t *testing.T) {
 			assert.Equal(t, len(keys[i].Value), models.EnrollmentKeyLength)
 		}
 	})
+	t.Run("Can_Get_Default_Key_For_Network", func(t *testing.T) {
+		defaultKey, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, true, false, false)
+		assert.Nil(t, err)
+		assert.True(t, defaultKey.Default)
+
+		found, err := GetDefaultEnrollmentKeyForNetwork("mynet")
+		assert.Nil(t, err)
+		assert.Equal(t, defaultKey.Value, found.Value)
+		assert.True(t, found.Default)
+
+		_, err = GetDefaultEnrollmentKeyForNetwork("unknown-net")
+		assert.ErrorIs(t, err, EnrollmentErrors.NoKeyFound)
+	})
+	removeAllEnrollments()
+}
+
+func TestDefaultEnrollmentKeyUniquenessPerNetwork(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
+	database.InitializeDatabase()
+	defer database.CloseDB()
+
+	first, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, true, false, false)
+	assert.Nil(t, err)
+	assert.True(t, first.Default)
+
+	second, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, true, false, false)
+	assert.Nil(t, err)
+	assert.True(t, second.Default)
+
+	firstAgain, err := GetEnrollmentKey(first.Value)
+	assert.Nil(t, err)
+	assert.False(t, firstAgain.Default)
+
+	found, err := GetDefaultEnrollmentKeyForNetwork("mynet")
+	assert.Nil(t, err)
+	assert.Equal(t, second.Value, found.Value)
+
+	removeAllEnrollments()
+}
+
+func TestRegenerate_EnrollmentKeyToken(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
+	database.InitializeDatabase()
+	defer database.CloseDB()
+	newKey, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet"}, []string{"mynet"}, nil, true, uuid.Nil, false, false, false)
+	assert.Nil(t, err)
+
+	regenerated, err := RegenerateEnrollmentKeyToken(newKey.Value)
+	assert.Nil(t, err)
+	assert.NotEqual(t, newKey.Value, regenerated.Value)
+	assert.True(t, regenerated.IsValid())
+	assert.Equal(t, newKey.Networks, regenerated.Networks)
+	assert.Equal(t, newKey.Tags, regenerated.Tags)
+
+	_, err = GetEnrollmentKey(newKey.Value)
+	assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
+
+	found, err := GetEnrollmentKey(regenerated.Value)
+	assert.Nil(t, err)
+	assert.Equal(t, regenerated.Value, found.Value)
+
+	_, err = RegenerateEnrollmentKeyToken("notakey")
+	assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
 	removeAllEnrollments()
 }
 
