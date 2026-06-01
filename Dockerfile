@@ -2,6 +2,12 @@
 FROM gravitl/go-builder:1.25.3 AS builder
 ARG tags 
 WORKDIR /app
+
+# Cache module download when only source changes (not go.mod/go.sum)
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
 COPY . .
 
 RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
@@ -13,7 +19,6 @@ FROM alpine:3.23.4
 WORKDIR /root/
 RUN apk upgrade --no-cache
 RUN apk add --no-cache sqlite
-RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
 EXPOSE 8081
