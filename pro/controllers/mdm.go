@@ -64,18 +64,15 @@ func verifyMDM(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&draft); err == nil {
 			// Allow a "test before save" flow: any provider-specific masked
 			// values fall back to the saved settings.
-			if draft.MDMIntuneClientSecret == logic.Mask() {
-				draft.MDMIntuneClientSecret = s.MDMIntuneClientSecret
+			if draft.MDMClientSecret == logic.Mask() {
+				draft.MDMClientSecret = s.MDMClientSecret
 			}
-			if draft.MDMJamfClientSecret == logic.Mask() {
-				draft.MDMJamfClientSecret = s.MDMJamfClientSecret
-			}
-			if draft.MDMProvider != "" {
+			if draft.MDMProvider != models.MDMProviderDisabled {
 				s = draft
 			}
 		}
 	}
-	if s.MDMProvider == "" {
+	if s.MDMProvider == models.MDMProviderDisabled {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no MDM provider configured"), "badrequest"))
 		return
 	}
@@ -98,8 +95,8 @@ func verifyMDM(w http.ResponseWriter, r *http.Request) {
 				Type: schema.UserSub,
 			},
 			Target: models.Subject{
-				ID:   s.MDMProvider,
-				Name: s.MDMProvider,
+				ID:   string(s.MDMProvider),
+				Name: string(s.MDMProvider),
 				Type: schema.MDMSub,
 			},
 			Origin: schema.Dashboard,
@@ -119,8 +116,8 @@ func verifyMDM(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Target: models.Subject{
-			ID:   s.MDMProvider,
-			Name: s.MDMProvider,
+			ID:   string(s.MDMProvider),
+			Name: string(s.MDMProvider),
 			Type: schema.MDMSub,
 		},
 		Origin: schema.Dashboard,
@@ -140,7 +137,7 @@ func verifyMDM(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 	s := logic.GetServerSettings()
-	if s.MDMProvider == "" {
+	if s.MDMProvider == models.MDMProviderDisabled {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no MDM provider configured"), "badrequest"))
 		return
 	}
@@ -158,8 +155,8 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Target: models.Subject{
-			ID:   s.MDMProvider,
-			Name: s.MDMProvider,
+			ID:   string(s.MDMProvider),
+			Name: string(s.MDMProvider),
 			Type: schema.MDMSub,
 		},
 		Origin: schema.Dashboard,

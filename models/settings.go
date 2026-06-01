@@ -8,6 +8,15 @@ const (
 	System Theme = "system"
 )
 
+// MDMProvider selects the active MDM integration (empty = disabled).
+type MDMProvider string
+
+const (
+	MDMProviderDisabled MDMProvider = ""
+	MDMProviderIntune   MDMProvider = "intune"
+	MDMProviderJamf     MDMProvider = "jamf"
+)
+
 type ServerSettings struct {
 	NetclientAutoUpdate bool     `json:"netclientautoupdate"`
 	Verbosity           int32    `json:"verbosity"`
@@ -56,20 +65,17 @@ type ServerSettings struct {
 	EnableFlowLogs                 bool   `json:"enable_flow_logs"`
 
 	// MDM integration (Settings / Integrations / MDM).
-	// MDMProvider selects which MDM is active ("" = disabled).
-	MDMProvider            string `json:"mdm_provider"`
-	MDMSyncEnabled         bool   `json:"mdm_sync_enabled"`
-	MDMSyncIntervalMinutes int    `json:"mdm_sync_interval_minutes"`
+	MDMProvider            MDMProvider `json:"mdm_provider"`
+	MDMSyncEnabled         bool        `json:"mdm_sync_enabled"`
+	MDMSyncIntervalMinutes int         `json:"mdm_sync_interval_minutes"`
+	MDMClientID            string      `json:"mdm_client_id"`
+	MDMClientSecret        string      `json:"mdm_client_secret"`
 
-	// Intune-specific (used when MDMProvider == "intune").
-	MDMIntuneTenantID     string `json:"mdm_intune_tenant_id"`
-	MDMIntuneClientID     string `json:"mdm_intune_client_id"`
-	MDMIntuneClientSecret string `json:"mdm_intune_client_secret"`
+	// Intune-specific (used when MDMProvider == MDMProviderIntune).
+	MDMIntuneTenantID string `json:"mdm_intune_tenant_id"`
 
-	// Jamf Pro-specific (used when MDMProvider == "jamf").
-	MDMJamfBaseURL      string `json:"mdm_jamf_base_url"`
-	MDMJamfClientID     string `json:"mdm_jamf_client_id"`
-	MDMJamfClientSecret string `json:"mdm_jamf_client_secret"`
+	// Jamf Pro-specific (used when MDMProvider == MDMProviderJamf).
+	MDMJamfBaseURL string `json:"mdm_jamf_base_url"`
 }
 
 type UserSettings struct {

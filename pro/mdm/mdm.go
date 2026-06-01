@@ -62,7 +62,8 @@ type ProviderType struct {
 }
 
 // Factory builds a Provider instance from the current ServerSettings. Each
-// provider reads only its own field group (MDMIntune*, MDMJamf*, etc.).
+// provider reads shared OAuth fields (MDMClientID/MDMClientSecret) plus any
+// provider-specific config (tenant ID, base URL, etc.).
 type Factory func(s models.ServerSettings) (Provider, error)
 
 // providerEntry holds the metadata Register accepts in one place.
@@ -113,10 +114,10 @@ func RegisterCapabilities(name string, c Capabilities) {
 // (nil, nil) if no MDM is configured. Errors are reserved for "configured but
 // invalid" cases (e.g. credentials missing for the named provider).
 func BuildActive(s models.ServerSettings) (Provider, error) {
-	if s.MDMProvider == "" {
+	if s.MDMProvider == models.MDMProviderDisabled {
 		return nil, nil
 	}
-	entry, ok := providers[s.MDMProvider]
+	entry, ok := providers[string(s.MDMProvider)]
 	if !ok {
 		return nil, fmt.Errorf("unknown mdm provider %q", s.MDMProvider)
 	}

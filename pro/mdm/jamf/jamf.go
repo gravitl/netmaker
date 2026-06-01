@@ -36,13 +36,13 @@ func init() {
 // New builds a Jamf Pro provider from ServerSettings. Returns an error if
 // required credentials are missing.
 func New(s models.ServerSettings) (mdm.Provider, error) {
-	if s.MDMJamfBaseURL == "" || s.MDMJamfClientID == "" || s.MDMJamfClientSecret == "" {
+	if s.MDMJamfBaseURL == "" || s.MDMClientID == "" || s.MDMClientSecret == "" {
 		return nil, errors.New("jamf credentials not configured")
 	}
 	return &Client{
 		baseURL:      strings.TrimRight(s.MDMJamfBaseURL, "/"),
-		clientID:     s.MDMJamfClientID,
-		clientSecret: s.MDMJamfClientSecret,
+		clientID:     s.MDMClientID,
+		clientSecret: s.MDMClientSecret,
 		http:         &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }

@@ -231,11 +231,8 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
 	}
-	if scfg.MDMIntuneClientSecret != "" {
-		scfg.MDMIntuneClientSecret = logic.Mask()
-	}
-	if scfg.MDMJamfClientSecret != "" {
-		scfg.MDMJamfClientSecret = logic.Mask()
+	if scfg.MDMClientSecret != "" {
+		scfg.MDMClientSecret = logic.Mask()
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")

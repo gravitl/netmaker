@@ -1623,8 +1623,8 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 	// MDM block - best-effort: only populated if a provider is configured and
 	// a sync row exists for the host.
 	settings := logic.GetServerSettings()
-	if settings.MDMProvider != "" {
-		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: settings.MDMProvider}
+	if settings.MDMProvider != models.MDMProviderDisabled {
+		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: string(settings.MDMProvider)}
 		if err := state.Get(r.Context()); err == nil {
 			resp.MDM = &models.HostMDMStatus{
 				Provider:     state.Provider,

@@ -331,8 +331,8 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 		}
 		// Attach the MDM snapshot for the currently configured provider, if any.
 		settings := logic.GetServerSettings()
-		if settings.MDMProvider != "" {
-			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: settings.MDMProvider}
+		if settings.MDMProvider != models.MDMProviderDisabled {
+			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: string(settings.MDMProvider)}
 			if err := state.Get(db.WithContext(context.TODO())); err == nil {
 				deviceInfo.MDMState = state
 			}
@@ -788,7 +788,7 @@ func mdmStateCompliant(s *schema.DeviceMDMState) bool {
 // max_state_age_hours must be non-negative.
 func validateMDMComplianceConfig(pc *schema.PostureCheck) error {
 	settings := logic.GetServerSettings()
-	if settings.MDMProvider == "" {
+	if settings.MDMProvider == models.MDMProviderDisabled {
 		return errors.New("no MDM provider configured in Settings > Integrations > MDM")
 	}
 	cfg := ParseMDMComplianceConfig(pc.Config)

@@ -61,7 +61,33 @@ func getServerSettingsFromDB() (models.ServerSettings, error) {
 	if err := json.Unmarshal([]byte(data), &s); err != nil {
 		return s, err
 	}
+	migrateMDMSettings(&s, data)
 	return s, nil
+}
+
+// migrateMDMSettings maps legacy per-provider OAuth fields into the shared
+// MDMClientID / MDMClientSecret pair when upgrading stored settings.
+func migrateMDMSettings(s *models.ServerSettings, raw string) {
+	if s.MDMClientID != "" || s.MDMClientSecret != "" {
+		return
+	}
+	var legacy struct {
+		MDMIntuneClientID     string `json:"mdm_intune_client_id"`
+		MDMIntuneClientSecret string `json:"mdm_intune_client_secret"`
+		MDMJamfClientID       string `json:"mdm_jamf_client_id"`
+		MDMJamfClientSecret   string `json:"mdm_jamf_client_secret"`
+	}
+	if err := json.Unmarshal([]byte(raw), &legacy); err != nil {
+		return
+	}
+	switch s.MDMProvider {
+	case models.MDMProviderIntune:
+		s.MDMClientID = legacy.MDMIntuneClientID
+		s.MDMClientSecret = legacy.MDMIntuneClientSecret
+	case models.MDMProviderJamf:
+		s.MDMClientID = legacy.MDMJamfClientID
+		s.MDMClientSecret = legacy.MDMJamfClientSecret
+	}
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
@@ -70,11 +96,8 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
-	if s.MDMIntuneClientSecret == Mask() {
-		s.MDMIntuneClientSecret = currSettings.MDMIntuneClientSecret
-	}
-	if s.MDMJamfClientSecret == Mask() {
-		s.MDMJamfClientSecret = currSettings.MDMJamfClientSecret
+	if s.MDMClientSecret == Mask() {
+		s.MDMClientSecret = currSettings.MDMClientSecret
 	}
 
 	if servercfg.DeployedByOperator() {

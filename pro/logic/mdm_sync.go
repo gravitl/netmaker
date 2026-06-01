@@ -26,7 +26,7 @@ var (
 // rate-limit hint. Returns nil (no-op) if MDM is not configured.
 func RunMDMSync(ctx context.Context) error {
 	s := logic.GetServerSettings()
-	if !s.MDMSyncEnabled || s.MDMProvider == "" {
+	if !s.MDMSyncEnabled || s.MDMProvider == models.MDMProviderDisabled {
 		return nil
 	}
 	mdmSyncMu.Lock()
@@ -44,7 +44,7 @@ func RunMDMSync(ctx context.Context) error {
 // by the admin "Sync now" endpoint.
 func RunMDMSyncForce(ctx context.Context) error {
 	s := logic.GetServerSettings()
-	if s.MDMProvider == "" {
+	if s.MDMProvider == models.MDMProviderDisabled {
 		return errors.New("no MDM provider configured")
 	}
 	return runMDMSyncLocked(ctx, s)

@@ -35,13 +35,13 @@ func init() {
 // New builds an Intune provider from ServerSettings. Returns an error if
 // required credentials are missing.
 func New(s models.ServerSettings) (mdm.Provider, error) {
-	if s.MDMIntuneTenantID == "" || s.MDMIntuneClientID == "" || s.MDMIntuneClientSecret == "" {
+	if s.MDMIntuneTenantID == "" || s.MDMClientID == "" || s.MDMClientSecret == "" {
 		return nil, errors.New("intune credentials not configured")
 	}
 	return &Client{
 		tenantID:     s.MDMIntuneTenantID,
-		clientID:     s.MDMIntuneClientID,
-		clientSecret: s.MDMIntuneClientSecret,
+		clientID:     s.MDMClientID,
+		clientSecret: s.MDMClientSecret,
 		http:         &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
