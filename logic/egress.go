@@ -48,11 +48,6 @@ func validateEgressReq(e *schema.Egress) error {
 			return err
 		}
 	}
-	for _, cidr := range FlattenDomainAnsMap(DomainAnsMapFromEgress(*e)) {
-		if err := ValidateEgressCIDR(network, cidr); err != nil {
-			return err
-		}
-	}
 	if !GetFeatureFlags().EnableEgressHA && len(e.Nodes) > 1 {
 		return errors.New("can only set one routing node on CE")
 	}
