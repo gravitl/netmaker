@@ -290,6 +290,11 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if node.IsRelayed || peerNode.IsRelayed {
+		err := fmt.Errorf("node or peer is already assigned a relay")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
 		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(

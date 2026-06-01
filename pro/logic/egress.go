@@ -26,15 +26,19 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}
+	if err := logic.ValidateEgressAppNATMode(*e); err != nil {
+		return err
+	}
 	if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
 		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
 	if !e.Nat {
-		e.Mode = ""
+		e.Mode = schema.DisabledNAT
 		e.VirtualRange = ""
 	}
-	if e.Domain != "" && e.Nat {
+	if (logic.IsDomainBasedEgress(*e) || logic.IsEgressAppEgress(*e)) && e.Nat {
 		e.Mode = schema.DirectNAT
+		e.VirtualRange = ""
 	}
 	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -123,9 +127,9 @@ func AssignVirtualRangeToEgress(nw *schema.Network, eg *schema.Egress) error {
 				logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv4 address, defaulting to /%d", eg.Range, egressPrefixLen))
 			}
 		}
-	} else if len(eg.DomainAns) > 0 {
-		// If Range is empty or "*", check DomainAns for IP addresses
-		for _, domainAns := range eg.DomainAns {
+	} else if logic.HasEgressDomainAns(*eg) {
+		// If Range is empty or "*", check domain answers for IP addresses
+		for _, domainAns := range logic.AllDomainAnsFromEgress(*eg) {
 			_, ipNet, err := net.ParseCIDR(domainAns)
 			if err == nil && ipNet != nil {
 				if ipNet.IP.To4() == nil {

@@ -300,7 +300,7 @@ func ServerStartNotify() error {
 		return err
 	}
 	for i := range nodes {
-		nodes[i].Action = models.NODE_FORCE_UPDATE
+		nodes[i].Action = schema.NODE_FORCE_UPDATE
 		if err = NodeUpdate(&nodes[i]); err != nil {
 			logger.Log(1, "error when notifying node", nodes[i].ID.String(), "of a server startup")
 		}
@@ -312,7 +312,7 @@ func ServerStartNotify() error {
 func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
-	node.Action = models.NODE_DELETE
+	node.Action = schema.NODE_DELETE
 	if sendNodeUpdate {
 		if err := NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
@@ -321,10 +321,6 @@ func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	if err := PublishDeletedNodePeerUpdate(&node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 // PushAllMetricsToExporter fetches all node metrics from the database
@@ -481,6 +477,34 @@ func PublishExporterFeatureFlags() error {
 	}
 
 	if token := mqclient.Publish(fmt.Sprintf("feature_flags/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
+
+func PublishIntegrationUpsert(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/upsert", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
+
+func PublishIntegrationDelete(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/delete", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")

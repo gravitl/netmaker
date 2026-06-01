@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"gorm.io/datatypes"
 )
 
@@ -127,8 +128,15 @@ func (p *PostureCheck) ListByNetwork(ctx context.Context) (pcli []PostureCheck, 
 	return
 }
 
-func (p *PostureCheck) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PostureCheck{}).Where("id = ?", p.ID).Delete(&p).Error
+func (p *PostureCheck) Delete(ctx context.Context, options ...dbtypes.Option) error {
+	query := db.FromContext(ctx).Model(&PostureCheck{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	if p.ID != "" {
+		query = query.Where("id = ?", p.ID)
+	}
+	return query.Delete(&PostureCheck{}).Error
 }
 
 func (p *PostureCheck) UpdateStatus(ctx context.Context) error {
