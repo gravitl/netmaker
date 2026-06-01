@@ -144,7 +144,6 @@ func initialize() { // Client Mode Prereq Check
 	//initialize cache
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
-	_, _ = logic.GetAllEnrollmentKeys()
 	_ = logic.CleanExpiredSSOStates()
 
 	logic.SetJWTSecret()
