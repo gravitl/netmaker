@@ -136,6 +136,8 @@ const (
 	EgressUpdate HostMqAction = "EGRESS_UPDATE"
 	// CHECK_ASSIGN_GW - const for to auto assign gw action
 	CheckAutoAssignGw HostMqAction = "CHECK_AUTO_ASSIGN_GW"
+	// CollectMetrics - request the host to immediately collect and publish metrics
+	CollectMetrics HostMqAction = "COLLECT_METRICS"
 )
 
 // SignalAction - turn peer signal action

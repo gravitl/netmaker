@@ -10,8 +10,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
-	github.com/lib/pq v1.11.2
-	github.com/mattn/go-sqlite3 v1.14.37
+	github.com/lib/pq v1.12.3
+	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
@@ -27,9 +27,9 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0
+	filippo.io/edwards25519 v1.2.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.11.1
+	github.com/posthog/posthog-go v1.11.2
 )
 
 require (
@@ -40,18 +40,19 @@ require (
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/biter777/countries v1.7.5
 	github.com/google/go-cmp v0.7.0
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
-	github.com/klauspost/compress v1.18.3
+	github.com/klauspost/compress v1.18.6
 	github.com/matryer/is v1.4.1
 	github.com/okta/okta-sdk-golang/v5 v5.0.6
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/time v0.15.0
 	google.golang.org/api v0.272.0
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.7
@@ -65,6 +66,8 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
+	github.com/DataDog/datadog-api-client-go/v2 v2.60.0
+	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -122,7 +125,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/hashicorp/go-version v1.8.0
+	github.com/hashicorp/go-version v1.9.0
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

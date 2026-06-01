@@ -15,11 +15,13 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
 	"github.com/gravitl/netmaker/pro/email"
 	"github.com/gravitl/netmaker/pro/license"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -28,6 +30,7 @@ import (
 // InitPro - Initialize Pro Logic
 func InitPro() {
 	servercfg.IsPro = true
+	orchestrator.InitializeRepository(extensions.NewProFactory())
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
@@ -39,7 +42,6 @@ func InitPro() {
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
 		proControllers.UserHandlers,
-		proControllers.FailOverHandlers,
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
@@ -50,6 +52,7 @@ func InitPro() {
 		proControllers.PostureCheckHandlers,
 		proControllers.JITHandlers,
 		proControllers.ServerHandlers,
+		proControllers.IntegrationHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -106,7 +109,6 @@ func InitPro() {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 		proLogic.LoadNodeMetricsToCache()
-		proLogic.InitFailOverCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -142,11 +144,6 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 	})
-	logic.ResetFailOver = proLogic.ResetFailOver
-	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
-	logic.FailOverExists = proLogic.FailOverExists
-	logic.CreateFailOver = proLogic.CreateFailOver
-	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
 	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
@@ -156,6 +153,9 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
+	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
+	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
+	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
 	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
@@ -195,7 +195,7 @@ func InitPro() {
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
 	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
-	logic.MigrateToGws = proLogic.MigrateToGws
+	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetFeatureFlags = proLogic.GetFeatureFlags
@@ -211,6 +211,7 @@ func InitPro() {
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
+	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
 
 // addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications

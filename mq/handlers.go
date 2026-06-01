@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -191,9 +192,6 @@ func DeleteAndCleanupHost(h *schema.Host) {
 		slog.Error("failed to delete host", "id", h.ID, "error", err)
 		return
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func SignalPeer(signal models.Signal) {
@@ -274,7 +272,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			if database.IsEmptyRecord(err) {
 				fakeNode := models.Node{}
 				fakeNode.ID, _ = uuid.Parse(currNodeID)
-				fakeNode.Action = models.NODE_DELETE
+				fakeNode.Action = schema.NODE_DELETE
 				fakeNode.PendingDelete = true
 				if err := NodeUpdate(&fakeNode); err != nil {
 					slog.Warn("failed to inform host to remove node", "host", currentHost.Name, "hostid", currentHost.ID, "nodeid", currNodeID, "error", err)
@@ -282,18 +280,42 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 			continue
 		}
-		if err := logic.UpdateNodeCheckin(&node); err != nil {
+		wasOffline := node.Status == schema.OfflineSt ||
+			(node.Connected && time.Since(node.LastCheckIn) > models.LastCheckInThreshold)
+		if err := logic.UpdateNodeCheckin(node.ID.String()); err != nil {
 			slog.Warn("failed to update node on checkin", "nodeid", node.ID, "error", err)
+			continue
+		}
+		if wasOffline {
+			if node.Status == schema.OfflineSt {
+				promoted := &schema.Node{
+					ID:     node.ID.String(),
+					Status: schema.OnlineSt,
+				}
+				if err := promoted.UpdateStatus(db.WithContext(context.TODO())); err != nil {
+					slog.Warn("failed to promote node from offline on checkin", "nodeid", node.ID, "error", err)
+				}
+			}
+			go logic.TriggerCollectMetrics(currentHost.ID.String(), node.ID.String(), "checkin_recovered")
 		}
 	}
 
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
+	for i := range currentHost.Interfaces {
+		currentHost.Interfaces[i].AddressString = currentHost.Interfaces[i].Address.String()
+	}
+	utils.SortIfacesByName(h.Interfaces)
+	utils.SortIfacesByName(currentHost.Interfaces)
+	ifacesChanged := len(h.Interfaces) != len(currentHost.Interfaces) ||
+		!logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces)
+
 	/// version or firewall in use change does not require a peerUpdate
-	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse {
+	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse || ifacesChanged {
 		currentHost.FirewallInUse = h.FirewallInUse
 		currentHost.Version = h.Version
+		currentHost.Interfaces = h.Interfaces
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
@@ -315,19 +337,56 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 		}
 	}
-	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
-		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
-		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
-		h.DefaultInterface != currentHost.DefaultInterface ||
-		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
-		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
-		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
-		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion) ||
-		(h.Location != currentHost.Location) || (h.CountryCode != currentHost.CountryCode)
+	var ifaceDeltaReasons []string
+	if !currentHost.IsStatic {
+		if !h.EndpointIP.Equal(currentHost.EndpointIP) {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "endpoint_ip")
+		}
+		if !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "endpoint_ipv6")
+		}
+	}
+	if len(h.NatType) > 0 && h.NatType != currentHost.NatType {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "nat_type")
+	}
+	if h.DefaultInterface != currentHost.DefaultInterface {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "default_interface")
+	}
+	if !currentHost.IsStaticPort {
+		if h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "listen_port")
+		}
+		if h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort {
+			ifaceDeltaReasons = append(ifaceDeltaReasons, "wg_public_listen_port")
+		}
+	}
+
+	if h.OSFamily != currentHost.OSFamily {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "os_family")
+	}
+	if h.OSVersion != currentHost.OSVersion {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "os_version")
+	}
+	if h.KernelVersion != currentHost.KernelVersion {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "kernel_version")
+	}
+	if h.Location != currentHost.Location {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "location")
+	}
+	if h.CountryCode != currentHost.CountryCode {
+		ifaceDeltaReasons = append(ifaceDeltaReasons, "country_code")
+	}
+	ifaceDelta := len(ifaceDeltaReasons) > 0
 	if ifaceDelta { // only save if something changes
-		currentHost.EndpointIP = h.EndpointIP
-		currentHost.EndpointIPv6 = h.EndpointIPv6
-		currentHost.Interfaces = h.Interfaces
+		slog.Debug("host check-in peer-relevant delta",
+			"host", h.Name,
+			"id", h.ID,
+			"reasons", ifaceDeltaReasons,
+		)
+		if !currentHost.IsStatic {
+			currentHost.EndpointIP = h.EndpointIP
+			currentHost.EndpointIPv6 = h.EndpointIPv6
+		}
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
 		currentHost.OSFamily = h.OSFamily
@@ -339,12 +398,15 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		if h.CountryCode != "" {
 			currentHost.CountryCode = h.CountryCode
 		}
-		if h.ListenPort != 0 {
-			currentHost.ListenPort = h.ListenPort
+		if !currentHost.IsStaticPort {
+			if h.ListenPort != 0 {
+				currentHost.ListenPort = h.ListenPort
+			}
+			if h.WgPublicListenPort != 0 {
+				currentHost.WgPublicListenPort = h.WgPublicListenPort
+			}
 		}
-		if h.WgPublicListenPort != 0 {
-			currentHost.WgPublicListenPort = h.WgPublicListenPort
-		}
+
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
@@ -355,3 +417,5 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	slog.Info("check-in processed for host", "name", h.Name, "id", h.ID)
 	return ifaceDelta
 }
+
+var HandleExporterIntegrationPull = func(client mqtt.Client, msg mqtt.Message) {}
