@@ -2,7 +2,6 @@ package node
 
 var (
 	natEnabled             bool
-	failover               bool
 	networkName            string
 	nodeDefinitionFilePath string
 	address                string

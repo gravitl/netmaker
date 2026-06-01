@@ -18,7 +18,6 @@ var PG_FUNCTIONS = map[string]interface{}{
 	INIT_DB:      initPGDB,
 	CREATE_TABLE: pgCreateTable,
 	INSERT:       pgInsert,
-	INSERT_PEER:  pgInsertPeer,
 	DELETE:       pgDeleteRecord,
 	DELETE_ALL:   pgDeleteAllRecords,
 	FETCH_ALL:    pgFetchRecords,
@@ -67,18 +66,6 @@ func pgInsert(key string, value string, tableName string) error {
 		return nil
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
-	}
-}
-
-func pgInsertPeer(key string, value string) error {
-	if key != "" && value != "" {
-		err := pgInsert(key, value, PEERS_TABLE_NAME)
-		if err != nil {
-			return err
-		}
-		return nil
-	} else {
-		return errors.New("invalid peer insert " + key + " : " + value)
 	}
 }
 

@@ -32,7 +32,10 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.URL.Query().Get("network") != "" {
 			r.Header.Set("NET_ID", r.URL.Query().Get("network"))
 		}
-		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
+		if r.URL.Query().Get("network_id") != "" {
+			r.Header.Set("NET_ID", r.URL.Query().Get("network_id"))
+		}
+		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") || strings.Contains(route, "pending_hosts") {
 			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {
@@ -80,8 +83,11 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "posture_check") {
 			r.Header.Set("TARGET_RSRC", schema.PostureCheckRsrc.String())
 		}
-		if strings.Contains(route, "activity") {
+		if strings.Contains(route, "/user/activity") {
 			r.Header.Set("TARGET_RSRC", schema.UserActivityRsrc.String())
+		}
+		if strings.Contains(route, "/network/activity") {
+			r.Header.Set("TARGET_RSRC", schema.NetworkActivityRsrc.String())
 		}
 		if strings.Contains(route, "nameserver") {
 			r.Header.Set("TARGET_RSRC", schema.NameserverRsrc.String())
@@ -134,9 +140,8 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == schema.EnrollmentKeysRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == schema.UserRsrc.String()) ||
-			(r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String() && route != "/api/v1/network/activity") ||
-			r.Header.Get("TARGET_RSRC") == schema.TrafficFlow.String() {
+			r.Header.Get("TARGET_RSRC") == schema.UserRsrc.String() ||
+			r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String()) {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))

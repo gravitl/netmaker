@@ -55,10 +55,11 @@ type HostPeerUpdate struct {
 }
 
 type EgressDomain struct {
-	ID     string      `json:"id"`
-	Node   Node        `json:"node"`
-	Host   schema.Host `json:"host"`
-	Domain string      `json:"domain"`
+	ID          string      `json:"id"`
+	Node        Node        `json:"node"`
+	Host        schema.Host `json:"host"`
+	Domain      string      `json:"domain"`
+	ResolvedIPs []string    `json:"resolved_ips,omitempty"`
 }
 type Nameserver struct {
 	IPs            []string `json:"ips"`
@@ -149,11 +150,6 @@ type FwUpdate struct {
 	EgressInfo      map[string]EgressInfo  `json:"egress_info"`
 	IngressInfo     map[string]IngressInfo `json:"ingress_info"`
 	AclRules        map[string]AclRule     `json:"acl_rules"`
-}
-
-// FailOverMeReq - struct for failover req
-type FailOverMeReq struct {
-	NodeID string `json:"node_id"`
 }
 
 // AutoRelayMeReq - struct for autorelay req

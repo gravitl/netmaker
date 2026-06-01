@@ -43,6 +43,17 @@ const (
 	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
 	GatewayAssign                        Action = "GATEWAY_ASSIGN"
 	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
+	JitEnable                            Action = "ENABLE_JIT"
+	JitDisable                           Action = "DISABLE_JIT"
+	JitRequestCreate                     Action = "CREATE_JIT_REQUEST"
+	JitRequestApprove                    Action = "APPROVE_JIT_REQUEST"
+	JitRequestDeny                       Action = "DENY_JIT_REQUEST"
+	JitGrantRevoke                       Action = "REVOKE_JIT_GRANT"
+	JitGroupsUpdate                      Action = "UPDATE_JIT_GROUPS"
+	EnableUser                           Action = "ENABLE_USER"
+	DisableUser                          Action = "DISABLE_USER"
+	EnableAclPolicy                      Action = "ENABLE_ACL_POLICY"
+	DisableAclPolicy                     Action = "DISABLE_ACL_POLICY"
 )
 
 type SubjectType string
@@ -67,6 +78,7 @@ const (
 	ClientAppSub       SubjectType = "CLIENT-APP"
 	NameserverSub      SubjectType = "NAMESERVER"
 	PostureCheckSub    SubjectType = "POSTURE_CHECK"
+	JITSub             SubjectType = "JIT"
 )
 
 func (sub SubjectType) String() string {

@@ -12,13 +12,16 @@ const (
 	node_signin_length = 64
 )
 
-func isUserIsAllowed(username, network string) (*schema.User, error) {
-
+func isUserAllowed(username, network string) bool {
 	user := &schema.User{Username: username}
 	err := user.Get(db.WithContext(context.TODO()))
-	if err != nil { // user must not exist, so try to make one
-		return &schema.User{}, err
+	if err != nil {
+		return false
 	}
 
-	return user, nil
+	if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+		return true
+	}
+
+	return false
 }
