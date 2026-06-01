@@ -2,6 +2,7 @@ package license
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -10,9 +11,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/utils"
+	"gorm.io/gorm"
 
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
@@ -25,13 +29,10 @@ import (
 )
 
 const (
-	db_license_key = "netmaker-id-key-pair"
+	db_license_key                             = "netmaker-id-key-pair"
+	__licenseValidationPrivateKey_internal_key = "license_validation_private_key"
+	__licenseValidationPublicKey_internal_key  = "license_validation_public_key"
 )
-
-type apiServerConf struct {
-	PrivateKey []byte `json:"private_key" binding:"required"`
-	PublicKey  []byte `json:"public_key"  binding:"required"`
-}
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
@@ -148,41 +149,62 @@ func ValidateLicense() (err error) {
 // as well as secure communication with API
 // if none present, it generates a new pair
 func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
-	returnData := apiServerConf{}
-	currentData, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, db_license_key)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return nil, nil, err
-	} else if database.IsEmptyRecord(err) { // need to generate a new identifier pair
+	var create bool
+	privateKey := &schema.Internal{
+		Key: __licenseValidationPrivateKey_internal_key,
+	}
+	err = privateKey.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			create = true
+		} else {
+			return nil, nil, err
+		}
+	}
+
+	publicKey := &schema.Internal{
+		Key: __licenseValidationPublicKey_internal_key,
+	}
+	err = publicKey.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			create = true
+		} else {
+			return nil, nil, err
+		}
+	}
+
+	if create {
 		pub, priv, err = box.GenerateKey(rand.Reader)
 		if err != nil {
 			return nil, nil, err
 		}
-		pubBytes, err := ncutils.ConvertKeyToBytes(pub)
+		privateKeyBytes, err := ncutils.ConvertKeyToBytes(priv)
 		if err != nil {
 			return nil, nil, err
 		}
-		privBytes, err := ncutils.ConvertKeyToBytes(priv)
+		publicKeyBytes, err := ncutils.ConvertKeyToBytes(pub)
 		if err != nil {
 			return nil, nil, err
 		}
-		returnData.PrivateKey = privBytes
-		returnData.PublicKey = pubBytes
-		record, err := json.Marshal(&returnData)
+
+		privateKey.Value = base64encode(privateKeyBytes)
+		err = privateKey.Set(db.WithContext(context.TODO()))
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = database.Insert(db_license_key, string(record), database.SERVERCONF_TABLE_NAME); err != nil {
+
+		publicKey.Value = base64encode(publicKeyBytes)
+		err = publicKey.Set(db.WithContext(context.TODO()))
+		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		if err = json.Unmarshal([]byte(currentData), &returnData); err != nil {
-			return nil, nil, err
-		}
-		priv, err = ncutils.ConvertBytesToKey(returnData.PrivateKey)
+		priv, err = ncutils.ConvertBytesToKey(base64decode(privateKey.Value))
 		if err != nil {
 			return nil, nil, err
 		}
-		pub, err = ncutils.ConvertBytesToKey(returnData.PublicKey)
+		pub, err = ncutils.ConvertBytesToKey(base64decode(publicKey.Value))
 		if err != nil {
 			return nil, nil, err
 		}
