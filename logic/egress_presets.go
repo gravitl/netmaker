@@ -82,7 +82,7 @@ func ValidateEgressProOnlyFeatures(e schema.Egress) error {
 
 // ValidateEgressReqProLimits rejects domain/app fields on the API request before CE builds an egress.
 func ValidateEgressReqProLimits(req *models.EgressReq) error {
-	if req == nil || servercfg.IsPro || IsEgressReqInternetGateway(req) {
+	if req == nil || servercfg.IsPro {
 		return nil
 	}
 	if strings.TrimSpace(req.PresetID) != "" {

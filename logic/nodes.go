@@ -553,10 +553,22 @@ func ValidateEgressCIDR(network *schema.Network, cidr string) error {
 	if err != nil {
 		return fmt.Errorf("invalid egress range: %w", err)
 	}
-	if network.AddressRange != "" && ContainsCIDR(network.AddressRange, normalized) {
+	normNetv4 := network.AddressRange
+	if normNetv4 != "" {
+		if n, err := NormalizeCIDR(normNetv4); err == nil {
+			normNetv4 = n
+		}
+	}
+	normNetv6 := network.AddressRange6
+	if normNetv6 != "" {
+		if n, err := NormalizeCIDR(normNetv6); err == nil {
+			normNetv6 = n
+		}
+	}
+	if normNetv4 != "" && ContainsCIDR(normNetv4, normalized) {
 		return errors.New("egress range must not overlap the Netmaker network IPv4 range")
 	}
-	if network.AddressRange6 != "" && ContainsCIDR(network.AddressRange6, normalized) {
+	if normNetv6 != "" && ContainsCIDR(normNetv6, normalized) {
 		return errors.New("egress range must not overlap the Netmaker network IPv6 range")
 	}
 	if ContainsCIDR(egressLoopbackIPv4, normalized) {
