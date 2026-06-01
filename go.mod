@@ -16,7 +16,6 @@ require (
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1
-	github.com/txn2/txeh v1.8.0
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.49.0
 	golang.org/x/net v0.52.0 // indirect
@@ -52,7 +51,7 @@ require (
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.272.0
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.7
