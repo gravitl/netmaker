@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
@@ -247,7 +248,20 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		_ = logic.DeleteNetworkNameservers(network)
+		err = (&schema.Nameserver{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network_id", network))
+		if err != nil {
+			slog.Error("error deleting network nameservers", "network", network, "error", err)
+		}
+
+		err = (&schema.Egress{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network", network))
+		if err != nil {
+			slog.Error("error deleting network egress rules", "network", network, "error", err)
+		}
+
+		err = (&schema.PostureCheck{}).Delete(db.WithContext(context.TODO()), dbtypes.WithFilter("network_id", network))
+		if err != nil {
+			slog.Error("error deleting network posture checks", "network", network, "error", err)
+		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,

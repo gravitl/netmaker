@@ -22,6 +22,18 @@ import (
 
 // DeleteNetwork - deletes a network
 func DeleteNetwork(network string, force bool, done chan struct{}) error {
+	defer func() {
+		// Delete default network enrollment key
+		keys, _ := GetAllEnrollmentKeys()
+		for _, key := range keys {
+			if key.Default && len(key.Tags) > 0 && key.Tags[0] == network {
+				_ = DeleteEnrollmentKey(key.Value, true)
+				break
+			}
+		}
+
+		_ = DeleteNetworkDNS(network)
+	}()
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
@@ -60,18 +72,6 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 		done <- struct{}{}
 		close(done)
 	}()
-
-	// Delete default network enrollment key
-	keys, _ := GetAllEnrollmentKeys()
-	for _, key := range keys {
-		if key.Tags[0] == network {
-			if key.Default {
-				DeleteEnrollmentKey(key.Value, true)
-				break
-			}
-
-		}
-	}
 
 	return nil
 }

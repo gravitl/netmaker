@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -71,20 +72,18 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
 		if !logic.IsBasicAuthEnabled() {
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
+			handleHostRegErr(conn, errors.New("basic auth is disabled"))
+			return
 		}
 		_, err := logic.VerifyAuthRequest(models.UserAuthParams{
 			UserName: registerMessage.User,
 			Password: registerMessage.Password,
 		}, logic.NetclientApp)
 		if err != nil {
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
+			if err.Error() != "incorrect credentials" {
+				err = fmt.Errorf("failed to authenticate user %s", registerMessage.User)
 			}
+			handleHostRegErr(conn, err)
 			return
 		}
 		req.Pass = req.Host.ID.String()
@@ -113,14 +112,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 	} else { // handle SSO / OAuth
 		if !logic.IsOAuthConfigured() {
-			err = conn.WriteMessage(messageType, []byte("Oauth not configured"))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				logger.Log(0, "error during message writing:", err.Error())
-			}
+			handleHostRegErr(conn, errors.New("oauth not configured"))
 			return
 		}
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "via SSO")
@@ -160,26 +152,6 @@ func SessionHandler(conn *websocket.Conn) {
 
 	select {
 	case result := <-answer: // a read from req.answerCh has occurred
-		// add the host, if not exists, handle like enrollment registration
-		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
-			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
-			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
-					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
-					return
-				}
-			}
-			_ = logic.CheckHostPorts(&result.Host)
-			if err := logic.CreateHost(&result.Host); err != nil {
-				handleHostRegErr(conn, err)
-				return
-			}
-		}
-		key, keyErr := logic.RetrievePublicTrafficKey()
-		if keyErr != nil {
-			handleHostRegErr(conn, err)
-			return
-		}
 		var currentNetworks []string
 		if result.ALL {
 			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
@@ -197,7 +169,7 @@ func SessionHandler(conn *websocket.Conn) {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
 					if !isUserAllowed(result.User, newNet) {
-						err = fmt.Errorf("unauthorized user %s attempted to register to network %s", result.User, newNet)
+						err = fmt.Errorf("user %s does not have access to network %s", result.User, newNet)
 						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)
 						return
@@ -205,6 +177,27 @@ func SessionHandler(conn *websocket.Conn) {
 				}
 				netsToAdd = append(netsToAdd, newNet)
 			}
+		}
+
+		// add the host, if not exists, handle like enrollment registration
+		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
+			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
+					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
+					return
+				}
+			}
+			_ = logic.CheckHostPorts(&result.Host)
+			if err := logic.CreateHost(&result.Host); err != nil {
+				handleHostRegErr(conn, errors.New("host creation failed"))
+				return
+			}
+		}
+		key, keyErr := logic.RetrievePublicTrafficKey()
+		if keyErr != nil {
+			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
+			return
 		}
 		server := logic.GetServerInfo()
 		server.TrafficKey = key
@@ -214,12 +207,12 @@ func SessionHandler(conn *websocket.Conn) {
 			ServerConf:    server,
 			RequestedHost: result.Host,
 		}
-		reponseData, err := json.Marshal(&response)
+		responseData, err := json.Marshal(&response)
 		if err != nil {
-			handleHostRegErr(conn, err)
+			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
 			return
 		}
-		if err = conn.WriteMessage(messageType, reponseData); err != nil {
+		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
 		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
@@ -363,9 +356,13 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 	}
 }
 
+// handleHostRegErr sends a close message on the websocket connection
+// along with the error reason. Clients can assume an error close when
+// the text is non-empty and a successful close when the text is empty.
 func handleHostRegErr(conn *websocket.Conn, err error) {
-	_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	logger.Log(0, "error during host registration via auth:", err.Error())
+	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, err.Error()))
 	if err != nil {
-		logger.Log(0, "error during host registration via auth:", err.Error())
+		logger.Log(0, "error during message writing:", err.Error())
 	}
 }
