@@ -509,7 +509,7 @@ func DeleteExpiredNodes(ctx context.Context) {
 			}
 			for _, node := range nodes {
 				node := ConvertSchemaNodeToModelsNode(&node)
-				if time.Now().After(node.ExpirationDateTime) {
+				if !node.ExpirationDateTime.IsZero() && time.Now().After(node.ExpirationDateTime) {
 					DeleteNodesCh <- node
 					slog.Info("deleting expired node", "nodeid", node.ID)
 				}
