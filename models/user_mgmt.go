@@ -137,3 +137,9 @@ type UserMapping struct {
 type UserIPMap struct {
 	Mappings map[string]UserMapping `json:"mappings"`
 }
+
+type ReturnUserWithRolesAndGroups struct {
+	ReturnUser
+	PlatformRole *schema.UserRole                        `json:"platform_role"`
+	UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
+}
