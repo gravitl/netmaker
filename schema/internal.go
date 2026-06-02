@@ -6,6 +6,12 @@ import (
 	"github.com/gravitl/netmaker/db"
 )
 
+const (
+	InternalKey_JwtSecret                   = "jwt_secret"
+	InternalKey_LicenseValidationPrivateKey = "license_validation_private_key"
+	InternalKey_LicenseValidationPublicKey  = "license_validation_public_key"
+)
+
 type Internal struct {
 	Key   string `gorm:"primaryKey"`
 	Value string `gorm:"not null"`

@@ -28,12 +28,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-const (
-	db_license_key                             = "netmaker-id-key-pair"
-	__licenseValidationPrivateKey_internal_key = "license_validation_private_key"
-	__licenseValidationPublicKey_internal_key  = "license_validation_public_key"
-)
-
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
@@ -151,7 +145,7 @@ func ValidateLicense() (err error) {
 func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	var create bool
 	privateKey := &schema.Internal{
-		Key: __licenseValidationPrivateKey_internal_key,
+		Key: schema.InternalKey_LicenseValidationPrivateKey,
 	}
 	err = privateKey.Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -163,7 +157,7 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	}
 
 	publicKey := &schema.Internal{
-		Key: __licenseValidationPublicKey_internal_key,
+		Key: schema.InternalKey_LicenseValidationPublicKey,
 	}
 	err = publicKey.Get(db.WithContext(context.TODO()))
 	if err != nil {
