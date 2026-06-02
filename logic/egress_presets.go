@@ -8,6 +8,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // egressPreset catalog is built once in init (see egress_presets_catalog.go).
@@ -55,9 +56,42 @@ var ErrUnknownEgressPreset = errors.New("unknown egress preset_id")
 // ErrVirtualNATNotForEgressApps is returned when virtual NAT is requested for a preset egress app.
 var ErrVirtualNATNotForEgressApps = errors.New("virtual NAT is not supported for egress apps")
 
+// ErrEgressProOnlyFeature is returned when domain or app egress is used on Community Edition.
+var ErrEgressProOnlyFeature = errors.New("domain and app egress require Netmaker Pro")
+
 // IsEgressAppEgress reports whether the egress was created from a catalog preset (egress app).
 func IsEgressAppEgress(e schema.Egress) bool {
 	return strings.TrimSpace(e.PresetID) != ""
+}
+
+// RequiresProEgressType reports whether the egress uses domain-based or preset app routing.
+func RequiresProEgressType(e schema.Egress) bool {
+	return IsEgressAppEgress(e) || IsDomainBasedEgress(e)
+}
+
+// ValidateEgressProOnlyFeatures rejects domain and app egress on Community Edition.
+func ValidateEgressProOnlyFeatures(e schema.Egress) error {
+	if servercfg.IsPro {
+		return nil
+	}
+	if RequiresProEgressType(e) {
+		return ErrEgressProOnlyFeature
+	}
+	return nil
+}
+
+// ValidateEgressReqProLimits rejects domain/app fields on the API request before CE builds an egress.
+func ValidateEgressReqProLimits(req *models.EgressReq) error {
+	if req == nil || servercfg.IsPro {
+		return nil
+	}
+	if strings.TrimSpace(req.PresetID) != "" {
+		return ErrEgressProOnlyFeature
+	}
+	if len(req.Domains) > 0 {
+		return ErrEgressProOnlyFeature
+	}
+	return nil
 }
 
 // ValidateEgressAppNATMode rejects virtual NAT for preset-based egress apps.

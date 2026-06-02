@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
 
@@ -34,7 +35,10 @@ func egressHandlers(r *mux.Router) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     401 {object} models.ErrorResponse
 func getEgressPresets(w http.ResponseWriter, r *http.Request) {
-	presets := logic.ListEgressPresets()
+	presets := []models.EgressPresetApp{}
+	if servercfg.IsPro {
+		presets = logic.ListEgressPresets()
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{
 		"presetApps": presets,
 	}, "fetched egress preset catalog")
@@ -61,6 +65,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.ValidateEgressReqProLimits(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if req.PresetID != "" {
 		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -72,7 +80,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if req.IsInetGw {
+	inetGw := logic.IsEgressReqInternetGateway(&req)
+	if inetGw {
 		normDomains = nil
 	}
 	req.Domains = normDomains
@@ -87,7 +96,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var egressRange string
-	if !req.IsInetGw {
+	if !inetGw {
 		if len(normDomains) > 0 {
 			egressRange = ""
 		} else if req.Range != "" {
@@ -266,6 +275,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.ValidateEgressReqProLimits(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if req.PresetID != "" {
 		if err := logic.ApplyEgressPresetToEgressReq(&req); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -277,7 +290,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if req.IsInetGw {
+	inetGw := logic.IsEgressReqInternetGateway(&req)
+	if inetGw {
 		normDomains = nil
 	}
 	req.Domains = normDomains
@@ -288,7 +302,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var egressRange string
-	if !req.IsInetGw {
+	if !inetGw {
 		if len(normDomains) > 0 {
 			egressRange = ""
 		} else if req.Range != "" {
