@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -567,9 +566,12 @@ func ValidateEgressRange(netID string, ranges []string) error {
 }
 
 func ContainsCIDR(net1, net2 string) bool {
-	one, two := ipaddr.NewIPAddressString(net1),
-		ipaddr.NewIPAddressString(net2)
-	return one.Contains(two) || two.Contains(one)
+	_, ipNet1, err1 := net.ParseCIDR(net1)
+	_, ipNet2, err2 := net.ParseCIDR(net2)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return ipNet1.Contains(ipNet2.IP) || ipNet2.Contains(ipNet1.IP)
 }
 
 func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
