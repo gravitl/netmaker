@@ -10,44 +10,22 @@ import (
 
 const (
 	// == Table Names ==
-	// NETWORKS_TABLE_NAME - networks table
-	NETWORKS_TABLE_NAME = "networks"
-	// NODES_TABLE_NAME - nodes table
-	NODES_TABLE_NAME = "nodes"
-	// USERS_TABLE_NAME - users table
-	USERS_TABLE_NAME = "users"
-	// USER_PERMISSIONS_TABLE_NAME - user permissions table
-	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// DNS_TABLE_NAME - dns table
 	DNS_TABLE_NAME = "dns"
 	// EXT_CLIENT_TABLE_NAME - ext client table
 	EXT_CLIENT_TABLE_NAME = "extclients"
-	// SERVERCONF_TABLE_NAME - stores server conf
-	SERVERCONF_TABLE_NAME = "serverconf"
-	// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
-	SERVER_UUID_TABLE_NAME = "serveruuid"
-	// GENERATED_TABLE_NAME - stores server generated k/v
-	GENERATED_TABLE_NAME = "generated"
 	// ACLS_TABLE_NAME - table for acls v2
 	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 	SSO_STATE_CACHE = "ssostatecache"
 	// METRICS_TABLE_NAME - stores network metrics
 	METRICS_TABLE_NAME = "metrics"
-	// USER_GROUPS_TABLE_NAME - table for storing usergroups
-	USER_GROUPS_TABLE_NAME = "usergroups"
 	// CACHE_TABLE_NAME - caching table
 	CACHE_TABLE_NAME = "cache"
-	// HOSTS_TABLE_NAME - the table name for hosts
-	HOSTS_TABLE_NAME = "hosts"
 	// ENROLLMENT_KEYS_TABLE_NAME - table name for enrollmentkeys
 	ENROLLMENT_KEYS_TABLE_NAME = "enrollmentkeys"
 	// HOST_ACTIONS_TABLE_NAME - table name for enrollmentkeys
 	HOST_ACTIONS_TABLE_NAME = "hostactions"
-	// PENDING_USERS_TABLE_NAME - table name for pending users
-	PENDING_USERS_TABLE_NAME = "pending_users"
-	// USER_INVITES - table for user invites
-	USER_INVITES_TABLE_NAME = "user_invites"
 	// TAG_TABLE_NAME - table for tags
 	TAG_TABLE_NAME = "tags"
 	// SERVER_SETTINGS - table for server settings

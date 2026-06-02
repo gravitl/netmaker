@@ -20,6 +20,12 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	TableName_PendingUsers = "pending_users"
+	TableName_UserInvites  = "user_invites"
+	TableName_Nodes        = "nodes"
+)
+
 func migrateV1_6_0(ctx context.Context) error {
 	err := migratePendingUsers(ctx)
 	if err != nil {
@@ -35,11 +41,11 @@ func migrateV1_6_0(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.PENDING_USERS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_PendingUsers) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.PENDING_USERS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_PendingUsers)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -69,11 +75,11 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_INVITES_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserInvites) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_INVITES_TABLE_NAME)
+	records, err := kvList(ctx, TableName_UserInvites)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -106,11 +112,11 @@ func migrateUserInvites(ctx context.Context) error {
 }
 
 func migrateNodes(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.NODES_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Nodes) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.NODES_TABLE_NAME)
+	records, err := kvList(ctx, TableName_Nodes)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}

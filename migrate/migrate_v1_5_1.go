@@ -17,6 +17,14 @@ import (
 	"gorm.io/datatypes"
 )
 
+const (
+	TableName_Users           = "users"
+	TableName_Networks        = "networks"
+	TableName_UserPermissions = "user_permissions"
+	TableName_UserGroups      = "usergroups"
+	TableName_Hosts           = "hosts"
+)
+
 func migrateV1_5_1(ctx context.Context) error {
 	err := migrateUsers(ctx)
 	if err != nil {
@@ -42,11 +50,11 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USERS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USERS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_Users)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -104,11 +112,11 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.NETWORKS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Networks) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.NETWORKS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_Networks)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -252,11 +260,11 @@ func migrateNetworks_Nameserver(ctx context.Context, network *models.Network) er
 }
 
 func migrateUserRoles(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_PERMISSIONS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserPermissions) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_PERMISSIONS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_UserPermissions)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -281,11 +289,11 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_GROUPS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserGroups) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_GROUPS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_UserGroups)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -310,11 +318,11 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.HOSTS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Hosts) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.HOSTS_TABLE_NAME)
+	records, err := kvList(ctx, TableName_Hosts)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}

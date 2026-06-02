@@ -11,6 +11,12 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+const (
+	TableName_ServerConf = "serverconf"
+	TableName_Generated  = "generated"
+	TableName_ServerUUID = "serveruuid"
+)
+
 func migrateV1_5_3(ctx context.Context) error {
 	err := migrateServerConf(ctx)
 	if err != nil {
@@ -26,11 +32,11 @@ func migrateV1_5_3(ctx context.Context) error {
 }
 
 func migrateServerConf(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.SERVERCONF_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerConf) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.SERVERCONF_TABLE_NAME)
+	records, err := kvList(ctx, TableName_ServerConf)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -93,11 +99,11 @@ func migrateServerConf(ctx context.Context) error {
 }
 
 func migrateGenerated(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.GENERATED_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Generated) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.GENERATED_TABLE_NAME)
+	records, err := kvList(ctx, TableName_Generated)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -127,11 +133,11 @@ func migrateGenerated(ctx context.Context) error {
 }
 
 func migrateServerUUID(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.SERVER_UUID_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerUUID) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.SERVER_UUID_TABLE_NAME)
+	records, err := kvList(ctx, TableName_ServerUUID)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
