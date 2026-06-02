@@ -11,7 +11,12 @@ import (
 )
 
 func migrateV1_5_3(ctx context.Context) error {
-	return migrateServerConf(ctx)
+	err := migrateServerConf(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateGenerated(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -72,6 +77,40 @@ func migrateServerConf(ctx context.Context) error {
 				Value: base64.StdEncoding.EncodeToString(publicKeyValue),
 			}
 			err = publicKey.Set(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func migrateGenerated(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.GENERATED_TABLE_NAME) {
+		return nil
+	}
+
+	records, err := kvList(ctx, database.GENERATED_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	record, ok := records["netmaker_auth"]
+	if ok {
+		recordData := make(map[string]string)
+		err = json.Unmarshal([]byte(record), &recordData)
+		if err != nil {
+			return err
+		}
+
+		oauthSecretValue, ok := recordData["value"]
+		if ok {
+			oauthSecret := &schema.Internal{
+				Key:   schema.InternalKey_OAuthSecret,
+				Value: oauthSecretValue,
+			}
+			err = oauthSecret.Set(ctx)
 			if err != nil {
 				return err
 			}
