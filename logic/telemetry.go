@@ -132,7 +132,7 @@ func getTelemetryLastReportedAt() (time.Time, error) {
 func setTelemetryLastReportedAt() error {
 	lastHookRunAt := &schema.Internal{
 		Key:   schema.InternalKey_TelemetryLastReportedAt,
-		Value: time.Now().Format(time.RFC3339),
+		Value: time.Now().UTC().Format(time.RFC3339),
 	}
 	return lastHookRunAt.Set(db.WithContext(context.TODO()))
 }

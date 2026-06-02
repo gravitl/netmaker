@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -16,7 +17,12 @@ func migrateV1_5_3(ctx context.Context) error {
 		return err
 	}
 
-	return migrateGenerated(ctx)
+	err = migrateGenerated(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateServerUUID(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -111,6 +117,77 @@ func migrateGenerated(ctx context.Context) error {
 				Value: oauthSecretValue,
 			}
 			err = oauthSecret.Set(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func migrateServerUUID(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(database.SERVER_UUID_TABLE_NAME) {
+		return nil
+	}
+
+	records, err := kvList(ctx, database.SERVER_UUID_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	record, ok := records["serveruuid"]
+	if ok {
+		type recordType struct {
+			UUID           string `json:"uuid"`
+			LastSend       int64  `json:"lastsend"`
+			TrafficKeyPriv []byte `json:"traffickeypriv"`
+			TrafficKeyPub  []byte `json:"traffickeypub"`
+		}
+
+		var recordData recordType
+		err = json.Unmarshal([]byte(record), &recordData)
+		if err != nil {
+			return err
+		}
+
+		if recordData.UUID != "" {
+			serverID := &schema.Internal{
+				Key:   schema.InternalKey_ServerID,
+				Value: recordData.UUID,
+			}
+			err = serverID.Set(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		if recordData.LastSend != 0 {
+			telemetryLastReportedAt := &schema.Internal{
+				Key:   schema.InternalKey_TelemetryLastReportedAt,
+				Value: time.Unix(recordData.LastSend, 0).UTC().Format(time.RFC3339),
+			}
+			err = telemetryLastReportedAt.Set(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		if recordData.TrafficKeyPriv != nil && recordData.TrafficKeyPub != nil {
+			mqPrivateKey := &schema.Internal{
+				Key:   schema.InternalKey_MqPrivateKey,
+				Value: base64.StdEncoding.EncodeToString(recordData.TrafficKeyPriv),
+			}
+			err = mqPrivateKey.Set(ctx)
+			if err != nil {
+				return err
+			}
+
+			mqPublicKey := &schema.Internal{
+				Key:   schema.InternalKey_MqPublicKey,
+				Value: base64.StdEncoding.EncodeToString(recordData.TrafficKeyPub),
+			}
+			err = mqPublicKey.Set(ctx)
 			if err != nil {
 				return err
 			}
