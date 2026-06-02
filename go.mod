@@ -45,6 +45,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/klauspost/compress v1.18.6
 	github.com/matryer/is v1.4.1
 	github.com/okta/okta-sdk-golang/v5 v5.0.6
@@ -61,13 +62,13 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+
 require (
 	cloud.google.com/go/auth v0.18.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
-	github.com/DataDog/datadog-api-client-go/v2 v2.60.0
-	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

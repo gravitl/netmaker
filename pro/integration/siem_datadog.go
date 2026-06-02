@@ -1,13 +1,14 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
-	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
-	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type DatadogConfig struct {
@@ -40,8 +41,7 @@ func (d *datadogProvider) Validate(configJSON json.RawMessage) error {
 		return fmt.Errorf("api_key is required")
 	}
 	if cfg.Site != "" {
-		_, ok := validSites[cfg.Site]
-		if !ok {
+		if !validSites[cfg.Site] {
 			return fmt.Errorf("invalid site")
 		}
 	}
@@ -69,45 +69,57 @@ func NewDatadogSIEMClient(config DatadogConfig) *DatadogSIEMClient {
 	if config.Site == "" {
 		config.Site = "datadoghq.com"
 	}
+	return &DatadogSIEMClient{DatadogConfig: config}
+}
 
-	return &DatadogSIEMClient{
-		DatadogConfig: config,
-	}
+type datadogLogItem struct {
+	Message  string `json:"message"`
+	DDSource string `json:"ddsource"`
+	Service  string `json:"service,omitempty"`
+	DDTags   string `json:"ddtags,omitempty"`
 }
 
 func (d *DatadogSIEMClient) Export(ctx context.Context, events []any) error {
-	ctx = context.WithValue(
-		ctx,
-		datadog.ContextAPIKeys,
-		map[string]datadog.APIKey{
-			"apiKeyAuth": {Key: d.APIKey},
-		},
-	)
-	ctx = context.WithValue(ctx, datadog.ContextServerVariables, map[string]string{
-		"site": d.Site,
-	})
-
-	items := make([]datadogV2.HTTPLogItem, 0, len(events))
+	items := make([]datadogLogItem, 0, len(events))
 	for _, e := range events {
 		msg, _ := json.Marshal(e)
-		item := datadogV2.HTTPLogItem{
+		item := datadogLogItem{
 			Message:  string(msg),
-			Ddsource: datadog.PtrString("netmaker"),
+			DDSource: "netmaker",
 		}
 		if d.Service != "" {
-			item.Service = datadog.PtrString(d.Service)
+			item.Service = d.Service
 		}
 		if len(d.Tags) > 0 {
-			item.Ddtags = datadog.PtrString(strings.Join(d.Tags, ","))
+			item.DDTags = strings.Join(d.Tags, ",")
 		}
 		items = append(items, item)
 	}
 
-	apiClient := datadog.NewAPIClient(datadog.NewConfiguration())
-	api := datadogV2.NewLogsApi(apiClient)
-	_, _, err := api.SubmitLog(ctx, items, *datadogV2.NewSubmitLogOptionalParameters())
+	body, err := json.Marshal(items)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log items: %w", err)
+	}
+
+	url := fmt.Sprintf("https://http-intake.logs.%s/api/v2/logs", d.Site)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("DD-API-KEY", d.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := retryablehttp.NewClient()
+	client.Logger = nil
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to export to datadog: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("datadog returned status %d", resp.StatusCode)
 	}
 	return nil
 }
