@@ -7,9 +7,7 @@ import (
 )
 
 const (
-	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
-	server_id_key              = "nm-server-id"
 )
 
 var errValidation = errors.New(license_validation_err_msg)
@@ -49,8 +47,4 @@ type ValidateLicenseRequest struct {
 	NmServerPubKey string `json:"nm_server_pub_key" binding:"required"` // Netmaker server public key used to send data back to Netmaker for the Netmaker server to decrypt (eg output from validating license)
 	EncryptedPart  string `json:"secret"            binding:"required"`
 	NmBaseDomain   string `json:"nm_base_domain"`
-}
-
-type licenseResponseCache struct {
-	Body []byte `json:"body" binding:"required"`
 }

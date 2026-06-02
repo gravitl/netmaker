@@ -21,7 +21,6 @@ import (
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -307,31 +306,29 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 }
 
 func cacheResponse(response []byte) error {
-	lrc := licenseResponseCache{
-		Body: response,
+	cachedResponse := &schema.Internal{
+		Key:   schema.InternalKey_LicenseValidationCachedResponse,
+		Value: base64encode(response),
 	}
-
-	record, err := json.Marshal(&lrc)
-	if err != nil {
-		return err
-	}
-
-	return database.Insert(license_cache_key, string(record), database.CACHE_TABLE_NAME)
+	return cachedResponse.Set(db.WithContext(context.TODO()))
 }
 
 func getCachedResponse() ([]byte, error) {
-	var lrc licenseResponseCache
-	record, err := database.FetchRecord(database.CACHE_TABLE_NAME, license_cache_key)
+	cachedResponse := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationCachedResponse,
+	}
+	err := cachedResponse.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
-	if err = json.Unmarshal([]byte(record), &lrc); err != nil {
-		return nil, err
-	}
-	return lrc.Body, nil
+
+	return base64decode(cachedResponse.Value), nil
 }
 
 // ClearLicenseCache - clears the cached validate response
 func ClearLicenseCache() error {
-	return database.DeleteRecord(database.CACHE_TABLE_NAME, license_cache_key)
+	cachedResponse := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationCachedResponse,
+	}
+	return cachedResponse.Reset(db.WithContext(context.TODO()))
 }

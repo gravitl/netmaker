@@ -57,7 +57,7 @@ func InitPro() {
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
-		license.ClearLicenseCache()
+		_ = license.ClearLicenseCache()
 		if err := license.ValidateLicense(); err != nil {
 			slog.Error(err.Error())
 			return
