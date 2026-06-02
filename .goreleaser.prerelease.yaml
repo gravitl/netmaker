@@ -5,7 +5,7 @@ before:
 builds:
   - main: ./
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     ldflags:
       - -s -w
     targets:
