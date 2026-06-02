@@ -140,7 +140,7 @@ func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
 		return err
 	}
 
-	password, err := logic.FetchPassValue("")
+	password, err := logic.FetchOAuthSecret()
 	if err != nil {
 		return err
 	}

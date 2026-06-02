@@ -10,6 +10,7 @@ const (
 	InternalKey_JwtSecret                   = "jwt_secret"
 	InternalKey_LicenseValidationPrivateKey = "license_validation_private_key"
 	InternalKey_LicenseValidationPublicKey  = "license_validation_public_key"
+	InternalKey_OAuthSecret                 = "oauth_secret"
 )
 
 type Internal struct {

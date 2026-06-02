@@ -163,7 +163,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = logic.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchOAuthSecret()
 	if fetchErr != nil {
 		return
 	}

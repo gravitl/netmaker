@@ -24,10 +24,6 @@ import (
 )
 
 const (
-	auth_key = "netmaker_auth"
-)
-
-const (
 	DashboardApp       = "dashboard"
 	NetclientApp       = "netclient"
 	NetmakerDesktopApp = "netmaker-desktop"
@@ -58,35 +54,12 @@ func GetUsers() ([]models.ReturnUser, error) {
 
 // IsOauthUser - returns
 func IsOauthUser(user *schema.User) error {
-	var currentValue, err = FetchPassValue("")
+	var currentValue, err = FetchOAuthSecret()
 	if err != nil {
 		return err
 	}
 	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
 	return bCryptErr
-}
-
-func FetchPassValue(newValue string) (string, error) {
-
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
-	}
-	newValueHolder := valueHolder{}
-	var currentValue, err = FetchAuthSecret()
-	if err != nil {
-		return "", err
-	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
-	if unmarshErr != nil {
-		return "", unmarshErr
-	}
-
-	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
-	if b64Err != nil {
-		logger.Log(0, "could not decode pass")
-		return "", nil
-	}
-	return string(b64CurrentValue), nil
 }
 
 // CreateUser - creates a user
@@ -483,33 +456,39 @@ func DeleteUser(user string) error {
 	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }
 
-func SetAuthSecret(secret string) error {
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
+func SetOAuthSecret(secret string) error {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
 	}
-	record, err := FetchAuthSecret()
-	if err == nil {
-		v := valueHolder{}
-		json.Unmarshal([]byte(record), &v)
-		if v.Value != "" {
-			return nil
-		}
+	err := oauthSecret.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
-	newValueHolder := valueHolder{
-		Value: b64NewValue,
+
+	if oauthSecret.Value != "" {
+		return nil
 	}
-	d, _ := json.Marshal(newValueHolder)
-	return database.Insert(auth_key, string(d), database.GENERATED_TABLE_NAME)
+
+	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
+	return oauthSecret.Set(db.WithContext(context.TODO()))
 }
 
-// FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret() (string, error) {
-	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, auth_key)
+// FetchOAuthSecret fetches secrets for oauth
+func FetchOAuthSecret() (string, error) {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
+	}
+	err := oauthSecret.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return "", err
 	}
-	return record, nil
+
+	oauthSecretValue, err := base64.StdEncoding.DecodeString(oauthSecret.Value)
+	if err != nil {
+		return "", err
+	}
+
+	return string(oauthSecretValue), nil
 }
 
 // GetState - gets an SsoState from DB, if expired returns error
