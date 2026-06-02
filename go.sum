@@ -202,10 +202,6 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa h1:hxMLFbj+F444JAS5nUQxTDZwUxwCRqg3WkNqhiDzXrM=
 github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa/go.mod h1:xF/KoXmrRyahPfo5L7Szb5cAAUl53dMWBh9cMruGEZg=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/seancfoley/bintree v1.3.1 h1:cqmmQK7Jm4aw8gna0bP+huu5leVOgHGSJBEpUx3EXGI=
-github.com/seancfoley/bintree v1.3.1/go.mod h1:hIUabL8OFYyFVTQ6azeajbopogQc2l5C/hiXMcemWNU=
-github.com/seancfoley/ipaddress-go v1.7.1 h1:fDWryS+L8iaaH5RxIKbY0xB5Z+Zxk8xoXLN4S4eAPdQ=
-github.com/seancfoley/ipaddress-go v1.7.1/go.mod h1:TQRZgv+9jdvzHmKoPGBMxyiaVmoI0rYpfEk8Q/sL/Iw=
 github.com/segmentio/asm v1.2.1 h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=
 github.com/segmentio/asm v1.2.1/go.mod h1:BqMnlJP91P8d+4ibuonYZw9mfnzI9HfxselHZr5aAcs=
 github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=

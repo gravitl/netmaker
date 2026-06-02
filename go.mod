@@ -13,7 +13,6 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa
-	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/automaxprocs v1.6.0
@@ -106,7 +105,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/seancfoley/bintree v1.3.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
