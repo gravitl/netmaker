@@ -13,7 +13,6 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa
-	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/automaxprocs v1.6.0
@@ -45,9 +44,9 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/klauspost/compress v1.18.6
 	github.com/matryer/is v1.4.1
-	github.com/okta/okta-sdk-golang/v5 v5.0.6
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/time v0.15.0
@@ -61,22 +60,19 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
+require github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+
 require (
 	cloud.google.com/go/auth v0.18.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
-	github.com/DataDog/datadog-api-client-go/v2 v2.60.0
-	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -93,19 +89,9 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
-	github.com/lestrrat-go/httpcc v1.0.1 // indirect
-	github.com/lestrrat-go/iter v1.0.2 // indirect
-	github.com/lestrrat-go/jwx v1.2.29 // indirect
-	github.com/lestrrat-go/option v1.0.1 // indirect
-	github.com/patrickmn/go-cache v0.0.0-20180815053127-5633e0862627 // indirect
 	github.com/paulmach/orb v0.12.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/seancfoley/bintree v1.3.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
