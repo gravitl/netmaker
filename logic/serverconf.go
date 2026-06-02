@@ -2,19 +2,9 @@ package logic
 
 import (
 	"context"
-	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
-)
-
-var (
-	// DefaultTrialEndDate - is a placeholder date for not applicable trial end dates
-	DefaultTrialEndDate, _ = time.Parse("2006-Jan-02", "2021-Apr-01")
-
-	GetTrialEndDate = func() (time.Time, error) {
-		return DefaultTrialEndDate, nil
-	}
 )
 
 // GetJwtSecretValue fetches jwt secret from db

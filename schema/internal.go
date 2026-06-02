@@ -7,10 +7,14 @@ import (
 )
 
 const (
+	InternalKey_ServerID                    = "server_id"
 	InternalKey_JwtSecret                   = "jwt_secret"
+	InternalKey_OAuthSecret                 = "oauth_secret"
+	InternalKey_MqPrivateKey                = "mq_private_key"
+	InternalKey_MqPublicKey                 = "mq_public_key"
 	InternalKey_LicenseValidationPrivateKey = "license_validation_private_key"
 	InternalKey_LicenseValidationPublicKey  = "license_validation_public_key"
-	InternalKey_OAuthSecret                 = "oauth_secret"
+	InternalKey_TelemetryLastReportedAt     = "telemetry_last_reported_at"
 )
 
 type Internal struct {

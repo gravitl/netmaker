@@ -4,7 +4,8 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
+	"encoding/base64"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
@@ -137,16 +139,26 @@ func initialize() { // Client Mode Prereq Check
 			panic(err)
 		}
 		migrate.Run()
-	}
 
-	initializeUUID()
+		err = setServerID()
+		if err != nil {
+			logger.Log(0, "error setting server id: ", err.Error())
+		}
+
+		logic.SetJWTSecret()
+
+		err = setMqKeys()
+		if err != nil {
+			logger.Log(0, "error setting mq keys: ", err.Error())
+		}
+
+	}
 
 	//initialize cache
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_ = logic.CleanExpiredSSOStates()
 
-	logic.SetJWTSecret()
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
@@ -273,40 +285,66 @@ func setGarbageCollection() {
 	}
 }
 
-// initializeUUID - create a UUID record for server if none exists
-func initializeUUID() error {
-	records, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
-	if err != nil {
-		if !database.IsEmptyRecord(err) {
-			return err
-		}
-	} else if len(records) > 0 {
+func setServerID() error {
+	serverID := &schema.Internal{
+		Key: schema.InternalKey_ServerID,
+	}
+	err := serverID.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if serverID.Value != "" {
 		return nil
 	}
-	// setup encryption keys
-	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
-	if errT != nil {
-		return errT
+
+	serverID.Value = uuid.NewString()
+	return serverID.Set(db.WithContext(context.TODO()))
+}
+
+func setMqKeys() error {
+	mqPrivateKey := &schema.Internal{
+		Key: schema.InternalKey_MqPrivateKey,
 	}
-	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	err := mqPrivateKey.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	mqPublicKey := &schema.Internal{
+		Key: schema.InternalKey_MqPublicKey,
+	}
+	err = mqPublicKey.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if mqPrivateKey.Value != "" && mqPublicKey.Value != "" {
+		return nil
+	}
+
+	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
 
-	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	privateKeyBytes, err := ncutils.ConvertKeyToBytes(privateKey)
 	if err != nil {
 		return err
 	}
 
-	telemetry := models.Telemetry{
-		UUID:           uuid.NewString(),
-		TrafficKeyPriv: tPriv,
-		TrafficKeyPub:  tPub,
-	}
-	telJSON, err := json.Marshal(&telemetry)
+	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
 		return err
 	}
 
-	return database.Insert(database.SERVER_UUID_RECORD_KEY, string(telJSON), database.SERVER_UUID_TABLE_NAME)
+	mqPrivateKey.Value = base64.StdEncoding.EncodeToString(privateKeyBytes)
+	mqPublicKey.Value = base64.StdEncoding.EncodeToString(publicKeyBytes)
+
+	err = mqPrivateKey.Set(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	return mqPublicKey.Set(db.WithContext(context.TODO()))
 }

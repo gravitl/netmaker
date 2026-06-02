@@ -26,8 +26,6 @@ const (
 	SERVERCONF_TABLE_NAME = "serverconf"
 	// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
 	SERVER_UUID_TABLE_NAME = "serveruuid"
-	// SERVER_UUID_RECORD_KEY - telemetry thing
-	SERVER_UUID_RECORD_KEY = "serveruuid"
 	// GENERATED_TABLE_NAME - stores server generated k/v
 	GENERATED_TABLE_NAME = "generated"
 	// ACLS_TABLE_NAME - table for acls v2
@@ -84,7 +82,6 @@ const (
 var Tables = []string{
 	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
-	SERVER_UUID_TABLE_NAME,
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
 	CACHE_TABLE_NAME,
