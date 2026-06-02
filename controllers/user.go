@@ -974,12 +974,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type ReturnUserWithRolesAndGroups struct {
-		models.ReturnUser
-		PlatformRole *schema.UserRole                        `json:"platform_role"`
-		UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
-	}
-	resp := ReturnUserWithRolesAndGroups{
+	resp := models.ReturnUserWithRolesAndGroups{
 		ReturnUser:   user,
 		PlatformRole: userRoleTemplate,
 		UserGroups:   map[schema.UserGroupID]schema.UserGroup{},
