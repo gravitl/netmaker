@@ -132,8 +132,17 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	if !ops.skipHostUpdate {
-		go func() {
+	go func() {
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.LastEvaluatedAt = time.Now().UTC()
+		err = logic.UpsertNodeWithPostureChecks(modelsNode)
+		if err != nil {
+			logger.Log(1, fmt.Sprintf("failed to upsert node (%s) posture check violations: %v", modelsNode.ID, err))
+		}
+
+		if !ops.skipHostUpdate {
 			action := models.JoinHostToNetwork
 			if len(host.Nodes) == 1 {
 				action = models.RequestPull
@@ -142,24 +151,22 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			err := mq.HostUpdate(&models.HostUpdate{
 				Action: action,
 				Host:   *host,
-				Node:   *logic.ConvertSchemaNodeToModelsNode(node),
+				Node:   *modelsNode,
 			})
 			if err != nil {
 				logger.Log(1, "failed to send host update for node", node.ID, err.Error())
 			}
-		}()
-	}
+		}
 
-	if !ops.skipPublishPeerUpdate {
-		go func() {
+		if !ops.skipPublishPeerUpdate {
 			err := mq.PublishPeerUpdate(false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
 			time.Sleep(time.Second * 30)
 			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
-		}()
-	}
+		}
+	}()
 
 	return node, nil
 }
