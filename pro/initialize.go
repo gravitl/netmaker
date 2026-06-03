@@ -57,6 +57,7 @@ func InitPro() {
 		proControllers.JITHandlers,
 		proControllers.MDMHandlers,
 		proControllers.ServerHandlers,
+		proControllers.IntegrationHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -215,6 +216,7 @@ func InitPro() {
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
+	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
 
 // addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications

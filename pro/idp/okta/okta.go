@@ -2,177 +2,193 @@ package okta
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
-	"github.com/okta/okta-sdk-golang/v5/okta"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
+var linkNextRe = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
+
 type Client struct {
-	client *okta.APIClient
+	orgURL   string
+	apiToken string
+	client   *retryablehttp.Client
 }
 
 func NewOktaClient(oktaOrgURL, oktaAPIToken string) (*Client, error) {
-	config, err := okta.NewConfiguration(
-		okta.WithOrgUrl(oktaOrgURL),
-		okta.WithToken(oktaAPIToken),
-		okta.WithRateLimitPrevent(true),
-	)
-	if err != nil {
-		return nil, err
-	}
-
+	client := retryablehttp.NewClient()
+	client.Logger = nil
 	return &Client{
-		client: okta.NewAPIClient(config),
+		orgURL:   strings.TrimRight(oktaOrgURL, "/"),
+		apiToken: oktaAPIToken,
+		client:   client,
 	}, nil
 }
 
 func NewOktaClientFromSettings() (*Client, error) {
 	settings := logic.GetServerSettings()
-
 	return NewOktaClient(settings.OktaOrgURL, settings.OktaAPIToken)
 }
 
-func (o *Client) Verify() error {
-	_, _, err := o.client.UserAPI.ListUsers(context.TODO()).Limit(1).Execute()
+type oktaUserProfile struct {
+	Login     string  `json:"login"`
+	FirstName *string `json:"firstName"`
+	LastName  *string `json:"lastName"`
+}
+
+type oktaUser struct {
+	ID      string          `json:"id"`
+	Status  string          `json:"status"`
+	Profile oktaUserProfile `json:"profile"`
+}
+
+type oktaGroupProfile struct {
+	Name string `json:"name"`
+}
+
+type oktaGroup struct {
+	ID      string           `json:"id"`
+	Profile oktaGroupProfile `json:"profile"`
+}
+
+type oktaGroupMember struct {
+	ID string `json:"id"`
+}
+
+func (o *Client) get(ctx context.Context, rawURL string, out any) (nextURL string, err error) {
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return err
+		return "", err
+	}
+	req.Header.Set("Authorization", "SSWS "+o.apiToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := o.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("okta returned status %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return "", err
 	}
 
-	_, _, err = o.client.GroupAPI.ListGroups(context.TODO()).Limit(1).Execute()
+	if link := resp.Header.Get("Link"); link != "" {
+		if m := linkNextRe.FindStringSubmatch(link); len(m) > 1 {
+			nextURL = m[1]
+		}
+	}
+	return nextURL, nil
+}
+
+func (o *Client) Verify() error {
+	var users []oktaUser
+	if _, err := o.get(context.TODO(), o.orgURL+"/api/v1/users?limit=1", &users); err != nil {
+		return err
+	}
+	var groups []oktaGroup
+	_, err := o.get(context.TODO(), o.orgURL+"/api/v1/groups?limit=1", &groups)
 	return err
 }
 
 func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
-	var retval []idp.User
-
-	users, resp, err := o.client.UserAPI.ListUsers(context.TODO()).
-		Search(buildPrefixFilter("profile.login", filters)).
-		Execute()
-	if err != nil {
-		return nil, err
+	q := url.Values{"limit": {"200"}}
+	if search := buildPrefixFilter("profile.login", filters); search != "" {
+		q.Set("search", search)
 	}
 
-	usersProcessingPending := len(users) > 0 || resp.HasNextPage()
+	nextURL := o.orgURL + "/api/v1/users?" + q.Encode()
+	var retval []idp.User
 
-	for usersProcessingPending {
-		for _, user := range users {
-			id := *user.Id
-			username := *user.Profile.Login
-
+	for nextURL != "" {
+		var users []oktaUser
+		var err error
+		nextURL, err = o.get(context.TODO(), nextURL, &users)
+		if err != nil {
+			return nil, err
+		}
+		for _, u := range users {
 			displayName := ""
-			if user.Profile.FirstName.IsSet() && user.Profile.LastName.IsSet() {
-				displayName = fmt.Sprintf("%s %s", *user.Profile.FirstName.Get(), *user.Profile.LastName.Get())
+			if u.Profile.FirstName != nil && u.Profile.LastName != nil {
+				displayName = fmt.Sprintf("%s %s", *u.Profile.FirstName, *u.Profile.LastName)
 			}
-
-			accountDisabled := false
-			if *user.Status == "SUSPENDED" {
-				accountDisabled = true
-			}
-
 			retval = append(retval, idp.User{
-				ID:              id,
-				Username:        username,
+				ID:              u.ID,
+				Username:        u.Profile.Login,
 				DisplayName:     displayName,
-				AccountDisabled: accountDisabled,
+				AccountDisabled: u.Status == "SUSPENDED",
 				AccountArchived: false,
 			})
 		}
-
-		if resp.HasNextPage() {
-			users = make([]okta.User, 0)
-
-			resp, err = resp.Next(&users)
-			if err != nil {
-				return nil, err
-			}
-
-			usersProcessingPending = len(users) > 0 || resp.HasNextPage()
-		} else {
-			usersProcessingPending = false
-		}
 	}
-
 	return retval, nil
 }
 
 func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
-	var retval []idp.Group
-
-	groups, resp, err := o.client.GroupAPI.ListGroups(context.TODO()).
-		Search(buildPrefixFilter("profile.name", filters)).
-		Execute()
-	if err != nil {
-		return nil, err
+	q := url.Values{}
+	if search := buildPrefixFilter("profile.name", filters); search != "" {
+		q.Set("search", search)
 	}
 
-	groupsProcessingPending := len(groups) > 0 || resp.HasNextPage()
+	nextURL := o.orgURL + "/api/v1/groups?" + q.Encode()
+	var retval []idp.Group
 
-	for groupsProcessingPending {
-		for _, group := range groups {
-			id := *group.Id
-			name := *group.Profile.Name
-
-			var members []string
-			groupUsers, groupUsersResp, err := o.client.GroupAPI.ListGroupUsers(context.TODO(), id).Execute()
+	for nextURL != "" {
+		var groups []oktaGroup
+		var err error
+		nextURL, err = o.get(context.TODO(), nextURL, &groups)
+		if err != nil {
+			return nil, err
+		}
+		for _, g := range groups {
+			members, err := o.listGroupMembers(g.ID)
 			if err != nil {
 				return nil, err
 			}
-
-			groupUsersProcessingPending := len(groupUsers) > 0 || groupUsersResp.HasNextPage()
-
-			for groupUsersProcessingPending {
-				for _, groupUser := range groupUsers {
-					members = append(members, *groupUser.Id)
-				}
-
-				if groupUsersResp.HasNextPage() {
-					groupUsers = make([]okta.GroupMember, 0)
-
-					groupUsersResp, err = groupUsersResp.Next(&groupUsers)
-					if err != nil {
-						return nil, err
-					}
-
-					groupUsersProcessingPending = len(groupUsers) > 0 || groupUsersResp.HasNextPage()
-				} else {
-					groupUsersProcessingPending = false
-				}
-			}
-
 			retval = append(retval, idp.Group{
-				ID:      id,
-				Name:    name,
+				ID:      g.ID,
+				Name:    g.Profile.Name,
 				Members: members,
 			})
 		}
+	}
+	return retval, nil
+}
 
-		if resp.HasNextPage() {
-			groups = make([]okta.Group, 0)
+func (o *Client) listGroupMembers(groupID string) ([]string, error) {
+	nextURL := fmt.Sprintf("%s/api/v1/groups/%s/users", o.orgURL, groupID)
+	var members []string
 
-			resp, err = resp.Next(&groups)
-			if err != nil {
-				return nil, err
-			}
-
-			groupsProcessingPending = len(groups) > 0 || resp.HasNextPage()
-		} else {
-			groupsProcessingPending = false
+	for nextURL != "" {
+		var batch []oktaGroupMember
+		var err error
+		nextURL, err = o.get(context.TODO(), nextURL, &batch)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range batch {
+			members = append(members, m.ID)
 		}
 	}
-
-	return retval, nil
+	return members, nil
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
 	if len(prefixes) == 0 {
 		return ""
 	}
-
 	if len(prefixes) == 1 {
 		return fmt.Sprintf("%s sw \"%s\"", field, prefixes[0])
 	}
-
 	return buildPrefixFilter(field, prefixes[:1]) + " or " + buildPrefixFilter(field, prefixes[1:])
 }

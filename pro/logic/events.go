@@ -9,9 +9,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/grpc/auditlogs"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 )
 
@@ -69,6 +71,31 @@ func EventWatcher() {
 			TimeStamp:   time.Now().UTC(),
 		}
 		a.Create(db.WithContext(context.TODO()))
-	}
 
+		if GetFeatureFlags().EnableSIEMIntegration {
+			sourceMap := make(map[string]interface{})
+			dstMap := make(map[string]interface{})
+			diffMap := make(map[string]interface{})
+
+			_ = json.Unmarshal(sourceJson, &sourceMap)
+			_ = json.Unmarshal(dstJson, &dstMap)
+			_ = json.Unmarshal(diff, &diffMap)
+
+			sourceStruct, _ := structpb.NewStruct(sourceMap)
+			dstStruct, _ := structpb.NewStruct(dstMap)
+			diffStruct, _ := structpb.NewStruct(diffMap)
+
+			_ = auditlogs.Client().Export(&auditlogs.AuditLogEvent{
+				Id:          a.ID,
+				Action:      string(e.Action),
+				Origin:      string(e.Origin),
+				TriggeredBy: e.TriggeredBy,
+				NetworkId:   string(e.NetworkID),
+				Source:      sourceStruct,
+				Target:      dstStruct,
+				Diff:        diffStruct,
+				TsMs:        a.TimeStamp.UnixMilli(),
+			})
+		}
+	}
 }

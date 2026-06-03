@@ -488,3 +488,31 @@ func PublishExporterFeatureFlags() error {
 
 	return nil
 }
+
+func PublishIntegrationUpsert(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/upsert", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
+
+func PublishIntegrationDelete(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/delete", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
