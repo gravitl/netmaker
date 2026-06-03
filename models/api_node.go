@@ -164,6 +164,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsIngressGateway = true
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
+	convertedNode.Status = currentNode.Status
 	return &convertedNode
 }
 
