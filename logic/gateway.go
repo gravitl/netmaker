@@ -179,7 +179,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	node.Metadata = ""
 	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
 	node.LastEvaluatedAt = time.Now().UTC()
-	err = UpsertNode(&node)
+	err = UpsertNodeWithPostureChecks(&node)
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}

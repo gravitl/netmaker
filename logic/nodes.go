@@ -115,6 +115,15 @@ func UpsertNode(newNode *models.Node) error {
 		return errors.New("error converting models.Node to schema.Node")
 	}
 
+	return _node.Upsert(db.WithContext(context.TODO()))
+}
+
+func UpsertNodeWithPostureChecks(newNode *models.Node) error {
+	_node := ConvertModelsNodeToSchemaNode(newNode)
+	if _node.ID == "" {
+		return errors.New("error converting models.Node to schema.Node")
+	}
+
 	err := _node.Upsert(db.WithContext(context.TODO()))
 	if err != nil {
 		return err

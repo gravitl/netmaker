@@ -783,7 +783,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
 		schema.NetworkID(newNode.Network))
 	newNode.LastEvaluatedAt = time.Now().UTC()
-	logic.UpsertNode(newNode)
+	_ = logic.UpsertNodeWithPostureChecks(newNode)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(

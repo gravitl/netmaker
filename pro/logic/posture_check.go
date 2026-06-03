@@ -111,7 +111,7 @@ func RunPostureChecks() error {
 				nodeI.PostureChecksViolations, nodeI.PostureCheckVolationSeverityLevel = postureChecksViolations,
 					postureCheckVolationSeverityLevel
 				nodeI.LastEvaluatedAt = time.Now().UTC()
-				logic.UpsertNode(&nodeI)
+				_ = logic.UpsertNodeWithPostureChecks(&nodeI)
 			}
 
 		}
