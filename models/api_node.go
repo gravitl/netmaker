@@ -142,7 +142,11 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
-	convertedNode.ExpirationDateTime = currentNode.ExpirationDateTime
+	if a.ExpirationDateTime == 0 {
+		convertedNode.ExpirationDateTime = currentNode.ExpirationDateTime
+	} else {
+		convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
+	}
 	convertedNode.Metadata = a.Metadata
 	for _, ip := range a.AdditionalRagIps {
 		ragIp := net.ParseIP(ip)
