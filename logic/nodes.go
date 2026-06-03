@@ -537,6 +537,48 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 	return node, nil
 }
 
+const (
+	egressLoopbackIPv4 = "127.0.0.0/8"
+	egressLoopbackIPv6 = "::1/128"
+)
+
+// ValidateEgressCIDR rejects egress ranges that overlap the Netmaker network
+// or loopback space. Empty range and "*" are allowed (domain-only / inet gw).
+func ValidateEgressCIDR(network *schema.Network, cidr string) error {
+	if cidr == "" || cidr == "*" {
+		return nil
+	}
+	normalized, err := NormalizeCIDR(cidr)
+	if err != nil {
+		return fmt.Errorf("invalid egress range: %w", err)
+	}
+	normNetv4 := network.AddressRange
+	if normNetv4 != "" {
+		if n, err := NormalizeCIDR(normNetv4); err == nil {
+			normNetv4 = n
+		}
+	}
+	normNetv6 := network.AddressRange6
+	if normNetv6 != "" {
+		if n, err := NormalizeCIDR(normNetv6); err == nil {
+			normNetv6 = n
+		}
+	}
+	if normNetv4 != "" && ContainsCIDR(normNetv4, normalized) {
+		return errors.New("egress range must not overlap the Netmaker network IPv4 range")
+	}
+	if normNetv6 != "" && ContainsCIDR(normNetv6, normalized) {
+		return errors.New("egress range must not overlap the Netmaker network IPv6 range")
+	}
+	if ContainsCIDR(egressLoopbackIPv4, normalized) {
+		return errors.New("egress range must not include loopback (127.0.0.0/8)")
+	}
+	if ContainsCIDR(egressLoopbackIPv6, normalized) {
+		return errors.New("egress range must not include IPv6 loopback (::1/128)")
+	}
+	return nil
+}
+
 func ValidateEgressRange(netID string, ranges []string) error {
 	network := &schema.Network{Name: netID}
 	err := network.Get(db.WithContext(context.TODO()))
@@ -544,24 +586,12 @@ func ValidateEgressRange(netID string, ranges []string) error {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
 	}
-	ipv4Net := network.AddressRange
-	ipv6Net := network.AddressRange6
-
 	for _, v := range ranges {
-		if ipv4Net != "" {
-			if ContainsCIDR(ipv4Net, v) {
-				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
-				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv4Net)
-			}
-		}
-		if ipv6Net != "" {
-			if ContainsCIDR(ipv6Net, v) {
-				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv6Net)
-				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv6Net)
-			}
+		if err := ValidateEgressCIDR(network, v); err != nil {
+			slog.Error("invalid egress range", "range", v, "error", err.Error())
+			return err
 		}
 	}
-
 	return nil
 }
 

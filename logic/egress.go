@@ -30,17 +30,24 @@ func validateEgressReq(e *schema.Egress) error {
 	if err := ValidateEgressAppNATMode(*e); err != nil {
 		return err
 	}
+	if err := ValidateEgressProOnlyFeatures(*e); err != nil {
+		return err
+	}
 	if e.Nat {
 		e.Mode = schema.DirectNAT
 	} else {
 		e.Mode = schema.DisabledNAT
 		e.VirtualRange = ""
 	}
-	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
-	if err != nil {
+	network := &schema.Network{Name: e.Network}
+	if err := network.Get(db.WithContext(context.TODO())); err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
-
+	if e.Range != "" {
+		if err := ValidateEgressCIDR(network, e.Range); err != nil {
+			return err
+		}
+	}
 	if !GetFeatureFlags().EnableEgressHA && len(e.Nodes) > 1 {
 		return errors.New("can only set one routing node on CE")
 	}
@@ -103,6 +110,19 @@ func ApplyConfiguredDomainsToEgress(e *schema.Egress, domains []string) {
 // IsDomainBasedEgress is true when this egress has at least one configured logical domain.
 func IsDomainBasedEgress(e schema.Egress) bool {
 	return len(ConfiguredDomainsForEgress(e)) > 0
+}
+
+// IsEgressInternetGateway is true when range is "*" (full internet egress).
+func IsEgressInternetGateway(e schema.Egress) bool {
+	return strings.TrimSpace(e.Range) == "*"
+}
+
+// IsEgressReqInternetGateway is true when the request uses range "*" for internet egress.
+func IsEgressReqInternetGateway(req *models.EgressReq) bool {
+	if req == nil {
+		return false
+	}
+	return strings.TrimSpace(req.Range) == "*"
 }
 
 // EgressDomainsEqual compares two domain lists as sets (order-independent).
