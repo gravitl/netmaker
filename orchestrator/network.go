@@ -15,6 +15,8 @@ import (
 type NetworkOrchestrator struct {
 	addressLock  sync.Mutex
 	address6Lock sync.Mutex
+	pendingIPv4  map[string]map[string]struct{}
+	pendingIPv6  map[string]map[string]struct{}
 }
 
 func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
@@ -68,6 +70,7 @@ func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *sch
 
 	for {
 		if n.IsIPv4Unique(ctx, network, addr.String()) {
+			n.reserveIPv4(network.ID, addr.String())
 			return addr, nil
 		}
 		var err error
@@ -100,6 +103,7 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 
 	for {
 		if n.IsIPv6Unique(ctx, network, addr.String()) {
+			n.reserveIPv6(network.ID, addr.String())
 			return addr, nil
 		}
 		if reverse {
@@ -114,6 +118,12 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 }
 
 func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.Network, ip string) bool {
+	if pending, ok := n.pendingIPv4[network.ID]; ok {
+		if _, reserved := pending[ip]; reserved {
+			return false
+		}
+	}
+
 	_, cidr, err := net.ParseCIDR(network.AddressRange)
 	if err != nil {
 		return true
@@ -136,7 +146,49 @@ func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.
 	return true
 }
 
+func (n *NetworkOrchestrator) reserveIPv4(networkID, ip string) {
+	if n.pendingIPv4 == nil {
+		n.pendingIPv4 = make(map[string]map[string]struct{})
+	}
+	if n.pendingIPv4[networkID] == nil {
+		n.pendingIPv4[networkID] = make(map[string]struct{})
+	}
+	n.pendingIPv4[networkID][ip] = struct{}{}
+}
+
+func (n *NetworkOrchestrator) reserveIPv6(networkID, ip string) {
+	if n.pendingIPv6 == nil {
+		n.pendingIPv6 = make(map[string]map[string]struct{})
+	}
+	if n.pendingIPv6[networkID] == nil {
+		n.pendingIPv6[networkID] = make(map[string]struct{})
+	}
+	n.pendingIPv6[networkID][ip] = struct{}{}
+}
+
+func (n *NetworkOrchestrator) FreeIPv4Reservation(networkID, ip string) {
+	n.addressLock.Lock()
+	defer n.addressLock.Unlock()
+	if n.pendingIPv4 != nil {
+		delete(n.pendingIPv4[networkID], ip)
+	}
+}
+
+func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
+	n.address6Lock.Lock()
+	defer n.address6Lock.Unlock()
+	if n.pendingIPv6 != nil {
+		delete(n.pendingIPv6[networkID], ip)
+	}
+}
+
 func (n *NetworkOrchestrator) IsIPv6Unique(ctx context.Context, network *schema.Network, ip string) bool {
+	if pending, ok := n.pendingIPv6[network.ID]; ok {
+		if _, reserved := pending[ip]; reserved {
+			return false
+		}
+	}
+
 	_, cidr, err := net.ParseCIDR(network.AddressRange6)
 	if err != nil {
 		return true

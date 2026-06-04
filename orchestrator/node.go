@@ -51,14 +51,18 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	// TODO: Ensure concurrency safe ip allocation.
+	networkOrch := GetRepository().NetworkOrchestrator()
+	var reservedIPv4, reservedIPv6 string
+
 	if network.AddressRange != "" {
-		ip, err := GetRepository().NetworkOrchestrator().AllocateNodeIP(ctx, network)
+		ip, err := networkOrch.AllocateNodeIP(ctx, network)
 		if err != nil {
 			return nil, err
 		}
+		reservedIPv4 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
 			return nil, err
 		}
 		cidr.IP = ip
@@ -66,12 +70,18 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if network.AddressRange6 != "" {
-		ip, err := GetRepository().NetworkOrchestrator().AllocateNodeIPv6(ctx, network)
+		ip, err := networkOrch.AllocateNodeIPv6(ctx, network)
 		if err != nil {
+			if reservedIPv4 != "" {
+				networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			}
 			return nil, err
 		}
+		reservedIPv6 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
 			return nil, err
 		}
 		cidr.IP = ip
@@ -79,6 +89,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	err := node.Create(ctx)
+	// Reservations are freed regardless of outcome: on success the DB is authoritative,
+	// on failure the IPs must be available for reallocation.
+	if reservedIPv4 != "" {
+		networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+	}
+	if reservedIPv6 != "" {
+		networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+	}
 	if err != nil {
 		return nil, err
 	}
