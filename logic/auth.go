@@ -285,34 +285,53 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(_user, userchange)
+
+	var roleChange bool
 	if userchange.PlatformRoleID != "" {
+		if userchange.PlatformRoleID != _user.PlatformRoleID {
+			roleChange = true
+		}
 		_user.PlatformRoleID = userchange.PlatformRoleID
 	}
 
-	for groupID := range userchange.UserGroups.Data() {
-		_, ok := _user.UserGroups.Data()[groupID]
-		if !ok {
-			group, err := GetUserGroup(groupID)
-			if err != nil {
-				return userchange, err
-			}
+	if !roleChange {
+		for groupID := range userchange.UserGroups.Data() {
+			_, ok := _user.UserGroups.Data()[groupID]
+			if !ok {
+				group, err := GetUserGroup(groupID)
+				if err != nil {
+					return userchange, err
+				}
 
-			if group.ExternalIdentityProviderID != "" {
-				return userchange, errors.New("cannot modify membership of external groups")
+				if group.ExternalIdentityProviderID != "" {
+					return userchange, errors.New("cannot modify membership of external groups")
+				}
 			}
 		}
-	}
 
-	for groupID := range _user.UserGroups.Data() {
-		_, ok := userchange.UserGroups.Data()[groupID]
-		if !ok {
+		for groupID := range _user.UserGroups.Data() {
+			_, ok := userchange.UserGroups.Data()[groupID]
+			if !ok {
+				group, err := GetUserGroup(groupID)
+				if err != nil {
+					return userchange, err
+				}
+
+				if group.ExternalIdentityProviderID != "" {
+					return userchange, errors.New("cannot modify membership of external groups")
+				}
+			}
+		}
+	} else {
+		userchange.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+		for groupID := range _user.UserGroups.Data() {
 			group, err := GetUserGroup(groupID)
 			if err != nil {
 				return userchange, err
 			}
 
 			if group.ExternalIdentityProviderID != "" {
-				return userchange, errors.New("cannot modify membership of external groups")
+				userchange.UserGroups.Data()[groupID] = struct{}{}
 			}
 		}
 	}
