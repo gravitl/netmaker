@@ -117,8 +117,8 @@ func RunPostureChecks() error {
 					PostureCheckLastEvaluatedAt:       time.Now().UTC(),
 				}
 
-				_violations := make([]schema.PostureCheckViolation, 0, len(nodeI.PostureChecksViolations))
-				for _, violation := range nodeI.PostureChecksViolations {
+				_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+				for _, violation := range postureChecksViolations {
 					_violations = append(_violations, schema.PostureCheckViolation{
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
 						CheckID:           violation.CheckID,

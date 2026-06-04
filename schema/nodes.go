@@ -175,8 +175,9 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
 		Update("posture_check_severity", n.PostureCheckSeverity).
+		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
+		Update("posture_check_last_evaluated_at", n.PostureCheckLastEvaluatedAt).
 		Error
 }
 
