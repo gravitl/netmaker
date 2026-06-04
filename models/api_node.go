@@ -165,6 +165,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
 	convertedNode.Status = currentNode.Status
+	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
 	return &convertedNode
 }
 
