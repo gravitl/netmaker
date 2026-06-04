@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -1396,16 +1397,88 @@ func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.User
 	return
 }
 
+// AddGlobalNetRolesToAdmins assigns the global networks admin group only when an
+// admin or super-admin has no groups (e.g. create/migrate). It does not run on
+// update so callers can remove all group membership from elevated users.
 func AddGlobalNetRolesToAdmins(u *schema.User) {
 	if u.PlatformRoleID != schema.SuperAdminRole && u.PlatformRoleID != schema.AdminRole {
 		return
 	}
+	if len(u.UserGroups.Data()) > 0 {
+		return
+	}
+	u.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+	u.UserGroups.Data()[globalNetworksAdminGroupID] = struct{}{}
+}
 
-	if len(u.UserGroups.Data()) == 0 {
-		u.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+func isElevatedPlatformRole(role schema.UserRoleID) bool {
+	return role == schema.SuperAdminRole || role == schema.AdminRole
+}
+
+func userGroupGrantsAdminAccess(group *schema.UserGroup) bool {
+	if group == nil {
+		return false
+	}
+	if group.ID == globalNetworksAdminGroupID {
+		return true
+	}
+	if groupGrantsGlobalNetworkAdmin(group) {
+		return true
+	}
+	for netID := range group.NetworkRoles.Data() {
+		if groupGrantsNetworkAdminOn(group, netID) {
+			return true
+		}
+	}
+	return false
+}
+
+func isImplicitNetworkAdminGroupID(id schema.UserGroupID) bool {
+	return strings.HasSuffix(string(id), "-"+string(schema.NetworkAdmin)+"-grp")
+}
+
+func isImplicitNetworkUserGroupID(id schema.UserGroupID) bool {
+	return strings.HasSuffix(string(id), "-"+string(schema.NetworkUser)+"-grp")
+}
+
+// AddGlobalGroupOnRoleUpgrade adds the global all-networks admin group when a user
+// is upgraded to admin or super-admin from a non-elevated platform role.
+func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+	if groups == nil || isElevatedPlatformRole(oldRole) || !isElevatedPlatformRole(newRole) {
+		return
+	}
+	groups[globalNetworksAdminGroupID] = struct{}{}
+}
+
+// StripGroupsOnRoleDowngrade removes platform-admin-implied group membership when
+// a user is downgraded from admin or super-admin. Platform users keep per-network
+// admin groups but lose the global admin group; service users lose all admin groups.
+func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+	if groups == nil || !isElevatedPlatformRole(oldRole) || isElevatedPlatformRole(newRole) {
+		return
 	}
 
-	u.UserGroups.Data()[globalNetworksAdminGroupID] = struct{}{}
+	switch newRole {
+	case schema.PlatformUser:
+		delete(groups, globalNetworksAdminGroupID)
+	case schema.ServiceUser:
+		for groupID := range groups {
+			if groupID == globalNetworksAdminGroupID || isImplicitNetworkAdminGroupID(groupID) {
+				delete(groups, groupID)
+				continue
+			}
+			if isImplicitNetworkUserGroupID(groupID) {
+				continue
+			}
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				continue
+			}
+			if userGroupGrantsAdminAccess(&group) {
+				delete(groups, groupID)
+			}
+		}
+	}
 }
 
 func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {

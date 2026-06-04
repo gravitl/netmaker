@@ -80,6 +80,10 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 }
 var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
+var StripGroupsOnRoleDowngrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+}
+var AddGlobalGroupOnRoleUpgrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+}
 var EmailInit = func() {}
 
 func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {

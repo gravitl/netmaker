@@ -1498,8 +1498,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if servercfg.IsPro {
-			// user cannot update his own roles and groups
+		if servercfg.IsPro && caller.PlatformRoleID != schema.SuperAdminRole {
+			// users cannot update their own groups; superadmin is exempt
 			if len(user.UserGroups.Data()) != len(userchange.UserGroups.Data()) || !reflect.DeepEqual(user.UserGroups.Data(), userchange.UserGroups.Data()) {
 				err = errors.New("user cannot update self update their groups")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
@@ -1521,7 +1521,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	logic.AddGlobalNetRolesToAdmins(&userchange)
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data()) {
 		(&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}

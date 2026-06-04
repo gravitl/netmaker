@@ -269,6 +269,14 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 
 	userchange.UserGroups = datatypes.NewJSONType(validUserGroups)
 
+	oldRole := _user.PlatformRoleID
+	newRole := userchange.PlatformRoleID
+	if newRole == "" {
+		newRole = oldRole
+	}
+	StripGroupsOnRoleDowngrade(oldRole, newRole, userchange.UserGroups.Data())
+	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
+
 	if userchange.DisplayName != "" {
 		if _user.ExternalIdentityProviderID != "" &&
 			_user.DisplayName != userchange.DisplayName {
@@ -335,7 +343,6 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	}
 
 	_user.UserGroups = userchange.UserGroups
-	AddGlobalNetRolesToAdmins(_user)
 	err := ValidateUser(_user)
 	if err != nil {
 		return &schema.User{}, err

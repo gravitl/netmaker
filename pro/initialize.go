@@ -174,6 +174,8 @@ func InitPro() {
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
+	logic.StripGroupsOnRoleDowngrade = proLogic.StripGroupsOnRoleDowngrade
+	logic.AddGlobalGroupOnRoleUpgrade = proLogic.AddGlobalGroupOnRoleUpgrade
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
