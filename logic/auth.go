@@ -285,54 +285,34 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(_user, userchange)
-
-	var dropGroups bool
 	if userchange.PlatformRoleID != "" {
-		if userchange.PlatformRoleID != _user.PlatformRoleID &&
-			(userchange.PlatformRoleID == schema.SuperAdminRole || userchange.PlatformRoleID == schema.AdminRole) {
-			dropGroups = true
-		}
 		_user.PlatformRoleID = userchange.PlatformRoleID
 	}
 
-	if !dropGroups {
-		for groupID := range userchange.UserGroups.Data() {
-			_, ok := _user.UserGroups.Data()[groupID]
-			if !ok {
-				group, err := GetUserGroup(groupID)
-				if err != nil {
-					return userchange, err
-				}
-
-				if group.ExternalIdentityProviderID != "" {
-					return userchange, errors.New("cannot modify membership of external groups")
-				}
-			}
-		}
-
-		for groupID := range _user.UserGroups.Data() {
-			_, ok := userchange.UserGroups.Data()[groupID]
-			if !ok {
-				group, err := GetUserGroup(groupID)
-				if err != nil {
-					return userchange, err
-				}
-
-				if group.ExternalIdentityProviderID != "" {
-					return userchange, errors.New("cannot modify membership of external groups")
-				}
-			}
-		}
-	} else {
-		userchange.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
-		for groupID := range _user.UserGroups.Data() {
+	for groupID := range userchange.UserGroups.Data() {
+		_, ok := _user.UserGroups.Data()[groupID]
+		if !ok {
 			group, err := GetUserGroup(groupID)
 			if err != nil {
 				return userchange, err
 			}
 
 			if group.ExternalIdentityProviderID != "" {
-				userchange.UserGroups.Data()[groupID] = struct{}{}
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range _user.UserGroups.Data() {
+		_, ok := userchange.UserGroups.Data()[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
 			}
 		}
 	}
