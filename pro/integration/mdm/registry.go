@@ -6,10 +6,9 @@ package mdm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/gravitl/netmaker/models"
 )
 
 // ManagedDevice is the normalised, provider-agnostic view of a device that an
@@ -42,8 +41,7 @@ type Capabilities struct {
 
 // Provider is the minimal contract every MDM integration must satisfy.
 type Provider interface {
-	// Name returns the stable identifier of this provider (matches the value
-	// stored in ServerSettings.MDMProvider). Examples: "intune", "jamf".
+	// Name returns the stable identifier of this provider (matches integrations_v1.id).
 	Name() string
 	// Capabilities advertises optional provider features.
 	Capabilities() Capabilities
@@ -54,19 +52,15 @@ type Provider interface {
 }
 
 // ProviderType describes a provider implementation available at compile time.
-// Used by GET /api/v1/mdm/provider_types to populate the integrations UI.
 type ProviderType struct {
 	Name             string `json:"name"`
 	Display          string `json:"display"`
 	ReportsCompliant bool   `json:"reports_compliant"`
 }
 
-// Factory builds a Provider instance from the current ServerSettings. Each
-// provider reads shared OAuth fields (MDMClientID/MDMClientSecret) plus any
-// provider-specific config (tenant ID, base URL, etc.).
-type Factory func(s models.ServerSettings) (Provider, error)
+// Factory builds a Provider instance from integration config JSON.
+type Factory func(config json.RawMessage) (Provider, error)
 
-// providerEntry holds the metadata Register accepts in one place.
 type providerEntry struct {
 	display string
 	factory Factory
@@ -74,24 +68,17 @@ type providerEntry struct {
 
 var providers = map[string]providerEntry{}
 
-// Register binds a provider implementation to its stable name. Each provider
-// package calls this from init() so the binary auto-discovers what's compiled
-// in.
+// Register binds a provider implementation to its stable name.
 func Register(name, display string, f Factory) {
 	providers[name] = providerEntry{display: display, factory: f}
 }
 
-// ListProviderTypes returns the registered providers, with their capability
-// flags resolved by instantiating each one against a zero-valued
-// ServerSettings (capability hints must not depend on stored credentials).
+// ListProviderTypes returns the registered providers with capability flags.
 func ListProviderTypes() []ProviderType {
 	out := make([]ProviderType, 0, len(providers))
 	for name, entry := range providers {
 		pt := ProviderType{Name: name, Display: entry.display}
-		// Capabilities are static per provider; ask any concrete instance.
-		if p, err := entry.factory(models.ServerSettings{}); err == nil && p != nil {
-			pt.ReportsCompliant = p.Capabilities().ReportsCompliant
-		} else if c, ok := capabilityHints[name]; ok {
+		if c, ok := capabilityHints[name]; ok {
 			pt.ReportsCompliant = c.ReportsCompliant
 		}
 		out = append(out, pt)
@@ -99,37 +86,26 @@ func ListProviderTypes() []ProviderType {
 	return out
 }
 
-// capabilityHints lets providers advertise their capabilities without
-// requiring valid credentials. Concrete provider packages populate this in
-// their init() alongside Register.
 var capabilityHints = map[string]Capabilities{}
 
-// RegisterCapabilities records the static capability profile of a provider so
-// ListProviderTypes can answer even when credentials are missing.
+// RegisterCapabilities records the static capability profile of a provider.
 func RegisterCapabilities(name string, c Capabilities) {
 	capabilityHints[name] = c
 }
 
-// BuildActive returns the provider selected by ServerSettings.MDMProvider, or
-// (nil, nil) if no MDM is configured. Errors are reserved for "configured but
-// invalid" cases (e.g. credentials missing for the named provider).
-func BuildActive(s models.ServerSettings) (Provider, error) {
-	if s.MDMProvider == models.MDMProviderDisabled {
-		return nil, nil
+// CapabilitiesFor returns the registered capability profile for a provider id.
+func CapabilitiesFor(name string) Capabilities {
+	if c, ok := capabilityHints[name]; ok {
+		return c
 	}
-	entry, ok := providers[string(s.MDMProvider)]
-	if !ok {
-		return nil, fmt.Errorf("unknown mdm provider %q", s.MDMProvider)
-	}
-	return entry.factory(s)
+	return Capabilities{}
 }
 
-// Build constructs a provider by explicit name, useful for ad-hoc verify
-// calls that supply a draft ServerSettings.
-func Build(name string, s models.ServerSettings) (Provider, error) {
+// Build constructs a provider by explicit name from config JSON.
+func Build(name string, config json.RawMessage) (Provider, error) {
 	entry, ok := providers[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown mdm provider %q", name)
 	}
-	return entry.factory(s)
+	return entry.factory(config)
 }

@@ -72,6 +72,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/posture_status", AuthorizeHost(http.HandlerFunc(getHostPostureStatus))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/posture_status/ui", logic.SecurityCheck(true, http.HandlerFunc(getHostPostureStatus))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost))).
@@ -1620,11 +1622,11 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 		Networks: []models.NetworkPostureStatus{},
 	}
 
-	// MDM block - best-effort: only populated if a provider is configured and
+	// MDM block - best-effort: only populated if an integration is configured and
 	// a sync row exists for the host.
-	settings := logic.GetServerSettings()
-	if settings.MDMProvider != models.MDMProviderDisabled {
-		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: string(settings.MDMProvider)}
+	mdmIntg := &schema.Integration{Type: "mdm"}
+	if mdmIntegrations, err := mdmIntg.ListByType(r.Context()); err == nil && len(mdmIntegrations) > 0 {
+		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: mdmIntegrations[0].ID}
 		if err := state.Get(r.Context()); err == nil {
 			resp.MDM = &models.HostMDMStatus{
 				Provider:     state.Provider,

@@ -1,5 +1,5 @@
 // Package intune implements an MDM provider backed by Microsoft Intune via
-// Microsoft Graph. Self-registers with pro/mdm in init().
+// Microsoft Graph. Self-registers with pro/integration/mdm in init().
 package intune
 
 import (
@@ -13,12 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/pro/mdm"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 )
 
 const (
-	providerName    = "intune"
+	providerName    = mdmpkg.ProviderIntune
 	providerDisplay = "Microsoft Intune"
 
 	tokenURLFmt  = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
@@ -28,25 +27,28 @@ const (
 )
 
 func init() {
-	mdm.Register(providerName, providerDisplay, New)
-	mdm.RegisterCapabilities(providerName, mdm.Capabilities{ReportsCompliant: true})
+	mdmpkg.Register(providerName, providerDisplay, New)
+	mdmpkg.RegisterCapabilities(providerName, mdmpkg.Capabilities{ReportsCompliant: true})
 }
 
-// New builds an Intune provider from ServerSettings. Returns an error if
-// required credentials are missing.
-func New(s models.ServerSettings) (mdm.Provider, error) {
-	if s.MDMIntuneTenantID == "" || s.MDMClientID == "" || s.MDMClientSecret == "" {
-		return nil, errors.New("intune credentials not configured")
+// New builds an Intune provider from integration config JSON.
+func New(configJSON json.RawMessage) (mdmpkg.Provider, error) {
+	var cfg mdmpkg.IntuneConfig
+	if err := json.Unmarshal(configJSON, &cfg); err != nil {
+		return nil, fmt.Errorf("invalid intune config: %w", err)
+	}
+	if err := mdmpkg.ValidateConfig(providerName, configJSON); err != nil {
+		return nil, err
 	}
 	return &Client{
-		tenantID:     s.MDMIntuneTenantID,
-		clientID:     s.MDMClientID,
-		clientSecret: s.MDMClientSecret,
+		tenantID:     cfg.TenantID,
+		clientID:     cfg.ClientID,
+		clientSecret: cfg.ClientSecret,
 		http:         &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 
-// Client implements mdm.Provider against Microsoft Graph.
+// Client implements mdmpkg.Provider against Microsoft Graph.
 type Client struct {
 	tenantID     string
 	clientID     string
@@ -58,15 +60,12 @@ type Client struct {
 	tokenExp time.Time
 }
 
-// Name implements mdm.Provider.
 func (c *Client) Name() string { return providerName }
 
-// Capabilities implements mdm.Provider.
-func (c *Client) Capabilities() mdm.Capabilities {
-	return mdm.Capabilities{ReportsCompliant: true}
+func (c *Client) Capabilities() mdmpkg.Capabilities {
+	return mdmpkg.Capabilities{ReportsCompliant: true}
 }
 
-// Verify implements mdm.Provider.
 func (c *Client) Verify(ctx context.Context) error {
 	tok, err := c.accessToken(ctx)
 	if err != nil {
@@ -97,14 +96,13 @@ func (c *Client) Verify(ctx context.Context) error {
 	return nil
 }
 
-// ListManagedDevices implements mdm.Provider. Iterates @odata.nextLink.
-func (c *Client) ListManagedDevices(ctx context.Context) ([]mdm.ManagedDevice, error) {
+func (c *Client) ListManagedDevices(ctx context.Context) ([]mdmpkg.ManagedDevice, error) {
 	tok, err := c.accessToken(ctx)
 	if err != nil {
 		return nil, err
 	}
 	nextURL := devicesURL + "?$select=" + url.QueryEscape(deviceSelect)
-	var out []mdm.ManagedDevice
+	var out []mdmpkg.ManagedDevice
 	for nextURL != "" {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, nextURL, nil)
 		if err != nil {
@@ -133,7 +131,6 @@ func (c *Client) ListManagedDevices(ctx context.Context) ([]mdm.ManagedDevice, e
 	return out, nil
 }
 
-// accessToken returns a cached token, refreshing when within 60s of expiry.
 func (c *Client) accessToken(ctx context.Context) (string, error) {
 	c.tokenMu.Lock()
 	defer c.tokenMu.Unlock()
@@ -178,13 +175,13 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	return c.token, nil
 }
 
-func normalize(d managedDevice) mdm.ManagedDevice {
+func normalize(d managedDevice) mdmpkg.ManagedDevice {
 	last, _ := time.Parse(time.RFC3339, d.LastSyncDateTime)
-	return mdm.ManagedDevice{
+	return mdmpkg.ManagedDevice{
 		ProviderDeviceID:  d.ID,
 		AzureADDeviceID:   d.AzureADDeviceID,
 		SerialNumber:      d.SerialNumber,
-		HardwareUUID:      d.HardwareInformation.SerialNumber, // best-effort: SMBIOS UUID is not exposed on managedDevices; fall back to serial
+		HardwareUUID:      d.HardwareInformation.SerialNumber,
 		DeviceName:        d.DeviceName,
 		UserPrincipalName: d.UserPrincipalName,
 		Enrolled:          d.ManagementState != "" && !strings.EqualFold(d.ManagementState, "discovered"),

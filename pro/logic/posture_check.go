@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
 )
@@ -65,7 +66,7 @@ func RunPostureChecks() error {
 	// Refresh MDM device state before evaluating; a no-op when no provider
 	// is configured. Errors are already logged inside; we don't want a
 	// remote-API hiccup to block the rest of the posture cycle.
-	_ = RunMDMSync(context.TODO())
+	_ = mdmpkg.RunMDMSync(db.WithContext(context.TODO()))
 	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -161,6 +162,8 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 			// Check if posture check has wildcard tag - applies to all devices
 			if _, hasWildcard := c.Tags["*"]; hasWildcard {
 				// Wildcard tag matches all devices, continue to evaluate the check
+			} else if c.Attribute == schema.MDMCompliance && len(c.Tags) == 0 {
+				// Legacy MDM checks saved before wildcard default; apply to all hosts.
 			} else if len(c.Tags) > 0 {
 				// Check has specific tags - device must have at least one matching tag
 				if len(d.Tags) == 0 {
@@ -329,12 +332,15 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			Tags:           node.Tags,
 			HostID:         h.ID.String(),
 		}
-		// Attach the MDM snapshot for the currently configured provider, if any.
-		settings := logic.GetServerSettings()
-		if settings.MDMProvider != models.MDMProviderDisabled {
-			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: string(settings.MDMProvider)}
-			if err := state.Get(db.WithContext(context.TODO())); err == nil {
+		// Attach the MDM snapshot for the active integration provider, if any.
+		ctx := db.WithContext(context.TODO())
+		if providerID, err := mdmpkg.ActiveProviderID(ctx); err == nil && providerID != "" {
+			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: providerID}
+			if err := state.Get(ctx); err == nil {
 				deviceInfo.MDMState = state
+			} else if states, listErr := state.ListByHost(ctx); listErr == nil && len(states) == 1 {
+				// Fallback for rows keyed before provider id was normalised.
+				deviceInfo.MDMState = &states[0]
 			}
 		}
 	} else if node.IsUserNode {
@@ -491,8 +497,11 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		if cfg.RequireEnrolled && !d.MDMState.Enrolled {
 			return true, "device_not_mdm_enrolled"
 		}
-		if cfg.RequireCompliant && !d.MDMState.Compliant {
-			return true, "device_not_mdm_compliant"
+		if cfg.RequireCompliant {
+			providerID, _ := mdmpkg.ActiveProviderID(db.WithContext(context.TODO()))
+			if mdmpkg.CapabilitiesFor(providerID).ReportsCompliant && !d.MDMState.Compliant {
+				return true, "device_not_mdm_compliant"
+			}
 		}
 		if cfg.MaxStateAgeHours > 0 &&
 			time.Since(d.MDMState.LastSyncedAt) > time.Duration(cfg.MaxStateAgeHours)*time.Hour {
@@ -579,7 +588,9 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		}
 		pc.Values = datatypes.JSONSlice[string]{"mdm"}
 		if len(pc.Tags) == 0 {
-			pc.Tags = make(datatypes.JSONMap)
+			// MDM checks apply to all hosts in the network unless scoped
+			// to specific tags; empty tags would otherwise be skipped.
+			pc.Tags = datatypes.JSONMap{"*": "*"}
 		}
 		if len(pc.UserGroups) == 0 {
 			pc.UserGroups = make(datatypes.JSONMap)
@@ -725,7 +736,7 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 	for _, v := range oldVi {
 		prev[v.CheckID+"|"+v.Message] = struct{}{}
 	}
-	settings := logic.GetServerSettings()
+	providerID, _ := mdmpkg.ActiveProviderID(db.WithContext(context.TODO()))
 	for _, v := range newVi {
 		if v.Attribute != string(schema.MDMCompliance) {
 			continue
@@ -743,7 +754,7 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 				"check":     v.Name,
 				"reason":    v.Message,
 				"severity":  v.Severity,
-				"provider":  settings.MDMProvider,
+				"provider":  providerID,
 				"enrolled":  mdmStateEnrolled(d.MDMState),
 				"compliant": mdmStateCompliant(d.MDMState),
 			},
@@ -783,13 +794,16 @@ func mdmStateCompliant(s *schema.DeviceMDMState) bool {
 }
 
 // validateMDMComplianceConfig enforces the MDMCompliance posture-check
-// invariants: an MDM provider must be configured in ServerSettings, at least
-// one of require_enrolled/require_compliant must be true, and
-// max_state_age_hours must be non-negative.
+// invariants: an MDM integration must be configured, at least one of
+// require_enrolled/require_compliant must be true, and max_state_age_hours
+// must be non-negative.
 func validateMDMComplianceConfig(pc *schema.PostureCheck) error {
-	settings := logic.GetServerSettings()
-	if settings.MDMProvider == models.MDMProviderDisabled {
-		return errors.New("no MDM provider configured in Settings > Integrations > MDM")
+	active, err := mdmpkg.GetActive(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+	if active == nil {
+		return errors.New("no MDM integration configured; configure via Integrations > MDM")
 	}
 	cfg := ParseMDMComplianceConfig(pc.Config)
 	if !cfg.RequireEnrolled && !cfg.RequireCompliant {
