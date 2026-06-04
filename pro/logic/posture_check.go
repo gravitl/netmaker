@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/biter777/countries"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -108,8 +109,9 @@ func RunPostureChecks() error {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
 					continue
 				}
-				nodeI.PostureChecksViolations, nodeI.PostureCheckVolationSeverityLevel = postureChecksViolations,
+				nodeI.PostureChecksViolations, nodeI.PostureCheckViolationSeverityLevel = postureChecksViolations,
 					postureCheckVolationSeverityLevel
+				nodeI.LastEvaluationCycleID = uuid.NewString()
 				nodeI.LastEvaluatedAt = time.Now().UTC()
 				_ = logic.UpsertNodeWithPostureChecks(&nodeI)
 			}

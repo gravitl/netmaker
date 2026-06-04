@@ -135,7 +135,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	go func() {
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		modelsNode.PostureChecksViolations, modelsNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.LastEvaluationCycleID = uuid.NewString()
 		modelsNode.LastEvaluatedAt = time.Now().UTC()
 		err = logic.UpsertNodeWithPostureChecks(modelsNode)
 		if err != nil {

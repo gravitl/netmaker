@@ -208,6 +208,11 @@ func migrateNodes(ctx context.Context) error {
 			tags[tagID.String()] = struct{}{}
 		}
 
+		var lastEvaluationCycleID string
+		if !node.LastEvaluatedAt.IsZero() {
+			lastEvaluationCycleID = uuid.NewString()
+		}
+
 		_node := &schema.Node{
 			ID:                                node.ID.String(),
 			HostID:                            node.HostID.String(),
@@ -229,8 +234,9 @@ func migrateNodes(ctx context.Context) error {
 			IsIGWClient:                       isIGWClient,
 			AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 			Tags:                              tags,
-			PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
-			PostureCheckLastEvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
+			PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,
+			PostureCheckLastEvaluationCycleID: lastEvaluationCycleID,
+			PostureCheckLastEvaluatedAt:       node.LastEvaluatedAt,
 			Metadata:                          node.Metadata,
 			LastCheckIn:                       node.LastCheckIn,
 			ExpirationDateTime:                node.ExpirationDateTime,
@@ -483,25 +489,25 @@ func migrateNodes_Nameserver(ctx context.Context, node *models.Node) error {
 }
 
 func migrateNodes_PostureCheckViolations(ctx context.Context, node *models.Node, _node *schema.Node) error {
-	if !node.LastEvaluatedAt.IsZero() {
-		violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
-		for _, violation := range node.PostureChecksViolations {
-			violations = append(violations, schema.PostureCheckViolation{
-				EvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
-				CheckID:           violation.CheckID,
-				NodeID:            _node.ID,
-				Name:              violation.Name,
-				Attribute:         violation.Attribute,
-				Message:           violation.Message,
-				Severity:          violation.Severity,
-				EvaluatedAt:       node.LastEvaluatedAt,
-			})
-		}
-
-		return _node.UpsertViolations(ctx, violations)
+	if node.LastEvaluatedAt.IsZero() {
+		return nil
 	}
 
-	return nil
+	violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
+	for _, violation := range node.PostureChecksViolations {
+		violations = append(violations, schema.PostureCheckViolation{
+			EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+			CheckID:           violation.CheckID,
+			NodeID:            _node.ID,
+			Name:              violation.Name,
+			Attribute:         violation.Attribute,
+			Message:           violation.Message,
+			Severity:          violation.Severity,
+			EvaluatedAt:       node.LastEvaluatedAt,
+		})
+	}
+
+	return _node.UpsertViolations(ctx, violations)
 }
 
 func migrateNodes_CleanUp(ctx context.Context) error {

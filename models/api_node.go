@@ -244,7 +244,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.StaticNode = nm.StaticNode
 	apiNode.Status = nm.Status
 	apiNode.PostureChecksViolations = nm.PostureChecksViolations
-	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckVolationSeverityLevel
+	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckViolationSeverityLevel
 	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
 	apiNode.Location = nm.Location
 	apiNode.Country = nm.CountryCode

@@ -10,6 +10,7 @@ import (
 
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -177,7 +178,8 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
-	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
+	node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), schema.NetworkID(node.Network))
+	node.LastEvaluationCycleID = uuid.NewString()
 	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNodeWithPostureChecks(&node)
 	if err != nil {

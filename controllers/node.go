@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -780,8 +781,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	newNode.PostureChecksViolations,
-		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
+		newNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
 		schema.NetworkID(newNode.Network))
+	newNode.LastEvaluationCycleID = uuid.NewString()
 	newNode.LastEvaluatedAt = time.Now().UTC()
 	_ = logic.UpsertNodeWithPostureChecks(newNode)
 
