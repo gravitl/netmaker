@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -780,12 +779,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.ResetAutoRelayedPeer(&currentNode)
 		}
 	}
-	newNode.PostureChecksViolations,
-		newNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
-		schema.NetworkID(newNode.Network))
-	newNode.LastEvaluationCycleID = uuid.NewString()
-	newNode.LastEvaluatedAt = time.Now().UTC()
-	_ = logic.UpsertNodeWithPostureChecks(newNode)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(
