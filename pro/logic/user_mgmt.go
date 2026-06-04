@@ -722,29 +722,11 @@ func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
 		if !node.IsGw {
 			continue
 		}
-		if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
-			if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-				gws[node.ID.String()] = node
-				continue
-			}
-		} else {
-			for groupID := range user.UserGroups.Data() {
-				userGrp, err := logic.GetUserGroup(groupID)
-				if err == nil {
-					if roles, ok := userGrp.NetworkRoles.Data()[schema.NetworkID(node.Network)]; ok && len(roles) > 0 {
-						if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-							gws[node.ID.String()] = node
-							break
-						}
-					}
-					if roles, ok := userGrp.NetworkRoles.Data()[schema.AllNetworks]; ok && len(roles) > 0 {
-						if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-							gws[node.ID.String()] = node
-							break
-						}
-					}
-				}
-			}
+		if !UserHasNetworkGroupAccess(user, node.Network) {
+			continue
+		}
+		if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
+			gws[node.ID.String()] = node
 		}
 	}
 	return
@@ -760,7 +742,7 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 	if err != nil {
 		return []schema.Network{}
 	}
-	if !platformRole.FullAccess {
+	if !platformRole.FullAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		allNetworkRoles := make(map[schema.NetworkID]struct{})
 		_, ok := platformRole.NetworkLevelAccess.Data()[schema.NetworkRsrc]
 		if ok {
@@ -951,28 +933,12 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			// user does not exist, delete extclient.
 			shouldDelete = true
 		} else {
-			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-				// Super-admin and Admin's access is not determined by group membership
-				// or network roles. Even if a network is removed from the group, they
-				// continue to have access to the network.
-				// So, no need to delete the extclient.
-				shouldDelete = false
-			} else {
-				_, userInGroup := user.UserGroups.Data()[groupID]
-				_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
-				_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
-				if userInGroup && (networkRemoved || allNetworkAccessRemoved) {
-					// This group no longer provides it's members access to the
-					// network.
-					// This user is a member of the group and has no direct
-					// access to the network (either by its platform role or by
-					// network roles).
-					// This user is a member of the group and access to this
-					// network was previously given through the all network
-					// role and is now removed.
-					// So, delete the extclient.
-					shouldDelete = true
-				}
+			_, userInGroup := user.UserGroups.Data()[groupID]
+			_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
+			_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
+			if userInGroup && (networkRemoved || allNetworkAccessRemoved) &&
+				!UserHasNetworkGroupAccess(&user, extclient.Network) {
+				shouldDelete = true
 			}
 		}
 
@@ -1412,7 +1378,48 @@ func AddGlobalNetRolesToAdmins(u *schema.User) {
 }
 
 func isElevatedPlatformRole(role schema.UserRoleID) bool {
+	return PlatformRoleRequiresGroupEnforcement(role)
+}
+
+// PlatformRoleRequiresGroupEnforcement reports whether network-scoped resource
+// access must come from user groups (admin/super-admin still use platform
+// FullAccess for global permissions only).
+func PlatformRoleRequiresGroupEnforcement(role schema.UserRoleID) bool {
 	return role == schema.SuperAdminRole || role == schema.AdminRole
+}
+
+// UserHasGlobalNetworksAdminMembership reports global all-networks admin via groups.
+func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
+	if user == nil {
+		return false
+	}
+	_, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]
+	return ok
+}
+
+// UserHasNetworkGroupAccess reports whether the user has any network role on the
+// network (or all-networks scope) through group membership.
+func UserHasNetworkGroupAccess(user *schema.User, networkID string) bool {
+	if user == nil {
+		return false
+	}
+	if IsNetworkAdmin(user, networkID) {
+		return true
+	}
+	netID := schema.NetworkID(networkID)
+	for groupID := range user.UserGroups.Data() {
+		userG, err := GetUserGroup(groupID)
+		if err != nil {
+			continue
+		}
+		if roles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok && len(roles) > 0 {
+			return true
+		}
+		if roles, ok := userG.NetworkRoles.Data()[netID]; ok && len(roles) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func userGroupGrantsAdminAccess(group *schema.UserGroup) bool {
@@ -1499,15 +1506,10 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 	return grpUsersMap
 }
 
-// IsNetworkAdmin - checks if user is a network admin via user groups
+// IsNetworkAdmin - checks if user is a network admin via user groups.
 func IsNetworkAdmin(user *schema.User, networkID string) bool {
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
-
-	// Check platform role
-	if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-		return true
-	}
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {

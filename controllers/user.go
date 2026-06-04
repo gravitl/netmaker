@@ -1573,16 +1573,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	go func() {
-		// Populating all the networks the user has access to by
-		// being a member of groups.
-		userMembershipNetworkAccess := make(map[schema.NetworkID]struct{})
-		for groupID := range user.UserGroups.Data() {
-			userGroup, _ := logic.GetUserGroup(groupID)
-			for netID := range userGroup.NetworkRoles.Data() {
-				userMembershipNetworkAccess[netID] = struct{}{}
-			}
-		}
-
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
@@ -1594,25 +1584,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			var shouldDelete bool
-			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-				// Super-admin and Admin's access is not determined by group membership
-				// or network roles. Even if a user is removed from the group, they
-				// continue to have access to the network.
-				// So, no need to delete the extclient.
-				shouldDelete = false
-			} else {
-				_, hasAccessThroughGroups := userMembershipNetworkAccess[schema.NetworkID(extclient.Network)]
-				if !hasAccessThroughGroups {
-					// The user does not have access to the network by either
-					// being a Super-admin or Admin, by network roles or by virtue
-					// of being a member a group that has access to the network.
-					// So, delete the extclient.
-					shouldDelete = true
-				}
-			}
-
-			if shouldDelete {
+			if !logic.UserHasNetworkGroupAccess(user, extclient.Network) {
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",

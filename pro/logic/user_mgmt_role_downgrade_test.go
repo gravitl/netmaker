@@ -110,6 +110,21 @@ func TestAddGlobalNetRolesToAdmins_onlyWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestIsNetworkAdmin_requiresGroupForElevatedPlatformRole(t *testing.T) {
+	adminNoGroups := &schema.User{PlatformRoleID: schema.AdminRole, UserGroups: datatypes.NewJSONType(map[schema.UserGroupID]struct{}{})}
+	if IsNetworkAdmin(adminNoGroups, "net-a") {
+		t.Fatal("admin without groups should not be network admin")
+	}
+
+	adminWithGlobal := &schema.User{
+		PlatformRoleID: schema.SuperAdminRole,
+		UserGroups:     datatypes.NewJSONType(map[schema.UserGroupID]struct{}{globalNetworksAdminGroupID: {}}),
+	}
+	if !IsNetworkAdmin(adminWithGlobal, "net-a") {
+		t.Fatal("expected network admin via global admin group")
+	}
+}
+
 func TestUserGroupGrantsAdminAccess_customGroup(t *testing.T) {
 	netID := schema.NetworkID("net-c")
 	adminRole := GetDefaultNetworkAdminRoleID(netID)

@@ -176,6 +176,9 @@ func InitPro() {
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.StripGroupsOnRoleDowngrade = proLogic.StripGroupsOnRoleDowngrade
 	logic.AddGlobalGroupOnRoleUpgrade = proLogic.AddGlobalGroupOnRoleUpgrade
+	logic.PlatformRoleRequiresGroupEnforcement = proLogic.PlatformRoleRequiresGroupEnforcement
+	logic.UserHasGlobalNetworksAdminMembership = proLogic.UserHasGlobalNetworksAdminMembership
+	logic.UserHasNetworkGroupAccess = proLogic.UserHasNetworkGroupAccess
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
