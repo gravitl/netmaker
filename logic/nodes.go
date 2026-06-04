@@ -118,34 +118,6 @@ func UpsertNode(newNode *models.Node) error {
 	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
-func UpsertNodeWithPostureChecks(newNode *models.Node) error {
-	_node := ConvertModelsNodeToSchemaNode(newNode)
-	if _node.ID == "" {
-		return errors.New("error converting models.Node to schema.Node")
-	}
-
-	err := _node.Upsert(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	violations := make([]schema.PostureCheckViolation, 0, len(newNode.PostureChecksViolations))
-	for _, violation := range newNode.PostureChecksViolations {
-		violations = append(violations, schema.PostureCheckViolation{
-			EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
-			CheckID:           violation.CheckID,
-			NodeID:            _node.ID,
-			Name:              violation.Name,
-			Attribute:         violation.Attribute,
-			Message:           violation.Message,
-			Severity:          violation.Severity,
-			EvaluatedAt:       newNode.LastEvaluatedAt,
-		})
-	}
-
-	return _node.UpsertViolations(db.WithContext(context.TODO()), violations)
-}
-
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {

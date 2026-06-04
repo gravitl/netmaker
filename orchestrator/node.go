@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -154,9 +155,24 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
 		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
-		modelsNode.LastEvaluationCycleID = uuid.NewString()
-		modelsNode.LastEvaluatedAt = time.Now().UTC()
-		err = logic.UpsertNodeWithPostureChecks(modelsNode)
+		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
+		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
+		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
+
+		_violations := make([]schema.PostureCheckViolation, 0, len(modelsNode.PostureChecksViolations))
+		for _, violation := range modelsNode.PostureChecksViolations {
+			_violations = append(_violations, schema.PostureCheckViolation{
+				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
+				CheckID:           violation.CheckID,
+				NodeID:            node.ID,
+				Name:              violation.Name,
+				Attribute:         violation.Attribute,
+				Message:           violation.Message,
+				Severity:          violation.Severity,
+				EvaluatedAt:       node.PostureCheckLastEvaluatedAt,
+			})
+		}
+		err = node.UpsertViolations(db.WithContext(context.TODO()), _violations)
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to upsert node (%s) posture check violations: %v", modelsNode.ID, err))
 		}

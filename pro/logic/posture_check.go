@@ -109,11 +109,28 @@ func RunPostureChecks() error {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
 					continue
 				}
-				nodeI.PostureChecksViolations, nodeI.PostureCheckViolationSeverityLevel = postureChecksViolations,
-					postureCheckVolationSeverityLevel
-				nodeI.LastEvaluationCycleID = uuid.NewString()
-				nodeI.LastEvaluatedAt = time.Now().UTC()
-				_ = logic.UpsertNodeWithPostureChecks(&nodeI)
+
+				_node := &schema.Node{
+					ID:                                nodeI.ID.String(),
+					PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+					PostureCheckLastEvaluationCycleID: uuid.NewString(),
+					PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+				}
+
+				_violations := make([]schema.PostureCheckViolation, 0, len(nodeI.PostureChecksViolations))
+				for _, violation := range nodeI.PostureChecksViolations {
+					_violations = append(_violations, schema.PostureCheckViolation{
+						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+						CheckID:           violation.CheckID,
+						NodeID:            _node.ID,
+						Name:              violation.Name,
+						Attribute:         violation.Attribute,
+						Message:           violation.Message,
+						Severity:          violation.Severity,
+						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
+					})
+				}
+				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
 			}
 
 		}

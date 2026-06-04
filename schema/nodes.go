@@ -404,3 +404,9 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 		UpdateColumn("auto_relayed_peers", expr.Remove("auto_relayed_peers", n.ID)).
 		Error
 }
+
+func (n *Node) UpsertStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumn("status", n.Status).Error
+}

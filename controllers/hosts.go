@@ -575,7 +575,11 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				} else {
-					err = logic.UpsertNode(&node)
+					_node := &schema.Node{
+						ID:     node.ID.String(),
+						Status: node.Status,
+					}
+					err = _node.UpsertStatus(db.WithContext(context.TODO()))
 					if err != nil {
 						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
 						continue
