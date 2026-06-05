@@ -274,7 +274,6 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	if newRole == "" {
 		newRole = oldRole
 	}
-	StripGroupsOnRoleDowngrade(oldRole, newRole, userchange.UserGroups.Data())
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
 
 	if userchange.DisplayName != "" {

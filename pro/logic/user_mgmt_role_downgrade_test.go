@@ -7,7 +7,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestStripGroupsOnRoleDowngrade_platformUserKeepsNetworkAdminGroup(t *testing.T) {
+func TestRoleChangeDoesNotModifyGroups(t *testing.T) {
 	netID := schema.NetworkID("net-a")
 	netAdminGrp := GetDefaultNetworkAdminGroupID(netID)
 	userGrp := GetDefaultNetworkUserGroupID(netID)
@@ -16,95 +16,34 @@ func TestStripGroupsOnRoleDowngrade_platformUserKeepsNetworkAdminGroup(t *testin
 		globalNetworksAdminGroupID: {},
 		netAdminGrp:                {},
 		userGrp:                    {},
+		"custom-grp":               {},
 	}
 
 	StripGroupsOnRoleDowngrade(schema.AdminRole, schema.PlatformUser, groups)
-
-	if _, ok := groups[globalNetworksAdminGroupID]; ok {
-		t.Fatal("expected global admin group to be removed for platform-user")
-	}
-	if _, ok := groups[netAdminGrp]; !ok {
-		t.Fatal("expected per-network admin group to remain for platform-user")
-	}
-	if _, ok := groups[userGrp]; !ok {
-		t.Fatal("expected network user group to remain")
-	}
-}
-
-func TestStripGroupsOnRoleDowngrade_serviceUserRemovesAdminGroups(t *testing.T) {
-	netID := schema.NetworkID("net-b")
-	netAdminGrp := GetDefaultNetworkAdminGroupID(netID)
-	userGrp := GetDefaultNetworkUserGroupID(netID)
-
-	groups := map[schema.UserGroupID]struct{}{
-		globalNetworksAdminGroupID: {},
-		netAdminGrp:                {},
-		userGrp:                    {},
+	if len(groups) != 4 {
+		t.Fatalf("expected groups unchanged on downgrade, got %d", len(groups))
 	}
 
 	StripGroupsOnRoleDowngrade(schema.SuperAdminRole, schema.ServiceUser, groups)
-
-	if _, ok := groups[globalNetworksAdminGroupID]; ok {
-		t.Fatal("expected global admin group to be removed for service-user")
-	}
-	if _, ok := groups[netAdminGrp]; ok {
-		t.Fatal("expected per-network admin group to be removed for service-user")
-	}
-	if _, ok := groups[userGrp]; !ok {
-		t.Fatal("expected network user group to remain for service-user")
-	}
-}
-
-func TestStripGroupsOnRoleDowngrade_auditorClearsAllGroups(t *testing.T) {
-	groups := map[schema.UserGroupID]struct{}{
-		globalNetworksAdminGroupID:                            {},
-		GetDefaultNetworkAdminGroupID(schema.NetworkID("net")): {},
-		GetDefaultNetworkUserGroupID(schema.NetworkID("net")):  {},
-		"custom-grp": {},
+	if len(groups) != 4 {
+		t.Fatalf("expected groups unchanged on service-user downgrade, got %d", len(groups))
 	}
 
 	StripGroupsOnRoleDowngrade(schema.PlatformUser, schema.Auditor, groups)
-
-	if len(groups) != 0 {
-		t.Fatalf("expected all groups removed for auditor, got %d", len(groups))
-	}
-}
-
-func TestStripGroupsOnRoleDowngrade_noOpWithoutDowngrade(t *testing.T) {
-	groups := map[schema.UserGroupID]struct{}{
-		globalNetworksAdminGroupID: {},
+	if len(groups) != 4 {
+		t.Fatalf("expected groups unchanged on auditor downgrade, got %d", len(groups))
 	}
 
-	StripGroupsOnRoleDowngrade(schema.AdminRole, schema.AdminRole, groups)
-	if len(groups) != 1 {
-		t.Fatalf("expected no change when role unchanged, got %d groups", len(groups))
+	groups2 := map[schema.UserGroupID]struct{}{}
+	AddGlobalGroupOnRoleUpgrade(schema.PlatformUser, schema.AdminRole, groups2)
+	if _, ok := groups2[globalNetworksAdminGroupID]; !ok {
+		t.Fatal("expected global admin group on upgrade when user has no groups")
 	}
 
-	StripGroupsOnRoleDowngrade(schema.PlatformUser, schema.ServiceUser, groups)
-	if len(groups) != 1 {
-		t.Fatalf("expected no change when not downgrading from admin, got %d groups", len(groups))
-	}
-}
-
-func TestAddGlobalGroupOnRoleUpgrade(t *testing.T) {
-	groups := map[schema.UserGroupID]struct{}{
-		"custom-grp": {},
-	}
-	AddGlobalGroupOnRoleUpgrade(schema.PlatformUser, schema.AdminRole, groups)
-	if _, ok := groups[globalNetworksAdminGroupID]; !ok {
-		t.Fatal("expected global admin group on upgrade to admin")
-	}
-
-	groups2 := map[schema.UserGroupID]struct{}{"custom-grp": {}}
-	AddGlobalGroupOnRoleUpgrade(schema.AdminRole, schema.SuperAdminRole, groups2)
-	if _, ok := groups2[globalNetworksAdminGroupID]; ok {
-		t.Fatal("expected no change when already elevated")
-	}
-
-	groups3 := map[schema.UserGroupID]struct{}{}
-	AddGlobalGroupOnRoleUpgrade(schema.PlatformUser, schema.PlatformUser, groups3)
+	groups3 := map[schema.UserGroupID]struct{}{"custom-grp": {}}
+	AddGlobalGroupOnRoleUpgrade(schema.PlatformUser, schema.AdminRole, groups3)
 	if _, ok := groups3[globalNetworksAdminGroupID]; ok {
-		t.Fatal("expected no global admin group without role upgrade")
+		t.Fatal("expected no global admin group when user already has groups")
 	}
 }
 

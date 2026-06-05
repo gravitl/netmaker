@@ -464,8 +464,8 @@ func syncUsers() {
 
 			// Do not call AddGlobalNetRolesToAdmins here: this runs on every server
 			// start and would re-assign the global admin group to elevated users who
-			// intentionally cleared groups. Group assignment on role upgrade is handled
-			// in UpdateUser (AddGlobalGroupOnRoleUpgrade); on create via CreateUser.
+			// intentionally cleared groups. On role upgrade to admin/super-admin with no
+			// groups, UpdateUser assigns the global admin group via AddGlobalGroupOnRoleUpgrade.
 			logic.UpsertUser(user)
 		}
 	}

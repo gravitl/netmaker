@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -1466,60 +1465,20 @@ func userGroupGrantsAdminAccess(group *schema.UserGroup) bool {
 	return false
 }
 
-func isImplicitNetworkAdminGroupID(id schema.UserGroupID) bool {
-	return strings.HasSuffix(string(id), "-"+string(schema.NetworkAdmin)+"-grp")
-}
-
-func isImplicitNetworkUserGroupID(id schema.UserGroupID) bool {
-	return strings.HasSuffix(string(id), "-"+string(schema.NetworkUser)+"-grp")
-}
-
-// AddGlobalGroupOnRoleUpgrade adds the global all-networks admin group when a user
-// is upgraded to admin or super-admin from a non-elevated platform role.
+// AddGlobalGroupOnRoleUpgrade assigns the global all-networks admin group when a user
+// is upgraded to admin or super-admin from a non-elevated role and has no groups.
 func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 	if groups == nil || isElevatedPlatformRole(oldRole) || !isElevatedPlatformRole(newRole) {
+		return
+	}
+	if len(groups) > 0 {
 		return
 	}
 	groups[globalNetworksAdminGroupID] = struct{}{}
 }
 
-// StripGroupsOnRoleDowngrade adjusts group membership on platform role changes.
-// Auditors do not use groups; admin downgrades strip admin-implied groups.
+// StripGroupsOnRoleDowngrade is a no-op; group membership is not modified on role change.
 func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
-	if groups == nil {
-		return
-	}
-	if newRole == schema.Auditor {
-		for groupID := range groups {
-			delete(groups, groupID)
-		}
-		return
-	}
-	if !isElevatedPlatformRole(oldRole) || isElevatedPlatformRole(newRole) {
-		return
-	}
-
-	switch newRole {
-	case schema.PlatformUser:
-		delete(groups, globalNetworksAdminGroupID)
-	case schema.ServiceUser:
-		for groupID := range groups {
-			if groupID == globalNetworksAdminGroupID || isImplicitNetworkAdminGroupID(groupID) {
-				delete(groups, groupID)
-				continue
-			}
-			if isImplicitNetworkUserGroupID(groupID) {
-				continue
-			}
-			group, err := GetUserGroup(groupID)
-			if err != nil {
-				continue
-			}
-			if userGroupGrantsAdminAccess(&group) {
-				delete(groups, groupID)
-			}
-		}
-	}
 }
 
 func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
