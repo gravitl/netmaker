@@ -222,6 +222,19 @@ func UpsertUser(_user schema.User) error {
 	return _user.Create(db.WithContext(context.TODO()))
 }
 
+// preserveExternalUserGroups copies IdP-managed group membership from the existing
+// user onto the update payload so external groups are not dropped when the UI
+// omits them (e.g. role-only updates).
+func preserveExternalUserGroups(existing, change *schema.User) {
+	for groupID := range existing.UserGroups.Data() {
+		group, err := GetUserGroup(groupID)
+		if err != nil || group.ExternalIdentityProviderID == "" {
+			continue
+		}
+		change.UserGroups.Data()[groupID] = struct{}{}
+	}
+}
+
 // UpdateUser - updates a given user
 func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
@@ -275,6 +288,12 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 		newRole = oldRole
 	}
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
+	preserveExternalUserGroups(_user, userchange)
+	if oldRole != newRole {
+		for groupID := range _user.UserGroups.Data() {
+			userchange.UserGroups.Data()[groupID] = struct{}{}
+		}
+	}
 
 	if userchange.DisplayName != "" {
 		if _user.ExternalIdentityProviderID != "" &&
