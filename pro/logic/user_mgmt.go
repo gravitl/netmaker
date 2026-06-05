@@ -1457,11 +1457,19 @@ func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[
 	groups[globalNetworksAdminGroupID] = struct{}{}
 }
 
-// StripGroupsOnRoleDowngrade removes platform-admin-implied group membership when
-// a user is downgraded from admin or super-admin. Platform users keep per-network
-// admin groups but lose the global admin group; service users lose all admin groups.
+// StripGroupsOnRoleDowngrade adjusts group membership on platform role changes.
+// Auditors do not use groups; admin downgrades strip admin-implied groups.
 func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
-	if groups == nil || !isElevatedPlatformRole(oldRole) || isElevatedPlatformRole(newRole) {
+	if groups == nil {
+		return
+	}
+	if newRole == schema.Auditor {
+		for groupID := range groups {
+			delete(groups, groupID)
+		}
+		return
+	}
+	if !isElevatedPlatformRole(oldRole) || isElevatedPlatformRole(newRole) {
 		return
 	}
 

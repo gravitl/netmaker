@@ -55,6 +55,21 @@ func TestStripGroupsOnRoleDowngrade_serviceUserRemovesAdminGroups(t *testing.T) 
 	}
 }
 
+func TestStripGroupsOnRoleDowngrade_auditorClearsAllGroups(t *testing.T) {
+	groups := map[schema.UserGroupID]struct{}{
+		globalNetworksAdminGroupID:                            {},
+		GetDefaultNetworkAdminGroupID(schema.NetworkID("net")): {},
+		GetDefaultNetworkUserGroupID(schema.NetworkID("net")):  {},
+		"custom-grp": {},
+	}
+
+	StripGroupsOnRoleDowngrade(schema.PlatformUser, schema.Auditor, groups)
+
+	if len(groups) != 0 {
+		t.Fatalf("expected all groups removed for auditor, got %d", len(groups))
+	}
+}
+
 func TestStripGroupsOnRoleDowngrade_noOpWithoutDowngrade(t *testing.T) {
 	groups := map[schema.UserGroupID]struct{}{
 		globalNetworksAdminGroupID: {},

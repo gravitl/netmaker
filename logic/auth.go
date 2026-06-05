@@ -314,6 +314,9 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	for groupID := range _user.UserGroups.Data() {
 		_, ok := userchange.UserGroups.Data()[groupID]
 		if !ok {
+			if newRole == schema.Auditor {
+				continue
+			}
 			group, err := GetUserGroup(groupID)
 			if err != nil {
 				return userchange, err
