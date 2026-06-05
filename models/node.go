@@ -68,24 +68,25 @@ type Node struct {
 	//AutoRelayedPeers   map[string]struct{} `json:"auto_relayed_peers"`
 	AutoRelayedPeers map[string]string `json:"auto_relayed_peers_v1"`
 	//AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
-	FailOverPeers                     map[string]struct{} `json:"fail_over_peers"`
-	FailedOverBy                      uuid.UUID           `json:"failed_over_by"`
-	IsInternetGateway                 bool                `json:"isinternetgateway"`
-	InetNodeReq                       InetNodeReq         `json:"inet_node_req"`
-	InternetGwID                      string              `json:"internetgw_node_id"`
-	AdditionalRagIps                  []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
-	Tags                              map[TagID]struct{}  `json:"tags"`
-	IsStatic                          bool                `json:"is_static"`
-	IsUserNode                        bool                `json:"is_user_node"`
-	StaticNode                        ExtClient           `json:"static_node"`
-	Status                            schema.NodeStatus   `json:"node_status"`
-	Mutex                             *sync.Mutex         `json:"-"`
-	EgressDetails                     EgressDetails       `json:"-"`
-	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
-	PostureCheckVolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
-	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
-	Location                          string              `json:"location"` // Format: "lat,lon"
-	CountryCode                       string              `json:"country_code"`
+	FailOverPeers                      map[string]struct{} `json:"fail_over_peers"`
+	FailedOverBy                       uuid.UUID           `json:"failed_over_by"`
+	IsInternetGateway                  bool                `json:"isinternetgateway"`
+	InetNodeReq                        InetNodeReq         `json:"inet_node_req"`
+	InternetGwID                       string              `json:"internetgw_node_id"`
+	AdditionalRagIps                   []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
+	Tags                               map[TagID]struct{}  `json:"tags"`
+	IsStatic                           bool                `json:"is_static"`
+	IsUserNode                         bool                `json:"is_user_node"`
+	StaticNode                         ExtClient           `json:"static_node"`
+	Status                             schema.NodeStatus   `json:"node_status"`
+	Mutex                              *sync.Mutex         `json:"-"`
+	EgressDetails                      EgressDetails       `json:"-"`
+	PostureChecksViolations            []Violation         `json:"posture_check_violations"`
+	PostureCheckViolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
+	LastEvaluationCycleID              string              `json:"last_evaluation_cycle_id"`
+	LastEvaluatedAt                    time.Time           `json:"last_evaluated_at"`
+	Location                           string              `json:"location"` // Format: "lat,lon"
+	CountryCode                        string              `json:"country_code"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool

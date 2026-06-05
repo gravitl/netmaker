@@ -142,7 +142,11 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
-	convertedNode.ExpirationDateTime = currentNode.ExpirationDateTime
+	if a.ExpirationDateTime == 0 {
+		convertedNode.ExpirationDateTime = currentNode.ExpirationDateTime
+	} else {
+		convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
+	}
 	convertedNode.Metadata = a.Metadata
 	for _, ip := range a.AdditionalRagIps {
 		ragIp := net.ParseIP(ip)
@@ -160,6 +164,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsIngressGateway = true
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
+	convertedNode.Status = currentNode.Status
+	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
 	return &convertedNode
 }
 
@@ -239,7 +245,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.StaticNode = nm.StaticNode
 	apiNode.Status = nm.Status
 	apiNode.PostureChecksViolations = nm.PostureChecksViolations
-	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckVolationSeverityLevel
+	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckViolationSeverityLevel
 	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
 	apiNode.Location = nm.Location
 	apiNode.Country = nm.CountryCode

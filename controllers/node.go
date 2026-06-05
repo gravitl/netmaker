@@ -779,11 +779,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.ResetAutoRelayedPeer(&currentNode)
 		}
 	}
-	newNode.PostureChecksViolations,
-		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
-		schema.NetworkID(newNode.Network))
-	newNode.LastEvaluatedAt = time.Now().UTC()
-	logic.UpsertNode(newNode)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(

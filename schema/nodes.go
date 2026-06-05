@@ -60,6 +60,7 @@ type Node struct {
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              Severity                              `json:"posture_check_severity"`
 	PostureCheckLastEvaluationCycleID string                                `json:"posture_check_last_evaluation_cycle_id"`
+	PostureCheckLastEvaluatedAt       time.Time                             `json:"posture_check_last_evaluated_at"`
 	Metadata                          string                                `json:"metadata"`
 	LastCheckIn                       time.Time                             `json:"last_check_in"`
 	ExpirationDateTime                time.Time                             `json:"expiration_date_time"`
@@ -174,8 +175,9 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
 		Update("posture_check_severity", n.PostureCheckSeverity).
+		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
+		Update("posture_check_last_evaluated_at", n.PostureCheckLastEvaluatedAt).
 		Error
 }
 
@@ -402,4 +404,10 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 		Where(expr.WhereNotNull("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.Remove("auto_relayed_peers", n.ID)).
 		Error
+}
+
+func (n *Node) UpsertStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumn("status", n.Status).Error
 }

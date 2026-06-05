@@ -1532,46 +1532,6 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.ExtraAllowedIPs = []string{}
 		}
 
-		if userConf.Address == "" {
-			if network.AddressRange != "" {
-				newAddress, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(r.Context(), network)
-				if err != nil {
-					slog.Error(
-						"failed to create extclient",
-						"user",
-						r.Header.Get("user"),
-						"network",
-						node.Network,
-						"error",
-						err,
-					)
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				userConf.Address = newAddress.String()
-			}
-		}
-
-		if userConf.Address6 == "" {
-			if network.AddressRange6 != "" {
-				addr6, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
-				if err != nil {
-					slog.Error(
-						"failed to create extclient",
-						"user",
-						r.Header.Get("user"),
-						"network",
-						node.Network,
-						"error",
-						err,
-					)
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				userConf.Address6 = addr6.String()
-			}
-		}
-
 		if userConf.ClientID == "" {
 			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
 			if err != nil {
@@ -1589,8 +1549,65 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		var reservedIPv4, reservedIPv6 string
+
+		if userConf.Address == "" {
+			if network.AddressRange != "" {
+				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network)
+				if err != nil {
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv4 = newAddress.String()
+				userConf.Address = reservedIPv4
+			}
+		}
+
+		if userConf.Address6 == "" {
+			if network.AddressRange6 != "" {
+				addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
+				if err != nil {
+					if reservedIPv4 != "" {
+						networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+					}
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv6 = addr6.String()
+				userConf.Address6 = reservedIPv6
+			}
+		}
+
 		userConf.LastModified = time.Now().Unix()
-		if err = logic.SaveExtClient(&userConf); err != nil {
+		err = logic.SaveExtClient(&userConf)
+		// Reservations are freed regardless of outcome: on success the DB is authoritative,
+		// on failure the IPs must be available for reallocation.
+		if reservedIPv4 != "" {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+		}
+		if reservedIPv6 != "" {
+			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+		}
+		if err != nil {
 			slog.Error(
 				"failed to create extclient",
 				"user",

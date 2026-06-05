@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/biter777/countries"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -108,10 +109,28 @@ func RunPostureChecks() error {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
 					continue
 				}
-				nodeI.PostureChecksViolations, nodeI.PostureCheckVolationSeverityLevel = postureChecksViolations,
-					postureCheckVolationSeverityLevel
-				nodeI.LastEvaluatedAt = time.Now().UTC()
-				logic.UpsertNode(&nodeI)
+
+				_node := &schema.Node{
+					ID:                                nodeI.ID.String(),
+					PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+					PostureCheckLastEvaluationCycleID: uuid.NewString(),
+					PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+				}
+
+				_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+				for _, violation := range postureChecksViolations {
+					_violations = append(_violations, schema.PostureCheckViolation{
+						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+						CheckID:           violation.CheckID,
+						NodeID:            _node.ID,
+						Name:              violation.Name,
+						Attribute:         violation.Attribute,
+						Message:           violation.Message,
+						Severity:          violation.Severity,
+						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
+					})
+				}
+				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
 			}
 
 		}

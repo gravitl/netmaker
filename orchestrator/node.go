@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -51,14 +52,18 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	// TODO: Ensure concurrency safe ip allocation.
+	networkOrch := GetRepository().NetworkOrchestrator()
+	var reservedIPv4, reservedIPv6 string
+
 	if network.AddressRange != "" {
-		ip, err := GetRepository().NetworkOrchestrator().AllocateNodeIP(ctx, network)
+		ip, err := networkOrch.AllocateNodeIP(ctx, network)
 		if err != nil {
 			return nil, err
 		}
+		reservedIPv4 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
 			return nil, err
 		}
 		cidr.IP = ip
@@ -66,12 +71,18 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if network.AddressRange6 != "" {
-		ip, err := GetRepository().NetworkOrchestrator().AllocateNodeIPv6(ctx, network)
+		ip, err := networkOrch.AllocateNodeIPv6(ctx, network)
 		if err != nil {
+			if reservedIPv4 != "" {
+				networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			}
 			return nil, err
 		}
+		reservedIPv6 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
 			return nil, err
 		}
 		cidr.IP = ip
@@ -79,6 +90,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	err := node.Create(ctx)
+	// Reservations are freed regardless of outcome: on success the DB is authoritative,
+	// on failure the IPs must be available for reallocation.
+	if reservedIPv4 != "" {
+		networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+	}
+	if reservedIPv6 != "" {
+		networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +151,33 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	if !ops.skipHostUpdate {
-		go func() {
+	go func() {
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
+		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
+		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
+
+		_violations := make([]schema.PostureCheckViolation, 0, len(modelsNode.PostureChecksViolations))
+		for _, violation := range modelsNode.PostureChecksViolations {
+			_violations = append(_violations, schema.PostureCheckViolation{
+				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
+				CheckID:           violation.CheckID,
+				NodeID:            node.ID,
+				Name:              violation.Name,
+				Attribute:         violation.Attribute,
+				Message:           violation.Message,
+				Severity:          violation.Severity,
+				EvaluatedAt:       node.PostureCheckLastEvaluatedAt,
+			})
+		}
+		err = node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+		if err != nil {
+			logger.Log(1, fmt.Sprintf("failed to upsert node (%s) posture check violations: %v", modelsNode.ID, err))
+		}
+
+		if !ops.skipHostUpdate {
 			action := models.JoinHostToNetwork
 			if len(host.Nodes) == 1 {
 				action = models.RequestPull
@@ -142,24 +186,22 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			err := mq.HostUpdate(&models.HostUpdate{
 				Action: action,
 				Host:   *host,
-				Node:   *logic.ConvertSchemaNodeToModelsNode(node),
+				Node:   *modelsNode,
 			})
 			if err != nil {
 				logger.Log(1, "failed to send host update for node", node.ID, err.Error())
 			}
-		}()
-	}
+		}
 
-	if !ops.skipPublishPeerUpdate {
-		go func() {
+		if !ops.skipPublishPeerUpdate {
 			err := mq.PublishPeerUpdate(false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
 			time.Sleep(time.Second * 30)
 			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
-		}()
-	}
+		}
+	}()
 
 	return node, nil
 }
