@@ -547,7 +547,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	domain := params["domain"]
 	netID := params["network"]
 	entrytext := domain + "." + netID
-	domain, _ = strings.CutSuffix(domain, logic.GetServerSettings().DefaultDomain)
+	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings().DefaultDomain)
 	err := logic.DeleteDNS(domain, netID)
 
 	if err != nil {
