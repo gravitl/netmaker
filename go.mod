@@ -28,7 +28,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.11.2
+	github.com/posthog/posthog-go v1.14.0
 )
 
 require (
