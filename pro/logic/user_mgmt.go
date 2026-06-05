@@ -1388,6 +1388,32 @@ func PlatformRoleRequiresGroupEnforcement(role schema.UserRoleID) bool {
 	return role == schema.SuperAdminRole || role == schema.AdminRole
 }
 
+// CanUserCreateNetwork reports whether the user can create a network via POST /api/networks.
+func CanUserCreateNetwork(ctx context.Context, username string) bool {
+	if username == logic.MasterUser {
+		return true
+	}
+	user := &schema.User{Username: username}
+	if err := user.Get(db.WithContext(ctx)); err != nil {
+		return false
+	}
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := userRole.Get(db.WithContext(ctx)); err != nil {
+		return false
+	}
+	if userRole.FullAccess {
+		return true
+	}
+	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.NetworkRsrc]
+	if !ok {
+		return false
+	}
+	if scope, ok := rsrcPermissionScope[schema.AllNetworkRsrcID]; ok {
+		return scope.Create
+	}
+	return false
+}
+
 // UserHasGlobalNetworksAdminMembership reports global all-networks admin via groups.
 func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
 	if user == nil {

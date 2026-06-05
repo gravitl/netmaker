@@ -270,6 +270,19 @@ func vnatHashIndex(seed string, mod int) int {
 	return int(v % uint32(mod))
 }
 
+// GetOnboardingStatus reports whether the UI should show the first-network onboarding flow.
+func GetOnboardingStatus(ctx context.Context, username string) (models.OnboardingStatus, error) {
+	networks, err := (&schema.Network{}).ListAll(ctx)
+	if err != nil {
+		return models.OnboardingStatus{}, err
+	}
+	count := len(networks)
+	return models.OnboardingStatus{
+		ShowOnboarding: count == 0 && CanUserCreateNetwork(ctx, username),
+		NetworkCount:   count,
+	}, nil
+}
+
 // CreateNetwork - creates a network in database
 func CreateNetwork(_network *schema.Network) error {
 	if _network.AddressRange != "" {

@@ -179,6 +179,7 @@ func InitPro() {
 	logic.PlatformRoleRequiresGroupEnforcement = proLogic.PlatformRoleRequiresGroupEnforcement
 	logic.UserHasGlobalNetworksAdminMembership = proLogic.UserHasGlobalNetworksAdminMembership
 	logic.UserHasNetworkGroupAccess = proLogic.UserHasNetworkGroupAccess
+	logic.CanUserCreateNetwork = proLogic.CanUserCreateNetwork
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
