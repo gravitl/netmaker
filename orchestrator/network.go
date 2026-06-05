@@ -10,6 +10,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 type NetworkOrchestrator struct {
@@ -69,8 +70,11 @@ func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *sch
 	}
 
 	for {
-		if !n.isIPv4PendingReserved(network.ID, addr.String()) && n.isIPv4UniqueInDB(ctx, network, addr.String()) {
-			n.reserveIPv4(network.ID, addr.String())
+		pendingTaken := !servercfg.IsHA() && n.isIPv4PendingReserved(network.ID, addr.String())
+		if !pendingTaken && n.isIPv4UniqueInDB(ctx, network, addr.String()) {
+			if !servercfg.IsHA() {
+				n.reserveIPv4(network.ID, addr.String())
+			}
 			return addr, nil
 		}
 		var err error
@@ -102,8 +106,11 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 	}
 
 	for {
-		if !n.isIPv6PendingReserved(network.ID, addr.String()) && n.isIPv6UniqueInDB(ctx, network, addr.String()) {
-			n.reserveIPv6(network.ID, addr.String())
+		pendingTaken := !servercfg.IsHA() && n.isIPv6PendingReserved(network.ID, addr.String())
+		if !pendingTaken && n.isIPv6UniqueInDB(ctx, network, addr.String()) {
+			if !servercfg.IsHA() {
+				n.reserveIPv6(network.ID, addr.String())
+			}
 			return addr, nil
 		}
 		if reverse {
@@ -140,11 +147,13 @@ func (n *NetworkOrchestrator) isIPv6PendingReserved(networkID, ip string) bool {
 }
 
 func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	n.addressLock.RLock()
-	pendingReserved := n.isIPv4PendingReserved(network.ID, ip)
-	n.addressLock.RUnlock()
-	if pendingReserved {
-		return false
+	if !servercfg.IsHA() {
+		n.addressLock.RLock()
+		pendingReserved := n.isIPv4PendingReserved(network.ID, ip)
+		n.addressLock.RUnlock()
+		if pendingReserved {
+			return false
+		}
 	}
 	return n.isIPv4UniqueInDB(ctx, network, ip)
 }
@@ -193,6 +202,9 @@ func (n *NetworkOrchestrator) reserveIPv6(networkID, ip string) {
 }
 
 func (n *NetworkOrchestrator) FreeIPv4Reservation(networkID, ip string) {
+	if servercfg.IsHA() {
+		return
+	}
 	n.addressLock.Lock()
 	defer n.addressLock.Unlock()
 	if n.pendingIPv4 != nil {
@@ -201,6 +213,9 @@ func (n *NetworkOrchestrator) FreeIPv4Reservation(networkID, ip string) {
 }
 
 func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
+	if servercfg.IsHA() {
+		return
+	}
 	n.address6Lock.Lock()
 	defer n.address6Lock.Unlock()
 	if n.pendingIPv6 != nil {
@@ -209,11 +224,13 @@ func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
 }
 
 func (n *NetworkOrchestrator) IsIPv6Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	n.address6Lock.RLock()
-	pendingReserved := n.isIPv6PendingReserved(network.ID, ip)
-	n.address6Lock.RUnlock()
-	if pendingReserved {
-		return false
+	if !servercfg.IsHA() {
+		n.address6Lock.RLock()
+		pendingReserved := n.isIPv6PendingReserved(network.ID, ip)
+		n.address6Lock.RUnlock()
+		if pendingReserved {
+			return false
+		}
 	}
 	return n.isIPv6UniqueInDB(ctx, network, ip)
 }
