@@ -512,6 +512,19 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
 	switch hostUpdate.Action {
 	case models.CheckIn:
+		var endpointChanged, versionChanged bool
+		if !currentHost.EndpointIP.Equal(hostUpdate.Host.EndpointIP) {
+			endpointChanged = true
+		}
+		if !currentHost.EndpointIPv6.Equal(hostUpdate.Host.EndpointIPv6) {
+			endpointChanged = true
+		}
+		if currentHost.Version != hostUpdate.Host.Version {
+			versionChanged = true
+		}
+		if endpointChanged || versionChanged {
+			runPostureChecks = true
+		}
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
