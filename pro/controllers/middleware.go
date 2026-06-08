@@ -9,6 +9,7 @@ import (
 
 var limitedApis = map[string]struct{}{
 	"/api/server/status":          {},
+	"/api/server/onboarding":      {},
 	"/api/emqx/hosts":             {},
 	"/api/users/adm/authenticate": {},
 }

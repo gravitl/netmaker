@@ -358,10 +358,7 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			err := user.Get(db.WithContext(context.TODO()))
 			if err == nil && len(user.UserGroups.Data()) > 0 {
 				deviceInfo.UserGroups = user.UserGroups.Data()
-				if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
-					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
-				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
+				if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
 
 					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
 

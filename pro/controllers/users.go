@@ -715,45 +715,19 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
-	netID := schema.NetworkID(network)
-
 	allUsers, err := logic.GetUsers()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	allGroupsList, err := (&schema.UserGroup{}).ListAll(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	allGroupsMap := make(map[schema.UserGroupID]schema.UserGroup, len(allGroupsList))
-	for _, g := range allGroupsList {
-		allGroupsMap[g.ID] = g
-	}
 	var networkUsers []models.ReturnUser
 	for _, user := range allUsers {
-		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-			networkUsers = append(networkUsers, user)
-			continue
+		schemaUser := &schema.User{
+			Username:       user.UserName,
+			PlatformRoleID: user.PlatformRoleID,
+			UserGroups:     datatypes.NewJSONType(user.UserGroups),
 		}
-		hasAccess := false
-		for groupID := range user.UserGroups {
-			grp, ok := allGroupsMap[groupID]
-			if !ok {
-				continue
-			}
-			roles := grp.NetworkRoles.Data()
-			if _, ok := roles[netID]; ok {
-				hasAccess = true
-				break
-			}
-			if _, ok := roles[schema.AllNetworks]; ok {
-				hasAccess = true
-				break
-			}
-		}
-		if hasAccess {
+		if logic.UserHasNetworkGroupAccess(schemaUser, network) {
 			networkUsers = append(networkUsers, user)
 		}
 	}
@@ -1225,10 +1199,6 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
-		return
-	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
@@ -1248,6 +1218,10 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"),
 		)
+		return
+	}
+	if logic.UserHasNetworkGroupAccess(user, node.Network) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already has access to this network's gateways"), "badrequest"))
 		return
 	}
 	err = logic.UpsertUser(*user)

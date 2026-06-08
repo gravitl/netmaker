@@ -462,7 +462,10 @@ func syncUsers() {
 				user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 			}
 
-			logic.AddGlobalNetRolesToAdmins(&user)
+			// Do not call AddGlobalNetRolesToAdmins here: this runs on every server
+			// start and would re-assign the global admin group to elevated users who
+			// intentionally cleared groups. On role upgrade to admin/super-admin with no
+			// groups, UpdateUser assigns the global admin group via AddGlobalGroupOnRoleUpgrade.
 			logic.UpsertUser(user)
 		}
 	}
