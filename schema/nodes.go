@@ -366,6 +366,13 @@ func (n *Node) AssignInternetGateway(ctx context.Context) error {
 		}).Error
 }
 
+func (n *Node) SetAutoAssignGateway(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumn("auto_assign_gateway", n.AutoAssignGateway).
+		Error
+}
+
 func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")
@@ -485,12 +492,5 @@ func (n *Node) UnassignGateway(ctx context.Context) error {
 		Where("network_id = ?", n.NetworkID).
 		Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
 		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
-		Error
-}
-
-func (n *Node) UpdateAutoAssignGateway(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("id = ?", n.ID).
-		UpdateColumn("auto_assign_gateway", n.AutoAssignGateway).
 		Error
 }
