@@ -368,7 +368,7 @@ func (n *Node) AssignInternetGateway(ctx context.Context) error {
 
 func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
-		return fmt.Errorf("ResetAutoAssignGateway: NetworkID not set")
+		return fmt.Errorf("network_id not set")
 	}
 
 	err := db.FromContext(ctx).Model(&Node{}).
@@ -388,7 +388,7 @@ func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 
 func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 	if n.NetworkID == "" {
-		return fmt.Errorf("ResetAutoRelayedPeers: NetworkID not set")
+		return fmt.Errorf("network_id not set")
 	}
 
 	err := db.FromContext(ctx).Model(&Node{}).
@@ -406,8 +406,91 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 		Error
 }
 
-func (n *Node) UpsertStatus(ctx context.Context) error {
+func (n *Node) AssignGateway(ctx context.Context) error {
+	if n.NetworkID == "" {
+		return fmt.Errorf("network_id not set")
+	}
+
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"relayed_by_node_id": n.RelayedByNodeID,
+			"is_igw_client":      n.IsIGWClient,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	// remove this node from relayed_clients of any other node in the network.
+	err = db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(expr.WhereNotNull("relayed_clients", n.ID)).
+		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
+		Error
+	if err != nil {
+		return err
+	}
+
+	err = db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", *n.RelayedByNodeID).
+		UpdateColumn("relayed_clients", expr.Merge("relayed_clients", map[string]interface{}{
+			n.ID: struct{}{},
+		})).Error
+	if err != nil {
+		return err
+	}
+
+	if n.IsIGWClient {
+		// remove this node from relayed_igw_clients of any other node in the network.
+		err = db.FromContext(ctx).Model(&Node{}).
+			Where("network_id = ?", n.NetworkID).
+			Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
+			UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
+			Error
+		if err != nil {
+			return err
+		}
+
+		return db.FromContext(ctx).Model(&Node{}).
+			Where("id = ?", *n.RelayedByNodeID).
+			UpdateColumn("relayed_igw_clients", expr.Merge("relayed_igw_clients", map[string]interface{}{
+				n.ID: struct{}{},
+			})).Error
+	}
+
+	return nil
+}
+
+func (n *Node) UnassignGateway(ctx context.Context) error {
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"relayed_by_node_id": n.RelayedByNodeID,
+			"is_igw_client":      n.IsIGWClient,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	err = db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(expr.WhereNotNull("relayed_clients", n.ID)).
+		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
+		Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
+		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
+		Error
+}
+
+func (n *Node) UpdateAutoAssignGateway(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
-		UpdateColumn("status", n.Status).Error
+		UpdateColumn("auto_assign_gateway", n.AutoAssignGateway).
+		Error
 }

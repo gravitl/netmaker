@@ -297,102 +297,122 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func assignGw(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	gwid := r.URL.Query().Get("gw_id")
+	nodeID := params["nodeid"]
+	networkName := params["network"]
+	gatewayID := r.URL.Query().Get("gw_id")
 	autoAssignGw := r.URL.Query().Get("auto_assign_gw") == "true"
-	// Validate client node
-	node, err := logic.ValidateParams(nodeid, netid)
+
+	node := &schema.Node{
+		ID: nodeID,
+	}
+	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	if node.Network.Name != networkName {
+		err = fmt.Errorf("network url param does not match node network")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	if !servercfg.IsPro {
 		autoAssignGw = false
 	}
+
 	if autoAssignGw {
-		if node.InternetGwID != "" {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("node is configured to route all traffic via an internet gateway; auto-assign gateway is not allowed"),
-				"badrequest"))
+		if node.RelayedByNodeID != nil {
+			if node.IsIGWClient {
+				err = errors.New("node is configured to route all traffic via an internet gateway; auto-assign gateway is not allowed")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+
+			gateway := &schema.Node{
+				ID: *node.RelayedByNodeID,
+			}
+			err = gateway.Get(r.Context())
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				err = fmt.Errorf("failed to enable auto assign gateway for node (%s): error getting current gateway (%s): %v", node.ID, gateway.ID, err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+
+			node.RelayedByNodeID = nil
+			node.IsIGWClient = false
+			err = node.UnassignGateway(r.Context())
+			if err != nil {
+				err = fmt.Errorf("failed to enable auto assign gateway for node (%s): error unassigning current gateway(%s): %v", node.ID, gateway.ID, err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+		}
+
+		node.AutoAssignGateway = true
+		err = node.UpdateAutoAssignGateway(r.Context())
+		if err != nil {
+			err = fmt.Errorf("failed to enable auto assign gateway for node (%s): %v", node.ID, err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-		if node.RelayedBy != "" {
-			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
-			if err == nil {
-				// check if gw gateway Node has the relayed Node
-				if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
-					gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
-				}
-				newNodes := gatewayNode.RelayedNodes
-				newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
-				logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
-				// Unassign client nodes (set their InternetGwID to empty)
-				if node.InternetGwID != "" {
-					node.InternetGwID = ""
-					gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
-					logic.UpsertNode(&gatewayNode)
-				}
-			} else {
-				node.RelayedBy = ""
-				node.InternetGwID = ""
-			}
-			node, _ = logic.GetNodeByID(node.ID.String())
-		}
-		node.AutoAssignGateway = true
-		logic.UpsertNode(&node)
+
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+
 		go func() {
-			if len(node.AutoRelayedPeers) > 0 {
-				logic.ResetAutoRelayedPeer(&node)
+			if len(node.AutoRelayedPeers.Data()) > 0 {
+				_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
 			}
-			if err := mq.NodeUpdate(&node); err != nil {
+
+			if err := mq.NodeUpdate(modelsNode); err != nil {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
-			mq.PublishPeerUpdate(false)
+
+			_ = mq.PublishPeerUpdate(false)
 		}()
-		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "auto assigned gateway")
+
+		logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "auto assigned gateway")
 		return
 	}
-	if node.RelayedBy != "" {
+
+	if node.RelayedByNodeID != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is already using a gw"), "badrequest"))
 		return
 	}
-	// Validate gateway node
-	gatewayNode, err := logic.ValidateParams(gwid, netid)
+
+	gateway := &schema.Node{
+		ID: gatewayID,
+	}
+	err = gateway.Get(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
-	// Check if node is a gateway
-	if !gatewayNode.IsGw {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
+	if gateway.NetworkID != node.NetworkID {
+		err = fmt.Errorf("gateway doesn't belong to the node network")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	newNodes := []string{node.ID.String()}
-	newNodes = append(newNodes, gatewayNode.RelayedNodes...)
-	newNodes = logic.UniqueStrings(newNodes)
-	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
 
-	node, err = logic.GetNodeByID(node.ID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	if !gateway.IsGateway {
+		err = fmt.Errorf("node %s is not a gateway", nodeID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
+
+	node.RelayedByNodeID = &gatewayID
+	err = node.AssignGateway(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		err = fmt.Errorf("failed to assign gateway (%s) to node (%s): %v", gatewayID, node.ID, err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
 	logger.Log(1, r.Header.Get("user"),
 		fmt.Sprintf("assigned nodes to gateway [%s] on network [%s]",
-			nodeid, netid))
+			nodeID, networkName))
 
 	logic.LogEvent(&models.Event{
 		Action: schema.GatewayAssign,
@@ -403,26 +423,26 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   node.ID.String(),
-			Name: host.Name,
+			ID:   node.ID,
+			Name: node.Host.Name,
 			Type: schema.GatewaySub,
 		},
 		Origin: schema.Dashboard,
 	})
 
-	apiNode := node.ConvertToAPINode()
+	modelsNodes := logic.ConvertSchemaNodeToModelsNode(node)
 
 	go func() {
-		if len(node.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&node)
+		if len(node.AutoRelayedPeers.Data()) > 0 {
+			_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
 		}
-		if err := mq.NodeUpdate(&node); err != nil {
+		if err := mq.NodeUpdate(modelsNodes); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
 		mq.PublishPeerUpdate(false)
 	}()
 
-	logic.ReturnSuccessResponseWithJson(w, r, apiNode, "assigned gateway")
+	logic.ReturnSuccessResponseWithJson(w, r, modelsNodes.ConvertToAPINode(), "assigned gateway")
 }
 
 // @Summary     Unassign client nodes from a gateway
