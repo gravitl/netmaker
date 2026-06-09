@@ -598,7 +598,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						ID:     node.ID.String(),
 						Status: node.Status,
 					}
-					err = _node.UpsertStatus(db.WithContext(context.TODO()))
+					err = _node.UpdateStatus(db.WithContext(context.TODO()))
 					if err != nil {
 						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
 						continue
