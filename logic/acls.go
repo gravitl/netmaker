@@ -2512,8 +2512,9 @@ var (
 )
 
 var (
-	aclCacheMutex = &sync.RWMutex{}
-	aclCacheMap   = make(map[string]models.Acl)
+	aclCacheMutex       = &sync.RWMutex{}
+	aclCacheMap         = make(map[string]models.Acl)
+	aclCacheFullyLoaded bool
 )
 
 func MigrateAclPolicies() {
@@ -2961,13 +2962,16 @@ func DeleteAcl(a models.Acl) error {
 }
 
 func ListAcls() (acls []models.Acl) {
-	if servercfg.CacheEnabled() && len(aclCacheMap) > 0 {
+	if servercfg.CacheEnabled() && aclCacheFullyLoaded {
 		return listAclFromCache()
 	}
 
 	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
+	}
+	if servercfg.CacheEnabled() {
+		resetAclCacheLocked()
 	}
 	for _, dataI := range data {
 		acl := models.Acl{}
@@ -3004,6 +3008,9 @@ func ListAcls() (acls []models.Acl) {
 		if servercfg.CacheEnabled() {
 			storeAclInCache(acl)
 		}
+	}
+	if servercfg.CacheEnabled() {
+		aclCacheFullyLoaded = true
 	}
 	return
 }
@@ -3134,6 +3141,13 @@ func listAclFromCache() (acls []models.Acl) {
 		acls = append(acls, acl)
 	}
 	return
+}
+
+func resetAclCacheLocked() {
+	aclCacheMutex.Lock()
+	defer aclCacheMutex.Unlock()
+	aclCacheMap = make(map[string]models.Acl)
+	aclCacheFullyLoaded = false
 }
 
 func storeAclInCache(a models.Acl) {
