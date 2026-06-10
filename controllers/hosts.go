@@ -326,18 +326,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		go mq.PublishPeerUpdate(false)
 	}
 
-	// host attempted pull, so update last checkin.
-	for _, nodeID := range host.Nodes {
-		n := &schema.Node{
-			ID: nodeID,
-		}
-		n.LastCheckIn = time.Now().UTC()
-		err := n.UpdateLastCheckIn(r.Context())
-		if err != nil {
-			logger.Log(0, "failed to refresh LastCheckIn for node", nodeID, "during pull:", err.Error())
-		}
-	}
-
 	hPU, ok := logic.GetCachedHostPeerUpdate(hostID.String())
 	if !ok || resetFailovered {
 		allNodes, err := logic.GetAllNodes()
