@@ -9,6 +9,7 @@ import (
 	"net"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -2514,7 +2515,7 @@ var (
 var (
 	aclCacheMutex       = &sync.RWMutex{}
 	aclCacheMap         = make(map[string]models.Acl)
-	aclCacheFullyLoaded bool
+	aclCacheFullyLoaded atomic.Bool
 )
 
 func MigrateAclPolicies() {
@@ -2962,7 +2963,7 @@ func DeleteAcl(a models.Acl) error {
 }
 
 func ListAcls() (acls []models.Acl) {
-	if servercfg.CacheEnabled() && aclCacheFullyLoaded {
+	if servercfg.CacheEnabled() && aclCacheFullyLoaded.Load() {
 		return listAclFromCache()
 	}
 
@@ -3010,7 +3011,7 @@ func ListAcls() (acls []models.Acl) {
 		}
 	}
 	if servercfg.CacheEnabled() {
-		aclCacheFullyLoaded = true
+		aclCacheFullyLoaded.Store(true)
 	}
 	return
 }
@@ -3147,7 +3148,7 @@ func resetAclCacheLocked() {
 	aclCacheMutex.Lock()
 	defer aclCacheMutex.Unlock()
 	aclCacheMap = make(map[string]models.Acl)
-	aclCacheFullyLoaded = false
+	aclCacheFullyLoaded.Store(false)
 }
 
 func storeAclInCache(a models.Acl) {
