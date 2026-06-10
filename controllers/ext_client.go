@@ -175,6 +175,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SetDNSOnWgConfig(&gwNode, &client)
+	client.AllowedIPs = logic.GetExtclientAllowedIPs(client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -786,6 +787,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	extclient.AllowedIPs = logic.GetExtclientAllowedIPs(extclient)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclient)
 
@@ -944,6 +947,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	newclient.AllowedIPs = logic.GetExtclientAllowedIPs(newclient)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
