@@ -398,19 +398,16 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			// unset current gw
 			if node.RelayedBy != "" {
 				// unset relayed node from the curr relay
-				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				_node := &schema.Node{
+					ID: node.ID.String(),
+				}
+				err = _node.Get(r.Context())
 				if err == nil {
-					if currRelayNode.Mutex != nil {
-						currRelayNode.Mutex.Lock()
-					}
-					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
-					currRelayNode.RelayedNodes = newRelayedNodes
-					logic.UpsertNode(&currRelayNode)
-					node.RelayedBy = ""
-					node.IsRelayed = false
-					logic.UpsertNode(&node)
-					if currRelayNode.Mutex != nil {
-						currRelayNode.Mutex.Unlock()
+					_node.RelayedByNodeID = nil
+					_node.IsIGWClient = false
+					err = _node.UnassignGateway(r.Context())
+					if err == nil {
+						node = *logic.ConvertSchemaNodeToModelsNode(_node)
 					}
 				}
 			}
