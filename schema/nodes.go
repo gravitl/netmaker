@@ -472,3 +472,27 @@ func (n *Node) UnassignGateway(ctx context.Context) error {
 		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
 		Error
 }
+
+func (n *Node) ResetGateway(ctx context.Context) error {
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"is_gateway":                   n.IsGateway,
+			"is_internet_gateway":          n.IsInternetGateway,
+			"is_auto_relay":                n.IsAutoRelay,
+			"relayed_clients":              n.RelayedClients,
+			"relayed_igw_clients":          n.RelayedIGWClients,
+			"additional_gateway_endpoints": n.AdditionalGatewayEndpoints,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Updates(map[string]interface{}{
+			"relayed_by_node_id": nil,
+			"is_igw_client":      false,
+		}).
+		Error
+}

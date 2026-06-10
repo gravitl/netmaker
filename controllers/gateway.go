@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -195,6 +196,22 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
+
+	// TODO: currently only for cleanup, but later this should be used as the main function.
+	_node := &schema.Node{
+		ID: node.ID.String(),
+	}
+	err = _node.Get(r.Context())
+	if err == nil {
+		_node.IsGateway = false
+		_node.IsInternetGateway = false
+		_node.IsAutoRelay = "no"
+		_node.RelayedClients = make(datatypes.JSONMap)
+		_node.RelayedIGWClients = make(datatypes.JSONMap)
+		_node.AdditionalGatewayEndpoints = make(datatypes.JSONSlice[string], 0)
+		_ = _node.ResetGateway(r.Context())
+	}
+
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
 
 	go func() {
