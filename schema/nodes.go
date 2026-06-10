@@ -488,11 +488,19 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		return err
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
+	err = db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": nil,
 			"is_igw_client":      false,
-		}).
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where(expr.WhereHasValue("auto_relayed_peers", n.ID)).
+		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", n.ID)).
 		Error
 }
