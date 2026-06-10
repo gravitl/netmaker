@@ -259,7 +259,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			igwClient.IsIGWClient = true
 			igwClient.RelayedByNodeID = &nodeID
 
-			err = igwClient.AssignInternetGateway(ctx)
+			err = igwClient.AssignGateway(ctx)
 			if err != nil {
 				return err
 			}

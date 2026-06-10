@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -12,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/grpc/auditlogs"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/pro/integration"
 	"github.com/gravitl/netmaker/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
@@ -24,6 +26,9 @@ var allowUnexported = []any{
 	datatypes.JSONType[schema.ResourceAccess]{},
 	datatypes.JSONType[schema.NetworkRoles]{},
 }
+
+var _siemMtx sync.Mutex
+var _pushToSiem bool
 
 func LogEvent(a *models.Event) {
 	EventActivityCh <- *a
@@ -43,12 +48,34 @@ func EventRententionHook() error {
 
 }
 
+func PushToSIEM() {
+	_siemMtx.Lock()
+	defer _siemMtx.Unlock()
+	_pushToSiem = true
+}
+
+func SkipPushToSiem() {
+	_siemMtx.Lock()
+	defer _siemMtx.Unlock()
+	_pushToSiem = false
+}
+
 func EventWatcher() {
 	logic.HookManagerCh <- models.HookDetails{
 		ID:       "events-retention-hook",
 		Hook:     logic.WrapHook(EventRententionHook),
 		Interval: time.Hour * 24,
 	}
+
+	intgs, _ := (&schema.Integration{
+		Type: string(integration.TypeSIEM),
+	}).ListByType(db.WithContext(context.TODO()))
+	if len(intgs) == 0 {
+		SkipPushToSiem()
+	} else if len(intgs) == 1 {
+		PushToSIEM()
+	}
+
 	for e := range EventActivityCh {
 		if e.Action == schema.Update {
 			// check if diff
@@ -71,6 +98,13 @@ func EventWatcher() {
 			TimeStamp:   time.Now().UTC(),
 		}
 		a.Create(db.WithContext(context.TODO()))
+
+		_siemMtx.Lock()
+		if !_pushToSiem {
+			_siemMtx.Unlock()
+			continue
+		}
+		_siemMtx.Unlock()
 
 		if GetFeatureFlags().EnableSIEMIntegration {
 			sourceMap := make(map[string]interface{})

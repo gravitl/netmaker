@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -283,8 +282,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			continue
 		}
 
-		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE ||
-			(!node.LastCheckIn.IsZero() && time.Since(node.LastCheckIn) > time.Hour) {
+		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE {
 			if deletedNode == nil || deletedNode.ID != node.ID {
 				continue
 			}

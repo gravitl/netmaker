@@ -512,6 +512,19 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
 	switch hostUpdate.Action {
 	case models.CheckIn:
+		var endpointChanged, versionChanged bool
+		if !currentHost.EndpointIP.Equal(hostUpdate.Host.EndpointIP) {
+			endpointChanged = true
+		}
+		if !currentHost.EndpointIPv6.Equal(hostUpdate.Host.EndpointIPv6) {
+			endpointChanged = true
+		}
+		if currentHost.Version != hostUpdate.Host.Version {
+			versionChanged = true
+		}
+		if endpointChanged || versionChanged {
+			runPostureChecks = true
+		}
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -585,7 +598,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						ID:     node.ID.String(),
 						Status: node.Status,
 					}
-					err = _node.UpsertStatus(db.WithContext(context.TODO()))
+					err = _node.UpdateStatus(db.WithContext(context.TODO()))
 					if err != nil {
 						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
 						continue
