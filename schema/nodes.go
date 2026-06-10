@@ -357,15 +357,6 @@ func (n *Node) SetRelayedClients(ctx context.Context) error {
 	return nil
 }
 
-func (n *Node) AssignInternetGateway(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("id = ?", n.ID).
-		Updates(map[string]interface{}{
-			"is_igw_client":      n.IsIGWClient,
-			"relayed_by_node_id": n.RelayedByNodeID,
-		}).Error
-}
-
 func (n *Node) SetAutoAssignGateway(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
@@ -374,22 +365,9 @@ func (n *Node) SetAutoAssignGateway(ctx context.Context) error {
 }
 
 func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
-	if n.NetworkID == "" {
-		return fmt.Errorf("network_id not set")
-	}
-
-	err := db.FromContext(ctx).Model(&Node{}).
-		Where("id = ?", n.ID).
-		Update("auto_assign_gateway", false).
-		Error
-	if err != nil {
-		return err
-	}
-
 	return db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_clients", n.ID)).
-		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
+		Where("id = ?", n.ID).
+		Update("auto_assign_gateway", n.AutoAssignGateway).
 		Error
 }
 
