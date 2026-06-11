@@ -60,6 +60,9 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		return nil
 	}
+	if strings.Contains(r.URL.Path, "/api/v1/egress/presets") {
+		return nil
+	}
 
 	if userRole.ID == schema.Auditor {
 		if r.Method == http.MethodGet {
