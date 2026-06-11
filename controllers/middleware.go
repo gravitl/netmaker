@@ -145,7 +145,8 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Get("TARGET_RSRC") == schema.EnrollmentKeysRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == schema.UserRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == schema.ActivityRsrc.String()) {
+			r.Header.Get("TARGET_RSRC") == schema.ActivityRsrc.String()) ||
+			r.Header.Get("TARGET_RSRC") == schema.HostRsrc.String() {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))

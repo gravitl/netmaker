@@ -334,7 +334,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -512,6 +512,19 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
 	switch hostUpdate.Action {
 	case models.CheckIn:
+		var endpointChanged, versionChanged bool
+		if !currentHost.EndpointIP.Equal(hostUpdate.Host.EndpointIP) {
+			endpointChanged = true
+		}
+		if !currentHost.EndpointIPv6.Equal(hostUpdate.Host.EndpointIPv6) {
+			endpointChanged = true
+		}
+		if currentHost.Version != hostUpdate.Host.Version {
+			versionChanged = true
+		}
+		if endpointChanged || versionChanged {
+			runPostureChecks = true
+		}
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -585,7 +598,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						ID:     node.ID.String(),
 						Status: node.Status,
 					}
-					err = _node.UpsertStatus(db.WithContext(context.TODO()))
+					err = _node.UpdateStatus(db.WithContext(context.TODO()))
 					if err != nil {
 						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
 						continue
@@ -646,7 +659,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 
 		}
 		if sendDeletedNodeUpdate {
-			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
+			_ = mq.PublishDeletedNodePeerUpdate(nil, &hostUpdate.Node)
 		}
 		if sendPeerUpdate {
 			slog.Debug("host update fallback", "action", hostUpdate.Action, "replacePeers", replacePeers)
@@ -714,7 +727,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range hostNodes {
-		go mq.PublishMqUpdatesForDeletedNode(node, false)
+		go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -851,7 +864,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			for _, node := range hostNodes {
-				go mq.PublishMqUpdatesForDeletedNode(node, false)
+				go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -1125,7 +1138,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		mq.PublishMqUpdatesForDeletedNode(*node, true)
+		mq.PublishMqUpdatesForDeletedNode(nil, *node, true)
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.RemoveHostFromNet,
