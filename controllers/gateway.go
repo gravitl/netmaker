@@ -499,17 +499,19 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+		if node.RelayedByNodeID == nil {
+			modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		go func() {
-			if err := mq.NodeUpdate(modelsNode); err != nil {
-				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-			}
-			_ = mq.PublishPeerUpdate(false)
-		}()
+			go func() {
+				if err := mq.NodeUpdate(modelsNode); err != nil {
+					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+				}
+				_ = mq.PublishPeerUpdate(false)
+			}()
 
-		logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
-		return
+			logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
+			return
+		}
 	}
 
 	node.RelayedByNodeID = nil
