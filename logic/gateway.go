@@ -15,7 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -309,21 +309,15 @@ func SetInternetGw(node *models.Node, req models.InetNodeReq) {
 }
 
 func UnsetInternetGw(node *models.Node) {
-	nodes, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		slog.Error("failed to get network nodes", "network", node.Network, "error", err)
-		return
+	_node := &schema.Node{
+		ID: node.ID.String(),
 	}
-	for _, clientNode := range nodes {
-		if node.ID.String() == clientNode.InternetGwID {
-			clientNode.InternetGwID = ""
-			UpsertNode(&clientNode)
-		}
-
+	err := _node.Get(db.WithContext(context.TODO()))
+	if err == nil {
+		_node.IsInternetGateway = false
+		_node.RelayedIGWClients = make(datatypes.JSONMap)
+		_ = _node.ResetInternetGateway(db.WithContext(context.TODO()))
 	}
-	node.IsInternetGateway = false
-	node.InetNodeReq = models.InetNodeReq{}
-
 }
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {

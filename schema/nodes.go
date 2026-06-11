@@ -496,3 +496,21 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		}).
 		Error
 }
+
+func (n *Node) ResetInternetGateway(ctx context.Context) error {
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"is_internet_gateway": n.IsInternetGateway,
+			"relayed_igw_clients": n.RelayedIGWClients,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.NetworkID).
+		Where("relayed_by_node_id = ?", n.ID).
+		UpdateColumn("is_igw_client", false).
+		Error
+}
