@@ -117,7 +117,7 @@ func CreateHost(h *schema.Host) error {
 	h.AutoUpdate = AutoUpdateEnabled()
 	h.IsDefault = false
 	h.Debug = false
-	h.Verbosity = int(GetVerbosity())
+	h.Verbosity = 0
 	h.EnableFlowLogs = false
 
 	if GetServerSettings().ManageDNS {
