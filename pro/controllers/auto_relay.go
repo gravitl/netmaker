@@ -429,7 +429,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
 		}
 		go mq.PublishPeerUpdate(false)
 		if node.AutoAssignGateway {

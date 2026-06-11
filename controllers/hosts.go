@@ -334,7 +334,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -659,7 +659,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 
 		}
 		if sendDeletedNodeUpdate {
-			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
+			_ = mq.PublishDeletedNodePeerUpdate(nil, &hostUpdate.Node)
 		}
 		if sendPeerUpdate {
 			slog.Debug("host update fallback", "action", hostUpdate.Action, "replacePeers", replacePeers)
@@ -727,7 +727,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range hostNodes {
-		go mq.PublishMqUpdatesForDeletedNode(node, false)
+		go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -864,7 +864,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			for _, node := range hostNodes {
-				go mq.PublishMqUpdatesForDeletedNode(node, false)
+				go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -1138,7 +1138,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		mq.PublishMqUpdatesForDeletedNode(*node, true)
+		mq.PublishMqUpdatesForDeletedNode(nil, *node, true)
 	}()
 	logic.LogEvent(&models.Event{
 		Action: schema.RemoveHostFromNet,
