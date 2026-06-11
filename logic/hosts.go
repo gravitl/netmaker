@@ -115,15 +115,15 @@ func CreateHost(h *schema.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = AutoUpdateEnabled()
+	h.IsDefault = false
+	h.Debug = false
+	h.Verbosity = int(GetVerbosity())
+	h.EnableFlowLogs = false
 
 	if GetServerSettings().ManageDNS {
 		h.DNS = "yes"
 	} else {
 		h.DNS = "no"
-	}
-
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
-		h.EnableFlowLogs = false
 	}
 
 	checkForZombieHosts(h)
