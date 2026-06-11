@@ -112,6 +112,26 @@ func Remove(col string, keys ...string) clause.Expr {
 	}
 }
 
+// RemoveByValue returns a SET expression that rebuilds col without any entries
+// whose value equals targetValue.
+//
+//	db.Model(&u).UpdateColumn("meta", expr.RemoveByValue("meta", "dark"))
+//	db.Model(&u).UpdateColumn("meta", expr.RemoveByValue("meta", "english"))
+func RemoveByValue(col, targetValue string) clause.Expr {
+	switch CurrentDialect() {
+	case DialectPostgres:
+		return clause.Expr{
+			SQL:  fmt.Sprintf("(SELECT COALESCE(jsonb_object_agg(k, v), '{}'::jsonb) FROM jsonb_each_text(%s) AS t(k, v) WHERE v != ?)", col),
+			Vars: []interface{}{targetValue},
+		}
+	default:
+		return clause.Expr{
+			SQL:  fmt.Sprintf("(SELECT COALESCE(json_group_object(key, value), '{}') FROM json_each(%s) WHERE value != ?)", col),
+			Vars: []interface{}{targetValue},
+		}
+	}
+}
+
 // Merge shallow-merges patch into col, adding new keys and overwriting existing ones.
 //
 //	db.Model(&u).UpdateColumn("meta", expr.Merge("meta", map[string]any{"theme": "dark", "lang": "en"}))
@@ -178,4 +198,22 @@ func WhereNull(col, key string) clause.Expr {
 //	db.Where(expr.WhereNotNull("meta", "verified")).Find(&rows)
 func WhereNotNull(col, key string) clause.Expr {
 	return clause.Expr{SQL: fmt.Sprintf("%s IS NOT NULL", scalarSQL(CurrentDialect(), col, key))}
+}
+
+// WhereHasValue matches rows where any entry in col has the given value.
+//
+//	db.Where(expr.WhereHasValue("meta", "dark")).Find(&rows)
+func WhereHasValue(col, value string) clause.Expr {
+	switch CurrentDialect() {
+	case DialectPostgres:
+		return clause.Expr{
+			SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM jsonb_each_text(%s) WHERE value = ?)", col),
+			Vars: []interface{}{value},
+		}
+	default:
+		return clause.Expr{
+			SQL:  fmt.Sprintf("EXISTS (SELECT 1 FROM json_each(%s) WHERE value = ?)", col),
+			Vars: []interface{}{value},
+		}
+	}
 }

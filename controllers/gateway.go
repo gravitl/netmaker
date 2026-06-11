@@ -250,14 +250,14 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 							return
 						}
 						node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-						if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false, nil); err != nil {
+						if err = mq.PublishSingleHostPeerUpdate(h, nodes, nil, &node, nil, false, nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}
 				}
 			}
 			if len(removedClients) > 0 {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 			}
@@ -499,17 +499,19 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+		if node.RelayedByNodeID == nil {
+			modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		go func() {
-			if err := mq.NodeUpdate(modelsNode); err != nil {
-				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-			}
-			_ = mq.PublishPeerUpdate(false)
-		}()
+			go func() {
+				if err := mq.NodeUpdate(modelsNode); err != nil {
+					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+				}
+				_ = mq.PublishPeerUpdate(false)
+			}()
 
-		logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
-		return
+			logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
+			return
+		}
 	}
 
 	node.RelayedByNodeID = nil

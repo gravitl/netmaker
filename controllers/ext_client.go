@@ -1106,7 +1106,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
-				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, clients, false, nil)
+				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, nil, clients, false, nil)
 
 			}
 			go mq.PublishPeerUpdate(false)

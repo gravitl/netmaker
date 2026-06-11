@@ -663,9 +663,11 @@ func cleanupDeletedUserGroupRefs() {
 	for _, postureCheck := range postureChecks {
 		var update bool
 		for groupID := range postureCheck.UserGroups {
-			if _, ok := existingGroups[schema.UserGroupID(groupID)]; !ok {
-				delete(postureCheck.UserGroups, groupID)
-				update = true
+			if groupID != "*" {
+				if _, ok := existingGroups[schema.UserGroupID(groupID)]; !ok {
+					delete(postureCheck.UserGroups, groupID)
+					update = true
+				}
 			}
 		}
 

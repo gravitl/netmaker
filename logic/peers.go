@@ -213,8 +213,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node,
-	deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
+func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -699,14 +698,20 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		hostPeerUpdate.Peers[i] = peer
 	}
 	if deletedNode != nil && host.OS != models.OS_Types.IoT {
-		peerHost := &schema.Host{
-			ID: deletedNode.HostID,
+		var deletedNodeHost *schema.Host
+		var err error
+		if deletedHost == nil {
+			deletedNodeHost = &schema.Host{
+				ID: deletedNode.HostID,
+			}
+			err = deletedNodeHost.Get(db.WithContext(context.TODO()))
+		} else {
+			deletedNodeHost = deletedHost
 		}
-		err := peerHost.Get(db.WithContext(context.TODO()))
-		if err == nil && host.ID != peerHost.ID {
-			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
+		if err == nil && host.ID != deletedNodeHost.ID {
+			if _, ok := peerIndexMap[deletedNodeHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
-					PublicKey: peerHost.PublicKey.Key,
+					PublicKey: deletedNodeHost.PublicKey.Key,
 					Remove:    true,
 				})
 			}
