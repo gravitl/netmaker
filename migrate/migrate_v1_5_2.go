@@ -154,10 +154,13 @@ func migrateNodes(ctx context.Context) error {
 		relayedClients := make(datatypes.JSONMap)
 		relayedIGWClients := make(datatypes.JSONMap)
 		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || node.IsFailOver {
+			autoRelayAlreadyConfigured := strings.Contains(record, "is_auto_relay")
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
-			node.IsAutoRelay = false
+			if !autoRelayAlreadyConfigured {
+				node.IsAutoRelay = false
+			}
 			for _, relayedNodeID := range node.RelayedNodes {
 				relayedClients[relayedNodeID] = struct{}{}
 			}
@@ -166,7 +169,9 @@ func migrateNodes(ctx context.Context) error {
 				relayedIGWClients[inetNodeClientID] = struct{}{}
 			}
 			if servercfg.IsPro {
-				node.IsAutoRelay = true
+				if !autoRelayAlreadyConfigured {
+					node.IsAutoRelay = true
+				}
 				if node.Tags == nil {
 					node.Tags = make(map[models.TagID]struct{})
 				}
