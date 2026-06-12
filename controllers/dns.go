@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -543,9 +544,11 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
+	domain := params["domain"]
 	netID := params["network"]
-	entrytext := params["domain"] + "." + params["network"]
-	err := logic.DeleteDNS(params["domain"], params["network"])
+	entrytext := domain + "." + netID
+	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings().DefaultDomain)
+	err := logic.DeleteDNS(domain, netID)
 
 	if err != nil {
 		logger.Log(0, "failed to delete dns entry: ", entrytext)

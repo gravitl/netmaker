@@ -204,6 +204,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 		if node.Address6.IP != nil {
 			entry.Address6 = node.Address6.IP.String()
 		}
+		entry.Type = models.DNSEntryType_Node
 		dns = append(dns, entry)
 	}
 
@@ -262,6 +263,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 			if defaultDomain != "" {
 				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
 			}
+			entry.Type = models.DNSEntryType_Custom
 			dns = append(dns, entry)
 		}
 	}
@@ -449,7 +451,7 @@ func DeleteDNS(domain string, network string) error {
 
 // CreateDNS - creates a DNS entry
 func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
-
+	entry.Type = models.DNSEntryType_Custom
 	k, err := GetRecordKey(entry.Name, entry.Network)
 	if err != nil {
 		return models.DNSEntry{}, err

@@ -70,6 +70,13 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
+	if s.OktaAPIToken == Mask() {
+		s.OktaAPIToken = currSettings.OktaAPIToken
+	}
+	if s.EmailSenderPassword == Mask() {
+		s.EmailSenderPassword = currSettings.EmailSenderPassword
+	}
+
 	if servercfg.DeployedByOperator() {
 		s.BasicAuth = true
 	}

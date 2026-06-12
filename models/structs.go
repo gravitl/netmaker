@@ -143,6 +143,12 @@ type PaginatedResponse struct {
 	TotalPages int         `json:"total_pages"`
 }
 
+// OnboardingStatus tells the UI whether to show the first-network onboarding flow.
+type OnboardingStatus struct {
+	ShowOnboarding bool `json:"show_onboarding"`
+	NetworkCount   int  `json:"network_count"`
+}
+
 // DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`

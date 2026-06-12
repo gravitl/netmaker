@@ -154,10 +154,13 @@ func migrateNodes(ctx context.Context) error {
 		relayedClients := make(datatypes.JSONMap)
 		relayedIGWClients := make(datatypes.JSONMap)
 		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || node.IsFailOver {
+			autoRelayAlreadyConfigured := strings.Contains(record, "is_auto_relay")
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
-			node.IsAutoRelay = false
+			if !autoRelayAlreadyConfigured {
+				node.IsAutoRelay = false
+			}
 			for _, relayedNodeID := range node.RelayedNodes {
 				relayedClients[relayedNodeID] = struct{}{}
 			}
@@ -166,7 +169,9 @@ func migrateNodes(ctx context.Context) error {
 				relayedIGWClients[inetNodeClientID] = struct{}{}
 			}
 			if servercfg.IsPro {
-				node.IsAutoRelay = true
+				if !autoRelayAlreadyConfigured {
+					node.IsAutoRelay = true
+				}
 				if node.Tags == nil {
 					node.Tags = make(map[models.TagID]struct{})
 				}
@@ -208,6 +213,11 @@ func migrateNodes(ctx context.Context) error {
 			tags[tagID.String()] = struct{}{}
 		}
 
+		var lastEvaluationCycleID string
+		if !node.LastEvaluatedAt.IsZero() {
+			lastEvaluationCycleID = uuid.NewString()
+		}
+
 		_node := &schema.Node{
 			ID:                                node.ID.String(),
 			HostID:                            node.HostID.String(),
@@ -229,8 +239,9 @@ func migrateNodes(ctx context.Context) error {
 			IsIGWClient:                       isIGWClient,
 			AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 			Tags:                              tags,
-			PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
-			PostureCheckLastEvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
+			PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,
+			PostureCheckLastEvaluationCycleID: lastEvaluationCycleID,
+			PostureCheckLastEvaluatedAt:       node.LastEvaluatedAt,
 			Metadata:                          node.Metadata,
 			LastCheckIn:                       node.LastCheckIn,
 			ExpirationDateTime:                node.ExpirationDateTime,
@@ -483,25 +494,25 @@ func migrateNodes_Nameserver(ctx context.Context, node *models.Node) error {
 }
 
 func migrateNodes_PostureCheckViolations(ctx context.Context, node *models.Node, _node *schema.Node) error {
-	if !node.LastEvaluatedAt.IsZero() {
-		violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
-		for _, violation := range node.PostureChecksViolations {
-			violations = append(violations, schema.PostureCheckViolation{
-				EvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
-				CheckID:           violation.CheckID,
-				NodeID:            _node.ID,
-				Name:              violation.Name,
-				Attribute:         violation.Attribute,
-				Message:           violation.Message,
-				Severity:          violation.Severity,
-				EvaluatedAt:       node.LastEvaluatedAt,
-			})
-		}
-
-		return _node.UpsertViolations(ctx, violations)
+	if node.LastEvaluatedAt.IsZero() {
+		return nil
 	}
 
-	return nil
+	violations := make([]schema.PostureCheckViolation, 0, len(node.PostureChecksViolations))
+	for _, violation := range node.PostureChecksViolations {
+		violations = append(violations, schema.PostureCheckViolation{
+			EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+			CheckID:           violation.CheckID,
+			NodeID:            _node.ID,
+			Name:              violation.Name,
+			Attribute:         violation.Attribute,
+			Message:           violation.Message,
+			Severity:          violation.Severity,
+			EvaluatedAt:       node.LastEvaluatedAt,
+		})
+	}
+
+	return _node.UpsertViolations(ctx, violations)
 }
 
 func migrateNodes_CleanUp(ctx context.Context) error {

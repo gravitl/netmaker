@@ -120,7 +120,6 @@ func (c *GrpcClient) batchLoop() {
 }
 
 func (c *GrpcClient) flush() {
-	fmt.Println("FLUSHING AUDIT LOGS")
 	c.mu.Lock()
 	if len(c.events) == 0 {
 		c.mu.Unlock()
@@ -141,7 +140,6 @@ func (c *GrpcClient) sendWithRetries(env *AuditLogEnvelope) error {
 	var err error
 
 	for attempt := 1; attempt <= c.opts.RetryCount; attempt++ {
-		fmt.Println("FLUSHING AUDIT LOGS ATTEMPT:", attempt)
 		err = c.sendOnce(env)
 		if err == nil {
 			return nil
@@ -156,13 +154,11 @@ func (c *GrpcClient) sendWithRetries(env *AuditLogEnvelope) error {
 
 func (c *GrpcClient) sendOnce(env *AuditLogEnvelope) error {
 	if c.stream == nil {
-		fmt.Println("FLUSHING AUDIT LOGS CONNECTING")
 		if err := c.reconnect(); err != nil {
 			return err
 		}
 	}
 
-	fmt.Println("FLUSHING AUDIT LOGS CONNECTED")
 	if err := c.stream.Send(env); err != nil {
 		return c.handleStreamError(err)
 	}

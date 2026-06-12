@@ -51,6 +51,7 @@ const (
 	JitUserRsrc         RsrcType = "jit_user"
 	UserActivityRsrc    RsrcType = "user_activity"
 	NetworkActivityRsrc RsrcType = "network_activity"
+	ActivityRsrc        RsrcType = "activity"
 	TrafficFlow         RsrcType = "traffic_flow"
 )
 
@@ -95,6 +96,7 @@ const (
 	AllJitUserRsrcID         RsrcID = "all_jit_user"
 	AllUserActivityRsrcID    RsrcID = "all_user_activity"
 	AllNetworkActivityRsrcID RsrcID = "all_network_activity"
+	AllActivityRsrcID        RsrcID = "all_activity"
 	AllTrafficFlowRsrcID     RsrcID = "all_traffic_flow"
 )
 

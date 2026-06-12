@@ -73,6 +73,7 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/onboarding", logic.SecurityCheck(true, http.HandlerFunc(getOnboarding))).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -458,4 +459,31 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 // @Success     200 {object} models.FeatureFlags
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
+}
+
+// @Summary     Get onboarding status for the UI
+// @Router      /api/server/onboarding [get]
+// @Tags        Server
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.OnboardingStatus
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getOnboarding(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	username, err := logic.GetUserNameFromToken(r.Header.Get("Authorization"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+
+	status, err := logic.GetOnboardingStatus(r.Context(), username)
+	if err != nil {
+		slog.Error("failed to get onboarding status", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	json.NewEncoder(w).Encode(status)
 }

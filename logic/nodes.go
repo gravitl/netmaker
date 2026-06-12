@@ -115,35 +115,7 @@ func UpsertNode(newNode *models.Node) error {
 		return errors.New("error converting models.Node to schema.Node")
 	}
 
-	err := _node.Upsert(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if _node.PostureCheckLastEvaluationCycleID != "" {
-		evaluatedAt, err := time.Parse(time.RFC3339, _node.PostureCheckLastEvaluationCycleID)
-		if err != nil {
-			return err
-		}
-
-		violations := make([]schema.PostureCheckViolation, 0, len(newNode.PostureChecksViolations))
-		for _, violation := range newNode.PostureChecksViolations {
-			violations = append(violations, schema.PostureCheckViolation{
-				EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
-				CheckID:           violation.CheckID,
-				NodeID:            _node.ID,
-				Name:              violation.Name,
-				Attribute:         violation.Attribute,
-				Message:           violation.Message,
-				Severity:          violation.Severity,
-				EvaluatedAt:       evaluatedAt,
-			})
-		}
-
-		return _node.UpsertViolations(db.WithContext(context.TODO()), violations)
-	}
-
-	return nil
+	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -718,21 +690,22 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			IsGw:              _node.IsGateway,
 			AutoAssignGateway: _node.AutoAssignGateway,
 		},
-		PendingDelete:                     _node.PendingDelete,
-		LastModified:                      _node.UpdatedAt,
-		LastCheckIn:                       _node.LastCheckIn,
-		ExpirationDateTime:                _node.ExpirationDateTime,
-		Metadata:                          _node.Metadata,
-		IsAutoRelay:                       _node.IsAutoRelay == "yes",
-		AutoRelayedPeers:                  _node.AutoRelayedPeers.Data(),
-		IsInternetGateway:                 _node.IsInternetGateway,
-		Tags:                              make(map[models.TagID]struct{}),
-		Status:                            _node.Status,
-		PostureChecksViolations:           violations,
-		PostureCheckVolationSeverityLevel: _node.PostureCheckSeverity,
-		LastEvaluatedAt:                   _node.UpdatedAt,
-		Location:                          _node.Host.Location,
-		CountryCode:                       _node.Host.CountryCode,
+		PendingDelete:                      _node.PendingDelete,
+		LastModified:                       _node.UpdatedAt,
+		LastCheckIn:                        _node.LastCheckIn,
+		ExpirationDateTime:                 _node.ExpirationDateTime,
+		Metadata:                           _node.Metadata,
+		IsAutoRelay:                        _node.IsAutoRelay == "yes",
+		AutoRelayedPeers:                   _node.AutoRelayedPeers.Data(),
+		IsInternetGateway:                  _node.IsInternetGateway,
+		Tags:                               make(map[models.TagID]struct{}),
+		Status:                             _node.Status,
+		PostureChecksViolations:            violations,
+		PostureCheckViolationSeverityLevel: _node.PostureCheckSeverity,
+		LastEvaluationCycleID:              _node.PostureCheckLastEvaluationCycleID,
+		LastEvaluatedAt:                    _node.PostureCheckLastEvaluatedAt,
+		Location:                           _node.Host.Location,
+		CountryCode:                        _node.Host.CountryCode,
 	}
 
 	if _node.IsGateway {
@@ -861,8 +834,9 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
-		PostureCheckSeverity:              node.PostureCheckVolationSeverityLevel,
-		PostureCheckLastEvaluationCycleID: node.LastEvaluatedAt.Format(time.RFC3339),
+		PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,
+		PostureCheckLastEvaluationCycleID: node.LastEvaluationCycleID,
+		PostureCheckLastEvaluatedAt:       node.LastEvaluatedAt,
 		Metadata:                          node.Metadata,
 		LastCheckIn:                       node.LastCheckIn,
 		ExpirationDateTime:                node.ExpirationDateTime,

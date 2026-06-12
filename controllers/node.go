@@ -475,7 +475,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(
 			0,
@@ -685,7 +685,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ResetAutoRelay(newNode)
 	}
 
-	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
+	if (!currentNode.IsInternetGateway && newNode.IsInternetGateway) || len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
 		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -779,11 +779,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.ResetAutoRelayedPeer(&currentNode)
 		}
 	}
-	newNode.PostureChecksViolations,
-		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
-		schema.NetworkID(newNode.Network))
-	newNode.LastEvaluatedAt = time.Now().UTC()
-	logic.UpsertNode(newNode)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(
@@ -828,7 +823,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
@@ -897,7 +892,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode)
+	go mq.PublishMqUpdatesForDeletedNode(nil, node, !fromNode)
 }
 
 // @Summary     Bulk delete nodes
@@ -966,7 +961,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		for _, node := range deletedNodes {
-			mq.PublishMqUpdatesForDeletedNode(node, true)
+			mq.PublishMqUpdatesForDeletedNode(nil, node, true)
 		}
 		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
 	}()

@@ -231,7 +231,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			go mq.PublishDeletedNodePeerUpdate(node)
+			go mq.PublishDeletedNodePeerUpdate(nil, node)
 		}
 	}()
 	<-ctx.Done()

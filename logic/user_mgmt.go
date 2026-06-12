@@ -80,6 +80,14 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 }
 var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
+var StripGroupsOnRoleDowngrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+}
+var AddGlobalGroupOnRoleUpgrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+}
+var PlatformRoleRequiresGroupEnforcement = func(role schema.UserRoleID) bool { return false }
+var UserHasGlobalNetworksAdminMembership = func(user *schema.User) bool { return false }
+var UserHasNetworkGroupAccess = func(user *schema.User, networkID string) bool { return false }
+var CanUserCreateNetwork = func(ctx context.Context, username string) bool { return true }
 var EmailInit = func() {}
 
 func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
@@ -124,6 +132,8 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 		return schema.AllTrafficFlowRsrcID
 	case schema.NetworkActivityRsrc:
 		return schema.AllNetworkActivityRsrcID
+	case schema.ActivityRsrc:
+		return schema.AllActivityRsrcID
 	}
 	return ""
 }

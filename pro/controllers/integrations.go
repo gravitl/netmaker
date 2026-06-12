@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	grpcs "github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/db"
+	grpcs "github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/pro/integration"
 	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	siempkg "github.com/gravitl/netmaker/pro/integration/siem"
+	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
@@ -178,6 +179,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logic2.PushToSIEM()
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration saved")
 }
 
@@ -254,6 +256,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
+	logic2.SkipPushToSiem()
 	logic.ReturnSuccessResponse(w, r, "integration deleted")
 }
 

@@ -55,7 +55,9 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return errors.New("access denied")
 	}
-	if userRole.FullAccess {
+	// Platform admin/super-admin FullAccess applies to global APIs only; network
+	// APIs always require group-based network roles.
+	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		return nil
 	}
 
@@ -169,7 +171,9 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
-
+	if strings.Contains(r.URL.Path, "/api/v1/egress/presets") {
+		return nil
+	}
 	if userRole.ID == schema.Auditor {
 		if strings.Contains(r.URL.Path, "/api/v1/enrollment-keys") {
 			return errors.New("access denied")

@@ -175,6 +175,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SetDNSOnWgConfig(&gwNode, &client)
+	client.AllowedIPs = logic.GetExtclientAllowedIPs(client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -649,46 +650,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if extclient.Address == "" {
-		if parentNetwork.AddressRange != "" {
-			newAddress, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(db.WithContext(context.TODO()), parentNetwork)
-			if err != nil {
-				slog.Error(
-					"failed to create extclient",
-					"user",
-					r.Header.Get("user"),
-					"network",
-					node.Network,
-					"error",
-					err,
-				)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-				return
-			}
-			extclient.Address = newAddress.String()
-		}
-	}
-
-	if extclient.Address6 == "" {
-		if parentNetwork.AddressRange6 != "" {
-			addr6, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIPv6(db.WithContext(context.TODO()), parentNetwork)
-			if err != nil {
-				slog.Error(
-					"failed to create extclient",
-					"user",
-					r.Header.Get("user"),
-					"network",
-					node.Network,
-					"error",
-					err,
-				)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-				return
-			}
-			extclient.Address6 = addr6.String()
-		}
-	}
-
 	if extclient.ClientID == "" {
 		extclient.ClientID, err = logic.GenerateNodeName(extclient.Network)
 		if err != nil {
@@ -706,8 +667,65 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	var reservedIPv4, reservedIPv6 string
+
+	if extclient.Address == "" {
+		if parentNetwork.AddressRange != "" {
+			newAddress, err := networkOrch.AllocateExtclientIP(db.WithContext(context.TODO()), parentNetwork)
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			reservedIPv4 = newAddress.String()
+			extclient.Address = reservedIPv4
+		}
+	}
+
+	if extclient.Address6 == "" {
+		if parentNetwork.AddressRange6 != "" {
+			addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), parentNetwork)
+			if err != nil {
+				if reservedIPv4 != "" {
+					networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
+				}
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			reservedIPv6 = addr6.String()
+			extclient.Address6 = reservedIPv6
+		}
+	}
+
 	extclient.LastModified = time.Now().Unix()
-	if err = logic.SaveExtClient(&extclient); err != nil {
+	err = logic.SaveExtClient(&extclient)
+	// Reservations are freed regardless of outcome: on success the DB is authoritative,
+	// on failure the IPs must be available for reallocation.
+	if reservedIPv4 != "" {
+		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
+	}
+	if reservedIPv6 != "" {
+		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
+	}
+	if err != nil {
 		slog.Error(
 			"failed to create extclient",
 			"user",
@@ -768,6 +786,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			Origin:    schema.ClientApp,
 		})
 	}
+
+	extclient.AllowedIPs = logic.GetExtclientAllowedIPs(extclient)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclient)
@@ -927,6 +947,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	newclient.AllowedIPs = logic.GetExtclientAllowedIPs(newclient)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
@@ -1085,7 +1106,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
-				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, clients, false, nil)
+				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, nil, clients, false, nil)
 
 			}
 			go mq.PublishPeerUpdate(false)

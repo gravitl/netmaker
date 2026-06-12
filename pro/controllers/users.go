@@ -715,45 +715,19 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
-	netID := schema.NetworkID(network)
-
 	allUsers, err := logic.GetUsers()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	allGroupsList, err := (&schema.UserGroup{}).ListAll(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	allGroupsMap := make(map[schema.UserGroupID]schema.UserGroup, len(allGroupsList))
-	for _, g := range allGroupsList {
-		allGroupsMap[g.ID] = g
-	}
 	var networkUsers []models.ReturnUser
 	for _, user := range allUsers {
-		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-			networkUsers = append(networkUsers, user)
-			continue
+		schemaUser := &schema.User{
+			Username:       user.UserName,
+			PlatformRoleID: user.PlatformRoleID,
+			UserGroups:     datatypes.NewJSONType(user.UserGroups),
 		}
-		hasAccess := false
-		for groupID := range user.UserGroups {
-			grp, ok := allGroupsMap[groupID]
-			if !ok {
-				continue
-			}
-			roles := grp.NetworkRoles.Data()
-			if _, ok := roles[netID]; ok {
-				hasAccess = true
-				break
-			}
-			if _, ok := roles[schema.AllNetworks]; ok {
-				hasAccess = true
-				break
-			}
-		}
-		if hasAccess {
+		if logic.UserHasNetworkGroupAccess(schemaUser, network) {
 			networkUsers = append(networkUsers, user)
 		}
 	}
@@ -1225,10 +1199,6 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
-		return
-	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
@@ -1248,6 +1218,10 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"),
 		)
+		return
+	}
+	if logic.UserHasNetworkGroupAccess(user, node.Network) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already has access to this network's gateways"), "badrequest"))
 		return
 	}
 	err = logic.UpsertUser(*user)
@@ -1532,46 +1506,6 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.ExtraAllowedIPs = []string{}
 		}
 
-		if userConf.Address == "" {
-			if network.AddressRange != "" {
-				newAddress, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(r.Context(), network)
-				if err != nil {
-					slog.Error(
-						"failed to create extclient",
-						"user",
-						r.Header.Get("user"),
-						"network",
-						node.Network,
-						"error",
-						err,
-					)
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				userConf.Address = newAddress.String()
-			}
-		}
-
-		if userConf.Address6 == "" {
-			if network.AddressRange6 != "" {
-				addr6, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
-				if err != nil {
-					slog.Error(
-						"failed to create extclient",
-						"user",
-						r.Header.Get("user"),
-						"network",
-						node.Network,
-						"error",
-						err,
-					)
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				userConf.Address6 = addr6.String()
-			}
-		}
-
 		if userConf.ClientID == "" {
 			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
 			if err != nil {
@@ -1589,8 +1523,65 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		var reservedIPv4, reservedIPv6 string
+
+		if userConf.Address == "" {
+			if network.AddressRange != "" {
+				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network)
+				if err != nil {
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv4 = newAddress.String()
+				userConf.Address = reservedIPv4
+			}
+		}
+
+		if userConf.Address6 == "" {
+			if network.AddressRange6 != "" {
+				addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
+				if err != nil {
+					if reservedIPv4 != "" {
+						networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+					}
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv6 = addr6.String()
+				userConf.Address6 = reservedIPv6
+			}
+		}
+
 		userConf.LastModified = time.Now().Unix()
-		if err = logic.SaveExtClient(&userConf); err != nil {
+		err = logic.SaveExtClient(&userConf)
+		// Reservations are freed regardless of outcome: on success the DB is authoritative,
+		// on failure the IPs must be available for reallocation.
+		if reservedIPv4 != "" {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+		}
+		if reservedIPv6 != "" {
+			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+		}
+		if err != nil {
 			slog.Error(
 				"failed to create extclient",
 				"user",
