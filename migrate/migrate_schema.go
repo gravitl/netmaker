@@ -28,8 +28,8 @@ func ToSQLSchema() error {
 		return err
 	}
 
-	// v1.5.2 migration includes migrating the pending users and user invites tables.
-	err = ensureMigrationCompleted(context.TODO(), "migration-v1.5.2", migrateV1_5_2)
+	// v1.6.0 migration includes migrating the pending users and user invites tables.
+	err = ensureMigrationCompleted(context.TODO(), "migration-v1.6.0", migrateV1_6_0)
 	if err != nil {
 		return err
 	}
