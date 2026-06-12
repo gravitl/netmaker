@@ -52,9 +52,32 @@ Networks can designate a **default enrollment key** for simplified device onboar
 
 ---
 
-## 🧰 Improvements & Fixes
+## 🗄️ Database Schema Migration
 
-- **Schema migration** — Nodes, posture-check violations, pending users, and user invites are migrated to the relational schema. Posture violations are stored in a dedicated table with evaluation cycle tracking.
+This release introduces schema changes to the following core entities:
+
+- Nodes
+- Pending Users
+- User Invites
+- Posture Check Violations
+
+**Impact:**
+
+- The database structure will be updated automatically during the upgrade.
+- Downgrades may not be supported after migration.
+
+**👉 Action Required:**
+
+- Ensure the application starts successfully and migrations are complete.
+- Validate core functionality post-upgrade.
+
+For detailed upgrade steps, refer to the official upgrade documentation:
+
+[Server Upgrades v1.5.1+](https://learn.netmaker.io/getting-started/server-and-client-management/upgrading-your-client-and-server#server-upgrades-v1.5.1)
+
+---
+
+## 🧰 Improvements & Fixes
 
 - **Netclient registration UX** — Host registration over OAuth/basic auth now returns clear websocket close reasons on failure (auth errors, missing access, posture violations, and server errors).
 
