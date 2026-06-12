@@ -1,56 +1,74 @@
-# Netmaker v1.5.1 Release Notes 🚀
+# Netmaker v1.6.0 Release Notes 🚀
 
 ## 🚀 What’s New
 
-### 🔁 Traffic Logs (Beta)
+### 🔁 Site-to-Site ACLs (Beta)
 
-Traffic Logs have now moved into **Beta**.
+Define ACL policies that permit traffic between egress endpoints across networks.
 
-- Traffic Logs are now enriched with relevant **domain tagging**, making network activity easier to audit and investigate.
+- Build site-to-site rules between egress resources on different networks.
+- Combine egress resources, nodes, and specific IPs in a single policy.
+- Site-to-site rules are emitted alongside device-mesh rules without key collisions.
+
+
+### 🛡️ Egress ACLs with IP Restriction
+
+ACL policies can now target **individual IPs** inside an egress range using the `ip` ACL target type.
+
+- Restrict access to specific hosts within a larger egress CIDR.
+- Validate that selected IPs fall within the referenced egress range at policy create/update time.
+- Mix egress resources, nodes, tags, and individual IPs in the same policy.
+
+### 📦 Egress Preset Catalog (Pro)
+
+A built-in catalog simplifies domain-based egress for common SaaS and cloud providers.
+
+- Browse presets via `GET /api/v1/egress/presets` (AWS, Azure, Google, Salesforce, and more).
+- Create egress resources from a `preset_id`; the server can resolve AWS IP ranges automatically.
+- Support for **multiple domains** per egress resource.
+
+### ⏱️ JIT Group Memberships
+
+Just-In-Time (JIT) access can now be scoped to **user groups** per network.
+
+- Enable JIT for all non-admin users, or limit it to selected user groups.
+- Users request access; admins approve or deny with email notifications.
+- Expired grants are cleaned up automatically and users are notified.
+
+### 🔗 SIEM Integration
+
+Forward Netmaker audit events to your security stack from **Integrations**.
+
+- Supported providers: **Splunk**, **Datadog**, **Elastic**, and **Microsoft Sentinel**.
+- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/siem/{provider}`).
+- Events are exported through the SIEM exporter service.
+
+### 🔑 Default Enrollment Keys
+
+Networks can designate a **default enrollment key** for simplified device onboarding.
+
+- Fetch the default key per network via the API or CLI.
+- Regenerate enrollment key tokens without recreating the key.
 
 ---
 
 ## 🧰 Improvements & Fixes
 
-- **Scalability & Reliability Improvements**
-  Introduced a peer update debouncer that coalesces rapid-fire PublishPeerUpdate calls into a single broadcast — a 500ms resettable debounce window capped by a 3s max-wait deadline ensures back-to-back operations (bulk node updates, gateway changes, host deletions) produce one peer update instead of dozens, drastically reducing CPU and MQTT pressure on the control plane
+- **Schema migration** — Nodes, posture-check violations, pending users, and user invites are migrated to the relational schema. Posture violations are stored in a dedicated table with evaluation cycle tracking.
 
-  Pre-warms peer update caches after each debounced broadcast so pull requests from hosts are served instantly from cache instead of triggering expensive on-demand computation
+- **Netclient registration UX** — Host registration over OAuth/basic auth now returns clear websocket close reasons on failure (auth errors, missing access, posture violations, and server errors).
 
-  Batched metrics export to netmaker exporter via periodic ticker instead of publishing on every individual MQTT metrics message, reducing continuous CPU pressure from Prometheus scraping
+- **User group management** — Streamlined user role permissions and group updates, role-downgrade handling.
 
-- **Database Schema Migration**  
-  Added schema migrations for the **Users, Groups, Roles, Networks, and Hosts** tables.
+- **Orphan reference cleanup** — Removes stale network references left behind after resource deletion.
 
-- **Deprecated Legacy ACLs**  
-  Legacy ACLs have been **fully removed** as part of the platform’s transition to the updated access control model.
+- **Scalability & reliability** — Optimized node status calculation, offline-status hooks, zombie/orphan node cleanup, and ACL cache race fixes.
 
-- **Paginated APIs**  
-  Introduced pagination support for **Users** and **Hosts** APIs.
+- **API hardening** — Auth rate limiting on REST endpoints and activity-log permission fixes.
 
-- **DNS**  
-  Added **native Active Directory support**.
+- **Egress improvements** — CIDR validation for ACL egress IPs, multi-domain egress routing, and domain-answer handling for preset-based egress.
 
-- **Posture Checks**  
-  Nodes can now **skip the auto-update check during join**, improving join reliability in controlled environments.
-
-- **IDP Sync**  
-  Improved identity provider sync behavior:
-  - Synced IDP groups are now **denied access by default** until explicitly granted.
-  - **Okta-specific settings** are now reset when an IDP integration is removed.
-
-- **HA Setup**  
-  Streamlined **high availability (HA)** setup and operational workflows.
-
-- **Install Script**  
-  Added **on-demand Monitoring Stack installation** support via:  
-  `./nm-quick.sh -m`
-
-- **Monitoring Stack**  
-  Updated the monitoring stack to use the **official Prometheus and Grafana images**.
-
-- **HA Gateways**
-  Reset Auto Assigned gw when it is disconnected from the network.
+- **Failover removed** — Legacy per-node failover APIs and CLI commands have been removed in favor of gateway-based patterns.
 
 ---
 
