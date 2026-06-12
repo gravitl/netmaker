@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func migrateV1_5_2(ctx context.Context) error {
+func migrateV1_6_0(ctx context.Context) error {
 	err := migratePendingUsers(ctx)
 	if err != nil {
 		return err
