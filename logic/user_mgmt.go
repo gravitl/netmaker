@@ -132,6 +132,8 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 		return schema.AllTrafficFlowRsrcID
 	case schema.NetworkActivityRsrc:
 		return schema.AllNetworkActivityRsrcID
+	case schema.ActivityRsrc:
+		return schema.AllActivityRsrcID
 	}
 	return ""
 }
