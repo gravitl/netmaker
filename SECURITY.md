@@ -9,4 +9,4 @@ However, there is no official bug bounty program up yet for the Netmaker project
 
 ## Reporting a Vulnerability
 
-Please report security issues to `security@netmaker.io`
+Security vulnerabilities may be reported to `security@netmaker.io`. Netmaker maintains a coordinated vulnerability disclosure process and reviews all reports in accordance with our [Vulnerability Disclosure Policy](https://www.netmaker.io/cybersecurity-incident-disclosure-policy).
