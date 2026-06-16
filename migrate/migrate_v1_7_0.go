@@ -17,7 +17,7 @@ const (
 	TableName_ServerUUID = "serveruuid"
 )
 
-func migrateV1_5_3(ctx context.Context) error {
+func migrateV1_7_0(ctx context.Context) error {
 	err := migrateServerConf(ctx)
 	if err != nil {
 		return err
