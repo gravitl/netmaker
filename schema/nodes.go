@@ -72,6 +72,19 @@ func (n *Node) TableName() string {
 	return nodesTable
 }
 
+// UIPatchableFields returns the JSON tag names of fields the UI is allowed to patch.
+func (n *Node) UIPatchableFields() []string {
+	return []string{
+		"connected",
+		"address",
+		"address6",
+		"metadata",
+		"auto_assign_gateway",
+		"additional_gateway_endpoints",
+		"expiration_date_time",
+	}
+}
+
 func (n *Node) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Create(n).Error
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/apiutil"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
@@ -36,6 +37,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(listNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(patchNode))).Methods(http.MethodPatch)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", AuthorizeHost(http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, http.HandlerFunc(createEgressGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
@@ -854,6 +856,199 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		mq.PublishPeerUpdate(false)
 	}(relayUpdate, newNode)
+}
+
+// @Summary     Patch an individual node
+// @Router      /api/v1/nodes/{network}/{nodeid} [patch]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Param       body body schema.Node true "Node patch (only include fields to change)"
+// @Success     200 {object} schema.Node
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func patchNode(w http.ResponseWriter, r *http.Request) { //nolint:cyclop
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+	nodeID := params["nodeid"]
+	networkName := params["network"]
+
+	node := &schema.Node{
+		ID: nodeID,
+	}
+	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+
+		err = fmt.Errorf("failed to patch node (%s): error fetching node: %v", nodeID, err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+
+	if node.Network.Name != networkName {
+		err = fmt.Errorf("failed to patch node (%s): node does not belong to network %s", nodeID, networkName)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	nodePatch, err := apiutil.NewPatch[schema.Node](r.Body)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid patch: %w", err), logic.BadReq))
+		return
+	}
+
+	result, err := nodePatch.Apply(node, apiutil.IncludeFields(node.UIPatchableFields()...))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	var (
+		ipChanged            bool
+		disconnecting        bool
+		autoAssignGwEnabled  bool
+		autoAssignGwDisabled bool
+	)
+
+	for _, field := range result.UpdatedFields {
+		switch field {
+
+		case "address":
+			if node.Network.AddressRange == "" {
+				err = fmt.Errorf("failed to patch node (%s) address: network %s has no IPv4 address range", nodeID, networkName)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+			if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv4Unique(r.Context(), node.Network, result.Patched.Address) {
+				err = fmt.Errorf("failed to patch node (%s) address: ip %s already allocated", nodeID, result.Patched.Address)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+			ipChanged = true
+
+		case "address6":
+			if node.Network.AddressRange6 == "" {
+				err = fmt.Errorf("failed to patch node (%s) address6: network %s has no IPv6 address range", nodeID, networkName)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+			if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv6Unique(r.Context(), node.Network, result.Patched.Address6) {
+				err = fmt.Errorf("failed to patch node (%s) address6: ip %s already allocated", nodeID, result.Patched.Address6)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+			ipChanged = true
+
+		case "connected":
+			if !node.Connected && result.Patched.Connected {
+				result.Patched.LastCheckIn = time.Now().UTC()
+				result.Patched.Status = schema.OnlineSt
+			} else if node.Connected && !result.Patched.Connected {
+				result.Patched.Status = schema.Disconnected
+				disconnecting = true
+			}
+
+		case "auto_assign_gateway":
+			if !node.AutoAssignGateway && result.Patched.AutoAssignGateway {
+				autoAssignGwEnabled = true
+			} else if node.AutoAssignGateway && !result.Patched.AutoAssignGateway {
+				autoAssignGwDisabled = true
+			}
+
+		case "additional_gateway_endpoints":
+			if !servercfg.IsPro {
+				result.Patched.AdditionalGatewayEndpoints = nil
+			}
+		}
+	}
+
+	err = result.Patched.Upsert(r.Context())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to save node %s: %v", nodeID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to save node: %w", err), logic.Internal))
+		return
+	}
+
+	if autoAssignGwDisabled && node.RelayedByNodeID != nil {
+		gateway := &schema.Node{ID: *node.RelayedByNodeID}
+		if err := gateway.Get(r.Context()); err == nil {
+			delete(gateway.RelayedClients, nodeID)
+			_ = gateway.UpdateRelayedClients(r.Context())
+		}
+		nilPtr := (*string)(nil)
+		result.Patched.RelayedByNodeID = nilPtr
+		_ = result.Patched.UpdateRelayingNode(r.Context())
+	}
+
+	// --- log & respond ---
+	newNode := logic.ConvertSchemaNodeToModelsNode(result.Patched)
+	logic.LogEvent(&models.Event{
+		Action: schema.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: schema.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newNode.ID.String(),
+			Name: node.Host.Name,
+			Type: schema.NodeSub,
+		},
+		Diff: models.Diff{
+			Old: logic.ConvertSchemaNodeToModelsNode(node),
+			New: newNode,
+		},
+		Origin: schema.Dashboard,
+	})
+	logger.Log(1, r.Header.Get("user"), "patched node", nodeID, "on network", networkName)
+
+	result.Patched.Host = nil
+	result.Patched.Network = nil
+	logic.ReturnSuccessResponseWithJson(w, r, result.Patched, "updated node")
+
+	go func() {
+		if err := mq.NodeUpdate(newNode); err != nil {
+			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
+		}
+		if ipChanged {
+			if err := mq.HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: *node.Host}); err != nil {
+				slog.Error("error sending sync pull to host on ip change", "host", node.Host.ID, "error", err)
+			}
+		}
+		if disconnecting {
+			metrics, err := logic.GetMetrics(nodeID)
+			if err == nil {
+				for peer, conn := range metrics.Connectivity {
+					conn.Connected = false
+					conn.Latency = 999
+					metrics.Connectivity[peer] = conn
+				}
+				_ = logic.UpdateMetrics(nodeID, metrics)
+			}
+			go logic.SetPeerMetricsDisconnected(nodeID)
+			if servercfg.IsPro {
+				for _, dNode := range logic.DisplaceAutoRelayedNodes(nodeID) {
+					dHost := &schema.Host{ID: dNode.HostID}
+					if err := dHost.Get(db.WithContext(context.TODO())); err == nil {
+						mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
+					}
+				}
+			}
+		}
+		if autoAssignGwEnabled {
+			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *node.Host, Node: *newNode})
+		}
+		allNodes, _ := logic.GetAllNodes()
+		mq.PublishSingleHostPeerUpdate(node.Host, allNodes, nil, nil, nil, false, nil)
+		mq.PublishPeerUpdate(false)
+	}()
 }
 
 // @Summary     Delete an individual node
