@@ -25,6 +25,7 @@ import (
 	// the integration/mdm registry. Add new providers by appending another import.
 	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/intune"
+	_ "github.com/gravitl/netmaker/pro/integration/mdm/iru"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jamf"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"

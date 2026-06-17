@@ -1,6 +1,6 @@
 // Package mdm defines the pluggable MDM provider interface and registry used by
 // the Netmaker MDM posture-check feature. Concrete providers (Intune, Jamf,
-// future Kandji/JumpCloud/etc.) live in sibling packages and self-register via
+// future Iru/JumpCloud/etc.) live in sibling packages and self-register via
 // init().
 package mdm
 

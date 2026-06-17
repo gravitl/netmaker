@@ -21,9 +21,10 @@ const (
 	ProviderElastic  ProviderID = "elastic"
 	ProviderSentinel ProviderID = "sentinel"
 	ProviderSplunk   ProviderID = "splunk"
-	ProviderIntune     ProviderID = "intune"
-	ProviderJamf       ProviderID = "jamf"
-	ProviderJumpCloud  ProviderID = "jumpcloud"
+	ProviderIntune    ProviderID = "intune"
+	ProviderJamf      ProviderID = "jamf"
+	ProviderJumpCloud ProviderID = "jumpcloud"
+	ProviderIru       ProviderID = "iru"
 )
 
 type Provider interface {
@@ -42,6 +43,7 @@ var registry = map[Type]map[ProviderID]Provider{
 		ProviderIntune:    newMDMProvider(ProviderIntune),
 		ProviderJamf:      newMDMProvider(ProviderJamf),
 		ProviderJumpCloud: newMDMProvider(ProviderJumpCloud),
+		ProviderIru:       newMDMProvider(ProviderIru),
 	},
 }
 

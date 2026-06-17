@@ -13,8 +13,10 @@ import (
 
 // EntraDeviceLookup is implemented by MDM providers that resolve a host using
 // host.entra_device_id as Graph devices.deviceId. Intune queries GET /v1.0/devices
-// first, then GET /deviceManagement/managedDevices?$filter=azureADDeviceId eq '...'
-// when /devices returns no match. No hostname or serial matching is performed.
+// first, then GET /deviceManagement/managedDevices when /devices returns no match.
+//
+// Providers without EntraDeviceLookup (Iru, Jamf, JumpCloud) are synced via
+// ListManagedDevices and serial_number matching in sync.go.
 type EntraDeviceLookup interface {
 	LookupByEntraDeviceID(ctx context.Context, entraDeviceID string) (ManagedDevice, error)
 }

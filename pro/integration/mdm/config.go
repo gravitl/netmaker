@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	ProviderIntune     = "intune"
-	ProviderJamf       = "jamf"
-	ProviderJumpCloud  = "jumpcloud"
+	ProviderIntune    = "intune"
+	ProviderJamf      = "jamf"
+	ProviderJumpCloud = "jumpcloud"
+	ProviderIru       = "iru"
 )
 
 // SyncSettings are shared across MDM provider configs.
@@ -49,10 +50,24 @@ type JamfConfig struct {
 // policy object IDs. When empty, all policy statuses returned for each system must pass.
 type JumpCloudConfig struct {
 	SyncSettings
-	ClientID              string   `json:"client_id"`
-	ClientSecret          string   `json:"client_secret"`
-	BaseURL               string   `json:"base_url"`
-	CompliancePolicyIDs   []string `json:"compliance_policy_ids,omitempty"`
+	ClientID            string   `json:"client_id"`
+	ClientSecret        string   `json:"client_secret"`
+	BaseURL             string   `json:"base_url"`
+	CompliancePolicyIDs []string `json:"compliance_policy_ids,omitempty"`
+}
+
+// IruConfig is stored in integrations_v1.config for the iru provider (Iru Endpoint
+// Management, formerly Kandji). APIURL is the tenant API hostname from Settings
+// (e.g. https://acme.api.iru.com or https://acme.api.kandji.io).
+//
+// ComplianceLibraryItemIDs optionally limits compliance evaluation to specific
+// library item IDs from GET /devices/{id}/status. When empty, all parameters
+// and library items must have status PASS.
+type IruConfig struct {
+	SyncSettings
+	APIURL                   string   `json:"api_url"`
+	APIToken                 string   `json:"api_token"`
+	ComplianceLibraryItemIDs []string `json:"compliance_library_item_ids,omitempty"`
 }
 
 // ValidateConfig validates provider config JSON for the given provider id.
@@ -109,6 +124,25 @@ func ValidateConfig(providerID string, configJSON json.RawMessage) error {
 			return fmt.Errorf("sync_interval_minutes must be >= 0")
 		}
 		return nil
+	case ProviderIru:
+		var cfg IruConfig
+		if err := json.Unmarshal(configJSON, &cfg); err != nil {
+			return fmt.Errorf("invalid iru config: %w", err)
+		}
+		apiURL := strings.TrimSpace(cfg.APIURL)
+		if apiURL == "" {
+			return fmt.Errorf("api_url is required")
+		}
+		if !strings.HasPrefix(strings.ToLower(apiURL), "https://") {
+			return fmt.Errorf("api_url must use https")
+		}
+		if cfg.APIToken == "" {
+			return fmt.Errorf("api_token is required")
+		}
+		if cfg.SyncIntervalMinutes < 0 {
+			return fmt.Errorf("sync_interval_minutes must be >= 0")
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown mdm provider %q", providerID)
 	}
@@ -131,6 +165,12 @@ func ParseSyncSettings(providerID string, configJSON json.RawMessage) (SyncSetti
 		return cfg.SyncSettings, nil
 	case ProviderJumpCloud:
 		var cfg JumpCloudConfig
+		if err := json.Unmarshal(configJSON, &cfg); err != nil {
+			return SyncSettings{}, err
+		}
+		return cfg.SyncSettings, nil
+	case ProviderIru:
+		var cfg IruConfig
 		if err := json.Unmarshal(configJSON, &cfg); err != nil {
 			return SyncSettings{}, err
 		}
@@ -168,6 +208,15 @@ func RedactConfig(providerID string, configJSON json.RawMessage) (json.RawMessag
 		}
 		if cfg.ClientSecret != "" {
 			cfg.ClientSecret = logic.Mask()
+		}
+		return json.Marshal(cfg)
+	case ProviderIru:
+		var cfg IruConfig
+		if err := json.Unmarshal(configJSON, &cfg); err != nil {
+			return nil, err
+		}
+		if cfg.APIToken != "" {
+			cfg.APIToken = logic.Mask()
 		}
 		return json.Marshal(cfg)
 	default:

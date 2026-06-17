@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,9 +18,8 @@ var (
 	lastSync time.Time
 )
 
-// RunMDMSync refreshes DeviceMDMState for hosts with entra_device_id via the
-// active provider's Entra-keyed lookup. Intune calls Graph /devices first;
-// managedDevices is only queried when /devices returns no match.
+// RunMDMSync refreshes DeviceMDMState for hosts via the active provider.
+// Intune uses Entra-keyed lookup; other providers list devices and match serial_number.
 // Honours sync_interval_minutes from integration config as an optional per-tick
 // rate-limit hint. Returns nil (no-op) if MDM is not configured.
 func RunMDMSync(ctx context.Context) error {
@@ -70,13 +70,6 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
 		return err
 	}
 
-	lookup, ok := p.(EntraDeviceLookup)
-	if !ok {
-		logger.Log(2, "mdm sync: provider=", p.Name(), "does not support entra device lookup, skipping")
-		lastSync = time.Now().UTC()
-		return nil
-	}
-
 	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		logger.Log(0, "mdm sync: list hosts:", err.Error())
@@ -84,20 +77,65 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
 	}
 
 	matched := 0
+	if lookup, ok := p.(EntraDeviceLookup); ok {
+		for i := range hosts {
+			if hosts[i].EntraDeviceID == "" {
+				continue
+			}
+			if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
+				logger.Log(0, "mdm sync: entra lookup for host", hosts[i].ID.String(), ":", err.Error())
+				continue
+			}
+			matched++
+		}
+		lastSync = time.Now().UTC()
+		logger.Log(2, "mdm sync: provider=", p.Name(), "matched=", itoa(matched))
+		return nil
+	}
+
+	devices, err := p.ListManagedDevices(ctx)
+	if err != nil {
+		logger.Log(0, "mdm sync: list devices:", err.Error())
+		return err
+	}
 	for i := range hosts {
-		if hosts[i].EntraDeviceID == "" {
+		if strings.TrimSpace(hosts[i].SerialNumber) == "" {
 			continue
 		}
-		if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
-			logger.Log(0, "mdm sync: entra lookup for host", hosts[i].ID.String(), ":", err.Error())
-			continue
+		for _, d := range devices {
+			if !MatchHostToMDMDeviceBySerial(hosts[i], d) {
+				continue
+			}
+			state := schema.DeviceMDMState{
+				HostID:       hosts[i].ID.String(),
+				Provider:     intg.ID,
+				MDMDeviceID:  d.ProviderDeviceID,
+				Enrolled:     d.Enrolled,
+				Compliant:    d.Compliant,
+				MatchedBy:    schema.MDMMatchSerialNumber,
+				LastSyncedAt: time.Now().UTC(),
+				LastSeenAt:   d.LastSeenAt,
+			}
+			if err := state.Upsert(db.WithContext(ctx)); err != nil {
+				logger.Log(0, "mdm sync: upsert state for host", hosts[i].ID.String(), ":", err.Error())
+				continue
+			}
+			matched++
+			break
 		}
-		matched++
 	}
 
 	lastSync = time.Now().UTC()
-	logger.Log(2, "mdm sync: provider=", p.Name(), "matched=", itoa(matched))
+	logger.Log(2, "mdm sync: provider=", p.Name(), "devices=", itoa(len(devices)), "matched=", itoa(matched))
 	return nil
+}
+
+// MatchHostToMDMDeviceBySerial matches a host to an MDM device by serial number only.
+func MatchHostToMDMDeviceBySerial(h schema.Host, d ManagedDevice) bool {
+	hostSerial := strings.TrimSpace(h.SerialNumber)
+	deviceSerial := strings.TrimSpace(d.SerialNumber)
+	return hostSerial != "" && deviceSerial != "" &&
+		strings.EqualFold(hostSerial, deviceSerial)
 }
 
 func itoa(i int) string {

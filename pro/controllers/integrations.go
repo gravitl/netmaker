@@ -480,33 +480,57 @@ func mergeMDMConfig(ctx context.Context, providerID string, incoming json.RawMes
 	if err := json.Unmarshal(incoming, &patch); err != nil {
 		return nil, fmt.Errorf("invalid request body: %w", err)
 	}
-	secret, ok := patch["client_secret"]
-	if !ok {
+	changed := false
+	for _, field := range []string{"client_secret", "api_token"} {
+		merged, ok, err := mergeMDMSecretField(ctx, providerID, patch, field, hasExisting)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			patch = merged
+			changed = true
+		}
+	}
+	if !changed {
 		return incoming, nil
+	}
+	return json.Marshal(patch)
+}
+
+func mergeMDMSecretField(
+	ctx context.Context,
+	providerID string,
+	patch map[string]json.RawMessage,
+	field string,
+	hasExisting bool,
+) (map[string]json.RawMessage, bool, error) {
+	secret, ok := patch[field]
+	if !ok {
+		return patch, false, nil
 	}
 	var secretStr string
 	if err := json.Unmarshal(secret, &secretStr); err != nil {
-		return incoming, nil
+		return patch, false, nil
 	}
 	if !isMaskedSecret(secretStr) || !hasExisting {
-		return incoming, nil
+		return patch, false, nil
 	}
 
 	existing := &schema.Integration{ID: providerID}
 	if err := existing.Get(ctx); err != nil {
-		return incoming, nil
+		return patch, false, nil
 	}
 
 	var stored map[string]json.RawMessage
 	if err := json.Unmarshal(existing.Config, &stored); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	storedSecret, ok := stored["client_secret"]
+	storedSecret, ok := stored[field]
 	if !ok {
-		return incoming, nil
+		return patch, false, nil
 	}
-	patch["client_secret"] = storedSecret
-	return json.Marshal(patch)
+	patch[field] = storedSecret
+	return patch, true, nil
 }
 
 func isMaskedSecret(s string) bool {
