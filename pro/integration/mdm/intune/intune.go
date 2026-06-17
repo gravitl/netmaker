@@ -20,10 +20,11 @@ const (
 	providerName    = mdmpkg.ProviderIntune
 	providerDisplay = "Microsoft Intune"
 
-	tokenURLFmt  = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
-	tokenScope   = "https://graph.microsoft.com/.default"
-	devicesURL   = "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices"
-	deviceSelect = "id,azureADDeviceId,serialNumber,hardwareInformation,deviceName,userPrincipalName,managementState,complianceState,lastSyncDateTime"
+	tokenURLFmt     = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
+	tokenScope      = "https://graph.microsoft.com/.default"
+	entraDevicesURL = "https://graph.microsoft.com/v1.0/devices"
+	devicesURL      = "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices"
+	deviceSelect    = "id,azureADDeviceId,serialNumber,hardwareInformation,deviceName,userPrincipalName,managementState,deviceRegistrationState,enrolledDateTime,complianceState,lastSyncDateTime"
 )
 
 func init() {
@@ -71,7 +72,7 @@ func (c *Client) Verify(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	u := devicesURL + "?$top=1&$select=id"
+	u := entraDevicesURL + "?$top=1&$select=" + url.QueryEscape("id")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return err
@@ -96,39 +97,11 @@ func (c *Client) Verify(ctx context.Context) error {
 	return nil
 }
 
+// ListManagedDevices is not used for Intune posture checks; hosts are resolved
+// per entra_device_id via LookupByEntraDeviceID (/devices, then managedDevices
+// only when /devices returns no match).
 func (c *Client) ListManagedDevices(ctx context.Context) ([]mdmpkg.ManagedDevice, error) {
-	tok, err := c.accessToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-	nextURL := devicesURL + "?$select=" + url.QueryEscape(deviceSelect)
-	var out []mdmpkg.ManagedDevice
-	for nextURL != "" {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, nextURL, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", "Bearer "+tok)
-		req.Header.Set("Accept", "application/json")
-		resp, err := c.http.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		var page managedDevicesPage
-		err = json.NewDecoder(resp.Body).Decode(&page)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		if page.Error.Code != "" {
-			return nil, fmt.Errorf("intune list devices: %s", page.Error.Message)
-		}
-		for _, d := range page.Value {
-			out = append(out, normalize(d))
-		}
-		nextURL = page.NextLink
-	}
-	return out, nil
+	return nil, nil
 }
 
 func (c *Client) accessToken(ctx context.Context) (string, error) {
@@ -175,17 +148,44 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	return c.token, nil
 }
 
-func normalize(d managedDevice) mdmpkg.ManagedDevice {
+// intuneComplianceCompliant is true only when Graph reports complianceState
+// as "compliant" (case-insensitive).
+func intuneComplianceCompliant(state string) bool {
+	return strings.EqualFold(strings.TrimSpace(state), "compliant")
+}
+
+// intuneDeviceEnrolled reports whether a managedDevices row represents an
+// enrolled Intune device.
+func intuneDeviceEnrolled(d managedDevice) bool {
+	if d.ManagementState != "" && !strings.EqualFold(d.ManagementState, "discovered") {
+		return true
+	}
+	if strings.EqualFold(d.DeviceRegistrationState, "registered") {
+		return true
+	}
+	if strings.TrimSpace(d.EnrolledDateTime) != "" {
+		return true
+	}
+	return false
+}
+
+func normalize(d managedDevice, entraByName map[string]string) mdmpkg.ManagedDevice {
 	last, _ := time.Parse(time.RFC3339, d.LastSyncDateTime)
+	azureAD := d.AzureADDeviceID
+	if azureAD == "" && entraByName != nil {
+		if id, ok := entraByName[strings.ToLower(strings.TrimSpace(d.DeviceName))]; ok {
+			azureAD = id
+		}
+	}
 	return mdmpkg.ManagedDevice{
 		ProviderDeviceID:  d.ID,
-		AzureADDeviceID:   d.AzureADDeviceID,
+		AzureADDeviceID:   azureAD,
 		SerialNumber:      d.SerialNumber,
 		HardwareUUID:      d.HardwareInformation.SerialNumber,
 		DeviceName:        d.DeviceName,
 		UserPrincipalName: d.UserPrincipalName,
-		Enrolled:          d.ManagementState != "" && !strings.EqualFold(d.ManagementState, "discovered"),
-		Compliant:         strings.EqualFold(d.ComplianceState, "compliant"),
+		Enrolled:          intuneDeviceEnrolled(d),
+		Compliant:         intuneComplianceCompliant(d.ComplianceState),
 		LastSeenAt:        last,
 	}
 }
@@ -204,15 +204,32 @@ type managedDevicesPage struct {
 }
 
 type managedDevice struct {
-	ID                  string              `json:"id"`
-	AzureADDeviceID     string              `json:"azureADDeviceId"`
-	SerialNumber        string              `json:"serialNumber"`
-	DeviceName          string              `json:"deviceName"`
-	UserPrincipalName   string              `json:"userPrincipalName"`
-	ManagementState     string              `json:"managementState"`
-	ComplianceState     string              `json:"complianceState"`
-	LastSyncDateTime    string              `json:"lastSyncDateTime"`
-	HardwareInformation hardwareInformation `json:"hardwareInformation"`
+	ID                      string              `json:"id"`
+	AzureADDeviceID         string              `json:"azureADDeviceId"`
+	SerialNumber            string              `json:"serialNumber"`
+	DeviceName              string              `json:"deviceName"`
+	UserPrincipalName       string              `json:"userPrincipalName"`
+	ManagementState         string              `json:"managementState"`
+	DeviceRegistrationState string              `json:"deviceRegistrationState"`
+	EnrolledDateTime        string              `json:"enrolledDateTime"`
+	ComplianceState         string              `json:"complianceState"`
+	LastSyncDateTime        string              `json:"lastSyncDateTime"`
+	HardwareInformation     hardwareInformation `json:"hardwareInformation"`
+}
+
+type entraDevice struct {
+	ID              string `json:"id"`
+	DeviceID        string `json:"deviceId"`
+	DisplayName     string `json:"displayName"`
+	OperatingSystem string `json:"operatingSystem"`
+	TrustType       string `json:"trustType"`
+	IsManaged       bool   `json:"isManaged"`
+	IsCompliant     bool   `json:"isCompliant"`
+}
+
+type entraDevicesPage struct {
+	Value []entraDevice `json:"value"`
+	Error errorBody     `json:"error"`
 }
 
 type hardwareInformation struct {

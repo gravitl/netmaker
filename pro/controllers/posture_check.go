@@ -194,14 +194,15 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
+	pc := schema.PostureCheck{ID: updatePc.ID}
+	err = pc.Get(db.WithContext(r.Context()))
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	pc := schema.PostureCheck{ID: updatePc.ID}
-	err = pc.Get(db.WithContext(r.Context()))
-	if err != nil {
+	proLogic.MergePostureCheckUpdate(&pc, &updatePc)
+	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

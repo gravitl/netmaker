@@ -23,6 +23,7 @@ import (
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	// Blank-import MDM provider packages so their init() registers with
 	// the integration/mdm registry. Add new providers by appending another import.
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/intune"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jamf"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
@@ -217,6 +218,7 @@ func InitPro() {
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
+	logic.SyncHostMDMState = mdmpkg.SyncHostMDMState
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions

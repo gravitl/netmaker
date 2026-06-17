@@ -43,6 +43,11 @@ var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureC
 	return
 }
 
+// SyncHostMDMState refreshes MDM posture state for a host (no-op in community).
+var SyncHostMDMState = func(ctx context.Context, hostID string) error {
+	return nil
+}
+
 const (
 	maxPort = 1<<16 - 1
 	minPort = 1025

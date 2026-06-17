@@ -30,6 +30,8 @@ type DeviceMDMState struct {
 	MatchedBy    string    `gorm:"column:matched_by" json:"matched_by"`
 	LastSyncedAt time.Time `gorm:"column:last_synced_at" json:"last_synced_at"`
 	LastSeenAt   time.Time `gorm:"column:last_seen_at" json:"last_seen_at"`
+	// LastError holds a stable lookup failure code (e.g. device_not_registered_in_entra).
+	LastError string `gorm:"column:last_error" json:"last_error,omitempty"`
 }
 
 func (s *DeviceMDMState) TableName() string {

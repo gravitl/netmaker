@@ -510,6 +510,9 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		if d.MDMState == nil {
 			return true, "no_mdm_state_for_host"
 		}
+		if d.MDMState.LastError != "" {
+			return true, d.MDMState.LastError
+		}
 		if cfg.RequireEnrolled && !d.MDMState.Enrolled {
 			return true, "device_not_mdm_enrolled"
 		}
@@ -581,6 +584,28 @@ func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
 			}
 		}
 	}
+}
+
+// MergePostureCheckUpdate fills in fields omitted from an update payload using
+// the existing stored posture check. Clients that toggle status often omit
+// attribute-specific Config; without this merge validation would see empty
+// MDM flags and reject the request.
+func MergePostureCheckUpdate(existing, update *schema.PostureCheck) {
+	if update.Attribute != schema.MDMCompliance || existing.Config == nil {
+		return
+	}
+	if update.Config == nil {
+		update.Config = existing.Config
+		return
+	}
+	merged := datatypes.JSONMap{}
+	for k, v := range existing.Config {
+		merged[k] = v
+	}
+	for k, v := range update.Config {
+		merged[k] = v
+	}
+	update.Config = merged
 }
 
 func ValidatePostureCheck(pc *schema.PostureCheck) error {
@@ -811,8 +836,8 @@ func mdmStateCompliant(s *schema.DeviceMDMState) bool {
 
 // validateMDMComplianceConfig enforces the MDMCompliance posture-check
 // invariants: an MDM integration must be configured, at least one of
-// require_enrolled/require_compliant must be true, and max_state_age_hours
-// must be non-negative.
+// require_enrolled/require_compliant must be true when the check is enabled,
+// and max_state_age_hours must be non-negative.
 func validateMDMComplianceConfig(pc *schema.PostureCheck) error {
 	active, err := mdmpkg.GetActive(db.WithContext(context.TODO()))
 	if err != nil {
@@ -822,7 +847,7 @@ func validateMDMComplianceConfig(pc *schema.PostureCheck) error {
 		return errors.New("no MDM integration configured; configure via Integrations > MDM")
 	}
 	cfg := ParseMDMComplianceConfig(pc.Config)
-	if !cfg.RequireEnrolled && !cfg.RequireCompliant {
+	if pc.Status && !cfg.RequireEnrolled && !cfg.RequireCompliant {
 		return errors.New("at least one of require_enrolled or require_compliant must be true")
 	}
 	if cfg.MaxStateAgeHours < 0 {
