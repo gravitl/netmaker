@@ -256,18 +256,7 @@ func updateEnrollmentKeys() {
 		if _, ok := existingTags[network.Name]; ok {
 			continue
 		}
-		_, _ = logic.CreateEnrollmentKey(
-			0,
-			time.Time{},
-			[]string{network.Name},
-			[]string{network.Name},
-			[]models.TagID{},
-			true,
-			uuid.Nil,
-			true,
-			false,
-			false,
-		)
+		_, _ = logic.CreateDefaultNetworkEnrollmentKey(network.Name)
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
@@ -312,25 +311,7 @@ func CreateNetwork(_network *schema.Network) error {
 		return err
 	}
 
-	err = _network.Create(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	_, _ = CreateEnrollmentKey(
-		0,
-		time.Time{},
-		[]string{_network.Name},
-		[]string{_network.Name},
-		[]models.TagID{},
-		true,
-		uuid.Nil,
-		true,
-		false,
-		false,
-	)
-
-	return nil
+	return _network.Create(db.WithContext(context.TODO()))
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
