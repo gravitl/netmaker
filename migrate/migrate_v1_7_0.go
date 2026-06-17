@@ -6,15 +6,19 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 const (
-	TableName_ServerConf = "serverconf"
-	TableName_Generated  = "generated"
-	TableName_ServerUUID = "serveruuid"
+	TableName_ServerConf    = "serverconf"
+	TableName_Generated     = "generated"
+	TableName_ServerUUID    = "serveruuid"
+	TableName_EnrollmentKey = "enrollmentkeys"
 )
 
 func migrateV1_7_0(ctx context.Context) error {
@@ -28,7 +32,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateServerUUID(ctx)
+	err = migrateServerUUID(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateEnrollmentKeys(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -197,6 +206,92 @@ func migrateServerUUID(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func migrateEnrollmentKeys(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_EnrollmentKey) {
+		return nil
+	}
+
+	records, err := kvList(ctx, TableName_EnrollmentKey)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, record := range records {
+		var key models.EnrollmentKey
+		if err = json.Unmarshal([]byte(record), &key); err != nil {
+			return err
+		}
+
+		// merge models.Networks and models.Tags (both hold network names)
+		networksSet := make(map[string]struct{}, len(key.Networks)+len(key.Tags))
+		for _, n := range key.Networks {
+			networksSet[n] = struct{}{}
+		}
+		for _, t := range key.Tags {
+			networksSet[t] = struct{}{}
+		}
+		networks := make(datatypes.JSONSlice[string], 0, len(networksSet))
+		for n := range networksSet {
+			networks = append(networks, n)
+		}
+
+		// models.Groups (device tags) → schema.Tags
+		tags := make(datatypes.JSONSlice[string], 0, len(key.Groups))
+		for _, g := range key.Groups {
+			tags = append(tags, g.String())
+		}
+
+		var gatewayID *string
+		if key.Relay != uuid.Nil {
+			s := key.Relay.String()
+			gatewayID = &s
+		}
+
+		var keyType schema.EnrollmentKeyType
+		switch key.Type {
+		case models.Unlimited:
+			keyType = schema.EnrollmentKeyType_UnlimitedUses
+		case models.Uses:
+			keyType = schema.EnrollmentKeyType_LimitedUses
+		case models.TimeExpiration:
+			keyType = schema.EnrollmentKeyType_TimedExpiry
+		default:
+			keyType = schema.EnrollmentKeyType_UnlimitedUses
+		}
+
+		// models.Tags[0] was used as the enrollment key display name
+		name := ""
+		if len(key.Tags) > 0 {
+			name = key.Tags[0]
+		}
+
+		_key := &schema.EnrollmentKey{
+			ID:                uuid.NewString(),
+			Name:              name,
+			Value:             key.Value,
+			Token:             key.Token,
+			Default:           key.Default,
+			Unlimited:         key.Unlimited,
+			UsesRemaining:     key.UsesRemaining,
+			Expiration:        key.Expiration,
+			Networks:          networks,
+			Tags:              tags,
+			GatewayID:         gatewayID,
+			AutoEgress:        key.AutoEgress,
+			AutoAssignGateway: key.AutoAssignGateway,
+			Type:              keyType,
+			CreatedAt:         time.Now(),
+			UpdatedAt:         time.Now(),
+		}
+
+		if err = _key.Create(ctx); err != nil {
+			return err
 		}
 	}
 

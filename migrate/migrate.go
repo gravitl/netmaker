@@ -206,54 +206,23 @@ func assignSuperAdmin() {
 }
 
 func updateEnrollmentKeys() {
-	rows, err := database.FetchRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
+	ctx := db.WithContext(context.TODO())
+	existingKeys, err := logic.GetAllEnrollmentKeys(ctx)
 	if err != nil {
 		return
 	}
-	for _, row := range rows {
-		var key models.EnrollmentKey
-		if err = json.Unmarshal([]byte(row), &key); err != nil {
-			continue
-		}
-		if key.Type != models.Undefined {
-			logger.Log(2, "migration: enrollment key type already set")
-			continue
-		} else {
-			logger.Log(2, "migration: updating enrollment key type")
-			if key.Unlimited {
-				key.Type = models.Unlimited
-			} else if key.UsesRemaining > 0 {
-				key.Type = models.Uses
-			} else if !key.Expiration.IsZero() {
-				key.Type = models.TimeExpiration
+	// check if any networks already have a default enrollment key
+	existingNetworks := make(map[string]struct{})
+	for _, existingKey := range existingKeys {
+		if existingKey.Default {
+			for _, n := range existingKey.Networks {
+				existingNetworks[n] = struct{}{}
 			}
 		}
-		data, err := json.Marshal(key)
-		if err != nil {
-			logger.Log(0, "migration: marshalling enrollment key: "+err.Error())
-			continue
-		}
-		if err = database.Insert(key.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME); err != nil {
-			logger.Log(0, "migration: inserting enrollment key: "+err.Error())
-			continue
-		}
-
 	}
-
-	existingKeys, err := logic.GetAllEnrollmentKeys()
-	if err != nil {
-		return
-	}
-	// check if any tags are duplicate
-	existingTags := make(map[string]struct{})
-	for _, existingKey := range existingKeys {
-		for _, t := range existingKey.Tags {
-			existingTags[t] = struct{}{}
-		}
-	}
-	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	networks, _ := (&schema.Network{}).ListAll(ctx)
 	for _, network := range networks {
-		if _, ok := existingTags[network.Name]; ok {
+		if _, ok := existingNetworks[network.Name]; ok {
 			continue
 		}
 		_, _ = logic.CreateDefaultNetworkEnrollmentKey(network.Name)
