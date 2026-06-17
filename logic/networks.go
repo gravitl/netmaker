@@ -24,10 +24,11 @@ import (
 func DeleteNetwork(network string, force bool, done chan struct{}) error {
 	defer func() {
 		// Delete default network enrollment key
-		keys, _ := GetAllEnrollmentKeys()
+		ctx := db.WithContext(context.TODO())
+		keys, _ := GetAllEnrollmentKeys(ctx)
 		for _, key := range keys {
-			if key.Default && len(key.Tags) > 0 && key.Tags[0] == network {
-				_ = DeleteEnrollmentKey(key.Value, true)
+			if key.Default && enrollmentKeyAppliesToNetwork(key, network) {
+				_ = DeleteEnrollmentKey(ctx, key.Value, true)
 				break
 			}
 		}
