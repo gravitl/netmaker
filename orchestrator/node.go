@@ -47,8 +47,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	if ops.useKey {
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
-		for _, tag := range ops.key.Groups {
-			n.nodeExt.ConfigureTag(node, tag)
+		for _, tag := range ops.key.Tags {
+			n.nodeExt.ConfigureTag(node, models.TagID(tag))
 		}
 	}
 
@@ -127,14 +127,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		if err != nil {
 			return nil, err
 		}
-	} else if ops.useKey && ops.key.Relay != uuid.Nil {
+	} else if ops.useKey && ops.key.GatewayID != nil {
 		gateway := &schema.Node{
-			ID: ops.key.Relay.String(),
+			ID: *ops.key.GatewayID,
 		}
 		err = gateway.Get(ctx)
 		if err == nil {
 			// TODO: merge operation
-			relayID := ops.key.Relay.String()
+			relayID := *ops.key.GatewayID
 			node.RelayedByNodeID = &relayID
 			err = node.UpdateRelayingNode(ctx)
 			if err != nil {
