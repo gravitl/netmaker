@@ -22,5 +22,6 @@ func ListModels() []interface{} {
 		&Node{},
 		&PostureCheckViolation{},
 		&Integration{},
+		&EnrollmentKey{},
 	}
 }
