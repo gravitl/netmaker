@@ -31,9 +31,10 @@ func (s *SmtpSender) SendEmail(ctx context.Context, n Notification, e Mail) erro
 	// Settings for SMTP server
 	d := gomail.NewDialer(s.SmtpHost, s.SmtpPort, s.SendUser, s.SenderPass)
 
-	// This is only needed when SSL/TLS certificate is not valid on server.
-	// In production this should be set to false.
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: s.SkipVerify}
+	d.TLSConfig = &tls.Config{
+		ServerName:         s.SmtpHost,
+		InsecureSkipVerify: s.SkipVerify,
+	}
 
 	// Now send E-Mail
 	if err := d.DialAndSend(m); err != nil {
