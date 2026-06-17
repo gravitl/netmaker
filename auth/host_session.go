@@ -215,7 +215,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
+		go CheckNetRegAndHostUpdate(schema.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -229,14 +229,12 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, username string) {
+func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	keyTags := make(map[models.TagID]struct{})
-	if len(key.Groups) > 0 {
-		for _, tagI := range key.Groups {
-			keyTags[tagI] = struct{}{}
-		}
+	for _, tagI := range key.Tags {
+		keyTags[models.TagID(tagI)] = struct{}{}
 	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
@@ -329,7 +327,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   key.Value,
-							Name: key.Tags[0],
+							Name: key.Name,
 							Type: schema.EnrollmentKeySub,
 						},
 						TriggeredBy: username,

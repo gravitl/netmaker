@@ -1716,7 +1716,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	key := models.EnrollmentKey{}
+	key := schema.EnrollmentKey{}
 	json.Unmarshal(p.EnrollmentKey, &key)
 
 	network := &schema.Network{
@@ -1738,10 +1738,8 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyTags := make(map[models.TagID]struct{})
-	if len(key.Groups) > 0 {
-		for _, tagI := range key.Groups {
-			keyTags[tagI] = struct{}{}
-		}
+	for _, tagI := range key.Tags {
+		keyTags[models.TagID(tagI)] = struct{}{}
 	}
 
 	violations, _ := logic.CheckPostureViolations(
