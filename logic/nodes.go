@@ -211,6 +211,7 @@ func cleanupNodeReferences(node *models.Node) {
 	}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, ns := range nameservers {
 		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		delete(ns.Nodes, node.ID.String())
 		if len(ns.Servers) > 0 {
 			_ = ns.Update(db.WithContext(context.TODO()))
 		} else {
