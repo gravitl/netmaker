@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -633,13 +632,10 @@ func RemoveNodeFromEgress(node models.Node) {
 }
 
 func RemoveNodeFromEnrollmentKeys(node *models.Node) {
-	keys, _ := GetAllEnrollmentKeys()
-	for _, key := range keys {
-		if key.Relay == node.ID {
-			key.Relay = uuid.Nil
-			_ = upsertEnrollmentKey(&key)
-		}
+	_node := &schema.Node{
+		ID: node.ID.String(),
 	}
+	_ = _node.ClearGatewayIDFromEnrollmentKeys(db.WithContext(context.TODO()))
 }
 
 func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {

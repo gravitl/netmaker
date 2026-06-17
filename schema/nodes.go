@@ -504,3 +504,10 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", n.ID)).
 		Error
 }
+
+func (n *Node) ClearGatewayIDFromEnrollmentKeys(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&EnrollmentKey{}).
+		Where("gateway_id = ?", n.ID).
+		Update("gateway_id", nil).
+		Error
+}
