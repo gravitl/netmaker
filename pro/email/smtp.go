@@ -13,6 +13,7 @@ type SmtpSender struct {
 	SenderEmail string
 	SendUser    string
 	SenderPass  string
+	SkipVerify  bool
 }
 
 func (s *SmtpSender) SendEmail(ctx context.Context, n Notification, e Mail) error {
@@ -32,7 +33,7 @@ func (s *SmtpSender) SendEmail(ctx context.Context, n Notification, e Mail) erro
 
 	// This is only needed when SSL/TLS certificate is not valid on server.
 	// In production this should be set to false.
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: s.SkipVerify}
 
 	// Now send E-Mail
 	if err := d.DialAndSend(m); err != nil {
