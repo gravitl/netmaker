@@ -61,19 +61,19 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", logic.SecurityCheck(true, http.HandlerFunc(updateSettings))).
+	r.HandleFunc("/api/server/settings", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
+	r.HandleFunc("/api/server/getserverinfo", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
+	r.HandleFunc("/api/server/usage", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/onboarding", logic.SecurityCheck(true, http.HandlerFunc(getOnboarding))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/onboarding", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {

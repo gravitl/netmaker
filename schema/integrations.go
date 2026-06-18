@@ -9,7 +9,8 @@ import (
 )
 
 type Integration struct {
-	ID        string         `gorm:"primaryKey;column:id" json:"id"`
+	ID        string         `gorm:"primaryKey;column:id"              json:"id"`
+	TenantID  string         `gorm:"default:'';index"                  json:"tenant_id"`
 	Type      string         `gorm:"not null;column:type"              json:"type"`
 	Config    datatypes.JSON `gorm:"not null;column:config"            json:"config"`
 	CreatedAt time.Time      `json:"created_at"`

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -15,11 +16,11 @@ import (
 )
 
 func internetGatewayHandlers(r *mux.Router) {
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(createInternetGw))).
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createInternetGw)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(updateInternetGw))).
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateInternetGw)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(deleteInternetGw))).
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteInternetGw)))).
 		Methods(http.MethodDelete)
 }
 

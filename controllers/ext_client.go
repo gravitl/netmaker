@@ -32,23 +32,23 @@ var extUpdateMutex = &sync.Mutex{}
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", logic.SecurityCheck(true, http.HandlerFunc(getAllExtClients))).
+	r.HandleFunc("/api/extclients", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllExtClients)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtClients))).
+	r.HandleFunc("/api/extclients/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtClients)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getExtClient)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientConf))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getExtClientConf)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(updateExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(updateExtClient)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/extclients/{network}/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients))).
+	r.HandleFunc("/api/v1/extclients/{network}/bulk", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus))).
+	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, http.HandlerFunc(createExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(createExtClient)))).
 		Methods(http.MethodPost)
 	// unused API
 	//r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)

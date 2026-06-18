@@ -10,13 +10,15 @@ import (
 
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 )
 
 func FlowHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/flows", logic.SecurityCheck(true, http.HandlerFunc(handleListFlows))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/flows", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(handleListFlows)))).Methods(http.MethodGet)
 }
 
 const (

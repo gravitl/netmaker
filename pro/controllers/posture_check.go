@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -22,12 +23,12 @@ import (
 )
 
 func PostureCheckHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/posture_check/attrs", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check/violations", logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/posture_check", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/posture_check", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/posture_check/attrs", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check/violations", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Posture Checks Available Attributes

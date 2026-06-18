@@ -20,11 +20,11 @@ import (
 )
 
 func egressHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/egress/presets", logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(createEgress))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(listEgress))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(updateEgress))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(deleteEgress))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/egress/presets", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/egress", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEgress)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/egress", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete)
 }
 
 // @Summary     List egress domain presets

@@ -18,19 +18,19 @@ import (
 )
 
 func aclHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
+	r.HandleFunc("/api/v1/acls", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/egress", logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls))).
+	r.HandleFunc("/api/v1/acls/egress", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
+	r.HandleFunc("/api/v1/acls/policy_types", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
+	r.HandleFunc("/api/v1/acls", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createAcl)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(updateAcl))).
+	r.HandleFunc("/api/v1/acls", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAcl)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(deleteAcl))).
+	r.HandleFunc("/api/v1/acls", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAcl)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/acls/debug", logic.SecurityCheck(true, http.HandlerFunc(aclDebug))).
+	r.HandleFunc("/api/v1/acls/debug", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclDebug)))).
 		Methods(http.MethodGet)
 }
 

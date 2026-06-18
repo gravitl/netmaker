@@ -24,27 +24,27 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", logic.SecurityCheck(true, http.HandlerFunc(getAllDNS))).
+	r.HandleFunc("/api/dns", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/nodes", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/custom", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).
+	r.HandleFunc("/api/dns/adm/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/sync", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).
+	r.HandleFunc("/api/dns/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).
+	r.HandleFunc("/api/dns/adm/pushdns", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).
+	r.HandleFunc("/api/dns/{network}/{domain}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(createNs))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver/global", logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Global Nameservers
