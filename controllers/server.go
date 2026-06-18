@@ -36,10 +36,9 @@ func serverHandlers(r *mux.Router) {
 			resp.Write([]byte("Server is up and running!!"))
 		},
 	).Methods(http.MethodGet)
-	// TODO: scope to tenant
-	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
+	r.HandleFunc("/api/server/getconfig", Scope(db.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
+	r.HandleFunc("/api/server/settings", Scope(db.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
 		Methods(http.MethodPut)
