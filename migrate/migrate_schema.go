@@ -40,6 +40,12 @@ func ToSQLSchema() error {
 		return err
 	}
 
+	// v1.7.0 multi-tenancy: adds org/tenant tables, tenant_id columns, and bootstraps defaults.
+	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0-multitenancy", migrateMultitenancy)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
