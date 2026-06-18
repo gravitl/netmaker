@@ -55,7 +55,15 @@ func (t *Tenant) Create(ctx context.Context) error {
 func (t *Tenant) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ? OR slug = ?", t.ID, t.Slug).
-		First(t).Error
+		First(t).
+		Error
+}
+
+func (t *Tenant) GetDefault(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Tenant{}).
+		Where("slug = ?", defaultTenantSlug).
+		First(t).
+		Error
 }
 
 func (t *Tenant) ListAll(ctx context.Context) ([]Tenant, error) {
@@ -68,18 +76,21 @@ func (t *Tenant) ListByOrg(ctx context.Context, orgID string) ([]Tenant, error) 
 	var tenants []Tenant
 	err := db.FromContext(ctx).Model(&Tenant{}).
 		Where("organization_id = ?", orgID).
-		Find(&tenants).Error
+		Find(&tenants).
+		Error
 	return tenants, err
 }
 
 func (t *Tenant) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ?", t.ID).
-		Updates(t).Error
+		Updates(t).
+		Error
 }
 
 func (t *Tenant) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ?", t.ID).
-		Delete(t).Error
+		Delete(t).
+		Error
 }

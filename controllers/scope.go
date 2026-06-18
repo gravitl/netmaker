@@ -6,11 +6,16 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/schema"
 )
 
 var (
-	errMissingTenantID = errors.New("X-Tenant-ID header is required")
-	errMissingOrgID    = errors.New("X-Organization-ID header is required")
+	errMissingTenantID       = errors.New("X-Tenant-ID header is required")
+	errDefaultTenantNotFound = errors.New("default tenant not found")
+	errTenantNotFound        = errors.New("tenant not found")
+	errMissingOrgID          = errors.New("X-Organization-ID header is required")
+	errDefaultOrgNotFound    = errors.New("default organization not found")
+	errOrgNotFound           = errors.New("organization not found")
 )
 
 const (
@@ -34,14 +39,54 @@ func Scope(level db.ScopeLevel, next http.Handler) http.HandlerFunc {
 		case db.TenantScope:
 			id = r.Header.Get(HeaderTenantID)
 			if id == "" {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
-				return
+				if logic.GetFeatureFlags().AllowMultipleTenants {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
+					return
+				}
+
+				defaultTenant := &schema.Tenant{}
+				err := defaultTenant.GetDefault(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
+					return
+				}
+
+				id = defaultTenant.ID
+			} else {
+				tenant := &schema.Tenant{
+					ID: id,
+				}
+				err := tenant.Get(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
+					return
+				}
 			}
 		case db.OrgScope:
 			id = r.Header.Get(HeaderOrgID)
 			if id == "" {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
-				return
+				if logic.GetFeatureFlags().AllowMultipleTenants {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
+					return
+				}
+
+				defaultOrg := &schema.Organization{}
+				err := defaultOrg.Get(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgNotFound, logic.Internal))
+					return
+				}
+
+				id = defaultOrg.ID
+			} else {
+				org := &schema.Organization{
+					ID: id,
+				}
+				err := org.Get(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errOrgNotFound, logic.BadReq))
+					return
+				}
 			}
 		case db.GlobalScope:
 			// no header required

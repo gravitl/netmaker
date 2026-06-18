@@ -22,6 +22,7 @@ type FeatureFlags struct {
 	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 	EnableSIEMIntegration         bool `json:"enable_siem_integration"`
+	AllowMultipleTenants          bool `json:"allow_multiple_tenants"`
 }
 
 // AuthParams - struct for auth params

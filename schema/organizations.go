@@ -55,7 +55,15 @@ func (o *Organization) Create(ctx context.Context) error {
 func (o *Organization) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ? OR slug = ?", o.ID, o.Slug).
-		First(o).Error
+		First(o).
+		Error
+}
+
+func (o *Organization) GetDefault(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Organization{}).
+		Where("slug = ?", defaultOrgSlug).
+		Find(o).
+		Error
 }
 
 func (o *Organization) ListAll(ctx context.Context) ([]Organization, error) {
@@ -67,13 +75,15 @@ func (o *Organization) ListAll(ctx context.Context) ([]Organization, error) {
 func (o *Organization) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ?", o.ID).
-		Updates(o).Error
+		Updates(o).
+		Error
 }
 
 func (o *Organization) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ?", o.ID).
-		Delete(o).Error
+		Delete(o).
+		Error
 }
 
 // isUniqueConstraintErr returns true if err is a unique constraint violation
