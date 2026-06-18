@@ -15,8 +15,9 @@ var (
 )
 
 type UserInvite struct {
-	ID             string                                       `gorm:"primaryKey" json:"id"`
-	InviteCode     string                                       `gorm:"unique" json:"invite_code"`
+	ID             string                                       `gorm:"primaryKey"       json:"id"`
+	TenantID       string                                       `gorm:"default:'';index" json:"tenant_id"`
+	InviteCode     string                                       `gorm:"unique"           json:"invite_code"`
 	InviteURL      string                                       `json:"invite_url"`
 	Email          string                                       `json:"email"`
 	PlatformRoleID string                                       `json:"platform_role_id"`

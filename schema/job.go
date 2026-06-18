@@ -18,6 +18,7 @@ import (
 // being executed again.
 type Job struct {
 	ID        string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:'';index"`
 	CreatedAt time.Time
 }
 

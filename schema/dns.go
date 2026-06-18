@@ -10,9 +10,10 @@ import (
 )
 
 type Nameserver struct {
-	ID          string                                `gorm:"primaryKey" json:"id"`
-	Name        string                                `gorm:"name" json:"name"`
-	NetworkID   string                                `gorm:"network_id" json:"network_id"`
+	ID          string                                `gorm:"primaryKey"       json:"id"`
+	TenantID    string                                `gorm:"default:'';index" json:"tenant_id"`
+	Name        string                                `gorm:"name"             json:"name"`
+	NetworkID   string                                `gorm:"network_id"       json:"network_id"`
 	Description string                                `gorm:"description" json:"description"`
 	Default     bool                                  `gorm:"column:default" json:"default"`
 	Fallback    bool                                  `gorm:"fallback" json:"fallback"`

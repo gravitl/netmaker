@@ -26,8 +26,9 @@ var (
 //
 // NOTE: json tags are different from field names to ensure compatibility with the older model.
 type Network struct {
-	ID            string `gorm:"primaryKey" json:"id"`
-	Name          string `gorm:"unique" json:"netid"`
+	ID            string `gorm:"primaryKey"      json:"id"`
+	TenantID      string `gorm:"default:'';index" json:"tenant_id"`
+	Name          string `gorm:"unique"          json:"netid"`
 	AddressRange  string `json:"addressrange"`
 	AddressRange6 string `json:"addressrange6"`
 	// in seconds.

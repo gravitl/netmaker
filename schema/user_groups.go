@@ -18,7 +18,8 @@ func (g UserGroupID) String() string {
 }
 
 type UserGroup struct {
-	ID                         UserGroupID                      `gorm:"primaryKey" json:"id"`
+	ID                         UserGroupID                      `gorm:"primaryKey"       json:"id"`
+	TenantID                   string                           `gorm:"default:'';index" json:"tenant_id"`
 	Name                       string                           `json:"name"`
 	Default                    bool                             `json:"default"`
 	ExternalIdentityProviderID string                           `json:"external_identity_provider_id"`

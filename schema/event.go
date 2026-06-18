@@ -95,8 +95,9 @@ const (
 )
 
 type Event struct {
-	ID          string         `gorm:"primaryKey" json:"id"`
-	Action      Action         `gorm:"action" json:"action"`
+	ID          string         `gorm:"primaryKey"       json:"id"`
+	TenantID    string         `gorm:"default:'';index" json:"tenant_id"`
+	Action      Action         `gorm:"action"           json:"action"`
 	Source      datatypes.JSON `gorm:"source" json:"source"`
 	Origin      Origin         `gorm:"origin" json:"origin"`
 	Target      datatypes.JSON `gorm:"target" json:"target"`

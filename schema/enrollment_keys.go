@@ -19,7 +19,8 @@ const (
 )
 
 type EnrollmentKey struct {
-	ID                string                      `gorm:"primaryKey" json:"id"`
+	ID                string                      `gorm:"primaryKey"       json:"id"`
+	TenantID          string                      `gorm:"default:'';index" json:"tenant_id"`
 	Name              string                      `json:"name"`
 	Value             string                      `json:"value"`
 	Token             string                      `json:"token"`

@@ -15,8 +15,9 @@ var (
 )
 
 type PendingUser struct {
-	ID                         string    `gorm:"primaryKey" json:"id"`
-	Username                   string    `gorm:"unique" json:"username"`
+	ID                         string    `gorm:"primaryKey"       json:"id"`
+	TenantID                   string    `gorm:"default:'';index" json:"tenant_id"`
+	Username                   string    `gorm:"unique"           json:"username"`
 	ExternalIdentityProviderID string    `json:"external_identity_provider_id"`
 	CreatedAt                  time.Time `json:"created_at"`
 }
