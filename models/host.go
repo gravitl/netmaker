@@ -87,7 +87,6 @@ type Host struct {
 	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
 	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
 	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
-	UserEmail     string `json:"user_email"      yaml:"user_email"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

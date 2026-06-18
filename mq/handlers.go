@@ -429,10 +429,6 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		currentHost.HardwareUUID = h.HardwareUUID
 		mdmChanged = true
 	}
-	if h.UserEmail != "" && h.UserEmail != currentHost.UserEmail {
-		currentHost.UserEmail = h.UserEmail
-		mdmChanged = true
-	}
 	if mdmChanged {
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update mdm identifiers after check-in", "name", h.Name, "id", h.ID, "error", err)

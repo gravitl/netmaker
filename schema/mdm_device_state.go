@@ -14,7 +14,6 @@ const (
 	MDMMatchEntraDeviceID = "entra_device_id"
 	MDMMatchSerialNumber  = "serial_number"
 	MDMMatchHardwareUUID  = "hardware_uuid"
-	MDMMatchHostnameEmail = "hostname_email"
 	MDMMatchHostname      = "hostname"
 )
 

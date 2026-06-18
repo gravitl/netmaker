@@ -262,9 +262,6 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 	if newHost.HardwareUUID != "" {
 		currHost.HardwareUUID = newHost.HardwareUUID
 	}
-	if newHost.UserEmail != "" {
-		currHost.UserEmail = newHost.UserEmail
-	}
 	if isEndpointChanged || currHost.Location == "" || currHost.CountryCode == "" {
 		var nodeIP net.IP
 		if currHost.EndpointIP != nil {
