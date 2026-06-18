@@ -131,9 +131,9 @@ func (c *Client) ListManagedDevices(ctx context.Context) ([]mdmpkg.ManagedDevice
 
 func (c *Client) listComputers(ctx context.Context, tok string) ([]computerInventory, error) {
 	var out []computerInventory
-	for page := 0; ; page++ {
+	for pageNum := 0; ; pageNum++ {
 		u := fmt.Sprintf("%s%s?page=%d&page-size=%d&section=%s",
-			c.baseURL, computersPath, page, defaultPageSz, computerSects)
+			c.baseURL, computersPath, pageNum, defaultPageSz, computerSects)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			return nil, err
@@ -152,12 +152,12 @@ func (c *Client) listComputers(ctx context.Context, tok string) ([]computerInven
 		if readErr != nil {
 			return nil, readErr
 		}
-		var page computerInventoryPage
-		if err := json.Unmarshal(body, &page); err != nil {
+		var pageBody computerInventoryPage
+		if err := json.Unmarshal(body, &pageBody); err != nil {
 			return nil, err
 		}
-		out = append(out, body.Results...)
-		if len(body.Results) < defaultPageSz {
+		out = append(out, pageBody.Results...)
+		if len(pageBody.Results) < defaultPageSz {
 			break
 		}
 	}
@@ -166,9 +166,9 @@ func (c *Client) listComputers(ctx context.Context, tok string) ([]computerInven
 
 func (c *Client) listMobileDevices(ctx context.Context, tok string) ([]mobileDevice, error) {
 	var out []mobileDevice
-	for page := 0; ; page++ {
+	for pageNum := 0; ; pageNum++ {
 		u := fmt.Sprintf("%s%s?page=%d&page-size=%d",
-			c.baseURL, mobileDevPath, page, defaultPageSz)
+			c.baseURL, mobileDevPath, pageNum, defaultPageSz)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			return nil, err
@@ -187,12 +187,12 @@ func (c *Client) listMobileDevices(ctx context.Context, tok string) ([]mobileDev
 		if readErr != nil {
 			return nil, readErr
 		}
-		var page mobileDevicesPage
-		if err := json.Unmarshal(body, &page); err != nil {
+		var pageBody mobileDevicesPage
+		if err := json.Unmarshal(body, &pageBody); err != nil {
 			return nil, err
 		}
-		out = append(out, body.Results...)
-		if len(body.Results) < defaultPageSz {
+		out = append(out, pageBody.Results...)
+		if len(pageBody.Results) < defaultPageSz {
 			break
 		}
 	}
