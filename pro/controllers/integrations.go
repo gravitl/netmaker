@@ -394,9 +394,16 @@ func listMDMDeviceState(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch {
 	case hostID != "" && provider != "":
-		if err = state.Get(ctx); err == nil {
-			out = []schema.DeviceMDMState{*state}
+		err = state.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("mdm device state not found"), logic.NotFound))
+				return
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
 		}
+		out = []schema.DeviceMDMState{*state}
 	case hostID != "":
 		out, err = state.ListByHost(ctx)
 	case provider != "":

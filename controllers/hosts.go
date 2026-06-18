@@ -1669,6 +1669,13 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.Contains(r.URL.Path, "/posture_status/ui") {
+		if err := logic.CheckUIHostReadAccess(r, host); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+			return
+		}
+	}
+
 	resp := models.HostPostureStatus{
 		HostID:   hostIDStr,
 		Networks: []models.NetworkPostureStatus{},

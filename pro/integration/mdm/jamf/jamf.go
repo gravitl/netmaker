@@ -144,14 +144,17 @@ func (c *Client) listComputers(ctx context.Context, tok string) ([]computerInven
 		if err != nil {
 			return nil, err
 		}
-		var body computerInventoryPage
-		err = json.NewDecoder(resp.Body).Decode(&body)
+		body, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
 		if resp.StatusCode >= 400 {
 			return nil, fmt.Errorf("jamf computers-inventory: http %d", resp.StatusCode)
+		}
+		if readErr != nil {
+			return nil, readErr
+		}
+		var page computerInventoryPage
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, err
 		}
 		out = append(out, body.Results...)
 		if len(body.Results) < defaultPageSz {
@@ -176,14 +179,17 @@ func (c *Client) listMobileDevices(ctx context.Context, tok string) ([]mobileDev
 		if err != nil {
 			return nil, err
 		}
-		var body mobileDevicesPage
-		err = json.NewDecoder(resp.Body).Decode(&body)
+		body, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
 		if resp.StatusCode >= 400 {
 			return nil, fmt.Errorf("jamf mobile-devices: http %d", resp.StatusCode)
+		}
+		if readErr != nil {
+			return nil, readErr
+		}
+		var page mobileDevicesPage
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, err
 		}
 		out = append(out, body.Results...)
 		if len(body.Results) < defaultPageSz {

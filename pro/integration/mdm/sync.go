@@ -37,15 +37,7 @@ func RunMDMSync(ctx context.Context) error {
 	if !sync.SyncEnabled {
 		return nil
 	}
-	syncMu.Lock()
-	if sync.SyncIntervalMinutes > 0 &&
-		!lastSync.IsZero() &&
-		time.Since(lastSync) < time.Duration(sync.SyncIntervalMinutes)*time.Minute {
-		syncMu.Unlock()
-		return nil
-	}
-	syncMu.Unlock()
-	return runSyncLocked(ctx, intg)
+	return runSyncLocked(ctx, intg, false)
 }
 
 // RunMDMSyncForce ignores the rate-limit hint and triggers a fresh sync.
@@ -57,12 +49,22 @@ func RunMDMSyncForce(ctx context.Context) error {
 	if intg == nil {
 		return errors.New("no MDM integration configured")
 	}
-	return runSyncLocked(ctx, intg)
+	return runSyncLocked(ctx, intg, true)
 }
 
-func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
+func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) error {
 	syncMu.Lock()
 	defer syncMu.Unlock()
+
+	sync, err := ParseSyncSettings(intg.ID, json.RawMessage(intg.Config))
+	if err != nil {
+		return err
+	}
+	if !force && sync.SyncIntervalMinutes > 0 &&
+		!lastSync.IsZero() &&
+		time.Since(lastSync) < time.Duration(sync.SyncIntervalMinutes)*time.Minute {
+		return nil
+	}
 
 	p, err := Build(intg.ID, json.RawMessage(intg.Config))
 	if err != nil {
@@ -80,6 +82,9 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
 	if lookup, ok := p.(EntraDeviceLookup); ok {
 		for i := range hosts {
 			if hosts[i].EntraDeviceID == "" {
+				if err := clearHostMDMState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+					logger.Log(0, "mdm sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
+				}
 				continue
 			}
 			if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
@@ -100,8 +105,12 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
 	}
 	for i := range hosts {
 		if strings.TrimSpace(hosts[i].SerialNumber) == "" {
+			if err := clearHostMDMState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+				logger.Log(0, "mdm sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
+			}
 			continue
 		}
+		found := false
 		for _, d := range devices {
 			if !MatchHostToMDMDeviceBySerial(hosts[i], d) {
 				continue
@@ -121,13 +130,38 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration) error {
 				continue
 			}
 			matched++
+			found = true
 			break
+		}
+		if !found {
+			if err := upsertUnmatchedHostMDMState(ctx, intg.ID, hosts[i].ID.String(), schema.MDMMatchSerialNumber); err != nil {
+				logger.Log(0, "mdm sync: clear state for host", hosts[i].ID.String(), ":", err.Error())
+				continue
+			}
 		}
 	}
 
 	lastSync = time.Now().UTC()
 	logger.Log(2, "mdm sync: provider=", p.Name(), "devices=", itoa(len(devices)), "matched=", itoa(matched))
 	return nil
+}
+
+func upsertUnmatchedHostMDMState(ctx context.Context, providerID, hostID, matchedBy string) error {
+	state := schema.DeviceMDMState{
+		HostID:       hostID,
+		Provider:     providerID,
+		Enrolled:     false,
+		Compliant:    false,
+		MatchedBy:    matchedBy,
+		LastSyncedAt: time.Now().UTC(),
+		LastError:    ErrDeviceNotFoundInMDM.Error(),
+	}
+	return state.Upsert(db.WithContext(ctx))
+}
+
+func clearHostMDMState(ctx context.Context, providerID, hostID string) error {
+	state := &schema.DeviceMDMState{HostID: hostID, Provider: providerID}
+	return state.Delete(db.WithContext(ctx))
 }
 
 // MatchHostToMDMDeviceBySerial matches a host to an MDM device by serial number only.

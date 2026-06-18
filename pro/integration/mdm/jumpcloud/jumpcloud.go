@@ -183,7 +183,7 @@ func (c *Client) listSystemPolicyStatuses(ctx context.Context, tok, systemID str
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return nil, fmt.Errorf("http %d", resp.StatusCode)
 	}
 	var results []policyResult
 	if err := json.Unmarshal(respBody, &results); err != nil {
@@ -216,7 +216,7 @@ func (c *Client) listSystems(ctx context.Context, tok string, skip, limit int) (
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("jumpcloud systems list: http %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return nil, fmt.Errorf("jumpcloud systems list: http %d", resp.StatusCode)
 	}
 
 	var wrapped systemsListResponse
@@ -260,7 +260,7 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("jumpcloud token: http %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return "", fmt.Errorf("jumpcloud token: http %d", resp.StatusCode)
 	}
 	var body tokenResponse
 	if err := json.Unmarshal(respBody, &body); err != nil {

@@ -43,12 +43,16 @@ func TestDeviceCompliant(t *testing.T) {
 }
 
 func TestStatusItemFailed(t *testing.T) {
-	if statusItemFailed("PASS") || statusItemFailed("pass") {
-		// ok
-	} else {
+	if statusItemFailed("PASS") {
 		t.Fatal("PASS should not fail")
 	}
-	if !statusItemFailed("FAIL") || !statusItemFailed("") {
-		t.Fatal("non-PASS should fail")
+	if statusItemFailed("pass") {
+		t.Fatal("pass should not fail")
+	}
+	if !statusItemFailed("FAIL") {
+		t.Fatal("FAIL should fail")
+	}
+	if !statusItemFailed("") {
+		t.Fatal("empty status should fail")
 	}
 }

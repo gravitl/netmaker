@@ -23,9 +23,11 @@ func TestManagedFromEntraDevice(t *testing.T) {
 
 func TestManagedFromManagedDeviceBackup(t *testing.T) {
 	got := managedFromManagedDeviceBackup(managedDevice{
+		ID:              "ee155866-00b2-4476-9cba-c0dfa37f0224",
 		DeviceName:      "WIN-PMV0N6INPC6",
 		AzureADDeviceID: "32f5f9ec-cd23-41e0-94e8-6b372232ff40",
 		ComplianceState: "compliant",
+		ManagementState: "managed",
 	}, "32f5f9ec-cd23-41e0-94e8-6b372232ff40")
 	if !got.Enrolled || !got.Compliant {
 		t.Fatalf("expected enrolled compliant backup device, got enrolled=%v compliant=%v",
@@ -33,6 +35,20 @@ func TestManagedFromManagedDeviceBackup(t *testing.T) {
 	}
 	if got.DeviceName != "WIN-PMV0N6INPC6" {
 		t.Fatalf("unexpected device name: %q", got.DeviceName)
+	}
+	if got.ProviderDeviceID != "ee155866-00b2-4476-9cba-c0dfa37f0224" {
+		t.Fatalf("unexpected provider device id: %q", got.ProviderDeviceID)
+	}
+}
+
+func TestManagedFromManagedDeviceBackup_NotEnrolled(t *testing.T) {
+	got := managedFromManagedDeviceBackup(managedDevice{
+		DeviceName:      "WIN-PMV0N6INPC6",
+		ComplianceState: "compliant",
+		ManagementState: "discovered",
+	}, "32f5f9ec-cd23-41e0-94e8-6b372232ff40")
+	if got.Enrolled {
+		t.Fatal("discovered device should not be enrolled")
 	}
 }
 

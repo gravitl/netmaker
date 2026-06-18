@@ -291,3 +291,48 @@ func GetSaaSNMUIHost() string {
 func GetSaaSNMUIHostWithVersion() string {
 	return fmt.Sprintf("%s/%s", GetSaaSNMUIHost(), servercfg.GetVersion())
 }
+
+// CheckUIHostReadAccess ensures a dashboard user may read posture data for a host
+// by verifying network-scoped host read permission on at least one host network.
+func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
+	username := r.Header.Get("user")
+	if username == logic.MasterUser {
+		return nil
+	}
+	user := &schema.User{Username: username}
+	if err := user.Get(r.Context()); err != nil {
+		return err
+	}
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := userRole.Get(r.Context()); err != nil {
+		return errors.New("access denied")
+	}
+	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+		return nil
+	}
+
+	networks := map[string]struct{}{}
+	for _, nodeID := range host.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		networks[node.Network] = struct{}{}
+	}
+	if len(networks) == 0 {
+		return errors.New("access denied")
+	}
+
+	for netID := range networks {
+		req := r.Clone(r.Context())
+		req.Header.Set("IS_GLOBAL_ACCESS", "no")
+		req.Header.Set("NET_ID", netID)
+		req.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
+		req.Header.Set("TARGET_RSRC_ID", host.ID.String())
+		req.Method = http.MethodGet
+		if err := NetworkPermissionsCheck(username, req); err == nil {
+			return nil
+		}
+	}
+	return errors.New("access denied")
+}

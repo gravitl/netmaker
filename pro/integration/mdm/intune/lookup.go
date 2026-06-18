@@ -13,7 +13,7 @@ import (
 
 const (
 	entraDeviceSelect         = "id,deviceId,displayName,operatingSystem,trustType,isManaged,isCompliant"
-	managedDeviceBackupSelect = "deviceName,azureADDeviceId,complianceState"
+	managedDeviceBackupSelect = "id,deviceName,azureADDeviceId,complianceState,managementState,deviceRegistrationState,enrolledDateTime"
 )
 
 // LookupByEntraDeviceID resolves a host using entra_device_id as Graph devices.deviceId.
@@ -70,10 +70,11 @@ func managedFromEntraDevice(e entraDevice, entraDeviceID string) mdmpkg.ManagedD
 
 func managedFromManagedDeviceBackup(d managedDevice, entraDeviceID string) mdmpkg.ManagedDevice {
 	return mdmpkg.ManagedDevice{
-		AzureADDeviceID: entraDeviceID,
-		DeviceName:      d.DeviceName,
-		Enrolled:        true,
-		Compliant:       intuneComplianceCompliant(d.ComplianceState),
+		ProviderDeviceID: d.ID,
+		AzureADDeviceID:  entraDeviceID,
+		DeviceName:       d.DeviceName,
+		Enrolled:         intuneDeviceEnrolled(d),
+		Compliant:        intuneComplianceCompliant(d.ComplianceState),
 	}
 }
 

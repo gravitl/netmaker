@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -45,6 +46,12 @@ var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureC
 
 // SyncHostMDMState refreshes MDM posture state for a host (no-op in community).
 var SyncHostMDMState = func(ctx context.Context, hostID string) error {
+	return nil
+}
+
+// CheckUIHostReadAccess verifies a dashboard user may read the given host.
+// Overridden in Pro to enforce network-scoped host access.
+var CheckUIHostReadAccess = func(r *http.Request, host *schema.Host) error {
 	return nil
 }
 
@@ -147,6 +154,9 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
+	newHost.EntraDeviceID = currentHost.EntraDeviceID
+	newHost.SerialNumber = currentHost.SerialNumber
+	newHost.HardwareUUID = currentHost.HardwareUUID
 	// changeable fields
 	if len(newHost.Version) == 0 {
 		newHost.Version = currentHost.Version
@@ -374,6 +384,10 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 		if err != nil {
 			slog.Error("failed to delete node", "node", node.ID, "host", h.ID, "error", err)
 		}
+	}
+	mdmState := &schema.DeviceMDMState{HostID: h.ID.String()}
+	if err := mdmState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+		slog.Error("failed to delete mdm state for host", "host", h.ID, "error", err)
 	}
 	return h.Delete(db.WithContext(context.TODO()))
 }

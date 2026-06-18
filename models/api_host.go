@@ -144,5 +144,8 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.EnableFlowLogs = a.EnableFlowLogs
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
+	h.EntraDeviceID = currentHost.EntraDeviceID
+	h.SerialNumber = currentHost.SerialNumber
+	h.HardwareUUID = currentHost.HardwareUUID
 	return &h
 }

@@ -357,9 +357,6 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: providerID}
 			if err := state.Get(ctx); err == nil {
 				deviceInfo.MDMState = state
-			} else if states, listErr := state.ListByHost(ctx); listErr == nil && len(states) == 1 {
-				// Fallback for rows keyed before provider id was normalised.
-				deviceInfo.MDMState = &states[0]
 			}
 		}
 	} else if node.IsUserNode {

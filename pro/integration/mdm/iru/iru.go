@@ -167,7 +167,7 @@ func (c *Client) listDevices(ctx context.Context, offset, limit int) ([]iruDevic
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("iru list devices: http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("iru list devices: http %d", resp.StatusCode)
 	}
 
 	var page devicesListResponse
@@ -197,7 +197,7 @@ func (c *Client) getDeviceStatus(ctx context.Context, deviceID string) (iruDevic
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return iruDeviceStatus{}, fmt.Errorf("http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return iruDeviceStatus{}, fmt.Errorf("http %d", resp.StatusCode)
 	}
 	var status iruDeviceStatus
 	if err := json.Unmarshal(body, &status); err != nil {

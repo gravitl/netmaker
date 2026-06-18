@@ -6,6 +6,7 @@ import "errors"
 var (
 	ErrDeviceNotRegisteredInEntra = errors.New("device_not_registered_in_entra")
 	ErrDeviceNotEnrolledInIntune  = errors.New("device_not_enrolled_in_intune")
+	ErrDeviceNotFoundInMDM        = errors.New("device_not_found_in_mdm")
 )
 
 // LookupErrorCode maps a lookup error to a stable posture violation code.
@@ -19,6 +20,9 @@ func LookupErrorCode(err error) string {
 	}
 	if errors.Is(err, ErrDeviceNotEnrolledInIntune) {
 		return ErrDeviceNotEnrolledInIntune.Error()
+	}
+	if errors.Is(err, ErrDeviceNotFoundInMDM) {
+		return ErrDeviceNotFoundInMDM.Error()
 	}
 	return ""
 }

@@ -220,6 +220,7 @@ func InitPro() {
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.SyncHostMDMState = mdmpkg.SyncHostMDMState
+	logic.CheckUIHostReadAccess = proLogic.CheckUIHostReadAccess
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions
