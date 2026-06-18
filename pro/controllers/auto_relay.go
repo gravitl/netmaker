@@ -22,7 +22,7 @@ import (
 
 // AutoRelayHandlers - handlers for AutoRelay
 func AutoRelayHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", controller.Scope(db.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(setAutoRelay)))).
 		Methods(http.MethodPost)
@@ -30,11 +30,11 @@ func AutoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/node/{network}/auto_relay/reset", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetAutoRelayGw)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.AuthorizeHost(http.HandlerFunc(autoRelayME))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.Scope(db.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayME)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.Scope(db.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", controller.Scope(db.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
 		Methods(http.MethodGet)
 }
 

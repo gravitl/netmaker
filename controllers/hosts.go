@@ -48,7 +48,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHost)))).
 		Methods(http.MethodGet)
 	// used by netclient
-	r.HandleFunc("/api/hosts/{hostid}", AuthorizeHost(http.HandlerFunc(deleteHost))).
+	r.HandleFunc("/api/hosts/{hostid}", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(deleteHost)))).
 		Methods(http.MethodDelete)
 	// used by UI
 	r.HandleFunc("/api/v1/ui/hosts/{hostid}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHost)))).
@@ -61,14 +61,14 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", AuthorizeHost(http.HandlerFunc(pull))).
+	r.HandleFunc("/api/hosts/adm/authenticate", Scope(db.TenantScope, http.HandlerFunc(authenticateHost))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(pull)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", AuthorizeHost(http.HandlerFunc(signalPeer))).
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(signalPeer)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/fallback/host/{hostid}", AuthorizeHost(http.HandlerFunc(hostUpdateFallback))).
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(hostUpdateFallback)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/host/{hostid}/peer_info", AuthorizeHost(http.HandlerFunc(getHostPeerInfo))).
+	r.HandleFunc("/api/v1/host/{hostid}/peer_info", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(getHostPeerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
 		Methods(http.MethodGet)
