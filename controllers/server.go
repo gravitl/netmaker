@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -37,26 +36,7 @@ func serverHandlers(r *mux.Router) {
 			resp.Write([]byte("Server is up and running!!"))
 		},
 	).Methods(http.MethodGet)
-	r.HandleFunc(
-		"/api/server/shutdown", logic.SecurityCheck(true,
-			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("ismaster") != "yes" {
-					caller := &schema.User{
-						Username: r.Header.Get("user"),
-					}
-					err := caller.Get(r.Context())
-					if err != nil || caller.PlatformRoleID != schema.SuperAdminRole {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only a super-admin can shut down the server"), "forbidden"))
-						return
-					}
-				}
-				msg := "received api call to shutdown server, sending interruption..."
-				slog.Warn(msg)
-				_, _ = w.Write([]byte(msg))
-				w.WriteHeader(http.StatusOK)
-				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-			})),
-	).Methods(http.MethodPost)
+	// TODO: scope to tenant
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
