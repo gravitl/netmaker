@@ -26,27 +26,36 @@ const (
 //  3. Backfills tenant_id and network_id on all existing KV table records.
 //  4. Backfills tenant_id on all existing GORM resource records.
 func migrateMultitenancy(ctx context.Context) error {
-	if err := addTenantColumnsToKVTables(ctx); err != nil {
-		return err
-	}
-
-	org, err := schema.EnsureDefaultOrganization(ctx)
+	err := addTenantColumnsToKVTables(ctx)
 	if err != nil {
-		return fmt.Errorf("multitenancy migration: ensure default organization: %w", err)
+		return err
 	}
 
-	tenant, err := schema.EnsureDefaultTenant(ctx, org.ID)
+	defaultOrg := &schema.Organization{}
+	err = defaultOrg.CreateDefault(ctx)
 	if err != nil {
-		return fmt.Errorf("multitenancy migration: ensure default tenant: %w", err)
+		return fmt.Errorf("multitenancy migration: failed to create default organization: %w", err)
 	}
 
-	if err = backfillKVTableTenantID(ctx, tenant.ID); err != nil {
+	defaultTenant := &schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	err = defaultTenant.CreateDefault(ctx)
+	if err != nil {
+		return fmt.Errorf("multitenancy migration: failed to create default tenant: %w", err)
+	}
+
+	err = backfillKVTableTenantID(ctx, defaultTenant.ID)
+	if err != nil {
 		return err
 	}
-	if err = backfillKVTableNetworkID(ctx); err != nil {
+
+	err = backfillTenantID(ctx, defaultTenant.ID)
+	if err != nil {
 		return err
 	}
-	return backfillTenantID(ctx, tenant.ID)
+
+	return backfillKVTableNetworkID(ctx)
 }
 
 // addTenantColumnsToKVTables runs ALTER TABLE on the legacy key-value tables to

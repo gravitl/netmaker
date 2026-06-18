@@ -7,8 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
-	"gorm.io/gorm"
 )
+
+const defaultTenantSlug = "default"
 
 type Tenant struct {
 	ID             string    `gorm:"primaryKey"           json:"id"`
@@ -21,6 +22,13 @@ type Tenant struct {
 
 func (t *Tenant) TableName() string {
 	return "tenants_v1"
+}
+
+func (t *Tenant) CreateDefault(ctx context.Context) error {
+	t.ID = uuid.NewString()
+	t.Name = defaultTenantSlug
+	t.Slug = defaultTenantSlug
+	return db.FromContext(ctx).Model(&Tenant{}).Create(&t).Error
 }
 
 func (t *Tenant) Create(ctx context.Context) error {
@@ -74,30 +82,4 @@ func (t *Tenant) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ?", t.ID).
 		Delete(t).Error
-}
-
-// EnsureDefaultTenant creates the default tenant for the given org if none
-// exists, returning the tenant (existing or newly created).
-func EnsureDefaultTenant(ctx context.Context, orgID string) (*Tenant, error) {
-	var tenants []Tenant
-	if err := db.FromContext(ctx).Model(&Tenant{}).
-		Where("organization_id = ?", orgID).
-		Limit(1).Find(&tenants).Error; err != nil {
-		return nil, err
-	}
-	if len(tenants) > 0 {
-		return &tenants[0], nil
-	}
-	tenant := &Tenant{OrganizationID: orgID, Name: "Default", Slug: "default"}
-	err := db.FromContext(ctx).Model(&Tenant{}).
-		Where(gorm.Model{}).
-		FirstOrCreate(tenant, Tenant{Slug: "default", OrganizationID: orgID}).Error
-	if err != nil {
-		// Slug "default" taken — use generated slug.
-		tenant.Slug = ""
-		if createErr := tenant.Create(ctx); createErr != nil {
-			return nil, createErr
-		}
-	}
-	return tenant, nil
 }
