@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
 	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
+	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
 	siempkg "github.com/gravitl/netmaker/pro/integration/siem"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -31,6 +32,13 @@ func IntegrationHandlers(r *mux.Router) {
 		logic.SecurityCheck(true, http.HandlerFunc(triggerMDMSync))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/integrations/mdm/device_state",
 		logic.SecurityCheck(true, http.HandlerFunc(listMDMDeviceState))).Methods(http.MethodGet)
+
+	r.HandleFunc("/api/v1/integrations/edr/providers",
+		logic.SecurityCheck(true, http.HandlerFunc(listEDRProviders))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/edr/sync",
+		logic.SecurityCheck(true, http.HandlerFunc(triggerEDRSync))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/edr/device_state",
+		logic.SecurityCheck(true, http.HandlerFunc(listEDRDeviceState))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/v1/integrations/{type}", logic.SecurityCheck(true, http.HandlerFunc(getIntegration))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration))).Methods(http.MethodPut)
@@ -144,6 +152,13 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 
 	if intType == integration.TypeMDM {
 		config, err = mergeMDMConfig(r.Context(), string(id), config, len(integrations) == 1)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+	}
+	if intType == integration.TypeEDR {
+		config, err = mergeEDRConfig(r.Context(), string(id), config, len(integrations) == 1)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
@@ -285,13 +300,22 @@ func testIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if intType == integration.TypeMDM {
-		active, _ := mdmpkg.GetActive(r.Context())
-		hasExisting := active != nil && active.ID == string(id)
-		config, err = mergeMDMConfig(r.Context(), string(id), config, hasExisting)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-			return
+	if intType == integration.TypeMDM || intType == integration.TypeEDR {
+		existing := &schema.Integration{ID: string(id)}
+		hasExisting := existing.Get(r.Context()) == nil && existing.Type == string(intType)
+		if intType == integration.TypeMDM {
+			config, err = mergeMDMConfig(r.Context(), string(id), config, hasExisting)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+		}
+		if intType == integration.TypeEDR {
+			config, err = mergeEDRConfig(r.Context(), string(id), config, hasExisting)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
 		}
 	}
 
@@ -418,9 +442,129 @@ func listMDMDeviceState(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, out, "fetched mdm device states")
 }
 
+func listEDRProviders(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, edrpkg.ListProviderTypes(), "fetched edr provider types")
+}
+
+func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
+	active, err := edrpkg.GetActive(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if active == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no EDR integration configured"), logic.BadReq))
+		return
+	}
+	syncCtx := db.WithContext(context.Background())
+	go func() {
+		if err := edrpkg.RunEDRSyncForce(syncCtx); err != nil {
+			logger.Log(0, "edr: manual sync failed:", err.Error())
+		}
+	}()
+	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "edr sync queued")
+}
+
+func listEDRDeviceState(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	hostID := r.URL.Query().Get("host_id")
+	provider := r.URL.Query().Get("provider")
+	state := &schema.DeviceEDRState{HostID: hostID, Provider: provider}
+	var out []schema.DeviceEDRState
+	var err error
+	switch {
+	case hostID != "" && provider != "":
+		err = state.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr device state not found"), logic.NotFound))
+				return
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		out = []schema.DeviceEDRState{*state}
+	case hostID != "":
+		out, err = state.ListByHost(ctx)
+	case provider != "":
+		out, err = state.ListByProvider(ctx)
+	default:
+		out, err = state.ListAll(ctx)
+	}
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, out, "fetched edr device states")
+}
+
+func mergeEDRConfig(ctx context.Context, providerID string, incoming json.RawMessage, hasExisting bool) (json.RawMessage, error) {
+	var patch map[string]json.RawMessage
+	if err := json.Unmarshal(incoming, &patch); err != nil {
+		return nil, fmt.Errorf("invalid request body: %w", err)
+	}
+	changed := false
+	for _, field := range []string{"client_secret", "api_token"} {
+		merged, ok, err := mergeEDRSecretField(ctx, providerID, patch, field, hasExisting)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			patch = merged
+			changed = true
+		}
+	}
+	if !changed {
+		return incoming, nil
+	}
+	return json.Marshal(patch)
+}
+
+func mergeEDRSecretField(
+	ctx context.Context,
+	providerID string,
+	patch map[string]json.RawMessage,
+	field string,
+	hasExisting bool,
+) (map[string]json.RawMessage, bool, error) {
+	secret, ok := patch[field]
+	if !ok {
+		return patch, false, nil
+	}
+	var secretStr string
+	if err := json.Unmarshal(secret, &secretStr); err != nil {
+		return patch, false, nil
+	}
+	if !isMaskedSecret(secretStr) || !hasExisting {
+		return patch, false, nil
+	}
+	existing := &schema.Integration{ID: providerID}
+	if err := existing.Get(ctx); err != nil {
+		return patch, false, nil
+	}
+	var stored map[string]json.RawMessage
+	if err := json.Unmarshal(existing.Config, &stored); err != nil {
+		return patch, false, nil
+	}
+	prev, ok := stored[field]
+	if !ok {
+		return patch, false, nil
+	}
+	patch[field] = prev
+	return patch, true, nil
+}
+
 func redactConfig(intg *schema.Integration) error {
 	if intg.Type == string(integration.TypeMDM) {
 		redacted, err := mdmpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
+		if err != nil {
+			return err
+		}
+		intg.Config = datatypes.JSON(redacted)
+		return nil
+	}
+	if intg.Type == string(integration.TypeEDR) {
+		redacted, err := edrpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
 		if err != nil {
 			return err
 		}

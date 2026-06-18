@@ -389,6 +389,10 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 	if err := mdmState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
 		slog.Error("failed to delete mdm state for host", "host", h.ID, "error", err)
 	}
+	edrState := &schema.DeviceEDRState{HostID: h.ID.String()}
+	if err := edrState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+		slog.Error("failed to delete edr state for host", "host", h.ID, "error", err)
+	}
 	return h.Delete(db.WithContext(context.TODO()))
 }
 

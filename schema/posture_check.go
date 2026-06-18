@@ -25,6 +25,11 @@ const (
 	// configured in ServerSettings. Config payload (JSONMap):
 	//   {"require_enrolled": bool, "require_compliant": bool, "max_state_age_hours": int}
 	MDMCompliance Attribute = "mdm_compliance"
+	// EDRCompliance evaluates the host's posture against the EDR provider.
+	// Config payload (JSONMap):
+	//   {"require_agent_installed": bool, "require_agent_healthy": bool,
+	//    "max_allowed_risk_level": string, "max_state_age_hours": int}
+	EDRCompliance Attribute = "edr_compliance"
 )
 
 const (
@@ -44,6 +49,7 @@ var PostureCheckAttrs = []Attribute{
 	KernelVersion,
 	AutoUpdate,
 	MDMCompliance,
+	EDRCompliance,
 }
 
 // MDMComplianceConfigKeys lists the supported keys in PostureCheck.Config when
@@ -51,6 +57,13 @@ var PostureCheckAttrs = []Attribute{
 var MDMComplianceConfigKeys = []string{
 	"require_enrolled",
 	"require_compliant",
+	"max_state_age_hours",
+}
+
+var EDRComplianceConfigKeys = []string{
+	"require_agent_installed",
+	"require_agent_healthy",
+	"max_allowed_risk_level",
 	"max_state_age_hours",
 }
 
@@ -94,6 +107,9 @@ var PostureCheckAttrValuesMap = map[Attribute]map[string]struct{}{
 	MDMCompliance: {
 		"mdm": {},
 	},
+	EDRCompliance: {
+		"edr": {},
+	},
 }
 
 var PostureCheckAttrValues = map[Attribute][]string{
@@ -105,6 +121,7 @@ var PostureCheckAttrValues = map[Attribute][]string{
 	KernelVersion:  {"any_valid_semantic_version"},
 	AutoUpdate:     {"true", "false"},
 	MDMCompliance:  {"mdm"},
+	EDRCompliance:  {"edr"},
 }
 
 type PostureCheck struct {

@@ -1,0 +1,118 @@
+package edr
+
+import (
+	"strings"
+)
+
+// RiskLevel is the vendor-agnostic endpoint risk classification.
+type RiskLevel string
+
+// Risk levels in ascending severity order.
+const (
+	RiskNone     = "none"
+	RiskLow      = "low"
+	RiskMedium   = "medium"
+	RiskHigh     = "high"
+	RiskCritical = "critical"
+)
+
+var riskOrder = map[RiskLevel]int{
+	RiskNone:     0,
+	RiskLow:      1,
+	RiskMedium:   2,
+	RiskHigh:     3,
+	RiskCritical: 4,
+}
+
+// VendorSignals are provider-specific inputs normalized into RiskLevel.
+type VendorSignals struct {
+	AgentInstalled   bool
+	AgentHealthy     bool
+	Isolated         bool
+	Contained        bool
+	ActiveThreats    bool
+	ActiveMalware    bool
+	ActiveRansomware bool
+	ThreatCount      int
+	VendorRiskLevel  RiskLevel
+}
+
+// ComputeRiskLevel maps vendor signals to a vendor-agnostic risk level.
+func ComputeRiskLevel(s VendorSignals) RiskLevel {
+	if s.Contained || s.Isolated {
+		return RiskCritical
+	}
+	if s.ActiveRansomware {
+		return RiskCritical
+	}
+	if s.ActiveMalware || s.ActiveThreats || s.ThreatCount > 0 {
+		return RiskHigh
+	}
+	if s.VendorRiskLevel != "" && s.VendorRiskLevel != RiskNone {
+		return s.VendorRiskLevel
+	}
+	return RiskNone
+}
+
+// ParseRiskLevel normalizes a risk level string.
+func ParseRiskLevel(level string) RiskLevel {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case RiskLow:
+		return RiskLow
+	case RiskMedium:
+		return RiskMedium
+	case RiskHigh:
+		return RiskHigh
+	case RiskCritical:
+		return RiskCritical
+	default:
+		return RiskNone
+	}
+}
+
+// RiskExceeds reports whether actual risk is strictly greater than max allowed.
+func RiskExceeds(maxAllowed, actual RiskLevel) bool {
+	return riskOrder[ParseRiskLevel(string(actual))] > riskOrder[ParseRiskLevel(string(maxAllowed))]
+}
+
+// DefenderRiskFromScore maps Microsoft Defender riskScore to normalized level.
+func DefenderRiskFromScore(score string) RiskLevel {
+	switch strings.ToLower(strings.TrimSpace(score)) {
+	case "high":
+		return RiskHigh
+	case "medium":
+		return RiskMedium
+	case "low":
+		return RiskLow
+	case "none", "informational":
+		return RiskNone
+	default:
+		return RiskNone
+	}
+}
+
+// CrowdStrikeRiskFromStatus maps Falcon device status to normalized level.
+func CrowdStrikeRiskFromStatus(status string, contained bool) RiskLevel {
+	if contained {
+		return RiskCritical
+	}
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "containment":
+		return RiskCritical
+	case "lost":
+		return RiskHigh
+	default:
+		return RiskNone
+	}
+}
+
+// SentinelOneRiskFromAgent maps SentinelOne agent fields to vendor risk hint.
+func SentinelOneRiskFromAgent(infected bool, networkQuarantine bool, activeThreats int) RiskLevel {
+	if networkQuarantine || infected {
+		return RiskCritical
+	}
+	if activeThreats > 0 {
+		return RiskHigh
+	}
+	return RiskNone
+}

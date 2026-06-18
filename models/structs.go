@@ -481,6 +481,9 @@ type PostureCheckDeviceInfo struct {
 	// MDMState is the most recent sync snapshot for the configured MDM
 	// provider; nil if MDM is not configured or the host hasn't synced yet.
 	MDMState *schema.DeviceMDMState
+	// EDRState is the most recent sync snapshot for the configured EDR
+	// provider; nil if EDR is not configured or the host hasn't synced yet.
+	EDRState *schema.DeviceEDRState
 }
 
 type Violation struct {

@@ -1697,6 +1697,22 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	edrIntg := &schema.Integration{Type: "edr"}
+	if edrIntegrations, err := edrIntg.ListByType(r.Context()); err == nil && len(edrIntegrations) > 0 {
+		state := &schema.DeviceEDRState{HostID: hostIDStr, Provider: edrIntegrations[0].ID}
+		if err := state.Get(r.Context()); err == nil {
+			resp.EDR = &models.HostEDRStatus{
+				Provider:       state.Provider,
+				MatchedBy:      state.MatchedBy,
+				AgentInstalled: state.AgentInstalled,
+				AgentHealthy:   state.AgentHealthy,
+				RiskLevel:      state.RiskLevel,
+				LastSyncedAt:   state.LastSyncedAt,
+				LastSeenAt:     state.LastSeenAt,
+			}
+		}
+	}
+
 	// Per-network status - copy from already-evaluated nodes belonging to the
 	// host. No new posture computation happens on this read path (v1).
 	nodes, err := logic.GetAllNodes()
