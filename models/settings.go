@@ -1,12 +1,6 @@
 package models
 
-type Theme string
-
-const (
-	Dark   Theme = "dark"
-	Light  Theme = "light"
-	System Theme = "system"
-)
+import "github.com/gravitl/netmaker/schema"
 
 type ServerSettings struct {
 	NetclientAutoUpdate bool     `json:"netclientautoupdate"`
@@ -57,7 +51,7 @@ type ServerSettings struct {
 }
 
 type UserSettings struct {
-	Theme         Theme  `json:"theme"`
-	TextSize      string `json:"text_size"`
-	ReducedMotion bool   `json:"reduced_motion"`
+	Theme         schema.Theme `json:"theme"`
+	TextSize      string       `json:"text_size"`
+	ReducedMotion bool         `json:"reduced_motion"`
 }

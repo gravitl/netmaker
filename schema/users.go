@@ -13,9 +13,17 @@ import (
 
 type AuthType string
 
-var (
+const (
 	BasicAuth AuthType = "basic_auth"
 	OAuth     AuthType = "oauth"
+)
+
+type Theme string
+
+const (
+	Dark   Theme = "dark"
+	Light  Theme = "light"
+	System Theme = "system"
 )
 
 var (
@@ -33,6 +41,9 @@ type User struct {
 	Password                   string     `json:"password"`
 	IsMFAEnabled               bool       `json:"is_mfa_enabled"`
 	TOTPSecret                 string     `json:"totp_secret"`
+	Theme                      Theme      `json:"theme"`
+	TextSize                   string     `json:"text_size"`
+	ReducedMotion              bool       `json:"reduced_motion"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
 	LastLoginAt time.Time `json:"last_login_time"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
@@ -136,8 +147,7 @@ func (u *User) UpdateAccountStatus(ctx context.Context) error {
 		Where("id = ? OR username = ?", u.ID, u.Username).
 		Updates(map[string]any{
 			"account_disabled": u.AccountDisabled,
-		}).
-		Error
+		}).Error
 }
 
 func (u *User) UpdateMFA(ctx context.Context) error {
@@ -150,8 +160,21 @@ func (u *User) UpdateMFA(ctx context.Context) error {
 		Updates(map[string]any{
 			"is_mfa_enabled": u.IsMFAEnabled,
 			"totp_secret":    u.TOTPSecret,
-		}).
-		Error
+		}).Error
+}
+
+func (u *User) UpdateUserSettings(ctx context.Context) error {
+	if u.ID == "" && u.Username == "" {
+		return ErrUserIdentifiersNotProvided
+	}
+
+	return db.FromContext(ctx).Model(&User{}).
+		Where("id = ? OR username = ?", u.ID, u.Username).
+		Updates(map[string]any{
+			"theme":          u.Theme,
+			"text_size":      u.TextSize,
+			"reduced_motion": u.ReducedMotion,
+		}).Error
 }
 
 func (u *User) Delete(ctx context.Context) error {

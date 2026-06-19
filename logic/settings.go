@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,9 @@ import (
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -31,7 +34,7 @@ var serverSettingsCache atomic.Value
 
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
-	Theme:         models.Dark,
+	Theme:         schema.Dark,
 	ReducedMotion: false,
 }
 
@@ -113,38 +116,42 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	return nil
 }
 
-func GetUserSettings(userID string) models.UserSettings {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
-	if err != nil {
-		return defaultUserSettings
+func GetUserSettings(username string) models.UserSettings {
+	user := &schema.User{
+		Username: username,
 	}
-	var userSettings models.UserSettings
-	err = json.Unmarshal([]byte(data), &userSettings)
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return defaultUserSettings
 	}
 
-	return userSettings
+	if user.Theme == "" && user.TextSize == "" && user.ReducedMotion == false {
+		return defaultUserSettings
+	}
+
+	return models.UserSettings{
+		Theme:         user.Theme,
+		TextSize:      user.TextSize,
+		ReducedMotion: user.ReducedMotion,
+	}
 }
 
-func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+func UpsertUserSettings(username string, userSettings models.UserSettings) error {
 	if userSettings.TextSize == "" {
 		userSettings.TextSize = "16"
 	}
 
 	if userSettings.Theme == "" {
-		userSettings.Theme = models.Dark
+		userSettings.Theme = schema.Dark
 	}
 
-	data, err := json.Marshal(userSettings)
-	if err != nil {
-		return err
+	user := &schema.User{
+		Username:      username,
+		Theme:         userSettings.Theme,
+		TextSize:      userSettings.TextSize,
+		ReducedMotion: userSettings.ReducedMotion,
 	}
-	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
-}
-
-func DeleteUserSettings(userID string) error {
-	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
+	return user.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
 func ValidateNewSettings(req models.ServerSettings) error {

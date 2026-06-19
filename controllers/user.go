@@ -929,8 +929,8 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 // @Param       username path string true "Username of the user"
 // @Success     200 {object} models.UserSettings
 func getUserSettings(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("user")
-	userSettings := logic.GetUserSettings(userID)
+	username := r.Header.Get("user")
+	userSettings := logic.GetUserSettings(username)
 	logic.ReturnSuccessResponseWithJson(w, r, userSettings, "fetched user settings")
 }
 
@@ -946,7 +946,7 @@ func getUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateUserSettings(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("user")
+	username := r.Header.Get("user")
 	var req models.UserSettings
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -956,7 +956,7 @@ func updateUserSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.UpsertUserSettings(userID, req)
+	err = logic.UpsertUserSettings(username, req)
 	if err != nil {
 		err = fmt.Errorf("failed to update user settings: %v", err.Error())
 		logger.Log(0, err.Error())
