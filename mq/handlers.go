@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
@@ -117,25 +116,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		if err != nil {
 			return
 		}
-		hu := hostactions.GetAction(currentHost.ID.String())
-		if hu != nil {
-			if err = HostUpdate(hu); err != nil {
-				slog.Error("failed to send new node to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
-				return
-			} else {
-
-				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, nil, false, nil); err != nil {
-					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
-					return
-				}
-			}
-		} else {
-			// send latest host update
-			HostUpdate(&models.HostUpdate{
-				Action: models.UpdateHost,
-				Host:   *currentHost})
-			PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, nil, false, nil)
-		}
+		// send latest host update
+		HostUpdate(&models.HostUpdate{
+			Action: models.UpdateHost,
+			Host:   *currentHost})
+		PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, nil, false, nil)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry

@@ -22,8 +22,6 @@ const (
 	METRICS_TABLE_NAME = "metrics"
 	// CACHE_TABLE_NAME - caching table
 	CACHE_TABLE_NAME = "cache"
-	// HOST_ACTIONS_TABLE_NAME - table name for enrollmentkeys
-	HOST_ACTIONS_TABLE_NAME = "hostactions"
 	// TAG_TABLE_NAME - table for tags
 	TAG_TABLE_NAME = "tags"
 	// SERVER_SETTINGS - table for server settings
@@ -61,7 +59,6 @@ var Tables = []string{
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,
 	CACHE_TABLE_NAME,
-	HOST_ACTIONS_TABLE_NAME,
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	SERVER_SETTINGS,
