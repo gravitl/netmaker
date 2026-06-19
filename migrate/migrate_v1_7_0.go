@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,13 +13,19 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
-	TableName_ServerConf    = "serverconf"
-	TableName_Generated     = "generated"
-	TableName_ServerUUID    = "serveruuid"
-	TableName_EnrollmentKey = "enrollmentkeys"
+	TableName_ServerConf     = "serverconf"
+	TableName_Generated      = "generated"
+	TableName_ServerUUID     = "serveruuid"
+	TableName_EnrollmentKey  = "enrollmentkeys"
+	TableName_ServerSettings = "server_settings"
+)
+
+const (
+	Key_ServerSettings = "server_cfg"
 )
 
 func migrateV1_7_0(ctx context.Context) error {
@@ -37,7 +44,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateEnrollmentKeys(ctx)
+	err = migrateEnrollmentKeys(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateUserSettings(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -291,6 +303,56 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 		}
 
 		if err = _key.Create(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateUserSettings(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerSettings) {
+		return nil
+	}
+
+	records, err := kvList(ctx, TableName_ServerSettings)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for key, record := range records {
+		if key == Key_ServerSettings {
+			continue
+		}
+
+		user := &schema.User{
+			Username: key,
+		}
+		err = user.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				err = kvDelete(ctx, TableName_ServerSettings, key)
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+
+			return err
+		}
+
+		var userSettings models.UserSettings
+		err = json.Unmarshal([]byte(record), &userSettings)
+		if err != nil {
+			return err
+		}
+
+		user.Theme = userSettings.Theme
+		user.TextSize = userSettings.TextSize
+		user.ReducedMotion = userSettings.ReducedMotion
+		err = user.UpdateUserSettings(ctx)
+		if err != nil {
 			return err
 		}
 	}

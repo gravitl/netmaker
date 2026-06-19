@@ -35,3 +35,10 @@ func kvList(ctx context.Context, tableName string) (map[string]string, error) {
 
 	return list, nil
 }
+
+func kvDelete(ctx context.Context, tableName, key string) error {
+	return db.FromContext(ctx).Table(tableName).
+		Where("key = ?", key).
+		Delete(&KVRecord{}).
+		Error
+}

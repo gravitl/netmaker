@@ -34,7 +34,8 @@ func ToSQLSchema() error {
 		return err
 	}
 
-	// v1.7.0 migration includes migrating the server conf, generated and server uuid table.
+	// v1.7.0 migration includes migrating the server conf, generated, server uuid and server
+	// settings tables.
 	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0", migrateV1_7_0)
 	if err != nil {
 		return err
