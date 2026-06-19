@@ -200,9 +200,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 		}
 
 		// unassign old tag
-		if _, ok := extclient.Tags[req.ID]; ok {
-			delete(extclient.Tags, req.ID)
-		}
+		delete(extclient.Tags, req.ID)
 
 		// assign tag if in taggedExtclientIDs.
 		if _, ok := taggedExtclientIDs[extclient.ClientID]; ok {
