@@ -20,9 +20,6 @@ func ToSQLSchema() error {
 	// load server settings in cache.
 	_ = logic.GetServerSettings()
 	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	// future table migrations should be made below this block,
-	// with a different version number and a similar check for whether the
-	// migration was already done.
 	err := ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
 	if err != nil {
 		return err
@@ -34,7 +31,11 @@ func ToSQLSchema() error {
 		return err
 	}
 
-	// v1.7.0 migration includes migrating the server conf, generated and server uuid table.
+	// v1.7.0 migration includes migrating the server conf, generated, server uuid and
+	// enrollment key tables.
+	// this version also includes changes for multi-tenancy and so this job
+	// creates default organization and tenant records and assigns the tenant id to all the
+	// existing records.
 	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0", migrateV1_7_0)
 	if err != nil {
 		return err

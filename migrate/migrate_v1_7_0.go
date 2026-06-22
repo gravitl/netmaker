@@ -23,7 +23,12 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
-	err := migrateServerConf(ctx)
+	err := createDefaults(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateServerConf(ctx)
 	if err != nil {
 		return err
 	}
@@ -39,6 +44,19 @@ func migrateV1_7_0(ctx context.Context) error {
 	}
 
 	return migrateEnrollmentKeys(ctx)
+}
+
+func createDefaults(ctx context.Context) error {
+	defaultOrg := &schema.Organization{}
+	err := defaultOrg.CreateDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	defaultTenant := &schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	return defaultTenant.CreateDefault(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
