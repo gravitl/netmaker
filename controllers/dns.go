@@ -11,40 +11,40 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
+	r.HandleFunc("/api/dns", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/nodes", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/custom", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/sync", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/sync", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
+	r.HandleFunc("/api/dns/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
+	r.HandleFunc("/api/dns/adm/pushdns", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
+	r.HandleFunc("/api/dns/{network}/{domain}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver/global", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Global Nameservers
@@ -389,10 +389,10 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var dns []models.DNSEntry
+	var dns []schema.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetNodeDNS(network)
+	dns, err := logic.GetNodeDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get node DNS entries for network [%s]: %v", network, err))
@@ -412,7 +412,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	dns, err := logic.GetAllDNS()
+	dns, err := logic.GetAllDNS(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -435,10 +435,10 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var dns []models.DNSEntry
+	var dns []schema.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetCustomDNS(network)
+	dns, err := logic.GetCustomDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(
 			0,
@@ -468,10 +468,10 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var dns []models.DNSEntry
+	var dns []schema.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetDNS(network)
+	dns, err := logic.GetDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get all DNS entries for network [%s]: %v", network, err.Error()))
@@ -496,7 +496,7 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 func createDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var entry models.DNSEntry
+	var entry schema.DNSEntry
 	var params = mux.Vars(r)
 	netID := params["network"]
 
@@ -566,18 +566,16 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetDNSEntry - gets a DNS entry
-func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
-	var entry models.DNSEntry
+func GetDNSEntry(domain string, network string) (schema.DNSEntry, error) {
 	key, err := logic.GetRecordKey(domain, network)
 	if err != nil {
-		return entry, err
+		return schema.DNSEntry{}, err
 	}
-	record, err := database.FetchRecord(database.DNS_TABLE_NAME, key)
-	if err != nil {
-		return entry, err
+	d := &schema.DNS{Key: key}
+	if err = d.Get(db.WithContext(context.Background())); err != nil {
+		return schema.DNSEntry{}, err
 	}
-	err = json.Unmarshal([]byte(record), &entry)
-	return entry, err
+	return d.Value.Data(), nil
 }
 
 // @Summary     Push DNS entries to nameserver
@@ -628,7 +626,7 @@ func syncDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	var params = mux.Vars(r)
 	netID := params["network"]
-	k, err := logic.GetDNS(netID)
+	k, err := logic.GetDNS(r.Context(), netID)
 	if err == nil && len(k) > 0 {
 		err = mq.PushSyncDNS(k)
 	}

@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/auth"
-	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -25,21 +25,21 @@ import (
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/enrollment-keys", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey)))).
+	r.HandleFunc("/api/v1/enrollment-keys", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys)))).
+	r.HandleFunc("/api/v1/enrollment-keys", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v2/enrollment-keys", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEnrollmentKeys)))).
+	r.HandleFunc("/api/v2/enrollment-keys", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEnrollmentKeys)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/enrollment-keys/network/{network}/default", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDefaultEnrollmentKeyForNetwork)))).
+	r.HandleFunc("/api/v1/enrollment-keys/network/{network}/default", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDefaultEnrollmentKeyForNetwork)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/enrollment-keys/{keyID}/regenerate-token", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(regenerateEnrollmentKeyToken)))).
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}/regenerate-token", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(regenerateEnrollmentKeyToken)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey)))).
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEnrollmentKey)))).
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEnrollmentKey)))).
 		Methods(http.MethodPut)
 }
 

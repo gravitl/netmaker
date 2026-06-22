@@ -15,6 +15,7 @@ import (
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
@@ -36,23 +37,23 @@ func serverHandlers(r *mux.Router) {
 			resp.Write([]byte("Server is up and running!!"))
 		},
 	).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/getconfig", Scope(db.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
+	r.HandleFunc("/api/server/getconfig", scope.Middleware(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", Scope(db.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
+	r.HandleFunc("/api/server/settings", scope.Middleware(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
+	r.HandleFunc("/api/server/settings", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/server/getserverinfo", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
+	r.HandleFunc("/api/server/getserverinfo", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", Scope(db.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
+	r.HandleFunc("/api/server/usage", scope.Middleware(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/onboarding", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/onboarding", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +227,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateSettings(w http.ResponseWriter, r *http.Request) {
-	var req models.ServerSettings
+	var req schema.ServerSettingsData
 	force := r.URL.Query().Get("force")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
@@ -303,7 +304,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
 
-func reInit(curr, new models.ServerSettings, force bool) {
+func reInit(curr, new schema.ServerSettingsData, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
 	logic.ResetAuthProvider()
@@ -349,7 +350,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	go mq.PublishPeerUpdate(false)
 }
 
-func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action {
+func identifySettingsUpdateAction(old, new schema.ServerSettingsData) schema.Action {
 	// TODO: here we are relying on the dashboard to only
 	// make singular updates, but it's possible that the
 	// API can be called to make multiple changes to the

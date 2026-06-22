@@ -5,12 +5,11 @@ import (
 	"net/http"
 
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
-	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -18,10 +17,10 @@ import (
 
 // MetricHandlers - How we handle Pro Metrics
 func MetricHandlers(r *mux.Router) {
-	r.HandleFunc("/api/metrics/{network}/{nodeid}", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/metrics/{network}", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/metrics", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/metrics-ext/{network}", controller.Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtMetrics)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/metrics/{network}/{nodeid}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/metrics/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/metrics", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/metrics-ext/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtMetrics)))).Methods(http.MethodGet)
 }
 
 // @Summary     Get metrics for a specific node

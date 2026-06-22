@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -23,13 +24,13 @@ import (
 )
 
 func gwHandlers(r *mux.Router) {
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(assignGw)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unassignGw)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(assignGw)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unassignGw)))).Methods(http.MethodPost)
 	// old relay handlers
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
 }
 
 // @Summary     Create a gateway

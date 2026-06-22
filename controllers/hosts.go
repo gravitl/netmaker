@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -29,54 +30,54 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHosts)))).
+	r.HandleFunc("/api/hosts", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHosts)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/hosts", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listHosts)))).
+	r.HandleFunc("/api/v1/hosts", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listHosts)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/hosts/keys", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys)))).
+	r.HandleFunc("/api/hosts/keys", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/sync", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncHosts)))).
+	r.HandleFunc("/api/hosts/sync", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncHosts)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/upgrade", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upgradeHosts)))).
+	r.HandleFunc("/api/hosts/upgrade", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upgradeHosts)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}/keys", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateKeys)))).
+	r.HandleFunc("/api/hosts/{hostid}/keys", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateKeys)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}/sync", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncHost)))).
+	r.HandleFunc("/api/hosts/{hostid}/sync", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncHost)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateHost)))).
+	r.HandleFunc("/api/hosts/{hostid}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateHost)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHost)))).
+	r.HandleFunc("/api/hosts/{hostid}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHost)))).
 		Methods(http.MethodGet)
 	// used by netclient
-	r.HandleFunc("/api/hosts/{hostid}", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(deleteHost)))).
+	r.HandleFunc("/api/hosts/{hostid}", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(deleteHost)))).
 		Methods(http.MethodDelete)
 	// used by UI
-	r.HandleFunc("/api/v1/ui/hosts/{hostid}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHost)))).
+	r.HandleFunc("/api/v1/ui/hosts/{hostid}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHost)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/hosts/bulk", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteHosts)))).
+	r.HandleFunc("/api/v1/hosts/bulk", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteHosts)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/{hostid}/upgrade", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upgradeHost)))).
+	r.HandleFunc("/api/hosts/{hostid}/upgrade", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upgradeHost)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork)))).
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork)))).
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/adm/authenticate", Scope(db.TenantScope, http.HandlerFunc(authenticateHost))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(pull)))).
+	r.HandleFunc("/api/hosts/adm/authenticate", scope.Middleware(scope.TenantScope, http.HandlerFunc(authenticateHost))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(pull)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(signalPeer)))).
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(signalPeer)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/fallback/host/{hostid}", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(hostUpdateFallback)))).
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(hostUpdateFallback)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/host/{hostid}/peer_info", Scope(db.TenantScope, AuthorizeHost(http.HandlerFunc(getHostPeerInfo)))).
+	r.HandleFunc("/api/v1/host/{hostid}/peer_info", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getHostPeerInfo)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/pending_hosts", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
+	r.HandleFunc("/api/v1/pending_hosts", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
+	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost)))).
+	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/emqx/hosts", Scope(db.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
+	r.HandleFunc("/api/emqx/hosts", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
