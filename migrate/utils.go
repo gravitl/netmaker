@@ -21,6 +21,10 @@ func kvInsert(ctx context.Context, tableName, key string, value any) error {
 	return db.FromContext(ctx).Table(tableName).Save(&KVRecord{Key: key, Value: string(data)}).Error
 }
 
+func kvDelete(ctx context.Context, tableName, key string) error {
+	return db.FromContext(ctx).Table(tableName).Where("key = ?", key).Delete(&KVRecord{}).Error
+}
+
 func kvList(ctx context.Context, tableName string) (map[string]string, error) {
 	var records []KVRecord
 	err := db.FromContext(ctx).Table(tableName).Order("key").Find(&records).Error

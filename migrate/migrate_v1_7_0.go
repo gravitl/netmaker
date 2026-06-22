@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	TableName_ServerConf    = "serverconf"
-	TableName_Generated     = "generated"
-	TableName_ServerUUID    = "serveruuid"
-	TableName_EnrollmentKey = "enrollmentkeys"
+	TableName_ServerConf     = "serverconf"
+	TableName_Generated      = "generated"
+	TableName_ServerUUID     = "serveruuid"
+	TableName_EnrollmentKey  = "enrollmentkeys"
+	TableName_ServerSettings = "server_settings"
 )
 
 func migrateV1_7_0(ctx context.Context) error {
@@ -43,7 +44,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateEnrollmentKeys(ctx)
+	err = migrateEnrollmentKeys(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateServerSettings(ctx)
 }
 
 func createDefaults(ctx context.Context) error {
@@ -297,6 +303,72 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 
 		if err = _key.Create(ctx); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateServerSettings(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerSettings) {
+		return nil
+	}
+
+	records, err := kvList(ctx, TableName_ServerSettings)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err = defaultTenant.GetDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range records {
+		if key == "server_cfg" {
+			err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(value))
+			if err != nil {
+				return err
+			}
+
+			err = kvDelete(ctx, TableName_ServerSettings, "server_cfg")
+			if err != nil {
+				return err
+			}
+		} else {
+			var userSettings models.UserSettings
+			err = json.Unmarshal([]byte(value), &userSettings)
+			if err != nil {
+				return err
+			}
+
+			user := schema.User{Username: key}
+			err = user.Get(ctx)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					err = kvDelete(ctx, TableName_ServerSettings, key)
+					if err != nil {
+						return err
+					}
+					continue
+				} else {
+					return err
+				}
+			}
+
+			user.Theme = userSettings.Theme
+			user.TextSize = userSettings.TextSize
+			user.ReducedMotion = userSettings.ReducedMotion
+			err = user.UpdateUserSettings(ctx)
+			if err != nil {
+				return err
+			}
+
+			err = kvDelete(ctx, TableName_ServerSettings, key)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
