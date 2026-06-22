@@ -114,15 +114,6 @@ func DeleteRecord(tableName string, key string) error {
 	return getCurrentDB()[DELETE].(func(string, string) error)(tableName, key)
 }
 
-// DeleteAllRecords - removes a table and remakes
-func DeleteAllRecords(tableName string) error {
-	err := getCurrentDB()[DELETE_ALL].(func(string) error)(tableName)
-	if err != nil {
-		return err
-	}
-	return CreateTable(tableName)
-}
-
 // FetchRecord - fetches a single record by key
 func FetchRecord(tableName string, key string) (string, error) {
 	return getCurrentDB()[FETCH_ONE].(func(string, string) (string, error))(tableName, key)
