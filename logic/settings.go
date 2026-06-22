@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,10 +13,11 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
-var ServerSettingsDBKey = "server_cfg"
+var ServerSettingsDBKey = "server_cfg" // kept for migration reference only
 var SettingsMutex = &sync.RWMutex{}
 
 var serverSettingsCache atomic.Value
@@ -55,15 +55,19 @@ func InvalidateServerSettingsCache() {
 }
 
 func getServerSettingsFromDB() (models.ServerSettings, error) {
-	var s models.ServerSettings
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {
-		return s, err
+		return models.ServerSettings{}, err
 	}
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
-		return s, err
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
+	err = settingsRecord.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return models.ServerSettings{}, err
 	}
-	return s, nil
+	return settingsRecord.Value.Data(), nil
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
@@ -100,11 +104,15 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	data, err := json.Marshal(s)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID, Value: datatypes.NewJSONType(s)}
+	err = settingsRecord.Upsert(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

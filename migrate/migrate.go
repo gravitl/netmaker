@@ -2,7 +2,6 @@ package migrate
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -16,7 +15,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -492,12 +490,17 @@ func migrateEgressDomains() {
 }
 
 func migrateSettings() {
-	settingsD := make(map[string]interface{})
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
+	err = settingsRecord.Get(db.WithContext(context.TODO()))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
-	} else if err == nil {
-		json.Unmarshal([]byte(data), &settingsD)
+		_ = logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
 	settings := logic.GetServerSettings()
 	if settings.PeerConnectionCheckInterval == "" {
@@ -524,7 +527,7 @@ func migrateSettings() {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
-	logic.UpsertServerSettings(settings)
+	_ = logic.UpsertServerSettings(settings)
 }
 
 func deleteOldExtclients() {
