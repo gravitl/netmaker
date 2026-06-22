@@ -214,6 +214,23 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username := r.Header.Get("user")
+	if r.Header.Get("ismaster") != "yes" {
+		user := &schema.User{
+			Username: username,
+		}
+		err := user.Get(r.Context())
+		if err == nil {
+			if user.PlatformRoleID != schema.SuperAdminRole &&
+				user.PlatformRoleID != schema.AdminRole &&
+				user.Username != client.OwnerID {
+				err = fmt.Errorf("access denied")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+				return
+			}
+		}
+	}
+
 	gwnode, err := logic.GetNodeByID(client.IngressGatewayID)
 	if err != nil {
 		logger.Log(
