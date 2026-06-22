@@ -49,7 +49,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateServerSettings(ctx)
+	err = migrateServerSettings(ctx)
+	if err != nil {
+		return err
+	}
+
+	return setTenantID(ctx)
 }
 
 func createDefaults(ctx context.Context) error {
@@ -369,6 +374,36 @@ func migrateServerSettings(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func setTenantID(ctx context.Context) error {
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	tenantModels := []any{
+		&schema.AclRecord{}, &schema.CacheRecord{}, &schema.DNSRecord{}, &schema.Nameserver{},
+		&schema.Egress{}, &schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
+		&schema.Host{}, &schema.Integration{}, &schema.Internal{}, &schema.JITGrant{}, &schema.JITRequest{},
+		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{}, &schema.PendingUser{},
+		&schema.PostureCheck{}, &schema.PostureCheckViolation{}, &schema.SsoStateRecord{},
+		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
+		&schema.UserRole{}, &schema.User{},
+	}
+
+	for _, model := range tenantModels {
+		err := db.FromContext(ctx).Model(model).
+			Where("tenant_id = ?", "").
+			Update("tenant_id", defaultTenant.ID).
+			Error
+		if err != nil {
+			return err
 		}
 	}
 
