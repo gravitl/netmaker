@@ -13,22 +13,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	dbtypes "github.com/gravitl/netmaker/db/types"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 )
 
@@ -892,6 +891,33 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		mq.PublishPeerUpdate(false)
 	}()
 
+	src := logic.MasterUser
+	if !isMaster {
+		src = _caller.Username
+	}
+
+	event := schema.EnableUser
+	if disableAccount {
+		event = schema.DisableUser
+	}
+
+	logic.LogEvent(&models.Event{
+		Action: event,
+		Source: models.Subject{
+			ID:   src,
+			Name: src,
+			Type: schema.UserSub,
+		},
+		TriggeredBy: src,
+		Target: models.Subject{
+			ID:   _user.Username,
+			Name: _user.Username,
+			Type: schema.UserSub,
+			Info: logic.ToReturnUser(_user),
+		},
+		Origin: schema.Dashboard,
+	})
+
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", action))
 }
 
@@ -1144,7 +1170,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Accept      json
 // @Produce     json
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -1259,7 +1285,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to create"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1355,7 +1381,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username of the user to update"
-// @Param       body body models.User true "User details"
+// @Param       body body schema.User true "User details"
 // @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1472,8 +1498,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if servercfg.IsPro {
-			// user cannot update his own roles and groups
+		if servercfg.IsPro && caller.PlatformRoleID != schema.SuperAdminRole {
+			// users cannot update their own groups; superadmin is exempt
 			if len(user.UserGroups.Data()) != len(userchange.UserGroups.Data()) || !reflect.DeepEqual(user.UserGroups.Data(), userchange.UserGroups.Data()) {
 				err = errors.New("user cannot update self update their groups")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
@@ -1495,7 +1521,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	logic.AddGlobalNetRolesToAdmins(&userchange)
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data()) {
 		(&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}
@@ -1548,16 +1573,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	go func() {
-		// Populating all the networks the user has access to by
-		// being a member of groups.
-		userMembershipNetworkAccess := make(map[schema.NetworkID]struct{})
-		for groupID := range user.UserGroups.Data() {
-			userGroup, _ := logic.GetUserGroup(groupID)
-			for netID := range userGroup.NetworkRoles.Data() {
-				userMembershipNetworkAccess[netID] = struct{}{}
-			}
-		}
-
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
@@ -1569,25 +1584,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			var shouldDelete bool
-			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-				// Super-admin and Admin's access is not determined by group membership
-				// or network roles. Even if a user is removed from the group, they
-				// continue to have access to the network.
-				// So, no need to delete the extclient.
-				shouldDelete = false
-			} else {
-				_, hasAccessThroughGroups := userMembershipNetworkAccess[schema.NetworkID(extclient.Network)]
-				if !hasAccessThroughGroups {
-					// The user does not have access to the network by either
-					// being a Super-admin or Admin, by network roles or by virtue
-					// of being a member a group that has access to the network.
-					// So, delete the extclient.
-					shouldDelete = true
-				}
-			}
-
-			if shouldDelete {
+			if !logic.UserHasNetworkGroupAccess(user, extclient.Network) {
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
@@ -1742,9 +1739,6 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = logic.DeleteUserInvite(user.Username)
 		mq.PublishPeerUpdate(false)
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
@@ -1869,9 +1863,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(false)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
 		}
 		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
 	}()

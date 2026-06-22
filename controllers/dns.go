@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -516,15 +517,6 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if servercfg.IsDNSMode() {
-		err = logic.SetDNS()
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("Failed to set DNS entries on file: %v", err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
 
 	if logic.GetManageDNS() {
 		mq.SendDNSSyncByNetwork(netID)
@@ -552,9 +544,11 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
+	domain := params["domain"]
 	netID := params["network"]
-	entrytext := params["domain"] + "." + params["network"]
-	err := logic.DeleteDNS(params["domain"], params["network"])
+	entrytext := domain + "." + netID
+	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings().DefaultDomain)
+	err := logic.DeleteDNS(domain, netID)
 
 	if err != nil {
 		logger.Log(0, "failed to delete dns entry: ", entrytext)
@@ -562,15 +556,6 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "deleted dns entry: ", entrytext)
-	if servercfg.IsDNSMode() {
-		err = logic.SetDNS()
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("Failed to set DNS entries on file: %v", err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
 
 	if logic.GetManageDNS() {
 		mq.SendDNSSyncByNetwork(netID)
@@ -614,14 +599,9 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err := logic.SetDNS()
 
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+	// TODO: deprecate API. does nothing.
+
 	logger.Log(1, r.Header.Get("user"), "pushed DNS updates to nameserver")
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
 }

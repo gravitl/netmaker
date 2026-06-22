@@ -108,7 +108,7 @@ func warmPeerCaches() {
 		return
 	}
 	for i := range hosts {
-		peerUpdate, err := logic.GetPeerUpdateForHost("", &hosts[i], allNodes, nil, nil)
+		peerUpdate, err := logic.GetPeerUpdateForHost("", &hosts[i], allNodes, nil, nil, nil)
 		if err != nil {
 			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
 			continue
@@ -146,7 +146,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 		wg.Add(1)
 		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -162,7 +162,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 
 // PublishDeletedNodePeerUpdate --- determines and publishes a peer update
 // to all the hosts with a deleted node to account for
-func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
+func PublishDeletedNodePeerUpdate(delHost *schema.Host, delNode *models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -178,7 +178,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(&host, allNodes, delHost, delNode, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -204,7 +204,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -213,11 +213,11 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients)
+	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedHost, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func ServerStartNotify() error {
 		return err
 	}
 	for i := range nodes {
-		nodes[i].Action = models.NODE_FORCE_UPDATE
+		nodes[i].Action = schema.NODE_FORCE_UPDATE
 		if err = NodeUpdate(&nodes[i]); err != nil {
 			logger.Log(1, "error when notifying node", nodes[i].ID.String(), "of a server startup")
 		}
@@ -308,23 +308,19 @@ func ServerStartNotify() error {
 	return nil
 }
 
-// PublishMqUpdatesForDeletedNode - published all the required updates for deleted node
-func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
+// PublishMqUpdatesForDeletedNode - published all the required updates for deleted host and node
+func PublishMqUpdatesForDeletedNode(delHost *schema.Host, node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
-	node.Action = models.NODE_DELETE
+	node.Action = schema.NODE_DELETE
 	if sendNodeUpdate {
 		if err := NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
 	}
-	if err := PublishDeletedNodePeerUpdate(&node); err != nil {
+	if err := PublishDeletedNodePeerUpdate(delHost, &node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 // PushAllMetricsToExporter fetches all node metrics from the database
@@ -481,6 +477,34 @@ func PublishExporterFeatureFlags() error {
 	}
 
 	if token := mqclient.Publish(fmt.Sprintf("feature_flags/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
+
+func PublishIntegrationUpsert(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/upsert", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}
+
+func PublishIntegrationDelete(id string) error {
+	if token := mqclient.Publish(fmt.Sprintf("integration/%s/%s/delete", servercfg.GetServer(), id), 0, true, []byte{}); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")

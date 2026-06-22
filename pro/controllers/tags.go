@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -85,7 +88,10 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if tag network exists
-	err = (&schema.Network{Name: req.Network.String()}).Get(r.Context())
+	network := &schema.Network{
+		Name: req.Network.String(),
+	}
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to get network details for "+req.Network.String()), "badrequest"))
 		return
@@ -116,6 +122,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
+		nodeIDs := make([]interface{}, 0)
 		for _, node := range req.TaggedNodes {
 			if node.IsStatic {
 				extclient, err := logic.GetExtClient(node.StaticNode.ClientID, node.StaticNode.Network)
@@ -132,11 +139,19 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			if node.Tags == nil {
-				node.Tags = make(map[models.TagID]struct{})
+			nodeIDs = append(nodeIDs, node.ID)
+		}
+
+		if len(nodeIDs) > 0 {
+			err = (&schema.Node{}).AssignTag(
+				db.WithContext(context.TODO()),
+				tag.ID.String(),
+				dbtypes.WithFilter("network_id", network.ID),
+				dbtypes.WithFilter("id", nodeIDs...),
+			)
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("failed to assign tag %s to nodes: %v", tag.TagName, err.Error()))
 			}
-			node.Tags[tag.ID] = struct{}{}
-			logic.UpsertNode(&node)
 		}
 	}()
 	logic.LogEvent(&models.Event{

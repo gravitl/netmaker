@@ -290,6 +290,11 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if node.IsRelayed || peerNode.IsRelayed {
+		err := fmt.Errorf("node or peer is already assigned a relay")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
 		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(
@@ -393,19 +398,16 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			// unset current gw
 			if node.RelayedBy != "" {
 				// unset relayed node from the curr relay
-				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				_node := &schema.Node{
+					ID: node.ID.String(),
+				}
+				err = _node.Get(r.Context())
 				if err == nil {
-					if currRelayNode.Mutex != nil {
-						currRelayNode.Mutex.Lock()
-					}
-					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
-					currRelayNode.RelayedNodes = newRelayedNodes
-					logic.UpsertNode(&currRelayNode)
-					node.RelayedBy = ""
-					node.IsRelayed = false
-					logic.UpsertNode(&node)
-					if currRelayNode.Mutex != nil {
-						currRelayNode.Mutex.Unlock()
+					_node.RelayedByNodeID = nil
+					_node.IsIGWClient = false
+					err = _node.UnassignGateway(r.Context())
+					if err == nil {
+						node = *logic.ConvertSchemaNodeToModelsNode(_node)
 					}
 				}
 			}
@@ -427,7 +429,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
 		}
 		go mq.PublishPeerUpdate(false)
 		if node.AutoAssignGateway {

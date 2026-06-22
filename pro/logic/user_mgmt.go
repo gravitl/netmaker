@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -703,6 +702,11 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 	}
 
+	if err := RemoveUserGroupFromAllJITScopes(group.ID); err != nil {
+		slog.Warn("failed to clean up JIT scopes for deleted user group",
+			"group_id", group.ID, "error", err)
+	}
+
 	return nil
 }
 
@@ -717,29 +721,11 @@ func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
 		if !node.IsGw {
 			continue
 		}
-		if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
-			if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-				gws[node.ID.String()] = node
-				continue
-			}
-		} else {
-			for groupID := range user.UserGroups.Data() {
-				userGrp, err := logic.GetUserGroup(groupID)
-				if err == nil {
-					if roles, ok := userGrp.NetworkRoles.Data()[schema.NetworkID(node.Network)]; ok && len(roles) > 0 {
-						if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-							gws[node.ID.String()] = node
-							break
-						}
-					}
-					if roles, ok := userGrp.NetworkRoles.Data()[schema.AllNetworks]; ok && len(roles) > 0 {
-						if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
-							gws[node.ID.String()] = node
-							break
-						}
-					}
-				}
-			}
+		if !UserHasNetworkGroupAccess(user, node.Network) {
+			continue
+		}
+		if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
+			gws[node.ID.String()] = node
 		}
 	}
 	return
@@ -755,7 +741,7 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 	if err != nil {
 		return []schema.Network{}
 	}
-	if !platformRole.FullAccess {
+	if !platformRole.FullAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		allNetworkRoles := make(map[schema.NetworkID]struct{})
 		_, ok := platformRole.NetworkLevelAccess.Data()[schema.NetworkRsrc]
 		if ok {
@@ -833,7 +819,7 @@ func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID
 }
 
 // PrepareOauthUserFromInvite - init oauth user before create
-func PrepareOauthUserFromInvite(in models.UserInvite) (schema.User, error) {
+func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
 	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return schema.User{}, fetchErr
@@ -842,7 +828,7 @@ func PrepareOauthUserFromInvite(in models.UserInvite) (schema.User, error) {
 		Username: in.Email,
 		Password: newPass,
 	}
-	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
+	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = schema.ServiceUser
@@ -919,9 +905,6 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 		}
 
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 }
 
 func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
@@ -949,28 +932,12 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			// user does not exist, delete extclient.
 			shouldDelete = true
 		} else {
-			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-				// Super-admin and Admin's access is not determined by group membership
-				// or network roles. Even if a network is removed from the group, they
-				// continue to have access to the network.
-				// So, no need to delete the extclient.
-				shouldDelete = false
-			} else {
-				_, userInGroup := user.UserGroups.Data()[groupID]
-				_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
-				_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
-				if userInGroup && (networkRemoved || allNetworkAccessRemoved) {
-					// This group no longer provides it's members access to the
-					// network.
-					// This user is a member of the group and has no direct
-					// access to the network (either by its platform role or by
-					// network roles).
-					// This user is a member of the group and access to this
-					// network was previously given through the all network
-					// role and is now removed.
-					// So, delete the extclient.
-					shouldDelete = true
-				}
+			_, userInGroup := user.UserGroups.Data()[groupID]
+			_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
+			_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
+			if userInGroup && (networkRemoved || allNetworkAccessRemoved) &&
+				!UserHasNetworkGroupAccess(&user, extclient.Network) {
+				shouldDelete = true
 			}
 		}
 
@@ -986,11 +953,6 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			}
 		}
 	}
-
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
@@ -1041,10 +1003,6 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 		}
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
-
 }
 
 func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
@@ -1134,6 +1092,14 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 
 	// For each network removed, remove the group as the src from all the ACLs.
 	for networkID := range networksRemoved {
+		if new != nil {
+			RemoveUserGroupFromPostureChecks(new.ID, networkID)
+			if err := RemoveUserGroupFromNetworkJITScope(networkID.String(), new.ID); err != nil {
+				slog.Warn("failed to clean up JIT scope for removed user group",
+					"group_id", new.ID, "network", networkID, "error", err)
+			}
+		}
+
 		acls, err := logic.ListAclsByNetwork(networkID)
 		if err != nil {
 			continue
@@ -1170,6 +1136,15 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 					_ = logic.UpsertAcl(acl)
 				}
 			}
+		}
+	}
+
+	// Members of an admin group bypass JIT, so any network where the group now
+	// grants admin access must drop it from its JIT scope.
+	if new != nil {
+		if err := ReconcileUserGroupJITScope(new); err != nil {
+			slog.Warn("failed to reconcile JIT scope for updated user group",
+				"group_id", new.ID, "error", err)
 		}
 	}
 
@@ -1387,16 +1362,123 @@ func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.User
 	return
 }
 
+// AddGlobalNetRolesToAdmins assigns the global networks admin group only when an
+// admin or super-admin has no groups (e.g. create/migrate). It does not run on
+// update so callers can remove all group membership from elevated users.
 func AddGlobalNetRolesToAdmins(u *schema.User) {
 	if u.PlatformRoleID != schema.SuperAdminRole && u.PlatformRoleID != schema.AdminRole {
 		return
 	}
-
-	if len(u.UserGroups.Data()) == 0 {
-		u.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+	if len(u.UserGroups.Data()) > 0 {
+		return
 	}
-
+	u.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 	u.UserGroups.Data()[globalNetworksAdminGroupID] = struct{}{}
+}
+
+func isElevatedPlatformRole(role schema.UserRoleID) bool {
+	return PlatformRoleRequiresGroupEnforcement(role)
+}
+
+// PlatformRoleRequiresGroupEnforcement reports whether network-scoped resource
+// access must come from user groups (admin/super-admin still use platform
+// FullAccess for global permissions only).
+func PlatformRoleRequiresGroupEnforcement(role schema.UserRoleID) bool {
+	return role == schema.SuperAdminRole || role == schema.AdminRole
+}
+
+// CanUserCreateNetwork reports whether the user can create a network via POST /api/networks.
+func CanUserCreateNetwork(ctx context.Context, username string) bool {
+	if username == logic.MasterUser {
+		return true
+	}
+	user := &schema.User{Username: username}
+	if err := user.Get(db.WithContext(ctx)); err != nil {
+		return false
+	}
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := userRole.Get(db.WithContext(ctx)); err != nil {
+		return false
+	}
+	if userRole.FullAccess {
+		return true
+	}
+	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.NetworkRsrc]
+	if !ok {
+		return false
+	}
+	if scope, ok := rsrcPermissionScope[schema.AllNetworkRsrcID]; ok {
+		return scope.Create
+	}
+	return false
+}
+
+// UserHasGlobalNetworksAdminMembership reports global all-networks admin via groups.
+func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
+	if user == nil {
+		return false
+	}
+	_, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]
+	return ok
+}
+
+// UserHasNetworkGroupAccess reports whether the user has any network role on the
+// network (or all-networks scope) through group membership.
+func UserHasNetworkGroupAccess(user *schema.User, networkID string) bool {
+	if user == nil {
+		return false
+	}
+	if IsNetworkAdmin(user, networkID) {
+		return true
+	}
+	netID := schema.NetworkID(networkID)
+	for groupID := range user.UserGroups.Data() {
+		userG, err := GetUserGroup(groupID)
+		if err != nil {
+			continue
+		}
+		if roles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok && len(roles) > 0 {
+			return true
+		}
+		if roles, ok := userG.NetworkRoles.Data()[netID]; ok && len(roles) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func userGroupGrantsAdminAccess(group *schema.UserGroup) bool {
+	if group == nil {
+		return false
+	}
+	if group.ID == globalNetworksAdminGroupID {
+		return true
+	}
+	if groupGrantsGlobalNetworkAdmin(group) {
+		return true
+	}
+	for netID := range group.NetworkRoles.Data() {
+		if groupGrantsNetworkAdminOn(group, netID) {
+			return true
+		}
+	}
+	return false
+}
+
+// AddGlobalGroupOnRoleUpgrade assigns the global all-networks admin group when a user
+// is upgraded to admin or super-admin from a non-elevated role and has no groups.
+func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
+	if groups == nil || isElevatedPlatformRole(oldRole) || !isElevatedPlatformRole(newRole) {
+		return
+	}
+	if len(groups) > 0 {
+		return
+	}
+	groups[globalNetworksAdminGroupID] = struct{}{}
+}
+
+// StripGroupsOnRoleDowngrade is a no-op; group membership is not modified on role change.
+func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
 
 func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
@@ -1417,15 +1499,10 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 	return grpUsersMap
 }
 
-// IsNetworkAdmin - checks if user is a network admin via user groups
+// IsNetworkAdmin - checks if user is a network admin via user groups.
 func IsNetworkAdmin(user *schema.User, networkID string) bool {
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
-
-	// Check platform role
-	if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-		return true
-	}
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {

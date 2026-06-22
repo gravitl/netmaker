@@ -69,6 +69,7 @@ type APIEnrollmentKey struct {
 	Type              KeyType  `json:"type"`
 	Relay             string   `json:"relay"`
 	Groups            []TagID  `json:"groups"`
+	Default           bool     `json:"default"`
 	AutoEgress        bool     `json:"auto_egress"`
 	AutoAssignGateway bool     `json:"auto_assign_gw"`
 }

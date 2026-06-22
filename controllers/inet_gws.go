@@ -14,6 +14,15 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+func internetGatewayHandlers(r *mux.Router) {
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(createInternetGw))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(updateInternetGw))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(deleteInternetGw))).
+		Methods(http.MethodDelete)
+}
+
 func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -53,19 +62,13 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(node, request, false)
+	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
-		if _, exists := logic.FailOverExists(node.Network); exists {
-			go func() {
-				logic.ResetFailedOverPeer(&node)
-				mq.PublishPeerUpdate(false)
-			}()
-		}
 		go func() {
 			logic.ResetAutoRelayedPeer(&node)
 			mq.PublishPeerUpdate(false)
@@ -118,7 +121,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(node, request, true)
+	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -140,8 +143,11 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		netid,
 	)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	_ = json.NewEncoder(w).Encode(apiNode)
+	go func() {
+		_ = logic.ResetAutoRelayedPeer(&node)
+		_ = mq.PublishPeerUpdate(false)
+	}()
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {

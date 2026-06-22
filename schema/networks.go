@@ -37,14 +37,15 @@ type Network struct {
 	AutoRemove       bool                        `json:"auto_remove"`
 	AutoRemoveTags   datatypes.JSONSlice[string] `json:"auto_remove_tags"`
 	// in minutes
-	AutoRemoveThreshold         int       `json:"auto_remove_threshold"`
-	JITEnabled                  bool      `json:"jit_enabled"`
-	VirtualNATPoolIPv4          string    `json:"virtual_nat_pool_ipv4"`
-	VirtualNATSitePrefixLenIPv4 int       `json:"virtual_nat_site_prefixlen_ipv4"`
-	NodesUpdatedAt              time.Time `json:"nodes_updated_at"`
-	CreatedBy                   string    `json:"created_by"`
-	CreatedAt                   time.Time `json:"created_at"`
-	UpdatedAt                   time.Time `json:"updated_at"`
+	AutoRemoveThreshold         int                              `json:"auto_remove_threshold"`
+	JITEnabled                  bool                             `json:"jit_enabled"`
+	JITUserGroupIDs             datatypes.JSONSlice[UserGroupID] `json:"jit_user_group_ids"`
+	VirtualNATPoolIPv4          string                           `json:"virtual_nat_pool_ipv4"`
+	VirtualNATSitePrefixLenIPv4 int                              `json:"virtual_nat_site_prefixlen_ipv4"`
+	NodesUpdatedAt              time.Time                        `json:"nodes_updated_at"`
+	CreatedBy                   string                           `json:"created_by"`
+	CreatedAt                   time.Time                        `json:"created_at"`
+	UpdatedAt                   time.Time                        `json:"updated_at"`
 }
 
 func (n *Network) TableName() string {
@@ -97,6 +98,7 @@ func (n *Network) Update(ctx context.Context) error {
 			"auto_remove_tags":                 n.AutoRemoveTags,
 			"auto_remove_threshold":            n.AutoRemoveThreshold,
 			"jit_enabled":                      n.JITEnabled,
+			"jit_user_group_ids":               n.JITUserGroupIDs,
 			"virtual_nat_pool_ipv4":            n.VirtualNATPoolIPv4,
 			"virtual_nat_site_prefix_len_ipv4": n.VirtualNATSitePrefixLenIPv4,
 			"nodes_updated_at":                 n.NodesUpdatedAt,
@@ -113,6 +115,10 @@ func (n *Network) Delete(ctx context.Context) error {
 		Where("id = ? OR name = ?", n.ID, n.Name).
 		Delete(n).
 		Error
+}
+
+func (n *Network) DeleteAll(ctx context.Context) error {
+	return db.FromContext(ctx).Exec("DELETE FROM networks_v1").Error
 }
 
 func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {

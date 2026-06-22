@@ -102,17 +102,6 @@ func CreateFallbackNameserver(networkID string) error {
 	return ns.Create(db.WithContext(context.TODO()))
 }
 
-func DeleteNetworkNameservers(networkID string) error {
-	return (&schema.Nameserver{
-		NetworkID: networkID,
-	}).Delete(db.WithContext(context.TODO()))
-}
-
-// SetDNS - sets the dns on file
-func SetDNS() error {
-	return nil
-}
-
 // GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 
@@ -134,21 +123,26 @@ func EgressDNs(network string) (entries []models.DNSEntry) {
 		Network: network,
 	}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, egI := range egs {
-		if egI.Domain != "" && len(egI.DomainAns) > 0 {
-			entry := models.DNSEntry{
-				Name: egI.Domain,
-			}
-			for _, domainAns := range egI.DomainAns {
-				ip, _, err := net.ParseCIDR(domainAns)
-				if err == nil {
-					if ip.To4() != nil {
-						entry.Address = ip.String()
-					} else {
-						entry.Address6 = ip.String()
+		if !egI.Status {
+			continue
+		}
+		if IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
+			for _, name := range ConfiguredDomainsForEgress(egI) {
+				entry := models.DNSEntry{
+					Name: name,
+				}
+				for _, domainAns := range DomainAnsForDomain(egI, name) {
+					ip, _, err := net.ParseCIDR(domainAns)
+					if err == nil {
+						if ip.To4() != nil {
+							entry.Address = ip.String()
+						} else {
+							entry.Address6 = ip.String()
+						}
 					}
 				}
+				entries = append(entries, entry)
 			}
-			entries = append(entries, entry)
 		}
 	}
 	return
@@ -210,6 +204,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 		if node.Address6.IP != nil {
 			entry.Address6 = node.Address6.IP.String()
 		}
+		entry.Type = models.DNSEntryType_Node
 		dns = append(dns, entry)
 	}
 
@@ -268,11 +263,37 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 			if defaultDomain != "" {
 				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
 			}
+			entry.Type = models.DNSEntryType_Custom
 			dns = append(dns, entry)
 		}
 	}
 
 	return dns, err
+}
+
+func DeleteNetworkDNS(network string) error {
+	records, err := database.FetchRecords(database.DNS_TABLE_NAME)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	for key, record := range records {
+		var entry models.DNSEntry
+		err := json.Unmarshal([]byte(record), &entry)
+		if err != nil {
+			continue
+		}
+
+		if entry.Network == network {
+			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+		}
+	}
+
+	return nil
 }
 
 // SetCorefile - sets the core file of the system
@@ -430,7 +451,7 @@ func DeleteDNS(domain string, network string) error {
 
 // CreateDNS - creates a DNS entry
 func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
-
+	entry.Type = models.DNSEntryType_Custom
 	k, err := GetRecordKey(entry.Name, entry.Network)
 	if err != nil {
 		return models.DNSEntry{}, err

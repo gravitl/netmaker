@@ -9,14 +9,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	proAuth "github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/pro/email"
 	"github.com/gravitl/netmaker/pro/idp"
@@ -28,7 +30,9 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func UserHandlers(r *mux.Router) {
@@ -89,7 +93,7 @@ func UserHandlers(r *mux.Router) {
 // @Produce     json
 // @Param       email query string true "Invitee email"
 // @Param       invite_code query string true "Invite code"
-// @Param       body body models.User true "User signup data"
+// @Param       body body schema.User true "User signup data"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +133,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
+	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = schema.ServiceUser
@@ -239,12 +243,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			// user exists already, so ignore
 			continue
 		}
-		invite := models.UserInvite{
+		invite := &schema.UserInvite{
+			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
 			PlatformRoleID: inviteReq.PlatformRoleID,
-			UserGroups:     inviteReq.UserGroups,
-			NetworkRoles:   inviteReq.NetworkRoles,
-			InviteCode:     logic.RandomString(8),
+			UserGroups:     datatypes.NewJSONType(inviteReq.UserGroups),
 		}
 		frontendURL := strings.TrimSuffix(servercfg.GetFrontendURL(), "/")
 		if frontendURL == "" {
@@ -265,7 +268,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
-		err = logic.InsertUserInvite(invite)
+		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
@@ -286,7 +289,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			Origin: schema.Dashboard,
 		})
 		// notify user with magic link
-		go func(invite models.UserInvite) {
+		go func(invite *schema.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
 
 			e := email.UserInvitedMail{
@@ -315,7 +318,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.UserInvite
 // @Failure     500 {object} models.ErrorResponse
 func listUserInvites(w http.ResponseWriter, r *http.Request) {
-	usersInvites, err := logic.ListUserInvites()
+	usersInvites, err := (&schema.UserInvite{}).ListAll(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -372,7 +375,7 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
-	err := database.DeleteAllRecords(database.USER_INVITES_TABLE_NAME)
+	err := (&schema.UserInvite{}).DeleteAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
@@ -647,15 +650,6 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	go func() {
-		removedNetworks, _ := proLogic.GetGroupNetworksMap(&currUserG)
-		keptNetworks, _ := proLogic.GetGroupNetworksMap(&userGroup)
-		for netID := range removedNetworks {
-			if _, ok := keptNetworks[netID]; !ok {
-				proLogic.RemoveUserGroupFromPostureChecks(userGroup.ID, netID)
-			}
-		}
-	}()
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -721,45 +715,19 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
-	netID := schema.NetworkID(network)
-
 	allUsers, err := logic.GetUsers()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	allGroupsList, err := (&schema.UserGroup{}).ListAll(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	allGroupsMap := make(map[schema.UserGroupID]schema.UserGroup, len(allGroupsList))
-	for _, g := range allGroupsList {
-		allGroupsMap[g.ID] = g
-	}
 	var networkUsers []models.ReturnUser
 	for _, user := range allUsers {
-		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
-			networkUsers = append(networkUsers, user)
-			continue
+		schemaUser := &schema.User{
+			Username:       user.UserName,
+			PlatformRoleID: user.PlatformRoleID,
+			UserGroups:     datatypes.NewJSONType(user.UserGroups),
 		}
-		hasAccess := false
-		for groupID := range user.UserGroups {
-			grp, ok := allGroupsMap[groupID]
-			if !ok {
-				continue
-			}
-			roles := grp.NetworkRoles.Data()
-			if _, ok := roles[netID]; ok {
-				hasAccess = true
-				break
-			}
-			if _, ok := roles[schema.AllNetworks]; ok {
-				hasAccess = true
-				break
-			}
-		}
-		if hasAccess {
+		if logic.UserHasNetworkGroupAccess(schemaUser, network) {
 			networkUsers = append(networkUsers, user)
 		}
 	}
@@ -815,7 +783,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.User
+// @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
 func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -871,7 +839,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.User
+// @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
 func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -1231,10 +1199,6 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.SuperAdminRole {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
-		return
-	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
@@ -1254,6 +1218,10 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"),
 		)
+		return
+	}
+	if logic.UserHasNetworkGroupAccess(user, node.Network) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already has access to this network's gateways"), "badrequest"))
 		return
 	}
 	err = logic.UpsertUser(*user)
@@ -1334,9 +1302,6 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
 		}
 	}(user, remoteGwID)
 
@@ -1517,7 +1482,106 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		userConf.Tags = make(map[models.TagID]struct{})
 		// userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
 		// 	models.RemoteAccessTagName))] = struct{}{}
-		if err = logic.CreateExtClient(&userConf); err != nil {
+		if len(userConf.PublicKey) == 0 {
+			privateKey, err := wgtypes.GeneratePrivateKey()
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			userConf.PrivateKey = privateKey.String()
+			userConf.PublicKey = privateKey.PublicKey().String()
+		} else if len(userConf.PrivateKey) == 0 && len(userConf.PublicKey) > 0 {
+			userConf.PrivateKey = "[ENTER PRIVATE KEY]"
+		}
+		if userConf.ExtraAllowedIPs == nil {
+			userConf.ExtraAllowedIPs = []string{}
+		}
+
+		if userConf.ClientID == "" {
+			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
+			if err != nil {
+				slog.Error(
+					"failed to create extclient",
+					"user",
+					r.Header.Get("user"),
+					"network",
+					node.Network,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+		}
+
+		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		var reservedIPv4, reservedIPv6 string
+
+		if userConf.Address == "" {
+			if network.AddressRange != "" {
+				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network)
+				if err != nil {
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv4 = newAddress.String()
+				userConf.Address = reservedIPv4
+			}
+		}
+
+		if userConf.Address6 == "" {
+			if network.AddressRange6 != "" {
+				addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
+				if err != nil {
+					if reservedIPv4 != "" {
+						networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+					}
+					slog.Error(
+						"failed to create extclient",
+						"user",
+						r.Header.Get("user"),
+						"network",
+						node.Network,
+						"error",
+						err,
+					)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				reservedIPv6 = addr6.String()
+				userConf.Address6 = reservedIPv6
+			}
+		}
+
+		userConf.LastModified = time.Now().Unix()
+		err = logic.SaveExtClient(&userConf)
+		// Reservations are freed regardless of outcome: on success the DB is authoritative,
+		// on failure the IPs must be available for reallocation.
+		if reservedIPv4 != "" {
+			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+		}
+		if reservedIPv6 != "" {
+			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+		}
+		if err != nil {
 			slog.Error(
 				"failed to create extclient",
 				"user",
@@ -1661,6 +1725,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !found && len(extClients) > 0 && deviceID == "" {
 			// TODO: prevent ip clashes.
 			gwClient = extClients[0]
+			found = true
 		}
 
 		host := &schema.Host{
@@ -1676,22 +1741,22 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node network", "error", err)
 			continue
 		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-		if len(nodesWithStatus) > 0 {
-			node = nodesWithStatus[0]
-		}
 
 		gws := userGws[node.Network]
-		if gwClient.DNS == "" {
-			logic.SetDNSOnWgConfig(&node, &gwClient)
+
+		if found {
+			if gwClient.DNS == "" {
+				logic.SetDNSOnWgConfig(&node, &gwClient)
+			}
+
+			gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+				host.EndpointIP,
+				host.EndpointIPv6,
+				logic.GetPeerListenPort(host),
+			)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
 		}
 
-		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
-			host.EndpointIP,
-			host.EndpointIPv6,
-			logic.GetPeerListenPort(host),
-		)
-		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
 		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
@@ -1745,10 +1810,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		err = host.Get(r.Context())
 		if err != nil {
 			continue
-		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-		if len(nodesWithStatus) > 0 {
-			node = nodesWithStatus[0]
 		}
 		network := &schema.Network{Name: node.Network}
 		err = network.Get(r.Context())
@@ -1923,16 +1984,18 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.ListPendingReturnUsers()
+	pendingUsers, err := (&schema.PendingUser{}).ListAll(
+		r.Context(),
+		dbtypes.InAscOrder("username"),
+	)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched pending users")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(pendingUsers)
 }
 
 // @Summary     Approve a pending user
@@ -1948,37 +2011,41 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingUsers()
 
+	pendingUser := &schema.PendingUser{
+		Username: username,
+	}
+	err := pendingUser.Get(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		err = fmt.Errorf("failed to approve pending user (%s): error fetching pending user: %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	for _, user := range users {
-		if user.UserName == username {
-			var newPass, fetchErr = logic.FetchPassValue("")
-			if fetchErr != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
-				return
-			}
-			if err = logic.CreateUser(&schema.User{
-				Username:                   user.UserName,
-				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-				Password:                   newPass,
-				AuthType:                   user.AuthType,
-				PlatformRoleID:             schema.ServiceUser,
-			}); err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
-				return
-			}
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
-				return
-			}
-			break
-		}
+
+	var newPass, fetchErr = logic.FetchPassValue("")
+	if fetchErr != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+		return
+	}
+	if err = logic.CreateUser(&schema.User{
+		Username:                   pendingUser.Username,
+		ExternalIdentityProviderID: pendingUser.ExternalIdentityProviderID,
+		Password:                   newPass,
+		AuthType:                   schema.OAuth,
+		PlatformRoleID:             schema.ServiceUser,
+	}); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
+		return
+	}
+	err = logic.DeletePendingUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
+		return
 	}
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
@@ -2011,23 +2078,30 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingReturnUsers()
 
+	pendingUser := &schema.PendingUser{
+		Username: username,
+	}
+	err := pendingUser.Get(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		err = fmt.Errorf("failed to delete pending user (%s): error fetching pending user: %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	for _, user := range users {
-		if user.UserName == username {
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
-				return
-			}
-			break
-		}
+
+	err = pendingUser.Delete(r.Context())
+	if err != nil {
+		err = fmt.Errorf("failed to delete pending user (%s): %w", username, err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
 	}
+
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
@@ -2061,7 +2135,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
-	err := database.DeleteAllRecords(database.PENDING_USERS_TABLE_NAME)
+	err := (&schema.PendingUser{}).DeleteAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
