@@ -29,3 +29,7 @@ func (o *OrganizationSettings) Get(ctx context.Context) error {
 		First(&o).
 		Error
 }
+
+func (o *OrganizationSettings) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Delete(&o).Error
+}

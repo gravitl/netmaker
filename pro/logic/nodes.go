@@ -21,8 +21,8 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
-func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
+func GetTagMapWithNodes() (tagNodesMap map[schema.TagID][]models.Node) {
+	tagNodesMap = make(map[schema.TagID][]models.Node)
 	nodes, _ := logic.GetAllNodes()
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
@@ -43,13 +43,13 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 }
 
 func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	tagNodesMap map[schema.TagID][]models.Node) map[schema.TagID][]models.Node {
 	extclients, err := logic.GetNetworkExtClients(netID.String())
 	if err != nil {
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+		tagNodesMap[schema.TagID(extclient.ClientID)] = []models.Node{
 			{
 				IsStatic:   true,
 				StaticNode: extclient,
@@ -62,7 +62,7 @@ func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.ConvertToStaticNode(&extclient))
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()
@@ -72,7 +72,7 @@ func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 	return tagNodesMap
 }
 
-func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+func GetNodeIDsWithTag(tagID schema.TagID) (ids []string) {
 
 	tag, err := GetTag(tagID)
 	if err != nil {
@@ -96,7 +96,7 @@ func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
 	return
 }
 
-func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+func GetNodesWithTag(tagID schema.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
 	tag, err := GetTag(tagID)
 	if err != nil {
@@ -120,7 +120,7 @@ func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 	return AddStaticNodesWithTag(tag, nMap)
 }
 
-func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+func AddStaticNodesWithTag(tag schema.Tag, nMap map[string]models.Node) map[string]models.Node {
 	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
 	if err != nil {
 		return nMap
@@ -133,7 +133,7 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 			extclient.Mutex.Lock()
 		}
 		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+			nMap[extclient.ClientID] = models.ConvertToStaticNode(&extclient)
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()
@@ -142,7 +142,7 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 	return nMap
 }
 
-func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+func GetStaticNodeWithTag(tagID schema.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
 	tag, err := GetTag(tagID)
 	if err != nil {
@@ -153,7 +153,7 @@ func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
 		return nMap
 	}
 	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+		nMap[extclient.ClientID] = models.ConvertToStaticNode(&extclient)
 	}
 	return nMap
 }

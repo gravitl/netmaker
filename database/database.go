@@ -10,18 +10,12 @@ import (
 
 const (
 	// == Table Names ==
-	// EXT_CLIENT_TABLE_NAME - ext client table
-	EXT_CLIENT_TABLE_NAME = "extclients"
 	// ACLS_TABLE_NAME - table for acls v2
 	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 	SSO_STATE_CACHE = "ssostatecache"
-	// METRICS_TABLE_NAME - stores network metrics
-	METRICS_TABLE_NAME = "metrics"
 	// CACHE_TABLE_NAME - caching table
 	CACHE_TABLE_NAME = "cache"
-	// TAG_TABLE_NAME - table for tags
-	TAG_TABLE_NAME = "tags"
 	// SERVER_SETTINGS - table for server settings
 	SERVER_SETTINGS = "server_settings"
 	// == ERROR CONSTS ==
@@ -52,11 +46,8 @@ const (
 )
 
 var Tables = []string{
-	EXT_CLIENT_TABLE_NAME,
 	SSO_STATE_CACHE,
-	METRICS_TABLE_NAME,
 	CACHE_TABLE_NAME,
-	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	SERVER_SETTINGS,
 }

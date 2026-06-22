@@ -98,8 +98,8 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if tag exists
-	tag := models.Tag{
-		ID:        models.TagID(fmt.Sprintf("%s.%s", req.Network, req.TagName)),
+	tag := schema.Tag{
+		ID:        schema.TagID(fmt.Sprintf("%s.%s", req.Network, req.TagName)),
 		TagName:   req.TagName,
 		Network:   req.Network,
 		CreatedBy: user.Username,
@@ -129,7 +129,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 				extclient, err := logic.GetExtClient(node.StaticNode.ClientID, node.StaticNode.Network)
 				if err == nil && extclient.RemoteAccessClientID == "" {
 					if extclient.Tags == nil {
-						extclient.Tags = make(map[models.TagID]struct{})
+						extclient.Tags = make(map[schema.TagID]struct{})
 					}
 					extclient.Tags[tag.ID] = struct{}{}
 					logic.SaveExtClient(&extclient)
@@ -226,7 +226,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	}
 	updateTag.NewName = strings.TrimSpace(updateTag.NewName)
-	var newID models.TagID
+	var newID schema.TagID
 	if updateTag.NewName != "" {
 		// validate name
 		err = proLogic.CheckIDSyntax(updateTag.NewName)
@@ -234,7 +234,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
+		newID = schema.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
 		tag.ID = newID
 		tag.TagName = updateTag.NewName
 		err = proLogic.InsertTag(tag)
@@ -285,7 +285,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	tag, err := proLogic.GetTag(models.TagID(tagID))
+	tag, err := proLogic.GetTag(schema.TagID(tagID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -295,7 +295,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tag is currently in use by an active policy"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteTag(models.TagID(tagID), true)
+	err = proLogic.DeleteTag(schema.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

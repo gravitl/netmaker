@@ -39,7 +39,7 @@ var EnrollmentErrors = struct {
 
 // CreateEnrollmentKey - creates a new enrollment key in db
 func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, networks,
-	tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID,
+	tags []string, groups []schema.TagID, unlimited bool, relay uuid.UUID,
 	defaultKey, autoEgress, autoAssignGw bool) (*schema.EnrollmentKey, error) {
 
 	newKeyID, err := getUniqueEnrollmentID(ctx)
@@ -354,7 +354,7 @@ func DeTokenize(ctx context.Context, b64Token string) (*schema.EnrollmentKey, er
 	return GetEnrollmentKey(ctx, newToken.Value)
 }
 
-func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
+func RemoveTagFromEnrollmentKeys(deletedTagID schema.TagID) {
 	keys, _ := GetAllEnrollmentKeys(db.WithContext(context.TODO()))
 	for _, key := range keys {
 		newTags := datatypes.JSONSlice[string]{}

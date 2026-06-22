@@ -18,21 +18,22 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 var (
 	metricsCacheMutex = &sync.RWMutex{}
-	metricsCacheMap   = make(map[string]models.Metrics)
+	metricsCacheMap   = make(map[string]schema.Metrics)
 )
 
-func getMetricsFromCache(key string) (metrics models.Metrics, ok bool) {
+func getMetricsFromCache(key string) (metrics schema.Metrics, ok bool) {
 	metricsCacheMutex.RLock()
 	metrics, ok = metricsCacheMap[key]
 	metricsCacheMutex.RUnlock()
 	return
 }
 
-func storeMetricsInCache(key string, metrics models.Metrics) {
+func storeMetricsInCache(key string, metrics schema.Metrics) {
 	metricsCacheMutex.Lock()
 	metricsCacheMap[key] = metrics
 	metricsCacheMutex.Unlock()
@@ -40,7 +41,7 @@ func storeMetricsInCache(key string, metrics models.Metrics) {
 
 // metricsReadCopy returns a shallow copy of m with Connectivity deep-cloned so callers never
 // share the cached map with MQTT / UpdateMetrics / metrics monitor goroutines that mutate it.
-func metricsReadCopy(m *models.Metrics) *models.Metrics {
+func metricsReadCopy(m *schema.Metrics) *schema.Metrics {
 	if m == nil {
 		return nil
 	}
@@ -60,22 +61,18 @@ func deleteMetricsFromCache(key string) {
 func LoadNodeMetricsToCache() error {
 	slog.Info("loading metrics to cache")
 	if metricsCacheMap == nil {
-		metricsCacheMap = map[string]models.Metrics{}
+		metricsCacheMap = map[string]schema.Metrics{}
 	}
 
-	collection, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	entries, err := (&schema.MetricsEntry{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
-	for key, value := range collection {
-		var metrics models.Metrics
-		if err := json.Unmarshal([]byte(value), &metrics); err != nil {
-			slog.Error("parse metric record error", "error", err.Error())
-			continue
-		}
+	for _, entry := range entries {
+		metrics := entry.Value.Data()
 		if servercfg.CacheEnabled() {
-			storeMetricsInCache(key, metrics)
+			storeMetricsInCache(entry.Key, metrics)
 		}
 	}
 
@@ -84,24 +81,21 @@ func LoadNodeMetricsToCache() error {
 }
 
 // GetMetrics - gets the metrics
-func GetMetrics(nodeid string) (*models.Metrics, error) {
-	var metrics models.Metrics
+func GetMetrics(nodeid string) (*schema.Metrics, error) {
+	var metrics schema.Metrics
 	if servercfg.CacheEnabled() {
 		if m, ok := getMetricsFromCache(nodeid); ok {
 			return metricsReadCopy(&m), nil
 		}
 	}
-	record, err := database.FetchRecord(database.METRICS_TABLE_NAME, nodeid)
-	if err != nil {
+	entry := &schema.MetricsEntry{Key: nodeid}
+	if err := entry.Get(db.WithContext(context.TODO())); err != nil {
 		if database.IsEmptyRecord(err) {
 			return &metrics, nil
 		}
 		return &metrics, err
 	}
-	err = json.Unmarshal([]byte(record), &metrics)
-	if err != nil {
-		return &metrics, err
-	}
+	metrics = entry.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeMetricsInCache(nodeid, metrics)
 		return metricsReadCopy(&metrics), nil
@@ -110,13 +104,9 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 }
 
 // UpdateMetrics - updates the metrics of a given client
-func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
+func UpdateMetrics(nodeid string, metrics *schema.Metrics) error {
 	metrics.UpdatedAt = time.Now()
-	data, err := json.Marshal(metrics)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(nodeid, string(data), database.METRICS_TABLE_NAME)
+	err := (&schema.MetricsEntry{Key: nodeid, NetworkID: metrics.Network, Value: datatypes.NewJSONType(*metrics)}).Save(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -128,7 +118,7 @@ func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 
 // DeleteMetrics - deletes metrics of a given node
 func DeleteMetrics(nodeid string) error {
-	err := database.DeleteRecord(database.METRICS_TABLE_NAME, nodeid)
+	err := (&schema.MetricsEntry{Key: nodeid}).Delete(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -208,7 +198,7 @@ func SetPeerMetricsDisconnected(nodeID string) {
 }
 
 // MQUpdateMetricsFallBack - called when mq fallback thread is triggered on client
-func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
+func MQUpdateMetricsFallBack(nodeid string, newMetrics schema.Metrics) {
 
 	currentNode, err := logic.GetNodeByID(nodeid)
 	if err != nil {
@@ -243,7 +233,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	var newMetrics models.Metrics
+	var newMetrics schema.Metrics
 	if err := json.Unmarshal(decrypted, &newMetrics); err != nil {
 		slog.Error("error unmarshaling payload", "error", err)
 		return
@@ -256,14 +246,14 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 	slog.Debug("updated node metrics", "id", id)
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
+func updateNodeMetrics(currentNode *models.Node, newMetrics *schema.Metrics) {
 	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
 		slog.Error("error finding old metrics for node", "id", currentNode.ID, "error", err)
 		return
 	}
 
-	var attachedClients []models.ExtClient
+	var attachedClients []schema.ExtClient
 	if currentNode.IsIngressGateway {
 		clients, err := logic.GetExtClientsByID(currentNode.ID.String(), currentNode.Network)
 		if err == nil {
@@ -271,7 +261,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 		}
 	}
 	if newMetrics.Connectivity == nil {
-		newMetrics.Connectivity = make(map[string]models.Metric)
+		newMetrics.Connectivity = make(map[string]schema.Metric)
 	}
 	for i := range attachedClients {
 		slog.Debug("[metrics] processing attached client", "client", attachedClients[i].ClientID, "public key", attachedClients[i].PublicKey)

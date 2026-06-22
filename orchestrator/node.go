@@ -48,7 +48,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
 		for _, tag := range ops.key.Tags {
-			n.nodeExt.ConfigureTag(node, models.TagID(tag))
+			n.nodeExt.ConfigureTag(node, schema.TagID(tag))
 		}
 	}
 
@@ -111,7 +111,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	go logic.CheckZombies(node)
 
 	go func() {
-		err := logic.UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
+		err := logic.UpdateMetrics(node.ID, &schema.Metrics{Connectivity: make(map[string]schema.Metric)})
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to initialize metrics for node (%s): %v", node.ID, err))
 		}
@@ -224,7 +224,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	n.nodeExt.ConfigureAutoRelay(node)
 
-	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
+	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, schema.GwTagName)] = struct{}{}
 
 	err := node.Update(ctx)
 	if err != nil {

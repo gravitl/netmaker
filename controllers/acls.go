@@ -44,100 +44,100 @@ func aclHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 	resp := models.AclPolicyTypes{
-		RuleTypes: []models.AclPolicyType{
-			models.DevicePolicy,
-			models.UserPolicy,
+		RuleTypes: []schema.AclPolicyType{
+			schema.DevicePolicy,
+			schema.UserPolicy,
 		},
-		SrcGroupTypes: []models.AclGroupType{
-			models.UserAclID,
-			models.UserGroupAclID,
-			models.NodeTagID,
-			models.NodeID,
+		SrcGroupTypes: []schema.AclGroupType{
+			schema.UserAclID,
+			schema.UserGroupAclID,
+			schema.NodeTagID,
+			schema.NodeID,
 		},
-		DstGroupTypes: []models.AclGroupType{
-			models.NodeTagID,
-			models.NodeID,
-			models.EgressID,
-			models.NetmakerIPAclID,
-			// models.NetmakerSubNetRangeAClID,
+		DstGroupTypes: []schema.AclGroupType{
+			schema.NodeTagID,
+			schema.NodeID,
+			schema.EgressID,
+			schema.NetmakerIPAclID,
+			// schema.NetmakerSubNetRangeAClID,
 		},
 		ProtocolTypes: []models.ProtocolType{
 			{
 				Name: models.Any,
-				AllowedProtocols: []models.Protocol{
-					models.ALL,
+				AllowedProtocols: []schema.Protocol{
+					schema.ALL,
 				},
 				PortRange:        "All ports",
 				AllowPortSetting: false,
 			},
 			{
 				Name: models.Http,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
+				AllowedProtocols: []schema.Protocol{
+					schema.TCP,
 				},
 				PortRange: "80",
 			},
 			{
 				Name: models.Https,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
+				AllowedProtocols: []schema.Protocol{
+					schema.TCP,
 				},
 				PortRange: "443",
 			},
 			// {
 			// 	Name: "MySQL",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
+			// 	AllowedProtocols: []schema.Protocol{
+			// 		schema.TCP,
 			// 	},
 			// 	PortRange: "3306",
 			// },
 			// {
 			// 	Name: "DNS TCP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
+			// 	AllowedProtocols: []schema.Protocol{
+			// 		schema.TCP,
 			// 	},
 			// 	PortRange: "53",
 			// },
 			// {
 			// 	Name: "DNS UDP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.UDP,
+			// 	AllowedProtocols: []schema.Protocol{
+			// 		schema.UDP,
 			// 	},
 			// 	PortRange: "53",
 			// },
 			{
 				Name: models.AllTCP,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
+				AllowedProtocols: []schema.Protocol{
+					schema.TCP,
 				},
 				PortRange: "All ports",
 			},
 			{
 				Name: models.AllUDP,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
+				AllowedProtocols: []schema.Protocol{
+					schema.UDP,
 				},
 				PortRange: "All ports",
 			},
 			{
 				Name: models.ICMPService,
-				AllowedProtocols: []models.Protocol{
-					models.ICMP,
+				AllowedProtocols: []schema.Protocol{
+					schema.ICMP,
 				},
 				PortRange: "",
 			},
 			{
 				Name: models.SSH,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
+				AllowedProtocols: []schema.Protocol{
+					schema.TCP,
 				},
 				PortRange: "22",
 			},
 			{
 				Name: models.Custom,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-					models.TCP,
+				AllowedProtocols: []schema.Protocol{
+					schema.UDP,
+					schema.TCP,
 				},
 				PortRange:        "All ports",
 				AllowPortSetting: true,
@@ -163,7 +163,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		peer = extclient.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(&extclient)
 
 	} else {
 		peer, err = logic.GetNodeByID(peerID)
@@ -175,7 +175,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	type resp struct {
 		IsNodeAllowed bool
 		IsPeerAllowed bool
-		Policies      []models.Acl
+		Policies      []schema.Acl
 		IngressRules  []models.FwRule
 		NodeAllPolicy bool
 		EgressNets    map[string]models.Node
@@ -203,7 +203,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Success     200 {array} models.Acl
+// @Success     200 {array} schema.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getAcls(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network")
@@ -234,7 +234,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       egress_id query string true "Egress ID"
-// @Success     200 {array} models.Acl
+// @Success     200 {array} schema.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 	eID := r.URL.Query().Get("egress_id")
@@ -266,12 +266,12 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Accept      json
 // @Produce     json
-// @Param       body body models.Acl true "ACL policy details"
-// @Success     200 {object} models.Acl
+// @Param       body body schema.Acl true "ACL policy details"
+// @Success     200 {object} schema.Acl
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createAcl(w http.ResponseWriter, r *http.Request) {
-	var req models.Acl
+	var req schema.Acl
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
@@ -302,7 +302,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.Default = false
 	if acl.ServiceType == models.Any {
 		acl.Port = []string{}
-		acl.Proto = models.ALL
+		acl.Proto = schema.ALL
 	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(acl); err != nil {
@@ -336,7 +336,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	})
 	go mq.PublishPeerUpdate(true)
-	acls := []models.Acl{acl}
+	acls := []schema.Acl{acl}
 	logic.PopulateAclPolicyTagNames(acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "created acl successfully")
 }
@@ -421,7 +421,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 		return
 	}
-	acls := []models.Acl{updatedAcl}
+	acls := []schema.Acl{updatedAcl}
 	logic.PopulateAclPolicyTagNames(acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "updated acl "+acl.Name)
 }

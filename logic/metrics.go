@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 type MetricsMonitor struct {
@@ -73,12 +73,12 @@ var DeleteMetrics = func(string) error {
 	return nil
 }
 
-var UpdateMetrics = func(string, *models.Metrics) error {
+var UpdateMetrics = func(string, *schema.Metrics) error {
 	return nil
 }
 
-var GetMetrics = func(string) (*models.Metrics, error) {
-	var metrics models.Metrics
+var GetMetrics = func(string) (*schema.Metrics, error) {
+	var metrics schema.Metrics
 	return &metrics, nil
 }
 

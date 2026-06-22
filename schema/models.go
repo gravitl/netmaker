@@ -26,5 +26,9 @@ func ListModels() []interface{} {
 		&Integration{},
 		&EnrollmentKey{},
 		&DNS{},
+		&ExtClientEntry{},
+		&AclEntry{},
+		&MetricsEntry{},
+		&TagEntry{},
 	}
 }

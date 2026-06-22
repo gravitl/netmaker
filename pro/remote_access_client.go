@@ -72,7 +72,7 @@ func unauthorisedUserNodeHook() error {
 	return nil
 }
 
-func disableExtClient(client *models.ExtClient) error {
+func disableExtClient(client *schema.ExtClient) error {
 	if newClient, err := logic.ToggleExtClientConnectivity(client, false); err != nil {
 		return err
 	} else {
@@ -92,7 +92,7 @@ func disableExtClient(client *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, nil, []models.ExtClient{*client}, false, nil)
+			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, nil, []schema.ExtClient{*client}, false, nil)
 		} else {
 			return err
 		}

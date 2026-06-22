@@ -1788,7 +1788,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	go func() {
-		ownerExtClients := make(map[string][]models.ExtClient)
+		ownerExtClients := make(map[string][]schema.ExtClient)
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("bulk user delete: failed to get extclients", "error", err)
@@ -1911,13 +1911,13 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
 
 	go func() {
-		var ownerExtClients map[string][]models.ExtClient
+		var ownerExtClients map[string][]schema.ExtClient
 		if forceToggle {
 			extclients, err := logic.GetAllExtClients()
 			if err != nil {
 				slog.Error("bulk user status: failed to get extclients", "error", err)
 			} else {
-				ownerExtClients = make(map[string][]models.ExtClient, len(req.IDs))
+				ownerExtClients = make(map[string][]schema.ExtClient, len(req.IDs))
 				for _, ec := range extclients {
 					ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
 				}

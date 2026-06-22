@@ -335,7 +335,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), schema.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
@@ -659,11 +659,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		netAddr6Range = *cidr
 	}
 
-	var violations []models.Violation
+	var violations []schema.Violation
 	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
 	if err == nil {
 		for _, _violation := range _violations {
-			violations = append(violations, models.Violation{
+			violations = append(violations, schema.Violation{
 				CheckID:   _violation.CheckID,
 				Name:      _violation.Name,
 				Attribute: _violation.Attribute,
@@ -698,7 +698,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		IsAutoRelay:                        _node.IsAutoRelay == "yes",
 		AutoRelayedPeers:                   _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                  _node.IsInternetGateway,
-		Tags:                               make(map[models.TagID]struct{}),
+		Tags:                               make(map[schema.TagID]struct{}),
 		Status:                             _node.Status,
 		PostureChecksViolations:            violations,
 		PostureCheckViolationSeverityLevel: _node.PostureCheckSeverity,
@@ -745,7 +745,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	}
 
 	for tagID := range _node.Tags {
-		node.Tags[models.TagID(tagID)] = struct{}{}
+		node.Tags[schema.TagID(tagID)] = struct{}{}
 	}
 
 	return node

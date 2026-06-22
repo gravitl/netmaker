@@ -157,7 +157,7 @@ type HostUpdate struct {
 	Node         Node
 	Signal       Signal
 	EgressDomain EgressDomain
-	NewMetrics   Metrics
+	NewMetrics   schema.Metrics
 }
 
 // HostTurnRegister - struct for host turn registration

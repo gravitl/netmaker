@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -188,7 +187,7 @@ func PublishDeletedNodePeerUpdate(delHost *schema.Host, delNode *models.Node) er
 
 // PublishDeletedClientPeerUpdate --- determines and publishes a peer update
 // to all the hosts with a deleted ext client to account for
-func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
+func PublishDeletedClientPeerUpdate(delClient *schema.ExtClient) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -205,7 +204,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, []schema.ExtClient{*delClient}, false, nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -214,7 +213,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []schema.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -342,18 +341,14 @@ func PushAllMetricsToExporter() {
 		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
 		return
 	}
-	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	entries, err := (&schema.MetricsEntry{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("metrics export: failed to fetch records", "error", err)
 		return
 	}
-	batch := make([]models.Metrics, 0, len(records))
-	for _, data := range records {
-		var m models.Metrics
-		if err := json.Unmarshal([]byte(data), &m); err != nil {
-			continue
-		}
-		batch = append(batch, m)
+	batch := make([]schema.Metrics, 0, len(entries))
+	for _, entry := range entries {
+		batch = append(batch, entry.Value.Data())
 	}
 	if len(batch) == 0 {
 		return

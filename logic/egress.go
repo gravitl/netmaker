@@ -136,7 +136,7 @@ func EgressDomainsEqual(a, b []string) bool {
 	return slices.Equal(aa, bb)
 }
 
-func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
+func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []schema.Acl) bool {
 	if !e.Status {
 		return false
 	}
@@ -150,9 +150,9 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 		if _, ok := dstTags[e.ID]; ok || all {
 			// get all src tags
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.Username {
+				if srcAcl.ID == schema.UserAclID && srcAcl.Value == user.Username {
 					return true
-				} else if srcAcl.ID == models.UserGroupAclID {
+				} else if srcAcl.ID == schema.UserGroupAclID {
 					// fetch all users in the group
 					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
@@ -164,18 +164,18 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 	return false
 }
 
-func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []models.Acl) bool {
+func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []schema.Acl) bool {
 	nodeTags := maps.Clone(node.Tags)
-	nodeTags[models.TagID(node.ID.String())] = struct{}{}
-	nodeTags[models.TagID("*")] = struct{}{}
+	nodeTags[schema.TagID(node.ID.String())] = struct{}{}
+	nodeTags[schema.TagID("*")] = struct{}{}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
 		srcVal := ConvAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
-			if (dstI.ID == models.EgressID && dstI.Value == e.ID) || (dstI.ID == models.NodeTagID && dstI.Value == "*") {
-				if dstI.ID == models.EgressID {
+			if (dstI.ID == schema.EgressID && dstI.Value == e.ID) || (dstI.ID == schema.NodeTagID && dstI.Value == "*") {
+				if dstI.ID == schema.EgressID {
 					e := schema.Egress{ID: dstI.Value}
 					err := e.Get(db.WithContext(context.TODO()))
 					if err != nil {
@@ -205,7 +205,7 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 	return false
 }
 
-func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e *schema.Egress, acls []models.Acl) bool {
+func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e *schema.Egress, acls []schema.Acl) bool {
 	if node == nil || targetNode == nil || e == nil {
 		return false
 	}
@@ -225,7 +225,7 @@ func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e 
 		nodeRoutesDst := targetNodeRoutesAnyEgress(*node, dstEgresses)
 		targetRoutesSrc := targetNodeRoutesAnyEgress(*targetNode, srcEgresses)
 		targetRoutesDst := targetNodeRoutesAnyEgress(*targetNode, dstEgresses)
-		if acl.AllowedDirection == models.TrafficDirectionUni {
+		if acl.AllowedDirection == schema.TrafficDirectionUni {
 			if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
 				return true
 			}
@@ -254,7 +254,7 @@ func egressListContainsID(egresses []schema.Egress, id string) bool {
 // with writers on the same node (shallow copies may share the Tags map). When Mutex is nil,
 // tags are still read so tag-based egress matching applies; that matches patterns like
 // maps.Clone(node.Tags) elsewhere for nodes without an initialized mutex.
-func snapshotNodeTagIDs(n *models.Node) []models.TagID {
+func snapshotNodeTagIDs(n *models.Node) []schema.TagID {
 	if n == nil {
 		return nil
 	}
@@ -265,14 +265,14 @@ func snapshotNodeTagIDs(n *models.Node) []models.TagID {
 	if len(n.Tags) == 0 {
 		return nil
 	}
-	out := make([]models.TagID, 0, len(n.Tags))
+	out := make([]schema.TagID, 0, len(n.Tags))
 	for tid := range n.Tags {
 		out = append(out, tid)
 	}
 	return out
 }
 
-func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
+func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []schema.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
 		NodeID:     targetNode.ID.String(),
@@ -411,7 +411,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
 	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(network, schema.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	seen := make(map[string]struct{})
 	for _, e := range eli {
@@ -444,7 +444,7 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	acls := ListDevicePolicies(schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), schema.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
@@ -490,7 +490,7 @@ func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver
 	return
 }
 
-func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []models.Acl) {
+func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []schema.Acl) {
 
 	req := models.EgressGatewayRequest{
 		NodeID:     targetNode.ID.String(),

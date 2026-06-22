@@ -68,25 +68,25 @@ type Node struct {
 	//AutoRelayedPeers   map[string]struct{} `json:"auto_relayed_peers"`
 	AutoRelayedPeers map[string]string `json:"auto_relayed_peers_v1"`
 	//AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
-	FailOverPeers                      map[string]struct{} `json:"fail_over_peers"`
-	FailedOverBy                       uuid.UUID           `json:"failed_over_by"`
-	IsInternetGateway                  bool                `json:"isinternetgateway"`
-	InetNodeReq                        InetNodeReq         `json:"inet_node_req"`
-	InternetGwID                       string              `json:"internetgw_node_id"`
-	AdditionalRagIps                   []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
-	Tags                               map[TagID]struct{}  `json:"tags"`
-	IsStatic                           bool                `json:"is_static"`
-	IsUserNode                         bool                `json:"is_user_node"`
-	StaticNode                         ExtClient           `json:"static_node"`
-	Status                             schema.NodeStatus   `json:"node_status"`
-	Mutex                              *sync.Mutex         `json:"-"`
-	EgressDetails                      EgressDetails       `json:"-"`
-	PostureChecksViolations            []Violation         `json:"posture_check_violations"`
-	PostureCheckViolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
-	LastEvaluationCycleID              string              `json:"last_evaluation_cycle_id"`
-	LastEvaluatedAt                    time.Time           `json:"last_evaluated_at"`
-	Location                           string              `json:"location"` // Format: "lat,lon"
-	CountryCode                        string              `json:"country_code"`
+	FailOverPeers                      map[string]struct{}       `json:"fail_over_peers"`
+	FailedOverBy                       uuid.UUID                 `json:"failed_over_by"`
+	IsInternetGateway                  bool                      `json:"isinternetgateway"`
+	InetNodeReq                        InetNodeReq               `json:"inet_node_req"`
+	InternetGwID                       string                    `json:"internetgw_node_id"`
+	AdditionalRagIps                   []net.IP                  `json:"additional_rag_ips" swaggertype:"array,number"`
+	Tags                               map[schema.TagID]struct{} `json:"tags"`
+	IsStatic                           bool                      `json:"is_static"`
+	IsUserNode                         bool                      `json:"is_user_node"`
+	StaticNode                         schema.ExtClient          `json:"static_node"`
+	Status                             schema.NodeStatus         `json:"node_status"`
+	Mutex                              *sync.Mutex               `json:"-"`
+	EgressDetails                      EgressDetails             `json:"-"`
+	PostureChecksViolations            []schema.Violation        `json:"posture_check_violations"`
+	PostureCheckViolationSeverityLevel schema.Severity           `json:"posture_check_violation_severity_level"`
+	LastEvaluationCycleID              string                    `json:"last_evaluation_cycle_id"`
+	LastEvaluatedAt                    time.Time                 `json:"last_evaluated_at"`
+	Location                           string                    `json:"location"` // Format: "lat,lon"
+	CountryCode                        string                    `json:"country_code"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
@@ -143,22 +143,6 @@ func (node *Node) AddressIPNet4() net.IPNet {
 func (node *Node) AddressIPNet6() net.IPNet {
 	return net.IPNet{
 		IP:   node.Address6.IP,
-		Mask: net.CIDRMask(128, 128),
-	}
-}
-
-// ExtClient.PrimaryAddress - returns ipv4 IPNet format
-func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
-	return net.IPNet{
-		IP:   net.ParseIP(extPeer.Address),
-		Mask: net.CIDRMask(32, 32),
-	}
-}
-
-// ExtClient.AddressIPNet6 - return ipv6 IPNet format
-func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
-	return net.IPNet{
-		IP:   net.ParseIP(extPeer.Address6),
 		Mask: net.CIDRMask(128, 128),
 	}
 }
@@ -259,7 +243,7 @@ func (newNode *Node) Fill(
 	newNode.FailOverPeers = currentNode.FailOverPeers
 	if newNode.Tags == nil {
 		if currentNode.Tags == nil {
-			currentNode.Tags = make(map[TagID]struct{})
+			currentNode.Tags = make(map[schema.TagID]struct{})
 		}
 		newNode.Tags = currentNode.Tags
 	}

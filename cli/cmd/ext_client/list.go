@@ -7,7 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +20,7 @@ var extClientListCmd = &cobra.Command{
 	Short: "List External Clients",
 	Long:  `List External Clients`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var data []models.ExtClient
+		var data []schema.ExtClient
 		if networkName != "" {
 			data = *functions.GetNetworkExtClients(networkName)
 		} else {

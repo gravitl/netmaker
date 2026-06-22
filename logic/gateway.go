@@ -154,8 +154,8 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error) {
-	removedClients := []models.ExtClient{}
+func DeleteIngressGateway(nodeid string) (models.Node, []schema.ExtClient, error) {
+	removedClients := []schema.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, removedClients, err
@@ -174,7 +174,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	logger.Log(3, "deleting ingress gateway")
 	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
-	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
+	delete(node.Tags, schema.TagID(fmt.Sprintf("%s.%s", node.Network, schema.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)
@@ -206,7 +206,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 }
 
 // IsUserAllowedAccessToExtClient - checks if user has permission to access extclient
-func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bool {
+func IsUserAllowedAccessToExtClient(username string, client schema.ExtClient) bool {
 	if username == MasterUser {
 		return true
 	}

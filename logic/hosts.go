@@ -35,8 +35,8 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schema.NetworkID) (v []models.Violation, level schema.Severity) {
-	return []models.Violation{}, schema.SeverityUnknown
+var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schema.NetworkID) (v []schema.Violation, level schema.Severity) {
+	return []schema.Violation{}, schema.SeverityUnknown
 }
 
 var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {

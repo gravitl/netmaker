@@ -8,7 +8,6 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -158,7 +157,7 @@ func backfillExtClientNetworkID(ctx context.Context) error {
 		return fmt.Errorf("multitenancy migration: list extclients records: %w", err)
 	}
 	for key, value := range records {
-		var client models.ExtClient
+		var client schema.ExtClient
 		if err := json.Unmarshal([]byte(value), &client); err != nil {
 			return fmt.Errorf("multitenancy migration: parse extclient record %s: %w", key, err)
 		}
@@ -182,7 +181,7 @@ func backfillAclNetworkID(ctx context.Context) error {
 		return fmt.Errorf("multitenancy migration: list acls records: %w", err)
 	}
 	for key, value := range records {
-		var acl models.Acl
+		var acl schema.Acl
 		if err := json.Unmarshal([]byte(value), &acl); err != nil {
 			return fmt.Errorf("multitenancy migration: parse acl record %s: %w", key, err)
 		}
@@ -206,7 +205,7 @@ func backfillMetricsNetworkID(ctx context.Context) error {
 		return fmt.Errorf("multitenancy migration: list metrics records: %w", err)
 	}
 	for key, value := range records {
-		var m models.Metrics
+		var m schema.Metrics
 		if err := json.Unmarshal([]byte(value), &m); err != nil {
 			return fmt.Errorf("multitenancy migration: parse metrics record %s: %w", key, err)
 		}
@@ -230,7 +229,7 @@ func backfillTagNetworkID(ctx context.Context) error {
 		return fmt.Errorf("multitenancy migration: list tags records: %w", err)
 	}
 	for key, value := range records {
-		var tag models.Tag
+		var tag schema.Tag
 		if err := json.Unmarshal([]byte(value), &tag); err != nil {
 			return fmt.Errorf("multitenancy migration: parse tag record %s: %w", key, err)
 		}

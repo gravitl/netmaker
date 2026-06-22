@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -17,49 +16,37 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 var tagMutex = &sync.RWMutex{}
 
 // GetTag - fetches tag info
-func GetTag(tagID models.TagID) (models.Tag, error) {
-	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
-	if err != nil {
-		return models.Tag{}, err
+func GetTag(tagID schema.TagID) (schema.Tag, error) {
+	entry := &schema.TagEntry{Key: tagID.String()}
+	if err := entry.Get(db.WithContext(context.TODO())); err != nil {
+		return schema.Tag{}, err
 	}
-	tag := models.Tag{}
-	err = json.Unmarshal([]byte(data), &tag)
-	if err != nil {
-		return tag, err
-	}
-	return tag, nil
+	return entry.Value.Data(), nil
 }
 
-func UpsertTag(tag models.Tag) error {
-	d, err := json.Marshal(tag)
-	if err != nil {
-		return err
-	}
-	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+func UpsertTag(tag schema.Tag) error {
+	return (&schema.TagEntry{Key: tag.ID.String(), NetworkID: string(tag.Network), Value: datatypes.NewJSONType(tag)}).Save(db.WithContext(context.TODO()))
 }
 
 // InsertTag - creates new tag
-func InsertTag(tag models.Tag) error {
+func InsertTag(tag schema.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	_, err := database.FetchRecord(database.TAG_TABLE_NAME, tag.ID.String())
-	if err == nil {
+	existing := &schema.TagEntry{Key: tag.ID.String()}
+	if err := existing.Get(db.WithContext(context.TODO())); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
-	d, err := json.Marshal(tag)
-	if err != nil {
-		return err
-	}
-	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+	return (&schema.TagEntry{Key: tag.ID.String(), NetworkID: string(tag.Network), Value: datatypes.NewJSONType(tag)}).Save(db.WithContext(context.TODO()))
 }
 
 // DeleteTag - delete tag, will also untag hosts
-func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
+func DeleteTag(tagID schema.TagID, removeFromPolicy bool) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
@@ -93,7 +80,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 			logic.SaveExtClient(&extclient)
 		}
 	}
-	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
+	return (&schema.TagEntry{Key: tagID.String()}).Delete(db.WithContext(context.TODO()))
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
@@ -122,30 +109,25 @@ func DeleteAllNetworkTags(networkID schema.NetworkID) {
 }
 
 // ListNetworkTags - lists all tags in network
-func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
+func ListNetworkTags(netID schema.NetworkID) ([]schema.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	entries, err := (&schema.TagEntry{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && !database.IsEmptyRecord(err) {
-		return []models.Tag{}, err
+		return []schema.Tag{}, err
 	}
-	tags := []models.Tag{}
-	for _, dataI := range data {
-		tag := models.Tag{}
-		err := json.Unmarshal([]byte(dataI), &tag)
-		if err != nil {
-			continue
-		}
+	tags := []schema.Tag{}
+	for _, entry := range entries {
+		tag := entry.Value.Data()
 		if tag.Network == netID {
 			tags = append(tags, tag)
 		}
-
 	}
 	return tags, nil
 }
 
 // UpdateTag - updates and syncs hosts with tag update
-func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
+func UpdateTag(req models.UpdateTagReq, newID schema.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	network := &schema.Network{
@@ -196,7 +178,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	extclients, _ := logic.GetNetworkExtClients(req.Network.String())
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
-			extclient.Tags = make(map[models.TagID]struct{})
+			extclient.Tags = make(map[schema.TagID]struct{})
 		}
 
 		// unassign old tag
@@ -240,9 +222,9 @@ func CheckIDSyntax(id string) error {
 
 func CreateDefaultTags(netID schema.NetworkID) {
 	// create tag for gws in the network
-	tag := models.Tag{
-		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),
-		TagName:   models.GwTagName,
+	tag := schema.Tag{
+		ID:        schema.TagID(fmt.Sprintf("%s.%s", netID.String(), schema.GwTagName)),
+		TagName:   schema.GwTagName,
 		Network:   netID,
 		CreatedBy: "auto",
 		CreatedAt: time.Now().UTC(),

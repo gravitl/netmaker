@@ -156,7 +156,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), schema.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -213,7 +213,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
+func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []schema.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -317,15 +317,15 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), schema.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), schema.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
-				AllowedProtocol: models.ALL,
-				Direction:       models.TrafficDirectionBi,
+				AllowedProtocol: schema.ALL,
+				Direction:       schema.TrafficDirectionBi,
 				Allowed:         true,
 				IPList:          []net.IPNet{node.NetworkRange},
 				IP6List:         []net.IPNet{node.NetworkRange6},
@@ -793,7 +793,7 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
+func GetAllowedIPs(node, peer *models.Node, metrics *schema.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
 	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {

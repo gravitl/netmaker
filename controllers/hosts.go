@@ -583,7 +583,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			nodes := make([]models.Node, 0, len(extclients)+1)
 			nodes = append(nodes, node)
 			for _, extclient := range extclients {
-				nodes = append(nodes, extclient.ConvertToStaticNode())
+				nodes = append(nodes, models.ConvertToStaticNode(&extclient))
 			}
 
 			nodesWithStatus := logic.AddStatusToNodes(nodes, true)
@@ -1738,9 +1738,9 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyTags := make(map[models.TagID]struct{})
+	keyTags := make(map[schema.TagID]struct{})
 	for _, tagI := range key.Tags {
-		keyTags[models.TagID(tagI)] = struct{}{}
+		keyTags[schema.TagID(tagI)] = struct{}{}
 	}
 
 	violations, _ := logic.CheckPostureViolations(
@@ -1834,7 +1834,7 @@ func addDefaultHostToNetworks(host *schema.Host) {
 				KernelVersion:  host.KernelVersion,
 				AutoUpdate:     host.AutoUpdate,
 				SkipAutoUpdate: true,
-				Tags:           make(map[models.TagID]struct{}),
+				Tags:           make(map[schema.TagID]struct{}),
 			},
 			schema.NetworkID(network.Name),
 		)

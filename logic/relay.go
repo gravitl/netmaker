@@ -166,7 +166,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	}
 	acls, _ := ListAclsByNetwork(schema.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(relay.Network), models.DevicePolicy)
+	defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(relay.Network), schema.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue

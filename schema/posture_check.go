@@ -89,6 +89,15 @@ var PostureCheckAttrValues = map[Attribute][]string{
 	AutoUpdate:     {"true", "false"},
 }
 
+// Violation represents a posture check violation for a node or ext client.
+type Violation struct {
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+}
+
 type PostureCheck struct {
 	ID          string                      `gorm:"primaryKey"       json:"id"`
 	TenantID    string                      `gorm:"default:'';index" json:"tenant_id"`

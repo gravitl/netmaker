@@ -33,7 +33,7 @@ func AddPostureCheckHook() {
 		Interval: interval,
 	}
 }
-func RemoveTagFromPostureChecks(tagID models.TagID, netID schema.NetworkID) {
+func RemoveTagFromPostureChecks(tagID schema.TagID, netID schema.NetworkID) {
 	pcLi, err := (&schema.PostureCheck{NetworkID: netID}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return
@@ -87,7 +87,7 @@ func RunPostureChecks() error {
 			if nodeI.IsStatic && !nodeI.IsUserNode {
 				continue
 			}
-			var postureChecksViolations []models.Violation
+			var postureChecksViolations []schema.Violation
 			var postureCheckVolationSeverityLevel schema.Severity
 			if noChecks {
 				postureCheckVolationSeverityLevel = schema.SeverityUnknown
@@ -140,22 +140,22 @@ func RunPostureChecks() error {
 	return nil
 }
 
-func CheckPostureViolations(d models.PostureCheckDeviceInfo, network schema.NetworkID) ([]models.Violation, schema.Severity) {
+func CheckPostureViolations(d models.PostureCheckDeviceInfo, network schema.NetworkID) ([]schema.Violation, schema.Severity) {
 	if !GetFeatureFlags().EnablePostureChecks {
-		return []models.Violation{}, schema.SeverityUnknown
+		return []schema.Violation{}, schema.SeverityUnknown
 	}
 	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
-		return []models.Violation{}, schema.SeverityUnknown
+		return []schema.Violation{}, schema.SeverityUnknown
 	}
 	violations, level := GetPostureCheckViolations(pcLi, d)
 	return violations, level
 }
-func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
+func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]schema.Violation, schema.Severity) {
 	if !GetFeatureFlags().EnablePostureChecks {
-		return []models.Violation{}, schema.SeverityUnknown
+		return []schema.Violation{}, schema.SeverityUnknown
 	}
-	var violations []models.Violation
+	var violations []schema.Violation
 	highest := schema.SeverityUnknown
 
 	// Group checks by attribute
@@ -181,7 +181,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				}
 				exists := false
 				for tagID := range c.Tags {
-					if _, ok := d.Tags[models.TagID(tagID)]; ok {
+					if _, ok := d.Tags[schema.TagID(tagID)]; ok {
 						exists = true
 						break
 					}
@@ -241,7 +241,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				if sev > highest {
 					highest = sev
 				}
-				v := models.Violation{
+				v := schema.Violation{
 					CheckID:   denied.check.ID,
 					Name:      denied.check.Name,
 					Attribute: string(denied.check.Attribute),
@@ -255,7 +255,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				if sev > highest {
 					highest = sev
 				}
-				v := models.Violation{
+				v := schema.Violation{
 					CheckID:   denied.check.ID,
 					Name:      denied.check.Name,
 					Attribute: string(denied.check.Attribute),
@@ -303,7 +303,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 					highest = sev
 				}
 
-				v := models.Violation{
+				v := schema.Violation{
 					CheckID:   denied.check.ID,
 					Name:      denied.check.Name,
 					Attribute: string(denied.check.Attribute),
@@ -348,7 +348,7 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			OSVersion:      node.StaticNode.OSVersion,
 			OSFamily:       node.StaticNode.OSFamily,
 			KernelVersion:  node.StaticNode.KernelVersion,
-			Tags:           make(map[models.TagID]struct{}),
+			Tags:           make(map[schema.TagID]struct{}),
 			IsUser:         true,
 			UserGroups:     make(map[schema.UserGroupID]struct{}),
 		}
@@ -587,7 +587,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if tagID == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(schema.TagID(tagID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}

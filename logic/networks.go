@@ -552,7 +552,7 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 					exists = true
 					break
 				}
-				if _, ok := node.Tags[models.TagID(tagI)]; ok {
+				if _, ok := node.Tags[schema.TagID(tagI)]; ok {
 					exists = true
 					break
 				}

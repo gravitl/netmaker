@@ -1450,7 +1450,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("failed to get node network", "error", err)
 	}
-	var userConf models.ExtClient
+	var userConf schema.ExtClient
 	allextClients, err := logic.GetAllExtClients()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1480,8 +1480,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 		}
 		userConf.Enabled = true
-		userConf.Tags = make(map[models.TagID]struct{})
-		// userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
+		userConf.Tags = make(map[schema.TagID]struct{})
+		// userConf.Tags[schema.TagID(fmt.Sprintf("%s.%s", userConf.Network,
 		// 	models.RemoteAccessTagName))] = struct{}{}
 		if len(userConf.PublicKey) == 0 {
 			privateKey, err := wgtypes.GeneratePrivateKey()
@@ -1671,7 +1671,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	}
 	userGwNodes := proLogic.GetUserRAGNodes(user)
 
-	userExtClients := make(map[string][]models.ExtClient)
+	userExtClients := make(map[string][]schema.ExtClient)
 
 	// group all extclients of the requesting user by ingress
 	// gateway.
@@ -1687,7 +1687,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 
 		_, ok := userExtClients[extClient.IngressGatewayID]
 		if !ok {
-			userExtClients[extClient.IngressGatewayID] = []models.ExtClient{}
+			userExtClients[extClient.IngressGatewayID] = []schema.ExtClient{}
 		}
 
 		userExtClients[extClient.IngressGatewayID] = append(userExtClients[extClient.IngressGatewayID], extClient)
@@ -1701,7 +1701,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		var gwClient models.ExtClient
+		var gwClient schema.ExtClient
 		var found bool
 		if deviceID != "" {
 			for _, extClient := range extClients {

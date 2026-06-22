@@ -1062,27 +1062,27 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 		}
 
 		if !exists {
-			_ = logic.InsertAcl(models.Acl{
+			_ = logic.InsertAcl(schema.Acl{
 				ID:          uuid.New().String(),
 				Name:        defaultAclName,
 				MetaData:    "This Policy allows user group to communicate with all gateways",
 				Default:     true,
 				ServiceType: models.Any,
 				NetworkID:   schema.NetworkID(network.Name),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
+				Proto:       schema.ALL,
+				RuleType:    schema.UserPolicy,
+				Src: []schema.AclPolicyTag{
 					{
-						ID:    models.UserGroupAclID,
+						ID:    schema.UserGroupAclID,
 						Value: groupID,
 					},
 				},
-				Dst: []models.AclPolicyTag{
+				Dst: []schema.AclPolicyTag{
 					{
-						ID:    models.NodeTagID,
-						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+						ID:    schema.NodeTagID,
+						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), schema.GwTagName),
 					}},
-				AllowedDirection: models.TrafficDirectionUni,
+				AllowedDirection: schema.TrafficDirectionUni,
 				Enabled:          true,
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
@@ -1118,10 +1118,10 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 			//	_ = logic.DeleteAcl(acl)
 			//}
 
-			var newAclSrc []models.AclPolicyTag
+			var newAclSrc []schema.AclPolicyTag
 			var groupSrcExists bool
 			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID && src.Value == groupID {
+				if src.ID == schema.UserGroupAclID && src.Value == groupID {
 					groupSrcExists = true
 				} else {
 					newAclSrc = append(newAclSrc, src)
@@ -1188,27 +1188,27 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 	}
 
 	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
-		defaultUserAcl := models.Acl{
+		defaultUserAcl := schema.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
 			Name:        "All Users",
 			MetaData:    "This policy gives access to everything in the network for an user",
 			NetworkID:   netID,
-			Proto:       models.ALL,
+			Proto:       schema.ALL,
 			ServiceType: models.Any,
 			Port:        []string{},
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
+			RuleType:    schema.UserPolicy,
+			Src: []schema.AclPolicyTag{
 				{
-					ID:    models.UserAclID,
+					ID:    schema.UserAclID,
 					Value: "*",
 				},
 			},
-			Dst: []models.AclPolicyTag{{
-				ID:    models.NodeTagID,
+			Dst: []schema.AclPolicyTag{{
+				ID:    schema.NodeTagID,
 				Value: "*",
 			}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1219,31 +1219,31 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin)) {
 		networkAdminGroupID := GetDefaultNetworkAdminGroupID(netID)
 
-		defaultUserAcl := models.Acl{
+		defaultUserAcl := schema.Acl{
 			ID:          fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin),
 			Name:        "Network Admin",
 			MetaData:    "This Policy allows all network admins to communicate with all gateways",
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
+			Proto:       schema.ALL,
+			RuleType:    schema.UserPolicy,
+			Src: []schema.AclPolicyTag{
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: globalNetworksAdminGroupID.String(),
 				},
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: networkAdminGroupID.String(),
 				},
 			},
-			Dst: []models.AclPolicyTag{
+			Dst: []schema.AclPolicyTag{
 				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
+					ID:    schema.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", netID, schema.GwTagName),
 				}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1254,31 +1254,31 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser)) {
 		networkUserGroupID := GetDefaultNetworkUserGroupID(netID)
 
-		defaultUserAcl := models.Acl{
+		defaultUserAcl := schema.Acl{
 			ID:          fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser),
 			Name:        "Network User",
 			MetaData:    "This Policy allows all network users to communicate with all gateways",
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
+			Proto:       schema.ALL,
+			RuleType:    schema.UserPolicy,
+			Src: []schema.AclPolicyTag{
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: globalNetworksUserGroupID.String(),
 				},
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: networkUserGroupID.String(),
 				},
 			},
-			Dst: []models.AclPolicyTag{
+			Dst: []schema.AclPolicyTag{
 				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
+					ID:    schema.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", netID, schema.GwTagName),
 				}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1317,27 +1317,27 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			}
 
 			if !exists {
-				_ = logic.InsertAcl(models.Acl{
+				_ = logic.InsertAcl(schema.Acl{
 					ID:          uuid.New().String(),
 					Name:        defaultAclName,
 					MetaData:    "This Policy allows user group to communicate with all gateways",
 					Default:     true,
 					ServiceType: models.Any,
 					NetworkID:   netID,
-					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
-					Src: []models.AclPolicyTag{
+					Proto:       schema.ALL,
+					RuleType:    schema.UserPolicy,
+					Src: []schema.AclPolicyTag{
 						{
-							ID:    models.UserGroupAclID,
+							ID:    schema.UserGroupAclID,
 							Value: group.ID.String(),
 						},
 					},
-					Dst: []models.AclPolicyTag{
+					Dst: []schema.AclPolicyTag{
 						{
-							ID:    models.NodeTagID,
-							Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
+							ID:    schema.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", netID, schema.GwTagName),
 						}},
-					AllowedDirection: models.TrafficDirectionUni,
+					AllowedDirection: schema.TrafficDirectionUni,
 					Enabled:          true,
 					CreatedBy:        "auto",
 					CreatedAt:        time.Now().UTC(),

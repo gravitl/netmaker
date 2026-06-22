@@ -20,7 +20,7 @@ func getStaticUserNodesByNetwork(network schema.NetworkID) (staticNode []models.
 	for _, extI := range extClients {
 		if extI.Network == network.String() {
 			if extI.RemoteAccessClientID != "" {
-				n := extI.ConvertToStaticNode()
+				n := models.ConvertToStaticNode(&extI)
 				staticNode = append(staticNode, n)
 			}
 		}
@@ -29,7 +29,7 @@ func getStaticUserNodesByNetwork(network schema.NetworkID) (staticNode []models.
 }
 
 func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []models.FwRule) {
-	defaultUserPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
+	defaultUserPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(node.Network), schema.UserPolicy)
 	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if !userNodeI.StaticNode.Enabled {
@@ -40,7 +40,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 				rules = append(rules, models.FwRule{
 					SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
 					DstIP:           net.IPNet{},
-					AllowedProtocol: models.ALL,
+					AllowedProtocol: schema.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
 				})
@@ -49,7 +49,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 				rules = append(rules, models.FwRule{
 					SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
 					DstIP:           net.IPNet{},
-					AllowedProtocol: models.ALL,
+					AllowedProtocol: schema.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
 				})
@@ -63,7 +63,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 
 			if ok, allowedPolicies := IsUserAllowedToCommunicate(userNodeI.StaticNode.OwnerID, peer); ok {
 				if peer.IsStatic {
-					peer = peer.StaticNode.ConvertToStaticNode()
+					peer = models.ConvertToStaticNode(&peer.StaticNode)
 				}
 				for _, policy := range allowedPolicies {
 					selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
@@ -104,7 +104,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 							})
 							break
 						}
-						if dstI.ID == models.EgressID {
+						if dstI.ID == schema.EgressID {
 
 							e := schema.Egress{ID: dstI.Value}
 							err := e.Get(db.WithContext(context.TODO()))
@@ -206,7 +206,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 	return
 }
 
-func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
+func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []schema.Acl) (rules []models.FwRule) {
 
 	for _, policy := range allowedPolicies {
 		selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
@@ -242,7 +242,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				Allow:           true,
 			})
 		}
-		if policy.AllowedDirection == models.TrafficDirectionBi {
+		if policy.AllowedDirection == schema.TrafficDirectionBi {
 			if node.Address.IP != nil {
 				rules = append(rules, models.FwRule{
 					SrcIP: net.IPNet{
@@ -336,7 +336,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 		// add egress range rules
 		for _, dstI := range policy.Dst {
-			if dstI.ID == models.EgressID {
+			if dstI.ID == schema.EgressID {
 
 				e := schema.Egress{ID: dstI.Value}
 				err := e.Get(db.WithContext(context.TODO()))
@@ -493,19 +493,19 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 	return
 }
 
-func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
+func checkIfAclTagisValid(a schema.Acl, t schema.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
-	case models.NodeTagID:
-		if a.RuleType == models.UserPolicy && isSrc {
+	case schema.NodeTagID:
+		if a.RuleType == schema.UserPolicy && isSrc {
 			return errors.New("user policy source mismatch")
 		}
 		// check if tag is valid
-		_, err := GetTag(models.TagID(t.Value))
+		_, err := GetTag(schema.TagID(t.Value))
 		if err != nil {
 			return errors.New("invalid tag " + t.Value)
 		}
-	case models.NodeID:
-		if a.RuleType == models.UserPolicy && isSrc {
+	case schema.NodeID:
+		if a.RuleType == schema.UserPolicy && isSrc {
 			return errors.New("user policy source mismatch")
 		}
 		_, nodeErr := logic.GetNodeByID(t.Value)
@@ -515,7 +515,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 				return errors.New("invalid node " + t.Value)
 			}
 		}
-	case models.EgressID, models.EgressRange:
+	case schema.EgressID, schema.EgressRange:
 		e := schema.Egress{
 			ID: t.Value,
 		}
@@ -523,14 +523,14 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-	case models.NetmakerIPAclID:
+	case schema.NetmakerIPAclID:
 		_, err := logic.NormalizeIPOrCIDR(t.Value)
 		if err != nil {
 			return err
 		}
 
-	case models.UserAclID:
-		if a.RuleType == models.DevicePolicy {
+	case schema.UserAclID:
+		if a.RuleType == schema.DevicePolicy {
 			return errors.New("device policy source mismatch")
 		}
 		if !isSrc {
@@ -541,8 +541,8 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		if err != nil {
 			return errors.New("invalid user " + t.Value)
 		}
-	case models.UserGroupAclID:
-		if a.RuleType == models.DevicePolicy {
+	case schema.UserGroupAclID:
+		if a.RuleType == schema.DevicePolicy {
 			return errors.New("device policy source mismatch")
 		}
 		if !isSrc {
@@ -564,14 +564,14 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 }
 
 // IsAclPolicyValid - validates if acl policy is valid
-func IsAclPolicyValid(acl models.Acl) (err error) {
+func IsAclPolicyValid(acl schema.Acl) (err error) {
 	//check if src and dst are valid
-	if acl.AllowedDirection != models.TrafficDirectionBi &&
-		acl.AllowedDirection != models.TrafficDirectionUni {
+	if acl.AllowedDirection != schema.TrafficDirectionBi &&
+		acl.AllowedDirection != schema.TrafficDirectionUni {
 		return errors.New("invalid traffic direction")
 	}
 	switch acl.RuleType {
-	case models.UserPolicy:
+	case schema.UserPolicy:
 		// src list should only contain users
 		for _, srcI := range acl.Src {
 
@@ -594,7 +594,7 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 				return
 			}
 		}
-	case models.DevicePolicy:
+	case schema.DevicePolicy:
 		for _, srcI := range acl.Src {
 			if srcI.Value == "*" {
 				continue
@@ -622,9 +622,9 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 }
 
 // listPoliciesOfUser - lists all user acl policies applied to user in an network
-func listPoliciesOfUser(user *schema.User, netID schema.NetworkID) []models.Acl {
+func listPoliciesOfUser(user *schema.User, netID schema.NetworkID) []schema.Acl {
 	allAcls := logic.ListAcls()
-	var userAcls []models.Acl
+	var userAcls []schema.Acl
 	if _, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]; ok {
 		user.UserGroups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
 	}
@@ -632,7 +632,7 @@ func listPoliciesOfUser(user *schema.User, netID schema.NetworkID) []models.Acl 
 		user.UserGroups.Data()[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
 	}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.RuleType == schema.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
 			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
@@ -651,20 +651,20 @@ func listPoliciesOfUser(user *schema.User, netID schema.NetworkID) []models.Acl 
 }
 
 // listUserPolicies - lists all user policies in a network
-func listUserPolicies(netID schema.NetworkID) []models.Acl {
+func listUserPolicies(netID schema.NetworkID) []schema.Acl {
 	allAcls := logic.ListAcls()
-	deviceAcls := []models.Acl{}
+	deviceAcls := []schema.Acl{}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.RuleType == schema.UserPolicy {
 			deviceAcls = append(deviceAcls, acl)
 		}
 	}
 	return deviceAcls
 }
 
-func getSelectedUserEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
+func getSelectedUserEgressIPNets(dstTags []schema.AclPolicyTag) (dst4, dst6 []net.IPNet) {
 	for _, dst := range dstTags {
-		if dst.ID != models.NetmakerIPAclID {
+		if dst.ID != schema.NetmakerIPAclID {
 			continue
 		}
 		normalized, err := logic.NormalizeIPOrCIDR(dst.Value)
@@ -685,16 +685,16 @@ func getSelectedUserEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []ne
 }
 
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
-func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []models.Acl) {
+func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []schema.Acl) {
 	var peerId string
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(&peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
 
-	var peerTags map[models.TagID]struct{}
+	var peerTags map[schema.TagID]struct{}
 	if peer.Mutex != nil {
 		peer.Mutex.Lock()
 		peerTags = maps.Clone(peer.Tags)
@@ -703,20 +703,20 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 		peerTags = peer.Tags
 	}
 	if peerTags == nil {
-		peerTags = make(map[models.TagID]struct{})
+		peerTags = make(map[schema.TagID]struct{})
 	}
-	peerTags[models.TagID(peerId)] = struct{}{}
-	peerTags[models.TagID("*")] = struct{}{}
-	acl, _ := logic.GetDefaultPolicy(schema.NetworkID(peer.Network), models.UserPolicy)
+	peerTags[schema.TagID(peerId)] = struct{}{}
+	peerTags[schema.TagID("*")] = struct{}{}
+	acl, _ := logic.GetDefaultPolicy(schema.NetworkID(peer.Network), schema.UserPolicy)
 	if acl.Enabled {
-		return true, []models.Acl{acl}
+		return true, []schema.Acl{acl}
 	}
 	user := &schema.User{Username: userName}
 	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return false, []models.Acl{}
+		return false, []schema.Acl{}
 	}
-	allowedPolicies := []models.Acl{}
+	allowedPolicies := []schema.Acl{}
 	policies := listPoliciesOfUser(user, schema.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {
@@ -724,7 +724,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 		}
 		dstMap := logic.ConvAclTagToValueMap(policy.Dst)
 		for _, dst := range policy.Dst {
-			if dst.ID == models.EgressID {
+			if dst.ID == schema.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
 				if err == nil && e.Status {
@@ -753,7 +753,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	if len(allowedPolicies) > 0 {
 		return true, allowedPolicies
 	}
-	return false, []models.Acl{}
+	return false, []schema.Acl{}
 }
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
@@ -773,18 +773,18 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
+		node = models.ConvertToStaticNode(&node.StaticNode)
 	} else {
 		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(&peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
 
-	var nodeTags, peerTags map[models.TagID]struct{}
+	var nodeTags, peerTags map[schema.TagID]struct{}
 	if node.Mutex != nil {
 		node.Mutex.Lock()
 		nodeTags = maps.Clone(node.Tags)
@@ -800,16 +800,16 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		peerTags = peer.Tags
 	}
 	if nodeTags == nil {
-		nodeTags = make(map[models.TagID]struct{})
+		nodeTags = make(map[schema.TagID]struct{})
 	}
 	if peerTags == nil {
-		peerTags = make(map[models.TagID]struct{})
+		peerTags = make(map[schema.TagID]struct{})
 	}
-	nodeTags[models.TagID(nodeId)] = struct{}{}
-	peerTags[models.TagID(peerId)] = struct{}{}
+	nodeTags[schema.TagID(nodeId)] = struct{}{}
+	peerTags[schema.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
-		defaultPolicy, err := logic.GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultPolicy, err := logic.GetDefaultPolicy(schema.NetworkID(node.Network), schema.DevicePolicy)
 		if err == nil {
 			if defaultPolicy.Enabled {
 				return true
@@ -836,7 +836,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		srcMap = logic.ConvAclTagToValueMap(policy.Src)
 		dstMap = logic.ConvAclTagToValueMap(policy.Dst)
 		for _, dst := range policy.Dst {
-			if dst.ID == models.EgressID {
+			if dst.ID == schema.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
 				if err == nil && e.Status {
@@ -859,9 +859,9 @@ func RemoveUserFromAclPolicy(userName string) {
 	for _, acl := range acls {
 		delete := false
 		update := false
-		if acl.RuleType == models.UserPolicy {
+		if acl.RuleType == schema.UserPolicy {
 			for i := len(acl.Src) - 1; i >= 0; i-- {
-				if acl.Src[i].ID == models.UserAclID && acl.Src[i].Value == userName {
+				if acl.Src[i].ID == schema.UserAclID && acl.Src[i].Value == userName {
 					if len(acl.Src) == 1 {
 						// delete policy
 						delete = true
@@ -884,12 +884,12 @@ func RemoveUserFromAclPolicy(userName string) {
 }
 
 // UpdateDeviceTag - updates device tag on acl policies
-func UpdateDeviceTag(OldID, newID models.TagID, netID schema.NetworkID) {
+func UpdateDeviceTag(OldID, newID schema.TagID, netID schema.NetworkID) {
 	acls := logic.ListDevicePolicies(netID)
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
-			if srcTagI.ID == models.NodeTagID {
+			if srcTagI.ID == schema.NodeTagID {
 				if OldID.String() == srcTagI.Value {
 					acl.Src[i].Value = newID.String()
 					update = true
@@ -897,7 +897,7 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID schema.NetworkID) {
 			}
 		}
 		for i, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.NodeTagID {
+			if dstTagI.ID == schema.NodeTagID {
 				if OldID.String() == dstTagI.Value {
 					acl.Dst[i].Value = newID.String()
 					update = true
@@ -910,18 +910,18 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID schema.NetworkID) {
 	}
 }
 
-func CheckIfTagAsActivePolicy(tagID models.TagID, netID schema.NetworkID) bool {
+func CheckIfTagAsActivePolicy(tagID schema.TagID, netID schema.NetworkID) bool {
 	acls := logic.ListDevicePolicies(netID)
 	for _, acl := range acls {
 		for _, srcTagI := range acl.Src {
-			if srcTagI.ID == models.NodeTagID {
+			if srcTagI.ID == schema.NodeTagID {
 				if tagID.String() == srcTagI.Value {
 					return true
 				}
 			}
 		}
 		for _, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.NodeTagID {
+			if dstTagI.ID == schema.NodeTagID {
 				if tagID.String() == dstTagI.Value {
 					return true
 				}
@@ -932,12 +932,12 @@ func CheckIfTagAsActivePolicy(tagID models.TagID, netID schema.NetworkID) bool {
 }
 
 // RemoveDeviceTagFromAclPolicies - remove device tag from acl policies
-func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID schema.NetworkID) error {
+func RemoveDeviceTagFromAclPolicies(tagID schema.TagID, netID schema.NetworkID) error {
 	acls := logic.ListDevicePolicies(netID)
 	update := false
 	for _, acl := range acls {
 		for i := len(acl.Src) - 1; i >= 0; i-- {
-			if acl.Src[i].ID == models.NodeTagID {
+			if acl.Src[i].ID == schema.NodeTagID {
 				if tagID.String() == acl.Src[i].Value {
 					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
 					update = true
@@ -945,7 +945,7 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID schema.NetworkID) 
 			}
 		}
 		for i := len(acl.Dst) - 1; i >= 0; i-- {
-			if acl.Dst[i].ID == models.NodeTagID {
+			if acl.Dst[i].ID == schema.NodeTagID {
 				if tagID.String() == acl.Dst[i].Value {
 					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
 					update = true
@@ -963,15 +963,15 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
-	allowedUsers := make(map[string][]models.Acl)
+	allowedUsers := make(map[string][]schema.Acl)
 	acls := listUserPolicies(schema.NetworkID(targetnode.Network))
-	var targetNodeTags = make(map[models.TagID]struct{})
+	var targetNodeTags = make(map[schema.TagID]struct{})
 	targetNodeTags["*"] = struct{}{}
 	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	if len(egs) == 0 {
 		return rules
 	}
-	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(targetnode.Network), models.UserPolicy)
+	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(targetnode.Network), schema.UserPolicy)
 
 	for _, egI := range egs {
 		if !egI.Status {
@@ -979,14 +979,14 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
 			if egI.Range != "" {
-				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+				targetNodeTags[schema.TagID(egI.Range)] = struct{}{}
 			} else if logic.HasEgressDomainAns(egI) {
 				for _, domainAnsI := range logic.AllDomainAnsFromEgress(egI) {
-					targetNodeTags[models.TagID(domainAnsI)] = struct{}{}
+					targetNodeTags[schema.TagID(domainAnsI)] = struct{}{}
 				}
 			}
 
-			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
+			targetNodeTags[schema.TagID(egI.ID)] = struct{}{}
 		}
 	}
 	if !defaultPolicy.Enabled {
@@ -996,7 +996,7 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 			}
 			dstTags := logic.ConvAclTagToValueMap(acl.Dst)
 			for _, dst := range acl.Dst {
-				if dst.ID == models.EgressID {
+				if dst.ID == schema.EgressID {
 					e := schema.Egress{ID: dst.Value}
 					err := e.Get(db.WithContext(context.TODO()))
 					if err == nil && e.Status {
@@ -1030,9 +1030,9 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 			if addUsers {
 				// get all src tags
 				for _, srcAcl := range acl.Src {
-					if srcAcl.ID == models.UserAclID {
+					if srcAcl.ID == schema.UserAclID {
 						allowedUsers[srcAcl.Value] = append(allowedUsers[srcAcl.Value], acl)
-					} else if srcAcl.ID == models.UserGroupAclID {
+					} else if srcAcl.ID == schema.UserGroupAclID {
 						// fetch all users in the group
 						if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {
 							for userName := range usersMap {
@@ -1099,7 +1099,7 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 					r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
 				}
 				for _, dstI := range acl.Dst {
-					if dstI.ID == models.EgressID {
+					if dstI.ID == schema.EgressID {
 						e := schema.Egress{ID: dstI.Value}
 						err := e.Get(db.WithContext(context.TODO()))
 						if err != nil {
@@ -1190,7 +1190,7 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 // rules keyed by acl.ID, and a "-reverse" companion is added for Bi policies.
 func appendUserExtClientRemoteEgressFwdRules(
 	targetnode *models.Node,
-	acls []models.Acl,
+	acls []schema.Acl,
 	egs []schema.Egress,
 	userNodes []models.Node,
 	userGrpMap map[schema.UserGroupID]map[string]struct{},
@@ -1263,9 +1263,9 @@ func appendUserExtClientRemoteEgressFwdRules(
 
 		allowedOwners := make(map[string]struct{})
 		for _, srcAcl := range acl.Src {
-			if srcAcl.ID == models.UserAclID {
+			if srcAcl.ID == schema.UserAclID {
 				allowedOwners[srcAcl.Value] = struct{}{}
-			} else if srcAcl.ID == models.UserGroupAclID {
+			} else if srcAcl.ID == schema.UserGroupAclID {
 				if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {
 					for userName := range usersMap {
 						allowedOwners[userName] = struct{}{}
@@ -1313,7 +1313,7 @@ func appendUserExtClientRemoteEgressFwdRules(
 		}
 		rules[ruleID] = aclRule
 
-		if acl.AllowedDirection == models.TrafficDirectionBi &&
+		if acl.AllowedDirection == schema.TrafficDirectionBi &&
 			(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
 			revID := ruleID + "-reverse"
 			rules[revID] = models.AclRule{
@@ -1335,9 +1335,9 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
-	allowedUsers := make(map[string][]models.Acl)
+	allowedUsers := make(map[string][]schema.Acl)
 	acls := listUserPolicies(schema.NetworkID(targetnode.Network))
-	var targetNodeTags = make(map[models.TagID]struct{})
+	var targetNodeTags = make(map[schema.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
 		targetNodeTags = maps.Clone(targetnode.Tags)
@@ -1346,10 +1346,10 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 		targetNodeTags = maps.Clone(targetnode.Tags)
 	}
 	if targetNodeTags == nil {
-		targetNodeTags = make(map[models.TagID]struct{})
+		targetNodeTags = make(map[schema.TagID]struct{})
 	}
-	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(targetnode.Network), models.UserPolicy)
-	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
+	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(targetnode.Network), schema.UserPolicy)
+	targetNodeTags[schema.TagID(targetnode.ID.String())] = struct{}{}
 	if !defaultPolicy.Enabled {
 		for _, acl := range acls {
 			if !acl.Enabled {
@@ -1360,7 +1360,7 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 			addUsers := false
 			if !all {
 				for _, dst := range acl.Dst {
-					if dst.ID == models.EgressID {
+					if dst.ID == schema.EgressID {
 						e := schema.Egress{ID: dst.Value}
 						err := e.Get(db.WithContext(context.TODO()))
 						if err == nil && e.Status && len(e.Nodes) > 0 {
@@ -1383,9 +1383,9 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 			if addUsers {
 				// get all src tags
 				for _, srcAcl := range acl.Src {
-					if srcAcl.ID == models.UserAclID {
+					if srcAcl.ID == schema.UserAclID {
 						allowedUsers[srcAcl.Value] = append(allowedUsers[srcAcl.Value], acl)
-					} else if srcAcl.ID == models.UserGroupAclID {
+					} else if srcAcl.ID == schema.UserGroupAclID {
 						// fetch all users in the group
 						if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {
 							for userName := range usersMap {
@@ -1489,7 +1489,7 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 						}
 						break
 					}
-					if dst.ID == models.EgressID {
+					if dst.ID == schema.EgressID {
 						e := schema.Egress{ID: dst.Value}
 						err := e.Get(db.WithContext(context.TODO()))
 						if err == nil && e.Status && len(e.Nodes) > 0 {
@@ -1589,8 +1589,8 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
-func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl) bool {
-	var targetNodeTags = make(map[models.TagID]struct{})
+func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []schema.Acl) bool {
+	var targetNodeTags = make(map[schema.TagID]struct{})
 	if targetNode.Mutex != nil {
 		targetNode.Mutex.Lock()
 		targetNodeTags = maps.Clone(targetNode.Tags)
@@ -1599,24 +1599,24 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 		targetNodeTags = maps.Clone(targetNode.Tags)
 	}
 	if targetNodeTags == nil {
-		targetNodeTags = make(map[models.TagID]struct{})
+		targetNodeTags = make(map[schema.TagID]struct{})
 	}
-	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
+	targetNodeTags[schema.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
-		if acl.AllowedDirection == models.TrafficDirectionBi && acl.Proto == models.ALL && acl.ServiceType == models.Any {
+		if acl.AllowedDirection == schema.TrafficDirectionBi && acl.Proto == schema.ALL && acl.ServiceType == models.Any {
 			continue
 		}
-		if acl.Proto != models.ALL || acl.ServiceType != models.Any {
+		if acl.Proto != schema.ALL || acl.ServiceType != models.Any {
 			return true
 		}
 		srcTags := logic.ConvAclTagToValueMap(acl.Src)
 		dstTags := logic.ConvAclTagToValueMap(acl.Dst)
 		for nodeTag := range targetNodeTags {
-			if acl.RuleType == models.DevicePolicy {
+			if acl.RuleType == schema.DevicePolicy {
 				if _, ok := srcTags[nodeTag.String()]; ok {
 					return true
 				}
@@ -1636,11 +1636,11 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 	return false
 }
 
-func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
+func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[schema.TagID][]models.Node) {
+	tagNodesMap = make(map[schema.TagID][]models.Node)
 	nodes, _ := logic.GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
-		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
+		tagNodesMap[schema.TagID(nodeI.ID.String())] = []models.Node{
 			nodeI,
 		}
 		if nodeI.Tags == nil {
@@ -1650,7 +1650,7 @@ func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (
 			nodeI.Mutex.Lock()
 		}
 		for nodeTagID := range nodeI.Tags {
-			if nodeTagID == models.TagID(nodeI.ID.String()) {
+			if nodeTagID == schema.TagID(nodeI.ID.String()) {
 				continue
 			}
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
@@ -1667,7 +1667,7 @@ func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (
 }
 
 func AddTagMapWithStaticNodes(netID schema.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	tagNodesMap map[schema.TagID][]models.Node) map[schema.TagID][]models.Node {
 	extclients, err := logic.GetNetworkExtClients(netID.String())
 	if err != nil {
 		return tagNodesMap
@@ -1676,7 +1676,7 @@ func AddTagMapWithStaticNodes(netID schema.NetworkID,
 		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+		tagNodesMap[schema.TagID(extclient.ClientID)] = []models.Node{
 			{
 				IsStatic:   true,
 				StaticNode: extclient,
@@ -1690,11 +1690,11 @@ func AddTagMapWithStaticNodes(netID schema.NetworkID,
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
-			if tagID == models.TagID(extclient.ClientID) {
+			if tagID == schema.TagID(extclient.ClientID) {
 				continue
 			}
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.ConvertToStaticNode(&extclient))
+			tagNodesMap["*"] = append(tagNodesMap["*"], models.ConvertToStaticNode(&extclient))
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()

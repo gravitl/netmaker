@@ -25,7 +25,7 @@ func ValidateNameserverReq(ns *schema.Nameserver) error {
 			if tagI == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagI))
+			_, err := GetTag(schema.TagID(tagI))
 			if err != nil {
 				return errors.New("invalid tag")
 			}
@@ -243,7 +243,7 @@ func GetNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func RemoveTagFromNameservers(tagID models.TagID, netID schema.NetworkID) error {
+func RemoveTagFromNameservers(tagID schema.TagID, netID schema.NetworkID) error {
 	nameservers, err := (&schema.Nameserver{
 		NetworkID: netID.String(),
 	}).ListByNetwork(db.WithContext(context.TODO()))

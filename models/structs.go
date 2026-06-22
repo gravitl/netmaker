@@ -46,7 +46,7 @@ type UserRemoteGws struct {
 	Network           string            `json:"network"`
 	Connected         bool              `json:"connected"`
 	IsInternetGateway bool              `json:"is_internet_gateway"`
-	GwClient          ExtClient         `json:"gw_client"`
+	GwClient          schema.ExtClient  `json:"gw_client"`
 	GwPeerPublicKey   string            `json:"gw_peer_public_key"`
 	GwListenPort      int               `json:"gw_listen_port"`
 	Metadata          string            `json:"metadata"`
@@ -465,17 +465,9 @@ type PostureCheckDeviceInfo struct {
 	KernelVersion  string
 	AutoUpdate     bool
 	SkipAutoUpdate bool
-	Tags           map[TagID]struct{}
+	Tags           map[schema.TagID]struct{}
 	IsUser         bool
 	UserGroups     map[schema.UserGroupID]struct{}
-}
-
-type Violation struct {
-	CheckID   string          `json:"check_id"`
-	Name      string          `json:"name"`
-	Attribute string          `json:"attribute"`
-	Message   string          `json:"message"`
-	Severity  schema.Severity `json:"severity"`
 }
 
 type BulkDeleteRequest struct {

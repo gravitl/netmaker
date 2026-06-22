@@ -76,11 +76,11 @@ type OldPeerUpdateFields struct {
 }
 
 type FwRule struct {
-	SrcIP           net.IPNet `json:"src_ip"`
-	DstIP           net.IPNet `json:"dst_ip"`
-	AllowedProtocol Protocol  `json:"allowed_protocols"` // tcp, udp, etc.
-	AllowedPorts    []string  `json:"allowed_ports"`
-	Allow           bool      `json:"allow"`
+	SrcIP           net.IPNet       `json:"src_ip"`
+	DstIP           net.IPNet       `json:"dst_ip"`
+	AllowedProtocol schema.Protocol `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedPorts    []string        `json:"allowed_ports"`
+	Allow           bool            `json:"allow"`
 }
 
 // IngressInfo - struct for ingress info

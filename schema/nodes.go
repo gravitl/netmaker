@@ -35,6 +35,13 @@ const (
 	Disconnected NodeStatus = "disconnected"
 )
 
+// TagID is a string identifier for a node tag.
+type TagID string
+
+func (id TagID) String() string {
+	return string(id)
+}
+
 type Node struct {
 	ID                                string                                `gorm:"primaryKey"       json:"id"`
 	TenantID                          string                                `gorm:"default:'';index" json:"tenant_id"`

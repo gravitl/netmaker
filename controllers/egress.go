@@ -525,7 +525,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	for _, acl := range acls {
 
 		for i := len(acl.Dst) - 1; i >= 0; i-- {
-			if acl.Dst[i].ID == models.EgressID && acl.Dst[i].Value == id {
+			if acl.Dst[i].ID == schema.EgressID && acl.Dst[i].Value == id {
 				acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
 			}
 		}

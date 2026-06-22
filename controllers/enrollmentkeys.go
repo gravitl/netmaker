@@ -520,9 +520,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyTags := make(map[models.TagID]struct{})
+	keyTags := make(map[schema.TagID]struct{})
 	for _, tagI := range enrollmentKey.Tags {
-		keyTags[models.TagID(tagI)] = struct{}{}
+		keyTags[schema.TagID(tagI)] = struct{}{}
 	}
 
 	var joinNetworks []string

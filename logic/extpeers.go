@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/goombaio/namegenerator"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -21,14 +19,15 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/datatypes"
 )
 
 var (
 	extClientCacheMutex = &sync.RWMutex{}
-	extClientCacheMap   = make(map[string]models.ExtClient)
+	extClientCacheMap   = make(map[string]schema.ExtClient)
 )
 
-func getAllExtClientsFromCache() (extClients []models.ExtClient) {
+func getAllExtClientsFromCache() (extClients []schema.ExtClient) {
 	extClientCacheMutex.RLock()
 	for _, extclient := range extClientCacheMap {
 		if extclient.Mutex == nil {
@@ -46,7 +45,7 @@ func deleteExtClientFromCache(key string) {
 	extClientCacheMutex.Unlock()
 }
 
-func getExtClientFromCache(key string) (extclient models.ExtClient, ok bool) {
+func getExtClientFromCache(key string) (extclient schema.ExtClient, ok bool) {
 	extClientCacheMutex.RLock()
 	extclient, ok = extClientCacheMap[key]
 	if extclient.Mutex == nil {
@@ -56,7 +55,7 @@ func getExtClientFromCache(key string) (extclient models.ExtClient, ok bool) {
 	return
 }
 
-func storeExtClientInCache(key string, extclient models.ExtClient) {
+func storeExtClientInCache(key string, extclient schema.ExtClient) {
 	extClientCacheMutex.Lock()
 	if extclient.Mutex == nil {
 		extclient.Mutex = &sync.Mutex{}
@@ -66,13 +65,13 @@ func storeExtClientInCache(key string, extclient models.ExtClient) {
 }
 
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
-func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
+func GetEgressRangesOnNetwork(client *schema.ExtClient) ([]string, error) {
 
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	staticNode := client.ConvertToStaticNode()
+	staticNode := models.ConvertToStaticNode(client)
 	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
-	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
+	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), schema.UserPolicy)
 
 	for _, eI := range eli {
 		if !eI.Status {
@@ -157,8 +156,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	if err = (&schema.ExtClientEntry{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -183,12 +181,12 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 			Origin:    schema.ClientApp,
 		})
 	}
-	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
+	go RemoveNodeFromAclPolicy(models.ConvertToStaticNode(&extClient))
 	return nil
 }
 
 // DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
-func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
+func DeleteExtClientAndCleanup(extClient schema.ExtClient) error {
 
 	//delete extClient record
 	err := DeleteExtClient(extClient.Network, extClient.ClientID, false)
@@ -207,8 +205,8 @@ a. check against each user node, if allowed add rule
 */
 
 // GetNetworkExtClients - gets the ext clients of given network
-func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
-	var extclients []models.ExtClient
+func GetNetworkExtClients(network string) ([]schema.ExtClient, error) {
+	var extclients []schema.ExtClient
 	if servercfg.CacheEnabled() {
 		allextclients := getAllExtClientsFromCache()
 		if len(allextclients) != 0 {
@@ -220,35 +218,25 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 			return extclients, nil
 		}
 	}
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
+	entries, err := (&schema.ExtClientEntry{NetworkID: network}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return extclients, nil
-		}
 		return extclients, err
 	}
-	for _, value := range records {
-		var extclient models.ExtClient
-		err = json.Unmarshal([]byte(value), &extclient)
-		if err != nil {
-			continue
-		}
-		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-		if err == nil {
-			if servercfg.CacheEnabled() {
+	for _, entry := range entries {
+		extclient := entry.Value.Data()
+		if servercfg.CacheEnabled() {
+			if key, kerr := GetRecordKey(extclient.ClientID, extclient.Network); kerr == nil {
 				storeExtClientInCache(key, extclient)
 			}
 		}
-		if extclient.Network == network {
-			extclients = append(extclients, extclient)
-		}
+		extclients = append(extclients, extclient)
 	}
-	return extclients, err
+	return extclients, nil
 }
 
 // GetExtClient - gets a single ext client on a network
-func GetExtClient(clientid string, network string) (models.ExtClient, error) {
-	var extclient models.ExtClient
+func GetExtClient(clientid string, network string) (schema.ExtClient, error) {
+	var extclient schema.ExtClient
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
 		return extclient, err
@@ -258,15 +246,15 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 			return extclient, nil
 		}
 	}
-	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	entry := &schema.ExtClientEntry{Key: key}
+	if err = entry.Get(db.WithContext(context.TODO())); err != nil {
 		return extclient, err
 	}
-	err = json.Unmarshal([]byte(data), &extclient)
+	extclient = entry.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, extclient)
 	}
-	return extclient, err
+	return extclient, nil
 }
 
 func GenerateNodeName(network string) (string, error) {
@@ -294,16 +282,17 @@ func GenerateNodeName(network string) (string, error) {
 }
 
 // SaveExtClient - saves an ext client to database
-func SaveExtClient(extclient *models.ExtClient) error {
+func SaveExtClient(extclient *schema.ExtClient) error {
 	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(&extclient)
-	if err != nil {
-		return err
+	entry := &schema.ExtClientEntry{
+		Key:       key,
+		NetworkID: extclient.Network,
+		Value:     datatypes.NewJSONType(*extclient),
 	}
-	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
+	if err = entry.Save(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -314,7 +303,7 @@ func SaveExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - updates an ext client with new values
-func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) models.ExtClient {
+func UpdateExtClient(old *schema.ExtClient, update *models.CustomExtClient) schema.ExtClient {
 	new := *old
 	new.ClientID = update.ClientID
 	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
@@ -362,8 +351,8 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 }
 
 // GetExtClientsByID - gets the clients of attached gateway
-func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
-	var result []models.ExtClient
+func GetExtClientsByID(nodeid, network string) ([]schema.ExtClient, error) {
+	var result []schema.ExtClient
 	currentClients, err := GetNetworkExtClients(network)
 	if err != nil {
 		return result, err
@@ -377,12 +366,10 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 }
 
 // GetAllExtClients - gets all ext clients from DB
-func GetAllExtClients() ([]models.ExtClient, error) {
-	var clients = []models.ExtClient{}
+func GetAllExtClients() ([]schema.ExtClient, error) {
+	var clients = []schema.ExtClient{}
 	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && database.IsEmptyRecord(err) {
-		return clients, nil
-	} else if err != nil {
+	if err != nil {
 		return clients, err
 	}
 
@@ -400,13 +387,13 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 
 // GetAllExtClientsWithStatus - returns all external clients with
 // given status.
-func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]models.ExtClient, error) {
+func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]schema.ExtClient, error) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return nil, err
 	}
 
-	var validExtClients []models.ExtClient
+	var validExtClients []schema.ExtClient
 	for _, extClient := range extClients {
 		if extClient.Status == status {
 			validExtClients = append(validExtClients, extClient)
@@ -417,7 +404,7 @@ func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]models.ExtClient, e
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
-func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.ExtClient, error) {
+func ToggleExtClientConnectivity(client *schema.ExtClient, enable bool) (schema.ExtClient, error) {
 	update := models.CustomExtClient{
 		Enabled:              enable,
 		ClientID:             client.ClientID,
@@ -464,7 +451,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
+			if ok := IsPeerAllowed(models.ConvertToStaticNode(&extPeer), *peer, true); !ok {
 				continue
 			}
 		} else {
@@ -572,7 +559,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	return peers, idsAndAddr, egressRoutes, nil
 }
 
-func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
+func getExtPeerEgressRoute(node models.Node, extPeer schema.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
 	r := models.EgressNetworkRoutes{
 		PeerKey:       extPeer.PublicKey,
 		EgressGwAddr:  extPeer.AddressIPNet4(),
@@ -601,7 +588,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(&extPeer), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -628,7 +615,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(&extPeer), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
@@ -636,7 +623,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 	return
 }
 
-func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
+func GetExtclientAllowedIPs(client schema.ExtClient) (allowedIPs []string) {
 	gwnode, err := GetNodeByID(client.IngressGatewayID)
 	if err != nil {
 		logger.Log(0,
@@ -680,7 +667,7 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			staticNode = append(staticNode, extI.ConvertToStaticNode())
+			staticNode = append(staticNode, models.ConvertToStaticNode(&extI))
 		}
 	}
 
@@ -688,7 +675,7 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 }
 
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
-func CleanupOtherExtclients(extclient *models.ExtClient) error {
+func CleanupOtherExtclients(extclient *schema.ExtClient) error {
 	extclients, err := GetNetworkExtClients(extclient.Network)
 	if err != nil {
 		return err

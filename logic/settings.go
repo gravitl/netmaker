@@ -30,7 +30,7 @@ var (
 var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
-var serverSettingsCache atomic.Value
+var serverSettingsCache atomic.Pointer[schema.ServerSettingsData]
 
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
@@ -38,8 +38,8 @@ var defaultUserSettings = models.UserSettings{
 	ReducedMotion: false,
 }
 
-func GetServerSettings() (s models.ServerSettings) {
-	if cached, ok := serverSettingsCache.Load().(*models.ServerSettings); ok && cached != nil {
+func GetServerSettings() (s schema.ServerSettingsData) {
+	if cached := serverSettingsCache.Load(); cached != nil {
 		return *cached
 	}
 	s, err := getServerSettingsFromDB()
@@ -52,11 +52,11 @@ func GetServerSettings() (s models.ServerSettings) {
 // InvalidateServerSettingsCache clears the in-memory settings cache so
 // the next GetServerSettings call re-reads from the database.
 func InvalidateServerSettingsCache() {
-	serverSettingsCache.Store((*models.ServerSettings)(nil))
+	serverSettingsCache.Store((*schema.ServerSettingsData)(nil))
 }
 
-func getServerSettingsFromDB() (models.ServerSettings, error) {
-	var s models.ServerSettings
+func getServerSettingsFromDB() (schema.ServerSettingsData, error) {
+	var s schema.ServerSettingsData
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
 		return s, err
@@ -67,7 +67,7 @@ func getServerSettingsFromDB() (models.ServerSettings, error) {
 	return s, nil
 }
 
-func UpsertServerSettings(s models.ServerSettings) error {
+func UpsertServerSettings(s schema.ServerSettingsData) error {
 	// get curr settings from DB directly (not cache) for accurate comparison
 	currSettings, _ := getServerSettingsFromDB()
 	if s.ClientSecret == Mask() {
@@ -154,7 +154,7 @@ func UpsertUserSettings(username string, userSettings models.UserSettings) error
 	return user.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
-func ValidateNewSettings(req models.ServerSettings) error {
+func ValidateNewSettings(req schema.ServerSettingsData) error {
 	// TODO: add checks for different fields
 	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
 		return ErrInvalidJwtValidityDuration
@@ -171,9 +171,9 @@ func ValidateNewSettings(req models.ServerSettings) error {
 	return nil
 }
 
-func GetServerSettingsFromEnv() (s models.ServerSettings) {
+func GetServerSettingsFromEnv() (s schema.ServerSettingsData) {
 
-	s = models.ServerSettings{
+	s = schema.ServerSettingsData{
 		NetclientAutoUpdate: servercfg.AutoUpdateEnabled(),
 		Verbosity:           servercfg.GetVerbosity(),
 		AuthProvider:        os.Getenv("AUTH_PROVIDER"),
@@ -371,7 +371,7 @@ func AutoUpdateEnabled() bool {
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
-func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
+func GetAuthProviderInfo(settings schema.ServerSettingsData) (pi []string) {
 	var authProvider = ""
 
 	defer func() {

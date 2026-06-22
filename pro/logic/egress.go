@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
@@ -60,7 +59,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(schema.TagID(tagID))
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
 			}
@@ -69,7 +68,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func RemoveTagFromEgress(net schema.NetworkID, tagID models.TagID) {
+func RemoveTagFromEgress(net schema.NetworkID, tagID schema.TagID) {
 	eli, _ := (&schema.Egress{Network: net.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, eI := range eli {
 		if _, ok := eI.Tags[tagID.String()]; ok {

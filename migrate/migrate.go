@@ -250,7 +250,7 @@ func updateNodes() {
 	extclients, _ := logic.GetAllExtClients()
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
-			extclient.Tags = make(map[models.TagID]struct{})
+			extclient.Tags = make(map[schema.TagID]struct{})
 			logic.SaveExtClient(&extclient)
 		}
 	}
@@ -286,9 +286,9 @@ func updateNewAcls() {
 				enableSeparateACL := true
 				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
 				if err == nil {
-					var newAclSrc []models.AclPolicyTag
+					var newAclSrc []schema.AclPolicyTag
 					for _, src := range adminAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == schema.UserGroupAclID && src.Value == group.ID.String() {
 							createSeparateACL = true
 							enableSeparateACL = adminAcl.Enabled
 						} else {
@@ -302,9 +302,9 @@ func updateNewAcls() {
 
 				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
 				if err == nil {
-					var newAclSrc []models.AclPolicyTag
+					var newAclSrc []schema.AclPolicyTag
 					for _, src := range userAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == schema.UserGroupAclID && src.Value == group.ID.String() {
 							if !createSeparateACL {
 								// if group src not found in adminACL, then create.
 								createSeparateACL = true
@@ -325,27 +325,27 @@ func updateNewAcls() {
 					_ = logic.UpsertAcl(userAcl)
 				}
 
-				expectedAcl := models.Acl{
+				expectedAcl := schema.Acl{
 					ID:          uuid.New().String(),
 					Name:        fmt.Sprintf("%s group", group.Name),
 					MetaData:    "This Policy allows user group to communicate with all gateways",
 					Default:     true,
 					ServiceType: models.Any,
 					NetworkID:   schema.NetworkID(network.Name),
-					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
-					Src: []models.AclPolicyTag{
+					Proto:       schema.ALL,
+					RuleType:    schema.UserPolicy,
+					Src: []schema.AclPolicyTag{
 						{
-							ID:    models.UserGroupAclID,
+							ID:    schema.UserGroupAclID,
 							Value: group.ID.String(),
 						},
 					},
-					Dst: []models.AclPolicyTag{
+					Dst: []schema.AclPolicyTag{
 						{
-							ID:    models.NodeTagID,
-							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
+							ID:    schema.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), schema.GwTagName),
 						}},
-					AllowedDirection: models.TrafficDirectionUni,
+					AllowedDirection: schema.TrafficDirectionUni,
 					Enabled:          true,
 					CreatedBy:        "auto",
 					CreatedAt:        time.Now().UTC(),
@@ -439,15 +439,15 @@ func createDefaultTagsAndPolicies() {
 		logic.CreateDefaultTags(schema.NetworkID(network.Name))
 		logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 		// delete old remote access gws policy
-		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
+		logic.DeleteAcl(schema.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
 	if !servercfg.IsPro {
 		nodes, _ := logic.GetAllNodes()
 		for _, node := range nodes {
 			if node.IsGw {
-				node.Tags = make(map[models.TagID]struct{})
-				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+				node.Tags = make(map[schema.TagID]struct{})
+				node.Tags[schema.TagID(fmt.Sprintf("%s.%s", node.Network, schema.GwTagName))] = struct{}{}
 				logic.UpsertNode(&node)
 			}
 		}
@@ -527,7 +527,7 @@ func migrateSettings() {
 
 func deleteOldExtclients() {
 	extclients, _ := logic.GetAllExtClients()
-	userExtclientMap := make(map[string][]models.ExtClient)
+	userExtclientMap := make(map[string][]schema.ExtClient)
 	for _, extclient := range extclients {
 		if extclient.RemoteAccessClientID == "" {
 			continue
@@ -538,7 +538,7 @@ func deleteOldExtclients() {
 		}
 
 		if _, ok := userExtclientMap[extclient.OwnerID]; !ok {
-			userExtclientMap[extclient.OwnerID] = make([]models.ExtClient, 0)
+			userExtclientMap[extclient.OwnerID] = make([]schema.ExtClient, 0)
 		}
 
 		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
@@ -583,9 +583,9 @@ func cleanupDeletedUserGroupRefs() {
 	}
 
 	for _, acl := range logic.ListAcls() {
-		var newSrc []models.AclPolicyTag
+		var newSrc []schema.AclPolicyTag
 		for _, src := range acl.Src {
-			if src.ID == models.UserGroupAclID {
+			if src.ID == schema.UserGroupAclID {
 				if group, ok := existingGroups[schema.UserGroupID(src.Value)]; ok {
 					var hasAccess bool
 					if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
@@ -600,7 +600,7 @@ func cleanupDeletedUserGroupRefs() {
 						newSrc = append(newSrc, src)
 					}
 				}
-			} else if src.ID == models.UserAclID && src.Value != "*" {
+			} else if src.ID == schema.UserAclID && src.Value != "*" {
 				if _, ok := existingUsers[src.Value]; ok {
 					newSrc = append(newSrc, src)
 				}

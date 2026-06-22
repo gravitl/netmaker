@@ -25,7 +25,7 @@ func GetCurrentServerUsage() (limits models.Usage) {
 	nodes, _ := GetAllNodes()
 
 	for _, client := range clients {
-		nodes = append(nodes, client.ConvertToStaticNode())
+		nodes = append(nodes, models.ConvertToStaticNode(&client))
 	}
 
 	limits.NetworkUsage = make(map[string]models.NetworkUsage)

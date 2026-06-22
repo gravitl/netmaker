@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // MetricHandlers - How we handle Pro Metrics
@@ -30,7 +31,7 @@ func MetricHandlers(r *mux.Router) {
 // @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Metrics
+// @Success     200 {object} schema.Metrics
 // @Failure     500 {object} models.ErrorResponse
 func getNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -99,7 +100,7 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Success     200 {object} models.Metrics
+// @Success     200 {object} schema.Metrics
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -129,8 +130,8 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	networkMetrics := models.Metrics{}
-	networkMetrics.Connectivity = make(map[string]models.Metric)
+	networkMetrics := schema.Metrics{}
+	networkMetrics.Connectivity = make(map[string]schema.Metric)
 
 	for i := range ingresses {
 		id := ingresses[i].ID

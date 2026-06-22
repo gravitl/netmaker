@@ -69,13 +69,13 @@ func checkIngressExists(nodeID string) bool {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Success     200 {array} models.ExtClient
+// @Success     200 {array} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var extclients []models.ExtClient
+	var extclients []schema.ExtClient
 	var params = mux.Vars(r)
 	network := params["network"]
 	extclients, err := logic.GetNetworkExtClients(network)
@@ -98,7 +98,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 			}
 			err := userRole.Get(r.Context())
 			if err != nil || !userRole.FullAccess {
-				filtered := []models.ExtClient{}
+				filtered := []schema.ExtClient{}
 				for _, ec := range extclients {
 					if logic.IsUserAllowedAccessToExtClient(username, ec) {
 						filtered = append(filtered, ec)
@@ -121,7 +121,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 // @Tags        Config Files
 // @Security    oauth
 // @Produce     json
-// @Success     200 {array} models.ExtClient
+// @Success     200 {array} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
@@ -148,7 +148,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {object} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func getExtClient(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +191,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 // @Param       clientid path string true "Client ID"
 // @Param       type path string true "Config type (qr or file)"
 // @Param       preferredip query string false "Preferred endpoint IP"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {object} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
@@ -433,7 +433,7 @@ Endpoint = %s
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID (Ingress Gateway)"
 // @Param       body body models.CustomExtClient true "Custom ext client parameters"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {object} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -548,14 +548,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
+	extclient := logic.UpdateExtClient(&schema.ExtClient{}, &customExtClient)
 
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
 	extclient.Network = node.Network
-	extclient.Tags = make(map[models.TagID]struct{})
-	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
+	extclient.Tags = make(map[schema.TagID]struct{})
+	// extclient.Tags[schema.TagID(fmt.Sprintf("%s.%s", extclient.Network,
 	// 	models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly
 	gwDNS := logic.GetGwDNS(&node)
@@ -603,7 +603,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
-		staticNode := extclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(&extclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(extclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
@@ -809,7 +809,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
 // @Param       body body models.CustomExtClient true "Custom ext client update"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {object} schema.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -819,7 +819,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 
 	var update models.CustomExtClient
-	//var oldExtClient models.ExtClient
+	//var oldExtClient schema.ExtClient
 	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
@@ -875,7 +875,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
-		staticNode := newclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(&newclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
@@ -1062,7 +1062,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		deleted := 0
-		gwDeletedClients := make(map[string][]models.ExtClient)
+		gwDeletedClients := make(map[string][]schema.ExtClient)
 		for _, clientID := range req.IDs {
 			extclient, err := logic.GetExtClient(clientID, network)
 			if err != nil {

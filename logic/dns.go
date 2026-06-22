@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -214,7 +213,7 @@ func GetGwDNS(node *models.Node) string {
 
 }
 
-func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
+func SetDNSOnWgConfig(gwNode *models.Node, extclient *schema.ExtClient) {
 	if extclient.DNS != "" {
 		return
 	}
@@ -262,7 +261,7 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
 
-	entries, err := GetDNS(scope.Default(context.TODO()), network)
+	entries, err := GetDNS(db.WithContext(context.TODO()), network)
 	if err != nil {
 		return 0, err
 	}

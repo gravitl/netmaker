@@ -231,9 +231,9 @@ func SessionHandler(conn *websocket.Conn) {
 func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
-	keyTags := make(map[models.TagID]struct{})
+	keyTags := make(map[schema.TagID]struct{})
 	for _, tagI := range key.Tags {
-		keyTags[models.TagID(tagI)] = struct{}{}
+		keyTags[schema.TagID(tagI)] = struct{}{}
 	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}

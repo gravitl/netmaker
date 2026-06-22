@@ -50,27 +50,27 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 		return
 	}
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
-		defaultUserAcl := models.Acl{
+		defaultUserAcl := schema.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
 			Name:        "All Users",
 			MetaData:    "This policy gives access to everything in the network for an user",
 			NetworkID:   netID,
-			Proto:       models.ALL,
+			Proto:       schema.ALL,
 			ServiceType: models.Any,
 			Port:        []string{},
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
+			RuleType:    schema.UserPolicy,
+			Src: []schema.AclPolicyTag{
 				{
-					ID:    models.UserAclID,
+					ID:    schema.UserAclID,
 					Value: "*",
 				},
 			},
-			Dst: []models.AclPolicyTag{{
-				ID:    models.NodeTagID,
+			Dst: []schema.AclPolicyTag{{
+				ID:    schema.NodeTagID,
 				Value: "*",
 			}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),

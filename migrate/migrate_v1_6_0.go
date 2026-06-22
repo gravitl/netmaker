@@ -179,10 +179,10 @@ func migrateNodes(ctx context.Context) error {
 					node.IsAutoRelay = true
 				}
 				if node.Tags == nil {
-					node.Tags = make(map[models.TagID]struct{})
+					node.Tags = make(map[schema.TagID]struct{})
 				}
-				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
-				delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+				node.Tags[schema.TagID(fmt.Sprintf("%s.%s", node.Network, schema.GwTagName))] = struct{}{}
+				delete(node.Tags, schema.TagID(fmt.Sprintf("%s.%s", node.Network, schema.OldRemoteAccessTagName)))
 			}
 		}
 
@@ -364,30 +364,30 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				return err
 			}
 
-			acl := models.Acl{
+			acl := schema.Acl{
 				ID:          uuid.New().String(),
 				Name:        "egress node policy",
 				MetaData:    "",
 				Default:     false,
 				ServiceType: models.Any,
 				NetworkID:   schema.NetworkID(node.Network),
-				Proto:       models.ALL,
-				RuleType:    models.DevicePolicy,
-				Src: []models.AclPolicyTag{
+				Proto:       schema.ALL,
+				RuleType:    schema.DevicePolicy,
+				Src: []schema.AclPolicyTag{
 
 					{
-						ID:    models.NodeTagID,
+						ID:    schema.NodeTagID,
 						Value: "*",
 					},
 				},
-				Dst: []models.AclPolicyTag{
+				Dst: []schema.AclPolicyTag{
 					{
-						ID:    models.EgressID,
+						ID:    schema.EgressID,
 						Value: egress.ID,
 					},
 				},
 
-				AllowedDirection: models.TrafficDirectionBi,
+				AllowedDirection: schema.TrafficDirectionBi,
 				Enabled:          true,
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
@@ -397,30 +397,30 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				return err
 			}
 
-			acl = models.Acl{
+			acl = schema.Acl{
 				ID:          uuid.New().String(),
 				Name:        "egress node policy",
 				MetaData:    "",
 				Default:     false,
 				ServiceType: models.Any,
 				NetworkID:   schema.NetworkID(node.Network),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
+				Proto:       schema.ALL,
+				RuleType:    schema.UserPolicy,
+				Src: []schema.AclPolicyTag{
 
 					{
-						ID:    models.UserAclID,
+						ID:    schema.UserAclID,
 						Value: "*",
 					},
 				},
-				Dst: []models.AclPolicyTag{
+				Dst: []schema.AclPolicyTag{
 					{
-						ID:    models.EgressID,
+						ID:    schema.EgressID,
 						Value: egress.ID,
 					},
 				},
 
-				AllowedDirection: models.TrafficDirectionBi,
+				AllowedDirection: schema.TrafficDirectionBi,
 				Enabled:          true,
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),

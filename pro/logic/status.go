@@ -165,7 +165,7 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 // This collapses the per-peer GetNodeByID storm that previously dominated
 // status computation: with P peers the old path issued O(P^2) preloaded
 // First() queries; this path issues exactly one IN-query.
-func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]models.Node {
+func buildPeerCache(node *models.Node, metrics *schema.Metrics) map[string]models.Node {
 	if metrics == nil || len(metrics.Connectivity) == 0 {
 		return map[string]models.Node{}
 	}
@@ -250,7 +250,7 @@ func CheckPeerStatus(node *models.Node, defaultAclPolicy bool, peers map[string]
 	node.Status = schema.WarningSt
 }
 
-func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool, peers map[string]models.Node) {
+func checkPeerConnectivity(node *models.Node, metrics *schema.Metrics, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
 	for peerID, metric := range metrics.Connectivity {
 		peer, ok := peers[peerID]
