@@ -408,10 +408,17 @@ Endpoint = %s
 	)
 
 	if params["type"] == "qr" {
-		bytes, err := qrcode.Encode(config, qrcode.Medium, -5)
+		bytes, err := qrcode.Encode(config, qrcode.Low, -5)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to encode qr code: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			if strings.Contains(err.Error(), "content too long to encode") {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					fmt.Errorf("config is too large to encode as a QR code; please use the file download instead"),
+					"badrequest",
+				))
+			} else {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "image/png")
