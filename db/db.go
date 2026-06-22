@@ -111,6 +111,18 @@ func BeginTx(ctx context.Context) context.Context {
 	return context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
 }
 
+func Modify(ctx context.Context, mod func(db *gorm.DB) *gorm.DB) context.Context {
+	var moddb *gorm.DB
+	dbInCtx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
+	if ok {
+		moddb = dbInCtx
+	} else {
+		moddb = db
+	}
+
+	return context.WithValue(ctx, dbCtxKey, mod(moddb))
+}
+
 // CloseDB close a connection to the database
 // (if one exists). It panics if any error
 // occurs.
