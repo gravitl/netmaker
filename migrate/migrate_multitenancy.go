@@ -134,7 +134,7 @@ func backfillDNSNetworkID(ctx context.Context) error {
 		return fmt.Errorf("multitenancy migration: list dns records: %w", err)
 	}
 	for key, value := range records {
-		var entry models.DNSEntry
+		var entry schema.DNSEntry
 		if err := json.Unmarshal([]byte(value), &entry); err != nil {
 			return fmt.Errorf("multitenancy migration: parse dns record %s: %w", key, err)
 		}

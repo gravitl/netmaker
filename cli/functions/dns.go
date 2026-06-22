@@ -4,32 +4,32 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // GetDNS - fetch all DNS entries
-func GetDNS() *[]models.DNSEntry {
-	return request[[]models.DNSEntry](http.MethodGet, "/api/dns", nil)
+func GetDNS() *[]schema.DNSEntry {
+	return request[[]schema.DNSEntry](http.MethodGet, "/api/dns", nil)
 }
 
 // GetNodeDNS - fetch all Node DNS entires
-func GetNodeDNS(networkName string) *[]models.DNSEntry {
-	return request[[]models.DNSEntry](http.MethodGet, fmt.Sprintf("/api/dns/adm/%s/nodes", networkName), nil)
+func GetNodeDNS(networkName string) *[]schema.DNSEntry {
+	return request[[]schema.DNSEntry](http.MethodGet, fmt.Sprintf("/api/dns/adm/%s/nodes", networkName), nil)
 }
 
 // GetCustomDNS - fetch user defined DNS entriees
-func GetCustomDNS(networkName string) *[]models.DNSEntry {
-	return request[[]models.DNSEntry](http.MethodGet, fmt.Sprintf("/api/dns/adm/%s/custom", networkName), nil)
+func GetCustomDNS(networkName string) *[]schema.DNSEntry {
+	return request[[]schema.DNSEntry](http.MethodGet, fmt.Sprintf("/api/dns/adm/%s/custom", networkName), nil)
 }
 
 // GetNetworkDNS - fetch DNS entries associated with a network
-func GetNetworkDNS(networkName string) *[]models.DNSEntry {
-	return request[[]models.DNSEntry](http.MethodGet, "/api/dns/adm/"+networkName, nil)
+func GetNetworkDNS(networkName string) *[]schema.DNSEntry {
+	return request[[]schema.DNSEntry](http.MethodGet, "/api/dns/adm/"+networkName, nil)
 }
 
 // CreateDNS - create a DNS entry
-func CreateDNS(networkName string, payload *models.DNSEntry) *models.DNSEntry {
-	return request[models.DNSEntry](http.MethodPost, "/api/dns/"+networkName, payload)
+func CreateDNS(networkName string, payload *schema.DNSEntry) *schema.DNSEntry {
+	return request[schema.DNSEntry](http.MethodPost, "/api/dns/"+networkName, payload)
 }
 
 // PushDNS - push a DNS entry to CoreDNS

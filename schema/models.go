@@ -25,5 +25,6 @@ func ListModels() []interface{} {
 		&PostureCheckViolation{},
 		&Integration{},
 		&EnrollmentKey{},
+		&DNS{},
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -17,7 +17,7 @@ var dnsListCmd = &cobra.Command{
 	Short: "List DNS entries",
 	Long:  `List DNS entries`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var data []models.DNSEntry
+		var data []schema.DNSEntry
 		if networkName != "" {
 			switch dnsType {
 			case "node":

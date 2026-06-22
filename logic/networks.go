@@ -32,7 +32,7 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 			}
 		}
 
-		_ = DeleteNetworkDNS(network)
+		_ = (&schema.DNS{NetworkID: network}).DeleteByNetwork(db.WithContext(context.TODO()))
 	}()
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)

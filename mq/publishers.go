@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -403,7 +404,7 @@ func sendPeers() {
 
 func SendDNSSyncByNetwork(network string) error {
 
-	k, err := logic.GetDNS(network)
+	k, err := logic.GetDNS(scope.Default(context.TODO()), network)
 	k = append(k, logic.EgressDNs(network)...)
 	if err == nil && len(k) > 0 {
 		err = PushSyncDNS(k)
@@ -419,7 +420,7 @@ func sendDNSSync() error {
 	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
-			k, err := logic.GetDNS(v.Name)
+			k, err := logic.GetDNS(scope.Default(context.TODO()), v.Name)
 			k = append(k, logic.EgressDNs(v.Name)...)
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
@@ -433,7 +434,7 @@ func sendDNSSync() error {
 	return err
 }
 
-func PushSyncDNS(dnsEntries []models.DNSEntry) error {
+func PushSyncDNS(dnsEntries []schema.DNSEntry) error {
 	logger.Log(2, "----> Pushing Sync DNS")
 	data, err := json.Marshal(dnsEntries)
 	if err != nil {

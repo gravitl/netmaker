@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ var dnsCreateCmd = &cobra.Command{
 		if address == "" && address6 == "" {
 			log.Fatal("Either IPv4 or IPv6 address is required")
 		}
-		dnsEntry := &models.DNSEntry{Name: dnsName, Address: address, Address6: address6, Network: networkName}
+		dnsEntry := &schema.DNSEntry{Name: dnsName, Address: address, Address6: address6, Network: networkName}
 		functions.PrettyPrint(functions.CreateDNS(networkName, dnsEntry))
 	},
 }

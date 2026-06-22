@@ -679,17 +679,11 @@ func cleanUpDeleteNetworksRefs() {
 		networksMap[network.Name] = true
 	}
 
-	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
-	for key, record := range records {
-		var entry models.DNSEntry
-		err := json.Unmarshal([]byte(record), &entry)
-		if err != nil {
-			continue
-		}
-
-		_, ok := networksMap[entry.Network]
+	entries, _ := (&schema.DNS{}).ListAll(db.WithContext(context.TODO()))
+	for _, entry := range entries {
+		_, ok := networksMap[entry.Value.Data().Network]
 		if !ok {
-			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+			_ = entry.Delete(db.WithContext(context.TODO()))
 		}
 	}
 

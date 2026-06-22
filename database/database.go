@@ -10,8 +10,6 @@ import (
 
 const (
 	// == Table Names ==
-	// DNS_TABLE_NAME - dns table
-	DNS_TABLE_NAME = "dns"
 	// EXT_CLIENT_TABLE_NAME - ext client table
 	EXT_CLIENT_TABLE_NAME = "extclients"
 	// ACLS_TABLE_NAME - table for acls v2
@@ -54,7 +52,6 @@ const (
 )
 
 var Tables = []string{
-	DNS_TABLE_NAME,
 	EXT_CLIENT_TABLE_NAME,
 	SSO_STATE_CACHE,
 	METRICS_TABLE_NAME,

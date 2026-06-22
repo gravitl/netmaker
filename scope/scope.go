@@ -156,6 +156,9 @@ func WithContext(ctx context.Context, level Level, ids ...string) context.Contex
 	}
 }
 
+// Default returns a default tenant context.
+// TODO: this is a temporary function. remove it and all it's usages.
+// TODO: tenant context setting MUST be explicit.
 func Default(ctx context.Context) context.Context {
 	defaultTenant := &schema.Tenant{}
 	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
