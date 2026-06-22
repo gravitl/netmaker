@@ -602,7 +602,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
-		staticNode := extclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(extclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(extclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
@@ -874,7 +874,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
-		staticNode := newclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(newclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))

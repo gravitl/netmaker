@@ -71,7 +71,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	staticNode := client.ConvertToStaticNode()
+	staticNode := models.ConvertToStaticNode(*client)
 	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
 	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
 
@@ -184,7 +184,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 			Origin:    schema.ClientApp,
 		})
 	}
-	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
+	go RemoveNodeFromAclPolicy(models.ConvertToStaticNode(extClient))
 	return nil
 }
 
@@ -465,7 +465,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
+			if ok := IsPeerAllowed(models.ConvertToStaticNode(extPeer), *peer, true); !ok {
 				continue
 			}
 		} else {
@@ -602,7 +602,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -629,7 +629,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
@@ -681,7 +681,7 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			staticNode = append(staticNode, extI.ConvertToStaticNode())
+			staticNode = append(staticNode, models.ConvertToStaticNode(extI))
 		}
 	}
 

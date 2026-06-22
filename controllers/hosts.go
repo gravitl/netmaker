@@ -581,7 +581,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			nodes := make([]models.Node, 0, len(extclients)+1)
 			nodes = append(nodes, node)
 			for _, extclient := range extclients {
-				nodes = append(nodes, extclient.ConvertToStaticNode())
+				nodes = append(nodes, models.ConvertToStaticNode(extclient))
 			}
 
 			nodesWithStatus := logic.AddStatusToNodes(nodes, true)

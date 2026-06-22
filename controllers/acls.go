@@ -162,7 +162,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		peer = extclient.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(extclient)
 
 	} else {
 		peer, err = logic.GetNodeByID(peerID)

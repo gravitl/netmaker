@@ -469,13 +469,7 @@ type PostureCheckDeviceInfo struct {
 	UserGroups     map[schema.UserGroupID]struct{}
 }
 
-type Violation struct {
-	CheckID   string          `json:"check_id"`
-	Name      string          `json:"name"`
-	Attribute string          `json:"attribute"`
-	Message   string          `json:"message"`
-	Severity  schema.Severity `json:"severity"`
-}
+type Violation = schema.Violation
 
 type BulkDeleteRequest struct {
 	IDs []string `json:"ids"`

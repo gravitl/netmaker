@@ -27,5 +27,12 @@ func ListModels() []interface{} {
 		&Organization{},
 		&Tenant{},
 		&OrganizationSettings{},
+		&AclRecord{},
+		&CacheRecord{},
+		&DNSRecord{},
+		&ExtClientRecord{},
+		&MetricsRecord{},
+		&SsoStateRecord{},
+		&TagRecord{},
 	}
 }

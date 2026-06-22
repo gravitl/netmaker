@@ -13,16 +13,8 @@ const (
 	expirationTime = time.Minute * 5
 )
 
-// CValue - the cache object for a network
-type CValue struct {
-	Network    string      `json:"network,omitempty"`
-	Value      string      `json:"value"`
-	Host       schema.Host `json:"host"`
-	Pass       string      `json:"pass,omitempty"`
-	User       string      `json:"user,omitempty"`
-	ALL        bool        `json:"all,omitempty"`
-	Expiration time.Time   `json:"expiration"`
-}
+// CValue is the cache object for a network.
+type CValue = schema.CacheValue
 
 var ErrExpired = fmt.Errorf("expired")
 

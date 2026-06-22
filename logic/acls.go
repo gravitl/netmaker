@@ -568,16 +568,16 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 				continue
 			}
 			if peer.IsStatic {
-				peer = peer.StaticNode.ConvertToStaticNode()
+				peer = models.ConvertToStaticNode(peer.StaticNode)
 			}
 			var allowedPolicies1 []models.Acl
 			var ok bool
-			if ok, allowedPolicies1 = IsNodeAllowedToCommunicate(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
-				rules = append(rules, GetFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies1)...)
+			if ok, allowedPolicies1 = IsNodeAllowedToCommunicate(models.ConvertToStaticNode(nodeI.StaticNode), peer, true); ok {
+				rules = append(rules, GetFwRulesForNodeAndPeerOnGw(models.ConvertToStaticNode(nodeI.StaticNode), peer, allowedPolicies1)...)
 			}
-			if ok, allowedPolicies2 := IsNodeAllowedToCommunicate(peer, nodeI.StaticNode.ConvertToStaticNode(), true); ok {
+			if ok, allowedPolicies2 := IsNodeAllowedToCommunicate(peer, models.ConvertToStaticNode(nodeI.StaticNode), true); ok {
 				rules = append(rules,
-					GetFwRulesForNodeAndPeerOnGw(peer, nodeI.StaticNode.ConvertToStaticNode(),
+					GetFwRulesForNodeAndPeerOnGw(peer, models.ConvertToStaticNode(nodeI.StaticNode),
 						getUniquePolicies(allowedPolicies1, allowedPolicies2))...)
 			}
 		}
@@ -2362,13 +2362,13 @@ var IsPeerAllowed = func(node, peer models.Node, checkDefaultPolicy bool) bool {
 	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
+		node = models.ConvertToStaticNode(node.StaticNode)
 	} else {
 		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
@@ -2549,7 +2549,7 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 	var nodeId string
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
+		node = models.ConvertToStaticNode(node.StaticNode)
 	} else {
 		nodeId = node.ID.String()
 	}
@@ -2623,13 +2623,13 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
+		node = models.ConvertToStaticNode(node.StaticNode)
 	} else {
 		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
@@ -3388,7 +3388,7 @@ func addTagMapWithStaticNodes(netID schema.NetworkID,
 				StaticNode: extclient,
 			},
 		}
-		tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+		tagNodesMap["*"] = append(tagNodesMap["*"], models.ConvertToStaticNode(extclient))
 
 	}
 	return tagNodesMap
