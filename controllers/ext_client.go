@@ -92,18 +92,20 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		}
 		err := user.Get(r.Context())
 		if err == nil {
-			userRole := &schema.UserRole{
-				ID: user.PlatformRoleID,
-			}
-			err := userRole.Get(r.Context())
-			if err != nil || !userRole.FullAccess {
-				filtered := []models.ExtClient{}
-				for _, ec := range extclients {
-					if logic.IsUserAllowedAccessToExtClient(username, ec) {
-						filtered = append(filtered, ec)
-					}
+			if user.PlatformRoleID != schema.Auditor {
+				userRole := &schema.UserRole{
+					ID: user.PlatformRoleID,
 				}
-				extclients = filtered
+				err := userRole.Get(r.Context())
+				if err != nil || !userRole.FullAccess {
+					filtered := []models.ExtClient{}
+					for _, ec := range extclients {
+						if logic.IsUserAllowedAccessToExtClient(username, ec) {
+							filtered = append(filtered, ec)
+						}
+					}
+					extclients = filtered
+				}
 			}
 		}
 	}
