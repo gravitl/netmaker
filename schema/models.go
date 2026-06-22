@@ -24,5 +24,8 @@ func ListModels() []interface{} {
 		&Integration{},
 		&Internal{},
 		&EnrollmentKey{},
+		&Organization{},
+		&Tenant{},
+		&OrganizationSettings{},
 	}
 }
