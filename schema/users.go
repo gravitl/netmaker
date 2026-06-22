@@ -18,6 +18,14 @@ var (
 	OAuth     AuthType = "oauth"
 )
 
+type Theme string
+
+const (
+	Dark   Theme = "dark"
+	Light  Theme = "light"
+	System Theme = "system"
+)
+
 var (
 	ErrUserIdentifiersNotProvided = errors.New("user identifiers not provided")
 )
@@ -36,10 +44,13 @@ type User struct {
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
 	LastLoginAt time.Time `json:"last_login_time"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
-	UserGroups datatypes.JSONType[map[UserGroupID]struct{}] `json:"user_group_ids"`
-	CreatedBy  string                                       `json:"created_by"`
-	CreatedAt  time.Time                                    `json:"created_at"`
-	UpdatedAt  time.Time                                    `json:"updated_at"`
+	UserGroups    datatypes.JSONType[map[UserGroupID]struct{}] `json:"user_group_ids"`
+	Theme         Theme                                        `json:"theme"`
+	TextSize      string                                       `json:"text_size"`
+	ReducedMotion bool                                         `json:"reduced_motion"`
+	CreatedBy     string                                       `json:"created_by"`
+	CreatedAt     time.Time                                    `json:"created_at"`
+	UpdatedAt     time.Time                                    `json:"updated_at"`
 }
 
 func (u *User) TableName() string {
@@ -150,6 +161,21 @@ func (u *User) UpdateMFA(ctx context.Context) error {
 		Updates(map[string]any{
 			"is_mfa_enabled": u.IsMFAEnabled,
 			"totp_secret":    u.TOTPSecret,
+		}).
+		Error
+}
+
+func (u *User) UpdateUserSettings(ctx context.Context) error {
+	if u.ID == "" && u.Username == "" {
+		return ErrUserIdentifiersNotProvided
+	}
+
+	return db.FromContext(ctx).Model(&User{}).
+		Where("id = ? OR username = ?", u.ID, u.Username).
+		Updates(map[string]any{
+			"theme":          u.Theme,
+			"text_size":      u.TextSize,
+			"reduced_motion": u.ReducedMotion,
 		}).
 		Error
 }

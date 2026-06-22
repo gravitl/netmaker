@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -113,38 +115,32 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	return nil
 }
 
-func GetUserSettings(userID string) models.UserSettings {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
-	if err != nil {
+func GetUserSettings(username string) models.UserSettings {
+	u := schema.User{Username: username}
+	if err := u.Get(context.TODO()); err != nil {
 		return defaultUserSettings
 	}
-	var userSettings models.UserSettings
-	err = json.Unmarshal([]byte(data), &userSettings)
-	if err != nil {
-		return defaultUserSettings
+	return models.UserSettings{
+		Theme:         u.Theme,
+		TextSize:      u.TextSize,
+		ReducedMotion: u.ReducedMotion,
 	}
-
-	return userSettings
 }
 
-func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+func UpsertUserSettings(username string, userSettings models.UserSettings) error {
 	if userSettings.TextSize == "" {
 		userSettings.TextSize = "16"
 	}
-
 	if userSettings.Theme == "" {
 		userSettings.Theme = models.Dark
 	}
-
-	data, err := json.Marshal(userSettings)
-	if err != nil {
-		return err
+	u := schema.User{
+		Username:      username,
+		Theme:         userSettings.Theme,
+		TextSize:      userSettings.TextSize,
+		ReducedMotion: userSettings.ReducedMotion,
 	}
-	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
-}
-
-func DeleteUserSettings(userID string) error {
-	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
+	return u.UpdateUserSettings(context.TODO())
 }
 
 func ValidateNewSettings(req models.ServerSettings) error {

@@ -1,11 +1,13 @@
 package models
 
-type Theme string
+import "github.com/gravitl/netmaker/schema"
+
+type Theme = schema.Theme
 
 const (
-	Dark   Theme = "dark"
-	Light  Theme = "light"
-	System Theme = "system"
+	Dark   = schema.Dark
+	Light  = schema.Light
+	System = schema.System
 )
 
 type ServerSettings struct {
