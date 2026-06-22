@@ -19,9 +19,10 @@ type DNSEntry struct {
 }
 
 type DNSRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
-	Value    datatypes.JSONType[DNSEntry]
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[DNSEntry]
 }
 
 func (*DNSRecord) TableName() string { return "dns" }

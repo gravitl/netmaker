@@ -73,9 +73,10 @@ type Acl struct {
 }
 
 type AclRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
-	Value    datatypes.JSONType[Acl]
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[Acl]
 }
 
 func (*AclRecord) TableName() string { return "acls" }

@@ -30,9 +30,10 @@ func (t Tag) GetIDFromName() string {
 }
 
 type TagRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
-	Value    datatypes.JSONType[Tag]
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[Tag]
 }
 
 func (*TagRecord) TableName() string { return "tags" }

@@ -31,9 +31,10 @@ type Metric struct {
 }
 
 type MetricsRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
-	Value    datatypes.JSONType[Metrics]
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[Metrics]
 }
 
 func (*MetricsRecord) TableName() string { return "metrics" }

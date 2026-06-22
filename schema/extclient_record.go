@@ -65,9 +65,10 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 }
 
 type ExtClientRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
-	Value    datatypes.JSONType[ExtClient]
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[ExtClient]
 }
 
 func (*ExtClientRecord) TableName() string { return "extclients" }
