@@ -18,7 +18,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -135,8 +134,18 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	// 		isOnTrial = true
 	// 	}
 	// }
+	var isDBConnected bool
+	sqldb, err := db.FromContext(r.Context()).DB()
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+		defer cancel()
+		if sqldb.PingContext(ctx) == nil {
+			isDBConnected = true
+		}
+	}
+
 	currentServerStatus := status{
-		DB:               database.IsConnected(),
+		DB:               isDBConnected,
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,

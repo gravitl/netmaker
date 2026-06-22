@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -42,10 +41,6 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	err := db.InitializeDB(schema.ListModels()...)
 	require.NoError(t, err)
 	defer db.CloseDB()
-
-	err = database.InitializeDatabase()
-	require.NoError(t, err)
-	defer database.CloseDB()
 
 	// Create test users with various roles
 	numUsers := 1000
@@ -137,10 +132,6 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	err = database.InitializeDatabase()
-	require.NoError(t, err)
-	defer database.CloseDB()
-
 	// Create test users with user groups (needed for UUID migration)
 	numUsers := 1000
 	t.Logf("Creating %d test users with user groups...", numUsers)
@@ -184,12 +175,6 @@ func BenchmarkSyncUsers(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer db.CloseDB()
-
-	err = database.InitializeDatabase()
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer database.CloseDB()
 
 	// Create test users
 	numUsers := 1000

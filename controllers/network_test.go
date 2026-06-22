@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -26,8 +25,6 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	database.InitializeDatabase()
-	defer database.CloseDB()
 	logic.CreateSuperAdmin(&schema.User{
 		Username:       "admin",
 		Password:       "password",

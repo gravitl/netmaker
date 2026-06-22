@@ -2,10 +2,6 @@ package database
 
 import (
 	"errors"
-	"time"
-
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -28,76 +24,20 @@ const (
 	TAG_TABLE_NAME = "tags"
 	// SERVER_SETTINGS - table for server settings
 	SERVER_SETTINGS = "server_settings"
-	// == ERROR CONSTS ==
-	// NO_RECORD - no singular result found
-	NO_RECORD = "no result found"
-	// NO_RECORDS - no results found
-	NO_RECORDS = "could not find any records"
 
 	// == DB Constants ==
-	// INIT_DB - initialize db
-	INIT_DB = "init"
-	// CREATE_TABLE - create table const
-	CREATE_TABLE = "createtable"
 	// INSERT - insert into db const
 	INSERT = "insert"
 	// DELETE - delete db record const
 	DELETE = "delete"
-	// DELETE_ALL - delete a table const
-	DELETE_ALL = "deleteall"
 	// FETCH_ALL - fetch table contents const
 	FETCH_ALL = "fetchall"
 	// FETCH_ONE - fetch a single record const
 	FETCH_ONE = "fetchone"
-	// CLOSE_DB - graceful close of db const
-	CLOSE_DB = "closedb"
-	// isconnected
-	isConnected = "isconnected"
 )
-
-var Tables = []string{
-	DNS_TABLE_NAME,
-	EXT_CLIENT_TABLE_NAME,
-	SSO_STATE_CACHE,
-	METRICS_TABLE_NAME,
-	CACHE_TABLE_NAME,
-	HOST_ACTIONS_TABLE_NAME,
-	TAG_TABLE_NAME,
-	ACLS_TABLE_NAME,
-	SERVER_SETTINGS,
-}
 
 func getCurrentDB() map[string]interface{} {
 	return map[string]interface{}{}
-}
-
-// InitializeDatabase - initializes database
-func InitializeDatabase() error {
-	logger.Log(0, "connecting to", servercfg.GetDB())
-	tperiod := time.Now().Add(10 * time.Second)
-	for {
-		if err := getCurrentDB()[INIT_DB].(func() error)(); err != nil {
-			logger.Log(0, "unable to connect to db, retrying . . .")
-			if time.Now().After(tperiod) {
-				return err
-			}
-		} else {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-	createTables()
-	return nil
-}
-
-func createTables() {
-	for _, table := range Tables {
-		_ = CreateTable(table)
-	}
-}
-
-func CreateTable(tableName string) error {
-	return getCurrentDB()[CREATE_TABLE].(func(string) error)(tableName)
 }
 
 // Insert - inserts object into db
@@ -122,14 +62,4 @@ func FetchRecord(tableName string, key string) (string, error) {
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
-}
-
-// CloseDB - closes a database gracefully
-func CloseDB() {
-	getCurrentDB()[CLOSE_DB].(func())()
-}
-
-// IsConnected - tell if the database is connected or not
-func IsConnected() bool {
-	return getCurrentDB()[isConnected].(func() bool)()
 }

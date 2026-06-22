@@ -25,7 +25,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate"
@@ -66,7 +65,6 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	defer db.CloseDB()
-	defer database.CloseDB()
 
 	// TODO: although this doesn't cause any problem, it's not the best way to do this.
 	defer ch.Close()
@@ -125,11 +123,6 @@ func initialize() { // Client Mode Prereq Check
 	}
 
 	logger.Log(0, "database successfully connected")
-
-	// initialize kv schema db.
-	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("error initializing database: ", err.Error())
-	}
 
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
