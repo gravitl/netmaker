@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/gorm"
 )
 
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
@@ -2968,7 +2969,7 @@ func ListAcls() (acls []models.Acl) {
 	}
 
 	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return []models.Acl{}
 	}
 	if servercfg.CacheEnabled() {

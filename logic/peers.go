@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/gorm"
 )
 
 var (
@@ -593,7 +593,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, extPeers...)
 					}
 				}
-			} else if !database.IsEmptyRecord(err) {
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}
 		}

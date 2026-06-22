@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -1045,7 +1044,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	err = currHost.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// check if there is any daemon nodes that needs to be deleted
 			node, err := logic.GetNodeByHostRef(hostIDStr, network)
 			if err != nil {

@@ -2,9 +2,11 @@ package hostactions
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"gorm.io/gorm"
 )
 
 // AddAction - adds a host action to a host's list to be retrieved from broker update
@@ -12,7 +14,7 @@ func AddAction(hu models.HostUpdate) {
 	hostID := hu.Host.ID.String()
 	currentRecords, err := database.FetchRecord(database.HOST_ACTIONS_TABLE_NAME, hostID)
 	if err != nil {
-		if database.IsEmptyRecord(err) { // no list exists yet
+		if errors.Is(err, gorm.ErrRecordNotFound) { // no list exists yet
 			newEntry, err := json.Marshal([]models.HostUpdate{hu})
 			if err != nil {
 				return

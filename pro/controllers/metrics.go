@@ -2,13 +2,14 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -117,7 +118,7 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 
 	clients, err := logic.GetNetworkExtClients(network) // grab all the network ext clients
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			var metrics struct{}
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(metrics)

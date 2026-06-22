@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var tagMutex = &sync.RWMutex{}
@@ -126,7 +127,7 @@ func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return []models.Tag{}, err
 	}
 	tags := []models.Tag{}

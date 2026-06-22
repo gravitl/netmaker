@@ -553,7 +553,7 @@ func delState(state string) error {
 func CleanExpiredSSOStates() error {
 	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
 		return err

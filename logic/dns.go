@@ -20,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/gorm"
 )
 
 const (
@@ -106,11 +107,11 @@ func CreateFallbackNameserver(networkID string) error {
 func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	dns, err := GetNodeDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
 	customdns, err := GetCustomDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
 
@@ -274,7 +275,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 func DeleteNetworkDNS(network string) error {
 	records, err := database.FetchRecords(database.DNS_TABLE_NAME)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
 

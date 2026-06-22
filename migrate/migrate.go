@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -12,6 +13,7 @@ import (
 
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -492,7 +494,7 @@ func migrateEgressDomains() {
 func migrateSettings() {
 	settingsD := make(map[string]interface{})
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
-	if database.IsEmptyRecord(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	} else if err == nil {
 		json.Unmarshal([]byte(data), &settingsD)

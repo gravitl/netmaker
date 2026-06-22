@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var (
@@ -93,7 +95,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 	}
 	record, err := database.FetchRecord(database.METRICS_TABLE_NAME, nodeid)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &metrics, nil
 		}
 		return &metrics, err

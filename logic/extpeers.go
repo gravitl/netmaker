@@ -21,6 +21,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/gorm"
 )
 
 var (
@@ -222,7 +223,7 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return extclients, nil
 		}
 		return extclients, err
@@ -380,7 +381,7 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 func GetAllExtClients() ([]models.ExtClient, error) {
 	var clients = []models.ExtClient{}
 	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && database.IsEmptyRecord(err) {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return clients, nil
 	} else if err != nil {
 		return clients, err

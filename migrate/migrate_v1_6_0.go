@@ -46,7 +46,7 @@ func migratePendingUsers(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_PendingUsers)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -80,7 +80,7 @@ func migrateUserInvites(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_UserInvites)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -117,7 +117,7 @@ func migrateNodes(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_Nodes)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 

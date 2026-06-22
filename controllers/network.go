@@ -15,8 +15,8 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -141,7 +141,7 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 			netname, err))
 
 		errType := logic.Internal
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errType = logic.NotFound
 		}
 

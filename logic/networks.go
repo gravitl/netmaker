@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -36,7 +35,7 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 	}()
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
+	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
 		_network := &schema.Network{
 			Name: network,
 		}

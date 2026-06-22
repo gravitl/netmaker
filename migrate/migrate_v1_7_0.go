@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -46,7 +47,7 @@ func migrateServerConf(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_ServerConf)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -113,7 +114,7 @@ func migrateGenerated(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_Generated)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -147,7 +148,7 @@ func migrateServerUUID(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_ServerUUID)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -218,7 +219,7 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_EnrollmentKey)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 

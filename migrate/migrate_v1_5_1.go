@@ -3,18 +3,19 @@ package migrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -55,7 +56,7 @@ func migrateUsers(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_Users)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -117,7 +118,7 @@ func migrateNetworks(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_Networks)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -265,7 +266,7 @@ func migrateUserRoles(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_UserPermissions)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -294,7 +295,7 @@ func migrateUserGroups(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_UserGroups)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -323,7 +324,7 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	records, err := kvList(ctx, TableName_Hosts)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 

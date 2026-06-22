@@ -68,16 +68,7 @@ var Tables = []string{
 }
 
 func getCurrentDB() map[string]interface{} {
-	switch servercfg.GetDB() {
-	case "rqlite":
-		return RQLITE_FUNCTIONS
-	case "sqlite":
-		return SQLITE_FUNCTIONS
-	case "postgres":
-		return PG_FUNCTIONS
-	default:
-		return SQLITE_FUNCTIONS
-	}
+	return map[string]interface{}{}
 }
 
 // InitializeDatabase - initializes database
