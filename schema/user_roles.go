@@ -113,6 +113,7 @@ type ResourceAccess map[RsrcType]map[RsrcID]RsrcPermissionScope
 
 type UserRole struct {
 	ID                  UserRoleID                         `gorm:"primaryKey" json:"id"`
+	TenantID            string                             `gorm:"default:''" json:"tenant_id"`
 	Name                string                             `json:"name"`
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`

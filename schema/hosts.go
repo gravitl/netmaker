@@ -120,6 +120,7 @@ func (a *AddrPort) UnmarshalJSON(data []byte) error {
 
 type Host struct {
 	ID                  uuid.UUID                   `gorm:"primaryKey" json:"id" yaml:"id"`
+	TenantID            string                      `gorm:"default:''" json:"tenant_id"`
 	Verbosity           int                         `json:"verbosity" yaml:"verbosity"`
 	FirewallInUse       string                      `json:"firewallinuse" yaml:"firewallinuse"`
 	Version             string                      `json:"version" yaml:"version"`

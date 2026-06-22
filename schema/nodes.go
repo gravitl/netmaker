@@ -37,6 +37,7 @@ const (
 
 type Node struct {
 	ID                                string                                `gorm:"primaryKey" json:"id"`
+	TenantID                          string                                `gorm:"default:''" json:"tenant_id"`
 	HostID                            string                                `gorm:"not null;index" json:"host_id"`
 	Host                              *Host                                 `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
 	NetworkID                         string                                `gorm:"not null;index" json:"network_id"`
