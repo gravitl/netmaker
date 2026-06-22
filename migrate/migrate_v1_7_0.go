@@ -54,7 +54,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return setTenantID(ctx)
+	err = setTenantID(ctx)
+	if err != nil {
+		return err
+	}
+
+	return setNetworkID(ctx)
 }
 
 func createDefaults(ctx context.Context) error {
@@ -401,6 +406,85 @@ func setTenantID(ctx context.Context) error {
 		err := db.FromContext(ctx).Model(model).
 			Where("tenant_id = ?", "").
 			Update("tenant_id", defaultTenant.ID).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func setNetworkID(ctx context.Context) error {
+	var aclRecords []schema.AclRecord
+	err := db.FromContext(ctx).Find(&aclRecords).Error
+	if err != nil {
+		return err
+	}
+
+	for _, record := range aclRecords {
+		err := db.FromContext(ctx).Model(&record).
+			Update("network_id", string(record.Value.Data().NetworkID)).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	var dnsRecords []schema.DNSRecord
+	err = db.FromContext(ctx).Find(&dnsRecords).Error
+	if err != nil {
+		return err
+	}
+
+	for _, record := range dnsRecords {
+		err := db.FromContext(ctx).Model(&record).
+			Update("network_id", record.Value.Data().Network).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	var extClientRecords []schema.ExtClientRecord
+	err = db.FromContext(ctx).Find(&extClientRecords).Error
+	if err != nil {
+		return err
+	}
+
+	for _, record := range extClientRecords {
+		err := db.FromContext(ctx).Model(&record).
+			Update("network_id", record.Value.Data().Network).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	var tagRecords []schema.TagRecord
+	err = db.FromContext(ctx).Find(&tagRecords).Error
+	if err != nil {
+		return err
+	}
+
+	for _, record := range tagRecords {
+		err := db.FromContext(ctx).Model(&record).
+			Update("network_id", string(record.Value.Data().Network)).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	var metricsRecords []schema.MetricsRecord
+	err = db.FromContext(ctx).Find(&metricsRecords).Error
+	if err != nil {
+		return err
+	}
+
+	for _, record := range metricsRecords {
+		err := db.FromContext(ctx).Model(&record).
+			Update("network_id", record.Value.Data().Network).
 			Error
 		if err != nil {
 			return err
