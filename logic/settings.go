@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,15 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -27,11 +26,6 @@ var (
 	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
-var ServerSettingsDBKey = "server_cfg"
-var SettingsMutex = &sync.RWMutex{}
-
-var serverSettingsCache atomic.Pointer[schema.ServerSettingsData]
-
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
 	Theme:         schema.Dark,
@@ -39,37 +33,27 @@ var defaultUserSettings = models.UserSettings{
 }
 
 func GetServerSettings() (s schema.ServerSettingsData) {
-	if cached := serverSettingsCache.Load(); cached != nil {
-		return *cached
-	}
-	s, err := getServerSettingsFromDB()
-	if err == nil {
-		serverSettingsCache.Store(&s)
-	}
+	s, _ = getServerSettingsFromDB()
 	return
 }
 
-// InvalidateServerSettingsCache clears the in-memory settings cache so
-// the next GetServerSettings call re-reads from the database.
-func InvalidateServerSettingsCache() {
-	serverSettingsCache.Store((*schema.ServerSettingsData)(nil))
-}
-
-func getServerSettingsFromDB() (schema.ServerSettingsData, error) {
-	var s schema.ServerSettingsData
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+func getServerSettingsFromDB(ctx context.Context) (schema.ServerSettingsData, error) {
+	settings := &schema.ServerSettings{
+		Key: scope.ID(ctx),
+	}
+	err := settings.Get(ctx)
 	if err != nil {
-		return s, err
+		return schema.ServerSettingsData{}, err
 	}
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
-		return s, err
-	}
-	return s, nil
+
+	return settings.Value.Data(), nil
 }
 
-func UpsertServerSettings(s schema.ServerSettingsData) error {
-	// get curr settings from DB directly (not cache) for accurate comparison
-	currSettings, _ := getServerSettingsFromDB()
+func UpsertServerSettings(ctx context.Context, s schema.ServerSettingsData) error {
+	currSettings, err := getServerSettingsFromDB(ctx)
+	if err != nil {
+		return err
+	}
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -101,15 +85,15 @@ func UpsertServerSettings(s schema.ServerSettingsData) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	data, err := json.Marshal(s)
+	settings := &schema.ServerSettings{
+		Key:   scope.ID(ctx),
+		Value: datatypes.NewJSONType(s),
+	}
+	err = settings.Upsert(ctx)
 	if err != nil {
 		return err
 	}
-	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
-	if err != nil {
-		return err
-	}
-	serverSettingsCache.Store(&s)
+
 	if PublishServerSync != nil {
 		PublishServerSync(SyncTypeSettings)
 	}

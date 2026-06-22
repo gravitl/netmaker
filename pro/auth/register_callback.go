@@ -55,7 +55,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 	reqKeyIf, machineKeyFoundErr := netcache.Get(state)
 	if machineKeyFoundErr != nil {
 		logger.Log(0, "requested machine state key expired before authorisation completed -", machineKeyFoundErr.Error())
-		reqKeyIf = &netcache.CValue{
+		reqKeyIf = &schema.CacheValue{
 			Network:    "invalid",
 			Value:      state,
 			Pass:       "",
@@ -104,7 +104,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setNetcache(ncache *netcache.CValue, state string) error {
+func setNetcache(ncache *schema.CacheValue, state string) error {
 	if ncache == nil {
 		return fmt.Errorf("cache miss")
 	}
@@ -115,7 +115,7 @@ func setNetcache(ncache *netcache.CValue, state string) error {
 	return err
 }
 
-func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []byte {
+func returnErrTemplate(uname, message, state string, ncache *schema.CacheValue) []byte {
 	var response bytes.Buffer
 	if ncache != nil {
 		ncache.Pass = message

@@ -1,60 +1,45 @@
 package netcache
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 const (
 	expirationTime = time.Minute * 5
 )
 
-// CValue - the cache object for a network
-type CValue struct {
-	Network    string      `json:"network,omitempty"`
-	Value      string      `json:"value"`
-	Host       schema.Host `json:"host"`
-	Pass       string      `json:"pass,omitempty"`
-	User       string      `json:"user,omitempty"`
-	ALL        bool        `json:"all,omitempty"`
-	Expiration time.Time   `json:"expiration"`
-}
-
 var ErrExpired = fmt.Errorf("expired")
 
 // Set - sets a value to a key in db
-func Set(k string, newValue *CValue) error {
+func Set(k string, newValue *schema.CacheValue) error {
 	newValue.Expiration = time.Now().Add(expirationTime)
-	newData, err := json.Marshal(newValue)
-	if err != nil {
-		return err
+	entry := &schema.CacheEntry{
+		Key:   k,
+		Value: datatypes.NewJSONType(*newValue),
 	}
-
-	return database.Insert(k, string(newData), database.CACHE_TABLE_NAME)
+	return entry.Save(db.WithContext(context.TODO()))
 }
 
 // Get - gets a value from db, if expired, return err
-func Get(k string) (*CValue, error) {
-	record, err := database.FetchRecord(database.CACHE_TABLE_NAME, k)
-	if err != nil {
+func Get(k string) (*schema.CacheValue, error) {
+	entry := &schema.CacheEntry{Key: k}
+	if err := entry.Get(db.WithContext(context.TODO())); err != nil {
 		return nil, err
 	}
-	var entry CValue
-	if err := json.Unmarshal([]byte(record), &entry); err != nil {
-		return nil, err
-	}
-	if time.Now().After(entry.Expiration) {
+	v := entry.Value.Data()
+	if time.Now().After(v.Expiration) {
 		return nil, ErrExpired
 	}
-
-	return &entry, nil
+	return &v, nil
 }
 
 // Del - deletes a value from db
 func Del(k string) error {
-	return database.DeleteRecord(database.CACHE_TABLE_NAME, k)
+	return (&schema.CacheEntry{Key: k}).Delete(db.WithContext(context.TODO()))
 }

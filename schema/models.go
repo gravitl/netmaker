@@ -30,5 +30,7 @@ func ListModels() []interface{} {
 		&AclEntry{},
 		&MetricsEntry{},
 		&TagEntry{},
+		&SsoStateEntry{},
+		&CacheEntry{},
 	}
 }

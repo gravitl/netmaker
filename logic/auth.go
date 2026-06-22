@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -18,7 +17,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
@@ -492,38 +490,30 @@ func FetchOAuthSecret() (string, error) {
 }
 
 // GetState - gets an SsoState from DB, if expired returns error
-func GetState(state string) (*models.SsoState, error) {
-	var s models.SsoState
-	record, err := database.FetchRecord(database.SSO_STATE_CACHE, state)
-	if err != nil {
-		return &s, err
+func GetState(state string) (*schema.SsoState, error) {
+	entry := &schema.SsoStateEntry{Key: state}
+	if err := entry.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, err
 	}
-
-	if err = json.Unmarshal([]byte(record), &s); err != nil {
-		return &s, err
-	}
-
+	s := entry.Value.Data()
 	if s.IsExpired() {
 		return &s, fmt.Errorf("state expired")
 	}
-
 	return &s, nil
 }
 
 // SetState - sets a state with new expiration
 func SetState(appName, state string) error {
-	s := models.SsoState{
+	s := schema.SsoState{
 		AppName:    appName,
 		Value:      state,
-		Expiration: time.Now().Add(models.DefaultExpDuration),
+		Expiration: time.Now().Add(schema.DefaultSsoStateDuration),
 	}
-
-	data, err := json.Marshal(&s)
-	if err != nil {
-		return err
+	entry := &schema.SsoStateEntry{
+		Key:   state,
+		Value: datatypes.NewJSONType(s),
 	}
-
-	return database.Insert(state, string(data), database.SSO_STATE_CACHE)
+	return entry.Save(db.WithContext(context.TODO()))
 }
 
 // IsStateValid - checks if given state is valid or not
@@ -545,27 +535,20 @@ func IsStateValid(state string) (string, bool) {
 
 // delState - removes a state from cache/db
 func delState(state string) error {
-	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
+	return (&schema.SsoStateEntry{Key: state}).Delete(db.WithContext(context.TODO()))
 }
 
 // CleanExpiredSSOStates removes expired SSO state entries from the database
 // to prevent unbounded table growth that degrades FetchRecord performance.
 func CleanExpiredSSOStates() error {
-	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	entries, err := (&schema.SsoStateEntry{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
 		return err
 	}
-	for key, value := range records {
-		var s models.SsoState
-		if err := json.Unmarshal([]byte(value), &s); err != nil {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
-			continue
-		}
+	for _, entry := range entries {
+		s := entry.Value.Data()
 		if s.IsExpired() {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			_ = (&schema.SsoStateEntry{Key: entry.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 	return nil

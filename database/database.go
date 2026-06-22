@@ -12,10 +12,6 @@ const (
 	// == Table Names ==
 	// ACLS_TABLE_NAME - table for acls v2
 	ACLS_TABLE_NAME = "acls"
-	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
-	SSO_STATE_CACHE = "ssostatecache"
-	// CACHE_TABLE_NAME - caching table
-	CACHE_TABLE_NAME = "cache"
 	// SERVER_SETTINGS - table for server settings
 	SERVER_SETTINGS = "server_settings"
 	// == ERROR CONSTS ==
@@ -46,8 +42,6 @@ const (
 )
 
 var Tables = []string{
-	SSO_STATE_CACHE,
-	CACHE_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	SERVER_SETTINGS,
 }

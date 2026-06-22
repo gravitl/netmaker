@@ -44,7 +44,7 @@ func SessionHandler(conn *websocket.Conn) {
 		return
 	}
 
-	req := new(netcache.CValue)
+	req := new(schema.CacheValue)
 	req.Value = string(registerMessage.RegisterHost.ID.String())
 	req.Network = registerMessage.Network
 	req.Host = registerMessage.RegisterHost
@@ -64,7 +64,7 @@ func SessionHandler(conn *websocket.Conn) {
 	defer netcache.Del(stateStr)
 	// Wait for the user to finish his auth flow...
 	timeout := make(chan bool, 2)
-	answer := make(chan netcache.CValue, 1)
+	answer := make(chan schema.CacheValue, 1)
 	defer close(answer)
 	defer close(timeout)
 	if len(registerMessage.User) > 0 { // handle basic auth

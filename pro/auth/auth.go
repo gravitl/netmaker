@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 )
@@ -211,7 +212,7 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	req := &netcache.CValue{User: "", Pass: ""}
+	req := &schema.CacheValue{User: "", Pass: ""}
 	stateStr := logic.RandomString(headless_signin_length)
 	if err = netcache.Set(stateStr, req); err != nil {
 		logger.Log(0, "Failed to process sso request -", err.Error())

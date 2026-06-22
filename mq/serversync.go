@@ -59,7 +59,6 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
 		oldInterval := logic.GetMetricInterval()
-		logic.InvalidateServerSettingsCache()
 		if logic.GetMetricInterval() != oldInterval {
 			logic.NotifyMetricExportIntervalChanged()
 		}
