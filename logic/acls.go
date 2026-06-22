@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,12 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"gorm.io/gorm"
+	"gorm.io/datatypes"
 )
 
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
@@ -2930,11 +2928,8 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Proto = models.ALL
 	}
 	acl.Enabled = newAcl.Enabled
-	d, err := json.Marshal(acl)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
+	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
+	err := r.Upsert(db.WithContext(context.TODO()))
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
 	}
@@ -2943,11 +2938,8 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 
 // UpsertAcl - upserts acl
 func UpsertAcl(acl models.Acl) error {
-	d, err := json.Marshal(acl)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
+	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
+	err := r.Upsert(db.WithContext(context.TODO()))
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
 	}
@@ -2956,7 +2948,7 @@ func UpsertAcl(acl models.Acl) error {
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(a models.Acl) error {
-	err := database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID)
+	err := (&schema.AclRecord{Key: a.ID}).Delete(db.WithContext(context.TODO()))
 	if err == nil && servercfg.CacheEnabled() {
 		removeAclFromCache(a)
 	}
@@ -2968,19 +2960,15 @@ func ListAcls() (acls []models.Acl) {
 		return listAclFromCache()
 	}
 
-	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	aclRecords, err := (&schema.AclRecord{}).List(db.WithContext(context.TODO()))
+	if err != nil {
 		return []models.Acl{}
 	}
 	if servercfg.CacheEnabled() {
 		resetAclCacheLocked()
 	}
-	for _, dataI := range data {
-		acl := models.Acl{}
-		err := json.Unmarshal([]byte(dataI), &acl)
-		if err != nil {
-			continue
-		}
+	for _, r := range aclRecords {
+		acl := r.Value.Data()
 		if !servercfg.IsPro {
 			if acl.RuleType == models.UserPolicy {
 				continue
@@ -3174,11 +3162,8 @@ func getAclFromCache(aID string) (a models.Acl, ok bool) {
 
 // InsertAcl - creates acl policy
 func InsertAcl(a models.Acl) error {
-	d, err := json.Marshal(a)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(a.ID, string(d), database.ACLS_TABLE_NAME)
+	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
+	err := r.Upsert(db.WithContext(context.TODO()))
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(a)
 	}
@@ -3195,14 +3180,11 @@ func GetAcl(aID string) (models.Acl, error) {
 			return a, nil
 		}
 	}
-	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID)
-	if err != nil {
+	r := &schema.AclRecord{Key: aID}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
 		return a, err
 	}
-	err = json.Unmarshal([]byte(d), &a)
-	if err != nil {
-		return a, err
-	}
+	a = r.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeAclInCache(a)
 	}

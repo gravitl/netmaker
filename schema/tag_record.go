@@ -1,7 +1,10 @@
 package schema
 
 import (
+	"context"
+
 	"fmt"
+	"github.com/gravitl/netmaker/db"
 	"time"
 
 	"gorm.io/datatypes"
@@ -37,3 +40,27 @@ type TagRecord struct {
 }
 
 func (*TagRecord) TableName() string { return "tags" }
+
+func (r *TagRecord) Get(ctx context.Context) error {
+	return db.FromContext(ctx).First(r).Error
+}
+
+func (r *TagRecord) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(r).Error
+}
+
+func (r *TagRecord) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Delete(r).Error
+}
+
+func (*TagRecord) List(ctx context.Context) ([]TagRecord, error) {
+	var records []TagRecord
+	err := db.FromContext(ctx).Find(&records).Error
+	return records, err
+}
+
+func (*TagRecord) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&TagRecord{}).Count(&count).Error
+	return int(count), err
+}

@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
@@ -87,7 +86,7 @@ func FetchTelemetryData() telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
+	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(db.WithContext(context.TODO()))
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
@@ -156,15 +155,6 @@ func getClientCount(nodes []schema.Node) clientCount {
 		}
 	}
 	return count
-}
-
-// getDBLength - get length of DB to get count of objects
-func getDBLength(dbname string) int {
-	data, err := database.FetchRecords(dbname)
-	if err != nil {
-		return 0
-	}
-	return len(data)
 }
 
 // telemetryData - What data to send to posthog

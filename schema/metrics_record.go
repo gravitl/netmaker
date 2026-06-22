@@ -1,8 +1,10 @@
 package schema
 
 import (
+	"context"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
 )
 
@@ -38,3 +40,27 @@ type MetricsRecord struct {
 }
 
 func (*MetricsRecord) TableName() string { return "metrics" }
+
+func (r *MetricsRecord) Get(ctx context.Context) error {
+	return db.FromContext(ctx).First(r).Error
+}
+
+func (r *MetricsRecord) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(r).Error
+}
+
+func (r *MetricsRecord) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Delete(r).Error
+}
+
+func (*MetricsRecord) List(ctx context.Context) ([]MetricsRecord, error) {
+	var records []MetricsRecord
+	err := db.FromContext(ctx).Find(&records).Error
+	return records, err
+}
+
+func (*MetricsRecord) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&MetricsRecord{}).Count(&count).Error
+	return int(count), err
+}

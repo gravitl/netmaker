@@ -1,8 +1,10 @@
 package schema
 
 import (
+	"context"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
 )
 
@@ -80,3 +82,27 @@ type AclRecord struct {
 }
 
 func (*AclRecord) TableName() string { return "acls" }
+
+func (r *AclRecord) Get(ctx context.Context) error {
+	return db.FromContext(ctx).First(r).Error
+}
+
+func (r *AclRecord) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(r).Error
+}
+
+func (r *AclRecord) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Delete(r).Error
+}
+
+func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
+	var records []AclRecord
+	err := db.FromContext(ctx).Find(&records).Error
+	return records, err
+}
+
+func (*AclRecord) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&AclRecord{}).Count(&count).Error
+	return int(count), err
+}

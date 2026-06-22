@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -24,6 +23,7 @@ const (
 	TableName_PendingUsers = "pending_users"
 	TableName_UserInvites  = "user_invites"
 	TableName_Nodes        = "nodes"
+	TableName_Acls         = "acls"
 )
 
 func migrateV1_6_0(ctx context.Context) error {
@@ -392,7 +392,7 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
 			}
-			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			err = kvInsert(ctx, TableName_Acls, acl.ID, acl)
 			if err != nil {
 				return err
 			}
@@ -425,7 +425,7 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
 			}
-			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			err = kvInsert(ctx, TableName_Acls, acl.ID, acl)
 			if err != nil {
 				return err
 			}

@@ -1,10 +1,12 @@
 package schema
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
 )
 
@@ -72,3 +74,27 @@ type ExtClientRecord struct {
 }
 
 func (*ExtClientRecord) TableName() string { return "extclients" }
+
+func (r *ExtClientRecord) Get(ctx context.Context) error {
+	return db.FromContext(ctx).First(r).Error
+}
+
+func (r *ExtClientRecord) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(r).Error
+}
+
+func (r *ExtClientRecord) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Delete(r).Error
+}
+
+func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
+	var records []ExtClientRecord
+	err := db.FromContext(ctx).Find(&records).Error
+	return records, err
+}
+
+func (*ExtClientRecord) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&ExtClientRecord{}).Count(&count).Error
+	return int(count), err
+}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -572,12 +571,12 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	if err != nil {
 		return entry, err
 	}
-	record, err := database.FetchRecord(database.DNS_TABLE_NAME, key)
-	if err != nil {
+	r := &schema.DNSRecord{Key: key}
+	if err = r.Get(db.WithContext(context.TODO())); err != nil {
 		return entry, err
 	}
-	err = json.Unmarshal([]byte(record), &entry)
-	return entry, err
+	entry = r.Value.Data()
+	return entry, nil
 }
 
 // @Summary     Push DNS entries to nameserver

@@ -10,7 +10,6 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -19,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -64,23 +64,15 @@ func LoadNodeMetricsToCache() error {
 	if metricsCacheMap == nil {
 		metricsCacheMap = map[string]models.Metrics{}
 	}
-
-	collection, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	records, err := (&schema.MetricsRecord{}).List(db.WithContext(context.Background()))
 	if err != nil {
 		return err
 	}
-
-	for key, value := range collection {
-		var metrics models.Metrics
-		if err := json.Unmarshal([]byte(value), &metrics); err != nil {
-			slog.Error("parse metric record error", "error", err.Error())
-			continue
-		}
+	for _, r := range records {
 		if servercfg.CacheEnabled() {
-			storeMetricsInCache(key, metrics)
+			storeMetricsInCache(r.Key, r.Value.Data())
 		}
 	}
-
 	slog.Info("metrics loading done")
 	return nil
 }
@@ -93,17 +85,14 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 			return metricsReadCopy(&m), nil
 		}
 	}
-	record, err := database.FetchRecord(database.METRICS_TABLE_NAME, nodeid)
-	if err != nil {
+	r := &schema.MetricsRecord{Key: nodeid}
+	if err := r.Get(db.WithContext(context.Background())); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &metrics, nil
 		}
 		return &metrics, err
 	}
-	err = json.Unmarshal([]byte(record), &metrics)
-	if err != nil {
-		return &metrics, err
-	}
+	metrics = r.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeMetricsInCache(nodeid, metrics)
 		return metricsReadCopy(&metrics), nil
@@ -114,12 +103,8 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 // UpdateMetrics - updates the metrics of a given client
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 	metrics.UpdatedAt = time.Now()
-	data, err := json.Marshal(metrics)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(nodeid, string(data), database.METRICS_TABLE_NAME)
-	if err != nil {
+	r := &schema.MetricsRecord{Key: nodeid, Value: datatypes.NewJSONType(*metrics)}
+	if err := r.Upsert(db.WithContext(context.Background())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -130,8 +115,7 @@ func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 
 // DeleteMetrics - deletes metrics of a given node
 func DeleteMetrics(nodeid string) error {
-	err := database.DeleteRecord(database.METRICS_TABLE_NAME, nodeid)
-	if err != nil {
+	if err := (&schema.MetricsRecord{Key: nodeid}).Delete(db.WithContext(context.Background())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {

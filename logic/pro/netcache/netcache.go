@@ -1,12 +1,13 @@
 package netcache
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 const (
@@ -21,32 +22,24 @@ var ErrExpired = fmt.Errorf("expired")
 // Set - sets a value to a key in db
 func Set(k string, newValue *CValue) error {
 	newValue.Expiration = time.Now().Add(expirationTime)
-	newData, err := json.Marshal(newValue)
-	if err != nil {
-		return err
-	}
-
-	return database.Insert(k, string(newData), database.CACHE_TABLE_NAME)
+	r := &schema.CacheRecord{Key: k, Value: datatypes.NewJSONType(*newValue)}
+	return r.Upsert(db.WithContext(context.TODO()))
 }
 
 // Get - gets a value from db, if expired, return err
 func Get(k string) (*CValue, error) {
-	record, err := database.FetchRecord(database.CACHE_TABLE_NAME, k)
-	if err != nil {
+	r := &schema.CacheRecord{Key: k}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
 		return nil, err
 	}
-	var entry CValue
-	if err := json.Unmarshal([]byte(record), &entry); err != nil {
-		return nil, err
-	}
+	entry := r.Value.Data()
 	if time.Now().After(entry.Expiration) {
 		return nil, ErrExpired
 	}
-
 	return &entry, nil
 }
 
 // Del - deletes a value from db
 func Del(k string) error {
-	return database.DeleteRecord(database.CACHE_TABLE_NAME, k)
+	return (&schema.CacheRecord{Key: k}).Delete(db.WithContext(context.TODO()))
 }

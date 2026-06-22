@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/goombaio/namegenerator"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -21,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -158,8 +157,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	if err = (&schema.ExtClientRecord{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -221,30 +219,21 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 			return extclients, nil
 		}
 	}
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
+	records, err := (&schema.ExtClientRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return extclients, nil
-		}
 		return extclients, err
 	}
-	for _, value := range records {
-		var extclient models.ExtClient
-		err = json.Unmarshal([]byte(value), &extclient)
-		if err != nil {
-			continue
-		}
+	for _, r := range records {
+		extclient := r.Value.Data()
 		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-		if err == nil {
-			if servercfg.CacheEnabled() {
-				storeExtClientInCache(key, extclient)
-			}
+		if err == nil && servercfg.CacheEnabled() {
+			storeExtClientInCache(key, extclient)
 		}
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
 		}
 	}
-	return extclients, err
+	return extclients, nil
 }
 
 // GetExtClient - gets a single ext client on a network
@@ -259,15 +248,15 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 			return extclient, nil
 		}
 	}
-	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	r := &schema.ExtClientRecord{Key: key}
+	if err = r.Get(db.WithContext(context.TODO())); err != nil {
 		return extclient, err
 	}
-	err = json.Unmarshal([]byte(data), &extclient)
+	extclient = r.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, extclient)
 	}
-	return extclient, err
+	return extclient, nil
 }
 
 func GenerateNodeName(network string) (string, error) {
@@ -300,17 +289,13 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(&extclient)
-	if err != nil {
-		return err
-	}
-	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
+	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
+	if err = r.Upsert(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
 	}
-
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
