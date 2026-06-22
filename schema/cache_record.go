@@ -21,7 +21,7 @@ type CacheValue struct {
 
 type CacheRecord struct {
 	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
+	TenantID string `gorm:"default:'';index"`
 	Value    datatypes.JSONType[CacheValue]
 }
 

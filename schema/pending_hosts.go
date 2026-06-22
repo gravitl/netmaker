@@ -10,7 +10,7 @@ import (
 
 type PendingHost struct {
 	ID            string         `gorm:"id" json:"id"`
-	TenantID      string         `gorm:"default:''" json:"tenant_id"`
+	TenantID      string         `gorm:"default:'';index" json:"tenant_id"`
 	HostID        string         `gorm:"host_id" json:"host_id"`
 	Hostname      string         `gorm:"host_name" json:"host_name"`
 	Network       string         `gorm:"network" json:"network"`

@@ -21,7 +21,7 @@ const (
 
 type Egress struct {
 	ID           string            `gorm:"primaryKey" json:"id"`
-	TenantID     string            `gorm:"default:''" json:"tenant_id"`
+	TenantID     string            `gorm:"default:'';index" json:"tenant_id"`
 	Name         string            `gorm:"name" json:"name"`
 	Network      string            `gorm:"network" json:"network"`
 	Description  string            `gorm:"description" json:"description"`

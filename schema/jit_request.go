@@ -11,7 +11,7 @@ const jitRequestTable = "jit_requests"
 
 type JITRequest struct {
 	ID            string    `gorm:"primaryKey" json:"id"`
-	TenantID      string    `gorm:"default:''" json:"tenant_id"`
+	TenantID      string    `gorm:"default:'';index" json:"tenant_id"`
 	NetworkID     string    `gorm:"network_id" json:"network_id"`
 	UserID        string    `gorm:"user_id" json:"user_id"`
 	UserName      string    `gorm:"user_name" json:"user_name"`

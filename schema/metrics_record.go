@@ -34,7 +34,7 @@ type Metric struct {
 
 type MetricsRecord struct {
 	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:''"`
+	TenantID  string `gorm:"default:'';index"`
 	NetworkID string
 	Value     datatypes.JSONType[Metrics]
 }

@@ -21,7 +21,7 @@ func (s *SsoState) IsExpired() bool { return time.Now().After(s.Expiration) }
 
 type SsoStateRecord struct {
 	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
+	TenantID string `gorm:"default:'';index"`
 	Value    datatypes.JSONType[SsoState]
 }
 

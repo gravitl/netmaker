@@ -20,7 +20,7 @@ const (
 
 type Internal struct {
 	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:''"`
+	TenantID string `gorm:"default:'';index"`
 	Value    string `gorm:"not null"`
 }
 
