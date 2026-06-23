@@ -98,13 +98,15 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 				}
 				err := userRole.Get(r.Context())
 				if err != nil || !userRole.FullAccess {
-					filtered := []models.ExtClient{}
-					for _, ec := range extclients {
-						if logic.IsUserAllowedAccessToExtClient(username, ec) {
-							filtered = append(filtered, ec)
+					if !logic.IsNetworkAdmin(user, network) {
+						var filtered []models.ExtClient
+						for _, ec := range extclients {
+							if logic.IsUserAllowedAccessToExtClient(username, ec) {
+								filtered = append(filtered, ec)
+							}
 						}
+						extclients = filtered
 					}
-					extclients = filtered
 				}
 			}
 		}
@@ -223,6 +225,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			if user.PlatformRoleID != schema.SuperAdminRole &&
 				user.PlatformRoleID != schema.AdminRole &&
+				!logic.IsNetworkAdmin(user, networkid) &&
 				user.Username != client.OwnerID {
 				err = fmt.Errorf("access denied")
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
