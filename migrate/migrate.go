@@ -564,6 +564,13 @@ func migrateSettings() {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
+	if settings.SmtpHost != "" {
+		_, ok := settingsD["smtp_skip_tls_verify"]
+		if !ok {
+			// skip tls verification for older deployments when tls verification wasn't configurable.
+			settings.SmtpSkipTlsVerify = true
+		}
+	}
 	logic.UpsertServerSettings(settings)
 }
 
