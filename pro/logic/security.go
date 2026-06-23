@@ -307,7 +307,7 @@ func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
 	if err := userRole.Get(r.Context()); err != nil {
 		return errors.New("access denied")
 	}
-	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if userRole.FullAccess {
 		return nil
 	}
 
