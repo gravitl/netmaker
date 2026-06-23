@@ -21,22 +21,23 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func networkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).
+	r.HandleFunc("/api/networks", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworks)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/networks/stats", logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats))).
+	r.HandleFunc("/api/v1/networks/stats", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(createNetwork))).
+	r.HandleFunc("/api/networks", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).
+	r.HandleFunc("/api/networks/{networkname}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetwork)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).
+	r.HandleFunc("/api/networks/{networkname}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).
+	r.HandleFunc("/api/networks/{networkname}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNetwork)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
+	r.HandleFunc("/api/networks/{networkname}/egress_routes", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes))))
 }
 
 // @Summary     Lists all networks

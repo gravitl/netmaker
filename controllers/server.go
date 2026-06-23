@@ -22,13 +22,14 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 var cpuProfileLog *os.File
 
 func serverHandlers(r *mux.Router) {
-	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
+	// r.HandleFunc("/api/server/addnetwork/{network}", scope.Middleware(scope.TenantScope, securityCheckServer(true, http.HandlerFunc(addNetwork)))).Methods(http.MethodPost)
 	r.HandleFunc(
 		"/api/server/health",
 		func(resp http.ResponseWriter, req *http.Request) {
@@ -56,23 +57,23 @@ func serverHandlers(r *mux.Router) {
 				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 			})),
 	).Methods(http.MethodPost)
-	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
+	r.HandleFunc("/api/server/getconfig", scope.Middleware(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
+	r.HandleFunc("/api/server/settings", scope.Middleware(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", logic.SecurityCheck(true, http.HandlerFunc(updateSettings))).
+	r.HandleFunc("/api/server/settings", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
+	r.HandleFunc("/api/server/getserverinfo", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
+	r.HandleFunc("/api/server/usage", scope.Middleware(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
+	r.HandleFunc("/api/server/cpu_profile", scope.Middleware(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(cpuProfile)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
+	r.HandleFunc("/api/server/mem_profile", scope.Middleware(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(memProfile)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/onboarding", logic.SecurityCheck(true, http.HandlerFunc(getOnboarding))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/onboarding", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {

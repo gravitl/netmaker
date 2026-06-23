@@ -19,16 +19,17 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func TagHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(getTags))).
+	r.HandleFunc("/api/v1/tags", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getTags)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(createTag))).
+	r.HandleFunc("/api/v1/tags", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createTag)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(updateTag))).
+	r.HandleFunc("/api/v1/tags", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateTag)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(deleteTag))).
+	r.HandleFunc("/api/v1/tags", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTag)))).
 		Methods(http.MethodDelete)
 
 }
