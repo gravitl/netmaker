@@ -399,7 +399,6 @@ func setTenantID(ctx context.Context) error {
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{}, &schema.PendingUser{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{}, &schema.SsoStateRecord{},
 		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
-		&schema.UserRole{}, &schema.User{},
 	}
 
 	for _, model := range tenantModels {
