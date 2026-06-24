@@ -228,20 +228,6 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 			return err
 		}
 
-		// merge models.Networks and models.Tags (both hold network names)
-		networksSet := make(map[string]struct{}, len(key.Networks)+len(key.Tags))
-		for _, n := range key.Networks {
-			networksSet[n] = struct{}{}
-		}
-		for _, t := range key.Tags {
-			networksSet[t] = struct{}{}
-		}
-		networks := make(datatypes.JSONSlice[string], 0, len(networksSet))
-		for n := range networksSet {
-			networks = append(networks, n)
-		}
-
-		// models.Groups (device tags) → schema.Tags
 		tags := make(datatypes.JSONSlice[string], 0, len(key.Groups))
 		for _, g := range key.Groups {
 			tags = append(tags, g.String())
@@ -280,7 +266,7 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 			Unlimited:         key.Unlimited,
 			UsesRemaining:     key.UsesRemaining,
 			Expiration:        key.Expiration,
-			Networks:          networks,
+			Networks:          key.Networks,
 			Tags:              tags,
 			GatewayID:         gatewayID,
 			AutoEgress:        key.AutoEgress,
