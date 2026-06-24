@@ -56,7 +56,6 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
 	for i := range keys {
 		if err = logic.Tokenize(r.Context(), &keys[i], servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to tokenize enrollment key:", err.Error())
@@ -65,8 +64,42 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	resp := make([]models.EnrollmentKey, 0, len(keys))
+	for _, key := range keys {
+		networks := make([]string, 0)
+		networks = append(networks, key.Networks...)
+
+		keyType := models.KeyType(key.Type)
+
+		var relay uuid.UUID
+		if key.GatewayID != nil {
+			relay, _ = uuid.Parse(*key.GatewayID)
+		}
+
+		var groups []models.TagID
+		for _, tag := range key.Tags {
+			groups = append(groups, models.TagID(tag))
+		}
+		resp = append(resp, models.EnrollmentKey{
+			Expiration:        key.Expiration,
+			UsesRemaining:     key.UsesRemaining,
+			Value:             key.Value,
+			Networks:          networks,
+			Unlimited:         key.Unlimited,
+			Tags:              []string{key.Name},
+			Token:             key.Token,
+			Type:              keyType,
+			Relay:             relay,
+			Groups:            groups,
+			Default:           key.Default,
+			AutoEgress:        key.AutoEgress,
+			AutoAssignGateway: key.AutoAssignGateway,
+		})
+	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
-	logic.ReturnSuccessResponseWithJson(w, r, keys, "fetched enrollment keys")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // @Summary     Lists EnrollmentKeys (paginated)
