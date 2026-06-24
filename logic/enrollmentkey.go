@@ -61,19 +61,6 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		keyType = schema.EnrollmentKeyType_UnlimitedUses
 	}
 
-	// merge networks and tags (tags are also network names)
-	networksSet := make(map[string]struct{}, len(networks)+len(tags))
-	for _, n := range networks {
-		networksSet[n] = struct{}{}
-	}
-	for _, t := range tags {
-		networksSet[t] = struct{}{}
-	}
-	mergedNetworks := make(datatypes.JSONSlice[string], 0, len(networksSet))
-	for n := range networksSet {
-		mergedNetworks = append(mergedNetworks, n)
-	}
-
 	keyTags := make(datatypes.JSONSlice[string], 0, len(groups))
 	for _, g := range groups {
 		keyTags = append(keyTags, g.String())
@@ -98,7 +85,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		Expiration:        exp,
 		UsesRemaining:     usesRemaining,
 		Unlimited:         unlimited,
-		Networks:          mergedNetworks,
+		Networks:          networks,
 		Tags:              keyTags,
 		Type:              keyType,
 		GatewayID:         relayPtr,
@@ -119,7 +106,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		if err != nil {
 			return nil, err
 		}
-		if !slices.Contains([]string(k.Networks), relayNode.Network) {
+		if !slices.Contains(k.Networks, relayNode.Network) {
 			return nil, errors.New("relay node not in key's networks")
 		}
 		if !relayNode.IsRelay {
