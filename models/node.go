@@ -263,6 +263,18 @@ func (newNode *Node) Fill(
 		}
 		newNode.Tags = currentNode.Tags
 	}
+	if newNode.PostureCheckViolationSeverityLevel == 0 {
+		newNode.PostureCheckViolationSeverityLevel = currentNode.PostureCheckViolationSeverityLevel
+	}
+	if len(newNode.PostureChecksViolations) == 0 {
+		newNode.PostureChecksViolations = currentNode.PostureChecksViolations
+	}
+	if newNode.LastEvaluationCycleID == "" {
+		newNode.LastEvaluationCycleID = currentNode.LastEvaluationCycleID
+	}
+	if newNode.LastEvaluatedAt.IsZero() {
+		newNode.LastEvaluatedAt = currentNode.LastEvaluatedAt
+	}
 }
 
 // Node.NetworkSettings updates a node with network settings
