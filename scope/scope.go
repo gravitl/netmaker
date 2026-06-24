@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
@@ -40,6 +41,11 @@ var (
 	errDefaultOrgFailed    = errors.New("default organization not found")
 )
 
+var (
+	defaultTenantID atomic.Value
+	defaultOrgID    atomic.Value
+)
+
 // Middleware reads the scope header for the given level, validates the
 // tenant/org, and stores the level and id in the request context.
 //
@@ -58,12 +64,18 @@ func Middleware(level Scope, next http.Handler) http.HandlerFunc {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
 					return
 				}
-				t := &schema.Tenant{}
-				if err := t.GetDefault(r.Context()); err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantFailed, logic.Internal))
-					return
+
+				if defaultTenantID.Load().(string) == "" {
+					t := &schema.Tenant{}
+					if err := t.GetDefault(r.Context()); err != nil {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantFailed, logic.Internal))
+						return
+					}
+
+					defaultTenantID.Store(t.ID)
 				}
-				id = t.ID
+
+				id = defaultTenantID.Load().(string)
 			} else {
 				t := &schema.Tenant{ID: id}
 				if err := t.Get(db.WithContext(r.Context())); err != nil {
@@ -79,12 +91,18 @@ func Middleware(level Scope, next http.Handler) http.HandlerFunc {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
 					return
 				}
-				o := &schema.Organization{}
-				if err := o.GetDefault(r.Context()); err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgFailed, logic.Internal))
-					return
+
+				if defaultOrgID.Load().(string) == "" {
+					o := &schema.Organization{}
+					if err := o.GetDefault(r.Context()); err != nil {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgFailed, logic.Internal))
+						return
+					}
+
+					defaultOrgID.Store(o.ID)
 				}
-				id = o.ID
+
+				id = defaultOrgID.Load().(string)
 			} else {
 				o := &schema.Organization{ID: id}
 				if err := o.Get(db.WithContext(r.Context())); err != nil {
