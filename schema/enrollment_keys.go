@@ -10,12 +10,12 @@ import (
 	"github.com/gravitl/netmaker/db"
 )
 
-type EnrollmentKeyType string
+type EnrollmentKeyType int
 
 const (
-	EnrollmentKeyType_UnlimitedUses EnrollmentKeyType = "unlimited_uses"
-	EnrollmentKeyType_LimitedUses   EnrollmentKeyType = "limited_uses"
-	EnrollmentKeyType_TimedExpiry   EnrollmentKeyType = "timed_expiry"
+	EnrollmentKeyType_TimedExpiry EnrollmentKeyType = iota + 1
+	EnrollmentKeyType_LimitedUses
+	EnrollmentKeyType_UnlimitedUses
 )
 
 type EnrollmentKey struct {
