@@ -59,6 +59,16 @@ func migrateUsers(ctx context.Context) error {
 		return err
 	}
 
+	defaultOrg := &schema.Organization{}
+	if err = defaultOrg.GetDefault(ctx); err != nil {
+		return err
+	}
+
+	defaultTenant := &schema.Tenant{}
+	if err = defaultTenant.GetDefault(ctx); err != nil {
+		return err
+	}
+
 	for _, record := range records {
 		var user models.User
 		err = json.Unmarshal([]byte(record), &user)
@@ -81,11 +91,12 @@ func migrateUsers(ctx context.Context) error {
 			user.UserGroups = make(map[schema.UserGroupID]struct{})
 		}
 
+		groups := datatypes.NewJSONType(user.UserGroups)
+
 		_user := &schema.User{
 			ID:                         "",
 			Username:                   user.UserName,
 			DisplayName:                user.DisplayName,
-			PlatformRoleID:             platformRoleID,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			AccountDisabled:            user.AccountDisabled,
 			AuthType:                   user.AuthType,
@@ -93,7 +104,6 @@ func migrateUsers(ctx context.Context) error {
 			IsMFAEnabled:               user.IsMFAEnabled,
 			TOTPSecret:                 user.TOTPSecret,
 			LastLoginAt:                user.LastLoginTime,
-			UserGroups:                 datatypes.NewJSONType(user.UserGroups),
 			CreatedBy:                  user.CreatedBy,
 			CreatedAt:                  user.CreatedAt,
 			UpdatedAt:                  user.UpdatedAt,
@@ -101,10 +111,32 @@ func migrateUsers(ctx context.Context) error {
 
 		logger.Log(4, fmt.Sprintf("migrating user %s", _user.Username))
 
-		err = _user.Create(ctx)
-		if err != nil {
+		if err = _user.Create(ctx); err != nil {
 			logger.Log(4, fmt.Sprintf("migrating user %s failed: %v", _user.Username, err))
 			return err
+		}
+
+		tm := &schema.TenantMembership{
+			TenantID: defaultTenant.ID,
+			UserID:   _user.ID,
+			RoleID:   platformRoleID,
+			Groups:   groups,
+		}
+		err = tm.Create(ctx)
+		if err != nil {
+			return err
+		}
+
+		if platformRoleID == schema.SuperAdminRole {
+			om := &schema.OrgMembership{
+				OrganizationID: defaultOrg.ID,
+				UserID:         _user.ID,
+				RoleID:         schema.OrgOwner,
+			}
+			err = om.Create(ctx)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

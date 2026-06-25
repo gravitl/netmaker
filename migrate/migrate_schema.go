@@ -16,8 +16,17 @@ type migrationFunc func(ctx context.Context) error
 // ToSQLSchema migrates the data from key-value
 // db to sql db.
 func ToSQLSchema() error {
+	// multitenancy migration creates the default organization and tenant. this is
+	// done separately from v1.7.0 migration because user role and group info has
+	// been dropped from the users table in v1.7.0. if a tenant is migrated from v1.5.0
+	// to v1.7.0, this info won't be available.
+	err := ensureMigrationCompleted(context.TODO(), "migration-multitenancy", migrateMultiTenancy)
+	if err != nil {
+		return err
+	}
+
 	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	err := ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
+	err = ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
 	if err != nil {
 		return err
 	}
@@ -31,8 +40,7 @@ func ToSQLSchema() error {
 	// v1.7.0 migration includes migrating the server conf, generated, server uuid and
 	// enrollment key tables.
 	// this version also includes changes for multi-tenancy and so this job
-	// creates default organization and tenant records and assigns the tenant id to all the
-	// existing records.
+	// assigns the tenant id to all the existing records.
 	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0", migrateV1_7_0)
 	if err != nil {
 		return err

@@ -39,3 +39,10 @@ func (t *TenantMembership) Delete(ctx context.Context) error {
 		Delete(t).
 		Error
 }
+
+func (t *TenantMembership) UpdateRoleID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("role_id", t.RoleID).
+		Error
+}

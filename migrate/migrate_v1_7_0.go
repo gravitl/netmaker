@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -29,17 +30,7 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
-	err := createDefaults(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = createMemberships(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = migrateServerConf(ctx)
+	err := migrateServerConf(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,72 +55,17 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
+	err = createMemberships(ctx)
+	if err != nil {
+		return err
+	}
+
 	err = setTenantID(ctx)
 	if err != nil {
 		return err
 	}
 
 	return setNetworkID(ctx)
-}
-
-func createMemberships(ctx context.Context) error {
-	defaultOrg := &schema.Organization{}
-	err := defaultOrg.GetDefault(ctx)
-	if err != nil {
-		return err
-	}
-
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
-	if err != nil {
-		return err
-	}
-
-	var legacyUsers []types.LegacyUser
-	err = db.FromContext(ctx).Find(&legacyUsers).Error
-	if err != nil {
-		return err
-	}
-
-	for _, u := range legacyUsers {
-		tm := &schema.TenantMembership{
-			TenantID: defaultTenant.ID,
-			UserID:   u.ID,
-			RoleID:   u.PlatformRoleID,
-			Groups:   u.UserGroups,
-		}
-		err = tm.Create(ctx)
-		if err != nil {
-			return err
-		}
-
-		if u.PlatformRoleID == schema.SuperAdminRole {
-			om := &schema.OrgMembership{
-				OrganizationID: defaultOrg.ID,
-				UserID:         u.ID,
-				RoleID:         schema.OrgOwner,
-			}
-			err = om.Create(ctx)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func createDefaults(ctx context.Context) error {
-	defaultOrg := &schema.Organization{}
-	err := defaultOrg.CreateDefault(ctx)
-	if err != nil {
-		return err
-	}
-
-	defaultTenant := &schema.Tenant{
-		OrganizationID: defaultOrg.ID,
-	}
-	return defaultTenant.CreateDefault(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -433,6 +369,57 @@ func migrateServerSettings(ctx context.Context) error {
 			}
 
 			err = kvDelete(ctx, TableName_ServerSettings, key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func createMemberships(ctx context.Context) error {
+	defaultOrg := &schema.Organization{}
+	err := defaultOrg.GetDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err = defaultTenant.GetDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	var legacyUsers []types.LegacyUser
+	err = db.FromContext(ctx).Find(&legacyUsers).Error
+	if err != nil {
+		return err
+	}
+
+	for _, u := range legacyUsers {
+		tm := &schema.TenantMembership{
+			TenantID: defaultTenant.ID,
+			UserID:   u.ID,
+			RoleID:   u.PlatformRoleID,
+			Groups:   u.UserGroups,
+		}
+		err = db.FromContext(ctx).
+			Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
+			Create(tm).Error
+		if err != nil {
+			return err
+		}
+
+		if u.PlatformRoleID == schema.SuperAdminRole {
+			om := &schema.OrgMembership{
+				OrganizationID: defaultOrg.ID,
+				UserID:         u.ID,
+				RoleID:         schema.OrgOwner,
+			}
+			err = db.FromContext(ctx).
+				Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
+				Create(om).Error
 			if err != nil {
 				return err
 			}
