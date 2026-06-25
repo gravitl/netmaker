@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"errors"
-	"net/http"
 	"time"
 
 	"gorm.io/gorm"
@@ -57,17 +56,6 @@ func InitializeDB(models ...interface{}) error {
 // function.
 func WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, dbCtxKey, db)
-}
-
-// Middleware to auto-inject the db connection instance
-// in a request's context.
-//
-// Ensure InitializeDB has been called before using this
-// middleware.
-func Middleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(WithContext(r.Context())))
-	})
 }
 
 // FromContext extracts the db connection instance from

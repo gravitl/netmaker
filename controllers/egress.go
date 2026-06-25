@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -21,11 +22,11 @@ import (
 )
 
 func egressHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/egress/presets", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/egress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEgress)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/egress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/egress/presets", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEgress)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete)
 }
 
 // @Summary     List egress domain presets

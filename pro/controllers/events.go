@@ -8,15 +8,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 )
 
 func EventHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/network/activity", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/user/activity", scope.Middleware(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(listUserActivity)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/activity", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listActivity)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/network/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/user/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(listUserActivity)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listActivity)))).Methods(http.MethodGet)
 }
 
 // @Summary     List network activity
