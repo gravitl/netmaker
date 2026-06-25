@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
@@ -22,10 +23,10 @@ import (
 )
 
 func IntegrationHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/integrations/{type}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
 }
 
 // extractAndValidateIntegration pulls {type} and {id} from the URL

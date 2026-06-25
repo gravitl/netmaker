@@ -7,11 +7,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/scope"
 )
 
 func NetworkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/networks/{network}/graph", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkGraph)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/graph", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkGraph)))).Methods(http.MethodGet)
 }
 
 // @Summary     Get network topology graph

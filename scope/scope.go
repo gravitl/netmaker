@@ -1,15 +1,6 @@
 package scope
 
-import (
-	"context"
-	"errors"
-	"net/http"
-	"sync/atomic"
-
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/schema"
-)
+import "context"
 
 const (
 	HeaderTenantID = "X-Tenant-ID"
@@ -31,93 +22,6 @@ const (
 	ctxLevel ctxKey = iota
 	ctxID
 )
-
-var (
-	errMissingTenantID     = errors.New("X-Tenant-ID header is required")
-	errTenantNotFound      = errors.New("tenant not found")
-	errDefaultTenantFailed = errors.New("default tenant not found")
-	errMissingOrgID        = errors.New("X-Organization-ID header is required")
-	errOrgNotFound         = errors.New("organization not found")
-	errDefaultOrgFailed    = errors.New("default organization not found")
-)
-
-var (
-	defaultTenantID atomic.Value
-	defaultOrgID    atomic.Value
-)
-
-// Middleware reads the scope header for the given level, validates the
-// tenant/org, and stores the level and id in the request context.
-//
-// When AllowMultipleTenants is false and the header is absent, the default
-// tenant/org is resolved and used. When AllowMultipleTenants is true, a
-// missing header is a 400.
-func Middleware(level Scope, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var id string
-
-		switch level {
-		case TenantScope:
-			id = r.Header.Get(HeaderTenantID)
-			if id == "" {
-				if logic.GetFeatureFlags().AllowMultipleTenants {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
-					return
-				}
-
-				if defaultTenantID.Load() == nil {
-					t := &schema.Tenant{}
-					if err := t.GetDefault(r.Context()); err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantFailed, logic.Internal))
-						return
-					}
-
-					defaultTenantID.Store(t.ID)
-				}
-
-				id = defaultTenantID.Load().(string)
-			} else {
-				t := &schema.Tenant{ID: id}
-				if err := t.Get(db.WithContext(r.Context())); err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
-					return
-				}
-			}
-
-		case OrgScope:
-			id = r.Header.Get(HeaderOrgID)
-			if id == "" {
-				if logic.GetFeatureFlags().AllowMultipleTenants {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
-					return
-				}
-
-				if defaultOrgID.Load() == nil {
-					o := &schema.Organization{}
-					if err := o.GetDefault(r.Context()); err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgFailed, logic.Internal))
-						return
-					}
-
-					defaultOrgID.Store(o.ID)
-				}
-
-				id = defaultOrgID.Load().(string)
-			} else {
-				o := &schema.Organization{ID: id}
-				if err := o.Get(db.WithContext(r.Context())); err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errOrgNotFound, logic.BadReq))
-					return
-				}
-			}
-
-		case GlobalScope:
-			// no header required
-		}
-
-		next.ServeHTTP(w, r.WithContext(WithContext(r.Context(), level, id)))
-	}
-}
 
 // WithContext stores the scope level and id in ctx and returns the new context.
 // If level is non-global and id is empty, ctx is returned unchanged.

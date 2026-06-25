@@ -16,6 +16,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
@@ -31,20 +32,20 @@ var hostIDHeader = "host-id"
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllNodes)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nodes/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkNodes)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getNode)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNode)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", scope.Middleware(scope.TenantScope, AuthorizeHost(http.HandlerFunc(deleteNode)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllNodes)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nodes/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkNodes)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getNode)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNode)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(deleteNode)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nodes/{network}/bulk", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nodes/{network}/bulk/status", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateNodeStatus)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nodes/{network}/status", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteNodes)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nodes/{network}/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateNodeStatus)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nodes/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus)))).Methods(http.MethodGet)
 }
 
 func authenticate(response http.ResponseWriter, request *http.Request) {

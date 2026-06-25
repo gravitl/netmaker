@@ -11,13 +11,14 @@ import (
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
 func FlowHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/flows", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(handleListFlows)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/flows", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(handleListFlows)))).Methods(http.MethodGet)
 }
 
 const (

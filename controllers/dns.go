@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -24,27 +25,27 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
+	r.HandleFunc("/api/dns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/nodes", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/custom", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/sync", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
+	r.HandleFunc("/api/dns/adm/{network}/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
+	r.HandleFunc("/api/dns/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
+	r.HandleFunc("/api/dns/adm/pushdns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
+	r.HandleFunc("/api/dns/{network}/{domain}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver/global", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Global Nameservers

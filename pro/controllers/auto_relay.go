@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
@@ -23,19 +24,19 @@ import (
 
 // AutoRelayHandlers - handlers for AutoRelay
 func AutoRelayHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", scope.Middleware(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(setAutoRelay)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(setAutoRelay)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unsetAutoRelay)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unsetAutoRelay)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/node/{network}/auto_relay/reset", scope.Middleware(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetAutoRelayGw)))).
+	r.HandleFunc("/api/v1/node/{network}/auto_relay/reset", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetAutoRelayGw)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", scope.Middleware(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayME)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayME)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", scope.Middleware(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", scope.Middleware(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
 		Methods(http.MethodGet)
 }
 
