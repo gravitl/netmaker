@@ -26,6 +26,8 @@ func ListModels() []interface{} {
 		&EnrollmentKey{},
 		&Organization{},
 		&Tenant{},
+		&OrgMembership{},
+		&TenantMembership{},
 		&OrganizationSettings{},
 		&AclRecord{},
 		&CacheRecord{},

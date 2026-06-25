@@ -18,11 +18,11 @@ type awsIPRangesDoc struct {
 }
 
 type awsIPPrefix struct {
-	IPPrefix            string `json:"ip_prefix"`
-	IPv6Prefix          string `json:"ipv6_prefix"`
-	Region              string `json:"region"`
-	Service             string `json:"service"`
-	NetworkBorderGroup  string `json:"network_border_group"`
+	IPPrefix           string `json:"ip_prefix"`
+	IPv6Prefix         string `json:"ipv6_prefix"`
+	Region             string `json:"region"`
+	Service            string `json:"service"`
+	NetworkBorderGroup string `json:"network_border_group"`
 }
 
 func resolveAWSPresetCIDRs(client *http.Client, p models.EgressPresetApp) ([]string, error) {
