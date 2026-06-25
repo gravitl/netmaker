@@ -30,7 +30,7 @@ func (t *TenantMembership) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&TenantMembership{}).
 		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
 		First(t).
-		Erroromitempty
+		Error
 }
 
 func (t *TenantMembership) Delete(ctx context.Context) error {
