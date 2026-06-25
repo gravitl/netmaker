@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"fmt"
-	"github.com/gravitl/netmaker/db"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
 
 	"gorm.io/datatypes"
 )

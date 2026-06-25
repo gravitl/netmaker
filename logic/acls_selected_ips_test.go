@@ -96,11 +96,11 @@ func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 	getDevicePoliciesByNetwork = func(netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
-				ID:      "match-src",
-				Enabled: true,
+				ID:               "match-src",
+				Enabled:          true,
 				AllowedDirection: models.TrafficDirectionUni,
-				Src:     []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-				Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+				Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
+				Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
 			},
 			{
 				ID:      "non-egress",
@@ -168,10 +168,10 @@ func TestIsEgressToEgressPolicyForTarget_MatchesDstRoutingNode(t *testing.T) {
 		},
 	}
 	policy := models.Acl{
-		Enabled: true,
+		Enabled:          true,
 		AllowedDirection: models.TrafficDirectionBi,
-		Src:     []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -673,19 +673,19 @@ func TestAddEgressInfoToPeerByAccess_AllowsViaEgressRoutingPolicy(t *testing.T) 
 	}
 
 	srcEgress := schema.Egress{
-		ID:     "src-egress",
-		Status: true,
+		ID:      "src-egress",
+		Status:  true,
 		Network: "netmaker",
-		Range:  "10.10.0.0/24",
+		Range:   "10.10.0.0/24",
 		Nodes: datatypes.JSONMap{
 			nodeID.String(): json.Number("100"),
 		},
 	}
 	dstEgress := schema.Egress{
-		ID:     "dst-egress",
-		Status: true,
+		ID:      "dst-egress",
+		Status:  true,
 		Network: "netmaker",
-		Range:  "10.20.0.0/24",
+		Range:   "10.20.0.0/24",
 		Nodes: datatypes.JSONMap{
 			targetID.String(): json.Number("100"),
 		},
@@ -738,19 +738,19 @@ func TestAddEgressInfoToPeerByAccess_DeniesUniReverseRouting(t *testing.T) {
 	}
 
 	srcEgress := schema.Egress{
-		ID:     "src-egress",
-		Status: true,
+		ID:      "src-egress",
+		Status:  true,
 		Network: "netmaker",
-		Range:  "10.10.0.0/24",
+		Range:   "10.10.0.0/24",
 		Nodes: datatypes.JSONMap{
 			targetID.String(): json.Number("100"),
 		},
 	}
 	dstEgress := schema.Egress{
-		ID:     "dst-egress",
-		Status: true,
+		ID:      "dst-egress",
+		Status:  true,
 		Network: "netmaker",
-		Range:  "10.20.0.0/24",
+		Range:   "10.20.0.0/24",
 		Nodes: datatypes.JSONMap{
 			nodeID.String(): json.Number("100"),
 		},
@@ -1984,11 +1984,11 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 // "site + device" policy that lets both a mesh device and an egress-LAN IP
 // reach a remote egress), the egress node emits BOTH:
 //   - rules[acl.ID]         the device->egress rule (from the main loop),
-//                           sourced from the mesh node's VPN address;
+//     sourced from the mesh node's VPN address;
 //   - rules[acl.ID#xs0]     the site-to-site rule (from
-//                           getEgressAclRulesForTargetNode),
-//                           sourced from the selected egress source IP / mesh
-//                           net of the source-egress router.
+//     getEgressAclRulesForTargetNode),
+//     sourced from the selected egress source IP / mesh
+//     net of the source-egress router.
 //
 // Before the egressSiteToSiteRuleKey fix, the site-to-site rule overwrote the
 // main-loop rule under the same `acl.ID` key, so the device source (e.g. the
@@ -2172,7 +2172,7 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 		listNetworkExtClients = originalListExtClients
 	})
 
-	targetID := uuid.New()       // vr-owner
+	targetID := uuid.New()         // vr-owner
 	srcEgressOwnerID := uuid.New() // blr-eg owner
 	macbookID := uuid.New()
 	macbookNode := models.Node{
