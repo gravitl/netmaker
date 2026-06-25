@@ -61,8 +61,14 @@ func (c *Client) Capabilities() mdmpkg.Capabilities {
 }
 
 func (c *Client) Verify(ctx context.Context) error {
-	_, err := c.listDevices(ctx, 0, 1)
+	devices, err := c.listDevices(ctx, 0, 1)
 	if err != nil {
+		return fmt.Errorf("iru verify failed: %w", err)
+	}
+	if len(devices) == 0 {
+		return nil
+	}
+	if _, err := c.getDeviceStatus(ctx, devices[0].DeviceID); err != nil {
 		return fmt.Errorf("iru verify failed: %w", err)
 	}
 	return nil
@@ -171,7 +177,7 @@ func (c *Client) listDevices(ctx context.Context, offset, limit int) ([]iruDevic
 	}
 
 	var page devicesListResponse
-	if err := json.Unmarshal(body, &page); err == nil && len(page.Devices) > 0 {
+	if err := json.Unmarshal(body, &page); err == nil {
 		return page.Devices, nil
 	}
 	var devices []iruDevice
@@ -209,8 +215,8 @@ func (c *Client) getDeviceStatus(ctx context.Context, deviceID string) (iruDevic
 func normalize(d iruDevice, compliant bool) mdmpkg.ManagedDevice {
 	last, _ := time.Parse(time.RFC3339, d.LastCheckIn)
 	email := d.UserEmail
-	if email == "" && d.User != nil {
-		email = d.User.Email
+	if email == "" {
+		email = d.User.Email()
 	}
 	return mdmpkg.ManagedDevice{
 		ProviderDeviceID:  d.DeviceID,
@@ -228,14 +234,42 @@ type devicesListResponse struct {
 }
 
 type iruDevice struct {
-	DeviceID     string    `json:"device_id"`
-	DeviceName   string    `json:"device_name"`
-	SerialNumber string    `json:"serial_number"`
-	LastCheckIn  string    `json:"last_check_in"`
-	UserEmail    string    `json:"user_email"`
-	User         *iruUser  `json:"user"`
+	DeviceID     string      `json:"device_id"`
+	DeviceName   string      `json:"device_name"`
+	SerialNumber string      `json:"serial_number"`
+	LastCheckIn  string      `json:"last_check_in"`
+	UserEmail    string      `json:"user_email"`
+	User         iruUserField `json:"user"`
 }
 
-type iruUser struct {
-	Email string `json:"email"`
+// iruUserField accepts Iru/Kandji "user" as either a string (email) or object.
+type iruUserField struct {
+	email string
+}
+
+func (u iruUserField) Email() string {
+	return u.email
+}
+
+func (u *iruUserField) UnmarshalJSON(data []byte) error {
+	u.email = ""
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		u.email = strings.TrimSpace(s)
+		return nil
+	}
+	var obj struct {
+		Email string `json:"email"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	u.email = strings.TrimSpace(obj.Email)
+	return nil
 }

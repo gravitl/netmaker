@@ -282,10 +282,9 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 }
 
 func normalize(s jumpcloudSystem, compliant bool) mdmpkg.ManagedDevice {
-	// Prefer hostname for host matching; display names are often user-friendly labels.
-	name := s.Hostname
+	name := s.DisplayName
 	if name == "" {
-		name = s.DisplayName
+		name = s.ID
 	}
 	last := time.Time{}
 	for _, raw := range []string{s.LastContact, s.Modified, s.Created} {

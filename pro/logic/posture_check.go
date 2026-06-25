@@ -65,11 +65,9 @@ func RunPostureChecks() error {
 	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
-	// Refresh MDM device state before evaluating; a no-op when no provider
-	// is configured. Errors are already logged inside; we don't want a
-	// remote-API hiccup to block the rest of the posture cycle.
+	// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
 	_ = mdmpkg.RunMDMSync(db.WithContext(context.TODO()))
-	_ = edrpkg.RunEDRSync(db.WithContext(context.TODO()))
+	_ = edrpkg.RunEDRSyncForPosture(db.WithContext(context.TODO()))
 	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -160,6 +158,67 @@ func CheckPostureViolations(d models.PostureCheckDeviceInfo, network schema.Netw
 	}
 	violations, level := GetPostureCheckViolations(pcLi, d)
 	return violations, level
+}
+
+// CheckPostureViolationsForHost refreshes MDM/EDR snapshots for the host and
+// evaluates network posture checks. Use this for registration and join flows
+// instead of building PostureCheckDeviceInfo without integration state.
+func CheckPostureViolationsForHost(
+	host *schema.Host,
+	tags map[models.TagID]struct{},
+	network schema.NetworkID,
+	skipAutoUpdate bool,
+) ([]models.Violation, schema.Severity) {
+	return CheckPostureViolations(GetPostureCheckDeviceInfoForHost(host, tags, skipAutoUpdate, true), network)
+}
+
+func GetPostureCheckDeviceInfoForHost(
+	host *schema.Host,
+	tags map[models.TagID]struct{},
+	skipAutoUpdate bool,
+	refreshIntegration bool,
+) models.PostureCheckDeviceInfo {
+	if host == nil {
+		return models.PostureCheckDeviceInfo{}
+	}
+	deviceInfo := models.PostureCheckDeviceInfo{
+		ClientLocation: host.CountryCode,
+		ClientVersion:  host.Version,
+		OS:             host.OS,
+		OSVersion:      host.OSVersion,
+		OSFamily:       host.OSFamily,
+		KernelVersion:  host.KernelVersion,
+		AutoUpdate:     host.AutoUpdate,
+		SkipAutoUpdate: skipAutoUpdate,
+		Tags:           tags,
+		HostID:         host.ID.String(),
+	}
+	ctx := db.WithContext(context.TODO())
+	if refreshIntegration {
+		_ = mdmpkg.RefreshHostMDMState(ctx, *host)
+		_ = edrpkg.RefreshHostEDRState(ctx, *host)
+	}
+	attachIntegrationStates(ctx, host.ID.String(), &deviceInfo)
+	return deviceInfo
+}
+
+func attachIntegrationStates(ctx context.Context, hostID string, d *models.PostureCheckDeviceInfo) {
+	if d == nil || hostID == "" {
+		return
+	}
+	d.HostID = hostID
+	if providerID, err := mdmpkg.ActiveProviderID(ctx); err == nil && providerID != "" {
+		state := &schema.DeviceMDMState{HostID: hostID, Provider: providerID}
+		if err := state.Get(ctx); err == nil {
+			d.MDMState = state
+		}
+	}
+	if edrProviderID, err := edrpkg.ActiveProviderID(ctx); err == nil && edrProviderID != "" {
+		edrState := &schema.DeviceEDRState{HostID: hostID, Provider: edrProviderID}
+		if err := edrState.Get(ctx); err == nil {
+			d.EDRState = edrState
+		}
+	}
 }
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
 	if !GetFeatureFlags().EnablePostureChecks {
@@ -353,20 +412,10 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			Tags:           node.Tags,
 			HostID:         h.ID.String(),
 		}
-		// Attach the MDM snapshot for the active integration provider, if any.
 		ctx := db.WithContext(context.TODO())
-		if providerID, err := mdmpkg.ActiveProviderID(ctx); err == nil && providerID != "" {
-			state := &schema.DeviceMDMState{HostID: h.ID.String(), Provider: providerID}
-			if err := state.Get(ctx); err == nil {
-				deviceInfo.MDMState = state
-			}
-		}
-		if edrProviderID, err := edrpkg.ActiveProviderID(ctx); err == nil && edrProviderID != "" {
-			edrState := &schema.DeviceEDRState{HostID: h.ID.String(), Provider: edrProviderID}
-			if err := edrState.Get(ctx); err == nil {
-				deviceInfo.EDRState = edrState
-			}
-		}
+		_ = mdmpkg.RefreshHostMDMState(ctx, *h)
+		_ = edrpkg.RefreshHostEDRState(ctx, *h)
+		attachIntegrationStates(ctx, h.ID.String(), &deviceInfo)
 	} else if node.IsUserNode {
 		deviceInfo = models.PostureCheckDeviceInfo{
 			ClientLocation: node.StaticNode.Country,

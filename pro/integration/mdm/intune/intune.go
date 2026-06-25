@@ -169,17 +169,11 @@ func intuneDeviceEnrolled(d managedDevice) bool {
 	return false
 }
 
-func normalize(d managedDevice, entraByName map[string]string) mdmpkg.ManagedDevice {
+func normalize(d managedDevice) mdmpkg.ManagedDevice {
 	last, _ := time.Parse(time.RFC3339, d.LastSyncDateTime)
-	azureAD := d.AzureADDeviceID
-	if azureAD == "" && entraByName != nil {
-		if id, ok := entraByName[strings.ToLower(strings.TrimSpace(d.DeviceName))]; ok {
-			azureAD = id
-		}
-	}
 	return mdmpkg.ManagedDevice{
 		ProviderDeviceID:  d.ID,
-		AzureADDeviceID:   azureAD,
+		AzureADDeviceID:   d.AzureADDeviceID,
 		SerialNumber:      d.SerialNumber,
 		HardwareUUID:      d.HardwareInformation.SerialNumber,
 		DeviceName:        d.DeviceName,

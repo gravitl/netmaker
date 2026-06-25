@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
 )
 
 var (
@@ -48,6 +47,16 @@ func RunEDRSyncForce(ctx context.Context) error {
 	return runSyncLocked(ctx, intg, true)
 }
 
+// RunEDRSyncForPosture runs a full EDR sync before the posture evaluation cycle,
+// ignoring sync_enabled and the rate limit.
+func RunEDRSyncForPosture(ctx context.Context) error {
+	intg, err := GetActive(ctx)
+	if err != nil || intg == nil {
+		return nil
+	}
+	return runSyncLocked(ctx, intg, true)
+}
+
 func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) error {
 	syncMu.Lock()
 	defer syncMu.Unlock()
@@ -67,18 +76,17 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 		logger.Log(0, "edr sync: build provider:", err.Error())
 		return err
 	}
-
-	endpoints, err := p.ListManagedEndpoints(ctx)
-	if err != nil {
-		logger.Log(0, "edr sync: list endpoints:", err.Error())
-		return err
-	}
+	serialLookup, hasSerialLookup := p.(SerialLookup)
+	hostLookup, hasHostLookup := p.(HostEndpointLookup)
 
 	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		logger.Log(0, "edr sync: list hosts:", err.Error())
 		return err
 	}
+
+	var endpoints []ManagedEndpoint
+	endpointsLoaded := false
 
 	matched := 0
 	for i := range hosts {
@@ -88,33 +96,43 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			}
 			continue
 		}
+		if hasHostLookup {
+			ok, err := upsertHostEDRFromHostLookup(ctx, intg.ID, hostLookup, hosts[i])
+			if err != nil {
+				logger.Log(0, "edr sync: host lookup for host", hosts[i].ID.String(), ":", err.Error())
+				continue
+			}
+			if ok {
+				matched++
+			}
+			continue
+		}
+		if hasSerialLookup && strings.TrimSpace(hosts[i].SerialNumber) != "" {
+			ok, err := upsertHostEDRFromSerialLookup(ctx, intg.ID, serialLookup, hosts[i])
+			if err != nil {
+				logger.Log(0, "edr sync: serial lookup for host", hosts[i].ID.String(), ":", err.Error())
+				continue
+			}
+			if ok {
+				matched++
+			}
+			continue
+		}
+		if !endpointsLoaded {
+			endpoints, err = p.ListManagedEndpoints(ctx)
+			if err != nil {
+				logger.Log(0, "edr sync: list endpoints:", err.Error())
+				return err
+			}
+			endpointsLoaded = true
+		}
 		found := false
 		for _, ep := range endpoints {
 			matchedBy, ok := MatchHostToEndpoint(intg.ID, hosts[i], ep)
 			if !ok {
 				continue
 			}
-			raw := ep.RawVendorData
-			if raw == nil {
-				raw = json.RawMessage(`{}`)
-			}
-			state := schema.DeviceEDRState{
-				HostID:         hosts[i].ID.String(),
-				Provider:       intg.ID,
-				EDRDeviceID:    ep.ProviderDeviceID,
-				MatchedBy:      matchedBy,
-				AgentInstalled: ep.AgentInstalled,
-				AgentHealthy:   ep.AgentHealthy,
-				RiskLevel:      string(ep.RiskLevel),
-				ThreatCount:    ep.ThreatCount,
-				ActiveThreats:  ep.ActiveThreats,
-				Isolated:       ep.Isolated,
-				Contained:      ep.Contained,
-				LastSeenAt:     ep.LastSeen,
-				LastSyncedAt:   time.Now().UTC(),
-				RawVendorData:  datatypes.JSON(raw),
-			}
-			if err := state.Upsert(db.WithContext(ctx)); err != nil {
+			if err := upsertHostEDRFromEndpoint(ctx, intg.ID, hosts[i], ep, matchedBy); err != nil {
 				logger.Log(0, "edr sync: upsert state for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
@@ -137,9 +155,9 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 func hostEligibleForEDR(providerID string, h schema.Host) bool {
 	switch providerID {
 	case ProviderDefender:
-		return strings.TrimSpace(h.EntraDeviceID) != "" || strings.TrimSpace(h.Name) != ""
+		return strings.TrimSpace(h.EntraDeviceID) != ""
 	default:
-		return strings.TrimSpace(h.SerialNumber) != "" || strings.TrimSpace(h.Name) != ""
+		return strings.TrimSpace(h.SerialNumber) != ""
 	}
 }
 
@@ -152,36 +170,24 @@ func MatchHostToEndpoint(providerID string, h schema.Host, ep ManagedEndpoint) (
 				return schema.EDRMatchEntraDeviceID, true
 			}
 		}
-		if hostnameMatch(h.Name, ep.Hostname) {
-			return schema.EDRMatchHostname, true
-		}
 		return "", false
 	default:
 		if serialMatch(h.SerialNumber, ep.SerialNumber) {
 			return schema.EDRMatchSerialNumber, true
 		}
-		if hostnameMatch(h.Name, ep.Hostname) {
-			return schema.EDRMatchHostname, true
-		}
 		return "", false
 	}
+}
+
+// SerialMatch reports whether two serial numbers refer to the same device.
+func SerialMatch(hostSerial, deviceSerial string) bool {
+	return serialMatch(hostSerial, deviceSerial)
 }
 
 func serialMatch(hostSerial, deviceSerial string) bool {
 	hostSerial = strings.TrimSpace(hostSerial)
 	deviceSerial = strings.TrimSpace(deviceSerial)
 	return hostSerial != "" && deviceSerial != "" && strings.EqualFold(hostSerial, deviceSerial)
-}
-
-func hostnameMatch(hostName, deviceName string) bool {
-	hostName = strings.TrimSpace(strings.ToLower(hostName))
-	deviceName = strings.TrimSpace(strings.ToLower(deviceName))
-	if hostName == "" || deviceName == "" {
-		return false
-	}
-	hostName = strings.Split(hostName, ".")[0]
-	deviceName = strings.Split(deviceName, ".")[0]
-	return hostName == deviceName
 }
 
 func normalizeGUID(id string) string {

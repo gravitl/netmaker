@@ -26,6 +26,7 @@ type HostEDRStatus struct {
 	RiskLevel      string    `json:"risk_level"`
 	LastSyncedAt   time.Time `json:"last_synced_at"`
 	LastSeenAt     time.Time `json:"last_seen_at"`
+	LastError      string    `json:"last_error,omitempty"`
 }
 
 // HostMDMStatus is the current MDM sync snapshot for the host's configured

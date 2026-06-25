@@ -432,8 +432,6 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	if mdmChanged {
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update mdm identifiers after check-in", "name", h.Name, "id", h.ID, "error", err)
-		} else if currentHost.EntraDeviceID != "" {
-			go logic.SyncHostMDMState(context.Background(), currentHost.ID.String())
 		}
 	}
 

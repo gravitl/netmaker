@@ -91,19 +91,33 @@ func DefenderRiskFromScore(score string) RiskLevel {
 	}
 }
 
-// CrowdStrikeRiskFromStatus maps Falcon device status to normalized level.
-func CrowdStrikeRiskFromStatus(status string, contained bool) RiskLevel {
-	if contained {
-		return RiskCritical
-	}
+// CrowdStrikeRiskFromStatus maps Falcon containment status to normalized level.
+// Documented values: normal, containment_pending, contained, lift_containment_pending.
+func CrowdStrikeRiskFromStatus(status string) RiskLevel {
 	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "containment":
+	case "contained":
 		return RiskCritical
+	case "containment_pending":
+		return RiskHigh
+	case "lift_containment_pending":
+		return RiskMedium
 	case "lost":
 		return RiskHigh
+	case "normal":
+		return RiskNone
 	default:
 		return RiskNone
 	}
+}
+
+// CrowdStrikeContainedFromStatus reports whether Falcon status is contained.
+func CrowdStrikeContainedFromStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "contained")
+}
+
+// CrowdStrikeHealthyFromStatus reports good operations per Falcon (status normal).
+func CrowdStrikeHealthyFromStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "normal")
 }
 
 // SentinelOneRiskFromAgent maps SentinelOne agent fields to vendor risk hint.

@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
+	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -90,7 +92,7 @@ func (c *Client) ListManagedEndpoints(ctx context.Context) ([]edrpkg.ManagedEndp
 	if err != nil {
 		return nil, err
 	}
-	ids, err := c.queryDeviceIDs(ctx, tok)
+	ids, err := c.queryDeviceIDs(ctx, tok, "")
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +110,110 @@ func (c *Client) ListManagedEndpoints(ctx context.Context) ([]edrpkg.ManagedEndp
 	return out, nil
 }
 
-func (c *Client) queryDeviceIDs(ctx context.Context, tok string) ([]string, error) {
+// LookupBySerial resolves a Falcon host by serial_number using the devices
+// query filter API instead of listing the full fleet.
+func (c *Client) LookupBySerial(ctx context.Context, serial string) (edrpkg.ManagedEndpoint, error) {
+	serial = strings.TrimSpace(serial)
+	if serial == "" {
+		return edrpkg.ManagedEndpoint{}, edrpkg.ErrDeviceNotFoundInEDR
+	}
+	ep, _, err := c.lookupForSerial(ctx, serial)
+	return ep, err
+}
+
+// LookupForHost resolves a Falcon endpoint by serial_number only.
+func (c *Client) LookupForHost(ctx context.Context, h schema.Host) (edrpkg.ManagedEndpoint, string, error) {
+	serial := strings.TrimSpace(h.SerialNumber)
+	if serial == "" {
+		return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+	}
+	return c.lookupForSerial(ctx, serial)
+}
+
+func (c *Client) lookupForSerial(ctx context.Context, serial string) (edrpkg.ManagedEndpoint, string, error) {
+	fmt.Println("[crowdstrike] lookupForSerial:", serial)
+	tok, err := c.accessToken(ctx)
+	if err != nil {
+		fmt.Println("[crowdstrike] lookupForSerial: accessToken error:", err)
+		return edrpkg.ManagedEndpoint{}, "", err
+	}
+	deviceID, err := c.searchDeviceBySerial(ctx, tok, serial)
+	if err != nil {
+		fmt.Println("[crowdstrike] lookupForSerial: searchDeviceBySerial error:", err)
+		if err.Error() == "device not found" {
+			return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+		}
+		return edrpkg.ManagedEndpoint{}, "", err
+	}
+	fmt.Println("[crowdstrike] lookupForSerial: deviceID:", deviceID)
+	devices, err := c.fetchDevices(ctx, tok, []string{deviceID})
+	if err != nil {
+		fmt.Println("[crowdstrike] lookupForSerial: fetchDevices error:", err)
+		return edrpkg.ManagedEndpoint{}, "", err
+	}
+	if len(devices) == 0 {
+		fmt.Println("[crowdstrike] lookupForSerial: fetchDevices returned no devices")
+		return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+	}
+	fmt.Println("[crowdstrike] lookupForSerial: found device serial=", devices[0].SerialNumber, "hostname=", devices[0].Hostname, "status=", devices[0].Status)
+	return normalizeDevice(devices[0]), schema.EDRMatchSerialNumber, nil
+}
+
+func (c *Client) searchDeviceBySerial(ctx context.Context, token, serial string) (string, error) {
+	filter := url.QueryEscape(fmt.Sprintf("serial_number:'%s'", serial))
+	fmt.Println("[crowdstrike] searchDeviceBySerial: serial=", serial, "filter=", filter)
+	return c.searchDeviceByFilter(ctx, token, filter)
+}
+
+func (c *Client) searchDeviceByFilter(ctx context.Context, token, encodedFilter string) (string, error) {
+	searchURL := fmt.Sprintf("%s/devices/queries/devices/v1?filter=%s", c.baseURL, encodedFilter)
+	fmt.Println("[crowdstrike] searchDeviceByFilter: url=", searchURL)
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodGet,
+		searchURL,
+		nil,
+	)
+	if err != nil {
+		fmt.Println("[crowdstrike] searchDeviceByFilter: NewRequest error:", err)
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		fmt.Println("[crowdstrike] searchDeviceByFilter: http.Do error:", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	fmt.Println("[crowdstrike] searchDeviceByFilter: status=", resp.StatusCode, "body=", string(body))
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("crowdstrike query devices: http %d", resp.StatusCode)
+	}
+
+	var result queryResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Println("[crowdstrike] searchDeviceByFilter: unmarshal error:", err)
+		return "", err
+	}
+
+	fmt.Println("[crowdstrike] searchDeviceByFilter: resources=", result.Resources)
+	if len(result.Resources) == 0 {
+		return "", fmt.Errorf("device not found")
+	}
+
+	return result.Resources[0], nil
+}
+
+func (c *Client) queryDeviceIDs(ctx context.Context, tok, filter string) ([]string, error) {
 	var ids []string
 	for offset := ""; ; {
 		u := c.baseURL + queryPath + "?limit=" + fmt.Sprintf("%d", defaultLimit)
+		if filter != "" {
+			u += "&filter=" + url.QueryEscape(filter)
+		}
 		if offset != "" {
 			u += "&offset=" + url.QueryEscape(offset)
 		}
@@ -140,7 +242,7 @@ func (c *Client) queryDeviceIDs(ctx context.Context, tok string) ([]string, erro
 		if page.Meta.Pagination.Next == "" {
 			break
 		}
-		offset = page.Meta.Pagination.Offset
+		offset = page.Meta.Pagination.Offset.String()
 	}
 	return ids, nil
 }
@@ -226,14 +328,14 @@ func normalizeDevice(d falconDevice) edrpkg.ManagedEndpoint {
 			last = ts
 		}
 	}
-	contained := strings.EqualFold(strings.TrimSpace(d.Status), "containment")
-	installed := d.SerialNumber != "" || d.Hostname != ""
-	healthy := installed && !contained && strings.TrimSpace(d.Status) != ""
+	contained := edrpkg.CrowdStrikeContainedFromStatus(d.Status)
+	installed := strings.TrimSpace(d.SerialNumber) != ""
+	healthy := installed && edrpkg.CrowdStrikeHealthyFromStatus(d.Status)
 	signals := edrpkg.VendorSignals{
 		AgentInstalled:  installed,
-		AgentHealthy:  healthy,
-		Contained:     contained,
-		VendorRiskLevel: edrpkg.CrowdStrikeRiskFromStatus(d.Status, contained),
+		AgentHealthy:    healthy,
+		Contained:       contained,
+		VendorRiskLevel: edrpkg.CrowdStrikeRiskFromStatus(d.Status),
 	}
 	raw, _ := json.Marshal(d)
 	return edrpkg.ManagedEndpoint{
@@ -253,10 +355,36 @@ type queryResponse struct {
 	Resources []string `json:"resources"`
 	Meta      struct {
 		Pagination struct {
-			Offset string `json:"offset"`
-			Next   string `json:"next"`
+			Offset paginationOffset `json:"offset"`
+			Next   string           `json:"next"`
 		} `json:"pagination"`
 	} `json:"meta"`
+}
+
+// paginationOffset accepts CrowdStrike offset as either a string or number.
+type paginationOffset string
+
+func (p *paginationOffset) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*p = paginationOffset(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(data, &n); err == nil {
+		*p = paginationOffset(n.String())
+		return nil
+	}
+	var i int
+	if err := json.Unmarshal(data, &i); err == nil {
+		*p = paginationOffset(strconv.Itoa(i))
+		return nil
+	}
+	return fmt.Errorf("invalid pagination offset: %s", string(data))
+}
+
+func (p paginationOffset) String() string {
+	return string(p)
 }
 
 type entitiesResponse struct {

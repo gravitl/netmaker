@@ -475,6 +475,10 @@ func listEDRDeviceState(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case hostID != "" && provider != "":
 		err = state.Get(ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = logic.SyncHostEDRState(ctx, hostID)
+			err = state.Get(ctx)
+		}
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr device state not found"), logic.NotFound))

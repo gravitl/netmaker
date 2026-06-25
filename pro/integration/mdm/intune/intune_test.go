@@ -113,29 +113,12 @@ func TestIntuneDeviceEnrolled(t *testing.T) {
 	}
 }
 
-func TestNormalize_EntraDeviceIDFallback(t *testing.T) {
-	entraByName := map[string]string{
-		"win-pmv0n6inpc6": "32f5f9ec-cd23-41e0-94e8-6b372232ff40",
-	}
-	d := managedDevice{
-		ID:         "d56cf8ec-e8a3-4ccb-9c01-821cc8fb38bd",
-		DeviceName: "WIN-PMV0N6INPC6",
-	}
-	got := normalize(d, entraByName)
-	if got.AzureADDeviceID != "32f5f9ec-cd23-41e0-94e8-6b372232ff40" {
-		t.Fatalf("expected entra deviceId fallback, got %q", got.AzureADDeviceID)
-	}
-}
-
-func TestNormalize_PrefersIntuneAzureADDeviceID(t *testing.T) {
-	entraByName := map[string]string{
-		"laptop": "from-entra",
-	}
+func TestNormalize_UsesIntuneAzureADDeviceID(t *testing.T) {
 	d := managedDevice{
 		DeviceName:      "laptop",
 		AzureADDeviceID: "from-intune",
 	}
-	got := normalize(d, entraByName)
+	got := normalize(d)
 	if got.AzureADDeviceID != "from-intune" {
 		t.Fatalf("expected intune azureADDeviceId, got %q", got.AzureADDeviceID)
 	}
