@@ -1265,11 +1265,21 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if err = u.UpsertMembership(dbctx); err != nil {
+		slog.Error("error upserting membership for new superadmin: ", "user", u.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	caller.PlatformRoleID = schema.AdminRole
 	err = caller.Update(dbctx)
 	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if err = caller.UpsertMembership(dbctx); err != nil {
+		slog.Error("error upserting membership for demoted admin: ", "user", caller.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1351,6 +1361,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.LogEvent(&models.Event{
@@ -1572,6 +1587,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	go func() {
@@ -1686,10 +1706,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteUser(username)
+	err = user.DeleteMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username,
-			"failed to delete user: ", err.Error())
+			"failed to delete user membership: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1786,6 +1806,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	go func() {
@@ -1826,8 +1847,9 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: cannot delete idp user", "username", username)
 				continue
 			}
-			if err := logic.DeleteUser(username); err != nil {
-				slog.Error("bulk user delete: failed to delete user", "username", username, "error", err)
+			deleteCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
+			if err := user.DeleteMembership(deleteCtx); err != nil {
+				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
 				continue
 			}
 			logic.LogEvent(&models.Event{

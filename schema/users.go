@@ -277,3 +277,30 @@ func (u *User) Delete(ctx context.Context) error {
 		Delete(u).
 		Error
 }
+
+// UpsertMembership persists PlatformRoleID and UserGroups to tenant_memberships_v1
+// using the tenant ID from the scope context. No-op when no tenant is in scope.
+func (u *User) UpsertMembership(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return nil
+	}
+
+	return (&TenantMembership{
+		TenantID: tenantID,
+		UserID:   u.ID,
+		RoleID:   u.PlatformRoleID,
+		Groups:   u.UserGroups,
+	}).Upsert(ctx)
+}
+
+// DeleteMembership removes the user's membership from the tenant in scope.
+// No-op when no tenant is in scope.
+func (u *User) DeleteMembership(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return nil
+	}
+
+	return (&TenantMembership{TenantID: tenantID, UserID: u.ID}).Delete(ctx)
+}

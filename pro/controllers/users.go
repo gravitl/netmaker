@@ -145,6 +145,10 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	// delete invite
 	logic.DeleteUserInvite(emailID)
 	logic.DeletePendingUser(emailID)
