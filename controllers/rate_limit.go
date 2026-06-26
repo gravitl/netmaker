@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/time/rate"
 )
 
@@ -20,9 +21,9 @@ type visitor struct {
 }
 
 type RateLimiter struct {
-	visitors      map[string]*visitor
-	lockoutUntil  map[string]time.Time
-	mu            sync.Mutex
+	visitors     map[string]*visitor
+	lockoutUntil map[string]time.Time
+	mu           sync.Mutex
 
 	rate            rate.Limit
 	burst           int
@@ -111,20 +112,22 @@ func (rl *RateLimiter) cleanupVisitors(ctx context.Context) {
 
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		route, err := mux.CurrentRoute(r).GetPathTemplate()
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-
-		if r.Method == http.MethodPost && route == "/api/users/adm/authenticate" {
-			ip := clientIP(r)
-
-			ok, retryAfter := rl.allowAuthenticate(ip)
-			if !ok {
-				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-				http.Error(w, "too many requests", http.StatusTooManyRequests)
+		if !servercfg.DeployedByOperator() {
+			route, err := mux.CurrentRoute(r).GetPathTemplate()
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
+			}
+
+			if r.Method == http.MethodPost && route == "/api/users/adm/authenticate" {
+				ip := clientIP(r)
+
+				ok, retryAfter := rl.allowAuthenticate(ip)
+				if !ok {
+					w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+					http.Error(w, "too many requests", http.StatusTooManyRequests)
+					return
+				}
 			}
 		}
 
