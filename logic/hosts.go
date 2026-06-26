@@ -40,12 +40,35 @@ var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schem
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+var CheckPostureViolationsForHost = func(host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
+	if host == nil {
+		return []models.Violation{}, schema.SeverityUnknown
+	}
+	return CheckPostureViolations(models.PostureCheckDeviceInfo{
+		ClientLocation: host.CountryCode,
+		ClientVersion:  host.Version,
+		OS:             host.OS,
+		OSFamily:       host.OSFamily,
+		OSVersion:      host.OSVersion,
+		KernelVersion:  host.KernelVersion,
+		AutoUpdate:     host.AutoUpdate,
+		SkipAutoUpdate: skipAutoUpdate,
+		Tags:           tags,
+		HostID:         host.ID.String(),
+	}, network)
+}
+
 var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
 }
 
 // SyncHostMDMState refreshes MDM posture state for a host (no-op in community).
 var SyncHostMDMState = func(ctx context.Context, hostID string) error {
+	return nil
+}
+
+// SyncHostEDRState refreshes EDR posture state for a host (no-op in community).
+var SyncHostEDRState = func(ctx context.Context, hostID string) error {
 	return nil
 }
 
@@ -388,6 +411,10 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 	mdmState := &schema.DeviceMDMState{HostID: h.ID.String()}
 	if err := mdmState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
 		slog.Error("failed to delete mdm state for host", "host", h.ID, "error", err)
+	}
+	edrState := &schema.DeviceEDRState{HostID: h.ID.String()}
+	if err := edrState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+		slog.Error("failed to delete edr state for host", "host", h.ID, "error", err)
 	}
 	return h.Delete(db.WithContext(context.TODO()))
 }

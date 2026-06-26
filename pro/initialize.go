@@ -24,10 +24,15 @@ import (
 	// Blank-import MDM provider packages so their init() registers with
 	// the integration/mdm registry. Add new providers by appending another import.
 	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
+	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/intune"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/iru"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jamf"
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
+	_ "github.com/gravitl/netmaker/pro/integration/edr/crowdstrike"
+	_ "github.com/gravitl/netmaker/pro/integration/edr/defender"
+	_ "github.com/gravitl/netmaker/pro/integration/edr/sentinelone"
+	_ "github.com/gravitl/netmaker/pro/integration/edr/wazuh"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -218,8 +223,10 @@ func InitPro() {
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
+	logic.CheckPostureViolationsForHost = proLogic.CheckPostureViolationsForHost
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.SyncHostMDMState = mdmpkg.SyncHostMDMState
+	logic.SyncHostEDRState = edrpkg.SyncHostEDRState
 	logic.CheckUIHostReadAccess = proLogic.CheckUIHostReadAccess
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop

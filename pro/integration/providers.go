@@ -14,6 +14,7 @@ type ProviderID string
 const (
 	TypeSIEM Type = "siem"
 	TypeMDM  Type = "mdm"
+	TypeEDR  Type = "edr"
 )
 
 const (
@@ -25,6 +26,10 @@ const (
 	ProviderJamf      ProviderID = "jamf"
 	ProviderJumpCloud ProviderID = "jumpcloud"
 	ProviderIru       ProviderID = "iru"
+	ProviderDefender    ProviderID = "defender"
+	ProviderCrowdStrike ProviderID = "crowdstrike"
+	ProviderSentinelOne ProviderID = "sentinelone"
+	ProviderWazuh       ProviderID = "wazuh"
 )
 
 type Provider interface {
@@ -44,6 +49,12 @@ var registry = map[Type]map[ProviderID]Provider{
 		ProviderJamf:      newMDMProvider(ProviderJamf),
 		ProviderJumpCloud: newMDMProvider(ProviderJumpCloud),
 		ProviderIru:       newMDMProvider(ProviderIru),
+	},
+	TypeEDR: {
+		ProviderDefender:    newEDRProvider(ProviderDefender),
+		ProviderCrowdStrike: newEDRProvider(ProviderCrowdStrike),
+		ProviderSentinelOne: newEDRProvider(ProviderSentinelOne),
+		ProviderWazuh:       newEDRProvider(ProviderWazuh),
 	},
 }
 

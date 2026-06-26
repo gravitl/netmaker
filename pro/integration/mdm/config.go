@@ -61,8 +61,10 @@ type JumpCloudConfig struct {
 // (e.g. https://acme.api.iru.com or https://acme.api.kandji.io).
 //
 // ComplianceLibraryItemIDs optionally limits compliance evaluation to specific
-// library item IDs from GET /devices/{id}/status. When empty, all parameters
-// and library items must have status PASS.
+// library item IDs from GET /api/v1/devices/{device_id}/status. When empty,
+// all parameters and library items must report a passing status (PASS,
+// REMEDIATED/EXCLUDED/WARNING for parameters; PASS/success/EXCLUDED/AVAILABLE
+// for library items).
 type IruConfig struct {
 	SyncSettings
 	APIURL                   string   `json:"api_url"`

@@ -12,7 +12,21 @@ type HostPostureStatus struct {
 	HostID      string                 `json:"host_id"`
 	EvaluatedAt time.Time              `json:"evaluated_at"`
 	MDM         *HostMDMStatus         `json:"mdm,omitempty"`
+	EDR         *HostEDRStatus         `json:"edr,omitempty"`
 	Networks    []NetworkPostureStatus `json:"networks"`
+}
+
+// HostEDRStatus is the current EDR sync snapshot for the host's configured
+// EDR provider (if any).
+type HostEDRStatus struct {
+	Provider       string    `json:"provider"`
+	MatchedBy      string    `json:"matched_by"`
+	AgentInstalled bool      `json:"agent_installed"`
+	AgentHealthy   bool      `json:"agent_healthy"`
+	RiskLevel      string    `json:"risk_level"`
+	LastSyncedAt   time.Time `json:"last_synced_at"`
+	LastSeenAt     time.Time `json:"last_seen_at"`
+	LastError      string    `json:"last_error,omitempty"`
 }
 
 // HostMDMStatus is the current MDM sync snapshot for the host's configured

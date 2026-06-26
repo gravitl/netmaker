@@ -16,16 +16,28 @@ func TestDeviceCompliant(t *testing.T) {
 			Parameters:   []iruStatusItem{{Status: "PASS"}},
 			LibraryItems: []iruStatusItem{{ItemID: "lib-1", Status: "PASS"}},
 		}, want: true},
-		{name: "parameter fail", status: iruDeviceStatus{
-			Parameters: []iruStatusItem{{Status: "FAIL"}},
+		{name: "parameter remediated", status: iruDeviceStatus{
+			Parameters: []iruStatusItem{{Status: "REMEDIATED"}},
+		}, want: true},
+		{name: "library success", status: iruDeviceStatus{
+			LibraryItems: []iruStatusItem{{ItemID: "lib-1", Status: "success"}},
+		}, want: true},
+		{name: "parameter error", status: iruDeviceStatus{
+			Parameters: []iruStatusItem{{Status: "ERROR"}},
 		}, want: false},
-		{name: "library item fail", status: iruDeviceStatus{
-			LibraryItems: []iruStatusItem{{ItemID: "lib-1", Status: "FAIL"}},
+		{name: "parameter pending", status: iruDeviceStatus{
+			Parameters: []iruStatusItem{{Status: "PENDING"}},
+		}, want: false},
+		{name: "library failed", status: iruDeviceStatus{
+			LibraryItems: []iruStatusItem{{ItemID: "lib-1", Status: "failed"}},
+		}, want: false},
+		{name: "library pending", status: iruDeviceStatus{
+			LibraryItems: []iruStatusItem{{ItemID: "lib-1", Status: "pending"}},
 		}, want: false},
 		{name: "filter match pass", status: iruDeviceStatus{
 			LibraryItems: []iruStatusItem{
 				{ItemID: "lib-1", Status: "PASS"},
-				{ItemID: "lib-2", Status: "FAIL"},
+				{ItemID: "lib-2", Status: "failed"},
 			},
 		}, filter: filter, want: true},
 		{name: "filter no match", status: iruDeviceStatus{
@@ -42,17 +54,32 @@ func TestDeviceCompliant(t *testing.T) {
 	}
 }
 
-func TestStatusItemFailed(t *testing.T) {
-	if statusItemFailed("PASS") {
-		t.Fatal("PASS should not fail")
+func TestParameterStatusCompliant(t *testing.T) {
+	pass := []string{"PASS", "pass", "REMEDIATED", "EXCLUDED", "WARNING"}
+	for _, s := range pass {
+		if !parameterStatusCompliant(s) {
+			t.Fatalf("%q should be compliant", s)
+		}
 	}
-	if statusItemFailed("pass") {
-		t.Fatal("pass should not fail")
+	fail := []string{"ERROR", "INCOMPATIBLE", "PENDING", "failed", ""}
+	for _, s := range fail {
+		if parameterStatusCompliant(s) {
+			t.Fatalf("%q should not be compliant", s)
+		}
 	}
-	if !statusItemFailed("FAIL") {
-		t.Fatal("FAIL should fail")
+}
+
+func TestLibraryItemStatusCompliant(t *testing.T) {
+	pass := []string{"PASS", "success", "SUCCESS", "EXCLUDED", "AVAILABLE"}
+	for _, s := range pass {
+		if !libraryItemStatusCompliant(s) {
+			t.Fatalf("%q should be compliant", s)
+		}
 	}
-	if !statusItemFailed("") {
-		t.Fatal("empty status should fail")
+	fail := []string{"ERROR", "INCOMPATIBLE", "PENDING", "pending", "failed", ""}
+	for _, s := range fail {
+		if libraryItemStatusCompliant(s) {
+			t.Fatalf("%q should not be compliant", s)
+		}
 	}
 }
