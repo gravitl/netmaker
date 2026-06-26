@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -565,7 +566,8 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 			return true, "no_mdm_state_for_host"
 		}
 		if d.MDMState.LastError != "" {
-			return true, d.MDMState.LastError
+			slog.Warn("mdm state error during posture check", "host_id", d.HostID, "error", d.MDMState.LastError)
+			return true, "mdm_state_error"
 		}
 		if cfg.RequireEnrolled && !d.MDMState.Enrolled {
 			return true, "device_not_mdm_enrolled"
@@ -592,7 +594,8 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 			return true, "no_edr_state_for_host"
 		}
 		if d.EDRState.LastError != "" {
-			return true, d.EDRState.LastError
+			slog.Warn("edr state error during posture check", "host_id", d.HostID, "error", d.EDRState.LastError)
+			return true, "edr_state_error"
 		}
 		if cfg.RequireAgentInstalled && !d.EDRState.AgentInstalled {
 			return true, "agent_not_installed"

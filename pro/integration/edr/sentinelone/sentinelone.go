@@ -136,6 +136,7 @@ func normalizeAgent(a s1Agent) edrpkg.ManagedEndpoint {
 	signals := edrpkg.VendorSignals{
 		AgentInstalled:   installed,
 		AgentHealthy:     healthy,
+		ActiveMalware:    a.Infected,
 		ActiveThreats:    a.ActiveThreats > 0,
 		ThreatCount:      a.ActiveThreats,
 		Isolated:         networkQuarantine,

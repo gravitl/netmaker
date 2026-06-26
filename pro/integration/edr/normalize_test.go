@@ -23,6 +23,34 @@ func TestComputeRiskLevel_ActiveMalwareIsHigh(t *testing.T) {
 	}
 }
 
+func TestComputeRiskLevel_VendorCriticalBeatsActiveThreats(t *testing.T) {
+	got := ComputeRiskLevel(VendorSignals{
+		VendorRiskLevel: RiskCritical,
+		ActiveThreats:   true,
+		ThreatCount:     2,
+	})
+	if got != RiskCritical {
+		t.Fatalf("got %q want critical", got)
+	}
+}
+
+func TestComputeRiskLevel_ActiveThreatsBeatVendorMedium(t *testing.T) {
+	got := ComputeRiskLevel(VendorSignals{
+		VendorRiskLevel: RiskMedium,
+		ActiveThreats:   true,
+	})
+	if got != RiskHigh {
+		t.Fatalf("got %q want high", got)
+	}
+}
+
+func TestComputeRiskLevel_VendorMediumWithoutThreats(t *testing.T) {
+	got := ComputeRiskLevel(VendorSignals{VendorRiskLevel: RiskMedium})
+	if got != RiskMedium {
+		t.Fatalf("got %q want medium", got)
+	}
+}
+
 func TestRiskExceeds(t *testing.T) {
 	if !RiskExceeds(RiskMedium, RiskHigh) {
 		t.Fatal("high should exceed medium")

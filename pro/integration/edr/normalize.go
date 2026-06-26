@@ -45,13 +45,25 @@ func ComputeRiskLevel(s VendorSignals) RiskLevel {
 	if s.ActiveRansomware {
 		return RiskCritical
 	}
+
+	threatLevel := RiskLevel(RiskNone)
 	if s.ActiveMalware || s.ActiveThreats || s.ThreatCount > 0 {
-		return RiskHigh
+		threatLevel = RiskHigh
 	}
-	if s.VendorRiskLevel != "" && s.VendorRiskLevel != RiskNone {
-		return s.VendorRiskLevel
+
+	vendorLevel := RiskLevel(RiskNone)
+	if s.VendorRiskLevel != RiskNone && s.VendorRiskLevel != "" {
+		vendorLevel = s.VendorRiskLevel
 	}
-	return RiskNone
+
+	return maxRiskLevel(threatLevel, vendorLevel)
+}
+
+func maxRiskLevel(a, b RiskLevel) RiskLevel {
+	if riskOrder[a] >= riskOrder[b] {
+		return a
+	}
+	return b
 }
 
 // ParseRiskLevel normalizes a risk level string.

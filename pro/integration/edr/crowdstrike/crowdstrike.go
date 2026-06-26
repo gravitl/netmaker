@@ -4,6 +4,7 @@ package crowdstrike
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,8 +22,8 @@ const (
 	providerName    = edrpkg.ProviderCrowdStrike
 	providerDisplay = "CrowdStrike Falcon"
 
-	tokenPath   = "/oauth2/token"
-	queryPath   = "/devices/queries/devices/v1"
+	tokenPath    = "/oauth2/token"
+	queryPath    = "/devices/queries/devices/v1"
 	entitiesPath = "/devices/entities/devices/v2"
 	defaultLimit = 200
 )
@@ -131,50 +132,39 @@ func (c *Client) LookupForHost(ctx context.Context, h schema.Host) (edrpkg.Manag
 }
 
 func (c *Client) lookupForSerial(ctx context.Context, serial string) (edrpkg.ManagedEndpoint, string, error) {
-	fmt.Println("[crowdstrike] lookupForSerial:", serial)
 	tok, err := c.accessToken(ctx)
 	if err != nil {
-		fmt.Println("[crowdstrike] lookupForSerial: accessToken error:", err)
 		return edrpkg.ManagedEndpoint{}, "", err
 	}
 	deviceID, err := c.searchDeviceBySerial(ctx, tok, serial)
 	if err != nil {
-		fmt.Println("[crowdstrike] lookupForSerial: searchDeviceBySerial error:", err)
-		if err.Error() == "device not found" {
-			return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+		if errors.Is(err, edrpkg.ErrDeviceNotFoundInEDR) {
+			return edrpkg.ManagedEndpoint{}, "", err
 		}
 		return edrpkg.ManagedEndpoint{}, "", err
 	}
-	fmt.Println("[crowdstrike] lookupForSerial: deviceID:", deviceID)
 	devices, err := c.fetchDevices(ctx, tok, []string{deviceID})
 	if err != nil {
-		fmt.Println("[crowdstrike] lookupForSerial: fetchDevices error:", err)
 		return edrpkg.ManagedEndpoint{}, "", err
 	}
 	if len(devices) == 0 {
-		fmt.Println("[crowdstrike] lookupForSerial: fetchDevices returned no devices")
 		return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
 	}
-	fmt.Println("[crowdstrike] lookupForSerial: found device serial=", devices[0].SerialNumber, "hostname=", devices[0].Hostname, "status=", devices[0].Status)
 	return normalizeDevice(devices[0]), schema.EDRMatchSerialNumber, nil
 }
 
 func (c *Client) searchDeviceBySerial(ctx context.Context, token, serial string) (string, error) {
 	filter := url.QueryEscape(fmt.Sprintf("serial_number:'%s'", serial))
-	fmt.Println("[crowdstrike] searchDeviceBySerial: serial=", serial, "filter=", filter)
 	return c.searchDeviceByFilter(ctx, token, filter)
 }
 
 func (c *Client) searchDeviceByFilter(ctx context.Context, token, encodedFilter string) (string, error) {
-	searchURL := fmt.Sprintf("%s/devices/queries/devices/v1?filter=%s", c.baseURL, encodedFilter)
-	fmt.Println("[crowdstrike] searchDeviceByFilter: url=", searchURL)
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
-		searchURL,
+		fmt.Sprintf("%s/devices/queries/devices/v1?filter=%s", c.baseURL, encodedFilter),
 		nil,
 	)
 	if err != nil {
-		fmt.Println("[crowdstrike] searchDeviceByFilter: NewRequest error:", err)
 		return "", err
 	}
 
@@ -182,26 +172,22 @@ func (c *Client) searchDeviceByFilter(ctx context.Context, token, encodedFilter 
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		fmt.Println("[crowdstrike] searchDeviceByFilter: http.Do error:", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	fmt.Println("[crowdstrike] searchDeviceByFilter: status=", resp.StatusCode, "body=", string(body))
 	if resp.StatusCode >= 400 {
 		return "", fmt.Errorf("crowdstrike query devices: http %d", resp.StatusCode)
 	}
 
 	var result queryResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		fmt.Println("[crowdstrike] searchDeviceByFilter: unmarshal error:", err)
 		return "", err
 	}
 
-	fmt.Println("[crowdstrike] searchDeviceByFilter: resources=", result.Resources)
 	if len(result.Resources) == 0 {
-		return "", fmt.Errorf("device not found")
+		return "", fmt.Errorf("%w", edrpkg.ErrDeviceNotFoundInEDR)
 	}
 
 	return result.Resources[0], nil
