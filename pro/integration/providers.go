@@ -29,6 +29,7 @@ const (
 	ProviderDefender    ProviderID = "defender"
 	ProviderCrowdStrike ProviderID = "crowdstrike"
 	ProviderSentinelOne ProviderID = "sentinelone"
+	ProviderWazuh       ProviderID = "wazuh"
 )
 
 type Provider interface {
@@ -53,6 +54,7 @@ var registry = map[Type]map[ProviderID]Provider{
 		ProviderDefender:    newEDRProvider(ProviderDefender),
 		ProviderCrowdStrike: newEDRProvider(ProviderCrowdStrike),
 		ProviderSentinelOne: newEDRProvider(ProviderSentinelOne),
+		ProviderWazuh:       newEDRProvider(ProviderWazuh),
 	},
 }
 

@@ -32,6 +32,7 @@ import (
 	_ "github.com/gravitl/netmaker/pro/integration/edr/crowdstrike"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/defender"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/sentinelone"
+	_ "github.com/gravitl/netmaker/pro/integration/edr/wazuh"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"

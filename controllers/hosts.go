@@ -1691,7 +1691,8 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 	edrIntg := &schema.Integration{Type: "edr"}
 	if edrIntegrations, err := edrIntg.ListByType(r.Context()); err == nil && len(edrIntegrations) > 0 {
 		state := &schema.DeviceEDRState{HostID: hostIDStr, Provider: edrIntegrations[0].ID}
-		if err := state.Get(r.Context()); errors.Is(err, gorm.ErrRecordNotFound) {
+		err = state.Get(r.Context())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			_ = logic.SyncHostEDRState(r.Context(), hostIDStr)
 			err = state.Get(r.Context())
 		}
@@ -1706,6 +1707,10 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 				LastSeenAt:     state.LastSeenAt,
 				LastError:      state.LastError,
 			}
+		} else {
+			slog.Error("failed to retrieve host edr state", "error", err)
+			logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
+			return
 		}
 	}
 

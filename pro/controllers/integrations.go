@@ -508,7 +508,7 @@ func mergeEDRConfig(ctx context.Context, providerID string, incoming json.RawMes
 		return nil, fmt.Errorf("invalid request body: %w", err)
 	}
 	changed := false
-	for _, field := range []string{"client_secret", "api_token"} {
+	for _, field := range []string{"client_secret", "api_token", "password"} {
 		merged, ok, err := mergeEDRSecretField(ctx, providerID, patch, field, hasExisting)
 		if err != nil {
 			return nil, err
@@ -636,7 +636,7 @@ func mergeMDMConfig(ctx context.Context, providerID string, incoming json.RawMes
 		return nil, fmt.Errorf("invalid request body: %w", err)
 	}
 	changed := false
-	for _, field := range []string{"client_secret", "api_token"} {
+	for _, field := range []string{"client_secret", "api_token", "password"} {
 		merged, ok, err := mergeMDMSecretField(ctx, providerID, patch, field, hasExisting)
 		if err != nil {
 			return nil, err

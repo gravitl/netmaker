@@ -130,3 +130,22 @@ func SentinelOneRiskFromAgent(infected bool, networkQuarantine bool, activeThrea
 	}
 	return RiskNone
 }
+
+// WazuhRiskFromStatus maps Wazuh agent status to vendor risk hint.
+func WazuhRiskFromStatus(status string) RiskLevel {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "disconnected":
+		return RiskMedium
+	case "never_connected", "pending":
+		return RiskLow
+	case "active":
+		return RiskNone
+	default:
+		return RiskLow
+	}
+}
+
+// WazuhHealthyFromStatus reports whether a Wazuh agent is connected and reporting.
+func WazuhHealthyFromStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "active")
+}
