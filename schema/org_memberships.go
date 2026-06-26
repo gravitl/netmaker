@@ -26,3 +26,12 @@ func (o *OrgMembership) Get(ctx context.Context) error {
 		First(o).
 		Error
 }
+
+func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, error) {
+	var memberships []OrgMembership
+	err := db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("user_id = ?", o.UserID).
+		Find(&memberships).
+		Error
+	return memberships, err
+}

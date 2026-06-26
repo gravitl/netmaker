@@ -49,3 +49,12 @@ func (t *TenantMembership) UpdateRoleID(ctx context.Context) error {
 		Update("role_id", t.RoleID).
 		Error
 }
+
+func (t *TenantMembership) ListByUserID(ctx context.Context) ([]TenantMembership, error) {
+	var memberships []TenantMembership
+	err := db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("user_id = ?", t.UserID).
+		Find(&memberships).
+		Error
+	return memberships, err
+}
