@@ -176,7 +176,10 @@ func (c *Client) searchDeviceByFilter(ctx context.Context, token, encodedFilter 
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", readErr
+	}
 	if resp.StatusCode >= 400 {
 		return "", fmt.Errorf("crowdstrike query devices: http %d", resp.StatusCode)
 	}
