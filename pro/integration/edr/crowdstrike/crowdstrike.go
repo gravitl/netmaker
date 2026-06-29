@@ -154,7 +154,8 @@ func (c *Client) lookupForSerial(ctx context.Context, serial string) (edrpkg.Man
 }
 
 func (c *Client) searchDeviceBySerial(ctx context.Context, token, serial string) (string, error) {
-	filter := url.QueryEscape(fmt.Sprintf("serial_number:'%s'", serial))
+	escapedSerial := strings.ReplaceAll(serial, "'", "''")
+	filter := url.QueryEscape(fmt.Sprintf("serial_number:'%s'", escapedSerial))
 	return c.searchDeviceByFilter(ctx, token, filter)
 }
 
