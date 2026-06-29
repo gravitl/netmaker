@@ -253,7 +253,11 @@ definitions:
         type: string
       endpointipv6:
         type: string
+      entra_device_id:
+        type: string
       firewallinuse:
+        type: string
+      hardware_uuid:
         type: string
       id:
         type: string
@@ -294,6 +298,8 @@ definitions:
       persistentkeepalive:
         type: integer
       publickey:
+        type: string
+      serial_number:
         type: string
       verbosity:
         type: integer

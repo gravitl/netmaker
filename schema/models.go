@@ -21,6 +21,8 @@ func ListModels() []interface{} {
 		&UserInvite{},
 		&Node{},
 		&PostureCheckViolation{},
+		&DeviceMDMState{},
+		&DeviceEDRState{},
 		&Integration{},
 	}
 }
