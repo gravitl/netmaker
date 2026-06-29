@@ -1685,6 +1685,18 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 				Compliant:    state.Compliant,
 				LastSyncedAt: state.LastSyncedAt,
 			}
+		} else if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = logic.SyncHostMDMState(r.Context(), hostIDStr)
+			err = state.Get(r.Context())
+			if err == nil {
+				resp.MDM = &models.HostMDMStatus{
+					Provider:     state.Provider,
+					MatchedBy:    state.MatchedBy,
+					Enrolled:     state.Enrolled,
+					Compliant:    state.Compliant,
+					LastSyncedAt: state.LastSyncedAt,
+				}
+			}
 		}
 	}
 
@@ -1708,9 +1720,7 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 				LastError:      state.LastError,
 			}
 		} else {
-			slog.Error("failed to retrieve host edr state", "error", err)
-			logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
-			return
+			slog.Warn("failed to retrieve host edr state", "host_id", hostIDStr, "error", err)
 		}
 	}
 

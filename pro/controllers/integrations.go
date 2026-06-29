@@ -548,7 +548,7 @@ func mergeEDRSecretField(
 	}
 	var stored map[string]json.RawMessage
 	if err := json.Unmarshal(existing.Config, &stored); err != nil {
-		return patch, false, nil
+		return nil, false, err
 	}
 	prev, ok := stored[field]
 	if !ok {

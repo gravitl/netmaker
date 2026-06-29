@@ -108,6 +108,7 @@ func RunPostureChecks() error {
 						continue
 					}
 					emitNewMDMViolationEvents(extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+					emitNewEDRViolationEvents(extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
 					extclient.PostureChecksViolations = postureChecksViolations
 					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
 					extclient.LastEvaluatedAt = time.Now().UTC()
@@ -118,6 +119,7 @@ func RunPostureChecks() error {
 					continue
 				}
 				emitNewMDMViolationEvents(nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+				emitNewEDRViolationEvents(nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
 
 				_node := &schema.Node{
 					ID:                                nodeI.ID.String(),
@@ -605,6 +607,9 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		}
 		if cfg.MaxAllowedRiskLevel != "" {
 			actual := edrpkg.ParseRiskLevel(d.EDRState.RiskLevel)
+			if actual == edrpkg.RiskUnknown {
+				return true, "edr_risk_level_unknown"
+			}
 			maxAllowed := edrpkg.ParseRiskLevel(cfg.MaxAllowedRiskLevel)
 			if edrpkg.RiskExceeds(maxAllowed, actual) {
 				return true, "risk_level_exceeded"
@@ -679,12 +684,37 @@ func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
 // attribute-specific Config; without this merge validation would see empty
 // MDM flags and reject the request.
 func MergePostureCheckUpdate(existing, update *schema.PostureCheck) {
-	if update.Attribute == schema.MDMCompliance && existing.Config != nil {
-		mergePostureCheckConfig(existing, update)
+	if update.Attribute == schema.MDMCompliance {
+		existingCfg := existing.Config
+		if existingCfg == nil {
+			existingCfg = defaultMDMComplianceConfig()
+		}
+		mergePostureCheckConfig(&schema.PostureCheck{Config: existingCfg}, update)
 		return
 	}
-	if update.Attribute == schema.EDRCompliance && existing.Config != nil {
-		mergePostureCheckConfig(existing, update)
+	if update.Attribute == schema.EDRCompliance {
+		existingCfg := existing.Config
+		if existingCfg == nil {
+			existingCfg = defaultEDRComplianceConfig()
+		}
+		mergePostureCheckConfig(&schema.PostureCheck{Config: existingCfg}, update)
+	}
+}
+
+func defaultMDMComplianceConfig() datatypes.JSONMap {
+	return datatypes.JSONMap{
+		"require_enrolled":    true,
+		"require_compliant":   false,
+		"max_state_age_hours": 0,
+	}
+}
+
+func defaultEDRComplianceConfig() datatypes.JSONMap {
+	return datatypes.JSONMap{
+		"require_agent_installed": true,
+		"require_agent_healthy":   false,
+		"max_allowed_risk_level":  "",
+		"max_state_age_hours":     0,
 	}
 }
 
@@ -924,6 +954,82 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 			Diff:      diff,
 		})
 	}
+}
+
+// emitNewEDRViolationEvents emits a posture_check_failed audit event for every
+// EDR compliance violation that is newly present (not in oldVi) in newVi.
+// Old violations don't re-fire; cleared violations are also ignored here.
+func emitNewEDRViolationEvents(oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+	if len(newVi) == 0 {
+		return
+	}
+	prev := make(map[string]struct{}, len(oldVi))
+	for _, v := range oldVi {
+		prev[v.CheckID+"|"+v.Message] = struct{}{}
+	}
+	providerID, _ := edrpkg.ActiveProviderID(db.WithContext(context.TODO()))
+	for _, v := range newVi {
+		if v.Attribute != string(schema.EDRCompliance) {
+			continue
+		}
+		if _, ok := prev[v.CheckID+"|"+v.Message]; ok {
+			continue
+		}
+		diff := models.Diff{
+			Old: nil,
+			New: map[string]interface{}{
+				"event":            "posture_check_failed",
+				"type":             string(schema.EDRCompliance),
+				"host_id":          d.HostID,
+				"check_id":         v.CheckID,
+				"check":            v.Name,
+				"reason":           v.Message,
+				"severity":         v.Severity,
+				"provider":         providerID,
+				"agent_installed":  edrStateAgentInstalled(d.EDRState),
+				"agent_healthy":    edrStateAgentHealthy(d.EDRState),
+				"risk_level":       edrStateRiskLevel(d.EDRState),
+			},
+		}
+		logic.LogEvent(&models.Event{
+			Action: schema.PostureCheckFailed,
+			Source: models.Subject{
+				ID:   d.HostID,
+				Name: d.HostID,
+				Type: schema.DeviceSub,
+			},
+			TriggeredBy: "system",
+			Target: models.Subject{
+				ID:   v.CheckID,
+				Name: v.Name,
+				Type: schema.PostureCheckSub,
+			},
+			NetworkID: network,
+			Origin:    schema.Api,
+			Diff:      diff,
+		})
+	}
+}
+
+func edrStateAgentInstalled(s *schema.DeviceEDRState) bool {
+	if s == nil {
+		return false
+	}
+	return s.AgentInstalled
+}
+
+func edrStateAgentHealthy(s *schema.DeviceEDRState) bool {
+	if s == nil {
+		return false
+	}
+	return s.AgentHealthy
+}
+
+func edrStateRiskLevel(s *schema.DeviceEDRState) string {
+	if s == nil {
+		return ""
+	}
+	return s.RiskLevel
 }
 
 func mdmStateEnrolled(s *schema.DeviceMDMState) bool {

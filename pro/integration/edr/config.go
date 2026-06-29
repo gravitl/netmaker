@@ -96,8 +96,12 @@ func ValidateConfig(providerID string, configJSON json.RawMessage) error {
 		if err := json.Unmarshal(configJSON, &cfg); err != nil {
 			return fmt.Errorf("invalid crowdstrike config: %w", err)
 		}
-		if strings.TrimSpace(cfg.BaseURL) == "" {
+		url := strings.TrimSpace(cfg.BaseURL)
+		if url == "" {
 			return fmt.Errorf("base_url is required")
+		}
+		if !strings.HasPrefix(strings.ToLower(url), "https://") {
+			return fmt.Errorf("base_url must use https")
 		}
 		if cfg.ClientID == "" {
 			return fmt.Errorf("client_id is required")

@@ -14,6 +14,7 @@ const (
 	RiskMedium   = "medium"
 	RiskHigh     = "high"
 	RiskCritical = "critical"
+	RiskUnknown  = "unknown"
 )
 
 var riskOrder = map[RiskLevel]int{
@@ -78,7 +79,7 @@ func ParseRiskLevel(level string) RiskLevel {
 	case RiskCritical:
 		return RiskCritical
 	default:
-		return RiskNone
+		return RiskUnknown
 	}
 }
 
