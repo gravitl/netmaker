@@ -41,6 +41,7 @@ type ServerSettings struct {
 	EmailSenderPassword        string `json:"email_sender_password"`
 	SmtpHost                   string `json:"smtp_host"`
 	SmtpPort                   int    `json:"smtp_port"`
+	SmtpSkipTlsVerify          bool   `json:"smtp_skip_tls_verify"`
 	MetricInterval             string `json:"metric_interval"`
 	MetricsPort                int    `json:"metrics_port"`
 	// IPDetectionInterval is the interval (in seconds) at which devices check for changes in public ip.
