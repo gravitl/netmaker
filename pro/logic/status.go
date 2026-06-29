@@ -2,13 +2,261 @@ package logic
 
 import (
 	"context"
+	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
+
+const statusWorkerLimit = 32
+
+type networkStatusContext struct {
+	nodeMap           map[string]models.Node
+	metricsMap        map[string]*models.Metrics
+	hostVersions      map[uuid.UUID]string
+	defaultAclPolicy  bool
+	peerSummaryStatus map[string]models.NodeStatus
+}
+
+// AddNetworkStatusToNodes computes status for all nodes using preloaded metrics and node data.
+func AddNetworkStatusToNodes(nodes []models.Node) []models.Node {
+	if len(nodes) == 0 {
+		return nodes
+	}
+	ctx := buildNetworkStatusContext(nodes)
+	nodesWithStatus := make([]models.Node, len(nodes))
+	copy(nodesWithStatus, nodes)
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, statusWorkerLimit)
+	for i := range nodesWithStatus {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			computeNodeStatusWithContext(&nodesWithStatus[i], ctx)
+		}(i)
+	}
+	wg.Wait()
+	return nodesWithStatus
+}
+
+func buildNetworkStatusContext(nodes []models.Node) *networkStatusContext {
+	ctx := &networkStatusContext{
+		nodeMap:           make(map[string]models.Node, len(nodes)),
+		peerSummaryStatus: make(map[string]models.NodeStatus),
+	}
+	metricsIDs := make(map[string]struct{})
+	hostIDs := make(map[uuid.UUID]struct{})
+
+	for _, node := range nodes {
+		if node.IsStatic {
+			if node.StaticNode.IngressGatewayID != "" {
+				metricsIDs[node.StaticNode.IngressGatewayID] = struct{}{}
+			}
+			continue
+		}
+		id := node.ID.String()
+		ctx.nodeMap[id] = node
+		metricsIDs[id] = struct{}{}
+		hostIDs[node.HostID] = struct{}{}
+	}
+
+	defaultPolicy, _ := logic.GetDefaultPolicy(schema.NetworkID(nodes[0].Network), models.DevicePolicy)
+	ctx.defaultAclPolicy = defaultPolicy.Enabled
+
+	metricsIDList := make([]string, 0, len(metricsIDs))
+	for id := range metricsIDs {
+		metricsIDList = append(metricsIDList, id)
+	}
+	ctx.metricsMap = GetMetricsForNodeIDs(metricsIDList)
+	ctx.hostVersions = loadHostVersions(hostIDs)
+
+	for id, node := range ctx.nodeMap {
+		metrics := ctx.metricsMap[id]
+		ctx.peerSummaryStatus[id] = peerSummaryStatus(node, metrics, ctx)
+	}
+	return ctx
+}
+
+func loadHostVersions(hostIDs map[uuid.UUID]struct{}) map[uuid.UUID]string {
+	versions := make(map[uuid.UUID]string, len(hostIDs))
+	if len(hostIDs) == 0 {
+		return versions
+	}
+	idList := make([]uuid.UUID, 0, len(hostIDs))
+	for id := range hostIDs {
+		idList = append(idList, id)
+	}
+	var hosts []schema.Host
+	err := db.FromContext(db.WithContext(context.TODO())).
+		Model(&schema.Host{}).
+		Where("id IN ?", idList).
+		Find(&hosts).Error
+	if err != nil {
+		return versions
+	}
+	for _, host := range hosts {
+		versions[host.ID] = host.Version
+	}
+	return versions
+}
+
+func computeNodeStatusWithContext(node *models.Node, ctx *networkStatusContext) {
+	if node.IsStatic {
+		computeStaticNodeStatus(node, ctx)
+		return
+	}
+	if !node.Connected {
+		node.Status = models.Disconnected
+		return
+	}
+	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
+		node.Status = models.OfflineSt
+		return
+	}
+	version, ok := ctx.hostVersions[node.HostID]
+	if !ok {
+		node.Status = models.UnKnown
+		return
+	}
+	vlt, err := logic.VersionLessThan(version, "v0.30.0")
+	if err != nil {
+		node.Status = models.UnKnown
+		return
+	}
+	if vlt {
+		getNodeStatusOld(node)
+		return
+	}
+	metrics := ctx.metricsMap[node.ID.String()]
+	if metrics == nil || metrics.Connectivity == nil || len(metrics.Connectivity) == 0 {
+		if time.Since(node.LastCheckIn) < models.LastCheckInThreshold {
+			node.Status = models.OnlineSt
+			return
+		}
+		if node.LastCheckIn.IsZero() {
+			node.Status = models.OfflineSt
+			return
+		}
+	}
+	checkPeerConnectivityWithContext(node, metrics, ctx)
+}
+
+func computeStaticNodeStatus(node *models.Node, ctx *networkStatusContext) {
+	if !node.StaticNode.Enabled {
+		node.Status = models.OfflineSt
+		return
+	}
+	ingNode, ok := ctx.nodeMap[node.StaticNode.IngressGatewayID]
+	if !ok {
+		var err error
+		ingNode, err = logic.GetNodeByID(node.StaticNode.IngressGatewayID)
+		if err != nil {
+			node.Status = models.OfflineSt
+			return
+		}
+	}
+	if !ctx.defaultAclPolicy {
+		allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
+		if !allowed {
+			node.Status = models.OnlineSt
+			return
+		}
+	}
+	ingressMetrics := ctx.metricsMap[node.StaticNode.IngressGatewayID]
+	if ingressMetrics == nil || ingressMetrics.Connectivity == nil {
+		node.Status = models.UnKnown
+		return
+	}
+	if metric, ok := ingressMetrics.Connectivity[node.StaticNode.ClientID]; ok {
+		if metric.Connected {
+			node.Status = models.OnlineSt
+		} else {
+			node.Status = models.OfflineSt
+		}
+		return
+	}
+	node.Status = models.UnKnown
+}
+
+func peerSummaryStatus(node models.Node, metrics *models.Metrics, ctx *networkStatusContext) models.NodeStatus {
+	if metrics == nil || metrics.Connectivity == nil {
+		if time.Since(node.LastCheckIn) < models.LastCheckInThreshold {
+			return models.OnlineSt
+		}
+		return models.OnlineSt
+	}
+	peerNotConnectedCnt := 0
+	for peerID, metric := range metrics.Connectivity {
+		peer, ok := ctx.nodeMap[peerID]
+		if !ok {
+			continue
+		}
+		if !ctx.defaultAclPolicy {
+			allowed, _ := logic.IsNodeAllowedToCommunicate(node, peer, false)
+			if !allowed {
+				continue
+			}
+		}
+		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
+			continue
+		}
+		if metric.Connected {
+			continue
+		}
+		peerNotConnectedCnt++
+	}
+	if peerNotConnectedCnt == 0 {
+		return models.OnlineSt
+	}
+	if len(metrics.Connectivity) > 0 && peerNotConnectedCnt == len(metrics.Connectivity) {
+		return models.ErrorSt
+	}
+	return models.WarningSt
+}
+
+func checkPeerConnectivityWithContext(node *models.Node, metrics *models.Metrics, ctx *networkStatusContext) {
+	peerNotConnectedCnt := 0
+	for peerID, metric := range metrics.Connectivity {
+		peer, ok := ctx.nodeMap[peerID]
+		if !ok {
+			continue
+		}
+		if !ctx.defaultAclPolicy {
+			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+			if !allowed {
+				continue
+			}
+		}
+		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
+			continue
+		}
+		if metric.Connected {
+			continue
+		}
+		if summary, ok := ctx.peerSummaryStatus[peerID]; ok {
+			if summary == models.ErrorSt || summary == models.WarningSt {
+				continue
+			}
+		}
+		peerNotConnectedCnt++
+	}
+	if peerNotConnectedCnt > len(metrics.Connectivity)/2 {
+		node.Status = models.WarningSt
+		return
+	}
+	if len(metrics.Connectivity) > 0 && peerNotConnectedCnt == len(metrics.Connectivity) {
+		node.Status = models.ErrorSt
+		return
+	}
+	node.Status = models.OnlineSt
+}
 
 func getNodeStatusOld(node *models.Node) {
 	// On CE check only last check-in time
