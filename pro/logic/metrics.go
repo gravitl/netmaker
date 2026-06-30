@@ -79,6 +79,46 @@ func LoadNodeMetricsToCache() error {
 	return nil
 }
 
+// GetMetricsForNodeIDs loads metrics for many nodes in one pass when possible.
+func GetMetricsForNodeIDs(nodeIDs []string) map[string]*models.Metrics {
+	result := make(map[string]*models.Metrics, len(nodeIDs))
+	if len(nodeIDs) == 0 {
+		return result
+	}
+	want := make(map[string]struct{}, len(nodeIDs))
+	for _, id := range nodeIDs {
+		want[id] = struct{}{}
+	}
+	if servercfg.CacheEnabled() {
+		for id := range want {
+			if m, ok := getMetricsFromCache(id); ok {
+				result[id] = metricsReadCopy(&m)
+			}
+		}
+		return result
+	}
+	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	if err != nil {
+		for id := range want {
+			if m, err := GetMetrics(id); err == nil {
+				result[id] = m
+			}
+		}
+		return result
+	}
+	for key, value := range records {
+		if _, ok := want[key]; !ok {
+			continue
+		}
+		var metrics models.Metrics
+		if err := json.Unmarshal([]byte(value), &metrics); err != nil {
+			continue
+		}
+		result[key] = metricsReadCopy(&metrics)
+	}
+	return result
+}
+
 // GetMetrics - gets the metrics
 func GetMetrics(nodeid string) (*models.Metrics, error) {
 	var metrics models.Metrics

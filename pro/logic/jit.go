@@ -54,7 +54,8 @@ func EnableJITOnNetwork(networkID string) error {
 	return nil
 }
 
-// DisableJITOnNetwork - disables JIT on a network
+// DisableJITOnNetwork - disables JIT on a network and clears JIT fields
+// on all ext clients (user configs) belonging to the network.
 func DisableJITOnNetwork(networkID string) error {
 	network := &schema.Network{Name: networkID}
 	err := network.Get(db.WithContext(context.TODO()))
@@ -64,7 +65,38 @@ func DisableJITOnNetwork(networkID string) error {
 
 	network.JITEnabled = false
 
-	return logic.SaveNetwork(network)
+	if err := logic.SaveNetwork(network); err != nil {
+		return err
+	}
+
+	if err := resetExtClientJITFields(networkID); err != nil {
+		logger.Log(0, "failed to reset ext client JIT fields when disabling JIT:", err.Error())
+	}
+
+	return nil
+}
+
+// resetExtClientJITFields clears JIT-related fields on all ext clients in the network.
+func resetExtClientJITFields(networkID string) error {
+	extClients, err := logic.GetNetworkExtClients(networkID)
+	if err != nil {
+		return fmt.Errorf("failed to get ext clients: %w", err)
+	}
+
+	for _, client := range extClients {
+		if client.JITExpiresAt == nil {
+			continue
+		}
+
+		client.JITExpiresAt = nil
+
+		if err := logic.SaveExtClient(&client); err != nil {
+			slog.Warn("failed to clear JIT expiry on ext client",
+				"client_id", client.ClientID, "network", networkID, "error", err)
+		}
+	}
+
+	return nil
 }
 
 // CreateJITRequest - creates a new JIT access request
