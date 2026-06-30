@@ -124,14 +124,15 @@ func UpsertServerSettings(s models.ServerSettings) error {
 }
 
 func GetUserSettings(username string) models.UserSettings {
-	u := schema.User{Username: username}
-	if err := u.Get(context.TODO()); err != nil {
+	user := schema.User{Username: username}
+	err := user.Get(db.WithContext(context.TODO()))
+	if err != nil {
 		return defaultUserSettings
 	}
 	return models.UserSettings{
-		Theme:         u.Theme,
-		TextSize:      u.TextSize,
-		ReducedMotion: u.ReducedMotion,
+		Theme:         user.Theme,
+		TextSize:      user.TextSize,
+		ReducedMotion: user.ReducedMotion,
 	}
 }
 
@@ -148,7 +149,7 @@ func UpsertUserSettings(username string, userSettings models.UserSettings) error
 		TextSize:      userSettings.TextSize,
 		ReducedMotion: userSettings.ReducedMotion,
 	}
-	return u.UpdateUserSettings(context.TODO())
+	return u.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
 func ValidateNewSettings(req models.ServerSettings) error {
