@@ -44,7 +44,7 @@ func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (inte
 }
 
 // @Summary     Get an integration
-// @Router      /api/v1/integrations/{type}/{id} [get]
+// @Router      /api/v1/integrations/{type} [get]
 // @Tags        Integrations
 // @Security    oauth
 // @Produce     json
