@@ -17,6 +17,7 @@ type AuthType string
 var (
 	BasicAuth AuthType = "basic_auth"
 	OAuth     AuthType = "oauth"
+	Inherited AuthType = "inherited"
 )
 
 type Theme string
