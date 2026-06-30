@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -335,7 +334,7 @@ func migrateHosts(ctx context.Context) error {
 			return err
 		}
 
-		if !logic.GetServerSettings().NetclientAutoUpdate {
+		if !getLegacyServerSettings(ctx).NetclientAutoUpdate {
 			host.AutoUpdate = false
 		}
 
@@ -393,7 +392,7 @@ func migrateHosts(ctx context.Context) error {
 		}
 
 		if _host.DNS == "" || (_host.DNS != "yes" && _host.DNS != "no") {
-			if logic.GetServerSettings().ManageDNS {
+			if getLegacyServerSettings(ctx).ManageDNS {
 				_host.DNS = "yes"
 			} else {
 				_host.DNS = "no"
@@ -413,4 +412,19 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func getLegacyServerSettings(ctx context.Context) models.ServerSettings {
+	record, err := kvGet(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
+	if err != nil {
+		return models.ServerSettings{}
+	}
+
+	var settings models.ServerSettings
+	err = json.Unmarshal([]byte(record), &settings)
+	if err != nil {
+		return models.ServerSettings{}
+	}
+
+	return settings
 }

@@ -23,6 +23,10 @@ const (
 	TableName_ServerSettings = "server_settings"
 )
 
+const (
+	LegacyServerSettingsKey = "server_cfg"
+)
+
 func migrateV1_7_0(ctx context.Context) error {
 	err := createDefaults(ctx)
 	if err != nil {
@@ -336,13 +340,13 @@ func migrateServerSettings(ctx context.Context) error {
 	}
 
 	for key, value := range records {
-		if key == "server_cfg" {
+		if key == LegacyServerSettingsKey {
 			err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(value))
 			if err != nil {
 				return err
 			}
 
-			err = kvDelete(ctx, TableName_ServerSettings, "server_cfg")
+			err = kvDelete(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
 			if err != nil {
 				return err
 			}
