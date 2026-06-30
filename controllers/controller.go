@@ -40,6 +40,7 @@ var HttpHandlers = []interface{}{
 	hostHandlers,
 	enrollmentKeyHandlers,
 	aclHandlers,
+	deviceHandlers,
 	egressHandlers,
 	internetGatewayHandlers,
 }
@@ -58,6 +59,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"authorization",
 			"From-Ui",
 			"X-Application-Name",
+			"X-Host-ID",
 		},
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))

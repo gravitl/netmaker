@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/schema"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -509,6 +508,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		if owner := r.Header.Get("user"); owner != "" {
+			newHost.OwnerUsername = owner
+		}
 		// register host
 		_ = logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
@@ -555,5 +557,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(key, host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(key, host, r.Header.Get("user"))
 }

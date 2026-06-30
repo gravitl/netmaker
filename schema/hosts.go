@@ -165,6 +165,9 @@ type Host struct {
 	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
 	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
 
+	// OwnerUsername is the Netmaker user who registered this device (desktop/netclient).
+	OwnerUsername string `json:"owner_username" yaml:"owner_username"`
+
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 )
 
 // userMustSatisfyJIT reports whether an active JIT grant is required for this user on the network.
@@ -606,9 +607,13 @@ func ExpireJITGrants() error {
 			}
 		}
 
-		// Disconnect user's ext clients from the network
+		// Disconnect user's ext clients and full-mesh host nodes from the network
 		if err := disconnectUserExtClients(expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
 			slog.Error("failed to disconnect ext clients for expired grant",
+				"grant_id", expiredGrant.ID, "user_id", expiredGrant.UserID, "error", err)
+		}
+		if err := disconnectUserHostNodes(expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
+			slog.Error("failed to disconnect host nodes for expired grant",
 				"grant_id", expiredGrant.ID, "user_id", expiredGrant.UserID, "error", err)
 		}
 
@@ -861,6 +866,11 @@ func DisconnectUserExtClientsFromNetwork(networkID, userID string) error {
 	return disconnectUserExtClients(networkID, userID)
 }
 
+// DisconnectUserHostNodesFromNetwork disconnects full-mesh host nodes for a user on a network.
+func DisconnectUserHostNodesFromNetwork(networkID, userID string) error {
+	return disconnectUserHostNodes(networkID, userID)
+}
+
 func disconnectUserExtClients(networkID, userID string) error {
 	extClients, err := logic.GetNetworkExtClients(networkID)
 	if err != nil {
@@ -901,5 +911,49 @@ func disconnectUserExtClients(networkID, userID string) error {
 		}
 	}
 
+	return nil
+}
+
+func disconnectUserHostNodes(networkID, userID string) error {
+	ctx := db.WithContext(context.Background())
+	var hosts []schema.Host
+	if err := db.FromContext(ctx).Model(&schema.Host{}).
+		Where("owner_username = ?", userID).Find(&hosts).Error; err != nil {
+		return err
+	}
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(ctx); err != nil {
+		return err
+	}
+	for _, host := range hosts {
+		nodeSchema := &schema.Node{
+			HostID:    host.ID.String(),
+			NetworkID: network.ID,
+		}
+		if err := nodeSchema.GetByHostAndNetwork(ctx); err != nil {
+			continue
+		}
+		if !nodeSchema.Connected {
+			continue
+		}
+		node, err := logic.GetNodeByID(nodeSchema.ID)
+		if err != nil {
+			continue
+		}
+		node.Connected = false
+		if err := logic.UpsertNode(&node); err != nil {
+			slog.Warn("failed to disconnect host node for JIT expiry",
+				"node_id", node.ID.String(), "user_id", userID, "error", err)
+			continue
+		}
+		if err := mq.PublishPeerUpdate(false); err != nil {
+			slog.Warn("failed to publish peer update after JIT host disconnect", "error", err)
+		}
+		_ = mq.HostUpdate(&models.HostUpdate{
+			Action: models.RequestPull,
+			Host:   host,
+			Node:   node,
+		})
+	}
 	return nil
 }

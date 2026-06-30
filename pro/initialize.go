@@ -233,6 +233,7 @@ func InitPro() {
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
+	proLogic.RegisterDeviceHooks()
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
