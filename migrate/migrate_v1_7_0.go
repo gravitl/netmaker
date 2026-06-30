@@ -399,10 +399,13 @@ func createMemberships(ctx context.Context) error {
 
 	for _, u := range legacyUsers {
 		tm := &schema.TenantMembership{
-			TenantID: defaultTenant.ID,
-			UserID:   u.ID,
-			RoleID:   u.PlatformRoleID,
-			Groups:   u.UserGroups,
+			TenantID:                   defaultTenant.ID,
+			UserID:                     u.ID,
+			RoleID:                     u.PlatformRoleID,
+			Groups:                     u.UserGroups,
+			AuthType:                   u.AuthType,
+			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
+			Password:                   u.Password,
 		}
 		err = db.FromContext(ctx).
 			Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1

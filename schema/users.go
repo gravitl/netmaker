@@ -37,10 +37,10 @@ type User struct {
 	Username                   string     `gorm:"unique" json:"username"`
 	DisplayName                string     `json:"display_name"`
 	PlatformRoleID             UserRoleID `gorm:"-" json:"platform_role_id,omitempty"`
-	ExternalIdentityProviderID string     `json:"external_identity_provider_id"`
+	ExternalIdentityProviderID string     `gorm:"-" json:"external_identity_provider_id"`
 	AccountDisabled            bool       `json:"account_disabled"`
-	AuthType                   AuthType   `json:"auth_type"`
-	Password                   string     `json:"password"`
+	AuthType                   AuthType   `gorm:"-" json:"auth_type"`
+	Password                   string     `gorm:"-" json:"password"`
 	IsMFAEnabled               bool       `json:"is_mfa_enabled"`
 	TOTPSecret                 string     `json:"totp_secret"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
@@ -62,8 +62,11 @@ func (u *User) TableName() string {
 // userWithMembership is a flattened scan target for queries that JOIN tenant_memberships_v1.
 type userWithMembership struct {
 	User
-	MemberRoleID UserRoleID                                   `gorm:"column:member_role_id"`
-	MemberGroups datatypes.JSONType[map[UserGroupID]struct{}] `gorm:"column:member_groups"`
+	MemberRoleID                     UserRoleID                                   `gorm:"column:member_role_id"`
+	MemberGroups                     datatypes.JSONType[map[UserGroupID]struct{}] `gorm:"column:member_groups"`
+	MemberAuthType                   AuthType                                     `gorm:"column:member_auth_type"`
+	MemberExternalIdentityProviderID string                                       `gorm:"column:member_external_identity_provider_id"`
+	MemberPassword                   string                                       `gorm:"column:member_password"`
 }
 
 func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {
@@ -99,7 +102,7 @@ func (u *User) Get(ctx context.Context) error {
 	var row userWithMembership
 	err := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
 		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 		Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 		First(&row).
@@ -110,28 +113,28 @@ func (u *User) Get(ctx context.Context) error {
 	*u = row.User
 	u.PlatformRoleID = row.MemberRoleID
 	u.UserGroups = row.MemberGroups
+	u.AuthType = row.MemberAuthType
+	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+	u.Password = row.MemberPassword
 	return nil
 }
 
 func (u *User) GetByExternalID(ctx context.Context) error {
-	if u.ExternalIdentityProviderID == "" {
-		return ErrUserIdentifiersNotProvided
-	}
-
 	tenantID := scope.ID(ctx)
 	if tenantID == "" {
-		return db.FromContext(ctx).Model(&User{}).
-			Where("external_identity_provider_id = ?", u.ExternalIdentityProviderID).
-			First(u).
-			Error
+		return ErrTenantIDNotProvided
+	}
+
+	if u.ExternalIdentityProviderID == "" {
+		return ErrUserIdentifiersNotProvided
 	}
 
 	var row userWithMembership
 	err := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
 		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
-		Where("users_v1.external_identity_provider_id = ?", u.ExternalIdentityProviderID).
+		Where("tm.external_identity_provider_id = ?", u.ExternalIdentityProviderID).
 		First(&row).
 		Error
 	if err != nil {
@@ -140,6 +143,9 @@ func (u *User) GetByExternalID(ctx context.Context) error {
 	*u = row.User
 	u.PlatformRoleID = row.MemberRoleID
 	u.UserGroups = row.MemberGroups
+	u.AuthType = row.MemberAuthType
+	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+	u.Password = row.MemberPassword
 	return nil
 }
 
@@ -152,7 +158,7 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 	var row userWithMembership
 	err := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
 		Joins("INNER JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 		Where("tm.role_id = ?", SuperAdminRole).
 		First(&row).
@@ -163,6 +169,9 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 	*u = row.User
 	u.PlatformRoleID = row.MemberRoleID
 	u.UserGroups = row.MemberGroups
+	u.AuthType = row.MemberAuthType
+	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+	u.Password = row.MemberPassword
 	return nil
 }
 
@@ -193,7 +202,7 @@ func (u *User) ListAll(ctx context.Context, options ...dbtypes.Option) ([]User, 
 
 	query := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
 		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 
 	for _, option := range options {
@@ -210,6 +219,9 @@ func (u *User) ListAll(ctx context.Context, options ...dbtypes.Option) ([]User, 
 		users[i] = row.User
 		users[i].PlatformRoleID = row.MemberRoleID
 		users[i].UserGroups = row.MemberGroups
+		users[i].AuthType = row.MemberAuthType
+		users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+		users[i].Password = row.MemberPassword
 	}
 	return users, nil
 }
@@ -287,10 +299,13 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 	}
 
 	return (&TenantMembership{
-		TenantID: tenantID,
-		UserID:   u.ID,
-		RoleID:   u.PlatformRoleID,
-		Groups:   u.UserGroups,
+		TenantID:                   tenantID,
+		UserID:                     u.ID,
+		RoleID:                     u.PlatformRoleID,
+		Groups:                     u.UserGroups,
+		AuthType:                   u.AuthType,
+		ExternalIdentityProviderID: u.ExternalIdentityProviderID,
+		Password:                   u.Password,
 	}).Upsert(ctx)
 }
 

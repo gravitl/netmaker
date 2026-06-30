@@ -8,10 +8,13 @@ import (
 )
 
 type TenantMembership struct {
-	TenantID string                                       `gorm:"primaryKey" json:"tenant_id"`
-	UserID   string                                       `gorm:"primaryKey" json:"user_id"`
-	RoleID   UserRoleID                                   `json:"role_id"`
-	Groups   datatypes.JSONType[map[UserGroupID]struct{}] `json:"groups"`
+	TenantID                   string                                       `gorm:"primaryKey" json:"tenant_id"`
+	UserID                     string                                       `gorm:"primaryKey" json:"user_id"`
+	RoleID                     UserRoleID                                   `json:"role_id"`
+	Groups                     datatypes.JSONType[map[UserGroupID]struct{}] `json:"groups"`
+	AuthType                   AuthType                                     `json:"auth_type"`
+	ExternalIdentityProviderID string                                       `json:"external_identity_provider_id"`
+	Password                   string                                       `json:"password"`
 }
 
 func (t *TenantMembership) TableName() string {
