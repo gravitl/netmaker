@@ -119,7 +119,7 @@ func getTelemetryLastReportedAt() (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	telemetryLastReportedAtValue, err := time.Parse(telemetryLastReportedAt.Value, time.RFC3339)
+	telemetryLastReportedAtValue, err := time.Parse(time.RFC3339, telemetryLastReportedAt.Value)
 	if err != nil {
 		return time.Time{}, err
 	}
