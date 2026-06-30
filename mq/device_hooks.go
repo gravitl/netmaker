@@ -10,6 +10,14 @@ import (
 func init() {
 	logic.PublishHostRegistrationUpdates = publishHostRegistrationUpdates
 	logic.RequestHostPullUpdate = requestHostPullUpdate
+	logic.ProvisionDeviceHostMessaging = provisionDeviceHostMessaging
+}
+
+func provisionDeviceHostMessaging(host *schema.Host) error {
+	if host == nil || servercfg.GetBrokerType() != servercfg.EmqxBrokerType {
+		return nil
+	}
+	return GetEmqxHandler().CreateEmqxUser(host.ID.String(), host.HostPass)
 }
 
 func publishHostRegistrationUpdates(host *schema.Host) error {

@@ -31,6 +31,8 @@ var (
 	RequestHostPullUpdate = func(_ *schema.Host) error { return nil }
 	// JoinHostToNetworks adds a host to networks (wired from auth).
 	JoinHostToNetworks = func(_ models.EnrollmentKey, _ *schema.Host, _ string) {}
+	// ProvisionDeviceHostMessaging creates broker credentials for a new device host (wired from mq).
+	ProvisionDeviceHostMessaging = func(_ *schema.Host) error { return nil }
 )
 
 // EnsureHostOwner sets OwnerUsername on the host when unset.
@@ -75,6 +77,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 		return nil, err
 	}
 	accessible := FilterNetworksByRole(allNetworks, user)
+	featureFlags := GetFeatureFlags()
 	hostID := ""
 	if host != nil {
 		hostID = host.ID.String()
@@ -83,34 +86,57 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
-			NetworkID:   network.Name,
-			DisplayName: network.Name,
-			Status:      models.DeviceNetworkStatusAvailable,
+			NetworkID:    network.Name,
+			DisplayName:  network.Name,
+			Status:       models.DeviceNetworkStatusAvailable,
 			HasJITAccess: true,
 		}
 		if host != nil {
-			if pending, _ := isHostPendingOnNetwork(ctx, hostID, network.Name); pending {
-				dn.Pending = true
-				dn.Status = models.DeviceNetworkStatusPending
-			} else if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
-				dn.Joined = true
-				dn.Connected = node.Connected
-				if node.Connected {
-					dn.Status = models.DeviceNetworkStatusJoined
-				} else {
-					dn.Status = models.DeviceNetworkStatusAvailable
-				}
-			}
+			applyDeviceNetworkHostState(ctx, host, hostID, network, featureFlags, &dn)
 		}
 		result = append(result, dn)
 	}
 	return EnrichDeviceNetworksWithJIT(user, result), nil
 }
 
-func isHostPendingOnNetwork(ctx context.Context, hostID, network string) (bool, error) {
+func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, hostID string, network schema.Network, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
+	if pending, _ := getPendingHostOnNetwork(ctx, hostID, network.Name); pending != nil {
+		dn.Pending = true
+		dn.Status = models.DeviceNetworkStatusPending
+		ts := pending.RequestedAt.Unix()
+		dn.ApprovalRequestedAt = &ts
+		return
+	}
+
+	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
+		dn.Joined = true
+		dn.Connected = node.Connected
+		if node.Connected {
+			dn.Status = models.DeviceNetworkStatusJoined
+		} else {
+			dn.Status = models.DeviceNetworkStatusAvailable
+		}
+		return
+	}
+
+	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(network.Name), true)
+	if len(violations) > 0 {
+		dn.Status = models.DeviceNetworkStatusBlocked
+		return
+	}
+
+	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
+		dn.ApprovalRequired = true
+		dn.Status = models.DeviceNetworkStatusApprovalRequired
+	}
+}
+
+func getPendingHostOnNetwork(ctx context.Context, hostID, network string) (*schema.PendingHost, error) {
 	p := &schema.PendingHost{HostID: hostID, Network: network}
-	err := p.CheckIfPendingHostExists(ctx)
-	return err == nil, nil
+	if err := p.CheckIfPendingHostExists(ctx); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func getHostNodeOnNetwork(ctx context.Context, host *schema.Host, network string) (*schema.Node, error) {
@@ -129,36 +155,37 @@ func getHostNodeOnNetwork(ctx context.Context, host *schema.Host, network string
 }
 
 // JoinDeviceNetwork adds the host to a network on behalf of the user.
-func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
+func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) (models.DeviceJoinResult, error) {
+	var empty models.DeviceJoinResult
 	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
-		return errors.New("user does not have access to network")
+		return empty, errors.New("user does not have access to network")
 	}
 	hasAccess, _, err := CheckJITAccess(networkID, user.Username)
 	if err != nil {
-		return err
+		return empty, err
 	}
 	if !hasAccess {
-		return errors.New("JIT access required: please request access from network admin")
+		return empty, errors.New("JIT access required: please request access from network admin")
 	}
 
 	network := &schema.Network{Name: networkID}
 	if err := network.Get(ctx); err != nil {
-		return fmt.Errorf("network not found: %w", err)
+		return empty, fmt.Errorf("network not found: %w", err)
 	}
 	if DoesHostExistInTheNetworkAlready(host, network) {
-		return nil
+		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
 	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
-		return errors.New("access blocked: this device doesn't meet security requirements")
+		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}
 
 	featureFlags := GetFeatureFlags()
 	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
 		p := &schema.PendingHost{HostID: host.ID.String(), Network: networkID}
 		if err := p.CheckIfPendingHostExists(ctx); err == nil {
-			return errors.New("host approval pending for network")
+			return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
 		}
 		keyB, _ := json.Marshal(models.EnrollmentKey{Networks: []string{networkID}})
 		pending := schema.PendingHost{
@@ -174,19 +201,22 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 			RequestedAt:   time.Now().UTC(),
 		}
 		if err := pending.Create(ctx); err != nil {
-			return err
+			return empty, err
 		}
-		return errors.New("host approval required for network")
+		return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
 	}
 
 	JoinHostToNetworks(models.EnrollmentKey{Networks: []string{networkID}}, host, user.Username)
-	return nil
+	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 }
 
-// LeaveDeviceNetwork removes the host from a network.
+// LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.
 func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
 	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
 		return errors.New("user does not have access to network")
+	}
+	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
+		return pending.Delete(ctx)
 	}
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
 	if err != nil {
@@ -202,10 +232,86 @@ func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Hos
 	return DeleteNode(&node, true)
 }
 
+// CancelDeviceNetworkJoin removes a pending join approval request without leaving a joined network.
+func CancelDeviceNetworkJoin(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
+	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+		return errors.New("user does not have access to network")
+	}
+	pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID)
+	if err != nil {
+		return errors.New("no pending join request for network")
+	}
+	return pending.Delete(ctx)
+}
+
 // SyncDevice requests the host to pull latest config via MQ.
 func SyncDevice(host *schema.Host) error {
 	if host == nil {
 		return errors.New("host is required")
 	}
 	return RequestHostPullUpdate(host)
+}
+
+// RegisterDevice registers or updates a host on behalf of an authenticated user (Desktop/netclient JWT flow).
+func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host) (models.RegisterResponse, error) {
+	var empty models.RegisterResponse
+	if user == nil || user.Username == "" {
+		return empty, errors.New("user is required")
+	}
+	if newHost == nil || newHost.ID == uuid.Nil {
+		return empty, errors.New("invalid host id")
+	}
+	if !IsVersionCompatible(newHost.Version) {
+		return empty, fmt.Errorf("bad client version on register: %s", newHost.Version)
+	}
+	if newHost.TrafficKeyPublic == nil && newHost.OS != models.OS_Types.IoT {
+		return empty, errors.New("missing traffic key")
+	}
+
+	trafficKey, err := RetrievePublicTrafficKey()
+	if err != nil {
+		return empty, err
+	}
+
+	var host *schema.Host
+	if !HostExists(newHost) {
+		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		newHost.OwnerUsername = user.Username
+		_ = CheckHostPorts(newHost)
+		if err := ProvisionDeviceHostMessaging(newHost); err != nil {
+			return empty, err
+		}
+		if err := CreateHost(newHost); err != nil {
+			return empty, err
+		}
+		host = newHost
+	} else {
+		existing := &schema.Host{ID: newHost.ID}
+		if err := existing.Get(db.WithContext(ctx)); err != nil {
+			return empty, err
+		}
+		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
+			return empty, errors.New("host does not belong to user")
+		}
+		if existing.OwnerUsername == "" {
+			EnsureHostOwner(existing, user.Username)
+		}
+		endpointChanged, _ := UpdateHostFromClient(newHost, existing)
+		if endpointChanged {
+			CheckHostPorts(existing)
+		}
+		if err := UpsertHost(existing); err != nil {
+			return empty, err
+		}
+		host = existing
+	}
+
+	server := GetServerInfo()
+	server.TrafficKey = trafficKey
+	responseHost := *host
+	responseHost.HostPass = ""
+	return models.RegisterResponse{
+		ServerConf:    server,
+		RequestedHost: responseHost,
+	}, nil
 }

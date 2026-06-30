@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
@@ -13,11 +14,15 @@ import (
 )
 
 func deviceHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/device/register", logic.SecurityCheck(false, http.HandlerFunc(registerDevice))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/device/networks", logic.SecurityCheck(false, http.HandlerFunc(getDeviceNetworks))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/device/networks/{network}/join", logic.SecurityCheck(false, http.HandlerFunc(joinDeviceNetwork))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/device/networks/{network}/leave", logic.SecurityCheck(false, http.HandlerFunc(leaveDeviceNetwork))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/device/networks/{network}/cancel", logic.SecurityCheck(false, http.HandlerFunc(cancelDeviceNetworkJoin))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/device/networks/{network}/jit/request", logic.SecurityCheck(false, http.HandlerFunc(requestDeviceJITAccess))).
 		Methods(http.MethodPost)
@@ -25,17 +30,59 @@ func deviceHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 }
 
-func getDeviceUserAndHost(w http.ResponseWriter, r *http.Request) (*schema.User, *schema.Host, bool) {
+func getDeviceUser(w http.ResponseWriter, r *http.Request) (*schema.User, bool) {
 	username := r.Header.Get("user")
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not found in request"), "unauthorized"))
-		return nil, nil, false
+		return nil, false
 	}
 	user := &schema.User{Username: username}
 	if err := user.Get(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return nil, false
+	}
+	return user, true
+}
+
+func registerDevice(w http.ResponseWriter, r *http.Request) {
+	user, ok := getDeviceUser(w, r)
+	if !ok {
+		return
+	}
+	var newHost schema.Host
+	if err := json.NewDecoder(r.Body).Decode(&newHost); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if newHost.ID == uuid.Nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("host id is required"), "badrequest"))
+		return
+	}
+	if hostID := r.Header.Get(logic.DeviceHostIDHeader); hostID != "" && hostID != newHost.ID.String() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("host id mismatch"), "badrequest"))
+		return
+	}
+	resp, err := logic.RegisterDevice(db.WithContext(r.Context()), user, &newHost)
+	if err != nil {
+		errType := logic.Internal
+		switch {
+		case err.Error() == "host does not belong to user":
+			errType = logic.Forbidden
+		case err.Error() == "invalid host id", err.Error() == "missing traffic key":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "device registered")
+}
+
+func getDeviceUserAndHost(w http.ResponseWriter, r *http.Request) (*schema.User, *schema.Host, bool) {
+	user, ok := getDeviceUser(w, r)
+	if !ok {
 		return nil, nil, false
 	}
+	username := user.Username
 	hostID := r.Header.Get(logic.DeviceHostIDHeader)
 	if hostID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("host id is required"), "badrequest"))
@@ -72,20 +119,29 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	if err := logic.JoinDeviceNetwork(db.WithContext(r.Context()), user, host, network); err != nil {
+	result, err := logic.JoinDeviceNetwork(db.WithContext(r.Context()), user, host, network)
+	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
 		case "user does not have access to network",
 			"JIT access required: please request access from network admin",
 			"access blocked: this device doesn't meet security requirements":
 			errType = logic.Forbidden
-		case "host approval required for network", "host approval pending for network":
-			errType = logic.BadReq
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	logic.ReturnSuccessResponse(w, r, "joined network")
+	if result.Status == models.DeviceJoinStatusPending {
+		var httpResponse models.SuccessResponse
+		httpResponse.Code = http.StatusAccepted
+		httpResponse.Response = result
+		httpResponse.Message = "host approval pending for network"
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(httpResponse)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, result, "joined network")
 }
 
 func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +159,30 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "left network")
+}
+
+func cancelDeviceNetworkJoin(w http.ResponseWriter, r *http.Request) {
+	user, host, ok := getDeviceUserAndHost(w, r)
+	if !ok {
+		return
+	}
+	network := mux.Vars(r)["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	if err := logic.CancelDeviceNetworkJoin(db.WithContext(r.Context()), user, host, network); err != nil {
+		errType := logic.Internal
+		if err.Error() == "no pending join request for network" {
+			errType = logic.BadReq
+		}
+		if err.Error() == "user does not have access to network" {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "join request cancelled")
 }
 
 func requestDeviceJITAccess(w http.ResponseWriter, r *http.Request) {

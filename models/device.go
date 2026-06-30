@@ -7,7 +7,10 @@ type DeviceNetwork struct {
 	Joined      bool   `json:"joined"`
 	Connected   bool   `json:"connected"`
 	Pending     bool   `json:"pending"`
-	Status      string `json:"status"` // available | joined | pending | blocked | jit_required
+	Status      string `json:"status"` // available | joined | pending | blocked | jit_required | approval_required
+
+	ApprovalRequired    bool   `json:"approval_required"`
+	ApprovalRequestedAt *int64 `json:"approval_requested_at,omitempty"`
 
 	JITEnabled        bool   `json:"jit_enabled"`
 	JITAppliesToUser  bool   `json:"jit_applies_to_user"`
@@ -23,10 +26,21 @@ type DeviceJITAccessRequest struct {
 	Reason string `json:"reason"`
 }
 
+// DeviceJoinResult is returned from the device join API.
+type DeviceJoinResult struct {
+	Status string `json:"status"` // joined | pending
+}
+
 const (
-	DeviceNetworkStatusAvailable   = "available"
-	DeviceNetworkStatusJoined      = "joined"
-	DeviceNetworkStatusPending     = "pending"
-	DeviceNetworkStatusBlocked     = "blocked"
-	DeviceNetworkStatusJITRequired = "jit_required"
+	DeviceJoinStatusJoined  = "joined"
+	DeviceJoinStatusPending = "pending"
+)
+
+const (
+	DeviceNetworkStatusAvailable        = "available"
+	DeviceNetworkStatusJoined           = "joined"
+	DeviceNetworkStatusPending          = "pending"
+	DeviceNetworkStatusBlocked          = "blocked"
+	DeviceNetworkStatusJITRequired      = "jit_required"
+	DeviceNetworkStatusApprovalRequired = "approval_required"
 )
