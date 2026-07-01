@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	errMissingTenantID     = errors.New("X-Tenant-ID header is required")
-	errTenantNotFound      = errors.New("tenant not found")
-	errDefaultTenantFailed = errors.New("default tenant not found")
-	errMissingOrgID        = errors.New("X-Organization-ID header is required")
-	errOrgNotFound         = errors.New("organization not found")
-	errDefaultOrgFailed    = errors.New("default organization not found")
+	errMissingTenantID       = errors.New("X-Tenant-ID header is required")
+	errTenantNotFound        = errors.New("tenant not found")
+	errDefaultTenantNotFound = errors.New("default tenant not found")
+	errMissingOrgID          = errors.New("X-Organization-ID header is required")
+	errOrgNotFound           = errors.New("organization not found")
+	errDefaultOrgNotFound    = errors.New("default organization not found")
+	errAmbiguousScope        = errors.New("only one of org or tenant scope header may be provided")
 )
 
 var (
@@ -43,7 +44,7 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 				if defaultTenantID.Load() == nil {
 					t := &schema.Tenant{}
 					if err := t.GetDefault(r.Context()); err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantFailed, logic.Internal))
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
 						return
 					}
 					defaultTenantID.Store(t.ID)
@@ -69,7 +70,7 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 				if defaultOrgID.Load() == nil {
 					o := &schema.Organization{}
 					if err := o.GetDefault(r.Context()); err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgFailed, logic.Internal))
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgNotFound, logic.Internal))
 						return
 					}
 					defaultOrgID.Store(o.ID)
@@ -89,5 +90,55 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 		}
 
 		next.ServeHTTP(w, r.WithContext(scope.WithContext(r.Context(), level, id)))
+	}
+}
+
+// InferScope determines whether the request is tenant- or org-scoped based on
+// which header is present, and scopes the request accordingly. It is intended for
+// endpoints that support both tenant and org scope.
+func InferScope(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := r.Header.Get(scope.HeaderOrgID)
+		tenantID := r.Header.Get(scope.HeaderTenantID)
+
+		if orgID != "" && tenantID != "" {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errAmbiguousScope, logic.BadReq))
+			return
+		}
+
+		if orgID != "" {
+			o := &schema.Organization{ID: orgID}
+			if err := o.Get(db.WithContext(r.Context())); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errOrgNotFound, logic.BadReq))
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(scope.WithContext(r.Context(), scope.OrgScope, orgID)))
+			return
+		}
+
+		if tenantID != "" {
+			t := &schema.Tenant{ID: tenantID}
+			if err := t.Get(db.WithContext(r.Context())); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
+				return
+			}
+		} else {
+			if logic.GetFeatureFlags().AllowMultipleTenants {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
+				return
+			}
+
+			if defaultTenantID.Load() == nil {
+				t := &schema.Tenant{}
+				if err := t.GetDefault(r.Context()); err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
+					return
+				}
+				defaultTenantID.Store(t.ID)
+			}
+			tenantID = defaultTenantID.Load().(string)
+		}
+
+		next.ServeHTTP(w, r.WithContext(scope.WithContext(r.Context(), scope.TenantScope, tenantID)))
 	}
 }
