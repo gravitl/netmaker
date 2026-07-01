@@ -5,18 +5,21 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
 // CacheValue - the cache object for a network
 type CacheValue struct {
-	Network    string    `json:"network,omitempty"`
-	Value      string    `json:"value"`
-	Host       Host      `json:"host"`
-	Pass       string    `json:"pass,omitempty"`
-	User       string    `json:"user,omitempty"`
-	ALL        bool      `json:"all,omitempty"`
-	Expiration time.Time `json:"expiration"`
+	Scope      scope.Scope `json:"scope"`
+	ScopeID    string      `json:"scope_id"`
+	Network    string      `json:"network,omitempty"`
+	Value      string      `json:"value"`
+	Host       Host        `json:"host"`
+	Pass       string      `json:"pass,omitempty"`
+	User       string      `json:"user,omitempty"`
+	ALL        bool        `json:"all,omitempty"`
+	Expiration time.Time   `json:"expiration"`
 }
 
 type CacheRecord struct {

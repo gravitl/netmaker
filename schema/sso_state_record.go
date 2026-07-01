@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -12,17 +13,18 @@ const DefaultSsoStateDuration = time.Minute * 5
 
 // SsoState - holds SSO sign-in session data
 type SsoState struct {
-	AppName    string    `json:"app_name"`
-	Value      string    `json:"value"`
-	Expiration time.Time `json:"expiration"`
+	Scope      scope.Scope `json:"scope"`
+	ScopeID    string      `json:"scope_id"`
+	AppName    string      `json:"app_name"`
+	Value      string      `json:"value"`
+	Expiration time.Time   `json:"expiration"`
 }
 
 func (s *SsoState) IsExpired() bool { return time.Now().After(s.Expiration) }
 
 type SsoStateRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:'';index"`
-	Value    datatypes.JSONType[SsoState]
+	Key   string `gorm:"primaryKey"`
+	Value datatypes.JSONType[SsoState]
 }
 
 func (*SsoStateRecord) TableName() string { return "ssostatecache" }
