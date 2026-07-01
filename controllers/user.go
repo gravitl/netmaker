@@ -2057,8 +2057,10 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to establish web-socket connection during node sign-in")
 		return
 	}
+
+	ctx := scope.WithContext(context.TODO(), scope.Level(r.Context()), scope.ID(r.Context()))
 	// Start handling the session
-	go auth.SessionHandler(conn)
+	go auth.SessionHandler(ctx, conn)
 }
 
 func listRoles(w http.ResponseWriter, r *http.Request) {

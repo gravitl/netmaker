@@ -39,10 +39,10 @@ import (
 
 func UserHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/oauth/login", proAuth.HandleAuthLogin).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/login", middleware.InferScope(http.HandlerFunc(proAuth.HandleAuthLogin))).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/callback", proAuth.HandleAuthCallback).Methods(http.MethodGet)
-	r.HandleFunc("/api/oauth/headless", proAuth.HandleHeadlessSSO)
-	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/headless", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.HandleHeadlessSSO)))
+	r.HandleFunc("/api/oauth/register/{regKey}", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.RegisterHostSSO))).Methods(http.MethodGet)
 
 	// User Role Handlers
 	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getRole)))).Methods(http.MethodGet)
@@ -2175,14 +2175,14 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsMasterPod() {
-		go func() {
-			err := proAuth.SyncFromIDP()
+		go func(ctx context.Context) {
+			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}()
+		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
 		logic.PublishServerSync(logic.SyncTypeIDPSync)
 	}
@@ -2251,7 +2251,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.IDPSyncStatus
 func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
+	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(r.Context()), "idp sync status retrieved")
 }
 
 // @Summary     Remove IDP integration
@@ -2306,12 +2306,12 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proAuth.ResetAuthProvider()
-	proAuth.ResetIDPSyncHook()
+	proAuth.ResetAuthProvider(r.Context())
+	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
 		go func() {
-			err := proAuth.SyncFromIDP()
+			err := proAuth.SyncFromIDP(r.Context())
 			if err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {

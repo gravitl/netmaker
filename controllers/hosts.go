@@ -79,7 +79,7 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/emqx/hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
+	r.HandleFunc("/api/v1/auth-register/host", middleware.Scope(scope.TenantScope, http.HandlerFunc(socketHandler)))
 }
 
 // @Summary     Requests all the hosts to upgrade their version
