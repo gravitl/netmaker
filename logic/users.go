@@ -11,7 +11,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-var SyncFromIDP = func() error { return nil }
+var SyncFromIDP = func(context.Context) error { return nil }
 
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {

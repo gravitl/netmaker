@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -29,7 +30,11 @@ var (
 	idpSyncErr     error
 )
 
-func ResetIDPSyncHook() {
+func AddIDPSyncHooks() {
+	// TODO: implement
+}
+
+func ResetIDPSyncHook(ctx context.Context) {
 	if !servercfg.IsMasterPod() {
 		if servercfg.IsHA() && logic.PublishServerSync != nil {
 			logic.PublishServerSync(logic.SyncTypeIDPSync)
@@ -44,10 +49,16 @@ func ResetIDPSyncHook() {
 	}
 
 	if logic.IsSyncEnabled() {
-		ctx, cancel := context.WithCancel(context.Background())
+		// Embed scope from ctx into a fresh context so the background goroutine
+		// inherits scope info independently of the caller's lifetime.
+		syncCtx, cancel := context.WithCancel(scope.WithContext(
+			context.Background(),
+			scope.Level(ctx),
+			scope.ID(ctx),
+		))
 		cancelSyncHook = cancel
 		hookStopWg.Add(1)
-		go runIDPSyncHook(ctx)
+		go runIDPSyncHook(syncCtx)
 	}
 }
 
@@ -62,7 +73,7 @@ func runIDPSyncHook(ctx context.Context) {
 			logger.Log(0, "idp sync hook stopped")
 			return
 		case <-ticker.C:
-			if err := SyncFromIDP(); err != nil {
+			if err := SyncFromIDP(ctx); err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {
 				logger.Log(0, "sync from idp complete")
@@ -71,7 +82,7 @@ func runIDPSyncHook(ctx context.Context) {
 	}
 }
 
-func SyncFromIDP() error {
+func SyncFromIDP(ctx context.Context) error {
 	idpSyncMtx.Lock()
 	defer idpSyncMtx.Unlock()
 	settings := logic.GetServerSettings()
@@ -359,7 +370,7 @@ func syncGroups(idpGroups []idp.Group) error {
 	return nil
 }
 
-func GetIDPSyncStatus() models.IDPSyncStatus {
+func GetIDPSyncStatus(_ context.Context) models.IDPSyncStatus {
 	if idpSyncMtx.TryLock() {
 		defer idpSyncMtx.Unlock()
 		if idpSyncErr == nil {

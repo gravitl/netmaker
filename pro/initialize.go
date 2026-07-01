@@ -53,6 +53,7 @@ func InitPro() {
 		proControllers.JITHandlers,
 		proControllers.ServerHandlers,
 		proControllers.IntegrationHandlers,
+		proControllers.OrgHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -77,7 +78,7 @@ func InitPro() {
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
-			auth.ResetIDPSyncHook()
+			auth.AddIDPSyncHooks()
 			proLogic.AddPostureCheckHook()
 			// Register JIT expiry hook with email notifications
 			addJitExpiryHookWithEmail()

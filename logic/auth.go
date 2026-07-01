@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -27,9 +28,9 @@ const (
 	NetmakerDesktopApp = "netmaker-desktop"
 )
 
-var IsOAuthConfigured = func() bool { return false }
-var ResetAuthProvider = func() {}
-var ResetIDPSyncHook = func() {}
+var IsOAuthConfigured = func(context.Context) bool { return false }
+var ResetAuthProvider = func(context.Context) {}
+var ResetIDPSyncHook = func(context.Context) {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
@@ -507,8 +508,10 @@ func GetState(state string) (*models.SsoState, error) {
 }
 
 // SetState - sets a state with new expiration
-func SetState(appName, state string) error {
+func SetState(scope scope.Scope, scopeID, appName, state string) error {
 	s := models.SsoState{
+		Scope:      scope,
+		ScopeID:    scopeID,
 		AppName:    appName,
 		Value:      state,
 		Expiration: time.Now().Add(models.DefaultExpDuration),

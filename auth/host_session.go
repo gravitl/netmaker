@@ -26,7 +26,7 @@ import (
 // via SSO mechanism by OAuth2 protocol flow.
 // This triggers a session start and it is managed by the flow implemented here and callback
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
-func SessionHandler(conn *websocket.Conn) {
+func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	defer conn.Close()
 	// If reached here we have a session from user to handle...
 	messageType, message, err := conn.ReadMessage()
@@ -56,6 +56,8 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "invalid host registration attempted")
 		return
 	}
+	req.Scope = scope.Level(ctx)
+	req.ScopeID = scope.ID(ctx)
 	// Add any extra parameter provided in the configuration to the Authorize Endpoint request??
 	stateStr := logic.RandomString(node_signin_length)
 	if err := netcache.Set(stateStr, req); err != nil {
@@ -111,7 +113,7 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 	} else { // handle SSO / OAuth
-		if !logic.IsOAuthConfigured() {
+		if !logic.IsOAuthConfigured(ctx) {
 			handleHostRegErr(conn, errors.New("oauth not configured"))
 			return
 		}

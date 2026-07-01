@@ -1,12 +1,14 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -14,6 +16,8 @@ import (
 type serverSyncMessage struct {
 	Sender   string               `json:"sender"`
 	SyncType logic.ServerSyncType `json:"sync_type"`
+	Scope    scope.Scope          `json:"scope"`
+	ScopeID  string               `json:"scope_id"`
 }
 
 // InitServerSync wires up the logic.PublishServerSync hook so that
@@ -68,11 +72,11 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 		go warmPeerCaches()
 	case logic.SyncTypeIDPReset:
 		if servercfg.IsMasterPod() {
-			logic.ResetIDPSyncHook()
+			logic.ResetIDPSyncHook(context.Background())
 		}
 	case logic.SyncTypeIDPSync:
 		if servercfg.IsMasterPod() {
-			logic.SyncFromIDP()
+			logic.SyncFromIDP(context.Background())
 		}
 	}
 }

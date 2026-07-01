@@ -17,8 +17,8 @@ import (
 
 // HandleHeadlessSSOCallback - handle OAuth callback for headless logins such as Netmaker CLI
 func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
-	functions := getCurrentAuthFunctions()
-	if functions == nil {
+	p, ok := registry.FromContext(r.Context())
+	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
 		logger.Log(0, "Missing Oauth config in HandleHeadlessSSOCallback")
@@ -26,7 +26,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	state, code := getStateAndCode(r)
 
-	userClaims, err := functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
+	userClaims, err := p.GetUserInfo(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -65,7 +65,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user *schema.User
-	if logic.GetServerSettings().AuthProvider == azure_ad_provider_name {
+	if p.Name() == azure_ad_provider_name {
 		user, err = GetMatchingUser(userClaims)
 	} else {
 		user = &schema.User{Username: userClaims.getUserName()}

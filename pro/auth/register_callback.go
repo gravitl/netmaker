@@ -24,8 +24,8 @@ var (
 // Listens in /oidc/callback.
 func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
-	var functions = getCurrentAuthFunctions()
-	if functions == nil {
+	p, ok := registry.FromContext(r.Context())
+	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
 		logger.Log(0, "Missing Oauth config in HandleNodeSSOCallback")
@@ -34,7 +34,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	state, code := getStateAndCode(r)
 
-	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
+	var userClaims, err = p.GetUserInfo(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
 		handleOauthNotConfigured(w)
@@ -138,8 +138,8 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 // Puts machine key in cache so the callback can retrieve it using the oidc state param
 // Listens in /oidc/register/:regKey.
 func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
-
-	if auth_provider == nil {
+	p, ok := registry.FromContext(r.Context())
+	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid login attempt"))
 		return
@@ -154,5 +154,5 @@ func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, auth_provider.AuthCodeURL(machineKeyStr), http.StatusSeeOther)
+	http.Redirect(w, r, p.Config().AuthCodeURL(machineKeyStr), http.StatusSeeOther)
 }

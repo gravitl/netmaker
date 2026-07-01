@@ -331,17 +331,19 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	go reInit(currSettings, req, force == "true")
+
+	ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+	go reInit(ctx, currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
 
-func reInit(curr, new models.ServerSettings, force bool) {
+func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
-	logic.ResetAuthProvider()
+	logic.ResetAuthProvider(ctx)
 	logic.EmailInit()
 	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
-	logic.ResetIDPSyncHook()
+	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
