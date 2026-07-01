@@ -69,12 +69,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		var authProvider = auth.InitializeAuthProvider()
-		if authProvider != "" {
-			slog.Info("OAuth provider,", authProvider+",", "initialized")
-		} else {
-			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
-		}
 		proLogic.LoadNodeMetricsToCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
