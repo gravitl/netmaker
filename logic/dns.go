@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -99,7 +100,11 @@ func CreateFallbackNameserver(networkID string) error {
 		CreatedAt: time.Now().UTC(),
 	}
 
-	return ns.Create(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if ns.TenantID == "" {
+		ns.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return ns.Create(ctx)
 }
 
 // GetDNS - gets the DNS of a current network
@@ -437,7 +442,11 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 		return models.DNSEntry{}, err
 	}
 	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
-	return entry, r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return entry, r.Upsert(ctx)
 }
 
 func validateNameserverReq(ns *schema.Nameserver) error {

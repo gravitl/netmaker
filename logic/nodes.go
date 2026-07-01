@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -115,7 +116,11 @@ func UpsertNode(newNode *models.Node) error {
 		return errors.New("error converting models.Node to schema.Node")
 	}
 
-	return _node.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if _node.TenantID == "" {
+		_node.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return _node.Upsert(ctx)
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -145,7 +150,11 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			return errors.New("error converting models.Node to schema.Node")
 		}
 
-		return _node.Upsert(db.WithContext(context.TODO()))
+		ctx := db.WithContext(context.TODO())
+		if _node.TenantID == "" {
+			_node.TenantID = scope.ID(scope.Default(ctx))
+		}
+		return _node.Upsert(ctx)
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())

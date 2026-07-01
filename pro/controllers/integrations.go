@@ -156,6 +156,9 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		Config: datatypes.JSON(config),
 	}
 
+	if intg.TenantID == "" {
+		intg.TenantID = scope.ID(scope.Default(r.Context()))
+	}
 	err = intg.Upsert(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

@@ -270,6 +270,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
+		if invite.TenantID == "" {
+			invite.TenantID = scope.ID(scope.Default(r.Context()))
+		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)

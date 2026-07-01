@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -104,7 +105,11 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 	metrics.UpdatedAt = time.Now()
 	r := &schema.MetricsRecord{Key: nodeid, Value: datatypes.NewJSONType(*metrics)}
-	if err := r.Upsert(db.WithContext(context.Background())); err != nil {
+	ctx := db.WithContext(context.Background())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	if err := r.Upsert(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {

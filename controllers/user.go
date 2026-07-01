@@ -138,6 +138,9 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if req.TenantID == "" {
+		req.TenantID = scope.ID(scope.Default(r.Context()))
+	}
 	err = req.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(

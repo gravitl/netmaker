@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -290,7 +291,11 @@ func SaveExtClient(extclient *models.ExtClient) error {
 		return err
 	}
 	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
-	if err = r.Upsert(db.WithContext(context.TODO())); err != nil {
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	if err = r.Upsert(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {

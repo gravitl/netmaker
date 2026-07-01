@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -23,7 +24,11 @@ var ErrExpired = fmt.Errorf("expired")
 func Set(k string, newValue *CValue) error {
 	newValue.Expiration = time.Now().Add(expirationTime)
 	r := &schema.CacheRecord{Key: k, Value: datatypes.NewJSONType(*newValue)}
-	return r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return r.Upsert(ctx)
 }
 
 // Get - gets a value from db, if expired, return err

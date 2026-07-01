@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -281,7 +282,11 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 
 // UpsertHost - upserts into DB a given host model, does not check for existence*
 func UpsertHost(h *schema.Host) error {
-	return h.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if h.TenantID == "" {
+		h.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return h.Upsert(ctx)
 }
 
 // UpdateHostNode -  handles updates from client nodes
