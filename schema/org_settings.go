@@ -14,7 +14,12 @@ type OrganizationSettings struct {
 	Settings datatypes.JSONType[OrganizationSettingsData]
 }
 
-type OrganizationSettingsData struct{}
+type OrganizationSettingsData struct {
+	AuthProvider string `json:"auth_provider"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	OIDCIssuer   string `json:"oidc_issuer"`
+}
 
 func (o *OrganizationSettings) TableName() string {
 	return orgSettingsTable
