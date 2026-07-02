@@ -49,3 +49,9 @@ func kvGet(ctx context.Context, tableName, key string) (string, error) {
 
 	return record.Value, nil
 }
+
+func kvCount(ctx context.Context, tableName string) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Table(tableName).Count(&count).Error
+	return int(count), err
+}
