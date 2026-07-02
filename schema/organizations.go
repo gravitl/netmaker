@@ -16,6 +16,7 @@ type Organization struct {
 	ID        string    `gorm:"primaryKey"         json:"id"`
 	Name      string    `gorm:"not null"           json:"name"`
 	Slug      string    `gorm:"uniqueIndex;not null" json:"slug"`
+	Metadata  string    `json:"metadata"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -28,6 +29,7 @@ func (o *Organization) CreateDefault(ctx context.Context) error {
 	o.ID = uuid.NewString()
 	o.Name = defaultOrgSlug
 	o.Slug = defaultOrgSlug
+	o.Metadata = "Default Org"
 	return db.FromContext(ctx).Model(&Organization{}).Create(o).Error
 }
 

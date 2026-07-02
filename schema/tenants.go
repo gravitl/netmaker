@@ -16,6 +16,7 @@ type Tenant struct {
 	Name           string    `gorm:"not null"             json:"name"`
 	Slug           string    `gorm:"uniqueIndex;not null" json:"slug"`
 	OrganizationID string    `gorm:"not null;index"       json:"organization_id"`
+	Metadata       string    `json:"metadata"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -28,6 +29,7 @@ func (t *Tenant) CreateDefault(ctx context.Context) error {
 	t.ID = uuid.NewString()
 	t.Name = defaultTenantSlug
 	t.Slug = defaultTenantSlug
+	t.Metadata = "Default Tenant"
 	return db.FromContext(ctx).Model(&Tenant{}).Create(&t).Error
 }
 

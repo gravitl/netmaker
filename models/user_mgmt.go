@@ -6,6 +6,7 @@ import (
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 type TokenType string
@@ -136,4 +137,29 @@ type UserMapping struct {
 // UserIPMap maintains the mapping of IP addresses to users and groups
 type UserIPMap struct {
 	Mappings map[string]UserMapping `json:"mappings"`
+}
+
+type LoginMethodRequest struct {
+	Username string `json:"username"`
+}
+
+// LoginMethodsAvailable describes which auth methods are available for a login context.
+type LoginMethodsAvailable struct {
+	BasicAuth   bool   `json:"basic_auth"`
+	SSO         bool   `json:"sso"`
+	SSOProvider string `json:"sso_provider,omitempty"`
+}
+
+// LoginOption represents a single login scope (tenant or org) and its available methods.
+type LoginOption struct {
+	Scope         scope.Scope           `json:"scope"`
+	ScopeID       string                `json:"scope_id"`
+	ScopeName     string                `json:"scope_name"`
+	ScopeMetadata string                `json:"scope_metadata"`
+	Methods       LoginMethodsAvailable `json:"methods"`
+}
+
+// LoginMethodsResponse is the response payload for fetch user login methods.
+type LoginMethodsResponse struct {
+	Options []LoginOption `json:"login_options"`
 }

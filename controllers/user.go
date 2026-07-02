@@ -40,6 +40,7 @@ var (
 var ListRoles = listRoles
 
 func userHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/auth/discover", discoverLoginMethods).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin)))).
@@ -303,6 +304,8 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	tenantID := request.Header.Get(scope.HeaderTenantID)
+
 	user := &schema.User{Username: authRequest.UserName}
 	err := user.Get(ctx)
 	if err != nil {
@@ -311,6 +314,15 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
 		return
 	}
+
+	if tenantID != "" {
+		membership := &schema.TenantMembership{TenantID: tenantID, UserID: user.ID}
+		if err := membership.Get(request.Context()); err != nil {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is not a member of this tenant"), "unauthorized"))
+			return
+		}
+	}
+
 	if logic.IsOauthUser(user) == nil {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
@@ -384,6 +396,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			Response: models.SuccessfulUserLoginResponse{
 				UserName:  username,
 				AuthToken: jwt,
+				TenantID:  tenantID,
 			},
 		}
 	}
@@ -438,6 +451,29 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 
+}
+
+// @Summary     Discover available login methods for a user email
+// @Router      /api/v1/auth/discover [post]
+// @Tags        Auth
+// @Produce     json
+// @Success     200 {object} models.LoginMethodsResponse
+// @Failure     500 {object} models.ErrorResponse
+func discoverLoginMethods(w http.ResponseWriter, r *http.Request) {
+	var req models.LoginMethodRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		err = fmt.Errorf("failed to parse request: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	options, err := logic.GetLoginMethodsForUser(r.Context(), req.Username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, models.LoginMethodsResponse{Options: options}, "login methods retrieved")
 }
 
 // @Summary     Validate a user's identity

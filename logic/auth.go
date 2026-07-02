@@ -519,6 +519,101 @@ func SetState(scope scope.Scope, scopeID, appName, state string) error {
 	return r.Upsert(db.WithContext(context.TODO()))
 }
 
+// GetLoginMethodsForUser returns available login options for the given username.
+// Returns an empty slice (not an error) when the user is not found.
+func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.LoginOption, error) {
+	user := &schema.User{Username: username}
+	err := user.Get(db.WithContext(ctx))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return []models.LoginOption{}, nil
+		}
+		return []models.LoginOption{}, err
+	}
+
+	var options []models.LoginOption
+	tenantMemberships, err := (&schema.TenantMembership{
+		UserID: user.ID,
+	}).ListByUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tenant memberships: %w", err)
+	}
+
+	for _, membership := range tenantMemberships {
+		tenant := &schema.Tenant{ID: membership.TenantID}
+		err = tenant.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		settings := &schema.TenantSettingsRecord{Key: membership.TenantID}
+		err = settings.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		var methodsAvailable models.LoginMethodsAvailable
+		if user.AuthType == schema.BasicAuth {
+			methodsAvailable.BasicAuth = true
+		}
+
+		if settings.Value.Data().AuthProvider != "" {
+			methodsAvailable.SSO = true
+			methodsAvailable.SSOProvider = settings.Value.Data().AuthProvider
+		}
+
+		options = append(options, models.LoginOption{
+			Scope:         scope.TenantScope,
+			ScopeID:       tenant.ID,
+			ScopeName:     tenant.Name,
+			ScopeMetadata: tenant.Metadata,
+			Methods:       methodsAvailable,
+		})
+	}
+
+	orgMemberships, err := (&schema.OrgMembership{}).ListByUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error listing org memberships: %w", err)
+	}
+
+	for _, membership := range orgMemberships {
+		org := &schema.Organization{ID: membership.OrganizationID}
+		err = org.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		settings := &schema.OrganizationSettings{ID: membership.OrganizationID}
+		err = settings.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		var methodsAvailable models.LoginMethodsAvailable
+		if user.AuthType == schema.BasicAuth {
+			methodsAvailable.BasicAuth = true
+		}
+
+		if settings.Settings.Data().AuthProvider != "" {
+			methodsAvailable.SSO = true
+			methodsAvailable.SSOProvider = settings.Settings.Data().AuthProvider
+		}
+
+		options = append(options, models.LoginOption{
+			Scope:         scope.OrgScope,
+			ScopeID:       org.ID,
+			ScopeName:     org.Name,
+			ScopeMetadata: org.Metadata,
+			Methods:       methodsAvailable,
+		})
+	}
+
+	if options == nil {
+		options = []models.LoginOption{}
+	}
+	return options, nil
+}
+
 // IsStateValid - checks if given state is valid or not
 // deletes state after call is made to clean up, should only be called once per sign-in
 func IsStateValid(state string) (string, bool) {
