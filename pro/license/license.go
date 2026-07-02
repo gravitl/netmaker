@@ -229,6 +229,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 		return nil, false, err
 	}
 	msg := ValidateLicenseRequest{
+		ServerVersion:  servercfg.GetVersion(),
 		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
 		EncryptedPart:  base64encode(encryptedData),

@@ -43,6 +43,7 @@ type LicenseSecret struct {
 
 // ValidateLicenseRequest - used for request to validate license endpoint
 type ValidateLicenseRequest struct {
+	ServerVersion  string `json:"server_version"`
 	LicenseKey     string `json:"license_key"       binding:"required"`
 	NmServerPubKey string `json:"nm_server_pub_key" binding:"required"` // Netmaker server public key used to send data back to Netmaker for the Netmaker server to decrypt (eg output from validating license)
 	EncryptedPart  string `json:"secret"            binding:"required"`

@@ -8,6 +8,7 @@ import (
 
 const (
 	InternalKey_ServerID                        = "server_id"
+	InternalKey_ServerVersion                   = "server_version"
 	InternalKey_JwtSecret                       = "jwt_secret"
 	InternalKey_OAuthSecret                     = "oauth_secret"
 	InternalKey_MqPrivateKey                    = "mq_private_key"

@@ -139,6 +139,11 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error setting server id: ", err.Error())
 		}
 
+		err = setServerVersion()
+		if err != nil {
+			logger.Log(0, "error setting server version: ", err.Error())
+		}
+
 		logic.SetJWTSecret()
 
 		err = setMqKeys()
@@ -298,6 +303,14 @@ func setServerID() error {
 		serverID.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return serverID.Set(ctx)
+}
+
+func setServerVersion() error {
+	serverVersion := &schema.Internal{
+		Key:   schema.InternalKey_ServerVersion,
+		Value: servercfg.GetVersion(),
+	}
+	return serverVersion.Set(db.WithContext(context.TODO()))
 }
 
 func setMqKeys() error {
