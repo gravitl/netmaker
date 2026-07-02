@@ -313,7 +313,7 @@ func CreateNetwork(_network *schema.Network) error {
 
 	ctx := db.WithContext(context.TODO())
 	if _network.TenantID == "" {
-		_network.TenantID = scope.ID(scope.Default(ctx))
+		_network.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return _network.Create(ctx)
 }
@@ -510,7 +510,7 @@ func SaveNetwork(_network *schema.Network) error {
 	}
 
 	if _network.TenantID == "" {
-		_network.TenantID = scope.ID(scope.Default(ctx))
+		_network.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return _network.Create(ctx)
 }

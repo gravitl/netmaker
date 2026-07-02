@@ -211,7 +211,7 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 	}
 
 	if newRequest.TenantID == "" {
-		newRequest.TenantID = scope.ID(scope.Default(ctx))
+		newRequest.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	if err := newRequest.Create(ctx); err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -271,7 +271,7 @@ func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string)
 	}
 
 	if grant.TenantID == "" {
-		grant.TenantID = scope.ID(scope.Default(ctx))
+		grant.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	if err := grant.Create(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to create grant: %w", err)

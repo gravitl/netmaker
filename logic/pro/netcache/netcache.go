@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -26,7 +27,7 @@ func Set(k string, newValue *CValue) error {
 	r := &schema.CacheRecord{Key: k, Value: datatypes.NewJSONType(*newValue)}
 	ctx := db.WithContext(context.TODO())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return r.Upsert(ctx)
 }

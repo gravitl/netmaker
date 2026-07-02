@@ -133,7 +133,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ns.TenantID == "" {
-		ns.TenantID = scope.ID(scope.Default(r.Context()))
+		ns.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {

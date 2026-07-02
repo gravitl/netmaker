@@ -122,7 +122,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 	}
 
 	if k.TenantID == "" {
-		k.TenantID = scope.ID(scope.Default(ctx))
+		k.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err = k.Create(ctx); err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func CreateDefaultNetworkEnrollmentKey(networkName string) (*schema.EnrollmentKe
 		Type:      schema.EnrollmentKeyType_UnlimitedUses,
 	}
 	if key.TenantID == "" {
-		key.TenantID = scope.ID(scope.Default(ctx))
+		key.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	err = key.Create(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func RegenerateEnrollmentKeyToken(ctx context.Context, keyValue string) (*schema
 	key.UpdatedAt = time.Now()
 
 	if key.TenantID == "" {
-		key.TenantID = scope.ID(scope.Default(ctx))
+		key.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err := key.Upsert(ctx); err != nil {
 		return nil, err
@@ -245,7 +245,7 @@ func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.A
 
 	key.UpdatedAt = time.Now()
 	if key.TenantID == "" {
-		key.TenantID = scope.ID(scope.Default(ctx))
+		key.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err := key.Upsert(ctx); err != nil {
 		return nil, err
@@ -371,7 +371,7 @@ func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
 			if key.TenantID == "" {
-				key.TenantID = scope.ID(scope.Default(ctx))
+				key.TenantID = scope.ID(DefaultScope(ctx))
 			}
 			_ = key.Upsert(ctx)
 		}
@@ -422,7 +422,7 @@ func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
 			if key.TenantID == "" {
-				key.TenantID = scope.ID(scope.Default(ctx))
+				key.TenantID = scope.ID(DefaultScope(ctx))
 			}
 			if err := key.Upsert(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
@@ -500,7 +500,7 @@ func clearDefaultEnrollmentKeysForNetworks(ctx context.Context, networks []strin
 		keys[i].Default = false
 		keys[i].UpdatedAt = time.Now()
 		if keys[i].TenantID == "" {
-			keys[i].TenantID = scope.ID(scope.Default(ctx))
+			keys[i].TenantID = scope.ID(DefaultScope(ctx))
 		}
 		if err := keys[i].Upsert(ctx); err != nil {
 			return err
@@ -520,7 +520,7 @@ func decrementEnrollmentKey(ctx context.Context, value string) (*schema.Enrollme
 	k.UsesRemaining--
 	k.UpdatedAt = time.Now()
 	if k.TenantID == "" {
-		k.TenantID = scope.ID(scope.Default(ctx))
+		k.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err = k.Upsert(ctx); err != nil {
 		return nil, err

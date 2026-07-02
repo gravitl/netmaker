@@ -107,7 +107,7 @@ func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 	r := &schema.MetricsRecord{Key: nodeid, Value: datatypes.NewJSONType(*metrics)}
 	ctx := db.WithContext(context.Background())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	if err := r.Upsert(ctx); err != nil {
 		return err

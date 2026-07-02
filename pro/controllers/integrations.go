@@ -157,7 +157,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intg.TenantID == "" {
-		intg.TenantID = scope.ID(scope.Default(r.Context()))
+		intg.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = intg.Upsert(r.Context())
 	if err != nil {

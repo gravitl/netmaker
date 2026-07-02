@@ -284,7 +284,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 					RequestedAt:   time.Now().UTC(),
 				}
 				if p.TenantID == "" {
-					p.TenantID = scope.ID(scope.Default(context.TODO()))
+					p.TenantID = scope.ID(logic.DefaultScope(context.TODO()))
 				}
 				p.Create(db.WithContext(context.TODO()))
 				continue

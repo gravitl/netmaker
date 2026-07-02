@@ -136,7 +136,7 @@ func setTelemetryLastReportedAt() error {
 	}
 	ctx := db.WithContext(context.TODO())
 	if lastHookRunAt.TenantID == "" {
-		lastHookRunAt.TenantID = scope.ID(scope.Default(ctx))
+		lastHookRunAt.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return lastHookRunAt.Set(ctx)
 }

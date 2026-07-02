@@ -118,7 +118,7 @@ func UpsertNode(newNode *models.Node) error {
 
 	ctx := db.WithContext(context.TODO())
 	if _node.TenantID == "" {
-		_node.TenantID = scope.ID(scope.Default(ctx))
+		_node.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return _node.Upsert(ctx)
 }
@@ -152,7 +152,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 
 		ctx := db.WithContext(context.TODO())
 		if _node.TenantID == "" {
-			_node.TenantID = scope.ID(scope.Default(ctx))
+			_node.TenantID = scope.ID(DefaultScope(ctx))
 		}
 		return _node.Upsert(ctx)
 	}

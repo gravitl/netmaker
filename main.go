@@ -295,7 +295,7 @@ func setServerID() error {
 	serverID.Value = uuid.NewString()
 	ctx := db.WithContext(context.TODO())
 	if serverID.TenantID == "" {
-		serverID.TenantID = scope.ID(scope.Default(ctx))
+		serverID.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return serverID.Set(ctx)
 }
@@ -341,7 +341,7 @@ func setMqKeys() error {
 
 	ctx := db.WithContext(context.TODO())
 	if mqPrivateKey.TenantID == "" || mqPublicKey.TenantID == "" {
-		ctx := scope.Default(ctx)
+		ctx := logic.DefaultScope(ctx)
 		if mqPrivateKey.TenantID == "" {
 			mqPrivateKey.TenantID = scope.ID(ctx)
 		}

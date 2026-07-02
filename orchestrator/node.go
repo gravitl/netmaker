@@ -91,7 +91,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if node.TenantID == "" {
-		node.TenantID = scope.ID(scope.Default(ctx))
+		node.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	err := node.Create(ctx)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
@@ -108,7 +108,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	host.Nodes = append(host.Nodes, node.ID)
 	if host.TenantID == "" {
-		host.TenantID = scope.ID(scope.Default(ctx))
+		host.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	err = host.Upsert(ctx)
 	if err != nil {
@@ -222,7 +222,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
 		if node.Host.TenantID == "" {
-			node.Host.TenantID = scope.ID(scope.Default(ctx))
+			node.Host.TenantID = scope.ID(logic.DefaultScope(ctx))
 		}
 		err := node.Host.Upsert(ctx)
 		if err != nil {

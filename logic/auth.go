@@ -470,7 +470,7 @@ func SetOAuthSecret(secret string) error {
 	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
 	ctx := db.WithContext(context.TODO())
 	if oauthSecret.TenantID == "" {
-		oauthSecret.TenantID = scope.ID(scope.Default(ctx))
+		oauthSecret.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return oauthSecret.Set(ctx)
 }
@@ -516,7 +516,7 @@ func SetState(appName, state string) error {
 	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
 	ctx := db.WithContext(context.TODO())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return r.Upsert(ctx)
 }

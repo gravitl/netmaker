@@ -102,7 +102,7 @@ func CreateFallbackNameserver(networkID string) error {
 
 	ctx := db.WithContext(context.TODO())
 	if ns.TenantID == "" {
-		ns.TenantID = scope.ID(scope.Default(ctx))
+		ns.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return ns.Create(ctx)
 }
@@ -444,7 +444,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
 	ctx := db.WithContext(context.TODO())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return entry, r.Upsert(ctx)
 }

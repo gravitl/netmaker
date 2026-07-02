@@ -179,7 +179,7 @@ func UserGroupsInit() {
 
 	ctx := db.WithContext(context.TODO())
 	if NetworkGlobalAdminGroup.TenantID == "" || NetworkGlobalUserGroup.TenantID == "" {
-		dctx := scope.Default(ctx)
+		dctx := logic.DefaultScope(ctx)
 		if NetworkGlobalAdminGroup.TenantID == "" {
 			NetworkGlobalAdminGroup.TenantID = scope.ID(dctx)
 		}
@@ -314,7 +314,7 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 	}
 	ctx := db.WithContext(context.TODO())
 	if NetworkAdminGroup.TenantID == "" || NetworkUserGroup.TenantID == "" {
-		ctx := scope.Default(ctx)
+		ctx := logic.DefaultScope(ctx)
 		if NetworkAdminGroup.TenantID == "" {
 			NetworkAdminGroup.TenantID = scope.ID(ctx)
 		}
@@ -619,7 +619,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 
 	ctx := db.WithContext(context.TODO())
 	if g.TenantID == "" {
-		g.TenantID = scope.ID(scope.Default(ctx))
+		g.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	err = g.Create(ctx)
 	if err != nil {

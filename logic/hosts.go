@@ -284,7 +284,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 func UpsertHost(h *schema.Host) error {
 	ctx := db.WithContext(context.TODO())
 	if h.TenantID == "" {
-		h.TenantID = scope.ID(scope.Default(ctx))
+		h.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return h.Upsert(ctx)
 }
