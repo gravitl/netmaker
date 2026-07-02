@@ -68,13 +68,14 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req schema.OrganizationSettingsData
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 
 	existing := &schema.OrganizationSettings{ID: orgID}
-	err := existing.Get(r.Context())
+	err = existing.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
