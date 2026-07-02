@@ -396,7 +396,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			Response: models.SuccessfulUserLoginResponse{
 				UserName:  username,
 				AuthToken: jwt,
-				TenantID:  tenantID,
 			},
 		}
 	}
