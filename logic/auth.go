@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -517,11 +516,7 @@ func SetState(scope scope.Scope, scopeID, appName, state string) error {
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}
 	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return r.Upsert(ctx)
+	return r.Upsert(db.WithContext(context.TODO()))
 }
 
 // IsStateValid - checks if given state is valid or not
