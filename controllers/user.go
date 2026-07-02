@@ -282,6 +282,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	ctx := logic.DefaultScope(request.Context())
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
@@ -303,7 +304,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	user := &schema.User{Username: authRequest.UserName}
-	err := user.Get(request.Context())
+	err := user.Get(ctx)
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -334,7 +335,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		// request came from UI, if normal user block Login
 
 		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err := role.Get(request.Context())
+		err := role.Get(ctx)
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
