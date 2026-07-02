@@ -199,7 +199,7 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 		user := &schema.User{
 			Username: username,
 		}
-		err := user.Get(db.WithContext(context.TODO()))
+		err := user.Get(DefaultScope(db.WithContext(context.TODO())))
 		if err != nil {
 			ReturnErrorResponse(w, r, errorResponse)
 			return

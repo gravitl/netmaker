@@ -140,7 +140,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(db.WithContext(context.TODO()))
+	err := _user.Get(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}

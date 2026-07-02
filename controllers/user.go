@@ -759,16 +759,19 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-	usernameFetched := params["username"]
-	user, err := logic.GetReturnUser(usernameFetched)
-
+	username := params["username"]
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
-	json.NewEncoder(w).Encode(user)
+
+	logger.Log(2, r.Header.Get("user"), "fetched user", username)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(_user))
 }
 
 // @Summary     Enable a user's account
@@ -990,12 +993,18 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	user, err := logic.GetReturnUser(usernameFetched)
+
+	_user := &schema.User{
+		Username: usernameFetched,
+	}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	user := logic.ToReturnUser(_user)
 	user.NumAccessTokens, _ = (&schema.UserAccessToken{
 		UserName: user.UserName,
 	}).CountByUser(r.Context())
