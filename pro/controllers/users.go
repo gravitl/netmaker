@@ -2184,7 +2184,7 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 			}
 		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
-		logic.PublishServerSync(logic.SyncTypeIDPSync)
+		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
@@ -2310,16 +2310,16 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
-		go func() {
-			err := proAuth.SyncFromIDP(r.Context())
+		go func(ctx context.Context) {
+			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}()
+		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
-		logic.PublishServerSync(logic.SyncTypeIDPSync)
+		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
 
 	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")

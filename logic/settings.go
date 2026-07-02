@@ -118,7 +118,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	}
 	serverSettingsCache.Store(&s)
 	if PublishServerSync != nil {
-		PublishServerSync(SyncTypeSettings)
+		PublishServerSync(DefaultScope(context.TODO()), SyncTypeSettings)
 	}
 	return nil
 }

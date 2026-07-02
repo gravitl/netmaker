@@ -27,13 +27,15 @@ func InitServerSync() {
 	logic.PublishServerSync = publishServerSync
 }
 
-func publishServerSync(syncType logic.ServerSyncType) {
+func publishServerSync(ctx context.Context, syncType logic.ServerSyncType) {
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return
 	}
 	msg := serverSyncMessage{
 		Sender:   servercfg.GetHostName(),
 		SyncType: syncType,
+		Scope:    scope.Level(ctx),
+		ScopeID:  scope.ID(ctx),
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {
@@ -60,6 +62,7 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	}
 	slog.Info("serversync: received sync", "from", syncMsg.Sender, "type", syncMsg.SyncType)
 
+	ctx := scope.WithContext(context.Background(), syncMsg.Scope, syncMsg.ScopeID)
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
 		oldInterval := logic.GetMetricInterval()
@@ -72,11 +75,11 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 		go warmPeerCaches()
 	case logic.SyncTypeIDPReset:
 		if servercfg.IsMasterPod() {
-			logic.ResetIDPSyncHook(context.Background())
+			logic.ResetIDPSyncHook(ctx)
 		}
 	case logic.SyncTypeIDPSync:
 		if servercfg.IsMasterPod() {
-			logic.SyncFromIDP(context.Background())
+			_ = logic.SyncFromIDP(ctx)
 		}
 	}
 }

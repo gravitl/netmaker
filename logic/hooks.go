@@ -1,5 +1,7 @@
 package logic
 
+import "context"
+
 type ServerSyncType string
 
 const (
@@ -12,4 +14,4 @@ const (
 // PublishServerSync is set by the mq package at startup to broadcast
 // sync signals to peer servers in HA mode. The callback avoids a
 // circular import (logic -> mq).
-var PublishServerSync func(syncType ServerSyncType)
+var PublishServerSync func(ctx context.Context, syncType ServerSyncType)

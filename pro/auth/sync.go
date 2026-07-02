@@ -23,89 +23,132 @@ import (
 	"gorm.io/datatypes"
 )
 
+// idpSyncStateMtx guards idpSyncLocks and idpSyncErrs below, which track
+// per-tenant sync state since each tenant's hook runs independently and
+// concurrently.
 var (
-	cancelSyncHook context.CancelFunc
-	hookStopWg     sync.WaitGroup
-	idpSyncMtx     sync.Mutex
-	idpSyncErr     error
+	idpSyncStateMtx sync.Mutex
+	idpSyncLocks    = make(map[string]*sync.Mutex)
+	idpSyncErrs     = make(map[string]error)
 )
 
-func AddIDPSyncHooks() {
-	// TODO: implement
+func idpSyncHookID(tenantID string) string {
+	return "idp-sync:" + tenantID
 }
 
+func tenantSyncLock(tenantID string) *sync.Mutex {
+	idpSyncStateMtx.Lock()
+	defer idpSyncStateMtx.Unlock()
+	mtx, ok := idpSyncLocks[tenantID]
+	if !ok {
+		mtx = &sync.Mutex{}
+		idpSyncLocks[tenantID] = mtx
+	}
+	return mtx
+}
+
+func idpSyncInterval(settings schema.TenantSettings) time.Duration {
+	interval, err := time.ParseDuration(settings.IDPSyncInterval)
+	if err != nil || interval == 0 {
+		return 24 * time.Hour
+	}
+	return interval
+}
+
+// AddIDPSyncHooks registers an idp sync hook for every tenant whose settings
+// have sync enabled. Called once at startup on the master pod.
+func AddIDPSyncHooks() {
+	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, "failed to list tenants for idp sync hooks: ", err.Error())
+		return
+	}
+	for _, tenant := range tenants {
+		startIDPSyncHookForTenant(tenant.ID)
+	}
+}
+
+// ResetIDPSyncHook re-reads the settings for the tenant carried in ctx and
+// either (re)registers or stops that tenant's idp sync hook accordingly.
 func ResetIDPSyncHook(ctx context.Context) {
 	if !servercfg.IsMasterPod() {
 		if servercfg.IsHA() && logic.PublishServerSync != nil {
-			logic.PublishServerSync(logic.SyncTypeIDPSync)
+			logic.PublishServerSync(ctx, logic.SyncTypeIDPSync)
 		}
 		return
 	}
 
-	if cancelSyncHook != nil {
-		cancelSyncHook()
-		hookStopWg.Wait()
-		cancelSyncHook = nil
-	}
-
-	if logic.IsSyncEnabled() {
-		// Embed scope from ctx into a fresh context so the background goroutine
-		// inherits scope info independently of the caller's lifetime.
-		syncCtx, cancel := context.WithCancel(scope.WithContext(
-			context.Background(),
-			scope.Level(ctx),
-			scope.ID(ctx),
-		))
-		cancelSyncHook = cancel
-		hookStopWg.Add(1)
-		go runIDPSyncHook(syncCtx)
-	}
+	startIDPSyncHookForTenant(scope.ID(ctx))
 }
 
-func runIDPSyncHook(ctx context.Context) {
-	defer hookStopWg.Done()
-	ticker := time.NewTicker(logic.GetIDPSyncInterval())
-	defer ticker.Stop()
+// startIDPSyncHookForTenant (re)registers or stops the idp sync hook for a
+// single tenant based on that tenant's current settings. Sending a
+// HookDetails with an ID that's already running replaces the existing hook
+// in place (see logic.StartHookManager), so this covers both first-time
+// registration and interval/setting changes.
+func startIDPSyncHookForTenant(tenantID string) {
+	hookID := idpSyncHookID(tenantID)
 
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Log(0, "idp sync hook stopped")
-			return
-		case <-ticker.C:
-			if err := SyncFromIDP(ctx); err != nil {
-				logger.Log(0, "failed to sync from idp: ", err.Error())
-			} else {
-				logger.Log(0, "sync from idp complete")
-			}
-		}
+	// Embed scope/db into a fresh context so the hook goroutine carries its
+	// own tenant identity independently of any caller's request lifetime.
+	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: tenantID}
+	if err := settingsRecord.Get(tenantCtx); err != nil {
+		logger.Log(0, "failed to load settings for tenant ", tenantID, ": ", err.Error())
+		return
+	}
+	settings := settingsRecord.Value.Data()
+
+	if !settings.SyncEnabled {
+		logic.StopHook(hookID)
+		return
+	}
+
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       hookID,
+		Hook:     logic.WrapHook(func() error { return SyncFromIDP(tenantCtx) }),
+		Interval: idpSyncInterval(settings),
 	}
 }
 
 func SyncFromIDP(ctx context.Context) error {
-	idpSyncMtx.Lock()
-	defer idpSyncMtx.Unlock()
-	settings := logic.GetServerSettings()
+	tenantID := scope.ID(ctx)
+	mtx := tenantSyncLock(tenantID)
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	settingsRecord := &schema.TenantSettingsRecord{
+		Key: tenantID,
+	}
+	var err error
+	defer func() {
+		idpSyncStateMtx.Lock()
+		idpSyncErrs[tenantID] = err
+		idpSyncStateMtx.Unlock()
+	}()
+
+	err = settingsRecord.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	settings := settingsRecord.Value.Data()
 
 	var idpClient idp.Client
 	var idpUsers []idp.User
 	var idpGroups []idp.Group
-	var err error
-
-	defer func() {
-		idpSyncErr = err
-	}()
 
 	switch settings.AuthProvider {
 	case "google":
-		idpClient, err = google.NewGoogleWorkspaceClientFromSettings()
+		idpClient, err = google.NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
 		if err != nil {
 			return err
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClientFromSettings()
+		idpClient = azure.NewAzureEntraIDClient(settings.ClientID, settings.ClientSecret, settings.AzureTenant)
 	case "okta":
-		idpClient, err = okta.NewOktaClientFromSettings()
+		idpClient, err = okta.NewOktaClient(settings.OktaOrgURL, settings.OktaAPIToken)
 		if err != nil {
 			return err
 		}
@@ -136,17 +179,17 @@ func SyncFromIDP(ctx context.Context) error {
 		}
 	}
 
-	err = syncUsers(idpUsers, settings.AuthProvider == "")
+	err = syncUsers(ctx, idpUsers, settings.UserFilters, settings.AuthProvider == "")
 	if err != nil {
 		return err
 	}
 
-	err = syncGroups(idpGroups)
+	err = syncGroups(ctx, idpGroups, settings.GroupFilters)
 	return err
 }
 
-func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
-	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, removeIntegration bool) error {
+	dbUsers, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
@@ -165,8 +208,6 @@ func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
 	for _, user := range dbUsers {
 		dbUsersMap[user.Username] = &user
 	}
-
-	filters := logic.GetServerSettings().UserFilters
 
 	for _, user := range idpUsers {
 		if user.AccountArchived {
@@ -254,13 +295,13 @@ func syncUsers(idpUsers []idp.User, removeIntegration bool) error {
 	return nil
 }
 
-func syncGroups(idpGroups []idp.Group) error {
-	dbGroups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) error {
+	dbGroups, err := (&schema.UserGroup{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
 
-	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	dbUsers, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
@@ -285,8 +326,6 @@ func syncGroups(idpGroups []idp.Group) error {
 	}
 
 	modifiedUsers := make(map[string]struct{})
-
-	filters := logic.GetServerSettings().GroupFilters
 
 	for _, group := range idpGroups {
 		var found bool
@@ -370,23 +409,26 @@ func syncGroups(idpGroups []idp.Group) error {
 	return nil
 }
 
-func GetIDPSyncStatus(_ context.Context) models.IDPSyncStatus {
-	if idpSyncMtx.TryLock() {
-		defer idpSyncMtx.Unlock()
-		if idpSyncErr == nil {
+func GetIDPSyncStatus(ctx context.Context) models.IDPSyncStatus {
+	tenantID := scope.ID(ctx)
+	mtx := tenantSyncLock(tenantID)
+	if mtx.TryLock() {
+		defer mtx.Unlock()
+		idpSyncStateMtx.Lock()
+		err := idpSyncErrs[tenantID]
+		idpSyncStateMtx.Unlock()
+		if err == nil {
 			return models.IDPSyncStatus{
 				Status: "completed",
 			}
-		} else {
-			return models.IDPSyncStatus{
-				Status:      "failed",
-				Description: idpSyncErr.Error(),
-			}
 		}
-	} else {
 		return models.IDPSyncStatus{
-			Status: "in_progress",
+			Status:      "failed",
+			Description: err.Error(),
 		}
+	}
+	return models.IDPSyncStatus{
+		Status: "in_progress",
 	}
 }
 

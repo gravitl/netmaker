@@ -91,7 +91,7 @@ func StartPeerUpdateWorker(ctx context.Context) {
 				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
 					slog.Error("error publishing peer update", "error", err)
 				} else {
-					publishServerSync(logic.SyncTypePeerUpdate)
+					publishServerSync(logic.DefaultScope(context.Background()), logic.SyncTypePeerUpdate)
 				}
 			}
 		}
