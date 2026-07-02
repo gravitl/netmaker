@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/utils"
 	"gorm.io/gorm"
 
@@ -182,13 +183,24 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 		}
 
 		privateKey.Value = base64encode(privateKeyBytes)
-		err = privateKey.Set(db.WithContext(context.TODO()))
+		publicKey.Value = base64encode(publicKeyBytes)
+		ctx := db.WithContext(context.TODO())
+		if privateKey.TenantID == "" || publicKey.TenantID == "" {
+			ctx := scope.Default(ctx)
+			if privateKey.TenantID == "" {
+				privateKey.TenantID = scope.ID(ctx)
+			}
+			if publicKey.TenantID == "" {
+				publicKey.TenantID = scope.ID(ctx)
+			}
+		}
+
+		err = privateKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		publicKey.Value = base64encode(publicKeyBytes)
-		err = publicKey.Set(db.WithContext(context.TODO()))
+		err = publicKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -310,7 +322,11 @@ func cacheResponse(response []byte) error {
 		Key:   schema.InternalKey_LicenseValidationCachedResponse,
 		Value: base64encode(response),
 	}
-	return cachedResponse.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if cachedResponse.TenantID == "" {
+		cachedResponse.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return cachedResponse.Set(ctx)
 }
 
 func getCachedResponse() ([]byte, error) {

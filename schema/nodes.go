@@ -168,6 +168,12 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
 	if len(violations) > 0 {
+		for i := range violations {
+			if violations[i].TenantID == "" {
+				violations[i].TenantID = n.TenantID
+			}
+		}
+
 		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
 		if err != nil {
 			return err

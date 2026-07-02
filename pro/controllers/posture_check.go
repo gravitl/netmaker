@@ -87,6 +87,9 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   time.Now().UTC(),
 	}
 
+	if pc.TenantID == "" {
+		pc.TenantID = scope.ID(scope.Default(r.Context()))
+	}
 	err = pc.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(

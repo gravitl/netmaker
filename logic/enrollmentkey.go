@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slices"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -120,6 +121,9 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		}
 	}
 
+	if k.TenantID == "" {
+		k.TenantID = scope.ID(scope.Default(ctx))
+	}
 	if err = k.Create(ctx); err != nil {
 		return nil, err
 	}
@@ -143,6 +147,9 @@ func CreateDefaultNetworkEnrollmentKey(networkName string) (*schema.EnrollmentKe
 		Unlimited: true,
 		Networks:  []string{networkName},
 		Type:      schema.EnrollmentKeyType_UnlimitedUses,
+	}
+	if key.TenantID == "" {
+		key.TenantID = scope.ID(scope.Default(ctx))
 	}
 	err = key.Create(ctx)
 	if err != nil {
@@ -172,6 +179,9 @@ func RegenerateEnrollmentKeyToken(ctx context.Context, keyValue string) (*schema
 	key.Token = ""
 	key.UpdatedAt = time.Now()
 
+	if key.TenantID == "" {
+		key.TenantID = scope.ID(scope.Default(ctx))
+	}
 	if err := key.Upsert(ctx); err != nil {
 		return nil, err
 	}
@@ -234,6 +244,9 @@ func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.A
 	}
 
 	key.UpdatedAt = time.Now()
+	if key.TenantID == "" {
+		key.TenantID = scope.ID(scope.Default(ctx))
+	}
 	if err := key.Upsert(ctx); err != nil {
 		return nil, err
 	}
@@ -342,7 +355,8 @@ func DeTokenize(ctx context.Context, b64Token string) (*schema.EnrollmentKey, er
 }
 
 func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
-	keys, _ := GetAllEnrollmentKeys(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	keys, _ := GetAllEnrollmentKeys(ctx)
 	for _, key := range keys {
 		newTags := datatypes.JSONSlice[string]{}
 		update := false
@@ -356,13 +370,17 @@ func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
 		if update {
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
-			_ = key.Upsert(db.WithContext(context.TODO()))
+			if key.TenantID == "" {
+				key.TenantID = scope.ID(scope.Default(ctx))
+			}
+			_ = key.Upsert(ctx)
 		}
 	}
 }
 
 func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
-	keys, err := GetAllEnrollmentKeys(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	keys, err := GetAllEnrollmentKeys(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve keys: %w", err)
 	}
@@ -394,7 +412,7 @@ func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
 		}
 
 		if update && len(newNetworks) == 0 && delete {
-			if err := DeleteEnrollmentKey(db.WithContext(context.TODO()), key.Value, true); err != nil {
+			if err := DeleteEnrollmentKey(ctx, key.Value, true); err != nil {
 				errs = append(errs, fmt.Errorf("failed to delete key %s: %w", key.Value, err))
 			}
 			continue
@@ -403,7 +421,10 @@ func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
 			key.Networks = newNetworks
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
-			if err := key.Upsert(db.WithContext(context.TODO())); err != nil {
+			if key.TenantID == "" {
+				key.TenantID = scope.ID(scope.Default(ctx))
+			}
+			if err := key.Upsert(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
 			}
 		}
@@ -478,6 +499,9 @@ func clearDefaultEnrollmentKeysForNetworks(ctx context.Context, networks []strin
 		}
 		keys[i].Default = false
 		keys[i].UpdatedAt = time.Now()
+		if keys[i].TenantID == "" {
+			keys[i].TenantID = scope.ID(scope.Default(ctx))
+		}
 		if err := keys[i].Upsert(ctx); err != nil {
 			return err
 		}
@@ -495,6 +519,9 @@ func decrementEnrollmentKey(ctx context.Context, value string) (*schema.Enrollme
 	}
 	k.UsesRemaining--
 	k.UpdatedAt = time.Now()
+	if k.TenantID == "" {
+		k.TenantID = scope.ID(scope.Default(ctx))
+	}
 	if err = k.Upsert(ctx); err != nil {
 		return nil, err
 	}

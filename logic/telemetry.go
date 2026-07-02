@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/models"
@@ -133,7 +134,11 @@ func setTelemetryLastReportedAt() error {
 		Key:   schema.InternalKey_TelemetryLastReportedAt,
 		Value: time.Now().UTC().Format(time.RFC3339),
 	}
-	return lastHookRunAt.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if lastHookRunAt.TenantID == "" {
+		lastHookRunAt.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return lastHookRunAt.Set(ctx)
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions

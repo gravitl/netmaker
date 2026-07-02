@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -2929,7 +2930,11 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 	}
 	acl.Enabled = newAcl.Enabled
 	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
-	err := r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
 	}
@@ -2939,7 +2944,11 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 // UpsertAcl - upserts acl
 func UpsertAcl(acl models.Acl) error {
 	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
-	err := r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
 	}
@@ -3163,7 +3172,11 @@ func getAclFromCache(aID string) (a models.Acl, ok bool) {
 // InsertAcl - creates acl policy
 func InsertAcl(a models.Acl) error {
 	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
-	err := r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(a)
 	}

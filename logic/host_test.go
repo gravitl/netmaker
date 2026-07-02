@@ -28,6 +28,14 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	defaultOrg := schema.Organization{}
+	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
 	os.Exit(m.Run())
 }
 

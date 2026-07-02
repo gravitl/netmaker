@@ -38,6 +38,15 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+
+	defaultOrg := schema.Organization{}
+	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
 	os.Exit(m.Run())
 
 }

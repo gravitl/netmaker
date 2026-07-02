@@ -132,6 +132,9 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   time.Now().UTC(),
 	}
 
+	if ns.TenantID == "" {
+		ns.TenantID = scope.ID(scope.Default(r.Context()))
+	}
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(

@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
@@ -310,7 +311,11 @@ func CreateNetwork(_network *schema.Network) error {
 		return err
 	}
 
-	return _network.Create(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if _network.TenantID == "" {
+		_network.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return _network.Create(ctx)
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
@@ -495,15 +500,19 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 
 // SaveNetwork - save network struct to database
 func SaveNetwork(_network *schema.Network) error {
+	ctx := db.WithContext(context.TODO())
 	_existingNetwork := schema.Network{Name: _network.Name}
 	// Check if network exists to preserve ID
-	err := _existingNetwork.Get(db.WithContext(context.TODO()))
+	err := _existingNetwork.Get(ctx)
 	if err == nil {
 		_network.ID = _existingNetwork.ID
-		return _network.Update(db.WithContext(context.TODO()))
+		return _network.Update(ctx)
 	}
 
-	return _network.Create(db.WithContext(context.TODO()))
+	if _network.TenantID == "" {
+		_network.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return _network.Create(ctx)
 }
 
 // NetworkExists - check if network exists

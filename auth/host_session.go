@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -281,6 +282,9 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 					Version:       host.Version,
 					EnrollmentKey: keyB,
 					RequestedAt:   time.Now().UTC(),
+				}
+				if p.TenantID == "" {
+					p.TenantID = scope.ID(scope.Default(context.TODO()))
 				}
 				p.Create(db.WithContext(context.TODO()))
 				continue

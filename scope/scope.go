@@ -7,6 +7,8 @@ const (
 	HeaderOrgID    = "X-Organization-ID"
 )
 
+var defaultTenantID atomic.Value
+
 // Scope represents the tenancy level of a request.
 type Scope int
 
@@ -44,4 +46,19 @@ func Level(ctx context.Context) Scope {
 func ID(ctx context.Context) string {
 	v, _ := ctx.Value(ctxID).(string)
 	return v
+}
+
+// Default returns a context scoped to the default tenant.
+// TODO: remove usage
+func Default(ctx context.Context) context.Context {
+	if defaultTenantID.Load() == nil {
+		t := &schema.Tenant{}
+		if err := t.GetDefault(ctx); err != nil {
+			panic(fmt.Sprintf("scope: failed to resolve default tenant: %v", err))
+		}
+
+		defaultTenantID.Store(t.ID)
+	}
+
+	return WithContext(ctx, TenantScope, defaultTenantID.Load().(string))
 }

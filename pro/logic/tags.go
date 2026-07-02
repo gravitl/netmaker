@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
@@ -31,19 +32,27 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 
 func UpsertTag(tag models.Tag) error {
 	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
-	return r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return r.Upsert(ctx)
 }
 
 // InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
+	ctx := db.WithContext(context.TODO())
 	r := &schema.TagRecord{Key: tag.ID.String()}
-	if err := r.Get(db.WithContext(context.TODO())); err == nil {
+	if err := r.Get(ctx); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
 	r.Value = datatypes.NewJSONType(tag)
-	return r.Upsert(db.WithContext(context.TODO()))
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return r.Upsert(ctx)
 }
 
 // DeleteTag - delete tag, will also untag hosts

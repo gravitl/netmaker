@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -467,7 +468,11 @@ func SetOAuthSecret(secret string) error {
 	}
 
 	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
-	return oauthSecret.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if oauthSecret.TenantID == "" {
+		oauthSecret.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return oauthSecret.Set(ctx)
 }
 
 // FetchOAuthSecret fetches secrets for oauth
@@ -509,7 +514,11 @@ func SetState(appName, state string) error {
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}
 	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
-	return r.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(scope.Default(ctx))
+	}
+	return r.Upsert(ctx)
 }
 
 // IsStateValid - checks if given state is valid or not
