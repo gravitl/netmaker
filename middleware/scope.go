@@ -17,14 +17,10 @@ var (
 	errDefaultTenantNotFound = errors.New("default tenant not found")
 	errMissingOrgID          = errors.New("X-Organization-ID header is required")
 	errOrgNotFound           = errors.New("organization not found")
-	errDefaultOrgNotFound    = errors.New("default organization not found")
 	errAmbiguousScope        = errors.New("only one of org or tenant scope header may be provided")
 )
 
-var (
-	defaultTenantID atomic.Value
-	defaultOrgID    atomic.Value
-)
+var defaultTenantID atomic.Value
 
 // Scope reads the scope header for the given level, validates the tenant/org,
 // and stores the level and id in the request context.
@@ -62,27 +58,14 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 		case scope.OrgScope:
 			id = r.Header.Get(scope.HeaderOrgID)
 			if id == "" {
-				if logic.GetFeatureFlags().AllowMultipleTenants {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
-					return
-				}
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
+				return
+			}
 
-				if defaultOrgID.Load() == nil {
-					o := &schema.Organization{}
-					if err := o.GetDefault(r.Context()); err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgNotFound, logic.Internal))
-						return
-					}
-					defaultOrgID.Store(o.ID)
-				}
-
-				id = defaultOrgID.Load().(string)
-			} else {
-				o := &schema.Organization{ID: id}
-				if err := o.Get(db.WithContext(r.Context())); err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errOrgNotFound, logic.BadReq))
-					return
-				}
+			o := &schema.Organization{ID: id}
+			if err := o.Get(db.WithContext(r.Context())); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errOrgNotFound, logic.BadReq))
+				return
 			}
 
 		case scope.GlobalScope:
