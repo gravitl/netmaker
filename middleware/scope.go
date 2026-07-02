@@ -25,11 +25,6 @@ var (
 	defaultOrgID    atomic.Value
 )
 
-func init() {
-	defaultTenantID.Store("")
-	defaultOrgID.Store("")
-}
-
 // Scope reads the scope header for the given level, validates the tenant/org,
 // and stores the level and id in the request context.
 func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
@@ -45,7 +40,7 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 					return
 				}
 
-				if defaultTenantID.Load().(string) == "" {
+				if defaultTenantID.Load() == nil {
 					t := &schema.Tenant{}
 					if err := t.GetDefault(r.Context()); err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantFailed, logic.Internal))
@@ -71,7 +66,7 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 					return
 				}
 
-				if defaultOrgID.Load().(string) == "" {
+				if defaultOrgID.Load() == nil {
 					o := &schema.Organization{}
 					if err := o.GetDefault(r.Context()); err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultOrgFailed, logic.Internal))

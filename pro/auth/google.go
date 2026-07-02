@@ -125,7 +125,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					ExternalIdentityProviderID: string(content.ID),
 				}
 				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(scope.Default(r.Context()))
+					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err = pendingUser.Create(r.Context())
 				if err != nil {

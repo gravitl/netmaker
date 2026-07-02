@@ -24,6 +24,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -42,11 +43,21 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
+	defaultOrg := &schema.Organization{}
+	err = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+	require.NoError(t, err)
+
+	defaultTenant := &schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	err = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+	require.NoError(t, err)
 	// Create test users with various roles
 	numUsers := 1000
 	t.Logf("Creating %d test users...", numUsers)
 	startCreate := time.Now()
 
+	dbctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenant.ID)
 	for i := 0; i < numUsers; i++ {
 		user := schema.User{
 			Username:       "testuser" + uuid.New().String()[:8],
@@ -69,15 +80,18 @@ func TestSyncUsersLargeScale(t *testing.T) {
 			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 		}
 
-		err := logic.UpsertUser(user)
+		err := user.Create(dbctx)
 		require.NoError(t, err, "Failed to create user %d", i)
+
+		err = user.UpsertMembership(dbctx)
+		require.NoError(t, err, "Failed to create user %d membership", i)
 	}
 
 	createDuration := time.Since(startCreate)
 	t.Logf("Created %d users in %v (avg: %v per user)", numUsers, createDuration, createDuration/time.Duration(numUsers))
 
 	// Verify users were created
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAll(dbctx)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(users), numUsers, "Expected at least %d users", numUsers)
 
@@ -91,7 +105,7 @@ func TestSyncUsersLargeScale(t *testing.T) {
 		syncDuration, len(users), syncDuration/time.Duration(len(users)))
 
 	// Verify users were migrated correctly
-	usersAfter, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	usersAfter, err := (&schema.User{}).ListAll(dbctx)
 	require.NoError(t, err)
 	assert.Equal(t, len(users), len(usersAfter), "User count should remain the same")
 

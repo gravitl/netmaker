@@ -186,7 +186,7 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 		publicKey.Value = base64encode(publicKeyBytes)
 		ctx := db.WithContext(context.TODO())
 		if privateKey.TenantID == "" || publicKey.TenantID == "" {
-			ctx := scope.Default(ctx)
+			ctx := logic.DefaultScope(ctx)
 			if privateKey.TenantID == "" {
 				privateKey.TenantID = scope.ID(ctx)
 			}
@@ -324,7 +324,7 @@ func cacheResponse(response []byte) error {
 	}
 	ctx := db.WithContext(context.TODO())
 	if cachedResponse.TenantID == "" {
-		cachedResponse.TenantID = scope.ID(scope.Default(ctx))
+		cachedResponse.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return cachedResponse.Set(ctx)
 }

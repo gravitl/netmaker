@@ -100,7 +100,7 @@ func EventWatcher() {
 		}
 		ctx := db.WithContext(context.TODO())
 		if a.TenantID == "" {
-			a.TenantID = scope.ID(scope.Default(ctx))
+			a.TenantID = scope.ID(logic.DefaultScope(ctx))
 		}
 		a.Create(ctx)
 

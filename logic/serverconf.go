@@ -29,7 +29,7 @@ func StoreJWTSecret(privateKey string) error {
 	}
 	ctx := db.WithContext(context.TODO())
 	if jwtSecret.TenantID == "" {
-		jwtSecret.TenantID = scope.ID(scope.Default(ctx))
+		jwtSecret.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	return jwtSecret.Set(ctx)
 }

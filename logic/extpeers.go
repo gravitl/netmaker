@@ -293,7 +293,7 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
 	ctx := db.WithContext(context.TODO())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err = r.Upsert(ctx); err != nil {
 		return err

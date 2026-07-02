@@ -137,14 +137,21 @@ func isValidVNATPool(pool string) bool {
 }
 
 func assignSuperAdmin() {
+	if ok, _ := logic.HasSuperAdmin(); ok {
+		return
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
 	users, err := logic.GetUsers()
 	if err != nil || len(users) == 0 {
 		return
 	}
 
-	if ok, _ := logic.HasSuperAdmin(); ok {
-		return
-	}
 	createdSuperAdmin := false
 	owner := servercfg.GetOwnerEmail()
 	if owner != "" {
@@ -153,8 +160,13 @@ func assignSuperAdmin() {
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.PlatformRoleID = schema.SuperAdminRole
-		err = logic.UpsertUser(*user)
+
+		tm := &schema.TenantMembership{
+			TenantID: defaultTenant.ID,
+			UserID:   user.ID,
+			RoleID:   schema.SuperAdminRole,
+		}
+		err = tm.UpdateRoleID(db.WithContext(context.TODO()))
 		if err != nil {
 			log.Fatal(
 				"error updating user to superadmin",
@@ -182,8 +194,13 @@ func assignSuperAdmin() {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
 			}
-			user.PlatformRoleID = schema.SuperAdminRole
-			err = logic.UpsertUser(*user)
+
+			tm := &schema.TenantMembership{
+				TenantID: defaultTenant.ID,
+				UserID:   user.ID,
+				RoleID:   schema.SuperAdminRole,
+			}
+			err = tm.UpdateRoleID(db.WithContext(context.TODO()))
 			if err != nil {
 				slog.Error(
 					"error updating user to superadmin",
@@ -193,9 +210,8 @@ func assignSuperAdmin() {
 					err.Error(),
 				)
 				continue
-			} else {
-				createdSuperAdmin = true
 			}
+			createdSuperAdmin = true
 			break
 		}
 	}
@@ -415,9 +431,6 @@ func syncUsers() {
 			user.AuthType = schema.BasicAuth
 			if logic.IsOauthUser(&user) == nil {
 				user.AuthType = schema.OAuth
-			}
-			if len(user.UserGroups.Data()) == 0 {
-				user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 			}
 
 			// Do not call AddGlobalNetRolesToAdmins here: this runs on every server

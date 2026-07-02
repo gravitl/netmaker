@@ -34,7 +34,7 @@ func UpsertTag(tag models.Tag) error {
 	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
 	ctx := db.WithContext(context.TODO())
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return r.Upsert(ctx)
 }
@@ -50,7 +50,7 @@ func InsertTag(tag models.Tag) error {
 	}
 	r.Value = datatypes.NewJSONType(tag)
 	if r.TenantID == "" {
-		r.TenantID = scope.ID(scope.Default(ctx))
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
 	return r.Upsert(ctx)
 }
