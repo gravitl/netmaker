@@ -117,10 +117,13 @@ func migrateUsers(ctx context.Context) error {
 		}
 
 		tm := &schema.TenantMembership{
-			TenantID: defaultTenant.ID,
-			UserID:   _user.ID,
-			RoleID:   platformRoleID,
-			Groups:   groups,
+			TenantID:                   defaultTenant.ID,
+			UserID:                     _user.ID,
+			RoleID:                     platformRoleID,
+			Groups:                     groups,
+			AuthType:                   user.AuthType,
+			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+			Password:                   user.Password,
 		}
 		err = tm.Create(ctx)
 		if err != nil {

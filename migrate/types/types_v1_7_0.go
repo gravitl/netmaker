@@ -10,7 +10,7 @@ import (
 type LegacyUser struct {
 	ID                         string                                              `gorm:"column:id"`
 	PlatformRoleID             schema.UserRoleID                                   `gorm:"column:platform_role_id"`
-	UserGroups                 datatypes.JSONType[map[schema.UserGroupID]struct{}] `gorm:"column:user_group_ids"`
+	UserGroups                 datatypes.JSONType[map[schema.UserGroupID]struct{}] `gorm:"column:user_groups"`
 	AuthType                   schema.AuthType                                     `gorm:"column:auth_type"`
 	ExternalIdentityProviderID string                                              `gorm:"column:external_identity_provider_id"`
 	Password                   string                                              `gorm:"column:password"`
