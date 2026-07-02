@@ -69,12 +69,12 @@ var upgrader = websocket.Upgrader{}
 
 // ResetAuthProvider resets the auth provider for the scope in ctx.
 func ResetAuthProvider(ctx context.Context) {
-	registry.Delete(scope.Level(ctx), scope.ID(ctx))
+	Registry().Delete(scope.Level(ctx), scope.ID(ctx))
 }
 
 // IsOAuthConfigured reports whether an OAuth provider is configured for the scope in ctx.
 func IsOAuthConfigured(ctx context.Context) bool {
-	_, ok := registry.FromContext(ctx)
+	_, ok := Registry().FromContext(ctx)
 	return ok
 }
 
@@ -102,7 +102,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ctx := scope.WithContext(r.Context(), cache.Scope, cache.ScopeID)
-		provider, ok := registry.FromContext(ctx)
+		provider, ok := Registry().FromContext(ctx)
 		if !ok {
 			handleOauthNotConfigured(w)
 			return
@@ -123,7 +123,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //			200:  okResponse
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
-	provider, ok := registry.FromContext(r.Context())
+	provider, ok := Registry().FromContext(r.Context())
 	if !ok {
 		handleOauthNotConfigured(w)
 		return

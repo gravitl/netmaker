@@ -24,7 +24,7 @@ var (
 // Listens in /oidc/callback.
 func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
-	p, ok := registry.FromContext(r.Context())
+	p, ok := Registry().FromContext(r.Context())
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
@@ -138,7 +138,7 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 // Puts machine key in cache so the callback can retrieve it using the oidc state param
 // Listens in /oidc/register/:regKey.
 func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
-	p, ok := registry.FromContext(r.Context())
+	p, ok := Registry().FromContext(r.Context())
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid login attempt"))

@@ -17,7 +17,7 @@ import (
 
 // HandleHeadlessSSOCallback - handle OAuth callback for headless logins such as Netmaker CLI
 func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
-	p, ok := registry.FromContext(r.Context())
+	p, ok := Registry().FromContext(r.Context())
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
