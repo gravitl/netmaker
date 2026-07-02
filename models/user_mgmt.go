@@ -145,9 +145,11 @@ type LoginMethodRequest struct {
 
 // LoginMethodsAvailable describes which auth methods are available for a login context.
 type LoginMethodsAvailable struct {
-	BasicAuth   bool   `json:"basic_auth"`
-	SSO         bool   `json:"sso"`
-	SSOProvider string `json:"sso_provider,omitempty"`
+	BasicAuth      bool   `json:"basic_auth"`
+	SSO            bool   `json:"sso"`
+	SSOProvider    string `json:"sso_provider,omitempty"`
+	OrgAuth        bool   `json:"org_auth,omitempty"`
+	OrganizationID string `json:"organization_id,omitempty"`
 }
 
 // LoginOption represents a single login scope (tenant or org) and its available methods.

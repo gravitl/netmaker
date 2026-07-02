@@ -553,13 +553,40 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable
-		if user.AuthType == schema.BasicAuth {
+		switch membership.AuthType {
+		case schema.BasicAuth:
 			methodsAvailable.BasicAuth = true
-		}
-
-		if settings.Value.Data().AuthProvider != "" {
+		case schema.OAuth:
 			methodsAvailable.SSO = true
 			methodsAvailable.SSOProvider = settings.Value.Data().AuthProvider
+		case schema.Inherited:
+			orgMembership := &schema.OrgMembership{
+				OrganizationID: tenant.OrganizationID,
+				UserID:         user.ID,
+			}
+			err = orgMembership.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			methodsAvailable.OrgAuth = true
+			methodsAvailable.OrganizationID = tenant.OrganizationID
+			if orgMembership.AuthType == schema.BasicAuth {
+				methodsAvailable.BasicAuth = true
+			} else if orgMembership.AuthType == schema.OAuth {
+				orgSettings := &schema.OrganizationSettings{
+					ID: tenant.OrganizationID,
+				}
+				err = orgSettings.Get(ctx)
+				if err != nil {
+					continue
+				}
+
+				methodsAvailable.SSO = true
+				methodsAvailable.SSOProvider = orgSettings.Settings.Data().AuthProvider
+			} else {
+				continue
+			}
 		}
 
 		options = append(options, models.LoginOption{
@@ -590,13 +617,14 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable
-		if user.AuthType == schema.BasicAuth {
+		switch membership.AuthType {
+		case schema.BasicAuth:
 			methodsAvailable.BasicAuth = true
-		}
-
-		if settings.Settings.Data().AuthProvider != "" {
+		case schema.OAuth:
 			methodsAvailable.SSO = true
 			methodsAvailable.SSOProvider = settings.Settings.Data().AuthProvider
+		default:
+			continue
 		}
 
 		options = append(options, models.LoginOption{
