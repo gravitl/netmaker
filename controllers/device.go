@@ -97,9 +97,17 @@ func getDeviceUserAndHost(w http.ResponseWriter, r *http.Request) (*schema.User,
 }
 
 func getDeviceNetworks(w http.ResponseWriter, r *http.Request) {
-	user, host, ok := getDeviceUserAndHost(w, r)
+	user, ok := getDeviceUser(w, r)
 	if !ok {
 		return
+	}
+	var host *schema.Host
+	hostID := r.Header.Get(logic.DeviceHostIDHeader)
+	if hostID != "" {
+		if h, err := logic.VerifyDeviceHostAccess(r.Context(), user.Username, hostID); err == nil {
+			host = h
+		}
+		// Ownership mismatch must not block the network list; host-scoped state is omitted without a verified host.
 	}
 	networks, err := logic.GetDeviceNetworks(db.WithContext(r.Context()), user, host)
 	if err != nil {

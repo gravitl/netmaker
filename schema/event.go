@@ -57,6 +57,7 @@ const (
 	MDMVerify                            Action = "MDM_VERIFY"
 	MDMSync                              Action = "MDM_SYNC"
 	PostureCheckFailed                   Action = "POSTURE_CHECK_FAILED"
+	TransferDeviceOwnership              Action = "TRANSFER_DEVICE_OWNERSHIP"
 )
 
 type SubjectType string

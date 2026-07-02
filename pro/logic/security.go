@@ -43,7 +43,15 @@ const (
 	saasNMUIHostProduction = "https://app.netmaker.io"
 )
 
+func isDeviceAPIRequest(r *http.Request) bool {
+	return strings.Contains(r.URL.Path, "/api/v1/device/")
+}
+
 func NetworkPermissionsCheck(username string, r *http.Request) error {
+	// Device APIs enforce their own RBAC (FilterNetworksByRole, host ownership).
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	// at this point global checks should be completed
 	user := &schema.User{Username: username}
 	err := user.Get(r.Context())
@@ -154,6 +162,9 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 }
 
 func GlobalPermissionsCheck(username string, r *http.Request) error {
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	route, err := mux.CurrentRoute(r).GetPathTemplate()
 	if err != nil {
 		return err

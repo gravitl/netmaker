@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,71 @@ var (
 	JoinHostToNetworks = func(_ models.EnrollmentKey, _ *schema.Host, _ string) {}
 	// ProvisionDeviceHostMessaging creates broker credentials for a new device host (wired from mq).
 	ProvisionDeviceHostMessaging = func(_ *schema.Host) error { return nil }
+	// CleanupDeviceHostForOwnershipTransfer removes prior user network state before host re-bind (wired from mq).
+	CleanupDeviceHostForOwnershipTransfer = DefaultCleanupDeviceHostForOwnershipTransfer
 )
+
+// DefaultCleanupDeviceHostForOwnershipTransfer removes pending joins and network nodes from a host.
+func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *schema.Host) error {
+	if host == nil {
+		return errors.New("host is required")
+	}
+	pending := &schema.PendingHost{HostID: host.ID.String()}
+	if err := pending.DeleteAllPendingHosts(ctx); err != nil {
+		return err
+	}
+	return DisassociateAllNodesFromHost(host.ID.String())
+}
+
+// TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
+func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
+	if host == nil || newOwner == "" {
+		return errors.New("host and new owner are required")
+	}
+	if host.OwnerUsername == newOwner {
+		return nil
+	}
+	previousOwner := host.OwnerUsername
+	if err := CleanupDeviceHostForOwnershipTransfer(ctx, host); err != nil {
+		return fmt.Errorf("failed to cleanup host for ownership transfer: %w", err)
+	}
+	host.OwnerUsername = newOwner
+	if err := UpsertHost(host); err != nil {
+		return err
+	}
+	logDeviceOwnershipTransfer(newOwner, host, previousOwner)
+	slog.Info("transferred device host ownership",
+		"host", host.ID.String(),
+		"from", previousOwner,
+		"to", newOwner,
+	)
+	return nil
+}
+
+func logDeviceOwnershipTransfer(newOwner string, host *schema.Host, previousOwner string) {
+	if host == nil || newOwner == "" || previousOwner == "" || previousOwner == newOwner {
+		return
+	}
+	LogEvent(&models.Event{
+		Action: schema.TransferDeviceOwnership,
+		Source: models.Subject{
+			ID:   newOwner,
+			Name: newOwner,
+			Type: schema.UserSub,
+		},
+		TriggeredBy: newOwner,
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: schema.DeviceSub,
+		},
+		Diff: models.Diff{
+			Old: map[string]string{"owner_username": previousOwner},
+			New: map[string]string{"owner_username": newOwner},
+		},
+		Origin: schema.ClientApp,
+	})
+}
 
 // EnsureHostOwner sets OwnerUsername on the host when unset.
 func EnsureHostOwner(host *schema.Host, username string) {
@@ -77,6 +142,14 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 		return nil, err
 	}
 	accessible := FilterNetworksByRole(allNetworks, user)
+	if len(accessible) == 0 && user != nil && len(user.UserGroups.Data()) > 0 {
+		slog.Warn("device networks empty for user with groups",
+			"username", user.Username,
+			"role", user.PlatformRoleID,
+			"groups", len(user.UserGroups.Data()),
+			"total_networks", len(allNetworks),
+		)
+	}
 	featureFlags := GetFeatureFlags()
 	hostID := ""
 	if host != nil {
@@ -91,12 +164,22 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			Status:       models.DeviceNetworkStatusAvailable,
 			HasJITAccess: true,
 		}
+		applyDeviceNetworkApprovalPolicy(network, featureFlags, &dn)
 		if host != nil {
 			applyDeviceNetworkHostState(ctx, host, hostID, network, featureFlags, &dn)
 		}
 		result = append(result, dn)
 	}
 	return EnrichDeviceNetworksWithJIT(user, result), nil
+}
+
+func applyDeviceNetworkApprovalPolicy(network schema.Network, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
+	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
+		dn.ApprovalRequired = true
+		if dn.Status == models.DeviceNetworkStatusAvailable {
+			dn.Status = models.DeviceNetworkStatusApprovalRequired
+		}
+	}
 }
 
 func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, hostID string, network schema.Network, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
@@ -125,10 +208,7 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, hostID 
 		return
 	}
 
-	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-		dn.ApprovalRequired = true
-		dn.Status = models.DeviceNetworkStatusApprovalRequired
-	}
+	applyDeviceNetworkApprovalPolicy(network, featureFlags, dn)
 }
 
 func getPendingHostOnNetwork(ctx context.Context, hostID, network string) (*schema.PendingHost, error) {
@@ -291,9 +371,13 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 			return empty, err
 		}
 		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			return empty, errors.New("host does not belong to user")
-		}
-		if existing.OwnerUsername == "" {
+			if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+				return empty, err
+			}
+			if err := existing.Get(db.WithContext(ctx)); err != nil {
+				return empty, err
+			}
+		} else if existing.OwnerUsername == "" {
 			EnsureHostOwner(existing, user.Username)
 		}
 		endpointChanged, _ := UpdateHostFromClient(newHost, existing)

@@ -331,6 +331,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 
 // UpsertHost - upserts into DB a given host model, does not check for existence*
 func UpsertHost(h *schema.Host) error {
+	utils.TraceCaller()
 	return h.Upsert(db.WithContext(context.TODO()))
 }
 
