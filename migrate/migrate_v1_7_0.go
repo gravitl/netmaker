@@ -379,8 +379,17 @@ func migrateServerSettings(ctx context.Context) error {
 }
 
 func createMemberships(ctx context.Context) error {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
 	defaultOrg := &schema.Organization{}
-	err := defaultOrg.GetDefault(ctx)
+	err = defaultOrg.GetDefault(ctx)
 	if err != nil {
 		return err
 	}
@@ -433,8 +442,17 @@ func createMemberships(ctx context.Context) error {
 }
 
 func setTenantID(ctx context.Context) error {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
 	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(ctx)
+	err = defaultTenant.GetDefault(ctx)
 	if err != nil {
 		return err
 	}
