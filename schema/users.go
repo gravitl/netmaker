@@ -71,9 +71,15 @@ type userWithMembership struct {
 }
 
 func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return false, ErrTenantIDNotProvided
+	}
+
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM tenant_memberships_v1 WHERE role_id = ?)",
+		"SELECT EXISTS (SELECT 1 FROM tenant_memberships_v1 WHERE tenant_id = ? AND role_id = ?)",
+		tenantID,
 		SuperAdminRole,
 	).Scan(&exists).Error
 	return exists, err
