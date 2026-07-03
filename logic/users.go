@@ -8,7 +8,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
 )
 
 var SyncFromIDP = func(context.Context) error { return nil }
@@ -65,13 +64,6 @@ func ToUserEventLog(user *schema.User) models.UserEventLog {
 		}
 	}
 	return log
-}
-
-// SetUserDefaults - sets the defaults of a user to avoid empty fields
-func SetUserDefaults(user *schema.User) {
-	if len(user.UserGroups.Data()) == 0 {
-		user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
-	}
 }
 
 // SortUsers - Sorts slice of Users by username

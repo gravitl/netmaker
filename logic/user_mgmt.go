@@ -35,10 +35,6 @@ var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User)
 	return allnetworks
 }
 
-var IsGroupsValid = func(groups map[schema.UserGroupID]struct{}) error {
-	return nil
-}
-
 var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
 
 var InitialiseRoles = userRolesInit

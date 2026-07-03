@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/logger"
@@ -25,11 +27,21 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	logic.CreateSuperAdmin(&schema.User{
+	defaultOrg := schema.Organization{}
+	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenant.ID)
+	_ = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 		Username:       "admin",
 		Password:       "password",
 		PlatformRoleID: schema.SuperAdminRole,
 	})
+
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background())
 	go func() {
@@ -38,14 +50,6 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
-
-	defaultOrg := schema.Organization{}
-	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
-
-	defaultTenant := schema.Tenant{
-		OrganizationID: defaultOrg.ID,
-	}
-	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
 
 	os.Exit(m.Run())
 
