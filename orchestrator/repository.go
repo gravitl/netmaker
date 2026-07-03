@@ -18,7 +18,9 @@ type Repository struct {
 func InitializeRepository(extFactory *extensions.Factory) {
 	once.Do(func() {
 		repo = &Repository{
-			user:    &UserOrchestrator{},
+			user: &UserOrchestrator{
+				userExt: extFactory.UserExtensions(),
+			},
 			network: &NetworkOrchestrator{},
 			node: &NodeOrchestrator{
 				nodeExt: extFactory.NodeExtensions(),
