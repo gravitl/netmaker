@@ -1,11 +1,14 @@
 package extensions
 
 import (
+	"errors"
+
 	"github.com/gravitl/netmaker/logic"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type ProUserExtensions struct{}
@@ -14,6 +17,10 @@ func (p *ProUserExtensions) ConfigureAuthType(user *schema.User) error {
 	user.AuthType = schema.BasicAuth
 	oauthSecret, err := logic.FetchOAuthSecret()
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+
 		return err
 	}
 
