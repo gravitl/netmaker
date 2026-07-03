@@ -64,8 +64,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
 
 	// User Invite Handlers
-	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, http.HandlerFunc(userInviteVerify))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite-signup", middleware.Scope(scope.TenantScope, http.HandlerFunc(userInviteSignUp))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
@@ -111,13 +111,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid invite code"), "badrequest"))
 		return
 	}
-	// check if user already exists
-	userCheck := &schema.User{Username: emailID}
-	err = userCheck.Get(r.Context())
-	if err == nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
-		return
-	}
 	var user schema.User
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -140,16 +133,20 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = schema.ServiceUser
 	}
-	err = logic.CreateUser(&user)
+
+	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(r.Context(), &user)
+	if err != nil {
+		logger.Log(0, user.Username, "error validating user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = user.UpsertMembership(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// delete invite
+
 	logic.DeleteUserInvite(emailID)
 	logic.DeletePendingUser(emailID)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -2041,13 +2038,15 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 		return
 	}
-	if err = logic.CreateUser(&schema.User{
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &schema.User{
 		Username:                   pendingUser.Username,
 		ExternalIdentityProviderID: pendingUser.ExternalIdentityProviderID,
 		Password:                   newPass,
 		AuthType:                   schema.OAuth,
 		PlatformRoleID:             schema.ServiceUser,
-	}); err != nil {
+	})
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
 		return
 	}

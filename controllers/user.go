@@ -24,6 +24,7 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
@@ -41,11 +42,11 @@ var ListRoles = listRoles
 
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/auth/discover", discoverLoginMethods).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/hassuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(hasSuperAdmin))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/adm/createsuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(createSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/authenticate", middleware.InferScope(http.HandlerFunc(authenticateUser))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/validate-identity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity))))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/init-totp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup))))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/complete-totp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup))))).Methods(http.MethodPost)
@@ -767,18 +768,17 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} bool
 // @Failure     500 {object} models.ErrorResponse
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
 
-	hasSuperAdmin, err := logic.HasSuperAdmin()
+	exists, err := (&schema.User{}).SuperAdminExists(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to check for admin: ", err.Error())
+		logger.Log(0, "failed to check for superadmin: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(hasSuperAdmin)
-
+	// todo: this is not a json response.
+	_ = json.NewEncoder(w).Encode(exists)
 }
 
 // @Summary     Get an individual user
@@ -1227,12 +1227,24 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var u schema.User
+	exists, err := (&schema.User{}).SuperAdminExists(r.Context())
+	if err != nil {
+		logger.Log(0, "failed to check for superadmin: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
-	err := json.NewDecoder(r.Body).Decode(&u)
+	if exists {
+		err = errors.New("superadmin user already exists")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	var user schema.User
+	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		slog.Error("error decoding request body", "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 
@@ -1240,19 +1252,27 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
+			logic.FormatError(fmt.Errorf("basic auth is disabled"), logic.BadReq),
 		)
 		return
 	}
 
-	err = logic.CreateSuperAdmin(&u)
+	user.PlatformRoleID = schema.SuperAdminRole
+	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(r.Context(), &user)
 	if err != nil {
-		slog.Error("failed to create admin", "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	logger.Log(1, u.Username, "was made a super admin")
-	json.NewEncoder(w).Encode(logic.ToReturnUser(&u))
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+	if err != nil {
+		slog.Error("failed to create superadmin", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	logger.Log(1, user.Username, "was made a super admin")
+	_ = json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
 }
 
 // @Summary     Transfer super admin role to another admin user
@@ -1405,17 +1425,20 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.CreateUser(&user)
+	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(r.Context(), &user)
+	if err != nil {
+		err = fmt.Errorf("invalid user: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err = user.UpsertMembership(r.Context()); err != nil {
-		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
 		Source: models.Subject{

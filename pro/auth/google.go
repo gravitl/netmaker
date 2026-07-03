@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/orchestrator"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -107,10 +108,12 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 					return
 				}
 				user.ExternalIdentityProviderID = string(content.ID)
-				if err = logic.CreateUser(&user); err != nil {
+				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+				if err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
+
 				logic.DeleteUserInvite(user.Username)
 				logic.DeletePendingUser(content.Email)
 			} else {

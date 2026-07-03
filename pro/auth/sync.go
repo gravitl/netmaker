@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
@@ -235,7 +236,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 		dbUser, ok := dbUsersMap[user.Username]
 		if !ok {
 			// create the user only if it doesn't exist.
-			err = logic.CreateUser(&schema.User{
+			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
 				DisplayName:                user.DisplayName,
