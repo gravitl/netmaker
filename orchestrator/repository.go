@@ -10,6 +10,7 @@ var repo *Repository
 var once sync.Once
 
 type Repository struct {
+	user    *UserOrchestrator
 	network *NetworkOrchestrator
 	node    *NodeOrchestrator
 }
@@ -17,6 +18,7 @@ type Repository struct {
 func InitializeRepository(extFactory *extensions.Factory) {
 	once.Do(func() {
 		repo = &Repository{
+			user:    &UserOrchestrator{},
 			network: &NetworkOrchestrator{},
 			node: &NodeOrchestrator{
 				nodeExt: extFactory.NodeExtensions(),
@@ -27,6 +29,10 @@ func InitializeRepository(extFactory *extensions.Factory) {
 
 func GetRepository() *Repository {
 	return repo
+}
+
+func (r *Repository) UserOrchestrator() *UserOrchestrator {
+	return r.user
 }
 
 func (r *Repository) NetworkOrchestrator() *NetworkOrchestrator {
