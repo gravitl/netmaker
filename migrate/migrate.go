@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -541,8 +542,12 @@ func migrateSettings() {
 		settings.StunServers = servercfg.GetStunServers()
 	}
 	if settings.SmtpHost != "" {
-		_, ok := settingsD["smtp_skip_tls_verify"]
-		if !ok {
+		var rawValue []byte
+		_ = db.FromContext(db.WithContext(context.TODO())).Table(settingsRecord.TableName()).
+			Where("key = ?", defaultTenant.ID).Pluck("value", &rawValue).Error
+		var settingsD map[string]any
+		_ = json.Unmarshal(rawValue, &settingsD)
+		if _, ok := settingsD["smtp_skip_tls_verify"]; !ok {
 			// skip tls verification for older deployments when tls verification wasn't configurable.
 			settings.SmtpSkipTlsVerify = true
 		}
