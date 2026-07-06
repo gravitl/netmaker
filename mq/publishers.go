@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -341,18 +340,14 @@ func PushAllMetricsToExporter() {
 		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
 		return
 	}
-	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	metricRecords, err := (&schema.MetricsRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("metrics export: failed to fetch records", "error", err)
 		return
 	}
-	batch := make([]models.Metrics, 0, len(records))
-	for _, data := range records {
-		var m models.Metrics
-		if err := json.Unmarshal([]byte(data), &m); err != nil {
-			continue
-		}
-		batch = append(batch, m)
+	batch := make([]models.Metrics, 0, len(metricRecords))
+	for _, r := range metricRecords {
+		batch = append(batch, r.Value.Data())
 	}
 	if len(batch) == 0 {
 		return

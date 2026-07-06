@@ -91,6 +91,7 @@ var PostureCheckAttrValues = map[Attribute][]string{
 
 type PostureCheck struct {
 	ID          string                      `gorm:"primaryKey" json:"id"`
+	TenantID    string                      `gorm:"default:'';index" json:"tenant_id"`
 	Name        string                      `gorm:"name" json:"name"`
 	NetworkID   NetworkID                   `gorm:"network_id" json:"network_id"`
 	Description string                      `gorm:"description" json:"description"`

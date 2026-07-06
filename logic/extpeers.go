@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -13,14 +12,16 @@ import (
 	"time"
 
 	"github.com/goombaio/namegenerator"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 var (
@@ -70,7 +71,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	staticNode := client.ConvertToStaticNode()
+	staticNode := models.ConvertToStaticNode(*client)
 	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
 	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
 
@@ -157,8 +158,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	if err = (&schema.ExtClientRecord{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -183,7 +183,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 			Origin:    schema.ClientApp,
 		})
 	}
-	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
+	go RemoveNodeFromAclPolicy(models.ConvertToStaticNode(extClient))
 	return nil
 }
 
@@ -220,30 +220,21 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 			return extclients, nil
 		}
 	}
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
+	records, err := (&schema.ExtClientRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return extclients, nil
-		}
 		return extclients, err
 	}
-	for _, value := range records {
-		var extclient models.ExtClient
-		err = json.Unmarshal([]byte(value), &extclient)
-		if err != nil {
-			continue
-		}
+	for _, r := range records {
+		extclient := r.Value.Data()
 		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-		if err == nil {
-			if servercfg.CacheEnabled() {
-				storeExtClientInCache(key, extclient)
-			}
+		if err == nil && servercfg.CacheEnabled() {
+			storeExtClientInCache(key, extclient)
 		}
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
 		}
 	}
-	return extclients, err
+	return extclients, nil
 }
 
 // GetExtClient - gets a single ext client on a network
@@ -258,15 +249,15 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 			return extclient, nil
 		}
 	}
-	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	if err != nil {
+	r := &schema.ExtClientRecord{Key: key}
+	if err = r.Get(db.WithContext(context.TODO())); err != nil {
 		return extclient, err
 	}
-	err = json.Unmarshal([]byte(data), &extclient)
+	extclient = r.Value.Data()
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, extclient)
 	}
-	return extclient, err
+	return extclient, nil
 }
 
 func GenerateNodeName(network string) (string, error) {
@@ -299,17 +290,17 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(&extclient)
-	if err != nil {
-		return err
+	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
-	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
+	if err = r.Upsert(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
 	}
-
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
@@ -380,7 +371,7 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 func GetAllExtClients() ([]models.ExtClient, error) {
 	var clients = []models.ExtClient{}
 	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil && database.IsEmptyRecord(err) {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return clients, nil
 	} else if err != nil {
 		return clients, err
@@ -464,7 +455,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
+			if ok := IsPeerAllowed(models.ConvertToStaticNode(extPeer), *peer, true); !ok {
 				continue
 			}
 		} else {
@@ -601,7 +592,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -628,7 +619,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
@@ -680,7 +671,7 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			staticNode = append(staticNode, extI.ConvertToStaticNode())
+			staticNode = append(staticNode, models.ConvertToStaticNode(extI))
 		}
 	}
 

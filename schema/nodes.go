@@ -37,6 +37,7 @@ const (
 
 type Node struct {
 	ID                                string                                `gorm:"primaryKey" json:"id"`
+	TenantID                          string                                `gorm:"default:'';index" json:"tenant_id"`
 	HostID                            string                                `gorm:"not null;index" json:"host_id"`
 	Host                              *Host                                 `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
 	NetworkID                         string                                `gorm:"not null;index" json:"network_id"`
@@ -167,6 +168,12 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
 	if len(violations) > 0 {
+		for i := range violations {
+			if violations[i].TenantID == "" {
+				violations[i].TenantID = n.TenantID
+			}
+		}
+
 		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
 		if err != nil {
 			return err

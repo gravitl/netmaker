@@ -20,9 +20,9 @@ type visitor struct {
 }
 
 type RateLimiter struct {
-	visitors      map[string]*visitor
-	lockoutUntil  map[string]time.Time
-	mu            sync.Mutex
+	visitors     map[string]*visitor
+	lockoutUntil map[string]time.Time
+	mu           sync.Mutex
 
 	rate            rate.Limit
 	burst           int

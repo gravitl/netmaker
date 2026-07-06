@@ -2,14 +2,17 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"net/http"
+	"github.com/gravitl/netmaker/middleware"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func NetworkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/networks/{network}/graph", logic.SecurityCheck(true, http.HandlerFunc(getNetworkGraph))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/graph", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkGraph)))).Methods(http.MethodGet)
 }
 
 // @Summary     Get network topology graph

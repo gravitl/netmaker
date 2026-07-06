@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
@@ -72,10 +73,14 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
-			err = (&schema.PendingUser{
+			pendingUser := &schema.PendingUser{
 				Username:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
-			}).Create(r.Context())
+			}
+			if pendingUser.TenantID == "" {
+				pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+			}
+			err = pendingUser.Create(r.Context())
 			if err != nil {
 				handleSomethingWentWrong(w)
 				return

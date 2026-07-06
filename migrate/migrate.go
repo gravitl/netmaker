@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -12,9 +12,9 @@ import (
 
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -137,14 +137,21 @@ func isValidVNATPool(pool string) bool {
 }
 
 func assignSuperAdmin() {
+	if ok, _ := logic.HasSuperAdmin(); ok {
+		return
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
 	users, err := logic.GetUsers()
 	if err != nil || len(users) == 0 {
 		return
 	}
 
-	if ok, _ := logic.HasSuperAdmin(); ok {
-		return
-	}
 	createdSuperAdmin := false
 	owner := servercfg.GetOwnerEmail()
 	if owner != "" {
@@ -153,8 +160,13 @@ func assignSuperAdmin() {
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.PlatformRoleID = schema.SuperAdminRole
-		err = logic.UpsertUser(*user)
+
+		tm := &schema.TenantMembership{
+			TenantID: defaultTenant.ID,
+			UserID:   user.ID,
+			RoleID:   schema.SuperAdminRole,
+		}
+		err = tm.UpdateRoleID(db.WithContext(context.TODO()))
 		if err != nil {
 			log.Fatal(
 				"error updating user to superadmin",
@@ -182,8 +194,13 @@ func assignSuperAdmin() {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
 			}
-			user.PlatformRoleID = schema.SuperAdminRole
-			err = logic.UpsertUser(*user)
+
+			tm := &schema.TenantMembership{
+				TenantID: defaultTenant.ID,
+				UserID:   user.ID,
+				RoleID:   schema.SuperAdminRole,
+			}
+			err = tm.UpdateRoleID(db.WithContext(context.TODO()))
 			if err != nil {
 				slog.Error(
 					"error updating user to superadmin",
@@ -193,9 +210,8 @@ func assignSuperAdmin() {
 					err.Error(),
 				)
 				continue
-			} else {
-				createdSuperAdmin = true
 			}
+			createdSuperAdmin = true
 			break
 		}
 	}
@@ -416,9 +432,6 @@ func syncUsers() {
 			if logic.IsOauthUser(&user) == nil {
 				user.AuthType = schema.OAuth
 			}
-			if len(user.UserGroups.Data()) == 0 {
-				user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
-			}
 
 			// Do not call AddGlobalNetRolesToAdmins here: this runs on every server
 			// start and would re-assign the global admin group to elevated users who
@@ -490,12 +503,17 @@ func migrateEgressDomains() {
 }
 
 func migrateSettings() {
-	settingsD := make(map[string]interface{})
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
-	if database.IsEmptyRecord(err) {
-		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
-	} else if err == nil {
-		json.Unmarshal([]byte(data), &settingsD)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
+	err = settingsRecord.Get(db.WithContext(context.TODO()))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		_ = logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
 	settings := logic.GetServerSettings()
 	if settings.PeerConnectionCheckInterval == "" {
@@ -522,7 +540,7 @@ func migrateSettings() {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
-	logic.UpsertServerSettings(settings)
+	_ = logic.UpsertServerSettings(settings)
 }
 
 func deleteOldExtclients() {
@@ -679,17 +697,11 @@ func cleanUpDeleteNetworksRefs() {
 		networksMap[network.Name] = true
 	}
 
-	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
-	for key, record := range records {
-		var entry models.DNSEntry
-		err := json.Unmarshal([]byte(record), &entry)
-		if err != nil {
-			continue
-		}
-
-		_, ok := networksMap[entry.Network]
+	dnsRecords, _ := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
+	for _, r := range dnsRecords {
+		_, ok := networksMap[r.Value.Data().Network]
 		if !ok {
-			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 

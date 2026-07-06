@@ -16,6 +16,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
@@ -27,6 +28,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
@@ -43,47 +45,47 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
 
 	// User Role Handlers
-	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(getRole))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(updateRole))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(deleteRole))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getRole)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createRole)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateRole)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteRole)))).Methods(http.MethodDelete)
 
 	// User Group Handlers
-	r.HandleFunc("/api/v1/users/groups", logic.SecurityCheck(true, http.HandlerFunc(getUserGroups))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v2/users/groups", logic.SecurityCheck(true, http.HandlerFunc(listUserGroups))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(getUserGroup))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/groups/network", logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/network", logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/unassigned_network_users", logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/groups", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserGroups)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v2/users/groups", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUserGroups)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserGroup)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserGroup)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invite", logic.SecurityCheck(true, http.HandlerFunc(inviteUsers))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invites", logic.SecurityCheck(true, http.HandlerFunc(listUserInvites))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite", logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/invites", logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser)))).Methods(http.MethodPost)
 
-	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/network_ip", logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/ingress/{ingress_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/network_ip", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/test", logic.SecurityCheck(true, http.HandlerFunc(testIDPSync))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/status", logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus))).Methods(http.MethodGet)
-	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/idp/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncIDP)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIDPSync)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/idp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration)))).Methods(http.MethodDelete)
 }
 
 // @Summary     User signup via invite
@@ -140,6 +142,10 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	err = logic.CreateUser(&user)
 	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -268,6 +274,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
+		if invite.TenantID == "" {
+			invite.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)

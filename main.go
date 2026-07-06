@@ -20,12 +20,12 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate"
@@ -66,7 +66,6 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	defer db.CloseDB()
-	defer database.CloseDB()
 
 	// TODO: although this doesn't cause any problem, it's not the best way to do this.
 	defer ch.Close()
@@ -125,11 +124,6 @@ func initialize() { // Client Mode Prereq Check
 	}
 
 	logger.Log(0, "database successfully connected")
-
-	// initialize kv schema db.
-	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("error initializing database: ", err.Error())
-	}
 
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
@@ -299,7 +293,11 @@ func setServerID() error {
 	}
 
 	serverID.Value = uuid.NewString()
-	return serverID.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if serverID.TenantID == "" {
+		serverID.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
+	return serverID.Set(ctx)
 }
 
 func setMqKeys() error {
@@ -341,10 +339,21 @@ func setMqKeys() error {
 	mqPrivateKey.Value = base64.StdEncoding.EncodeToString(privateKeyBytes)
 	mqPublicKey.Value = base64.StdEncoding.EncodeToString(publicKeyBytes)
 
-	err = mqPrivateKey.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if mqPrivateKey.TenantID == "" || mqPublicKey.TenantID == "" {
+		ctx := logic.DefaultScope(ctx)
+		if mqPrivateKey.TenantID == "" {
+			mqPrivateKey.TenantID = scope.ID(ctx)
+		}
+		if mqPublicKey.TenantID == "" {
+			mqPublicKey.TenantID = scope.ID(ctx)
+		}
+	}
+
+	err = mqPrivateKey.Set(ctx)
 	if err != nil {
 		return err
 	}
 
-	return mqPublicKey.Set(db.WithContext(context.TODO()))
+	return mqPublicKey.Set(ctx)
 }

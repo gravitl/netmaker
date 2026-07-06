@@ -11,20 +11,22 @@ import (
 	"github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 func IntegrationHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/integrations/{type}", logic.SecurityCheck(true, http.HandlerFunc(getIntegration))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", logic.SecurityCheck(true, http.HandlerFunc(testIntegration))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
 }
 
 // extractAndValidateIntegration pulls {type} and {id} from the URL
@@ -43,7 +45,7 @@ func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (inte
 }
 
 // @Summary     Get an integration
-// @Router      /api/v1/integrations/{type}/{id} [get]
+// @Router      /api/v1/integrations/{type} [get]
 // @Tags        Integrations
 // @Security    oauth
 // @Produce     json
@@ -154,6 +156,9 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		Config: datatypes.JSON(config),
 	}
 
+	if intg.TenantID == "" {
+		intg.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+	}
 	err = intg.Upsert(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

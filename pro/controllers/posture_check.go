@@ -14,20 +14,22 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
 func PostureCheckHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/posture_check/attrs", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check/violations", logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Posture Checks Available Attributes
@@ -85,6 +87,9 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   time.Now().UTC(),
 	}
 
+	if pc.TenantID == "" {
+		pc.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+	}
 	err = pc.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -339,7 +344,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 		for _, extclient := range extclients {
 			if extclient.DeviceID != "" {
 				if len(extclient.PostureChecksViolations) > 0 {
-					violatedNodes = append(violatedNodes, extclient.ConvertToStaticNode())
+					violatedNodes = append(violatedNodes, models.ConvertToStaticNode(extclient))
 				}
 			}
 		}

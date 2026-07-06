@@ -62,7 +62,7 @@ func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.ConvertToStaticNode(extclient))
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()
@@ -133,7 +133,7 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 			extclient.Mutex.Lock()
 		}
 		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+			nMap[extclient.ClientID] = models.ConvertToStaticNode(extclient)
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()
@@ -153,7 +153,7 @@ func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
 		return nMap
 	}
 	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+		nMap[extclient.ClientID] = models.ConvertToStaticNode(extclient)
 	}
 	return nMap
 }

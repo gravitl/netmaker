@@ -3,24 +3,22 @@ package logic
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
-
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -142,7 +140,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(db.WithContext(context.TODO()))
+	err := _user.Get(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -470,7 +468,11 @@ func SetOAuthSecret(secret string) error {
 	}
 
 	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
-	return oauthSecret.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if oauthSecret.TenantID == "" {
+		oauthSecret.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return oauthSecret.Set(ctx)
 }
 
 // FetchOAuthSecret fetches secrets for oauth
@@ -493,20 +495,14 @@ func FetchOAuthSecret() (string, error) {
 
 // GetState - gets an SsoState from DB, if expired returns error
 func GetState(state string) (*models.SsoState, error) {
-	var s models.SsoState
-	record, err := database.FetchRecord(database.SSO_STATE_CACHE, state)
-	if err != nil {
-		return &s, err
+	r := &schema.SsoStateRecord{Key: state}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, err
 	}
-
-	if err = json.Unmarshal([]byte(record), &s); err != nil {
-		return &s, err
-	}
-
+	s := r.Value.Data()
 	if s.IsExpired() {
 		return &s, fmt.Errorf("state expired")
 	}
-
 	return &s, nil
 }
 
@@ -517,13 +513,12 @@ func SetState(appName, state string) error {
 		Value:      state,
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}
-
-	data, err := json.Marshal(&s)
-	if err != nil {
-		return err
+	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
-
-	return database.Insert(state, string(data), database.SSO_STATE_CACHE)
+	return r.Upsert(ctx)
 }
 
 // IsStateValid - checks if given state is valid or not
@@ -545,27 +540,20 @@ func IsStateValid(state string) (string, bool) {
 
 // delState - removes a state from cache/db
 func delState(state string) error {
-	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
+	return (&schema.SsoStateRecord{Key: state}).Delete(db.WithContext(context.TODO()))
 }
 
 // CleanExpiredSSOStates removes expired SSO state entries from the database
 // to prevent unbounded table growth that degrades FetchRecord performance.
 func CleanExpiredSSOStates() error {
-	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	records, err := (&schema.SsoStateRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
 		return err
 	}
-	for key, value := range records {
-		var s models.SsoState
-		if err := json.Unmarshal([]byte(value), &s); err != nil {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
-			continue
-		}
+	for _, r := range records {
+		s := r.Value.Data()
 		if s.IsExpired() {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			_ = (&schema.SsoStateRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 	return nil

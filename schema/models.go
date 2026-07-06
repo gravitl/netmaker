@@ -24,5 +24,17 @@ func ListModels() []interface{} {
 		&Integration{},
 		&Internal{},
 		&EnrollmentKey{},
+		&Organization{},
+		&Tenant{},
+		&OrgMembership{},
+		&TenantMembership{},
+		&OrganizationSettings{},
+		&AclRecord{},
+		&CacheRecord{},
+		&DNSRecord{},
+		&ExtClientRecord{},
+		&MetricsRecord{},
+		&SsoStateRecord{},
+		&TagRecord{},
 	}
 }

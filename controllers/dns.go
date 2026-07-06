@@ -11,40 +11,41 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", logic.SecurityCheck(true, http.HandlerFunc(getAllDNS))).
+	r.HandleFunc("/api/dns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/nodes", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/custom", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).
+	r.HandleFunc("/api/dns/adm/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).
+	r.HandleFunc("/api/dns/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).
+	r.HandleFunc("/api/dns/adm/pushdns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).
+	r.HandleFunc("/api/dns/{network}/{domain}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(createNs))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver/global", logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Global Nameservers
@@ -131,6 +132,9 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   time.Now().UTC(),
 	}
 
+	if ns.TenantID == "" {
+		ns.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+	}
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -572,12 +576,12 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	if err != nil {
 		return entry, err
 	}
-	record, err := database.FetchRecord(database.DNS_TABLE_NAME, key)
-	if err != nil {
+	r := &schema.DNSRecord{Key: key}
+	if err = r.Get(db.WithContext(context.TODO())); err != nil {
 		return entry, err
 	}
-	err = json.Unmarshal([]byte(record), &entry)
-	return entry, err
+	entry = r.Value.Data()
+	return entry, nil
 }
 
 // @Summary     Push DNS entries to nameserver

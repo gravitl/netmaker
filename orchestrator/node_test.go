@@ -38,6 +38,7 @@ func (c *CENodeOrchestratorTestSuite) SetupSuite() {
 	}
 
 	InitializeRepository(extensions.NewCEFactory())
+	testutils.CreateDefaultOrgAndTenant(c.T())
 }
 
 func (c *CENodeOrchestratorTestSuite) TearDownSuite() {

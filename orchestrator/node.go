@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -89,6 +90,9 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		node.Address6 = cidr.String()
 	}
 
+	if node.TenantID == "" {
+		node.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	err := node.Create(ctx)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -103,6 +107,9 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	host.Nodes = append(host.Nodes, node.ID)
+	if host.TenantID == "" {
+		host.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	err = host.Upsert(ctx)
 	if err != nil {
 		return nil, err
@@ -214,6 +221,9 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
+		if node.Host.TenantID == "" {
+			node.Host.TenantID = scope.ID(logic.DefaultScope(ctx))
+		}
 		err := node.Host.Upsert(ctx)
 		if err != nil {
 			return err

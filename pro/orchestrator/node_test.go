@@ -40,6 +40,7 @@ func (c *ProNodeOrchestratorTestSuite) SetupSuite() {
 	}
 
 	core.InitializeRepository(extensions.NewProFactory())
+	testutils.CreateDefaultOrgAndTenant(c.T())
 }
 
 func (c *ProNodeOrchestratorTestSuite) TearDownSuite() {

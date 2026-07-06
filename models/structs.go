@@ -22,6 +22,7 @@ type FeatureFlags struct {
 	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 	EnableSIEMIntegration         bool `json:"enable_siem_integration"`
+	AllowMultipleTenants          bool `json:"allow_multiple_tenants"`
 }
 
 // AuthParams - struct for auth params
@@ -469,13 +470,7 @@ type PostureCheckDeviceInfo struct {
 	UserGroups     map[schema.UserGroupID]struct{}
 }
 
-type Violation struct {
-	CheckID   string          `json:"check_id"`
-	Name      string          `json:"name"`
-	Attribute string          `json:"attribute"`
-	Message   string          `json:"message"`
-	Severity  schema.Severity `json:"severity"`
-}
+type Violation = schema.Violation
 
 type BulkDeleteRequest struct {
 	IDs []string `json:"ids"`

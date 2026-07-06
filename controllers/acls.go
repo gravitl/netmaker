@@ -12,25 +12,27 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func aclHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/egress", logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls))).
+	r.HandleFunc("/api/v1/acls/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
+	r.HandleFunc("/api/v1/acls/policy_types", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createAcl)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(updateAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAcl)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(deleteAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAcl)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/acls/debug", logic.SecurityCheck(true, http.HandlerFunc(aclDebug))).
+	r.HandleFunc("/api/v1/acls/debug", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclDebug)))).
 		Methods(http.MethodGet)
 }
 
@@ -162,7 +164,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		peer = extclient.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(extclient)
 
 	} else {
 		peer, err = logic.GetNodeByID(peerID)

@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/models"
@@ -87,7 +87,7 @@ func FetchTelemetryData() telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
+	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(db.WithContext(context.TODO()))
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
@@ -120,7 +120,7 @@ func getTelemetryLastReportedAt() (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	telemetryLastReportedAtValue, err := time.Parse(telemetryLastReportedAt.Value, time.RFC3339)
+	telemetryLastReportedAtValue, err := time.Parse(time.RFC3339, telemetryLastReportedAt.Value)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -134,7 +134,11 @@ func setTelemetryLastReportedAt() error {
 		Key:   schema.InternalKey_TelemetryLastReportedAt,
 		Value: time.Now().UTC().Format(time.RFC3339),
 	}
-	return lastHookRunAt.Set(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if lastHookRunAt.TenantID == "" {
+		lastHookRunAt.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return lastHookRunAt.Set(ctx)
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
@@ -156,15 +160,6 @@ func getClientCount(nodes []schema.Node) clientCount {
 		}
 	}
 	return count
-}
-
-// getDBLength - get length of DB to get count of objects
-func getDBLength(dbname string) int {
-	data, err := database.FetchRecords(dbname)
-	if err != nil {
-		return 0
-	}
-	return len(data)
 }
 
 // telemetryData - What data to send to posthog

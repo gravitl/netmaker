@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/matryer/is"
 )
@@ -20,8 +19,6 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	database.InitializeDatabase()
-	defer database.CloseDB()
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background())
 	go func() {
@@ -30,6 +27,14 @@ func TestMain(m *testing.M) {
 			//do nothing
 		}
 	}()
+
+	defaultOrg := schema.Organization{}
+	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
 
 	os.Exit(m.Run())
 }
@@ -50,7 +55,6 @@ func TestCheckPorts(t *testing.T) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	database.InitializeDatabase()
 	RemoveHost(&h, true)
 	CreateHost(&h)
 	t.Run("no change", func(t *testing.T) {

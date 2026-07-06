@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -14,12 +13,14 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -99,18 +100,22 @@ func CreateFallbackNameserver(networkID string) error {
 		CreatedAt: time.Now().UTC(),
 	}
 
-	return ns.Create(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if ns.TenantID == "" {
+		ns.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return ns.Create(ctx)
 }
 
 // GetDNS - gets the DNS of a current network
 func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	dns, err := GetNodeDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
 	customdns, err := GetCustomDNS(network)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
 
@@ -245,20 +250,14 @@ func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
 
 // GetCustomDNS - gets the custom DNS of a network
 func GetCustomDNS(network string) ([]models.DNSEntry, error) {
-
 	var dns []models.DNSEntry
-
-	collection, err := database.FetchRecords(database.DNS_TABLE_NAME)
+	records, err := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return dns, err
 	}
 	defaultDomain := GetDefaultDomain()
-	for _, value := range collection { // filter for entries based on network
-		var entry models.DNSEntry
-		if err := json.Unmarshal([]byte(value), &entry); err != nil {
-			continue
-		}
-
+	for _, r := range records {
+		entry := r.Value.Data()
 		if entry.Network == network {
 			if defaultDomain != "" {
 				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
@@ -267,32 +266,19 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 			dns = append(dns, entry)
 		}
 	}
-
-	return dns, err
+	return dns, nil
 }
 
 func DeleteNetworkDNS(network string) error {
-	records, err := database.FetchRecords(database.DNS_TABLE_NAME)
+	records, err := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
-
 		return err
 	}
-
-	for key, record := range records {
-		var entry models.DNSEntry
-		err := json.Unmarshal([]byte(record), &entry)
-		if err != nil {
-			continue
-		}
-
-		if entry.Network == network {
-			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+	for _, r := range records {
+		if r.Value.Data().Network == network {
+			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
-
 	return nil
 }
 
@@ -445,8 +431,7 @@ func DeleteDNS(domain string, network string) error {
 	if err != nil {
 		return err
 	}
-	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
-	return err
+	return (&schema.DNSRecord{Key: key}).Delete(db.WithContext(context.TODO()))
 }
 
 // CreateDNS - creates a DNS entry
@@ -456,14 +441,12 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
-
-	data, err := json.Marshal(&entry)
-	if err != nil {
-		return models.DNSEntry{}, err
+	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
-
-	err = database.Insert(k, string(data), database.DNS_TABLE_NAME)
-	return entry, err
+	return entry, r.Upsert(ctx)
 }
 
 func validateNameserverReq(ns *schema.Nameserver) error {

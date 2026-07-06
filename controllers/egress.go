@@ -12,19 +12,21 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
 
 func egressHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/egress/presets", logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(createEgress))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(listEgress))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(updateEgress))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/egress", logic.SecurityCheck(true, http.HandlerFunc(deleteEgress))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/egress/presets", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEgress)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete)
 }
 
 // @Summary     List egress domain presets
@@ -155,6 +157,9 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
+	if e.TenantID == "" {
+		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+	}
 	err = e.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
