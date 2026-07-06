@@ -11,7 +11,13 @@ func migrateMultiTenancy(ctx context.Context) error {
 }
 
 func createDefaults(ctx context.Context) error {
-	// skip default org and tenant creation if a new deployment.
+	defaultOrg := &schema.Organization{}
+	err := defaultOrg.CreateDefault(ctx)
+	if err != nil {
+		return err
+	}
+
+	// skip default tenant creation if a new deployment.
 	skip, err := isNewDeployment(ctx)
 	if err != nil {
 		return err
@@ -19,12 +25,6 @@ func createDefaults(ctx context.Context) error {
 
 	if skip {
 		return nil
-	}
-
-	defaultOrg := &schema.Organization{}
-	err = defaultOrg.CreateDefault(ctx)
-	if err != nil {
-		return err
 	}
 
 	defaultTenant := &schema.Tenant{
