@@ -53,7 +53,6 @@ func InitPro() {
 		proControllers.JITHandlers,
 		proControllers.ServerHandlers,
 		proControllers.IntegrationHandlers,
-		proControllers.OrgHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
