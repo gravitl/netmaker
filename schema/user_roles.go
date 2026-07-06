@@ -17,8 +17,8 @@ const (
 	Auditor        UserRoleID = "auditor"
 	NetworkAdmin   UserRoleID = "network-admin"
 	NetworkUser    UserRoleID = "network-user"
-	OrgOwner       UserRoleID = "org_owner"
-	OrgAdmin       UserRoleID = "org_admin"
+	OrgOwner       UserRoleID = "org-owner"
+	OrgAdmin       UserRoleID = "org-admin"
 )
 
 func (r UserRoleID) String() string {
