@@ -350,6 +350,10 @@ func GetSmtpPort() int {
 	return GetServerSettings().SmtpPort
 }
 
+func SmtpSkipTlsVerify() bool {
+	return GetServerSettings().SmtpSkipTlsVerify
+}
+
 func GetSenderEmail() string {
 	return GetServerSettings().EmailSenderAddr
 }

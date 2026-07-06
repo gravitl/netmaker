@@ -1,4 +1,4 @@
-package integration
+package siem
 
 import (
 	"bytes"
@@ -58,18 +58,18 @@ func (d *datadogProvider) Test(configJSON json.RawMessage) error {
 	testEvent := map[string]any{
 		"message": "netmaker siem integration test",
 	}
-	return NewDatadogSIEMClient(cfg).Export(context.Background(), []any{testEvent})
+	return NewDatadogClient(cfg).Export(context.Background(), []any{testEvent})
 }
 
-type DatadogSIEMClient struct {
+type DatadogClient struct {
 	DatadogConfig
 }
 
-func NewDatadogSIEMClient(config DatadogConfig) *DatadogSIEMClient {
+func NewDatadogClient(config DatadogConfig) *DatadogClient {
 	if config.Site == "" {
 		config.Site = "datadoghq.com"
 	}
-	return &DatadogSIEMClient{DatadogConfig: config}
+	return &DatadogClient{DatadogConfig: config}
 }
 
 type datadogLogItem struct {
@@ -79,7 +79,7 @@ type datadogLogItem struct {
 	DDTags   string `json:"ddtags,omitempty"`
 }
 
-func (d *DatadogSIEMClient) Export(ctx context.Context, events []any) error {
+func (d *DatadogClient) Export(ctx context.Context, events []any) error {
 	items := make([]datadogLogItem, 0, len(events))
 	for _, e := range events {
 		msg, _ := json.Marshal(e)
@@ -123,3 +123,5 @@ func (d *DatadogSIEMClient) Export(ctx context.Context, events []any) error {
 	}
 	return nil
 }
+
+func DatadogProvider() *datadogProvider { return &datadogProvider{} }

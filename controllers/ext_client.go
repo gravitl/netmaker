@@ -94,18 +94,23 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		}
 		err := user.Get(r.Context())
 		if err == nil {
-			userRole := &schema.UserRole{
-				ID: user.PlatformRoleID,
-			}
-			err := userRole.Get(r.Context())
-			if err != nil || !userRole.FullAccess {
-				filtered := []models.ExtClient{}
-				for _, ec := range extclients {
-					if logic.IsUserAllowedAccessToExtClient(username, ec) {
-						filtered = append(filtered, ec)
+			if user.PlatformRoleID != schema.Auditor {
+				userRole := &schema.UserRole{
+					ID: user.PlatformRoleID,
+				}
+				err := userRole.Get(r.Context())
+				if err != nil || !userRole.FullAccess {
+					if (user.PlatformRoleID == schema.PlatformUser && !logic.IsNetworkAdmin(user, network)) ||
+						user.PlatformRoleID != schema.PlatformUser {
+						var filtered []models.ExtClient
+						for _, ec := range extclients {
+							if logic.IsUserAllowedAccessToExtClient(username, ec) {
+								filtered = append(filtered, ec)
+							}
+						}
+						extclients = filtered
 					}
 				}
-				extclients = filtered
 			}
 		}
 	}
@@ -212,6 +217,24 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	username := r.Header.Get("user")
+	if r.Header.Get("ismaster") != "yes" {
+		user := &schema.User{
+			Username: username,
+		}
+		err := user.Get(r.Context())
+		if err == nil {
+			if user.PlatformRoleID != schema.SuperAdminRole &&
+				user.PlatformRoleID != schema.AdminRole &&
+				!(user.PlatformRoleID == schema.PlatformUser && logic.IsNetworkAdmin(user, networkid)) &&
+				user.Username != client.OwnerID {
+				err = fmt.Errorf("access denied")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+				return
+			}
+		}
 	}
 
 	gwnode, err := logic.GetNodeByID(client.IngressGatewayID)
@@ -391,10 +414,17 @@ Endpoint = %s
 	)
 
 	if params["type"] == "qr" {
-		bytes, err := qrcode.Encode(config, qrcode.Medium, -5)
+		bytes, err := qrcode.Encode(config, qrcode.Low, -5)
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to encode qr code: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			if strings.Contains(err.Error(), "content too long to encode") {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					fmt.Errorf("config is too large to encode as a QR code; please use the file download instead"),
+					"badrequest",
+				))
+			} else {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "image/png")

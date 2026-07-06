@@ -243,7 +243,6 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
 	}
-
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 

@@ -928,37 +928,38 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		var deletedNodes []models.Node
 		for _, nodeID := range req.IDs {
-			node, err := logic.GetNodeByID(nodeID)
+			_node := &schema.Node{ID: nodeID}
+			err := _node.Get(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
 			if err != nil {
 				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
 				continue
 			}
-			if node.Network != network {
+			if _node.Network.Name != network {
 				continue
 			}
-			if err := logic.DeleteNode(&node, true); err != nil {
+			node := logic.ConvertSchemaNodeToModelsNode(_node)
+			if err := logic.DeleteNode(node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
 			logic.LogEvent(&models.Event{
-				Action: schema.Delete,
+				Action: schema.RemoveHostFromNet,
 				Source: models.Subject{
-					ID:   user,
-					Name: user,
+					ID:   r.Header.Get("user"),
+					Name: r.Header.Get("user"),
 					Type: schema.UserSub,
 				},
-				TriggeredBy: user,
+				TriggeredBy: r.Header.Get("user"),
 				Target: models.Subject{
-					ID:   node.ID.String(),
-					Name: node.ID.String(),
-					Type: schema.NodeSub,
+					ID:   node.HostID.String(),
+					Name: _node.Host.Name,
+					Type: schema.DeviceSub,
 				},
 				NetworkID: schema.NetworkID(network),
 				Origin:    schema.Dashboard,
-				Diff:      models.Diff{Old: node, New: nil},
 			})
 			logger.Log(1, user, "Deleted node", nodeID, "from network", network)
-			deletedNodes = append(deletedNodes, node)
+			deletedNodes = append(deletedNodes, *node)
 			deleted++
 		}
 		for _, node := range deletedNodes {

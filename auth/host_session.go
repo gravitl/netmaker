@@ -243,19 +243,11 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				continue
 			}
 
-			violations, _ := logic.CheckPostureViolations(
-				models.PostureCheckDeviceInfo{
-					ClientLocation: host.Location,
-					ClientVersion:  host.Version,
-					OS:             host.OS,
-					OSFamily:       host.OSFamily,
-					OSVersion:      host.OSVersion,
-					KernelVersion:  host.KernelVersion,
-					AutoUpdate:     host.AutoUpdate,
-					SkipAutoUpdate: true,
-					Tags:           keyTags,
-				},
+			violations, _ := logic.CheckPostureViolationsForHost(
+				host,
+				keyTags,
 				schema.NetworkID(network.Name),
+				true,
 			)
 			if len(violations) > 0 {
 				logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))

@@ -158,8 +158,16 @@ type Host struct {
 	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode         string                      `json:"country_code" yaml:"country_code"`
 	EnableFlowLogs      bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
-	CreatedAt           time.Time                   `json:"created_at" yaml:"created_at"`
-	UpdatedAt           time.Time                   `json:"updated_at" yaml:"updated_at"`
+
+	// MDM device-matching identifiers. Reported by netclient on host check-in
+	// and consumed by the MDM sync worker to match a Netmaker host to its
+	// upstream MDM-managed device record.
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 func (h *Host) TableName() string {

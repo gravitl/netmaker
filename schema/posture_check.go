@@ -21,6 +21,15 @@ const (
 	AutoUpdate     Attribute = "auto_update"
 	ClientVersion  Attribute = "client_version"
 	ClientLocation Attribute = "client_location"
+	// MDMCompliance evaluates the host's posture against the MDM provider
+	// configured in ServerSettings. Config payload (JSONMap):
+	//   {"require_enrolled": bool, "require_compliant": bool, "max_state_age_hours": int}
+	MDMCompliance Attribute = "mdm_compliance"
+	// EDRCompliance evaluates the host's posture against the EDR provider.
+	// Config payload (JSONMap):
+	//   {"require_agent_installed": bool, "require_agent_healthy": bool,
+	//    "max_allowed_risk_level": string, "max_state_age_hours": int}
+	EDRCompliance Attribute = "edr_compliance"
 )
 
 const (
@@ -39,6 +48,23 @@ var PostureCheckAttrs = []Attribute{
 	OSFamily,
 	KernelVersion,
 	AutoUpdate,
+	MDMCompliance,
+	EDRCompliance,
+}
+
+// MDMComplianceConfigKeys lists the supported keys in PostureCheck.Config when
+// Attribute == MDMCompliance.
+var MDMComplianceConfigKeys = []string{
+	"require_enrolled",
+	"require_compliant",
+	"max_state_age_hours",
+}
+
+var EDRComplianceConfigKeys = []string{
+	"require_agent_installed",
+	"require_agent_healthy",
+	"max_allowed_risk_level",
+	"max_state_age_hours",
 }
 
 var PostureCheckAttrValuesMap = map[Attribute]map[string]struct{}{
@@ -77,6 +103,13 @@ var PostureCheckAttrValuesMap = map[Attribute]map[string]struct{}{
 		"true":  {},
 		"false": {},
 	},
+	// MDMCompliance is configured via PostureCheck.Config, not Values.
+	MDMCompliance: {
+		"mdm": {},
+	},
+	EDRCompliance: {
+		"edr": {},
+	},
 }
 
 var PostureCheckAttrValues = map[Attribute][]string{
@@ -87,6 +120,8 @@ var PostureCheckAttrValues = map[Attribute][]string{
 	OSFamily:       {"linux-debian", "linux-redhat", "linux-suse", "linux-arch", "linux-gentoo", "linux-other", "darwin", "windows", "ios", "android"},
 	KernelVersion:  {"any_valid_semantic_version"},
 	AutoUpdate:     {"true", "false"},
+	MDMCompliance:  {"mdm"},
+	EDRCompliance:  {"edr"},
 }
 
 type PostureCheck struct {
@@ -97,13 +132,17 @@ type PostureCheck struct {
 	Description string                      `gorm:"description" json:"description"`
 	Attribute   Attribute                   `gorm:"attribute" json:"attribute"`
 	Values      datatypes.JSONSlice[string] `gorm:"values" json:"values"`
-	Severity    Severity                    `gorm:"severity" json:"severity"`
-	Tags        datatypes.JSONMap           `gorm:"tags" json:"tags"`
-	UserGroups  datatypes.JSONMap           `gorm:"user_groups" json:"user_groups"`
-	Status      bool                        `gorm:"status" json:"status"`
-	CreatedBy   string                      `gorm:"created_by" json:"created_by"`
-	CreatedAt   time.Time                   `gorm:"created_at" json:"created_at"`
-	UpdatedAt   time.Time                   `gorm:"updated_at" json:"updated_at"`
+	// Config holds attribute-specific structured options. Used by MDMCompliance
+	// for {require_enrolled, require_compliant, max_state_age_hours}; null for
+	// legacy attributes that rely on Values.
+	Config     datatypes.JSONMap `gorm:"config" json:"config"`
+	Severity   Severity          `gorm:"severity" json:"severity"`
+	Tags       datatypes.JSONMap `gorm:"tags" json:"tags"`
+	UserGroups datatypes.JSONMap `gorm:"user_groups" json:"user_groups"`
+	Status     bool              `gorm:"status" json:"status"`
+	CreatedBy  string            `gorm:"created_by" json:"created_by"`
+	CreatedAt  time.Time         `gorm:"created_at" json:"created_at"`
+	UpdatedAt  time.Time         `gorm:"updated_at" json:"updated_at"`
 }
 
 func (p *PostureCheck) Get(ctx context.Context) error {

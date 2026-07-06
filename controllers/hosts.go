@@ -71,6 +71,10 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/host/{hostid}/peer_info", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getHostPeerInfo)))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/posture_status", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getHostPostureStatus)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/posture_status/ui", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHostPostureStatus)))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
@@ -964,16 +968,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
-		ClientLocation: host.CountryCode,
-		ClientVersion:  host.Version,
-		OS:             host.OS,
-		OSFamily:       host.OSFamily,
-		OSVersion:      host.OSVersion,
-		KernelVersion:  host.KernelVersion,
-
-		SkipAutoUpdate: true,
-	}, schema.NetworkID(networkID))
+	violations, _ := logic.CheckPostureViolationsForHost(host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
@@ -1644,6 +1639,128 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, peerInfo, "fetched host peer info")
 }
 
+// @Summary     Get the host's last-evaluated posture status
+// @Router      /api/v1/host/{hostid}/posture_status [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Produce     json
+// @Param       hostid path string true "Host ID"
+// @Success     200 {object} models.HostPostureStatus
+// @Failure     400 {object} models.ErrorResponse
+func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
+	hostIDStr := mux.Vars(r)["hostid"]
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to parse host id: %w", err), logic.BadReq))
+		return
+	}
+
+	host := &schema.Host{ID: hostID}
+	if err := host.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
+		return
+	}
+
+	if strings.Contains(r.URL.Path, "/posture_status/ui") {
+		if err := logic.CheckUIHostReadAccess(r, host); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+			return
+		}
+	}
+
+	resp := models.HostPostureStatus{
+		HostID:   hostIDStr,
+		Networks: []models.NetworkPostureStatus{},
+	}
+
+	// MDM block - best-effort: only populated if an integration is configured and
+	// a sync row exists for the host.
+	mdmIntg := &schema.Integration{Type: "mdm"}
+	if mdmIntegrations, err := mdmIntg.ListByType(r.Context()); err == nil && len(mdmIntegrations) > 0 {
+		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: mdmIntegrations[0].ID}
+		if err := state.Get(r.Context()); err == nil {
+			resp.MDM = &models.HostMDMStatus{
+				Provider:     state.Provider,
+				MatchedBy:    state.MatchedBy,
+				Enrolled:     state.Enrolled,
+				Compliant:    state.Compliant,
+				LastSyncedAt: state.LastSyncedAt,
+			}
+		} else if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = logic.SyncHostMDMState(r.Context(), hostIDStr)
+			err = state.Get(r.Context())
+			if err == nil {
+				resp.MDM = &models.HostMDMStatus{
+					Provider:     state.Provider,
+					MatchedBy:    state.MatchedBy,
+					Enrolled:     state.Enrolled,
+					Compliant:    state.Compliant,
+					LastSyncedAt: state.LastSyncedAt,
+				}
+			}
+		}
+	}
+
+	edrIntg := &schema.Integration{Type: "edr"}
+	if edrIntegrations, err := edrIntg.ListByType(r.Context()); err == nil && len(edrIntegrations) > 0 {
+		state := &schema.DeviceEDRState{HostID: hostIDStr, Provider: edrIntegrations[0].ID}
+		err = state.Get(r.Context())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = logic.SyncHostEDRState(r.Context(), hostIDStr)
+			err = state.Get(r.Context())
+		}
+		if err == nil {
+			resp.EDR = &models.HostEDRStatus{
+				Provider:       state.Provider,
+				MatchedBy:      state.MatchedBy,
+				AgentInstalled: state.AgentInstalled,
+				AgentHealthy:   state.AgentHealthy,
+				RiskLevel:      state.RiskLevel,
+				LastSyncedAt:   state.LastSyncedAt,
+				LastSeenAt:     state.LastSeenAt,
+				LastError:      state.LastError,
+			}
+		} else {
+			slog.Warn("failed to retrieve host edr state", "host_id", hostIDStr, "error", err)
+		}
+	}
+
+	// Per-network status - copy from already-evaluated nodes belonging to the
+	// host. No new posture computation happens on this read path (v1).
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
+		return
+	}
+	var latest time.Time
+	for _, n := range nodes {
+		if n.HostID != hostID || n.IsStatic {
+			continue
+		}
+		entry := models.NetworkPostureStatus{
+			NetworkID:  n.Network,
+			NodeID:     n.ID.String(),
+			Severity:   n.PostureCheckViolationSeverityLevel,
+			Violations: append([]models.Violation{}, n.PostureChecksViolations...),
+		}
+		switch {
+		case len(entry.Violations) == 0:
+			entry.Status = models.PostureStatusPass
+		case entry.Severity >= schema.SeverityHigh:
+			entry.Status = models.PostureStatusFail
+		default:
+			entry.Status = models.PostureStatusWarn
+		}
+		if n.LastEvaluatedAt.After(latest) {
+			latest = n.LastEvaluatedAt
+		}
+		resp.Networks = append(resp.Networks, entry)
+	}
+	resp.EvaluatedAt = latest
+
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched posture status")
+}
+
 // @Summary     List pending hosts in a network
 // @Router      /api/v1/pending_hosts [get]
 // @Tags        Hosts
@@ -1743,20 +1860,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		keyTags[models.TagID(tagI)] = struct{}{}
 	}
 
-	violations, _ := logic.CheckPostureViolations(
-		models.PostureCheckDeviceInfo{
-			ClientLocation: host.Location,
-			ClientVersion:  host.Version,
-			OS:             host.OS,
-			OSFamily:       host.OSFamily,
-			OSVersion:      host.OSVersion,
-			KernelVersion:  host.KernelVersion,
-			AutoUpdate:     host.AutoUpdate,
-			SkipAutoUpdate: true,
-			Tags:           keyTags,
-		},
-		schema.NetworkID(network.Name),
-	)
+	violations, _ := logic.CheckPostureViolationsForHost(host, keyTags, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
 		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
 		logger.Log(0, err.Error())
@@ -1824,20 +1928,7 @@ func addDefaultHostToNetworks(host *schema.Host) {
 			continue
 		}
 
-		violations, _ := logic.CheckPostureViolations(
-			models.PostureCheckDeviceInfo{
-				ClientLocation: host.Location,
-				ClientVersion:  host.Version,
-				OS:             host.OS,
-				OSFamily:       host.OSFamily,
-				OSVersion:      host.OSVersion,
-				KernelVersion:  host.KernelVersion,
-				AutoUpdate:     host.AutoUpdate,
-				SkipAutoUpdate: true,
-				Tags:           make(map[models.TagID]struct{}),
-			},
-			schema.NetworkID(network.Name),
-		)
+		violations, _ := logic.CheckPostureViolationsForHost(host, make(map[models.TagID]struct{}), schema.NetworkID(network.Name), true)
 		if len(violations) > 0 {
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
 			continue
