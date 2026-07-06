@@ -462,8 +462,8 @@ func setTenantID(ctx context.Context) error {
 		&schema.Egress{}, &schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
 		&schema.Host{}, &schema.Integration{}, &schema.Internal{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{}, &schema.PendingUser{},
-		&schema.PostureCheck{}, &schema.PostureCheckViolation{}, &schema.SsoStateRecord{},
-		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
+		&schema.PostureCheck{}, &schema.PostureCheckViolation{}, &schema.TagRecord{}, &schema.UserAccessToken{},
+		&schema.UserGroup{}, &schema.UserInvite{},
 	}
 
 	for _, model := range tenantModels {
