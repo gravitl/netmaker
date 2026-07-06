@@ -10,13 +10,15 @@ import (
 
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 )
 
 func FlowHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/flows", logic.SecurityCheck(true, http.HandlerFunc(handleListFlows))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/flows", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(handleListFlows)))).Methods(http.MethodGet)
 }
 
 const (
@@ -175,7 +177,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
 			errType := logic.Internal
-			if database.IsEmptyRecord(err) {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				errType = logic.BadReq
 			}
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error fetching node with id %s: %v", nodeID, err), errType))

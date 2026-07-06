@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -26,8 +25,6 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	database.InitializeDatabase()
-	defer database.CloseDB()
 	logic.CreateSuperAdmin(&schema.User{
 		Username:       "admin",
 		Password:       "password",
@@ -41,6 +38,15 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+
+	defaultOrg := schema.Organization{}
+	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
 	os.Exit(m.Run())
 
 }

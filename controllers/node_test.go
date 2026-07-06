@@ -1,11 +1,12 @@
 package controller
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -49,7 +50,10 @@ func TestValidateEgressGateway(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	database.DeleteAllRecords(database.NODES_TABLE_NAME)
+	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()))
+	for _, node := range nodes {
+		_ = node.Delete(db.WithContext(context.TODO()))
+	}
 }
 
 func createTestNode() *models.Node {

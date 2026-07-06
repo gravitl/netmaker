@@ -3,28 +3,22 @@ package logic
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
-
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-)
-
-const (
-	auth_key = "netmaker_auth"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -58,35 +52,12 @@ func GetUsers() ([]models.ReturnUser, error) {
 
 // IsOauthUser - returns
 func IsOauthUser(user *schema.User) error {
-	var currentValue, err = FetchPassValue("")
+	var currentValue, err = FetchOAuthSecret()
 	if err != nil {
 		return err
 	}
 	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
 	return bCryptErr
-}
-
-func FetchPassValue(newValue string) (string, error) {
-
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
-	}
-	newValueHolder := valueHolder{}
-	var currentValue, err = FetchAuthSecret()
-	if err != nil {
-		return "", err
-	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
-	if unmarshErr != nil {
-		return "", unmarshErr
-	}
-
-	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
-	if b64Err != nil {
-		logger.Log(0, "could not decode pass")
-		return "", nil
-	}
-	return string(b64CurrentValue), nil
 }
 
 // CreateUser - creates a user
@@ -169,7 +140,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(db.WithContext(context.TODO()))
+	err := _user.Get(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -483,51 +454,55 @@ func DeleteUser(user string) error {
 	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }
 
-func SetAuthSecret(secret string) error {
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
+func SetOAuthSecret(secret string) error {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
 	}
-	record, err := FetchAuthSecret()
-	if err == nil {
-		v := valueHolder{}
-		json.Unmarshal([]byte(record), &v)
-		if v.Value != "" {
-			return nil
-		}
+	err := oauthSecret.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
-	newValueHolder := valueHolder{
-		Value: b64NewValue,
+
+	if oauthSecret.Value != "" {
+		return nil
 	}
-	d, _ := json.Marshal(newValueHolder)
-	return database.Insert(auth_key, string(d), database.GENERATED_TABLE_NAME)
+
+	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
+	ctx := db.WithContext(context.TODO())
+	if oauthSecret.TenantID == "" {
+		oauthSecret.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return oauthSecret.Set(ctx)
 }
 
-// FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret() (string, error) {
-	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, auth_key)
+// FetchOAuthSecret fetches secrets for oauth
+func FetchOAuthSecret() (string, error) {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
+	}
+	err := oauthSecret.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return "", err
 	}
-	return record, nil
+
+	oauthSecretValue, err := base64.StdEncoding.DecodeString(oauthSecret.Value)
+	if err != nil {
+		return "", err
+	}
+
+	return string(oauthSecretValue), nil
 }
 
 // GetState - gets an SsoState from DB, if expired returns error
 func GetState(state string) (*models.SsoState, error) {
-	var s models.SsoState
-	record, err := database.FetchRecord(database.SSO_STATE_CACHE, state)
-	if err != nil {
-		return &s, err
+	r := &schema.SsoStateRecord{Key: state}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, err
 	}
-
-	if err = json.Unmarshal([]byte(record), &s); err != nil {
-		return &s, err
-	}
-
+	s := r.Value.Data()
 	if s.IsExpired() {
 		return &s, fmt.Errorf("state expired")
 	}
-
 	return &s, nil
 }
 
@@ -538,13 +513,12 @@ func SetState(appName, state string) error {
 		Value:      state,
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}
-
-	data, err := json.Marshal(&s)
-	if err != nil {
-		return err
+	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(DefaultScope(ctx))
 	}
-
-	return database.Insert(state, string(data), database.SSO_STATE_CACHE)
+	return r.Upsert(ctx)
 }
 
 // IsStateValid - checks if given state is valid or not
@@ -566,27 +540,20 @@ func IsStateValid(state string) (string, bool) {
 
 // delState - removes a state from cache/db
 func delState(state string) error {
-	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
+	return (&schema.SsoStateRecord{Key: state}).Delete(db.WithContext(context.TODO()))
 }
 
 // CleanExpiredSSOStates removes expired SSO state entries from the database
 // to prevent unbounded table growth that degrades FetchRecord performance.
 func CleanExpiredSSOStates() error {
-	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	records, err := (&schema.SsoStateRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
 		return err
 	}
-	for key, value := range records {
-		var s models.SsoState
-		if err := json.Unmarshal([]byte(value), &s); err != nil {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
-			continue
-		}
+	for _, r := range records {
+		s := r.Value.Data()
 		if s.IsExpired() {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			_ = (&schema.SsoStateRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 	return nil

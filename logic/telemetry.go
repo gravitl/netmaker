@@ -2,26 +2,20 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"os"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
 	"golang.org/x/exp/slog"
-)
-
-var (
-	// flags to keep for telemetry
-	isFreeTier      bool
-	telServerRecord = models.Telemetry{}
 )
 
 var LogEvent = func(a *models.Event) {}
@@ -32,22 +26,20 @@ const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
 // posthog_endpoint - Endpoint of PostHog server
 const posthog_endpoint = "https://app.posthog.com"
 
-// setFreeTierForTelemetry - store free tier flag without having an import cycle when used for telemetry
-// (as the pro package needs the logic package as currently written).
-func SetFreeTierForTelemetry(freeTierFlag bool) {
-	isFreeTier = freeTierFlag
-}
-
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
 	if Telemetry() == "off" {
 		return nil
 	}
 
-	var telRecord, err = FetchTelemetryRecord()
+	serverID := &schema.Internal{
+		Key: schema.InternalKey_ServerID,
+	}
+	err := serverID.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
+
 	// get telemetry data
 	d := FetchTelemetryData()
 	// get tenant admin email
@@ -62,7 +54,7 @@ func sendTelemetry() error {
 
 	// send to posthog
 	return client.Enqueue(posthog.Capture{
-		DistinctId: telRecord.UUID,
+		DistinctId: serverID.Value,
 		Event:      "daily checkin",
 		Properties: posthog.NewProperties().
 			Set("nodes", d.Nodes).
@@ -80,11 +72,11 @@ func sendTelemetry() error {
 			Set("k8s", d.Count.K8S).
 			Set("version", d.Version).
 			Set("is_ee", d.IsPro). // TODO change is_ee to is_pro for consistency, but probably needs changes in posthog
-			Set("is_free_tier", isFreeTier).
+			Set("is_free_tier", false).
 			Set("is_pro_trial", d.IsProTrial).
 			Set("pro_trial_end_date", d.ProTrialEndDate.In(time.UTC).Format("2006-01-02")).
 			Set("admin_email", adminEmail).
-			Set("email", adminEmail). // needed for posthog intgration with hubspot. "admin_email" can only be removed if not used in posthog
+			Set("email", adminEmail). // needed for posthog integration with hubspot. "admin_email" can only be removed if not used in posthog
 			Set("is_saas_tenant", d.IsSaasTenant).
 			Set("domain", d.Domain),
 	})
@@ -95,7 +87,7 @@ func FetchTelemetryData() telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
+	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(db.WithContext(context.TODO()))
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
@@ -104,11 +96,7 @@ func FetchTelemetryData() telemetryData {
 	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithPreloads("Host"))
 	data.Nodes = len(nodes)
 	data.Count = getClientCount(nodes)
-	endDate, _ := GetTrialEndDate()
-	data.ProTrialEndDate = endDate
-	if endDate.After(time.Now()) {
-		data.IsProTrial = true
-	}
+	data.ProTrialEndDate, _ = time.Parse("2006-Jan-02", "2021-Apr-01")
 	data.IsSaasTenant = servercfg.DeployedByOperator()
 	data.Domain = servercfg.GetNmBaseDomain()
 	return data
@@ -116,31 +104,41 @@ func FetchTelemetryData() telemetryData {
 
 // getServerCount returns number of servers from database
 func getServerCount() int {
-	data, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
-	if err != nil {
-		logger.Log(0, "error retrieving server data", err.Error())
-	}
-	return len(data)
+	return 1
 }
 
-// setTelemetryTimestamp - Give the entry in the DB a new timestamp
-func setTelemetryTimestamp(telRecord *models.Telemetry) error {
-	lastsend := time.Now().Unix()
-	var serverTelData = models.Telemetry{
-		UUID:           telRecord.UUID,
-		LastSend:       lastsend,
-		TrafficKeyPriv: telRecord.TrafficKeyPriv,
-		TrafficKeyPub:  telRecord.TrafficKeyPub,
+func getTelemetryLastReportedAt() (time.Time, error) {
+	telemetryLastReportedAt := &schema.Internal{
+		Key: schema.InternalKey_TelemetryLastReportedAt,
 	}
-	jsonObj, err := json.Marshal(&serverTelData)
+	err := telemetryLastReportedAt.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return time.Time{}, nil
+		}
+
+		return time.Time{}, err
 	}
-	err = database.Insert(database.SERVER_UUID_RECORD_KEY, string(jsonObj), database.SERVER_UUID_TABLE_NAME)
-	if err == nil {
-		telServerRecord = serverTelData
+
+	telemetryLastReportedAtValue, err := time.Parse(time.RFC3339, telemetryLastReportedAt.Value)
+	if err != nil {
+		return time.Time{}, err
 	}
-	return err
+
+	return telemetryLastReportedAtValue, nil
+}
+
+// setTelemetryLastReportedAt sets the time for the last hook run.
+func setTelemetryLastReportedAt() error {
+	lastHookRunAt := &schema.Internal{
+		Key:   schema.InternalKey_TelemetryLastReportedAt,
+		Value: time.Now().UTC().Format(time.RFC3339),
+	}
+	ctx := db.WithContext(context.TODO())
+	if lastHookRunAt.TenantID == "" {
+		lastHookRunAt.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return lastHookRunAt.Set(ctx)
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
@@ -162,34 +160,6 @@ func getClientCount(nodes []schema.Node) clientCount {
 		}
 	}
 	return count
-}
-
-// FetchTelemetryRecord - get the existing UUID and Timestamp from the DB
-func FetchTelemetryRecord() (models.Telemetry, error) {
-	if telServerRecord.TrafficKeyPub != nil {
-		return telServerRecord, nil
-	}
-	var rawData string
-	var telObj models.Telemetry
-	var err error
-	rawData, err = database.FetchRecord(database.SERVER_UUID_TABLE_NAME, database.SERVER_UUID_RECORD_KEY)
-	if err != nil {
-		return telObj, err
-	}
-	err = json.Unmarshal([]byte(rawData), &telObj)
-	if err == nil {
-		telServerRecord = telObj
-	}
-	return telObj, err
-}
-
-// getDBLength - get length of DB to get count of objects
-func getDBLength(dbname string) int {
-	data, err := database.FetchRecords(dbname)
-	if err != nil {
-		return 0
-	}
-	return len(data)
 }
 
 // telemetryData - What data to send to posthog

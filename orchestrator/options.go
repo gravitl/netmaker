@@ -1,10 +1,10 @@
 package orchestrator
 
-import "github.com/gravitl/netmaker/models"
+import "github.com/gravitl/netmaker/schema"
 
 type Options struct {
 	useKey                bool
-	key                   *models.EnrollmentKey
+	key                   *schema.EnrollmentKey
 	skipHostUpdate        bool
 	skipNodeUpdate        bool
 	skipPublishPeerUpdate bool
@@ -23,7 +23,7 @@ func applyOptions(opts ...Option) *Options {
 	return o
 }
 
-func UseKey(key *models.EnrollmentKey) Option {
+func UseKey(key *schema.EnrollmentKey) Option {
 	return func(o *Options) *Options {
 		o.useKey = true
 		o.key = key

@@ -10,6 +10,7 @@ import (
 // UserAccessToken - token used to access netmaker
 type UserAccessToken struct {
 	ID        string    `gorm:"primaryKey" json:"id"`
+	TenantID  string    `gorm:"default:'';index" json:"tenant_id"`
 	Name      string    `json:"name"`
 	UserName  string    `json:"user_name"`
 	ExpiresAt time.Time `json:"expires_at"`

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
@@ -176,8 +177,18 @@ func UserGroupsInit() {
 		MetaData: "Provides read-only dashboard access to platform users and allows connection to network nodes via the Netmaker Desktop App.",
 	}
 
-	_ = NetworkGlobalAdminGroup.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkGlobalUserGroup.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if NetworkGlobalAdminGroup.TenantID == "" || NetworkGlobalUserGroup.TenantID == "" {
+		dctx := logic.DefaultScope(ctx)
+		if NetworkGlobalAdminGroup.TenantID == "" {
+			NetworkGlobalAdminGroup.TenantID = scope.ID(dctx)
+		}
+		if NetworkGlobalUserGroup.TenantID == "" {
+			NetworkGlobalUserGroup.TenantID = scope.ID(dctx)
+		}
+	}
+	_ = NetworkGlobalAdminGroup.Upsert(ctx)
+	_ = NetworkGlobalUserGroup.Upsert(ctx)
 }
 
 func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
@@ -301,8 +312,18 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		}),
 		MetaData: fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App. Platform users will have read-only access to the the dashboard.", netID),
 	}
-	_ = NetworkAdminGroup.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserGroup.Upsert(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if NetworkAdminGroup.TenantID == "" || NetworkUserGroup.TenantID == "" {
+		ctx := logic.DefaultScope(ctx)
+		if NetworkAdminGroup.TenantID == "" {
+			NetworkAdminGroup.TenantID = scope.ID(ctx)
+		}
+		if NetworkUserGroup.TenantID == "" {
+			NetworkUserGroup.TenantID = scope.ID(ctx)
+		}
+	}
+	_ = NetworkAdminGroup.Upsert(ctx)
+	_ = NetworkUserGroup.Upsert(ctx)
 }
 
 func DeleteNetworkRoles(netID string) {
@@ -596,7 +617,11 @@ func CreateUserGroup(g *schema.UserGroup) error {
 		return errors.New("group already exists")
 	}
 
-	err = g.Create(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	if g.TenantID == "" {
+		g.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
+	err = g.Create(ctx)
 	if err != nil {
 		return err
 	}
@@ -820,7 +845,7 @@ func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID
 
 // PrepareOauthUserFromInvite - init oauth user before create
 func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
-	var newPass, fetchErr = logic.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchOAuthSecret()
 	if fetchErr != nil {
 		return schema.User{}, fetchErr
 	}

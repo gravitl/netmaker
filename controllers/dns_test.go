@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -50,19 +51,19 @@ func TestGetCustomDNS(t *testing.T) {
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
 		dns, err := logic.GetCustomDNS("skynet")
-		assert.EqualError(t, err, "could not find any records")
+		assert.NoError(t, err)
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		createNet()
 		dns, err := logic.GetCustomDNS("skynet")
-		assert.EqualError(t, err, "could not find any records")
+		assert.NoError(t, err)
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
 		dns, err := logic.GetCustomDNS("skynet")
-		assert.EqualError(t, err, "could not find any records")
+		assert.NoError(t, err)
 		assert.Equal(t, 0, len(dns))
 	})
 	t.Run("EntryExist", func(t *testing.T) {
@@ -163,12 +164,12 @@ func TestGetDNSEntry(t *testing.T) {
 	_, _ = logic.CreateDNS(entry)
 	t.Run("wrong net", func(t *testing.T) {
 		entry, err := GetDNSEntry("newhost", "w286 Toronto Street South, Uxbridge, ONirecat")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 		assert.Equal(t, models.DNSEntry{}, entry)
 	})
 	t.Run("wrong host", func(t *testing.T) {
 		entry, err := GetDNSEntry("badhost", "skynet")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 		assert.Equal(t, models.DNSEntry{}, entry)
 	})
 	t.Run("good host", func(t *testing.T) {
@@ -178,7 +179,7 @@ func TestGetDNSEntry(t *testing.T) {
 	})
 	t.Run("node", func(t *testing.T) {
 		entry, err := GetDNSEntry("testnode", "skynet")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 		assert.Equal(t, models.DNSEntry{}, entry)
 	})
 }

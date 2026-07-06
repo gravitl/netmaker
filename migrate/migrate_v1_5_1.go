@@ -3,18 +3,26 @@ package migrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
+)
+
+const (
+	TableName_Users           = "users"
+	TableName_Networks        = "networks"
+	TableName_UserPermissions = "user_permissions"
+	TableName_UserGroups      = "usergroups"
+	TableName_Hosts           = "hosts"
 )
 
 func migrateV1_5_1(ctx context.Context) error {
@@ -42,12 +50,22 @@ func migrateV1_5_1(ctx context.Context) error {
 }
 
 func migrateUsers(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USERS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USERS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_Users)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	defaultOrg := &schema.Organization{}
+	if err = defaultOrg.GetDefault(ctx); err != nil {
+		return err
+	}
+
+	defaultTenant := &schema.Tenant{}
+	if err = defaultTenant.GetDefault(ctx); err != nil {
 		return err
 	}
 
@@ -73,11 +91,12 @@ func migrateUsers(ctx context.Context) error {
 			user.UserGroups = make(map[schema.UserGroupID]struct{})
 		}
 
+		groups := datatypes.NewJSONType(user.UserGroups)
+
 		_user := &schema.User{
 			ID:                         "",
 			Username:                   user.UserName,
 			DisplayName:                user.DisplayName,
-			PlatformRoleID:             platformRoleID,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			AccountDisabled:            user.AccountDisabled,
 			AuthType:                   user.AuthType,
@@ -85,7 +104,6 @@ func migrateUsers(ctx context.Context) error {
 			IsMFAEnabled:               user.IsMFAEnabled,
 			TOTPSecret:                 user.TOTPSecret,
 			LastLoginAt:                user.LastLoginTime,
-			UserGroups:                 datatypes.NewJSONType(user.UserGroups),
 			CreatedBy:                  user.CreatedBy,
 			CreatedAt:                  user.CreatedAt,
 			UpdatedAt:                  user.UpdatedAt,
@@ -93,10 +111,35 @@ func migrateUsers(ctx context.Context) error {
 
 		logger.Log(4, fmt.Sprintf("migrating user %s", _user.Username))
 
-		err = _user.Create(ctx)
-		if err != nil {
+		if err = _user.Create(ctx); err != nil {
 			logger.Log(4, fmt.Sprintf("migrating user %s failed: %v", _user.Username, err))
 			return err
+		}
+
+		tm := &schema.TenantMembership{
+			TenantID:                   defaultTenant.ID,
+			UserID:                     _user.ID,
+			RoleID:                     platformRoleID,
+			Groups:                     groups,
+			AuthType:                   user.AuthType,
+			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+			Password:                   user.Password,
+		}
+		err = tm.Create(ctx)
+		if err != nil {
+			return err
+		}
+
+		if platformRoleID == schema.SuperAdminRole {
+			om := &schema.OrgMembership{
+				OrganizationID: defaultOrg.ID,
+				UserID:         _user.ID,
+				RoleID:         schema.OrgOwner,
+			}
+			err = om.Create(ctx)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -104,12 +147,12 @@ func migrateUsers(ctx context.Context) error {
 }
 
 func migrateNetworks(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.NETWORKS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Networks) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.NETWORKS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_Networks)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -252,12 +295,12 @@ func migrateNetworks_Nameserver(ctx context.Context, network *models.Network) er
 }
 
 func migrateUserRoles(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_PERMISSIONS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserPermissions) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_PERMISSIONS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_UserPermissions)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -281,12 +324,12 @@ func migrateUserRoles(ctx context.Context) error {
 }
 
 func migrateUserGroups(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_GROUPS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserGroups) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_GROUPS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_UserGroups)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -310,12 +353,12 @@ func migrateUserGroups(ctx context.Context) error {
 }
 
 func migrateHosts(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.HOSTS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Hosts) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.HOSTS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_Hosts)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -326,7 +369,7 @@ func migrateHosts(ctx context.Context) error {
 			return err
 		}
 
-		if !logic.GetServerSettings().NetclientAutoUpdate {
+		if !getLegacyServerSettings(ctx).NetclientAutoUpdate {
 			host.AutoUpdate = false
 		}
 
@@ -384,7 +427,7 @@ func migrateHosts(ctx context.Context) error {
 		}
 
 		if _host.DNS == "" || (_host.DNS != "yes" && _host.DNS != "no") {
-			if logic.GetServerSettings().ManageDNS {
+			if getLegacyServerSettings(ctx).ManageDNS {
 				_host.DNS = "yes"
 			} else {
 				_host.DNS = "no"
@@ -404,4 +447,19 @@ func migrateHosts(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func getLegacyServerSettings(ctx context.Context) models.ServerSettings {
+	record, err := kvGet(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
+	if err != nil {
+		return models.ServerSettings{}
+	}
+
+	var settings models.ServerSettings
+	err = json.Unmarshal([]byte(record), &settings)
+	if err != nil {
+		return models.ServerSettings{}
+	}
+
+	return settings
 }

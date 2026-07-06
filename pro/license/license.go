@@ -2,6 +2,7 @@ package license
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -10,28 +11,22 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/utils"
+	"gorm.io/gorm"
 
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 )
-
-const (
-	db_license_key = "netmaker-id-key-pair"
-)
-
-type apiServerConf struct {
-	PrivateKey []byte `json:"private_key" binding:"required"`
-	PublicKey  []byte `json:"public_key"  binding:"required"`
-}
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
@@ -148,41 +143,73 @@ func ValidateLicense() (err error) {
 // as well as secure communication with API
 // if none present, it generates a new pair
 func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
-	returnData := apiServerConf{}
-	currentData, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, db_license_key)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return nil, nil, err
-	} else if database.IsEmptyRecord(err) { // need to generate a new identifier pair
+	var create bool
+	privateKey := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationPrivateKey,
+	}
+	err = privateKey.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			create = true
+		} else {
+			return nil, nil, err
+		}
+	}
+
+	publicKey := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationPublicKey,
+	}
+	err = publicKey.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			create = true
+		} else {
+			return nil, nil, err
+		}
+	}
+
+	if create {
 		pub, priv, err = box.GenerateKey(rand.Reader)
 		if err != nil {
 			return nil, nil, err
 		}
-		pubBytes, err := ncutils.ConvertKeyToBytes(pub)
+		privateKeyBytes, err := ncutils.ConvertKeyToBytes(priv)
 		if err != nil {
 			return nil, nil, err
 		}
-		privBytes, err := ncutils.ConvertKeyToBytes(priv)
+		publicKeyBytes, err := ncutils.ConvertKeyToBytes(pub)
 		if err != nil {
 			return nil, nil, err
 		}
-		returnData.PrivateKey = privBytes
-		returnData.PublicKey = pubBytes
-		record, err := json.Marshal(&returnData)
+
+		privateKey.Value = base64encode(privateKeyBytes)
+		publicKey.Value = base64encode(publicKeyBytes)
+		ctx := db.WithContext(context.TODO())
+		if privateKey.TenantID == "" || publicKey.TenantID == "" {
+			ctx := logic.DefaultScope(ctx)
+			if privateKey.TenantID == "" {
+				privateKey.TenantID = scope.ID(ctx)
+			}
+			if publicKey.TenantID == "" {
+				publicKey.TenantID = scope.ID(ctx)
+			}
+		}
+
+		err = privateKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = database.Insert(db_license_key, string(record), database.SERVERCONF_TABLE_NAME); err != nil {
+
+		err = publicKey.Set(ctx)
+		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		if err = json.Unmarshal([]byte(currentData), &returnData); err != nil {
-			return nil, nil, err
-		}
-		priv, err = ncutils.ConvertBytesToKey(returnData.PrivateKey)
+		priv, err = ncutils.ConvertBytesToKey(base64decode(privateKey.Value))
 		if err != nil {
 			return nil, nil, err
 		}
-		pub, err = ncutils.ConvertBytesToKey(returnData.PublicKey)
+		pub, err = ncutils.ConvertBytesToKey(base64decode(publicKey.Value))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -291,31 +318,33 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 }
 
 func cacheResponse(response []byte) error {
-	lrc := licenseResponseCache{
-		Body: response,
+	cachedResponse := &schema.Internal{
+		Key:   schema.InternalKey_LicenseValidationCachedResponse,
+		Value: base64encode(response),
 	}
-
-	record, err := json.Marshal(&lrc)
-	if err != nil {
-		return err
+	ctx := db.WithContext(context.TODO())
+	if cachedResponse.TenantID == "" {
+		cachedResponse.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
-
-	return database.Insert(license_cache_key, string(record), database.CACHE_TABLE_NAME)
+	return cachedResponse.Set(ctx)
 }
 
 func getCachedResponse() ([]byte, error) {
-	var lrc licenseResponseCache
-	record, err := database.FetchRecord(database.CACHE_TABLE_NAME, license_cache_key)
+	cachedResponse := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationCachedResponse,
+	}
+	err := cachedResponse.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
-	if err = json.Unmarshal([]byte(record), &lrc); err != nil {
-		return nil, err
-	}
-	return lrc.Body, nil
+
+	return base64decode(cachedResponse.Value), nil
 }
 
 // ClearLicenseCache - clears the cached validate response
 func ClearLicenseCache() error {
-	return database.DeleteRecord(database.CACHE_TABLE_NAME, license_cache_key)
+	cachedResponse := &schema.Internal{
+		Key: schema.InternalKey_LicenseValidationCachedResponse,
+	}
+	return cachedResponse.Reset(db.WithContext(context.TODO()))
 }

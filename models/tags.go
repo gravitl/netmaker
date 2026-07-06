@@ -1,35 +1,14 @@
 package models
 
-import (
-	"fmt"
-	"time"
+import "github.com/gravitl/netmaker/schema"
 
-	"github.com/gravitl/netmaker/schema"
-)
-
-type TagID string
+type TagID = schema.TagID
+type Tag = schema.Tag
 
 const (
-	OldRemoteAccessTagName = "remote-access-gws"
-	GwTagName              = "gateways"
+	OldRemoteAccessTagName = schema.OldRemoteAccessTagName
+	GwTagName              = schema.GwTagName
 )
-
-func (id TagID) String() string {
-	return string(id)
-}
-
-func (t Tag) GetIDFromName() string {
-	return fmt.Sprintf("%s.%s", t.Network, t.TagName)
-}
-
-type Tag struct {
-	ID        TagID            `json:"id"`
-	TagName   string           `json:"tag_name"`
-	Network   schema.NetworkID `json:"network"`
-	ColorCode string           `json:"color_code"`
-	CreatedBy string           `json:"created_by"`
-	CreatedAt time.Time        `json:"created_at"`
-}
 
 type CreateTagReq struct {
 	TagName     string           `json:"tag_name"`

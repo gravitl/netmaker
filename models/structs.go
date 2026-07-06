@@ -22,6 +22,7 @@ type FeatureFlags struct {
 	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 	EnableSIEMIntegration         bool `json:"enable_siem_integration"`
+	AllowMultipleTenants          bool `json:"allow_multiple_tenants"`
 }
 
 // AuthParams - struct for auth params
@@ -244,15 +245,6 @@ type IngressRequest struct {
 // InetNodeReq - exit node request struct
 type InetNodeReq struct {
 	InetNodeClientIDs []string `json:"inet_node_client_ids"`
-}
-
-// Telemetry - contains UUID of the server and timestamp of last send to posthog
-// also contains assymetrical encryption pub/priv keys for any server traffic
-type Telemetry struct {
-	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend" swaggertype:"primitive,integer" format:"int64"`
-	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
-	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
@@ -486,13 +478,7 @@ type PostureCheckDeviceInfo struct {
 	EDRState *schema.DeviceEDRState
 }
 
-type Violation struct {
-	CheckID   string          `json:"check_id"`
-	Name      string          `json:"name"`
-	Attribute string          `json:"attribute"`
-	Message   string          `json:"message"`
-	Severity  schema.Severity `json:"severity"`
-}
+type Violation = schema.Violation
 
 type BulkDeleteRequest struct {
 	IDs []string `json:"ids"`

@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -47,8 +48,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	if ops.useKey {
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
-		for _, tag := range ops.key.Groups {
-			n.nodeExt.ConfigureTag(node, tag)
+		for _, tag := range ops.key.Tags {
+			n.nodeExt.ConfigureTag(node, models.TagID(tag))
 		}
 	}
 
@@ -89,6 +90,9 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		node.Address6 = cidr.String()
 	}
 
+	if node.TenantID == "" {
+		node.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	err := node.Create(ctx)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -103,6 +107,9 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	host.Nodes = append(host.Nodes, node.ID)
+	if host.TenantID == "" {
+		host.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	err = host.Upsert(ctx)
 	if err != nil {
 		return nil, err
@@ -127,14 +134,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		if err != nil {
 			return nil, err
 		}
-	} else if ops.useKey && ops.key.Relay != uuid.Nil {
+	} else if ops.useKey && ops.key.GatewayID != nil {
 		gateway := &schema.Node{
-			ID: ops.key.Relay.String(),
+			ID: *ops.key.GatewayID,
 		}
 		err = gateway.Get(ctx)
 		if err == nil {
 			// TODO: merge operation
-			relayID := ops.key.Relay.String()
+			relayID := *ops.key.GatewayID
 			node.RelayedByNodeID = &relayID
 			err = node.UpdateRelayingNode(ctx)
 			if err != nil {
@@ -214,6 +221,9 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
+		if node.Host.TenantID == "" {
+			node.Host.TenantID = scope.ID(logic.DefaultScope(ctx))
+		}
 		err := node.Host.Upsert(ctx)
 		if err != nil {
 			return err

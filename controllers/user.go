@@ -21,9 +21,11 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -40,31 +42,31 @@ var ListRoles = listRoles
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
+	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/validate-identity", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/auth/verify-totp", logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(createUser))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}/enable", logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v2/users", logic.SecurityCheck(true, http.HandlerFunc(listUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/logout", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/validate-identity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/init-totp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/complete-totp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/verify-totp", middleware.Scope(scope.TenantScope, logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUser)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/enable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v2/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/roles", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ListRoles)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost)
 }
 
 // @Summary     Create a user API access token
@@ -135,6 +137,9 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
+	}
+	if req.TenantID == "" {
+		req.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = req.Create(r.Context())
 	if err != nil {
@@ -277,6 +282,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	ctx := logic.DefaultScope(request.Context())
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
@@ -298,7 +304,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	user := &schema.User{Username: authRequest.UserName}
-	err := user.Get(request.Context())
+	err := user.Get(ctx)
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -329,7 +335,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		// request came from UI, if normal user block Login
 
 		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err := role.Get(request.Context())
+		err := role.Get(ctx)
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
@@ -753,16 +759,19 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params = mux.Vars(r)
-	usernameFetched := params["username"]
-	user, err := logic.GetReturnUser(usernameFetched)
-
+	username := params["username"]
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
-	json.NewEncoder(w).Encode(user)
+
+	logger.Log(2, r.Header.Get("user"), "fetched user", username)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(_user))
 }
 
 // @Summary     Enable a user's account
@@ -984,12 +993,18 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	user, err := logic.GetReturnUser(usernameFetched)
+
+	_user := &schema.User{
+		Username: usernameFetched,
+	}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	user := logic.ToReturnUser(_user)
 	user.NumAccessTokens, _ = (&schema.UserAccessToken{
 		UserName: user.UserName,
 	}).CountByUser(r.Context())
@@ -1263,11 +1278,21 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if err = u.UpsertMembership(dbctx); err != nil {
+		slog.Error("error upserting membership for new superadmin: ", "user", u.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	caller.PlatformRoleID = schema.AdminRole
 	err = caller.Update(dbctx)
 	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if err = caller.UpsertMembership(dbctx); err != nil {
+		slog.Error("error upserting membership for demoted admin: ", "user", caller.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1349,6 +1374,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.LogEvent(&models.Event{
@@ -1570,6 +1600,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	go func() {
@@ -1684,10 +1719,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteUser(username)
+	err = user.DeleteMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username,
-			"failed to delete user: ", err.Error())
+			"failed to delete user membership: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -1784,6 +1819,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	go func() {
@@ -1824,8 +1860,9 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: cannot delete idp user", "username", username)
 				continue
 			}
-			if err := logic.DeleteUser(username); err != nil {
-				slog.Error("bulk user delete: failed to delete user", "username", username, "error", err)
+			deleteCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
+			if err := user.DeleteMembership(deleteCtx); err != nil {
+				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
 				continue
 			}
 			logic.LogEvent(&models.Event{

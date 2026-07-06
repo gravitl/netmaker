@@ -18,18 +18,19 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 var cpuProfileLog *os.File
 
 func serverHandlers(r *mux.Router) {
-	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
+	// r.HandleFunc("/api/server/addnetwork/{network}", middleware.Scope(scope.TenantScope, securityCheckServer(true, http.HandlerFunc(addNetwork)))).Methods(http.MethodPost)
 	r.HandleFunc(
 		"/api/server/health",
 		func(resp http.ResponseWriter, req *http.Request) {
@@ -57,23 +58,23 @@ func serverHandlers(r *mux.Router) {
 				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 			})),
 	).Methods(http.MethodPost)
-	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
+	r.HandleFunc("/api/server/getconfig", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
+	r.HandleFunc("/api/server/settings", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", logic.SecurityCheck(true, http.HandlerFunc(updateSettings))).
+	r.HandleFunc("/api/server/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateSettings)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
+	r.HandleFunc("/api/server/getserverinfo", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
+	r.HandleFunc("/api/server/usage", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
+	r.HandleFunc("/api/server/cpu_profile", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(cpuProfile)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
+	r.HandleFunc("/api/server/mem_profile", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(memProfile)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/onboarding", logic.SecurityCheck(true, http.HandlerFunc(getOnboarding))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/onboarding", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -135,8 +136,18 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	// 		isOnTrial = true
 	// 	}
 	// }
+	var isDBConnected bool
+	sqldb, err := db.FromContext(r.Context()).DB()
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+		defer cancel()
+		if sqldb.PingContext(ctx) == nil {
+			isDBConnected = true
+		}
+	}
+
 	currentServerStatus := status{
-		DB:               database.IsConnected(),
+		DB:               isDBConnected,
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,

@@ -12,12 +12,12 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -215,7 +215,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
+		go CheckNetRegAndHostUpdate(schema.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -229,14 +229,12 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, username string) {
+func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	keyTags := make(map[models.TagID]struct{})
-	if len(key.Groups) > 0 {
-		for _, tagI := range key.Groups {
-			keyTags[tagI] = struct{}{}
-		}
+	for _, tagI := range key.Tags {
+		keyTags[models.TagID(tagI)] = struct{}{}
 	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
@@ -277,11 +275,14 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 					EnrollmentKey: keyB,
 					RequestedAt:   time.Now().UTC(),
 				}
+				if p.TenantID == "" {
+					p.TenantID = scope.ID(logic.DefaultScope(context.TODO()))
+				}
 				p.Create(db.WithContext(context.TODO()))
 				continue
 			}
 
-			node, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
+			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
 				db.WithContext(context.TODO()),
 				host,
 				network,
@@ -292,13 +293,6 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 			if err != nil {
 				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			} else {
-				newNode := logic.ConvertSchemaNodeToModelsNode(node)
-				hostactions.AddAction(models.HostUpdate{
-					Action: models.JoinHostToNetwork,
-					Host:   *host,
-					Node:   *newNode,
-				})
-
 				if len(username) > 0 {
 					logic.LogEvent(&models.Event{
 						Action: schema.JoinHostToNet,
@@ -321,7 +315,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, host *schema.Host, usern
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   key.Value,
-							Name: key.Tags[0],
+							Name: key.Name,
 							Type: schema.EnrollmentKeySub,
 						},
 						TriggeredBy: username,

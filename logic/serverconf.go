@@ -1,51 +1,35 @@
 package logic
 
 import (
-	"encoding/json"
-	"time"
+	"context"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
-var (
-	FreeTier = false
-	// DefaultTrialEndDate - is a placeholder date for not applicable trial end dates
-	DefaultTrialEndDate, _ = time.Parse("2006-Jan-02", "2021-Apr-01")
-
-	GetTrialEndDate = func() (time.Time, error) {
-		return DefaultTrialEndDate, nil
+// GetJwtSecretValue fetches jwt secret from db
+func GetJwtSecretValue() (string, error) {
+	jwtSecret := &schema.Internal{
+		Key: schema.InternalKey_JwtSecret,
 	}
-)
-
-type serverData struct {
-	PrivateKey string `json:"privatekey,omitempty" bson:"privatekey,omitempty"`
-}
-
-// FetchJWTSecret - fetches jwt secret from db
-func FetchJWTSecret() (string, error) {
-	var dbData string
-	var err error
-	var fetchedData = serverData{}
-	dbData, err = database.FetchRecord(database.SERVERCONF_TABLE_NAME, "nm-jwt-secret")
+	err := jwtSecret.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return "", err
 	}
-	err = json.Unmarshal([]byte(dbData), &fetchedData)
-	if err != nil {
-		return "", err
-	}
-	return fetchedData.PrivateKey, nil
+
+	return jwtSecret.Value, nil
 }
 
-// StoreJWTSecret - stores server jwt secret if needed
+// StoreJWTSecret stores server jwt secret if needed
 func StoreJWTSecret(privateKey string) error {
-	var newData = serverData{}
-	var err error
-	var data []byte
-	newData.PrivateKey = privateKey
-	data, err = json.Marshal(&newData)
-	if err != nil {
-		return err
+	jwtSecret := &schema.Internal{
+		Key:   schema.InternalKey_JwtSecret,
+		Value: privateKey,
 	}
-	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
+	ctx := db.WithContext(context.TODO())
+	if jwtSecret.TenantID == "" {
+		jwtSecret.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return jwtSecret.Set(ctx)
 }
