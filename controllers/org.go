@@ -27,10 +27,10 @@ func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrgOwner))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrgOwner))).Methods(http.MethodPut)
 
-	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(listOrgTenants))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(createOrgTenant))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(getOrgTenant))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(deleteOrgTenant))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(listTenants))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(createTenant))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(deleteTenant))).Methods(http.MethodDelete)
 }
 
 // @Summary     Get organization SSO settings
@@ -338,7 +338,7 @@ func deleteOrg(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} schema.Tenant
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func listOrgTenants(w http.ResponseWriter, r *http.Request) {
+func listTenants(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
 	t := &schema.Tenant{
@@ -363,7 +363,7 @@ func listOrgTenants(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} schema.Tenant
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func createOrgTenant(w http.ResponseWriter, r *http.Request) {
+func createTenant(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
 	var req schema.Tenant
@@ -402,7 +402,7 @@ func createOrgTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func getOrgTenant(w http.ResponseWriter, r *http.Request) {
+func getTenant(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 	if orgID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization ID not in context"), logic.BadReq))
@@ -438,7 +438,7 @@ func getOrgTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func deleteOrgTenant(w http.ResponseWriter, r *http.Request) {
+func deleteTenant(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 	tenantID := mux.Vars(r)["tenant_id"]
 
