@@ -60,6 +60,15 @@ func (u *User) TableName() string {
 	return "users_v1"
 }
 
+// userWithOrgMembership is a flattened scan target for queries that JOIN org_memberships_v1.
+type userWithOrgMembership struct {
+	User
+	MemberRoleID                     UserRoleID `gorm:"column:member_role_id"`
+	MemberAuthType                   AuthType   `gorm:"column:member_auth_type"`
+	MemberExternalIdentityProviderID string     `gorm:"column:member_external_identity_provider_id"`
+	MemberPassword                   string     `gorm:"column:member_password"`
+}
+
 // userWithMembership is a flattened scan target for queries that JOIN tenant_memberships_v1.
 type userWithMembership struct {
 	User
@@ -96,6 +105,34 @@ func (u *User) Create(ctx context.Context) error {
 func (u *User) Get(ctx context.Context) error {
 	if u.ID == "" && u.Username == "" {
 		return ErrUserIdentifiersNotProvided
+	}
+
+	if scope.Level(ctx) == scope.OrgScope {
+		orgID := scope.ID(ctx)
+		if orgID == "" {
+			return db.FromContext(ctx).Model(&User{}).
+				Where("id = ? OR username = ?", u.ID, u.Username).
+				First(u).
+				Error
+		}
+
+		var row userWithOrgMembership
+		err := db.FromContext(ctx).
+			Table("users_v1").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password").
+			Joins("LEFT JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
+			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
+			First(&row).
+			Error
+		if err != nil {
+			return err
+		}
+		*u = row.User
+		u.PlatformRoleID = row.MemberRoleID
+		u.AuthType = row.MemberAuthType
+		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+		u.Password = row.MemberPassword
+		return nil
 	}
 
 	tenantID := scope.ID(ctx)
