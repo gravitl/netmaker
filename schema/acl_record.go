@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm/clause"
 )
 
 // AllowedTrafficDirection - allowed direction of traffic
@@ -84,25 +86,29 @@ type AclRecord struct {
 func (*AclRecord) TableName() string { return "acls" }
 
 func (r *AclRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(r).Error
+	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).First(r).Error
 }
 
 func (r *AclRecord) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(r).Error
+	r.TenantID = scope.ID(ctx)
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value"}),
+	}).Create(r).Error
 }
 
 func (r *AclRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(r).Error
+	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).Delete(r).Error
 }
 
 func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
 	var records []AclRecord
-	err := db.FromContext(ctx).Find(&records).Error
+	err := db.FromContext(ctx).Where("tenant_id = ?", scope.ID(ctx)).Find(&records).Error
 	return records, err
 }
 
 func (*AclRecord) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&AclRecord{}).Count(&count).Error
+	err := db.FromContext(ctx).Model(&AclRecord{}).Where("tenant_id = ?", scope.ID(ctx)).Count(&count).Error
 	return int(count), err
 }

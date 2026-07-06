@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm/clause"
 )
 
 type DNSEntryType string
@@ -33,25 +35,29 @@ type DNSRecord struct {
 func (*DNSRecord) TableName() string { return "dns" }
 
 func (r *DNSRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(r).Error
+	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).First(r).Error
 }
 
 func (r *DNSRecord) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(r).Error
+	r.TenantID = scope.ID(ctx)
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value"}),
+	}).Create(r).Error
 }
 
 func (r *DNSRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(r).Error
+	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).Delete(r).Error
 }
 
 func (*DNSRecord) List(ctx context.Context) ([]DNSRecord, error) {
 	var records []DNSRecord
-	err := db.FromContext(ctx).Find(&records).Error
+	err := db.FromContext(ctx).Where("tenant_id = ?", scope.ID(ctx)).Find(&records).Error
 	return records, err
 }
 
 func (*DNSRecord) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&DNSRecord{}).Count(&count).Error
+	err := db.FromContext(ctx).Model(&DNSRecord{}).Where("tenant_id = ?", scope.ID(ctx)).Count(&count).Error
 	return int(count), err
 }
