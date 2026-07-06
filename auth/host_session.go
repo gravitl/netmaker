@@ -270,7 +270,7 @@ func joinHostToNetworks(key models.EnrollmentKey, host *schema.Host, username st
 			continue
 		}
 
-		if featureFlags.EnableDeviceApproval && !network.AutoJoin {
+		if featureFlags.EnableDeviceApproval && !network.AutoJoin && !key.SkipDeviceApproval {
 			if err := (&schema.PendingHost{
 				HostID:  host.ID.String(),
 				Network: netID,

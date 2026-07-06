@@ -2,10 +2,8 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -19,12 +17,8 @@ const DeviceHostIDHeader = "X-Host-ID"
 
 var (
 	// EnrichDeviceNetworksWithJIT adds JIT fields to device network responses (Pro).
-	EnrichDeviceNetworksWithJIT = func(_ *schema.User, networks []models.DeviceNetwork) []models.DeviceNetwork {
+	EnrichDeviceNetworksWithJIT = func(_ *schema.User, _ []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
 		return networks
-	}
-	// RequestDeviceJITAccess handles JIT access requests from the device API (Pro).
-	RequestDeviceJITAccess = func(_ *schema.User, _ string, _ string) (any, error) {
-		return nil, errors.New("JIT feature is not enabled")
 	}
 	// PublishHostRegistrationUpdates notifies peers after host network join (wired from mq).
 	PublishHostRegistrationUpdates = func(_ *schema.Host) error { return nil }
@@ -150,12 +144,6 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			"total_networks", len(allNetworks),
 		)
 	}
-	featureFlags := GetFeatureFlags()
-	hostID := ""
-	if host != nil {
-		hostID = host.ID.String()
-	}
-
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
@@ -164,33 +152,15 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			Status:       models.DeviceNetworkStatusAvailable,
 			HasJITAccess: true,
 		}
-		applyDeviceNetworkApprovalPolicy(network, featureFlags, &dn)
 		if host != nil {
-			applyDeviceNetworkHostState(ctx, host, hostID, network, featureFlags, &dn)
+			applyDeviceNetworkHostState(ctx, host, network, &dn)
 		}
 		result = append(result, dn)
 	}
-	return EnrichDeviceNetworksWithJIT(user, result), nil
+	return EnrichDeviceNetworksWithJIT(user, accessible, result), nil
 }
 
-func applyDeviceNetworkApprovalPolicy(network schema.Network, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
-	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-		dn.ApprovalRequired = true
-		if dn.Status == models.DeviceNetworkStatusAvailable {
-			dn.Status = models.DeviceNetworkStatusApprovalRequired
-		}
-	}
-}
-
-func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, hostID string, network schema.Network, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
-	if pending, _ := getPendingHostOnNetwork(ctx, hostID, network.Name); pending != nil {
-		dn.Pending = true
-		dn.Status = models.DeviceNetworkStatusPending
-		ts := pending.RequestedAt.Unix()
-		dn.ApprovalRequestedAt = &ts
-		return
-	}
-
+func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network schema.Network, dn *models.DeviceNetwork) {
 	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
 		dn.Joined = true
 		dn.Connected = node.Connected
@@ -205,10 +175,7 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, hostID 
 	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
 		dn.Status = models.DeviceNetworkStatusBlocked
-		return
 	}
-
-	applyDeviceNetworkApprovalPolicy(network, featureFlags, dn)
 }
 
 func getPendingHostOnNetwork(ctx context.Context, hostID, network string) (*schema.PendingHost, error) {
@@ -261,32 +228,14 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}
 
-	featureFlags := GetFeatureFlags()
-	if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-		p := &schema.PendingHost{HostID: host.ID.String(), Network: networkID}
-		if err := p.CheckIfPendingHostExists(ctx); err == nil {
-			return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
-		}
-		keyB, _ := json.Marshal(models.EnrollmentKey{Networks: []string{networkID}})
-		pending := schema.PendingHost{
-			ID:            uuid.NewString(),
-			HostID:        host.ID.String(),
-			Hostname:      host.Name,
-			Network:       networkID,
-			PublicKey:     host.PublicKey.String(),
-			OS:            host.OS,
-			Location:      host.Location,
-			Version:       host.Version,
-			EnrollmentKey: keyB,
-			RequestedAt:   time.Now().UTC(),
-		}
-		if err := pending.Create(ctx); err != nil {
-			return empty, err
-		}
-		return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
+	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
+		_ = pending.Delete(ctx)
 	}
 
-	JoinHostToNetworks(models.EnrollmentKey{Networks: []string{networkID}}, host, user.Username)
+	JoinHostToNetworks(models.EnrollmentKey{
+		Networks:           []string{networkID},
+		SkipDeviceApproval: true,
+	}, host, user.Username)
 	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 }
 

@@ -222,106 +222,7 @@ func TestIsUserAllowedToJoinNetworkUsesRoleFilter(t *testing.T) {
 	assert.False(t, IsUserAllowedToJoinNetwork("", "allowed-net"))
 }
 
-func TestGetDeviceNetworksApprovalRequiredWithoutHost(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
-	netName := "approval-nohost-" + uuid.NewString()[:8]
-	username := "approval-nohost-user-" + uuid.NewString()[:8]
-
-	origFlags := GetFeatureFlags
-	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
-		flags.EnableDeviceApproval = true
-		return flags
-	}
-
-	require.NoError(t, CreateNetwork(&schema.Network{
-		Name:         netName,
-		AddressRange: "10.97.0.0/24",
-		AutoJoin:     false,
-	}))
-	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
-
-	user := &schema.User{Username: username, PlatformRoleID: schema.AdminRole}
-	require.NoError(t, user.Create(ctx))
-	t.Cleanup(func() { _ = user.Delete(ctx) })
-
-	networks, err := GetDeviceNetworks(ctx, user, nil)
-	require.NoError(t, err)
-	var found models.DeviceNetwork
-	for _, n := range networks {
-		if n.NetworkID == netName {
-			found = n
-			break
-		}
-	}
-	require.Equal(t, netName, found.NetworkID)
-	assert.True(t, found.ApprovalRequired)
-	assert.Equal(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
-}
-
-func TestGetDeviceNetworksShowsPendingApproval(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
-	netName := "pending-list-" + uuid.NewString()[:8]
-	username := "pending-list-user-" + uuid.NewString()[:8]
-
-	origFlags := GetFeatureFlags
-	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
-		flags.EnableDeviceApproval = true
-		return flags
-	}
-
-	require.NoError(t, CreateNetwork(&schema.Network{
-		Name:         netName,
-		AddressRange: "10.96.0.0/24",
-		AutoJoin:     false,
-	}))
-	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
-
-	user := &schema.User{Username: username, PlatformRoleID: schema.AdminRole}
-	require.NoError(t, user.Create(ctx))
-	t.Cleanup(func() { _ = user.Delete(ctx) })
-
-	hostID := uuid.New()
-	host := &schema.Host{
-		ID:               hostID,
-		Name:             "pending-list-host",
-		OS:               "linux",
-		Version:          "dev",
-		HostPass:         "test-pass",
-		TrafficKeyPublic: []byte{1, 2, 3},
-		OwnerUsername:    username,
-	}
-	require.NoError(t, host.Create(ctx))
-	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
-
-	pending := schema.PendingHost{
-		ID:          uuid.NewString(),
-		HostID:      hostID.String(),
-		Network:     netName,
-		RequestedAt: time.Now().UTC(),
-	}
-	require.NoError(t, pending.Create(ctx))
-	t.Cleanup(func() { _ = pending.Delete(ctx) })
-
-	networks, err := GetDeviceNetworks(ctx, user, host)
-	require.NoError(t, err)
-	var found models.DeviceNetwork
-	for _, n := range networks {
-		if n.NetworkID == netName {
-			found = n
-			break
-		}
-	}
-	require.Equal(t, netName, found.NetworkID)
-	assert.True(t, found.Pending)
-	assert.Equal(t, models.DeviceNetworkStatusPending, found.Status)
-	assert.NotNil(t, found.ApprovalRequestedAt)
-}
-
-func TestDeviceApprovalFlow(t *testing.T) {
+func TestUserOwnedDeviceJoinSkipsApproval(t *testing.T) {
 	ctx := db.WithContext(context.TODO())
 	netName := "approval-net-" + uuid.NewString()[:8]
 	username := "approval-user-" + uuid.NewString()[:8]
@@ -358,6 +259,14 @@ func TestDeviceApprovalFlow(t *testing.T) {
 	require.NoError(t, host.Create(ctx))
 	t.Cleanup(func() { _ = host.Delete(ctx) })
 
+	stalePending := schema.PendingHost{
+		ID:          uuid.NewString(),
+		HostID:      hostID.String(),
+		Network:     netName,
+		RequestedAt: time.Now().UTC(),
+	}
+	require.NoError(t, stalePending.Create(ctx))
+
 	networks, err := GetDeviceNetworks(ctx, user, host)
 	require.NoError(t, err)
 	var found models.DeviceNetwork
@@ -368,48 +277,68 @@ func TestDeviceApprovalFlow(t *testing.T) {
 		}
 	}
 	require.Equal(t, netName, found.NetworkID)
-	assert.True(t, found.ApprovalRequired)
-	assert.Equal(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
+	assert.False(t, found.ApprovalRequired)
+	assert.False(t, found.Pending)
+	assert.Equal(t, models.DeviceNetworkStatusAvailable, found.Status)
+
+	var joinKey models.EnrollmentKey
+	origJoin := JoinHostToNetworks
+	JoinHostToNetworks = func(key models.EnrollmentKey, _ *schema.Host, _ string) {
+		joinKey = key
+	}
+	t.Cleanup(func() { JoinHostToNetworks = origJoin })
 
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
+	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
+	assert.True(t, joinKey.SkipDeviceApproval, "device API join must bypass pending-host approval")
 
-	result, err = JoinDeviceNetwork(ctx, user, host, netName)
-	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
+	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
+	require.Error(t, check.CheckIfPendingHostExists(ctx))
+}
 
-	networks, err = GetDeviceNetworks(ctx, user, host)
-	require.NoError(t, err)
-	for _, n := range networks {
-		if n.NetworkID == netName {
-			assert.True(t, n.Pending)
-			assert.Equal(t, models.DeviceNetworkStatusPending, n.Status)
-			assert.NotNil(t, n.ApprovalRequestedAt)
-			break
-		}
+func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
+	ctx := db.WithContext(context.TODO())
+	netName := "cancel-pending-" + uuid.NewString()[:8]
+	username := "cancel-pending-user-" + uuid.NewString()[:8]
+
+	require.NoError(t, CreateNetwork(&schema.Network{
+		Name:         netName,
+		AddressRange: "10.95.0.0/24",
+	}))
+	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
+
+	user := &schema.User{Username: username, PlatformRoleID: schema.AdminRole}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "cancel-pending-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		OwnerUsername:    username,
 	}
+	require.NoError(t, host.Create(ctx))
+	t.Cleanup(func() { _ = host.Delete(ctx) })
 
-	require.NoError(t, LeaveDeviceNetwork(ctx, user, host, netName))
-
-	networks, err = GetDeviceNetworks(ctx, user, host)
-	require.NoError(t, err)
-	for _, n := range networks {
-		if n.NetworkID == netName {
-			assert.False(t, n.Pending)
-			assert.True(t, n.ApprovalRequired)
-			assert.Equal(t, models.DeviceNetworkStatusApprovalRequired, n.Status)
-			break
-		}
+	pending := schema.PendingHost{
+		ID:          uuid.NewString(),
+		HostID:      hostID.String(),
+		Network:     netName,
+		RequestedAt: time.Now().UTC(),
 	}
+	require.NoError(t, pending.Create(ctx))
 
-	_, err = JoinDeviceNetwork(ctx, user, host, netName)
-	require.NoError(t, err)
+	require.NoError(t, CancelDeviceNetworkJoin(ctx, user, host, netName))
 
-	err = CancelDeviceNetworkJoin(ctx, user, host, netName)
-	require.NoError(t, err)
+	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
+	require.Error(t, check.CheckIfPendingHostExists(ctx))
 
-	err = CancelDeviceNetworkJoin(ctx, user, host, netName)
+	err := CancelDeviceNetworkJoin(ctx, user, host, netName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no pending join request")
 }

@@ -625,7 +625,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			"forbidden"))
 		return
 	}
-	// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+	// Set JIT expiry time if grant exists (nil when JIT not enabled or user is outside JIT scope)
 	if grant != nil {
 		extclient.JITExpiresAt = &grant.ExpiresAt
 	}

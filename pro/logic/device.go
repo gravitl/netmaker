@@ -4,9 +4,6 @@
 package logic
 
 import (
-	"errors"
-	"time"
-
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -15,10 +12,9 @@ import (
 // RegisterDeviceHooks wires Pro device API extensions. Called from pro/initialize.go.
 func RegisterDeviceHooks() {
 	logic.EnrichDeviceNetworksWithJIT = enrichDeviceNetworksWithJIT
-	logic.RequestDeviceJITAccess = requestDeviceJITAccess
 }
 
-func enrichDeviceNetworksWithJIT(user *schema.User, networks []models.DeviceNetwork) []models.DeviceNetwork {
+func enrichDeviceNetworksWithJIT(user *schema.User, accessibleNets []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
 	if len(networks) == 0 {
 		return networks
 	}
@@ -27,10 +23,8 @@ func enrichDeviceNetworksWithJIT(user *schema.User, networks []models.DeviceNetw
 		return networks
 	}
 
-	accessibleNets := make([]schema.Network, 0, len(networks))
 	netIndex := make(map[string]int, len(networks))
 	for i, dn := range networks {
-		accessibleNets = append(accessibleNets, schema.Network{Name: dn.NetworkID})
 		netIndex[dn.NetworkID] = i
 	}
 
@@ -64,20 +58,4 @@ func enrichDeviceNetworksWithJIT(user *schema.User, networks []models.DeviceNetw
 		networks[idx] = dn
 	}
 	return networks
-}
-
-func requestDeviceJITAccess(user *schema.User, networkID, reason string) (any, error) {
-	featureFlags := GetFeatureFlags()
-	if !featureFlags.EnableJIT {
-		return nil, errors.New("JIT feature is not enabled")
-	}
-	if !logic.IsUserAllowedToJoinNetwork(user.Username, networkID) {
-		return nil, errors.New("user does not have access to network")
-	}
-	req, err := CreateJITRequest(networkID, user.Username, reason)
-	if err != nil {
-		return nil, err
-	}
-	_ = time.Now()
-	return req, nil
 }

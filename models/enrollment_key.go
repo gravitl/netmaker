@@ -57,6 +57,8 @@ type EnrollmentKey struct {
 	Default           bool      `json:"default"`
 	AutoEgress        bool      `json:"auto_egress"`
 	AutoAssignGateway bool      `json:"auto_assign_gw"`
+	// SkipDeviceApproval bypasses pending-host approval (device JWT API only; not serialized).
+	SkipDeviceApproval bool `json:"-"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API

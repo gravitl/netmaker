@@ -7,7 +7,7 @@ type JITOperationRequest struct {
 	GrantID      string   `json:"grant_id,omitempty"`
 	Reason       string   `json:"reason,omitempty"`
 	ExpiresAt    int64    `json:"expires_at,omitempty"`     // Unix epoch timestamp (seconds) for when access should expire
-	UserGroupIDs []string `json:"user_group_ids,omitempty"` // optional JIT allowlist; empty on enable = all non-admins
+	UserGroupIDs []string `json:"user_group_ids,omitempty"` // optional JIT allowlist; empty on enable = all users
 }
 
 // JITAccessRequest - request body for user JIT access request

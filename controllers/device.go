@@ -24,8 +24,6 @@ func deviceHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/device/networks/{network}/cancel", logic.SecurityCheck(false, http.HandlerFunc(cancelDeviceNetworkJoin))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/device/networks/{network}/jit/request", logic.SecurityCheck(false, http.HandlerFunc(requestDeviceJITAccess))).
-		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/device/sync", logic.SecurityCheck(false, http.HandlerFunc(syncDevice))).
 		Methods(http.MethodPost)
 }
@@ -191,33 +189,6 @@ func cancelDeviceNetworkJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "join request cancelled")
-}
-
-func requestDeviceJITAccess(w http.ResponseWriter, r *http.Request) {
-	user, _, ok := getDeviceUserAndHost(w, r)
-	if !ok {
-		return
-	}
-	network := mux.Vars(r)["network"]
-	if network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
-		return
-	}
-	var req models.DeviceJITAccessRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if req.Reason == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("reason is required"), "badrequest"))
-		return
-	}
-	result, err := logic.RequestDeviceJITAccess(user, network, req.Reason)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
-	logic.ReturnSuccessResponseWithJson(w, r, result, "jit access requested")
 }
 
 func syncDevice(w http.ResponseWriter, r *http.Request) {

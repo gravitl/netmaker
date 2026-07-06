@@ -21,11 +21,6 @@ type DeviceNetwork struct {
 	JITExpiresAt      *int64 `json:"jit_expires_at,omitempty"`
 }
 
-// DeviceJITAccessRequest is the body for requesting JIT access via the device API.
-type DeviceJITAccessRequest struct {
-	Reason string `json:"reason"`
-}
-
 // DeviceJoinResult is returned from the device join API.
 type DeviceJoinResult struct {
 	Status string `json:"status"` // joined | pending
