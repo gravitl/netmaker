@@ -30,6 +30,13 @@ func (o *OrgMembership) Get(ctx context.Context) error {
 		Error
 }
 
+func (o *OrgMembership) GetOwner(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND role_id = ?", o.OrganizationID, OrgOwner).
+		First(o).
+		Error
+}
+
 func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, error) {
 	var memberships []OrgMembership
 	err := db.FromContext(ctx).Model(&OrgMembership{}).
