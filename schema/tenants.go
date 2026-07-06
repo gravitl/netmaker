@@ -74,10 +74,10 @@ func (t *Tenant) ListAll(ctx context.Context) ([]Tenant, error) {
 	return tenants, err
 }
 
-func (t *Tenant) ListByOrg(ctx context.Context, orgID string) ([]Tenant, error) {
+func (t *Tenant) ListByOrg(ctx context.Context) ([]Tenant, error) {
 	var tenants []Tenant
 	err := db.FromContext(ctx).Model(&Tenant{}).
-		Where("organization_id = ?", orgID).
+		Where("organization_id = ?", t.OrganizationID).
 		Find(&tenants).
 		Error
 	return tenants, err
