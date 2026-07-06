@@ -577,7 +577,7 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 		return entry, err
 	}
 	r := &schema.DNSRecord{Key: key}
-	if err = r.Get(db.WithContext(context.TODO())); err != nil {
+	if err = r.Get(logic.DefaultScope(db.WithContext(context.TODO()))); err != nil {
 		return entry, err
 	}
 	entry = r.Value.Data()

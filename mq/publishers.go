@@ -340,7 +340,7 @@ func PushAllMetricsToExporter() {
 		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
 		return
 	}
-	metricRecords, err := (&schema.MetricsRecord{}).List(db.WithContext(context.TODO()))
+	metricRecords, err := (&schema.MetricsRecord{}).List(logic.DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		slog.Error("metrics export: failed to fetch records", "error", err)
 		return

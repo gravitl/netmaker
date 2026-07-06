@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -2930,10 +2929,7 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 	}
 	acl.Enabled = newAcl.Enabled
 	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
@@ -2944,10 +2940,7 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 // UpsertAcl - upserts acl
 func UpsertAcl(acl models.Acl) error {
 	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
@@ -2957,7 +2950,7 @@ func UpsertAcl(acl models.Acl) error {
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(a models.Acl) error {
-	err := (&schema.AclRecord{Key: a.ID}).Delete(db.WithContext(context.TODO()))
+	err := (&schema.AclRecord{Key: a.ID}).Delete(DefaultScope(db.WithContext(context.TODO())))
 	if err == nil && servercfg.CacheEnabled() {
 		removeAclFromCache(a)
 	}
@@ -2969,7 +2962,7 @@ func ListAcls() (acls []models.Acl) {
 		return listAclFromCache()
 	}
 
-	aclRecords, err := (&schema.AclRecord{}).List(db.WithContext(context.TODO()))
+	aclRecords, err := (&schema.AclRecord{}).List(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return []models.Acl{}
 	}
@@ -3172,10 +3165,7 @@ func getAclFromCache(aID string) (a models.Acl, ok bool) {
 // InsertAcl - creates acl policy
 func InsertAcl(a models.Acl) error {
 	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(a)
@@ -3194,7 +3184,7 @@ func GetAcl(aID string) (models.Acl, error) {
 		}
 	}
 	r := &schema.AclRecord{Key: aID}
-	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+	if err := r.Get(DefaultScope(db.WithContext(context.TODO()))); err != nil {
 		return a, err
 	}
 	a = r.Value.Data()

@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -158,7 +157,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
+	if err = (&schema.ExtClientRecord{Key: key}).Delete(DefaultScope(db.WithContext(context.TODO()))); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -220,7 +219,7 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 			return extclients, nil
 		}
 	}
-	records, err := (&schema.ExtClientRecord{}).List(db.WithContext(context.TODO()))
+	records, err := (&schema.ExtClientRecord{}).List(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return extclients, err
 	}
@@ -250,7 +249,7 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 		}
 	}
 	r := &schema.ExtClientRecord{Key: key}
-	if err = r.Get(db.WithContext(context.TODO())); err != nil {
+	if err = r.Get(DefaultScope(db.WithContext(context.TODO()))); err != nil {
 		return extclient, err
 	}
 	extclient = r.Value.Data()
@@ -291,10 +290,7 @@ func SaveExtClient(extclient *models.ExtClient) error {
 		return err
 	}
 	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	if err = r.Upsert(ctx); err != nil {
 		return err
 	}

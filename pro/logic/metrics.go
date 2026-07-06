@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -65,7 +64,7 @@ func LoadNodeMetricsToCache() error {
 	if metricsCacheMap == nil {
 		metricsCacheMap = map[string]models.Metrics{}
 	}
-	records, err := (&schema.MetricsRecord{}).List(db.WithContext(context.Background()))
+	records, err := (&schema.MetricsRecord{}).List(logic.DefaultScope(db.WithContext(context.Background())))
 	if err != nil {
 		return err
 	}
@@ -87,7 +86,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 		}
 	}
 	r := &schema.MetricsRecord{Key: nodeid}
-	if err := r.Get(db.WithContext(context.Background())); err != nil {
+	if err := r.Get(logic.DefaultScope(db.WithContext(context.Background()))); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &metrics, nil
 		}
@@ -105,10 +104,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 	metrics.UpdatedAt = time.Now()
 	r := &schema.MetricsRecord{Key: nodeid, Value: datatypes.NewJSONType(*metrics)}
-	ctx := db.WithContext(context.Background())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
+	ctx := logic.DefaultScope(db.WithContext(context.Background()))
 	if err := r.Upsert(ctx); err != nil {
 		return err
 	}
@@ -120,7 +116,7 @@ func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 
 // DeleteMetrics - deletes metrics of a given node
 func DeleteMetrics(nodeid string) error {
-	if err := (&schema.MetricsRecord{Key: nodeid}).Delete(db.WithContext(context.Background())); err != nil {
+	if err := (&schema.MetricsRecord{Key: nodeid}).Delete(logic.DefaultScope(db.WithContext(context.Background()))); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {

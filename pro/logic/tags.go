@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
@@ -24,7 +23,7 @@ var tagMutex = &sync.RWMutex{}
 // GetTag - fetches tag info
 func GetTag(tagID models.TagID) (models.Tag, error) {
 	r := &schema.TagRecord{Key: tagID.String()}
-	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+	if err := r.Get(logic.DefaultScope(db.WithContext(context.TODO()))); err != nil {
 		return models.Tag{}, err
 	}
 	return r.Value.Data(), nil
@@ -32,10 +31,7 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 
 func UpsertTag(tag models.Tag) error {
 	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 	return r.Upsert(ctx)
 }
 
@@ -43,15 +39,12 @@ func UpsertTag(tag models.Tag) error {
 func InsertTag(tag models.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	ctx := db.WithContext(context.TODO())
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 	r := &schema.TagRecord{Key: tag.ID.String()}
 	if err := r.Get(ctx); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
 	r.Value = datatypes.NewJSONType(tag)
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	return r.Upsert(ctx)
 }
 
@@ -90,7 +83,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 			logic.SaveExtClient(&extclient)
 		}
 	}
-	return (&schema.TagRecord{Key: tagID.String()}).Delete(db.WithContext(context.TODO()))
+	return (&schema.TagRecord{Key: tagID.String()}).Delete(logic.DefaultScope(db.WithContext(context.TODO())))
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
@@ -122,7 +115,7 @@ func DeleteAllNetworkTags(networkID schema.NetworkID) {
 func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	records, err := (&schema.TagRecord{}).List(db.WithContext(context.TODO()))
+	records, err := (&schema.TagRecord{}).List(logic.DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return []models.Tag{}, err
 	}

@@ -251,7 +251,7 @@ func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
 // GetCustomDNS - gets the custom DNS of a network
 func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	records, err := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
+	records, err := (&schema.DNSRecord{}).List(DefaultScope(db.WithContext(context.TODO())))
 	if err != nil {
 		return dns, err
 	}
@@ -270,13 +270,14 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 }
 
 func DeleteNetworkDNS(network string) error {
-	records, err := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
+	ctx := DefaultScope(db.WithContext(context.TODO()))
+	records, err := (&schema.DNSRecord{}).List(ctx)
 	if err != nil {
 		return err
 	}
 	for _, r := range records {
 		if r.Value.Data().Network == network {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
+			_ = (&schema.DNSRecord{Key: r.Key}).Delete(ctx)
 		}
 	}
 	return nil
@@ -431,7 +432,7 @@ func DeleteDNS(domain string, network string) error {
 	if err != nil {
 		return err
 	}
-	return (&schema.DNSRecord{Key: key}).Delete(db.WithContext(context.TODO()))
+	return (&schema.DNSRecord{Key: key}).Delete(DefaultScope(db.WithContext(context.TODO())))
 }
 
 // CreateDNS - creates a DNS entry
@@ -442,10 +443,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 		return models.DNSEntry{}, err
 	}
 	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(DefaultScope(ctx))
-	}
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	return entry, r.Upsert(ctx)
 }
 
