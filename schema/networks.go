@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -62,12 +63,13 @@ func (n *Network) Create(ctx context.Context) error {
 }
 
 func (n *Network) Get(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		First(n).
 		Error
 }
@@ -85,12 +87,13 @@ func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 }
 
 func (n *Network) Update(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Updates(map[string]interface{}{
 			"default_keep_alive":               n.DefaultKeepAlive,
 			"default_mtu":                      n.DefaultMTU,
@@ -108,12 +111,13 @@ func (n *Network) Update(ctx context.Context) error {
 }
 
 func (n *Network) Delete(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Delete(n).
 		Error
 }
@@ -123,12 +127,13 @@ func (n *Network) DeleteAll(ctx context.Context) error {
 }
 
 func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Updates(map[string]interface{}{
 			"nodes_updated_at": n.NodesUpdatedAt,
 		}).
