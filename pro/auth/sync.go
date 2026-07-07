@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // idpSyncStateMtx guards idpSyncLocks and idpSyncErrs below, which track
@@ -96,6 +98,9 @@ func startIDPSyncHookForTenant(tenantID string) {
 
 	settingsRecord := &schema.TenantSettingsRecord{Key: tenantID}
 	if err := settingsRecord.Get(tenantCtx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return
+		}
 		logger.Log(0, "failed to load settings for tenant ", tenantID, ": ", err.Error())
 		return
 	}

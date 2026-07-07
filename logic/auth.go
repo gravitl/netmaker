@@ -454,7 +454,7 @@ func SetState(scope scope.Scope, scopeID, appName, state string) error {
 // Returns an empty slice (not an error) when the user is not found.
 func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.LoginOption, error) {
 	user := &schema.User{Username: username}
-	err := user.Get(db.WithContext(ctx))
+	err := user.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return []models.LoginOption{}, nil
@@ -480,7 +480,11 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		settings := &schema.TenantSettingsRecord{Key: membership.TenantID}
 		err = settings.Get(ctx)
 		if err != nil {
-			continue
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Value = datatypes.NewJSONType(schema.TenantSettings{})
+			} else {
+				continue
+			}
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable
@@ -529,7 +533,9 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		})
 	}
 
-	orgMemberships, err := (&schema.OrgMembership{}).ListByUserID(ctx)
+	orgMemberships, err := (&schema.OrgMembership{
+		UserID: user.ID,
+	}).ListByUserID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing org memberships: %w", err)
 	}
@@ -544,7 +550,11 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		settings := &schema.OrganizationSettings{ID: membership.OrganizationID}
 		err = settings.Get(ctx)
 		if err != nil {
-			continue
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Settings = datatypes.NewJSONType(schema.OrganizationSettingsData{})
+			} else {
+				continue
+			}
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable

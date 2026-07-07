@@ -109,13 +109,6 @@ func (u *User) Get(ctx context.Context) error {
 
 	if scope.Level(ctx) == scope.OrgScope {
 		orgID := scope.ID(ctx)
-		if orgID == "" {
-			return db.FromContext(ctx).Model(&User{}).
-				Where("id = ? OR username = ?", u.ID, u.Username).
-				First(u).
-				Error
-		}
-
 		var row userWithOrgMembership
 		err := db.FromContext(ctx).
 			Table("users_v1").
@@ -135,32 +128,31 @@ func (u *User) Get(ctx context.Context) error {
 		return nil
 	}
 
-	tenantID := scope.ID(ctx)
-	if tenantID == "" {
-		return db.FromContext(ctx).Model(&User{}).
-			Where("id = ? OR username = ?", u.ID, u.Username).
-			First(u).
+	if scope.Level(ctx) == scope.TenantScope {
+		tenantID := scope.ID(ctx)
+		var row userWithMembership
+		err := db.FromContext(ctx).
+			Table("users_v1").
+			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+			Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
+			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
+			First(&row).
 			Error
+		if err != nil {
+			return err
+		}
+		*u = row.User
+		u.PlatformRoleID = row.MemberRoleID
+		u.UserGroups = row.MemberGroups
+		u.AuthType = row.MemberAuthType
+		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+		u.Password = row.MemberPassword
 	}
 
-	var row userWithMembership
-	err := db.FromContext(ctx).
-		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
-		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
-		Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
-		First(&row).
+	return db.FromContext(ctx).Model(&User{}).
+		Where("id = ? OR username = ?", u.ID, u.Username).
+		First(u).
 		Error
-	if err != nil {
-		return err
-	}
-	*u = row.User
-	u.PlatformRoleID = row.MemberRoleID
-	u.UserGroups = row.MemberGroups
-	u.AuthType = row.MemberAuthType
-	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
-	u.Password = row.MemberPassword
-	return nil
 }
 
 func (u *User) GetByExternalID(ctx context.Context) error {
