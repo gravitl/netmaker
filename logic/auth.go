@@ -61,7 +61,7 @@ func IsOauthUser(user *schema.User) error {
 }
 
 // VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
+func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, appName string) (string, error) {
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
@@ -71,7 +71,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(DefaultScope(db.WithContext(context.TODO())))
+	err := _user.Get(ctx)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -101,7 +101,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 
 		// update last login time
 		_user.LastLoginAt = time.Now().UTC()
-		err = _user.Update(db.WithContext(context.TODO()))
+		err = _user.Update(ctx)
 		if err != nil {
 			slog.Error("error upserting user", "error", err)
 			return "", err

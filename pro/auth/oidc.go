@@ -189,7 +189,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		UserName: content.Email,
 		Password: newPass,
 	}
-	jwt, jwtErr := logic.VerifyAuthRequest(authRequest, state.AppName)
+	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
 		return

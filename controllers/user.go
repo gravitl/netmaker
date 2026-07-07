@@ -284,7 +284,6 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
-	ctx := logic.DefaultScope(request.Context())
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
@@ -308,7 +307,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	tenantID := request.Header.Get(scope.HeaderTenantID)
 
 	user := &schema.User{Username: authRequest.UserName}
-	err := user.Get(ctx)
+	err := user.Get(request.Context())
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -347,20 +346,22 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
 
-		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err := role.Get(ctx)
-		if err != nil {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
-		}
-		if role.DenyDashboardAccess {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
+		if scope.Level(request.Context()) == scope.TenantScope {
+			role := &schema.UserRole{ID: user.PlatformRoleID}
+			err = role.Get(request.Context())
+			if err != nil {
+				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+				return
+			}
+			if role.DenyDashboardAccess {
+				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+				return
+			}
 		}
 	}
 
 	username := authRequest.UserName
-	jwt, err := logic.VerifyAuthRequest(authRequest, appName)
+	jwt, err := logic.VerifyAuthRequest(request.Context(), authRequest, appName)
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
