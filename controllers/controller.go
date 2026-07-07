@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/handlers"
@@ -59,6 +60,8 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"authorization",
 			"From-Ui",
 			"X-Application-Name",
+			scope.HeaderOrgID,
+			scope.HeaderTenantID,
 		},
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
