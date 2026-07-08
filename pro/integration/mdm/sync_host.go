@@ -35,7 +35,8 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		if err != nil {
 			return err
 		}
-		return syncHostMDMBySerial(ctx, intg.ID, h, devices)
+		_, err = syncHostMDMBySerial(ctx, intg.ID, h, devices)
+		return err
 	}
 	if strings.TrimSpace(h.SerialNumber) == "" {
 		return clearHostMDMState(ctx, intg.ID, h.ID.String())

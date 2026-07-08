@@ -117,7 +117,7 @@ func (c *Client) ListManagedDevices(ctx context.Context) ([]mdmpkg.ManagedDevice
 }
 
 func (c *Client) listAllManagedDevices(ctx context.Context, tok string) ([]managedDevice, error) {
-	u := devicesURL + "?$select=" + url.QueryEscape(deviceSelect)
+	u := devicesURL + "?$select=" + url.QueryEscape(deviceSelect) + "&$top=999"
 	var out []managedDevice
 	for u != "" {
 		var page managedDevicesPage

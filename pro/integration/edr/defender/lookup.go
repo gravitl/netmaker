@@ -3,6 +3,7 @@ package defender
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,10 +26,12 @@ const managedDeviceSelect = "azureADDeviceId,serialNumber"
 func (c *Client) LookupForHost(ctx context.Context, h schema.Host) (edrpkg.ManagedEndpoint, string, error) {
 	if entra := strings.TrimSpace(h.EntraDeviceID); entra != "" {
 		ep, err := c.lookupMachineByEntraID(ctx, entra)
-		if err != nil {
+		if err != nil && !errors.Is(err, edrpkg.ErrDeviceNotFoundInEDR) {
 			return edrpkg.ManagedEndpoint{}, "", err
 		}
-		return ep, schema.EDRMatchEntraDeviceID, nil
+		if err == nil {
+			return ep, schema.EDRMatchEntraDeviceID, nil
+		}
 	}
 	serial := strings.TrimSpace(h.SerialNumber)
 	if serial == "" {

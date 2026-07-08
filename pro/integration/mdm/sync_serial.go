@@ -13,7 +13,7 @@ func syncHostMDMBySerial(
 	providerID string,
 	h schema.Host,
 	devices []ManagedDevice,
-) error {
+) (bool, error) {
 	for _, d := range devices {
 		if !MatchHostToMDMDeviceBySerial(h, d) {
 			continue
@@ -28,7 +28,13 @@ func syncHostMDMBySerial(
 			LastSyncedAt: time.Now().UTC(),
 			LastSeenAt:   d.LastSeenAt,
 		}
-		return state.Upsert(db.WithContext(ctx))
+		if err := state.Upsert(db.WithContext(ctx)); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
-	return upsertUnmatchedHostMDMState(ctx, providerID, h.ID.String(), schema.MDMMatchSerialNumber)
+	if err := upsertUnmatchedHostMDMState(ctx, providerID, h.ID.String(), schema.MDMMatchSerialNumber); err != nil {
+		return false, err
+	}
+	return false, nil
 }

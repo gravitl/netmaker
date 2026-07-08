@@ -58,7 +58,8 @@ func SyncHostMDMState(ctx context.Context, hostID string) error {
 	if err != nil {
 		return err
 	}
-	return syncHostMDMBySerial(ctx, intg.ID, *h, devices)
+	_, err = syncHostMDMBySerial(ctx, intg.ID, *h, devices)
+	return err
 }
 
 func upsertHostMDMFromEntraLookup(

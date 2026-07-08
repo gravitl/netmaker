@@ -107,11 +107,14 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 				}
 				devicesLoaded = true
 			}
-			if err := syncHostMDMBySerial(ctx, intg.ID, hosts[i], devices); err != nil {
+			ok, err := syncHostMDMBySerial(ctx, intg.ID, hosts[i], devices)
+			if err != nil {
 				logger.Log(0, "mdm sync: serial match for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
-			matched++
+			if ok {
+				matched++
+			}
 		}
 		lastSync = time.Now().UTC()
 		logger.Log(2, "mdm sync: provider=", p.Name(), "matched=", itoa(matched))
