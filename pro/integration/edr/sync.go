@@ -155,7 +155,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 func hostEligibleForEDR(providerID string, h schema.Host) bool {
 	switch providerID {
 	case ProviderDefender:
-		return strings.TrimSpace(h.EntraDeviceID) != ""
+		return strings.TrimSpace(h.EntraDeviceID) != "" || strings.TrimSpace(h.SerialNumber) != ""
 	default:
 		return strings.TrimSpace(h.SerialNumber) != ""
 	}
@@ -169,6 +169,9 @@ func MatchHostToEndpoint(providerID string, h schema.Host, ep ManagedEndpoint) (
 				strings.EqualFold(normalizeGUID(entra), normalizeGUID(deviceEntra)) {
 				return schema.EDRMatchEntraDeviceID, true
 			}
+		}
+		if serialMatch(h.SerialNumber, ep.SerialNumber) {
+			return schema.EDRMatchSerialNumber, true
 		}
 		return "", false
 	default:

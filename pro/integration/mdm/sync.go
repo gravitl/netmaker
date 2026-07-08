@@ -19,7 +19,8 @@ var (
 )
 
 // RunMDMSync refreshes DeviceMDMState for hosts via the active provider.
-// Intune uses Entra-keyed lookup; other providers list devices and match serial_number.
+// Intune prefers Entra-keyed lookup and falls back to serial_number when entra_device_id
+// is absent; other providers list devices and match serial_number.
 // Honours sync_interval_minutes from integration config as an optional per-tick
 // rate-limit hint. Returns nil (no-op) if MDM is not configured.
 func RunMDMSync(ctx context.Context) error {
@@ -80,15 +81,34 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 
 	matched := 0
 	if lookup, ok := p.(EntraDeviceLookup); ok {
+		var devices []ManagedDevice
+		devicesLoaded := false
 		for i := range hosts {
-			if hosts[i].EntraDeviceID == "" {
+			if strings.TrimSpace(hosts[i].EntraDeviceID) != "" {
+				if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
+					logger.Log(0, "mdm sync: entra lookup for host", hosts[i].ID.String(), ":", err.Error())
+					continue
+				}
+				matched++
+				continue
+			}
+			if strings.TrimSpace(hosts[i].SerialNumber) == "" {
 				if err := clearHostMDMState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
 					logger.Log(0, "mdm sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
 				}
 				continue
 			}
-			if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
-				logger.Log(0, "mdm sync: entra lookup for host", hosts[i].ID.String(), ":", err.Error())
+			if !devicesLoaded {
+				var err error
+				devices, err = p.ListManagedDevices(ctx)
+				if err != nil {
+					logger.Log(0, "mdm sync: list devices:", err.Error())
+					return err
+				}
+				devicesLoaded = true
+			}
+			if err := syncHostMDMBySerial(ctx, intg.ID, hosts[i], devices); err != nil {
+				logger.Log(0, "mdm sync: serial match for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
 			matched++

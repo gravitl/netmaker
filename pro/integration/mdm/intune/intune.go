@@ -24,7 +24,7 @@ const (
 	tokenScope      = "https://graph.microsoft.com/.default"
 	entraDevicesURL = "https://graph.microsoft.com/v1.0/devices"
 	devicesURL      = "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices"
-	deviceSelect    = "id,azureADDeviceId,serialNumber,hardwareInformation,deviceName,userPrincipalName,managementState,deviceRegistrationState,enrolledDateTime,complianceState,lastSyncDateTime"
+	deviceSelect    = "id,azureADDeviceId,serialNumber,deviceName,userPrincipalName,managementState,deviceRegistrationState,enrolledDateTime,complianceState,lastSyncDateTime"
 )
 
 func init() {
@@ -97,11 +97,40 @@ func (c *Client) Verify(ctx context.Context) error {
 	return nil
 }
 
-// ListManagedDevices is not used for Intune posture checks; hosts are resolved
-// per entra_device_id via LookupByEntraDeviceID (/devices, then managedDevices
-// only when /devices returns no match).
+// ListManagedDevices returns Intune managed devices for serial_number matching
+// when a host has no entra_device_id. Entra-keyed posture checks use
+// LookupByEntraDeviceID instead.
 func (c *Client) ListManagedDevices(ctx context.Context) ([]mdmpkg.ManagedDevice, error) {
-	return nil, nil
+	tok, err := c.accessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.listAllManagedDevices(ctx, tok)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]mdmpkg.ManagedDevice, 0, len(raw))
+	for _, d := range raw {
+		out = append(out, normalize(d))
+	}
+	return out, nil
+}
+
+func (c *Client) listAllManagedDevices(ctx context.Context, tok string) ([]managedDevice, error) {
+	u := devicesURL + "?$select=" + url.QueryEscape(deviceSelect)
+	var out []managedDevice
+	for u != "" {
+		var page managedDevicesPage
+		if err := c.graphGet(ctx, tok, u, &page); err != nil {
+			return nil, err
+		}
+		if page.Error.Code != "" {
+			return nil, fmt.Errorf("intune list devices: %s", page.Error.Message)
+		}
+		out = append(out, page.Value...)
+		u = page.NextLink
+	}
+	return out, nil
 }
 
 func (c *Client) accessToken(ctx context.Context) (string, error) {
@@ -175,7 +204,6 @@ func normalize(d managedDevice) mdmpkg.ManagedDevice {
 		ProviderDeviceID:  d.ID,
 		AzureADDeviceID:   d.AzureADDeviceID,
 		SerialNumber:      d.SerialNumber,
-		HardwareUUID:      d.HardwareInformation.SerialNumber,
 		DeviceName:        d.DeviceName,
 		UserPrincipalName: d.UserPrincipalName,
 		Enrolled:          intuneDeviceEnrolled(d),
@@ -207,8 +235,7 @@ type managedDevice struct {
 	DeviceRegistrationState string              `json:"deviceRegistrationState"`
 	EnrolledDateTime        string              `json:"enrolledDateTime"`
 	ComplianceState         string              `json:"complianceState"`
-	LastSyncDateTime        string              `json:"lastSyncDateTime"`
-	HardwareInformation     hardwareInformation `json:"hardwareInformation"`
+	LastSyncDateTime        string `json:"lastSyncDateTime"`
 }
 
 type entraDevice struct {
@@ -224,10 +251,6 @@ type entraDevice struct {
 type entraDevicesPage struct {
 	Value []entraDevice `json:"value"`
 	Error errorBody     `json:"error"`
-}
-
-type hardwareInformation struct {
-	SerialNumber string `json:"serialNumber"`
 }
 
 type errorBody struct {
