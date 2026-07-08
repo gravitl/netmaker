@@ -297,8 +297,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
+	if (node.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
+		(peerNode.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) ||
+		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
+		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -309,7 +311,8 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if logic.IsInternetGw(node) && (peerNode.InternetGwID == node.ID.String() ||
+		(peerNode.SelectedInternetEgressID != "" && logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network))) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -624,8 +627,10 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
+	if (node.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
+		(peerNode.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) ||
+		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
+		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -636,7 +641,8 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if logic.IsInternetGw(node) && (peerNode.InternetGwID == node.ID.String() ||
+		(peerNode.SelectedInternetEgressID != "" && logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network))) {
 		logic.ReturnErrorResponse(
 			w,
 			r,

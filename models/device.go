@@ -39,3 +39,20 @@ const (
 	DeviceNetworkStatusJITRequired      = "jit_required"
 	DeviceNetworkStatusApprovalRequired = "approval_required"
 )
+
+// DeviceExitNode describes an internet egress exit node available to a desktop device.
+type DeviceExitNode struct {
+	EgressID         string `json:"egress_id"`
+	Name             string `json:"name"`
+	Description      string `json:"description,omitempty"`
+	Network          string `json:"network"`
+	RoutingNodeID    string `json:"routing_node_id,omitempty"`
+	RoutingHostName  string `json:"routing_host_name,omitempty"`
+	Selected         bool   `json:"selected"`
+	Status           bool   `json:"status"`
+}
+
+// DeviceExitNodeSelectionReq selects or clears the exit node for a device on a network.
+type DeviceExitNodeSelectionReq struct {
+	EgressID string `json:"egress_id"`
+}

@@ -8,7 +8,9 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -26,13 +28,25 @@ func validateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
+	NormalizeEgressType(e)
 	if err := ValidateEgressAppNATMode(*e); err != nil {
 		return err
 	}
 	if err := ValidateEgressProOnlyFeatures(*e); err != nil {
 		return err
 	}
-	if e.Nat {
+	if IsEgressInternetGateway(*e) {
+		e.Type = schema.EgressTypeInternet
+		e.Range = "*"
+		e.Domains = nil
+		e.PresetID = ""
+		e.VirtualRange = ""
+		if e.Nat {
+			e.Mode = schema.DirectNAT
+		} else {
+			e.Mode = schema.DisabledNAT
+		}
+	} else if e.Nat {
 		e.Mode = schema.DirectNAT
 	} else {
 		e.Mode = schema.DisabledNAT
@@ -53,11 +67,19 @@ func validateEgressReq(e *schema.Egress) error {
 
 	if len(e.Nodes) > 0 {
 		for k := range e.Nodes {
-			_, err := GetNodeByID(k)
+			node, err := GetNodeByID(k)
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if IsEgressInternetGateway(*e) {
+				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
+					return err
+				}
+			}
 		}
+	}
+	if IsEgressInternetGateway(*e) && len(e.Tags) > 0 {
+		return errors.New("internet egress must use explicit routing nodes, not tags")
 	}
 	return nil
 }
@@ -111,17 +133,291 @@ func IsDomainBasedEgress(e schema.Egress) bool {
 	return len(ConfiguredDomainsForEgress(e)) > 0
 }
 
-// IsEgressInternetGateway is true when range is "*" (full internet egress).
+// IsEgressInternetGateway is true when type is internet or range is "*" (full internet egress).
 func IsEgressInternetGateway(e schema.Egress) bool {
+	if e.Type == schema.EgressTypeInternet {
+		return true
+	}
 	return strings.TrimSpace(e.Range) == "*"
 }
 
-// IsEgressReqInternetGateway is true when the request uses range "*" for internet egress.
+// IsEgressReqInternetGateway is true when the request uses type internet or range "*" for internet egress.
 func IsEgressReqInternetGateway(req *models.EgressReq) bool {
 	if req == nil {
 		return false
 	}
+	if req.Type == schema.EgressTypeInternet {
+		return true
+	}
 	return strings.TrimSpace(req.Range) == "*"
+}
+
+// InferEgressType derives the egress type from request fields when Type is unset.
+func InferEgressType(req *models.EgressReq) schema.EgressType {
+	if req == nil {
+		return schema.EgressTypeCIDR
+	}
+	if req.Type != "" {
+		return req.Type
+	}
+	if strings.TrimSpace(req.Range) == "*" {
+		return schema.EgressTypeInternet
+	}
+	if strings.TrimSpace(req.PresetID) != "" {
+		return schema.EgressTypeApp
+	}
+	if len(req.Domains) > 0 {
+		return schema.EgressTypeDomain
+	}
+	return schema.EgressTypeCIDR
+}
+
+// NormalizeEgressType sets Type from range/domains/preset when empty, and forces internet invariants.
+func NormalizeEgressType(e *schema.Egress) {
+	if e == nil {
+		return
+	}
+	if e.Type == "" {
+		switch {
+		case strings.TrimSpace(e.Range) == "*":
+			e.Type = schema.EgressTypeInternet
+		case strings.TrimSpace(e.PresetID) != "":
+			e.Type = schema.EgressTypeApp
+		case len(ConfiguredDomainsForEgress(*e)) > 0:
+			e.Type = schema.EgressTypeDomain
+		default:
+			e.Type = schema.EgressTypeCIDR
+		}
+	}
+	if e.Type == schema.EgressTypeInternet {
+		e.Range = "*"
+		e.Domains = nil
+		e.PresetID = ""
+		e.VirtualRange = ""
+	}
+}
+
+// InternetEgressRanges returns the WireGuard/firewall ranges for an internet egress.
+func InternetEgressRanges(includeIPv6 bool) []string {
+	ranges := []string{IPv4Network}
+	if includeIPv6 {
+		ranges = append(ranges, IPv6Network)
+	}
+	return ranges
+}
+
+// ExpandEgressRouteRanges maps an egress resource to concrete CIDR ranges for peer/firewall config.
+// Internet egress expands "*" to 0.0.0.0/0 (and optionally ::/0).
+func ExpandEgressRouteRanges(e schema.Egress, includeIPv6 bool) []string {
+	if IsEgressInternetGateway(e) {
+		return InternetEgressRanges(includeIPv6)
+	}
+	if e.Range != "" {
+		egressRange := e.Range
+		if e.Nat && e.VirtualRange != "" {
+			egressRange = e.VirtualRange
+		}
+		return []string{egressRange}
+	}
+	return AllDomainAnsFromEgress(e)
+}
+
+// ValidateInternetEgressRoutingNode ensures a routing node can act as an internet exit node.
+func ValidateInternetEgressRoutingNode(node *models.Node) error {
+	if node == nil {
+		return errors.New("routing node is required")
+	}
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		return err
+	}
+	if host.OS != models.OS_Types.Linux {
+		return errors.New("only linux nodes can be internet egress routing nodes")
+	}
+	if host.FirewallInUse == schema.FIREWALL_NONE {
+		return errors.New("iptables or nftables needs to be installed")
+	}
+	if node.SelectedInternetEgressID != "" || node.InternetGwID != "" {
+		return fmt.Errorf("node %s is using an internet gateway already", host.Name)
+	}
+	if node.IsRelayed {
+		return fmt.Errorf("node %s is being relayed", host.Name)
+	}
+	return nil
+}
+
+// NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
+func NodeIsInternetEgressRouter(nodeID, network string) bool {
+	if nodeID == "" || network == "" {
+		return false
+	}
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil {
+		return false
+	}
+	for _, e := range eli {
+		if !e.Status || !IsEgressInternetGateway(e) {
+			continue
+		}
+		if _, ok := e.Nodes[nodeID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// GetSelectedInternetEgress returns the internet egress selected by the node, if any and still valid.
+func GetSelectedInternetEgress(node *models.Node) (*schema.Egress, error) {
+	if node == nil || node.SelectedInternetEgressID == "" {
+		return nil, errors.New("no internet egress selected")
+	}
+	e := &schema.Egress{ID: node.SelectedInternetEgressID}
+	if err := e.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, err
+	}
+	if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(*e) {
+		return nil, errors.New("selected internet egress is not available")
+	}
+	return e, nil
+}
+
+// FirstInternetEgressRoutingNodeID returns a routing node ID from an internet egress.
+func FirstInternetEgressRoutingNodeID(e schema.Egress) string {
+	for nodeID := range e.Nodes {
+		if nodeID != "" {
+			return nodeID
+		}
+	}
+	return ""
+}
+
+// CreateInternetEgressForNode creates an internet-type egress with the given node as routing node.
+func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, createdBy string) (*schema.Egress, error) {
+	if node == nil {
+		return nil, errors.New("routing node is required")
+	}
+	if err := ValidateInternetEgressRoutingNode(node); err != nil {
+		return nil, err
+	}
+	if name == "" {
+		host := &schema.Host{ID: node.HostID}
+		_ = host.Get(db.WithContext(ctx))
+		if host.Name != "" {
+			name = host.Name + "-internet"
+		} else {
+			name = node.ID.String() + "-internet"
+		}
+	}
+	e := &schema.Egress{
+		ID:          uuid.New().String(),
+		Name:        name,
+		Network:     node.Network,
+		Type:        schema.EgressTypeInternet,
+		Range:       "*",
+		Nat:         true,
+		Mode:        schema.DirectNAT,
+		Nodes:       datatypes.JSONMap{node.ID.String(): 256},
+		Tags:        make(datatypes.JSONMap),
+		Status:      true,
+		CreatedBy:   createdBy,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if err := ValidateEgressReq(e); err != nil {
+		return nil, err
+	}
+	if e.TenantID == "" {
+		// tenant may be set by caller/middleware; leave empty if unset
+	}
+	if err := e.Create(db.WithContext(ctx)); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// FindInternetEgressByRoutingNode returns an active internet egress that uses nodeID as a routing node.
+func FindInternetEgressByRoutingNode(ctx context.Context, network, nodeID string) (*schema.Egress, error) {
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	for i := range eli {
+		e := eli[i]
+		if !IsEgressInternetGateway(e) {
+			continue
+		}
+		if _, ok := e.Nodes[nodeID]; ok {
+			return &e, nil
+		}
+	}
+	return nil, errors.New("internet egress not found for routing node")
+}
+
+// SetNodeSelectedInternetEgress sets or clears the node's selected internet egress and syncs legacy InternetGwID.
+func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
+	if node == nil {
+		return errors.New("node is required")
+	}
+	if egressID == "" {
+		node.SelectedInternetEgressID = ""
+		node.InternetGwID = ""
+		return UpsertNode(node)
+	}
+	e := &schema.Egress{ID: egressID}
+	if err := e.Get(db.WithContext(context.TODO())); err != nil {
+		return err
+	}
+	if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(*e) {
+		return errors.New("egress is not an active internet exit node in this network")
+	}
+	routingNodeID := FirstInternetEgressRoutingNodeID(*e)
+	if routingNodeID == "" {
+		return errors.New("internet egress has no routing node")
+	}
+	if routingNodeID == node.ID.String() {
+		return errors.New("routing node cannot select itself as exit node")
+	}
+	node.SelectedInternetEgressID = egressID
+	node.InternetGwID = routingNodeID
+	return UpsertNode(node)
+}
+
+// ClearNodesSelectedInternetEgress clears SelectedInternetEgressID for all nodes that selected this egress.
+func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network string) {
+	if egressID == "" || network == "" {
+		return
+	}
+	nodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.SelectedInternetEgressID == egressID {
+			node.SelectedInternetEgressID = ""
+			if node.InternetGwID != "" {
+				node.InternetGwID = ""
+			}
+			_ = UpsertNode(&node)
+		}
+	}
+}
+
+// DeleteInternetEgressesForRoutingNode removes internet egress resources where nodeID is a routing node.
+func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID string) {
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	if err != nil {
+		return
+	}
+	for _, e := range eli {
+		if !IsEgressInternetGateway(e) {
+			continue
+		}
+		if _, ok := e.Nodes[nodeID]; !ok {
+			continue
+		}
+		ClearNodesSelectedInternetEgress(ctx, e.ID, network)
+		_ = e.Delete(db.WithContext(ctx))
+	}
 }
 
 // EgressDomainsEqual compares two domain lists as sets (order-independent).
@@ -272,6 +568,71 @@ func snapshotNodeTagIDs(n *models.Node) []models.TagID {
 	return out
 }
 
+func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, metric uint32, includeIPv6 bool) {
+	if req == nil {
+		return
+	}
+	if IsEgressInternetGateway(e) {
+		ranges := ExpandEgressRouteRanges(e, includeIPv6)
+		req.Ranges = append(req.Ranges, ranges...)
+		for _, rangeI := range ranges {
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				EgressID:    e.ID,
+				EgressName:  e.Name,
+				Network:     rangeI,
+				Nat:         e.Nat,
+				Mode:        e.Mode,
+				RouteMetric: metric,
+			})
+		}
+		return
+	}
+	if e.Range != "" {
+		egressRange := e.Range
+		if e.Nat && e.VirtualRange != "" {
+			egressRange = e.VirtualRange
+		}
+		req.Ranges = append(req.Ranges, egressRange)
+		req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+			EgressID:       e.ID,
+			EgressName:     e.Name,
+			Network:        e.Range,
+			VirtualNetwork: e.VirtualRange,
+			Nat:            e.Nat,
+			Mode:           e.Mode,
+			RouteMetric:    metric,
+		})
+	}
+	if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+		req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+		for _, domainAnsI := range AllDomainAnsFromEgress(e) {
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				EgressID:       e.ID,
+				EgressName:     e.Name,
+				Network:        domainAnsI,
+				VirtualNetwork: e.VirtualRange,
+				Nat:            e.Nat,
+				Mode:           e.Mode,
+				RouteMetric:    metric,
+			})
+		}
+	} else if e.Range == "" {
+		req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
+	}
+}
+
+// nodeUsesInternetEgress reports whether the client node should receive routes for this internet egress.
+func nodeUsesInternetEgress(node *models.Node, e schema.Egress, routingNodeID string) bool {
+	if node == nil || !IsEgressInternetGateway(e) {
+		return false
+	}
+	if node.SelectedInternetEgressID != "" {
+		return node.SelectedInternetEgressID == e.ID
+	}
+	// Legacy shim: assigned via InternetGwID to the routing node.
+	return node.InternetGwID != "" && node.InternetGwID == routingNodeID
+}
+
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
@@ -280,8 +641,12 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		NatEnabled: "yes",
 	}
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
+	includeIPv6 := targetNode.Address6.IP != nil
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
+			continue
+		}
+		if IsEgressInternetGateway(e) && !nodeUsesInternetEgress(node, e, targetNode.ID.String()) {
 			continue
 		}
 		if !isDefaultPolicyActive {
@@ -303,44 +668,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			if err != nil {
 				m64 = 256
 			}
-			m := uint32(m64)
-			if e.Range != "" {
-				// Use virtual NAT range if enabled, otherwise use original range
-				egressRange := e.Range
-				if e.Nat && e.VirtualRange != "" {
-					egressRange = e.VirtualRange
-				}
-				req.Ranges = append(req.Ranges, egressRange)
-			} else {
-				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-			}
-
-			if e.Range != "" {
-				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-					EgressID:       e.ID,
-					EgressName:     e.Name,
-					Network:        e.Range,
-					VirtualNetwork: e.VirtualRange,
-					Nat:            e.Nat,
-					Mode:           e.Mode,
-					RouteMetric:    m,
-				})
-			}
-			if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
-				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-				for _, domainAnsI := range AllDomainAnsFromEgress(e) {
-					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:       e.ID,
-						EgressName:     e.Name,
-						Network:        domainAnsI,
-						VirtualNetwork: e.VirtualRange,
-						Nat:            e.Nat,
-						Mode:           e.Mode,
-						RouteMetric:    m,
-					})
-				}
-
-			}
+			appendEgressRangesToReq(&req, e, uint32(m64), includeIPv6)
 		}
 		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
@@ -348,44 +676,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				if err != nil {
 					m64 = 256
 				}
-				m := uint32(m64)
-				if e.Range != "" {
-					// Use virtual NAT range if enabled, otherwise use original range
-					egressRange := e.Range
-					if e.Nat && e.VirtualRange != "" {
-						egressRange = e.VirtualRange
-					}
-					req.Ranges = append(req.Ranges, egressRange)
-				} else {
-					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-				}
-
-				if e.Range != "" {
-					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:       e.ID,
-						EgressName:     e.Name,
-						Network:        e.Range,
-						VirtualNetwork: e.VirtualRange,
-						Nat:            e.Nat,
-						Mode:           e.Mode,
-						RouteMetric:    m,
-					})
-				}
-				if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
-					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-					for _, domainAnsI := range AllDomainAnsFromEgress(e) {
-						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-							EgressID:       e.ID,
-							EgressName:     e.Name,
-							Network:        domainAnsI,
-							VirtualNetwork: e.VirtualRange,
-							Nat:            e.Nat,
-							Mode:           e.Mode,
-							RouteMetric:    m,
-						})
-					}
-
-				}
+				appendEgressRangesToReq(&req, e, uint32(m64), includeIPv6)
 				break
 			}
 		}
@@ -498,6 +789,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 		NatEnabled: "yes",
 	}
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
+	includeIPv6 := targetNode.Address6.IP != nil
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -507,40 +799,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 			if err != nil {
 				m64 = 256
 			}
-			m := uint32(m64)
-			if e.Range != "" {
-				// Use virtual NAT range if enabled, otherwise use original range
-				egressRange := e.Range
-				if e.Nat && e.VirtualRange != "" {
-					egressRange = e.VirtualRange
-				}
-				req.Ranges = append(req.Ranges, egressRange)
-				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-					EgressID:       e.ID,
-					EgressName:     e.Name,
-					Network:        e.Range,
-					VirtualNetwork: e.VirtualRange,
-					Nat:            e.Nat,
-					Mode:           e.Mode,
-					RouteMetric:    m,
-				})
-			}
-			if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
-				req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-				for _, domainAnsI := range AllDomainAnsFromEgress(e) {
-					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:       e.ID,
-						EgressName:     e.Name,
-						Network:        domainAnsI,
-						VirtualNetwork: e.VirtualRange,
-						Nat:            e.Nat,
-						Mode:           e.Mode,
-						RouteMetric:    m,
-					})
-				}
-
-			}
-
+			appendEgressRangesToReq(&req, e, uint32(m64), includeIPv6)
 		}
 		for _, tagID := range nodeTagIDs {
 			if metric, ok := e.Tags[tagID.String()]; ok {
@@ -548,44 +807,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				if err != nil {
 					m64 = 256
 				}
-				m := uint32(m64)
-				if e.Range != "" {
-					// Use virtual NAT range if enabled, otherwise use original range
-					egressRange := e.Range
-					if e.Nat && e.VirtualRange != "" {
-						egressRange = e.VirtualRange
-					}
-					req.Ranges = append(req.Ranges, egressRange)
-				} else {
-					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-				}
-
-				if e.Range != "" {
-					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:       e.ID,
-						EgressName:     e.Name,
-						Network:        e.Range,
-						VirtualNetwork: e.VirtualRange,
-						Nat:            e.Nat,
-						Mode:           e.Mode,
-						RouteMetric:    m,
-					})
-				}
-				if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
-					req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
-					for _, domainAnsI := range AllDomainAnsFromEgress(e) {
-						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-							EgressID:       e.ID,
-							EgressName:     e.Name,
-							Network:        domainAnsI,
-							Nat:            e.Nat,
-							Mode:           e.Mode,
-							VirtualNetwork: e.VirtualRange,
-							RouteMetric:    m,
-						})
-					}
-
-				}
+				appendEgressRangesToReq(&req, e, uint32(m64), includeIPv6)
 				break
 			}
 		}

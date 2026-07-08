@@ -98,19 +98,27 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var egressRange string
-	if !inetGw {
-		if len(normDomains) > 0 {
-			egressRange = ""
-		} else if req.Range != "" {
-			egressRange, err = logic.NormalizeCIDR(req.Range)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	} else {
+	egressType := logic.InferEgressType(&req)
+	if inetGw {
+		egressType = schema.EgressTypeInternet
 		egressRange = "*"
 		req.Domains = nil
+		req.PresetID = ""
+	} else if len(normDomains) > 0 {
+		egressRange = ""
+		if egressType == "" || egressType == schema.EgressTypeCIDR {
+			if req.PresetID != "" {
+				egressType = schema.EgressTypeApp
+			} else {
+				egressType = schema.EgressTypeDomain
+			}
+		}
+	} else if req.Range != "" {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -123,6 +131,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Name:        req.Name,
 		Network:     req.Network,
 		Description: req.Description,
+		Type:        egressType,
 		Range:       egressRange,
 		Nat:         req.Nat,
 		Mode:        req.Mode,
@@ -307,19 +316,27 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var egressRange string
-	if !inetGw {
-		if len(normDomains) > 0 {
-			egressRange = ""
-		} else if req.Range != "" {
-			egressRange, err = logic.NormalizeCIDR(req.Range)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	} else {
+	egressType := logic.InferEgressType(&req)
+	if inetGw {
+		egressType = schema.EgressTypeInternet
 		egressRange = "*"
 		req.Domains = nil
+		req.PresetID = ""
+	} else if len(normDomains) > 0 {
+		egressRange = ""
+		if egressType == "" || egressType == schema.EgressTypeCIDR {
+			if req.PresetID != "" {
+				egressType = schema.EgressTypeApp
+			} else {
+				egressType = schema.EgressTypeDomain
+			}
+		}
+	} else if req.Range != "" {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -333,6 +350,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	oldMode := e.Mode
 
 	e.Range = egressRange
+	e.Type = egressType
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -417,6 +435,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	updateMap := map[string]any{
 		"name":                 e.Name,
 		"description":          e.Description,
+		"egress_type":          e.Type,
 		"range":                e.Range,
 		"domains":              e.Domains,
 		"nat":                  e.Nat,
@@ -503,6 +522,9 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
+	}
+	if logic.IsEgressInternetGateway(e) {
+		logic.ClearNodesSelectedInternetEgress(r.Context(), e.ID, e.Network)
 	}
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,

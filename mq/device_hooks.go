@@ -14,6 +14,9 @@ func init() {
 	logic.RequestHostPullUpdate = requestHostPullUpdate
 	logic.ProvisionDeviceHostMessaging = provisionDeviceHostMessaging
 	logic.CleanupDeviceHostForOwnershipTransfer = cleanupDeviceHostForOwnershipTransfer
+	logic.PublishPeerUpdateAfterExitNodeChange = func() {
+		_ = PublishPeerUpdate(false)
+	}
 }
 
 func provisionDeviceHostMessaging(host *schema.Host) error {

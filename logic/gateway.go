@@ -23,9 +23,12 @@ var (
 	IPv6Network = "::/0"
 )
 
-// IsInternetGw - checks if node is acting as internet gw
+// IsInternetGw - checks if node is acting as internet gw (legacy flag or internet egress router)
 func IsInternetGw(node models.Node) bool {
-	return node.IsInternetGateway
+	if node.IsInternetGateway {
+		return true
+	}
+	return NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 }
 
 // CreateEgressGateway - creates an egress gateway
@@ -327,7 +330,7 @@ func UnsetInternetGw(node *models.Node) {
 }
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if relay.InternetGwID != "" {
+	if relay.InternetGwID != "" || relay.SelectedInternetEgressID != "" {
 		relayedHost := &schema.Host{
 			ID: relayed.HostID,
 		}
@@ -346,25 +349,34 @@ func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.
 }
 
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if node.InternetGwID != "" {
+	inetNodeID := node.InternetGwID
+	if node.SelectedInternetEgressID != "" {
+		if e, err := GetSelectedInternetEgress(&node); err == nil {
+			if routingNodeID := FirstInternetEgressRoutingNodeID(*e); routingNodeID != "" {
+				inetNodeID = routingNodeID
+			}
+		}
+	}
+	if inetNodeID == "" {
+		return peerUpdate
+	}
 
-		inetNode, err := GetNodeByID(node.InternetGwID)
-		if err != nil {
-			return peerUpdate
-		}
-		host := &schema.Host{
-			ID: node.HostID,
-		}
-		err = host.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			return peerUpdate
-		}
+	inetNode, err := GetNodeByID(inetNodeID)
+	if err != nil {
+		return peerUpdate
+	}
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return peerUpdate
+	}
 
-		peerUpdate.ChangeDefaultGw = true
-		peerUpdate.DefaultGwIp = inetNode.Address.IP
-		if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
-			peerUpdate.DefaultGwIp = inetNode.Address6.IP
-		}
+	peerUpdate.ChangeDefaultGw = true
+	peerUpdate.DefaultGwIp = inetNode.Address.IP
+	if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
+		peerUpdate.DefaultGwIp = inetNode.Address6.IP
 	}
 	return peerUpdate
 }

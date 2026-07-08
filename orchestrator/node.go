@@ -245,7 +245,18 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		node.RelayedClients[relayedClientID] = struct{}{}
 	}
 
+	var internetEgress *schema.Egress
 	if ops.isInternetGateway {
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+		internetEgress, err = logic.CreateInternetEgressForNode(ctx, modelsNode, "", "orchestrator")
+		if err != nil {
+			return fmt.Errorf("failed to create internet egress: %w", err)
+		}
+		if internetEgress.TenantID == "" {
+			internetEgress.TenantID = scope.ID(logic.DefaultScope(ctx))
+			_ = internetEgress.Update(ctx)
+		}
+
 		nodeID := node.ID
 		for _, igwClientID := range ops.igwClients {
 			igwClient := &schema.Node{
@@ -268,11 +279,14 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 			igwClient.IsIGWClient = true
 			igwClient.RelayedByNodeID = &nodeID
+			igwClient.SelectedInternetEgressID = internetEgress.ID
 
 			err = igwClient.AssignGateway(ctx)
 			if err != nil {
 				return err
 			}
+			_ = db.FromContext(ctx).Model(&schema.Node{}).Where("id = ?", igwClientID).
+				Update("selected_internet_egress_id", internetEgress.ID).Error
 		}
 	}
 
@@ -356,7 +370,7 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 			return fmt.Errorf("host must have iptables or nftables installed")
 		}
 
-		if node.IsIGWClient {
+		if node.IsIGWClient || node.SelectedInternetEgressID != "" {
 			return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
 		}
 
@@ -389,7 +403,7 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 				return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", igwClient.Host.Name)
 			}
 
-			if igwClient.IsIGWClient {
+			if igwClient.IsIGWClient || igwClient.SelectedInternetEgressID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", igwClient.Host.Name)
 			}
 

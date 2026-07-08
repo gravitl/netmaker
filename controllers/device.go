@@ -9,22 +9,30 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func deviceHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/device/register", logic.SecurityCheck(false, http.HandlerFunc(registerDevice))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/device/networks", logic.SecurityCheck(false, http.HandlerFunc(getDeviceNetworks))).
+	r.HandleFunc("/api/v1/device/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getDeviceNetworks)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/device/networks/{network}/join", logic.SecurityCheck(false, http.HandlerFunc(joinDeviceNetwork))).
+	r.HandleFunc("/api/v1/device/networks/{network}/join", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(joinDeviceNetwork)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/device/networks/{network}/leave", logic.SecurityCheck(false, http.HandlerFunc(leaveDeviceNetwork))).
+	r.HandleFunc("/api/v1/device/networks/{network}/leave", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(leaveDeviceNetwork)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/device/networks/{network}/cancel", logic.SecurityCheck(false, http.HandlerFunc(cancelDeviceNetworkJoin))).
+	r.HandleFunc("/api/v1/device/networks/{network}/cancel", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(cancelDeviceNetworkJoin)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/device/sync", logic.SecurityCheck(false, http.HandlerFunc(syncDevice))).
+	r.HandleFunc("/api/v1/device/networks/{network}/exit_nodes", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(listDeviceExitNodes)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/device/networks/{network}/exit_node", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getDeviceExitNode)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/device/networks/{network}/exit_node", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(selectDeviceExitNode)))).
+		Methods(http.MethodPut, http.MethodPost)
+	r.HandleFunc("/api/v1/device/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(syncDevice)))).
 		Methods(http.MethodPost)
 }
 
@@ -201,4 +209,90 @@ func syncDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "sync requested")
+}
+
+func listDeviceExitNodes(w http.ResponseWriter, r *http.Request) {
+	user, host, ok := getDeviceUserAndHost(w, r)
+	if !ok {
+		return
+	}
+	network := mux.Vars(r)["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	nodes, err := logic.ListDeviceExitNodes(db.WithContext(r.Context()), user, host, network)
+	if err != nil {
+		errType := logic.Internal
+		switch err.Error() {
+		case "user does not have access to network":
+			errType = logic.Forbidden
+		case "device is not joined to network", "network is required":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, nodes, "fetched exit nodes")
+}
+
+func getDeviceExitNode(w http.ResponseWriter, r *http.Request) {
+	user, host, ok := getDeviceUserAndHost(w, r)
+	if !ok {
+		return
+	}
+	network := mux.Vars(r)["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	selected, err := logic.GetDeviceSelectedExitNode(db.WithContext(r.Context()), user, host, network)
+	if err != nil {
+		errType := logic.Internal
+		switch err.Error() {
+		case "user does not have access to network":
+			errType = logic.Forbidden
+		case "device is not joined to network", "network is required":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, selected, "fetched selected exit node")
+}
+
+func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
+	user, host, ok := getDeviceUserAndHost(w, r)
+	if !ok {
+		return
+	}
+	network := mux.Vars(r)["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	var req models.DeviceExitNodeSelectionReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	selected, err := logic.SelectDeviceExitNode(db.WithContext(r.Context()), user, host, network, req.EgressID)
+	if err != nil {
+		errType := logic.Internal
+		switch err.Error() {
+		case "user does not have access to network", "user does not have access to this exit node":
+			errType = logic.Forbidden
+		case "device is not joined to network", "network is required", "exit node not found",
+			"egress is not an active internet exit node in this network",
+			"routing node cannot select itself as exit node":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	msg := "exit node selected"
+	if req.EgressID == "" {
+		msg = "exit node cleared"
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, selected, msg)
 }

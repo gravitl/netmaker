@@ -314,7 +314,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
-			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
+			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
 		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
@@ -647,7 +647,56 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 
 		}
 
-		if IsInternetGw(node) {
+		// Publish internet egress firewall config keyed by real egress IDs when present;
+		// fall back to legacy synthetic {nodeID}-inet for node-level IGW flags.
+		inetEgressesPublished := false
+		for _, e := range eli {
+			if !e.Status || !IsEgressInternetGateway(e) {
+				continue
+			}
+			if _, ok := e.Nodes[node.ID.String()]; !ok {
+				continue
+			}
+			inetEgressesPublished = true
+			hostPeerUpdate.FwUpdate.IsEgressGw = true
+			egressrange := ExpandEgressRouteRanges(e, node.Address6.IP != nil)
+			rangeWithMetric := []models.EgressRangeMetric{}
+			for _, rangeI := range egressrange {
+				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
+					EgressID:    e.ID,
+					EgressName:  e.Name,
+					Network:     rangeI,
+					RouteMetric: 256,
+					Nat:         e.Nat,
+					Mode:        e.Mode,
+				})
+			}
+			inetEgressInfo := models.EgressInfo{
+				EgressID: e.ID,
+				Network:  node.PrimaryAddressIPNet(),
+				EgressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				Network6: node.NetworkRange6,
+				EgressGwAddr6: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
+				},
+				EgressGWCfg: models.EgressGatewayRequest{
+					NodeID:           node.ID.String(),
+					NetID:            node.Network,
+					NatEnabled:       "yes",
+					Ranges:           egressrange,
+					RangesWithMetric: rangeWithMetric,
+				},
+			}
+			if !networkAllowAll {
+				inetEgressInfo.EgressFwRules = GetAclRuleForInetGw(node)
+			}
+			hostPeerUpdate.FwUpdate.EgressInfo[e.ID] = inetEgressInfo
+		}
+		if !inetEgressesPublished && IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
 			if node.Address6.IP != nil {
@@ -796,13 +845,13 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
-	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+	if usesPeerAsInternetExit(node, peer) {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		if peer.InternetGwID != "" {
+		if peer.InternetGwID != "" || peer.SelectedInternetEgressID != "" {
 			return allowedips
 		}
 	}
@@ -820,6 +869,26 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 
 	return allowedips
+}
+
+// usesPeerAsInternetExit reports whether node should route full internet through peer
+// via selected internet egress or legacy InternetGwID assignment.
+func usesPeerAsInternetExit(node, peer *models.Node) bool {
+	if node == nil || peer == nil {
+		return false
+	}
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+		return true
+	}
+	if node.SelectedInternetEgressID == "" {
+		return false
+	}
+	e, err := GetSelectedInternetEgress(node)
+	if err != nil {
+		return false
+	}
+	_, ok := e.Nodes[peer.ID.String()]
+	return ok
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {

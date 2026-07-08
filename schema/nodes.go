@@ -57,6 +57,8 @@ type Node struct {
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
+	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              Severity                              `json:"posture_check_severity"`

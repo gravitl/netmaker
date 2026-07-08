@@ -192,6 +192,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.UnsetInternetGw(&node)
+	logic.DeleteInternetEgressesForRoutingNode(r.Context(), node.Network, node.ID.String())
 	node.IsGw = false
 	if node.IsAutoRelay {
 		logic.ResetAutoRelay(&node)
