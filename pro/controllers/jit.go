@@ -12,25 +12,27 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
 func JITHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/jit", logic.SecurityCheck(true,
-		http.HandlerFunc(handleJIT))).Methods(http.MethodPost, http.MethodGet)
+	r.HandleFunc("/api/v1/jit", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true,
+		http.HandlerFunc(handleJIT)))).Methods(http.MethodPost, http.MethodGet)
 
-	r.HandleFunc("/api/v1/jit", logic.SecurityCheck(true,
-		http.HandlerFunc(deleteJITGrant))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/jit", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true,
+		http.HandlerFunc(deleteJITGrant)))).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/v1/jit_user/networks", logic.SecurityCheck(false,
-		http.HandlerFunc(getUserJITNetworks))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/jit_user/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false,
+		http.HandlerFunc(getUserJITNetworks)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/v1/jit_user/request", logic.SecurityCheck(false,
-		http.HandlerFunc(requestJITAccess))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/jit_user/request", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false,
+		http.HandlerFunc(requestJITAccess)))).Methods(http.MethodPost)
 }
 
 // @Summary     List JIT requests for a network

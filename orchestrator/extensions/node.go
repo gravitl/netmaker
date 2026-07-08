@@ -7,7 +7,7 @@ import (
 
 type NodeExtensions interface {
 	ConfigureAutoRelay(node *schema.Node)
-	ConfigureAutoAssignGateway(node *schema.Node, key *models.EnrollmentKey)
+	ConfigureAutoAssignGateway(node *schema.Node, key *schema.EnrollmentKey)
 	ConfigureTag(node *schema.Node, tagID models.TagID)
 }
 
@@ -17,7 +17,7 @@ func (c *CENodeExtensions) ConfigureAutoRelay(node *schema.Node) {
 	node.IsAutoRelay = "no"
 }
 
-func (c *CENodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, _ *models.EnrollmentKey) {
+func (c *CENodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, _ *schema.EnrollmentKey) {
 	node.AutoAssignGateway = false
 }
 

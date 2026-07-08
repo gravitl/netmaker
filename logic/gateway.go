@@ -10,12 +10,12 @@ import (
 
 	"context"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var (
@@ -161,7 +161,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 		return models.Node{}, removedClients, err
 	}
 	clients, err := GetExtClientsByID(nodeid, node.Network)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.Node{}, removedClients, err
 	}
 
@@ -188,7 +188,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
 func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	currentExtClients, err := GetNetworkExtClients(networkName)
-	if database.IsEmptyRecord(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {

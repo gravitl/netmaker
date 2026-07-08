@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -10,52 +9,50 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 var tagMutex = &sync.RWMutex{}
 
 // GetTag - fetches tag info
 func GetTag(tagID models.TagID) (models.Tag, error) {
-	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
-	if err != nil {
+	r := &schema.TagRecord{Key: tagID.String()}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
 		return models.Tag{}, err
 	}
-	tag := models.Tag{}
-	err = json.Unmarshal([]byte(data), &tag)
-	if err != nil {
-		return tag, err
-	}
-	return tag, nil
+	return r.Value.Data(), nil
 }
 
 func UpsertTag(tag models.Tag) error {
-	d, err := json.Marshal(tag)
-	if err != nil {
-		return err
+	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
+	ctx := db.WithContext(context.TODO())
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
-	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+	return r.Upsert(ctx)
 }
 
 // InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	_, err := database.FetchRecord(database.TAG_TABLE_NAME, tag.ID.String())
-	if err == nil {
+	ctx := db.WithContext(context.TODO())
+	r := &schema.TagRecord{Key: tag.ID.String()}
+	if err := r.Get(ctx); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
-	d, err := json.Marshal(tag)
-	if err != nil {
-		return err
+	r.Value = datatypes.NewJSONType(tag)
+	if r.TenantID == "" {
+		r.TenantID = scope.ID(logic.DefaultScope(ctx))
 	}
-	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+	return r.Upsert(ctx)
 }
 
 // DeleteTag - delete tag, will also untag hosts
@@ -93,7 +90,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 			logic.SaveExtClient(&extclient)
 		}
 	}
-	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
+	return (&schema.TagRecord{Key: tagID.String()}).Delete(db.WithContext(context.TODO()))
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
@@ -125,21 +122,16 @@ func DeleteAllNetworkTags(networkID schema.NetworkID) {
 func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := (&schema.TagRecord{}).List(db.WithContext(context.TODO()))
+	if err != nil {
 		return []models.Tag{}, err
 	}
 	tags := []models.Tag{}
-	for _, dataI := range data {
-		tag := models.Tag{}
-		err := json.Unmarshal([]byte(dataI), &tag)
-		if err != nil {
-			continue
-		}
+	for _, r := range records {
+		tag := r.Value.Data()
 		if tag.Network == netID {
 			tags = append(tags, tag)
 		}
-
 	}
 	return tags, nil
 }

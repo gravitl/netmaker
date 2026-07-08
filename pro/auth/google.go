@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -119,10 +120,14 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				err = (&schema.PendingUser{
+				pendingUser := &schema.PendingUser{
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-				}).Create(r.Context())
+				}
+				if pendingUser.TenantID == "" {
+					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+				}
+				err = pendingUser.Create(r.Context())
 				if err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -168,7 +173,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = logic.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchOAuthSecret()
 	if fetchErr != nil {
 		return
 	}

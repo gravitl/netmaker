@@ -68,49 +68,16 @@ func InitPro() {
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
-		// == License Handling ==
-		enableLicenseHook := true
-		// licenseKeyValue := servercfg.GetLicenseKey()
-		// netmakerTenantID := servercfg.GetNetmakerTenantID()
-		// if licenseKeyValue != "" && netmakerTenantID != "" {
-		// 	enableLicenseHook = true
-		// }
-		if !enableLicenseHook {
-			err := initTrial()
-			if err != nil {
-				logger.Log(0, "failed to init trial", err.Error())
-				enableLicenseHook = true
-			}
-			trialEndDate, err := getTrialEndDate()
-			if err != nil {
-				slog.Error("failed to get trial end date", "error", err)
-				enableLicenseHook = true
-			} else {
-				// check if trial ended
-				if time.Now().After(trialEndDate) {
-					// trial ended already
-					enableLicenseHook = true
-				}
-			}
-
+		logger.Log(0, "starting license checker")
+		_ = license.ClearLicenseCache()
+		if err := license.ValidateLicense(); err != nil {
+			slog.Error(err.Error())
+			return
 		}
-
-		if enableLicenseHook {
-			logger.Log(0, "starting license checker")
-			license.ClearLicenseCache()
-			if err := license.ValidateLicense(); err != nil {
-				slog.Error(err.Error())
-				return
-			}
-			logger.Log(0, "proceeding with Paid Tier license")
-			logic.SetFreeTierForTelemetry(false)
-			// == End License Handling ==
-			// License validation runs on all pods to avoid audit issues
-			license.AddLicenseHooks()
-		} else {
-			logger.Log(0, "starting trial license hook")
-			addTrialLicenseHook()
-		}
+		logger.Log(0, "proceeding with Paid Tier license")
+		// == End License Handling ==
+		// License validation runs on all pods to avoid audit issues
+		license.AddLicenseHooks()
 
 		//AddUnauthorisedUserNodeHooks()
 
@@ -168,7 +135,6 @@ func InitPro() {
 	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
 	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
 	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
-	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess

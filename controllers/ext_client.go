@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -21,34 +20,37 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"gorm.io/gorm"
 )
 
 var extUpdateMutex = &sync.Mutex{}
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", logic.SecurityCheck(true, http.HandlerFunc(getAllExtClients))).
+	r.HandleFunc("/api/extclients", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllExtClients)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtClients))).
+	r.HandleFunc("/api/extclients/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtClients)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getExtClient)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientConf))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getExtClientConf)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(updateExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(updateExtClient)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{clientid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/extclients/{network}/bulk", logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients))).
+	r.HandleFunc("/api/v1/extclients/{network}/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus))).
+	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, http.HandlerFunc(createExtClient))).
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(createExtClient)))).
 		Methods(http.MethodPost)
 	// unused API
 	//r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
@@ -132,7 +134,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	clients, err := logic.GetAllExtClients()
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(0, "failed to get all extclients: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -632,7 +634,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
-		staticNode := extclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(extclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(extclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
@@ -904,7 +906,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
-		staticNode := newclient.ConvertToStaticNode()
+		staticNode := models.ConvertToStaticNode(newclient)
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), schema.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
@@ -1014,7 +1016,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Log(0, r.Header.Get("user"),
 				"Deleted extclient client", params["clientid"], "from network", params["network"])
 			logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")

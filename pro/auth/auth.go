@@ -117,9 +117,9 @@ func InitializeAuthProvider() string {
 		return ""
 	}
 	logger.Log(0, "setting oauth secret")
-	var err = logic.SetAuthSecret(logic.RandomString(64))
+	var err = logic.SetOAuthSecret(logic.RandomString(64))
 	if err != nil {
-		logger.FatalLog("failed to set auth_secret", err.Error())
+		logger.FatalLog("failed to set oauth secret", err.Error())
 	}
 	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var serverConn = servercfg.GetAPIHost()

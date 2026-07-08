@@ -23,7 +23,7 @@ var jwtSecretKey []byte
 
 // SetJWTSecret - sets the jwt secret on server startup
 func SetJWTSecret() {
-	currentSecret, jwtErr := FetchJWTSecret()
+	currentSecret, jwtErr := GetJwtSecretValue()
 	if jwtErr != nil {
 		newValue := RandomString(64)
 		jwtSecretKey = []byte(newValue) // 512 bit random password

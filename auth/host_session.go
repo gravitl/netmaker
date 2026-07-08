@@ -12,12 +12,12 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -249,7 +249,12 @@ func joinHostToNetworks(key models.EnrollmentKey, host *schema.Host, username st
 		for _, tagI := range key.Groups {
 			keyTags[tagI] = struct{}{}
 		}
+	} else {
+		for _, tagI := range key.Tags {
+			keyTags[models.TagID(tagI)] = struct{}{}
+		}
 	}
+	schemaKey := logic.SchemaEnrollmentKeyFromModels(key)
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
 		if err := network.Get(db.WithContext(context.TODO())); err != nil {
@@ -290,15 +295,18 @@ func joinHostToNetworks(key models.EnrollmentKey, host *schema.Host, username st
 				EnrollmentKey: keyB,
 				RequestedAt:   time.Now().UTC(),
 			}
+			if p.TenantID == "" {
+				p.TenantID = scope.ID(logic.DefaultScope(context.TODO()))
+			}
 			p.Create(db.WithContext(context.TODO()))
 			continue
 		}
 
-		node, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
+		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
 			db.WithContext(context.TODO()),
 			host,
 			network,
-			orchestrator.UseKey(&key),
+			orchestrator.UseKey(schemaKey),
 			orchestrator.SkipHostUpdate(),
 			orchestrator.SkipPublishPeerUpdate(),
 		)
@@ -306,12 +314,6 @@ func joinHostToNetworks(key models.EnrollmentKey, host *schema.Host, username st
 			logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			continue
 		}
-		newNode := logic.ConvertSchemaNodeToModelsNode(node)
-		hostactions.AddAction(models.HostUpdate{
-			Action: models.JoinHostToNetwork,
-			Host:   *host,
-			Node:   *newNode,
-		})
 
 		if len(username) > 0 {
 			logic.LogEvent(&models.Event{

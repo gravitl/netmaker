@@ -12,11 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
@@ -24,10 +23,11 @@ import (
 func DeleteNetwork(network string, force bool, done chan struct{}) error {
 	defer func() {
 		// Delete default network enrollment key
-		keys, _ := GetAllEnrollmentKeys()
+		ctx := db.WithContext(context.TODO())
+		keys, _ := GetAllEnrollmentKeys(ctx)
 		for _, key := range keys {
-			if key.Default && len(key.Tags) > 0 && key.Tags[0] == network {
-				_ = DeleteEnrollmentKey(key.Value, true)
+			if key.Default && enrollmentKeyAppliesToNetwork(key, network) {
+				_ = DeleteEnrollmentKey(ctx, key.Value, true)
 				break
 			}
 		}
@@ -36,7 +36,7 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 	}()
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
+	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
 		_network := &schema.Network{
 			Name: network,
 		}
@@ -311,25 +311,11 @@ func CreateNetwork(_network *schema.Network) error {
 		return err
 	}
 
-	err = _network.Create(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
+	ctx := db.WithContext(context.TODO())
+	if _network.TenantID == "" {
+		_network.TenantID = scope.ID(DefaultScope(ctx))
 	}
-
-	_, _ = CreateEnrollmentKey(
-		0,
-		time.Time{},
-		[]string{_network.Name},
-		[]string{_network.Name},
-		[]models.TagID{},
-		true,
-		uuid.Nil,
-		true,
-		false,
-		false,
-	)
-
-	return nil
+	return _network.Create(ctx)
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
@@ -514,15 +500,19 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 
 // SaveNetwork - save network struct to database
 func SaveNetwork(_network *schema.Network) error {
+	ctx := db.WithContext(context.TODO())
 	_existingNetwork := schema.Network{Name: _network.Name}
 	// Check if network exists to preserve ID
-	err := _existingNetwork.Get(db.WithContext(context.TODO()))
+	err := _existingNetwork.Get(ctx)
 	if err == nil {
 		_network.ID = _existingNetwork.ID
-		return _network.Update(db.WithContext(context.TODO()))
+		return _network.Update(ctx)
 	}
 
-	return _network.Create(db.WithContext(context.TODO()))
+	if _network.TenantID == "" {
+		_network.TenantID = scope.ID(DefaultScope(ctx))
+	}
+	return _network.Create(ctx)
 }
 
 // NetworkExists - check if network exists

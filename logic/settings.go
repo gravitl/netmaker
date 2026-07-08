@@ -1,7 +1,7 @@
 package logic
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -24,7 +26,7 @@ var (
 	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
-var ServerSettingsDBKey = "server_cfg"
+var ServerSettingsDBKey = "server_cfg" // kept for migration reference only
 var SettingsMutex = &sync.RWMutex{}
 
 var serverSettingsCache atomic.Value
@@ -53,15 +55,19 @@ func InvalidateServerSettingsCache() {
 }
 
 func getServerSettingsFromDB() (models.ServerSettings, error) {
-	var s models.ServerSettings
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {
-		return s, err
+		return models.ServerSettings{}, err
 	}
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
-		return s, err
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
+	err = settingsRecord.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return models.ServerSettings{}, err
 	}
-	return s, nil
+	return settingsRecord.Value.Data(), nil
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
@@ -98,11 +104,15 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	data, err := json.Marshal(s)
+	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID, Value: datatypes.NewJSONType(s)}
+	err = settingsRecord.Upsert(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -113,38 +123,33 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	return nil
 }
 
-func GetUserSettings(userID string) models.UserSettings {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
+func GetUserSettings(username string) models.UserSettings {
+	user := schema.User{Username: username}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return defaultUserSettings
 	}
-	var userSettings models.UserSettings
-	err = json.Unmarshal([]byte(data), &userSettings)
-	if err != nil {
-		return defaultUserSettings
+	return models.UserSettings{
+		Theme:         user.Theme,
+		TextSize:      user.TextSize,
+		ReducedMotion: user.ReducedMotion,
 	}
-
-	return userSettings
 }
 
-func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+func UpsertUserSettings(username string, userSettings models.UserSettings) error {
 	if userSettings.TextSize == "" {
 		userSettings.TextSize = "16"
 	}
-
 	if userSettings.Theme == "" {
 		userSettings.Theme = models.Dark
 	}
-
-	data, err := json.Marshal(userSettings)
-	if err != nil {
-		return err
+	u := schema.User{
+		Username:      username,
+		Theme:         userSettings.Theme,
+		TextSize:      userSettings.TextSize,
+		ReducedMotion: userSettings.ReducedMotion,
 	}
-	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
-}
-
-func DeleteUserSettings(userID string) error {
-	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
+	return u.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
 func ValidateNewSettings(req models.ServerSettings) error {

@@ -1,10 +1,11 @@
 package gateway
 
 import (
+	"strings"
+
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var externalClientDNS string

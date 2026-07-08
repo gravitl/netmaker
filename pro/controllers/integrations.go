@@ -12,6 +12,7 @@ import (
 	grpcs "github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
@@ -20,30 +21,25 @@ import (
 	siempkg "github.com/gravitl/netmaker/pro/integration/siem"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 func IntegrationHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/integrations/mdm/providers",
-		logic.SecurityCheck(true, http.HandlerFunc(listMDMProviders))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/mdm/sync",
-		logic.SecurityCheck(true, http.HandlerFunc(triggerMDMSync))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/integrations/mdm/device_state",
-		logic.SecurityCheck(true, http.HandlerFunc(listMDMDeviceState))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/mdm/providers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listMDMProviders)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/mdm/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerMDMSync)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/mdm/device_state", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listMDMDeviceState)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/v1/integrations/edr/providers",
-		logic.SecurityCheck(true, http.HandlerFunc(listEDRProviders))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/edr/sync",
-		logic.SecurityCheck(true, http.HandlerFunc(triggerEDRSync))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/integrations/edr/device_state",
-		logic.SecurityCheck(true, http.HandlerFunc(listEDRDeviceState))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/edr/providers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEDRProviders)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/edr/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerEDRSync)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/edr/device_state", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEDRDeviceState)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/v1/integrations/{type}", logic.SecurityCheck(true, http.HandlerFunc(getIntegration))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", logic.SecurityCheck(true, http.HandlerFunc(testIntegration))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
 }
 
 func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (integration.Type, integration.ProviderID, bool) {
@@ -178,6 +174,9 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		Config: datatypes.JSON(config),
 	}
 
+	if intg.TenantID == "" {
+		intg.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+	}
 	err = intg.Upsert(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

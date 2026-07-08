@@ -4,10 +4,9 @@ import (
 	"context"
 	"net"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
+	"github.com/gravitl/netmaker/schema"
 	testutils "github.com/gravitl/netmaker/test/utils"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/datatypes"
@@ -39,6 +38,7 @@ func (c *CENodeOrchestratorTestSuite) SetupSuite() {
 	}
 
 	InitializeRepository(extensions.NewCEFactory())
+	testutils.CreateDefaultOrgAndTenant(c.T())
 }
 
 func (c *CENodeOrchestratorTestSuite) TearDownSuite() {
@@ -178,7 +178,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	network := testutils.CreateIPv10Network(c.T(), "network-0")
 
 	c.Run("With AutoAssignGateway", func() {
-		key := &models.EnrollmentKey{
+		key := &schema.EnrollmentKey{
 			AutoAssignGateway: true,
 		}
 
@@ -190,7 +190,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	})
 
 	c.Run("Without AutoAssignGateway", func() {
-		key := &models.EnrollmentKey{
+		key := &schema.EnrollmentKey{
 			AutoAssignGateway: false,
 		}
 
@@ -202,20 +202,20 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	})
 
 	c.Run("With Tags", func() {
-		key := &models.EnrollmentKey{
-			Groups: []models.TagID{"tag-0"},
+		key := &schema.EnrollmentKey{
+			Tags: []string{"tag-0"},
 		}
 
 		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
 		c.Require().NoError(err)
-		c.Require().NotContains(node.Tags, string(key.Groups[0]))
+		c.Require().NotContains(node.Tags, key.Tags[0])
 
 		testutils.DeleteNode(c.T(), node)
 	})
 
 	c.Run("Without Tags", func() {
-		key := &models.EnrollmentKey{
-			Groups: []models.TagID{},
+		key := &schema.EnrollmentKey{
+			Tags: []string{},
 		}
 
 		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
@@ -234,8 +234,8 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		gateway, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), gatewayHost, network)
 		c.Require().NoError(err)
 
-		key := &models.EnrollmentKey{
-			Relay: uuid.MustParse(gateway.ID),
+		key := &schema.EnrollmentKey{
+			GatewayID: &gateway.ID,
 		}
 
 		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
@@ -253,7 +253,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	})
 
 	c.Run("Without Gateway", func() {
-		key := &models.EnrollmentKey{}
+		key := &schema.EnrollmentKey{}
 
 		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
 		c.Require().NoError(err)

@@ -20,7 +20,7 @@ func getStaticUserNodesByNetwork(network schema.NetworkID) (staticNode []models.
 	for _, extI := range extClients {
 		if extI.Network == network.String() {
 			if extI.RemoteAccessClientID != "" {
-				n := extI.ConvertToStaticNode()
+				n := models.ConvertToStaticNode(extI)
 				staticNode = append(staticNode, n)
 			}
 		}
@@ -63,7 +63,7 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 
 			if ok, allowedPolicies := IsUserAllowedToCommunicate(userNodeI.StaticNode.OwnerID, peer); ok {
 				if peer.IsStatic {
-					peer = peer.StaticNode.ConvertToStaticNode()
+					peer = models.ConvertToStaticNode(peer.StaticNode)
 				}
 				for _, policy := range allowedPolicies {
 					selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
@@ -689,7 +689,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	var peerId string
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
@@ -773,13 +773,13 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
+		node = models.ConvertToStaticNode(node.StaticNode)
 	} else {
 		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
 		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(peer.StaticNode)
 	} else {
 		peerId = peer.ID.String()
 	}
@@ -1693,8 +1693,8 @@ func AddTagMapWithStaticNodes(netID schema.NetworkID,
 			if tagID == models.TagID(extclient.ClientID) {
 				continue
 			}
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.ConvertToStaticNode(extclient))
+			tagNodesMap["*"] = append(tagNodesMap["*"], models.ConvertToStaticNode(extclient))
 		}
 		if extclient.Mutex != nil {
 			extclient.Mutex.Unlock()

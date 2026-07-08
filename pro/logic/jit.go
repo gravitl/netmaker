@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/logic"
@@ -207,6 +208,9 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 		RequestedAt: time.Now().UTC(),
 	}
 
+	if newRequest.TenantID == "" {
+		newRequest.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	if err := newRequest.Create(ctx); err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -264,6 +268,9 @@ func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string)
 		ExpiresAt: expiresAt,
 	}
 
+	if grant.TenantID == "" {
+		grant.TenantID = scope.ID(logic.DefaultScope(ctx))
+	}
 	if err := grant.Create(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to create grant: %w", err)
 	}

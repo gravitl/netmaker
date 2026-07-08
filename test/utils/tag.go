@@ -1,10 +1,11 @@
 package utils
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -25,6 +26,6 @@ func CreateTag(t *testing.T, tagID, network string) *models.Tag {
 }
 
 func DeleteTag(t *testing.T, tag *models.Tag) {
-	err := database.DeleteRecord(database.TAG_TABLE_NAME, tag.ID.String())
+	err := (&schema.TagRecord{Key: tag.ID.String()}).Delete(db.WithContext(context.TODO()))
 	require.NoError(t, err)
 }

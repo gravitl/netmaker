@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -18,6 +17,13 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+)
+
+const (
+	TableName_PendingUsers = "pending_users"
+	TableName_UserInvites  = "user_invites"
+	TableName_Nodes        = "nodes"
+	TableName_Acls         = "acls"
 )
 
 func migrateV1_6_0(ctx context.Context) error {
@@ -35,12 +41,12 @@ func migrateV1_6_0(ctx context.Context) error {
 }
 
 func migratePendingUsers(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.PENDING_USERS_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_PendingUsers) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.PENDING_USERS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_PendingUsers)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -69,12 +75,12 @@ func migratePendingUsers(ctx context.Context) error {
 }
 
 func migrateUserInvites(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.USER_INVITES_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_UserInvites) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.USER_INVITES_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_UserInvites)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -106,12 +112,12 @@ func migrateUserInvites(ctx context.Context) error {
 }
 
 func migrateNodes(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(database.NODES_TABLE_NAME) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_Nodes) {
 		return nil
 	}
 
-	records, err := kvList(ctx, database.NODES_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	records, err := kvList(ctx, TableName_Nodes)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -386,7 +392,7 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
 			}
-			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			err = kvInsert(ctx, TableName_Acls, acl.ID, acl)
 			if err != nil {
 				return err
 			}
@@ -419,7 +425,7 @@ func migrateNodes_Egress(ctx context.Context, node *models.Node) error {
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
 			}
-			err = kvInsert(ctx, database.ACLS_TABLE_NAME, acl.ID, acl)
+			err = kvInsert(ctx, TableName_Acls, acl.ID, acl)
 			if err != nil {
 				return err
 			}
