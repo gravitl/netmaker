@@ -17,7 +17,7 @@ func TestEvaluateEDRCompliance_NoState(t *testing.T) {
 		},
 	}
 	violated, msg := evaluatePostureCheck(&check, models.PostureCheckDeviceInfo{})
-	if !violated || msg != "no_edr_state_for_host" {
+	if !violated || msg != "No EDR status found for this device. It may not be protected or matched yet." {
 		t.Fatalf("got violated=%v msg=%q", violated, msg)
 	}
 }
@@ -38,7 +38,7 @@ func TestEvaluateEDRCompliance_RiskExceeded(t *testing.T) {
 		},
 	}
 	violated, msg := evaluatePostureCheck(&check, d)
-	if !violated || msg != "risk_level_exceeded" {
+	if !violated || msg != "EDR risk level exceeds the allowed maximum." {
 		t.Fatalf("got violated=%v msg=%q", violated, msg)
 	}
 }
