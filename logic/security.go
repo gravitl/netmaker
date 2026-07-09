@@ -210,8 +210,17 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 			return
 		}
 
-		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+		switch scope.Level(r.Context()) {
+		case scope.OrgScope:
 			next.ServeHTTP(w, r)
+			return
+		case scope.TenantScope:
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+				next.ServeHTTP(w, r)
+				return
+			}
+		default:
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 
