@@ -440,11 +440,6 @@ func createTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getTenant(w http.ResponseWriter, r *http.Request) {
-	orgID := scope.ID(r.Context())
-	if orgID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization ID not in context"), logic.BadReq))
-		return
-	}
 	tenantID := mux.Vars(r)["tenant_id"]
 
 	t := &schema.Tenant{ID: tenantID, Slug: tenantID}
