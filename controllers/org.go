@@ -136,6 +136,11 @@ func listOrgs(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createOrg(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags().AllowMultipleOrgs {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating organizations is disabled"), logic.Forbidden))
+		return
+	}
+
 	var req schema.Organization
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -295,6 +300,11 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteOrg(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags().AllowMultipleOrgs {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting organizations is disabled"), logic.Forbidden))
+		return
+	}
+
 	orgID := mux.Vars(r)["org_id"]
 
 	o := &schema.Organization{ID: orgID}
