@@ -248,7 +248,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 }
 
 // VerifyHostToken - [hosts] Only
-func VerifyHostToken(tokenString string) (hostID string, mac string, network string, err error) {
+func VerifyHostToken(ctx context.Context, tokenString string) (hostID string, mac string, network string, err error) {
 	claims := &models.Claims{}
 
 	// this may be a stupid way of serving up a master key
@@ -267,6 +267,23 @@ func VerifyHostToken(tokenString string) (hostID string, mac string, network str
 		}
 		if claims.ID == "" {
 			return "", "", "", errors.New("invalid host token: missing host ID")
+		}
+
+		hostID, err := uuid.Parse(claims.ID)
+		if err != nil {
+			return "", "", "", errors.New("invalid host token: invalid host ID")
+		}
+
+		host := &schema.Host{
+			ID: hostID,
+		}
+		err = host.Get(ctx)
+		if err != nil {
+			return "", "", "", fmt.Errorf("error getting host %s: %w", claims.ID, err)
+		}
+
+		if scope.ID(ctx) != host.TenantID {
+			return "", "", "", fmt.Errorf("host %s does not belong to tenant %s", claims.ID, host.TenantID)
 		}
 		return claims.ID, claims.MacAddress, claims.Network, nil
 	}

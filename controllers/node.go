@@ -165,7 +165,7 @@ func AuthorizeHost(
 			authToken = tokenSplit[1]
 		}
 
-		hostID, _, _, err := logic.VerifyHostToken(authToken)
+		hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
