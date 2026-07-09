@@ -29,21 +29,21 @@ var (
 var ServiceUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.ServiceUser,
 	Default:             true,
-	FullAccess:          false,
+	TenantGlobalAccess:  false,
 	DenyDashboardAccess: true,
 }
 
 var PlatformUserUserPermissionTemplate = schema.UserRole{
-	ID:         schema.PlatformUser,
-	Default:    true,
-	FullAccess: false,
+	ID:                 schema.PlatformUser,
+	Default:            true,
+	TenantGlobalAccess: false,
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.Auditor,
 	Default:             true,
 	DenyDashboardAccess: false,
-	FullAccess:          false,
+	TenantGlobalAccess:  false,
 	NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
 		schema.NetworkRsrc: {
 			schema.AllNetworkRsrcID: schema.RsrcPermissionScope{
@@ -54,21 +54,21 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	ID:         globalNetworksAdminRoleID,
-	Name:       "Network Admins",
-	MetaData:   "can manage configuration of all networks",
-	Default:    true,
-	FullAccess: true,
-	NetworkID:  schema.AllNetworks,
+	ID:                 globalNetworksAdminRoleID,
+	Name:               "Network Admins",
+	MetaData:           "can manage configuration of all networks",
+	Default:            true,
+	TenantGlobalAccess: true,
+	NetworkID:          schema.AllNetworks,
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
-	ID:         globalNetworksUserRoleID,
-	Name:       "Network Users",
-	MetaData:   "Can connect to nodes in your networks via Netmaker Desktop App.",
-	Default:    true,
-	FullAccess: false,
-	NetworkID:  schema.AllNetworks,
+	ID:                 globalNetworksUserRoleID,
+	Name:               "Network Users",
+	MetaData:           "Can connect to nodes in your networks via Netmaker Desktop App.",
+	Default:            true,
+	TenantGlobalAccess: false,
+	NetworkID:          schema.AllNetworks,
 	NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
 		schema.HostRsrc: {
 			schema.AllHostRsrcID: schema.RsrcPermissionScope{
@@ -201,7 +201,7 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
-		FullAccess:         true,
+		TenantGlobalAccess: true,
 		NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{}),
 	}
 
@@ -210,7 +210,7 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		Name:                fmt.Sprintf("%s User", netID),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
-		FullAccess:          false,
+		TenantGlobalAccess:  false,
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
@@ -766,7 +766,7 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 	if err != nil {
 		return []schema.Network{}
 	}
-	if !platformRole.FullAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if !platformRole.TenantGlobalAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		allNetworkRoles := make(map[schema.NetworkID]struct{})
 		_, ok := platformRole.NetworkLevelAccess.Data()[schema.NetworkRsrc]
 		if ok {
@@ -1425,7 +1425,7 @@ func CanUserCreateNetwork(ctx context.Context, username string) bool {
 	if err := userRole.Get(db.WithContext(ctx)); err != nil {
 		return false
 	}
-	if userRole.FullAccess {
+	if userRole.TenantGlobalAccess {
 		return true
 	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.NetworkRsrc]

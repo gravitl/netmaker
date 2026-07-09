@@ -57,7 +57,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	}
 	// Platform admin/super-admin FullAccess applies to global APIs only; network
 	// APIs always require group-based network roles.
-	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if userRole.TenantGlobalAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		return nil
 	}
 
@@ -117,7 +117,7 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 	if err != nil {
 		return err
 	}
-	if networkPermissionScope.FullAccess {
+	if networkPermissionScope.TenantGlobalAccess {
 		return nil
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
@@ -168,7 +168,7 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return errors.New("access denied")
 	}
-	if userRole.FullAccess {
+	if userRole.TenantGlobalAccess {
 		return nil
 	}
 	if strings.Contains(r.URL.Path, "/api/v1/egress/presets") {

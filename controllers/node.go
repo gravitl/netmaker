@@ -383,7 +383,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		if !userPlatformRole.FullAccess {
+		if !userPlatformRole.TenantGlobalAccess {
 			nodes = logic.GetFilteredNodesByUserAccess(user, nodes)
 		}
 

@@ -12,15 +12,15 @@ import (
 
 // Pre-Define Permission Templates for default Roles
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:         schema.SuperAdminRole,
-	Default:    true,
-	FullAccess: true,
+	ID:                 schema.SuperAdminRole,
+	Default:            true,
+	TenantGlobalAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:         schema.AdminRole,
-	Default:    true,
-	FullAccess: true,
+	ID:                 schema.AdminRole,
+	Default:            true,
+	TenantGlobalAccess: true,
 }
 
 var GetFilteredNodesByUserAccess = func(user *schema.User, nodes []models.Node) (filteredNodes []models.Node) {

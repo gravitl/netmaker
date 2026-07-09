@@ -98,7 +98,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 				ID: user.PlatformRoleID,
 			}
 			err := userRole.Get(r.Context())
-			if err != nil || !userRole.FullAccess {
+			if err != nil || !userRole.TenantGlobalAccess {
 				filtered := []models.ExtClient{}
 				for _, ec := range extclients {
 					if logic.IsUserAllowedAccessToExtClient(username, ec) {
