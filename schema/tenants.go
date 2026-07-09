@@ -55,10 +55,17 @@ func (t *Tenant) Create(ctx context.Context) error {
 }
 
 func (t *Tenant) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Tenant{}).
+	var result Tenant
+	err := db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ? OR slug = ?", t.ID, t.Slug).
-		First(t).
+		First(&result).
 		Error
+	if err != nil {
+		return err
+	}
+
+	*t = result
+	return nil
 }
 
 func (t *Tenant) GetDefault(ctx context.Context) error {
@@ -93,6 +100,6 @@ func (t *Tenant) Update(ctx context.Context) error {
 func (t *Tenant) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ? OR slug = ?", t.ID, t.Slug).
-		Delete(t).
+		Delete(&Tenant{}).
 		Error
 }

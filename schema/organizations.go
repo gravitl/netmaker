@@ -55,10 +55,17 @@ func (o *Organization) Create(ctx context.Context) error {
 }
 
 func (o *Organization) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Organization{}).
+	var result Organization
+	err := db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ? OR slug = ?", o.ID, o.Slug).
-		First(o).
+		First(&result).
 		Error
+	if err != nil {
+		return err
+	}
+
+	*o = result
+	return nil
 }
 
 func (o *Organization) GetDefault(ctx context.Context) error {
@@ -84,7 +91,7 @@ func (o *Organization) Update(ctx context.Context) error {
 func (o *Organization) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ? OR slug = ?", o.ID, o.Slug).
-		Delete(o).
+		Delete(&Organization{}).
 		Error
 }
 
