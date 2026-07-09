@@ -323,11 +323,26 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
+	user := &schema.User{Username: userID}
+	userGetErr := user.Get(db.WithContext(context.TODO()))
+
+	// Privileged operators bypass JIT (config management, master key, platform/network admins).
+	if userID == logic.MasterUser {
+		return true, nil, nil
+	}
+	if userGetErr == nil {
+		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+			return true, nil, nil
+		}
+		if IsNetworkAdmin(user, networkID) {
+			return true, nil, nil
+		}
+	}
+
 	ctx := db.WithContext(context.Background())
 
 	var subjectUser *schema.User
-	user := &schema.User{Username: userID}
-	if userGetErr := user.Get(db.WithContext(context.TODO())); userGetErr == nil {
+	if userGetErr == nil {
 		subjectUser = user
 	}
 	if !userMustSatisfyJIT(network, subjectUser) {

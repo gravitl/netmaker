@@ -508,7 +508,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userName string
-	if r.Header.Get("ismaster") == "yes" {
+	isMaster := r.Header.Get("ismaster") == "yes"
+	if isMaster {
 		userName = logic.MasterUser
 	} else {
 		caller := &schema.User{Username: r.Header.Get("user")}
@@ -526,8 +527,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var jitGrant *schema.JITGrant
-		// JIT enforcement applies only to desktop app / remote access clients, not admin-managed config files.
-		if customExtClient.DeviceID != "" || customExtClient.RemoteAccessClientID != "" {
+		if extClientCreateRequiresJIT(isMaster, customExtClient) {
 			hasAccess, grant, err := logic.CheckJITAccess(gateway.NetID, userName)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -619,8 +619,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	extclient.Location = customExtClient.Location
-	// JIT enforcement applies only to desktop app / remote access clients, not admin-managed config files.
-	if extclient.DeviceID != "" || extclient.RemoteAccessClientID != "" {
+	if extClientCreateRequiresJIT(isMaster, customExtClient) {
 		hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -1301,4 +1300,17 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()
+}
+
+// extClientCreateRequiresJIT reports whether create must verify JIT access.
+// Admin-managed config files (no device_id / remote_access_client_id) bypass JIT.
+// Desktop/RAC clients require JIT unless CheckJITAccess grants an admin bypass.
+func extClientCreateRequiresJIT(isMaster bool, custom models.CustomExtClient) bool {
+	if custom.DeviceID == "" && custom.RemoteAccessClientID == "" {
+		return false
+	}
+	if isMaster {
+		return false
+	}
+	return true
 }
