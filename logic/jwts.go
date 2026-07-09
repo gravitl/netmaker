@@ -59,8 +59,10 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserAccessJwtToken(username string, role schema.UserRoleID, d time.Time, tokenID string) (response string, err error) {
+func CreateUserAccessJwtToken(ctx context.Context, username string, role schema.UserRoleID, d time.Time, tokenID string) (response string, err error) {
 	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
 		UserName:  username,
 		Role:      role,
 		TokenType: models.AccessTokenType,
@@ -83,7 +85,7 @@ func CreateUserAccessJwtToken(username string, role schema.UserRoleID, d time.Ti
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, role schema.UserRoleID, appName string) (response string, err error) {
+func CreateUserJWT(ctx context.Context, username string, role schema.UserRoleID, appName string) (response string, err error) {
 	duration := GetJwtValidityDuration()
 	if appName == NetclientApp || appName == NetmakerDesktopApp {
 		duration = GetJwtValidityDurationForClients()
@@ -91,6 +93,8 @@ func CreateUserJWT(username string, role schema.UserRoleID, appName string) (res
 
 	expirationTime := time.Now().Add(duration)
 	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
 		UserName:  username,
 		Role:      role,
 		TokenType: models.UserIDTokenType,
