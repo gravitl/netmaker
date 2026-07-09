@@ -302,7 +302,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	tenantID := request.Header.Get(scope.HeaderTenantID)
 
 	user := &schema.User{Username: authRequest.UserName}
 	err := user.Get(request.Context())
@@ -313,12 +312,9 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if tenantID != "" {
-		membership := &schema.TenantMembership{TenantID: tenantID, UserID: user.ID}
-		if err := membership.Get(request.Context()); err != nil {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is not a member of this tenant"), "unauthorized"))
-			return
-		}
+	if user.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is not a member of this tenant"), "unauthorized"))
+		return
 	}
 
 	if logic.IsOauthUser(user) == nil {
