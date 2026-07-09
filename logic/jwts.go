@@ -205,7 +205,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 			return "", err
 		}
 
-		return user.Username, Unauthorized_Err
+		return user.Username, nil
 	}
 
 	return "", Unauthorized_Err
