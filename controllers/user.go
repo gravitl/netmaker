@@ -317,6 +317,12 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	err = logic.ResolveInheritedAuth(request.Context(), user)
+	if err != nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("incorrect credentials"), "unauthorized"))
+		return
+	}
+
 	if logic.IsOauthUser(user) == nil {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return

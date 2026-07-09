@@ -50,6 +50,32 @@ func GetUsers() ([]models.ReturnUser, error) {
 	return users, nil
 }
 
+func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
+	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
+		return nil
+	}
+
+	tenant := &schema.Tenant{ID: scope.ID(ctx)}
+	err := tenant.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	orgMembership := &schema.OrgMembership{
+		OrganizationID: tenant.OrganizationID,
+		UserID:         user.ID,
+	}
+	err = orgMembership.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	user.AuthType = orgMembership.AuthType
+	user.Password = orgMembership.Password
+	user.ExternalIdentityProviderID = orgMembership.ExternalIdentityProviderID
+	return nil
+}
+
 // IsOauthUser - returns
 func IsOauthUser(user *schema.User) error {
 	var currentValue, err = FetchOAuthSecret()
@@ -72,6 +98,11 @@ func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, a
 		Username: authRequest.UserName,
 	}
 	err := _user.Get(ctx)
+	if err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+
+	err = ResolveInheritedAuth(ctx, _user)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
