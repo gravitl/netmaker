@@ -165,7 +165,7 @@ func OrgPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func GlobalPermissionsCheck(username string, r *http.Request) error {
+func TenantPermissionsCheck(username string, r *http.Request) error {
 	route, err := mux.CurrentRoute(r).GetPathTemplate()
 	if err != nil {
 		return err

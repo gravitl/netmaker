@@ -22,14 +22,13 @@ const (
 )
 
 var NetworkPermissionsCheck = func(username string, r *http.Request) error { return nil }
-var GlobalPermissionsCheck = func(username string, r *http.Request) error { return nil }
+var TenantPermissionsCheck = func(username string, r *http.Request) error { return nil }
 var OrgPermissionsCheck = func(username string, r *http.Request) error { return nil }
 
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
-		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		bearerToken := r.Header.Get("Authorization")
 		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
@@ -58,19 +57,21 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			switch scope.Level(r.Context()) {
 			case scope.OrgScope:
 				err = OrgPermissionsCheck(username, r)
-			default:
-				if isGlobalAccesss {
-					err = GlobalPermissionsCheck(username, r)
-				} else {
+			case scope.TenantScope:
+				if r.Header.Get("IS_NETWORK_ACCESS") == "yes" {
 					err = NetworkPermissionsCheck(username, r)
+				} else {
+					err = TenantPermissionsCheck(username, r)
 				}
+				w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+				w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+				w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
+				w.Header().Set("IS_NETWORK_ACCESS", r.Header.Get("IS_NETWORK_ACCESS"))
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			default:
+				err = nil
 			}
 		}
-		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
-		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
-		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
-		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if err != nil {
 			w.Header().Set("ACCESS_PERM", err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, "forbidden"))
