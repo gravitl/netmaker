@@ -1,14 +1,11 @@
 package logic
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/gravitl/netmaker/db"
-
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -199,7 +196,7 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 		user := &schema.User{
 			Username: username,
 		}
-		err := user.Get(DefaultScope(db.WithContext(context.TODO())))
+		err := user.Get(r.Context())
 		if err != nil {
 			ReturnErrorResponse(w, r, errorResponse)
 			return
