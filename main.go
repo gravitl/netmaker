@@ -245,7 +245,12 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			go mq.PublishDeletedNodePeerUpdate(nil, node)
+			host := &schema.Host{ID: node.HostID}
+			ctx := db.WithContext(context.Background())
+			if err := host.Get(ctx); err == nil {
+				ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+				go mq.PublishDeletedNodePeerUpdate(ctx, nil, node)
+			}
 		}
 	}()
 	<-ctx.Done()

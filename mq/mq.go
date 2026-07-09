@@ -7,8 +7,11 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -150,9 +153,16 @@ func normalizedMetricsExportInterval() time.Duration {
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
-	warmPeerCaches()
-	StartPeerUpdateWorker(ctx)
-	go PublishPeerUpdate(true)
+	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(ctx))
+	if err != nil {
+		slog.Error("failed to list tenants for peer update workers", "error", err)
+	}
+	for _, tenant := range tenants {
+		ctx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
+		warmPeerCaches(ctx)
+		StartPeerUpdateWorker(ctx)
+		go PublishPeerUpdate(ctx, true)
+	}
 	metricIntervalReset := logic.SubscribeMetricExportIntervalReset()
 	metricsTicker := time.NewTicker(normalizedMetricsExportInterval())
 	defer metricsTicker.Stop()

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -336,7 +337,8 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		NetworkID: acl.NetworkID,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(true)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
 	acls := []models.Acl{acl}
 	logic.PopulateAclPolicyTagNames(acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "created acl successfully")
@@ -416,7 +418,8 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		NetworkID: acl.NetworkID,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(true)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
 	updatedAcl, err := logic.GetAcl(acl.ID)
 	if err != nil {
 		logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
@@ -477,6 +480,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go mq.PublishPeerUpdate(true)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)
 }

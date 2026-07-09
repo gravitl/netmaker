@@ -160,8 +160,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		NetworkID: schema.NetworkID(ns.NetworkID),
 		Origin:    schema.Dashboard,
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "created nameserver")
 }
 
@@ -319,7 +319,8 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.UpdateStatus(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "updated nameserver")
 }
 
@@ -376,8 +377,8 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted nameserver resource")
 }
 

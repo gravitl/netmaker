@@ -133,7 +133,18 @@ func ValidateLicense() (err error) {
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
 	go mq.PublishExporterFeatureFlags()
-	go mq.PublishPeerUpdate(false)
+	go func() {
+		ctx := db.WithContext(context.Background())
+		tenants, err := (&schema.Tenant{}).ListAll(ctx)
+		if err != nil {
+			slog.Error("failed to list tenants for peer update", "error", err)
+			return
+		}
+		for _, tenant := range tenants {
+			ctx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+			mq.PublishPeerUpdate(ctx, false)
+		}
+	}()
 
 	slog.Info("License validation succeeded!")
 	return nil

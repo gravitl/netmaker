@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
@@ -40,69 +41,78 @@ var (
 )
 
 var (
-	hostPeerInfoCache   map[string]models.HostPeerInfo
+	hostPeerInfoCache   map[string]map[string]models.HostPeerInfo
 	hostPeerInfoCacheMu sync.RWMutex
 )
 
 var (
-	hostPeerUpdateCache   map[string]models.HostPeerUpdate
+	hostPeerUpdateCache   map[string]map[string]models.HostPeerUpdate
 	hostPeerUpdateCacheMu sync.RWMutex
 )
 
 // InvalidateHostPeerCaches clears both hostPeerInfoCache and
 // hostPeerUpdateCache so they are rebuilt on next access or refresh.
-func InvalidateHostPeerCaches() {
+func InvalidateHostPeerCaches(ctx context.Context) {
+	tenantID := scope.ID(ctx)
+
 	hostPeerInfoCacheMu.Lock()
-	hostPeerInfoCache = nil
+	delete(hostPeerInfoCache, tenantID)
 	hostPeerInfoCacheMu.Unlock()
 
 	hostPeerUpdateCacheMu.Lock()
-	hostPeerUpdateCache = nil
+	delete(hostPeerUpdateCache, tenantID)
 	hostPeerUpdateCacheMu.Unlock()
 }
 
 // StoreHostPeerUpdate - caches a computed HostPeerUpdate for a host.
 // Called as a side-effect of PublishSingleHostPeerUpdate during broadcast.
-func StoreHostPeerUpdate(hostID string, peerUpdate models.HostPeerUpdate) {
+func StoreHostPeerUpdate(ctx context.Context, hostID string, peerUpdate models.HostPeerUpdate) {
+	tenantID := scope.ID(ctx)
 	hostPeerUpdateCacheMu.Lock()
 	if hostPeerUpdateCache == nil {
-		hostPeerUpdateCache = make(map[string]models.HostPeerUpdate)
+		hostPeerUpdateCache = make(map[string]map[string]models.HostPeerUpdate)
 	}
-	hostPeerUpdateCache[hostID] = peerUpdate
+	if hostPeerUpdateCache[tenantID] == nil {
+		hostPeerUpdateCache[tenantID] = make(map[string]models.HostPeerUpdate)
+	}
+	hostPeerUpdateCache[tenantID][hostID] = peerUpdate
 	hostPeerUpdateCacheMu.Unlock()
 }
 
 // GetCachedHostPeerUpdate - returns a cached HostPeerUpdate if available.
-func GetCachedHostPeerUpdate(hostID string) (models.HostPeerUpdate, bool) {
+func GetCachedHostPeerUpdate(ctx context.Context, hostID string) (models.HostPeerUpdate, bool) {
+	tenantID := scope.ID(ctx)
 	hostPeerUpdateCacheMu.RLock()
 	defer hostPeerUpdateCacheMu.RUnlock()
-	if hostPeerUpdateCache == nil {
+	tenantCache, ok := hostPeerUpdateCache[tenantID]
+	if !ok {
 		return models.HostPeerUpdate{}, false
 	}
-	hpu, ok := hostPeerUpdateCache[hostID]
+	hpu, ok := tenantCache[hostID]
 	return hpu, ok
 }
 
 // GetHostPeerInfo - returns cached peer info for a host.
 // Falls back to on-demand computation if the cache is not yet populated.
-func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
+func GetHostPeerInfo(ctx context.Context, host *schema.Host) (models.HostPeerInfo, error) {
+	tenantID := scope.ID(ctx)
 	hostID := host.ID.String()
 	hostPeerInfoCacheMu.RLock()
-	if hostPeerInfoCache != nil {
-		if info, ok := hostPeerInfoCache[hostID]; ok {
+	if tenantCache, ok := hostPeerInfoCache[tenantID]; ok {
+		if info, ok := tenantCache[hostID]; ok {
 			hostPeerInfoCacheMu.RUnlock()
 			return info, nil
 		}
 	}
 	hostPeerInfoCacheMu.RUnlock()
-	return computeHostPeerInfo(host, nil, models.ServerConfig{})
+	return computeHostPeerInfo(ctx, host, nil, models.ServerConfig{})
 }
 
 // RefreshHostPeerInfoCache - batch pre-computes peer info for all hosts
 // and stores the results in the cache. Returns the fetched hosts and
 // nodes so callers can reuse them without redundant DB queries.
-func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+func RefreshHostPeerInfoCache(ctx context.Context) ([]schema.Host, []models.Node) {
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
@@ -114,13 +124,17 @@ func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
 	}
 	serverInfo := GetServerInfo()
 
-	newCache := make(map[string]models.HostPeerInfo, len(hosts))
+	newCache := make(map[string]map[string]models.HostPeerInfo)
 	for i := range hosts {
-		info, err := computeHostPeerInfo(&hosts[i], allNodes, serverInfo)
+		info, err := computeHostPeerInfo(ctx, &hosts[i], allNodes, serverInfo)
 		if err != nil {
 			continue
 		}
-		newCache[hosts[i].ID.String()] = info
+		tenantID := hosts[i].TenantID
+		if newCache[tenantID] == nil {
+			newCache[tenantID] = make(map[string]models.HostPeerInfo)
+		}
+		newCache[tenantID][hosts[i].ID.String()] = info
 	}
 
 	hostPeerInfoCacheMu.Lock()
@@ -131,7 +145,7 @@ func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
 
 // computeHostPeerInfo - computes peer info for a single host.
 // If allNodes is nil or serverInfo is zero-value, fetches them fresh.
-func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo models.ServerConfig) (models.HostPeerInfo, error) {
+func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []models.Node, serverInfo models.ServerConfig) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
 		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
 	}
@@ -168,7 +182,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			peerHost := &schema.Host{
 				ID: peer.HostID,
 			}
-			err := peerHost.Get(db.WithContext(context.TODO()))
+			err := peerHost.Get(ctx)
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -213,7 +227,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -306,7 +320,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
-		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		GetNodeEgressInfo(&node, eli, acls)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
@@ -357,7 +371,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			peerHost := &schema.Host{
 				ID: peer.HostID,
 			}
-			err := peerHost.Get(db.WithContext(context.TODO()))
+			err := peerHost.Get(ctx)
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -389,7 +403,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						relayHost := &schema.Host{
 							ID: autoRelayNode.HostID,
 						}
-						err = relayHost.Get(db.WithContext(context.TODO()))
+						err = relayHost.Get(ctx)
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -402,7 +416,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						relayHost := &schema.Host{
 							ID: relayNode.HostID,
 						}
-						err := relayHost.Get(db.WithContext(context.TODO()))
+						err := relayHost.Get(ctx)
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -704,7 +718,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			deletedNodeHost = &schema.Host{
 				ID: deletedNode.HostID,
 			}
-			err = deletedNodeHost.Get(db.WithContext(context.TODO()))
+			err = deletedNodeHost.Get(ctx)
 		} else {
 			deletedNodeHost = deletedHost
 		}

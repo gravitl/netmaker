@@ -794,11 +794,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclient)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		extUpdateMutex.Lock()
-		mq.PublishPeerUpdate(false)
+		mq.PublishPeerUpdate(ctx, false)
 		extUpdateMutex.Unlock()
-	}()
+	}(ctx)
 }
 
 // @Summary     Update a config file
@@ -953,16 +954,17 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if replacePeers || !update.Enabled {
-			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &oldExtClient); err != nil {
 				slog.Error("error deleting old ext peers", "error", err.Error())
 			}
 		}
 		extUpdateMutex.Lock()
-		mq.PublishPeerUpdate(false)
+		mq.PublishPeerUpdate(ctx, false)
 		extUpdateMutex.Unlock()
-	}()
+	}(ctx)
 
 }
 
@@ -1022,11 +1024,12 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 			slog.Error("error setting ext peers on " + ingressnode.ID.String() + ": " + err.Error())
 		}
-	}()
+	}(ctx)
 
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
@@ -1061,7 +1064,8 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d ext client(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		deleted := 0
 		gwDeletedClients := make(map[string][]models.ExtClient)
 		for _, clientID := range req.IDs {
@@ -1108,13 +1112,13 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
-				go mq.PublishSingleHostPeerUpdate(gwHost, allNodes, nil, nil, clients, false, nil)
+				go mq.PublishSingleHostPeerUpdate(ctx, gwHost, allNodes, nil, nil, clients, false, nil)
 
 			}
-			go mq.PublishPeerUpdate(false)
+			go mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk extclient delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // validateCustomExtClient	Validates the extclient object
@@ -1211,7 +1215,8 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d ext client(s) accepted", eventAction, len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		updated := 0
 		for _, clientID := range req.IDs {
 			client, err := logic.GetExtClient(clientID, network)
@@ -1228,7 +1233,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !req.Enabled {
-				if err := mq.PublishDeletedClientPeerUpdate(&client); err != nil {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &client); err != nil {
 					slog.Error("bulk extclient status: error publishing peer update", "client_id", clientID, "error", err)
 				}
 			}
@@ -1253,8 +1258,8 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 			updated++
 		}
 		if updated > 0 {
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
-	}()
+	}(ctx)
 }

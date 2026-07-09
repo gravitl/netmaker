@@ -18,13 +18,14 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
 var (
-	peerUpdateSignal  = make(chan struct{}, 1)
-	peerUpdateReplace atomic.Bool
+	peerUpdateSignals  sync.Map
+	peerUpdateReplaces sync.Map
 )
 
 const (
@@ -35,34 +36,48 @@ const (
 
 var metricsHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-// PublishPeerUpdate --- queues a peer update that will be coalesced with other
+func peerUpdateSignalFor(tenantID string) chan struct{} {
+	ch, _ := peerUpdateSignals.LoadOrStore(tenantID, make(chan struct{}, 1))
+	return ch.(chan struct{})
+}
+
+func peerUpdateReplaceFor(tenantID string) *atomic.Bool {
+	b, _ := peerUpdateReplaces.LoadOrStore(tenantID, new(atomic.Bool))
+	return b.(*atomic.Bool)
+}
+
+// PublishPeerUpdate --- queues a peer update for a tenant that will be coalesced with other
 // rapid-fire updates via a debounce window (500ms) capped by a max-wait (3s).
-func PublishPeerUpdate(replacePeers bool) error {
+func PublishPeerUpdate(ctx context.Context, replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
+	tenantID := scope.ID(ctx)
 	if replacePeers {
-		peerUpdateReplace.Store(true)
+		peerUpdateReplaceFor(tenantID).Store(true)
 	}
 	select {
-	case peerUpdateSignal <- struct{}{}:
+	case peerUpdateSignalFor(tenantID) <- struct{}{}:
 	default:
 	}
 	return nil
 }
 
-// StartPeerUpdateWorker --- runs a background goroutine that coalesces peer
+// StartPeerUpdateWorker --- runs a background goroutine for a given tenant that coalesces peer
 // update signals using a resettable debounce timer capped by an absolute
 // max-wait deadline. This ensures rapid-fire PublishPeerUpdate calls result
 // in a single broadcast, while guaranteeing peers never wait longer than
 // peerUpdateMaxWait from the first signal.
 func StartPeerUpdateWorker(ctx context.Context) {
+	tenantID := scope.ID(ctx)
+	signal := peerUpdateSignalFor(tenantID)
+	replace := peerUpdateReplaceFor(tenantID)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-peerUpdateSignal:
+			case <-signal:
 				maxWait := time.After(peerUpdateMaxWait)
 				debounce := time.After(peerUpdateDebounce)
 			wait:
@@ -74,51 +89,51 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						break wait
 					case <-debounce:
 						break wait
-					case <-peerUpdateSignal:
+					case <-signal:
 						debounce = time.After(peerUpdateDebounce)
 					}
 				}
-				replacePeers := peerUpdateReplace.Swap(false)
+				replacePeers := replace.Swap(false)
 			drain:
 				for {
 					select {
-					case <-peerUpdateSignal:
+					case <-signal:
 					default:
 						break drain
 					}
 				}
-				logic.RefreshHostPeerInfoCache()
-				if err := publishPeerUpdateImmediate(replacePeers); err != nil {
-					slog.Error("error publishing peer update", "error", err)
+				logic.RefreshHostPeerInfoCache(ctx)
+				if err := publishPeerUpdateImmediate(ctx, replacePeers); err != nil {
+					slog.Error("error publishing peer update", "tenant", tenantID, "error", err)
 				} else {
-					publishServerSync(logic.DefaultScope(context.Background()), logic.SyncTypePeerUpdate)
+					publishServerSync(ctx, logic.SyncTypePeerUpdate)
 				}
 			}
 		}
 	}()
 }
 
-// warmPeerCaches pre-computes HostPeerInfo and HostPeerUpdate caches so that
+// warmPeerCaches pre-computes HostPeerInfo and HostPeerUpdate caches for a tenant so that
 // pull requests arriving before the first debounced broadcast are served
 // instantly from cache instead of triggering expensive on-demand computation.
-func warmPeerCaches() {
-	hosts, allNodes := logic.RefreshHostPeerInfoCache()
+func warmPeerCaches(ctx context.Context) {
+	hosts, allNodes := logic.RefreshHostPeerInfoCache(ctx)
 	if hosts == nil || allNodes == nil {
 		return
 	}
 	for i := range hosts {
-		peerUpdate, err := logic.GetPeerUpdateForHost("", &hosts[i], allNodes, nil, nil, nil)
+		peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", &hosts[i], allNodes, nil, nil, nil)
 		if err != nil {
 			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
 			continue
 		}
-		logic.StoreHostPeerUpdate(hosts[i].ID.String(), peerUpdate)
+		logic.StoreHostPeerUpdate(ctx, hosts[i].ID.String(), peerUpdate)
 	}
-	slog.Info("peer update caches warmed", "hosts", len(hosts))
+	slog.Info("peer update caches warmed", "tenant", scope.ID(ctx), "hosts", len(hosts))
 }
 
-// publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts
-func publishPeerUpdateImmediate(replacePeers bool) error {
+// publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts in a given tenant.
+func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -127,7 +142,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 		sendDNSSync()
 	}
 
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -145,7 +160,7 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 		wg.Add(1)
 		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, nil, replacePeers, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, &host, allNodes, nil, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -161,12 +176,12 @@ func publishPeerUpdateImmediate(replacePeers bool) error {
 
 // PublishDeletedNodePeerUpdate --- determines and publishes a peer update
 // to all the hosts with a deleted node to account for
-func PublishDeletedNodePeerUpdate(delHost *schema.Host, delNode *models.Node) error {
+func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, delNode *models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
 
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -177,7 +192,7 @@ func PublishDeletedNodePeerUpdate(delHost *schema.Host, delNode *models.Node) er
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, delHost, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, delHost, delNode, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -186,12 +201,12 @@ func PublishDeletedNodePeerUpdate(delHost *schema.Host, delNode *models.Node) er
 
 // PublishDeletedClientPeerUpdate --- determines and publishes a peer update
 // to all the hosts with a deleted ext client to account for
-func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
+func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtClient) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
 
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -203,7 +218,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(ctx, &host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -212,11 +227,11 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedHost, deletedNode, deletedClients)
+	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, allNodes, deletedHost, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
@@ -235,7 +250,7 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 	}
 	peerUpdate.ReplacePeers = replacePeers
 	if deletedNode == nil && len(deletedClients) == 0 {
-		logic.StoreHostPeerUpdate(host.ID.String(), peerUpdate)
+		logic.StoreHostPeerUpdate(ctx, host.ID.String(), peerUpdate)
 	}
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
@@ -308,7 +323,7 @@ func ServerStartNotify() error {
 }
 
 // PublishMqUpdatesForDeletedNode - published all the required updates for deleted host and node
-func PublishMqUpdatesForDeletedNode(delHost *schema.Host, node models.Node, sendNodeUpdate bool) {
+func PublishMqUpdatesForDeletedNode(ctx context.Context, delHost *schema.Host, node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
 	node.Action = schema.NODE_DELETE
@@ -317,7 +332,7 @@ func PublishMqUpdatesForDeletedNode(delHost *schema.Host, node models.Node, send
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
 	}
-	if err := PublishDeletedNodePeerUpdate(delHost, &node); err != nil {
+	if err := PublishDeletedNodePeerUpdate(ctx, delHost, &node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
 	}
 }

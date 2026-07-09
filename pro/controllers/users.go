@@ -586,7 +586,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -656,7 +657,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	go mq.PublishPeerUpdate(replacePeers)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -1290,7 +1292,8 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	go func(user *schema.User, remoteGwID string) {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, user *schema.User, remoteGwID string) {
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
@@ -1303,13 +1306,13 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
-	}(user, remoteGwID)
+	}(ctx, user, remoteGwID)
 
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -2174,6 +2177,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsMasterPod() {
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
@@ -2181,7 +2185,7 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
 		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
@@ -2309,6 +2313,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
@@ -2316,7 +2321,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
 		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}

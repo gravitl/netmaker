@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -223,7 +224,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		go mq.PublishPeerUpdate(false)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go mq.PublishPeerUpdate(ctx, false)
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
@@ -472,7 +474,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
 
@@ -539,6 +542,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertAcl(acl)
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted egress resource")
 }

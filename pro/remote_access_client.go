@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
@@ -78,9 +79,6 @@ func disableExtClient(client *models.ExtClient) error {
 	} else {
 		// publish peer update to ingress gateway
 		if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
-			if err = mq.PublishPeerUpdate(false); err != nil {
-				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
-			}
 			ingressHost := &schema.Host{
 				ID: ingressNode.HostID,
 			}
@@ -88,11 +86,15 @@ func disableExtClient(client *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, ingressHost.TenantID)
+			if err = mq.PublishPeerUpdate(ctx, false); err != nil {
+				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
+			}
 			nodes, err := logic.GetAllNodes()
 			if err != nil {
 				return err
 			}
-			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, nil, []models.ExtClient{*client}, false, nil)
+			go mq.PublishSingleHostPeerUpdate(ctx, ingressHost, nodes, nil, nil, []models.ExtClient{*client}, false, nil)
 		} else {
 			return err
 		}

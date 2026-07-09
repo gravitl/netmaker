@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
@@ -71,10 +73,11 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
-		go func() {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
 			logic.ResetAutoRelayedPeer(&node)
-			mq.PublishPeerUpdate(false)
-		}()
+			mq.PublishPeerUpdate(ctx, false)
+		}(ctx)
 
 	}
 	if node.IsGw && node.IngressDNS == "" {
@@ -96,7 +99,8 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func updateInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -146,10 +150,11 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		_ = logic.ResetAutoRelayedPeer(&node)
-		_ = mq.PublishPeerUpdate(false)
-	}()
+		_ = mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -180,5 +185,6 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }

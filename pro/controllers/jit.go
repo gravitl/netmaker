@@ -362,13 +362,14 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		return
 	}
 	// Send approval email to user
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		network := &schema.Network{Name: networkID}
-		_ = network.Get(r.Context())
+		_ = network.Get(ctx)
 		if err := email.SendJITApprovalEmail(grant, req, network); err != nil {
 			slog.Error("failed to send approval notification", "error", err)
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.JitRequestApprove,
 		Source: models.Subject{
@@ -691,13 +692,14 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send email notifications to network admins
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		network := &schema.Network{Name: req.NetworkID}
-		_ = network.Get(r.Context())
+		_ = network.Get(ctx)
 		if err := email.SendJITRequestEmails(request, network); err != nil {
 			slog.Error("failed to send JIT request notifications", "error", err)
 		}
-	}()
+	}(ctx)
 
 	logic.LogEvent(&models.Event{
 		Action: schema.JitRequestCreate,

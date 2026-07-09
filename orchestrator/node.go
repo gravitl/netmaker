@@ -201,7 +201,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 
 		if !ops.skipPublishPeerUpdate {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
@@ -313,7 +313,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	if !ops.skipPublishPeerUpdate {
 		go func() {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}

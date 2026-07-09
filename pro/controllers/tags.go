@@ -172,7 +172,8 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		NetworkID: tag.Network,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 
 	var res models.TagListRespNodes = models.TagListRespNodes{
 		Tag:         tag,
@@ -254,13 +255,14 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		proLogic.UpdateTag(updateTag, newID)
 		if updateTag.NewName != "" {
 			proLogic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	e.Diff.New = updateTag
 	logic.LogEvent(e)
 	var res models.TagListRespNodes = models.TagListRespNodes{
@@ -302,13 +304,14 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		proLogic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
 		proLogic.RemoveTagFromPostureChecks(tag.ID, tag.Network)
 		proLogic.RemoveTagFromNameservers(tag.ID, tag.Network)
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{

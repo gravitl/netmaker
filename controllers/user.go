@@ -284,7 +284,6 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
-	ctx := logic.DefaultScope(request.Context())
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
@@ -308,7 +307,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	tenantID := request.Header.Get(scope.HeaderTenantID)
 
 	user := &schema.User{Username: authRequest.UserName}
-	err := user.Get(ctx)
+	err := user.Get(request.Context())
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -348,7 +347,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		// request came from UI, if normal user block Login
 
 		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err := role.Get(ctx)
+		err := role.Get(request.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
@@ -914,7 +913,8 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		return
 	}
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if !force {
 			return
 		}
@@ -932,8 +932,8 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 				}
 			}
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 
 	src := logic.MasterUser
 	if !isMaster {
@@ -1457,7 +1457,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	})
 	logic.DeleteUserInvite(user.Username)
 	logic.DeletePendingUser(user.Username)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	slog.Info("user was created", "username", user.Username)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
 }
@@ -1664,8 +1665,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.LogEvent(&e)
-	go mq.PublishPeerUpdate(false)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
+	go func(ctx context.Context) {
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
@@ -1683,13 +1685,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
-	}()
+	}(ctx)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -1804,7 +1806,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	// check and delete extclient with this ownerID
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		delete := r.URL.Query().Get("force_delete_configs") == "true"
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
@@ -1824,15 +1827,15 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
 		_ = logic.DeleteUserInvite(user.Username)
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }
@@ -1880,7 +1883,8 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		ownerExtClients := make(map[string][]models.ExtClient)
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
@@ -1949,7 +1953,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
 					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
 					}
 				}
@@ -1957,10 +1961,10 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			_ = logic.DeleteUserInvite(user.Username)
 		}
 		if deleted > 0 {
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // @Summary     Bulk disable/enable user accounts
@@ -2004,7 +2008,8 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		var ownerExtClients map[string][]models.ExtClient
 		if forceToggle {
 			extclients, err := logic.GetAllExtClients()
@@ -2097,10 +2102,10 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if updated > 0 && forceToggle {
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk user status update completed", "action", action, "updated", updated, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // Called when vpn client dials in to start the auth flow and first stage is to get register URL itself

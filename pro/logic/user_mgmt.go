@@ -26,6 +26,15 @@ var (
 	globalNetworksUserRoleID   = schema.UserRoleID(fmt.Sprintf("global-%s", schema.NetworkUser))
 )
 
+func scopeCtxForNetwork(networkName string) context.Context {
+	ctx := db.WithContext(context.Background())
+	network := &schema.Network{Name: networkName}
+	if err := network.Get(ctx); err == nil {
+		ctx = scope.WithContext(ctx, scope.TenantScope, network.TenantID)
+	}
+	return ctx
+}
+
 var ServiceUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.ServiceUser,
 	Default:             true,
@@ -721,7 +730,8 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		replacePeers = true
 	}
 
-	go mq.PublishPeerUpdate(replacePeers)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, group.TenantID)
+	go mq.PublishPeerUpdate(ctx, replacePeers)
 
 	for networkID := range networksMap {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
@@ -904,7 +914,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -921,7 +931,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -972,7 +982,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
 			} else {
-				if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+				if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
 					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
@@ -1020,7 +1030,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}

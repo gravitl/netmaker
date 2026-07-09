@@ -505,6 +505,7 @@ func deleteAndCleanUpUser(user *schema.User) error {
 
 	// check and delete extclient with this ownerID
 	go func() {
+		ctx := logic.DefaultScope(db.WithContext(context.Background()))
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			return
@@ -513,13 +514,13 @@ func deleteAndCleanUpUser(user *schema.User) error {
 			if extclient.OwnerID == user.Username {
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err == nil {
-					_ = mq.PublishDeletedClientPeerUpdate(&extclient)
+					_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 				}
 			}
 		}
 
 		go logic.DeleteUserInvite(user.Username)
-		go mq.PublishPeerUpdate(false)
+		go mq.PublishPeerUpdate(ctx, false)
 	}()
 
 	return nil

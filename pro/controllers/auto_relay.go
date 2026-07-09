@@ -110,7 +110,8 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "created autorelay successfully")
 }
@@ -143,7 +144,8 @@ func resetAutoRelayGw(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "autorelay has been reset successfully")
 }
@@ -178,10 +180,11 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 	if servercfg.CacheEnabled() {
 		proLogic.RemoveAutoRelayFromCache(node.Network)
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		proLogic.ResetAutoRelay(&node)
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted autorelay successfully")
 }
@@ -352,7 +355,8 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	sendPeerUpdate = true
 
 	if sendPeerUpdate {
-		go mq.PublishPeerUpdate(false)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go mq.PublishPeerUpdate(ctx, false)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -431,9 +435,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil)
 		}
-		go mq.PublishPeerUpdate(false)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go mq.PublishPeerUpdate(ctx, false)
 		if node.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node})
 		}
@@ -476,7 +481,8 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			newNodes := []string{node.ID.String()}
 			newNodes = append(newNodes, autoRelayNode.RelayedNodes...)
 			logic.UpdateRelayNodes(autoRelayNode.ID.String(), autoRelayNode.RelayedNodes, newNodes)
-			go mq.PublishPeerUpdate(false)
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+			go mq.PublishPeerUpdate(ctx, false)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		logic.ReturnSuccessResponse(w, r, "relayed successfully")
@@ -515,7 +521,8 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		"network",
 		node.Network,
 	)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }

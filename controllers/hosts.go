@@ -99,10 +99,11 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Header.Get("user")
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		slog.Info("requesting all hosts to upgrade", "user", user)
 
-		hosts, err := (&schema.Host{}).ListAll(r.Context())
+		hosts, err := (&schema.Host{}).ListAll(ctx)
 		if err != nil {
 			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
 			return
@@ -121,7 +122,7 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 				}
 			}(host)
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.UpgradeAll,
 		Source: models.Subject{
@@ -324,10 +325,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			}
 			logic.ResetAutoRelayedPeer(&node)
 		}
-		go mq.PublishPeerUpdate(false)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go mq.PublishPeerUpdate(ctx, false)
 	}
 
-	hPU, ok := logic.GetCachedHostPeerUpdate(hostID.String())
+	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
 	if !ok || resetFailovered {
 		allNodes, err := logic.GetAllNodes()
 		if err != nil {
@@ -335,13 +337,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost("", host, allNodes, nil, nil, nil)
+		hPU, err = logic.GetPeerUpdateForHost(r.Context(), "", host, allNodes, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		logic.StoreHostPeerUpdate(hostID.String(), hPU)
+		logic.StoreHostPeerUpdate(r.Context(), hostID.String(), hPU)
 	}
 
 	response := models.HostPull{
@@ -442,14 +444,15 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			err.Error(),
 		)
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if newHost.IsDefault && !currHost.IsDefault {
-			addDefaultHostToNetworks(newHost)
+			addDefaultHostToNetworks(ctx, newHost)
 		}
-		if err := mq.PublishPeerUpdate(false); err != nil {
+		if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-	}()
+	}(ctx)
 
 	logic.LogEvent(&models.Event{
 		Action: schema.Update,
@@ -629,7 +632,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	case models.DeleteHost:
 		go mq.DeleteAndCleanupHost(currentHost)
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if runPostureChecks {
 			_nodes, _ := (&schema.Node{}).ListAll(
 				db.WithContext(context.TODO()),
@@ -660,16 +664,16 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 
 		}
 		if sendDeletedNodeUpdate {
-			_ = mq.PublishDeletedNodePeerUpdate(nil, &hostUpdate.Node)
+			_ = mq.PublishDeletedNodePeerUpdate(ctx, nil, &hostUpdate.Node)
 		}
 		if sendPeerUpdate {
 			slog.Debug("host update fallback", "action", hostUpdate.Action, "replacePeers", replacePeers)
-			err := mq.PublishPeerUpdate(replacePeers)
+			err := mq.PublishPeerUpdate(ctx, replacePeers)
 			if err != nil {
 				slog.Error("failed to publish peer update", "error", err)
 			}
 		}
-	}()
+	}(ctx)
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
@@ -727,8 +731,9 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	for _, node := range hostNodes {
-		go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
+		go mq.PublishMqUpdatesForDeletedNode(ctx, currHost, node, false)
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -838,7 +843,8 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		deleted := 0
 		for _, idStr := range req.IDs {
 			hostID, err := uuid.Parse(idStr)
@@ -865,7 +871,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			for _, node := range hostNodes {
-				go mq.PublishMqUpdatesForDeletedNode(currHost, node, false)
+				go mq.PublishMqUpdatesForDeletedNode(ctx, currHost, node, false)
 			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
@@ -899,12 +905,12 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			if err := mq.PublishPeerUpdate(false); err != nil {
+			if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 				slog.Error("bulk host delete: failed to publish peer update", "error", err)
 			}
 		}
 		slog.Info("bulk host delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // @Summary     To Add Host To Network
@@ -1138,9 +1144,10 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	go func() {
-		mq.PublishMqUpdatesForDeletedNode(nil, *node, true)
-	}()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		mq.PublishMqUpdatesForDeletedNode(ctx, nil, *node, true)
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.RemoveHostFromNet,
 		Source: models.Subject{
@@ -1478,10 +1485,11 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Header.Get("user")
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		slog.Info("requesting all hosts to sync", "user", user)
 
-		hosts, err := (&schema.Host{}).ListAll(r.Context())
+		hosts, err := (&schema.Host{}).ListAll(ctx)
 		if err != nil {
 			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
 			return
@@ -1501,7 +1509,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 			time.Sleep(time.Millisecond * 100)
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
@@ -1633,7 +1641,7 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
-	peerInfo, err := logic.GetHostPeerInfo(host)
+	peerInfo, err := logic.GetHostPeerInfo(r.Context(), host)
 	if err != nil {
 		slog.Error("failed to retrieve host peerinfo", "error", err)
 		errorResponse.Code = http.StatusBadRequest
@@ -1809,8 +1817,8 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 // addDefaultHostToNetworks enrolls a newly-made-default host into every
 // existing network it is not already part of, applying the standard default
 // host operations for each network.
-func addDefaultHostToNetworks(host *schema.Host) {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(0, "failed to get networks for default host ops:", err.Error())
 		return
@@ -1843,7 +1851,7 @@ func addDefaultHostToNetworks(host *schema.Host) {
 			continue
 		}
 
-		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network, orchestrator.SkipPublishPeerUpdate())
+		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network, orchestrator.SkipPublishPeerUpdate())
 		if err != nil {
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ":", err.Error())
 			continue

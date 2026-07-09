@@ -237,9 +237,10 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
 	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		<-doneCh
-		mq.PublishPeerUpdate(true)
+		mq.PublishPeerUpdate(ctx, true)
 		// send node update to clean up locally
 		for _, node := range networkNodes {
 			node := node
@@ -264,7 +265,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("error deleting network posture checks", "network", network, "error", err)
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
@@ -396,11 +397,12 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
 		}
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {
 			host := &defaultHosts[i]
-			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network)
+			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network)
 			if err != nil {
 				logger.Log(
 					0,
@@ -415,7 +417,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 			logger.Log(1, "added new node", newNode.ID, "to host", host.Name)
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
@@ -473,7 +475,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	slog.Info("updated network", "network", payload.Name, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(currNet)

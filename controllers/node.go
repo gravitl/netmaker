@@ -476,7 +476,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(r.Context(), node.Network, host, allNodes, nil, nil, nil)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(
 			0,
@@ -560,12 +560,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 // @Summary     Delete an egress gateway
@@ -608,12 +609,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 // @Summary     Update an individual node
@@ -813,7 +815,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func(relayupdate bool, newNode *models.Node) {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(relayupdate bool, newNode *models.Node, ctx context.Context) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -824,7 +827,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
@@ -853,8 +857,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		mq.PublishPeerUpdate(false)
-	}(relayUpdate, newNode)
+		mq.PublishPeerUpdate(ctx, false)
+	}(relayUpdate, newNode, ctx)
 }
 
 // @Summary     Delete an individual node
@@ -893,7 +897,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go mq.PublishMqUpdatesForDeletedNode(nil, node, !fromNode)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishMqUpdatesForDeletedNode(ctx, nil, node, !fromNode)
 }
 
 // @Summary     Bulk delete nodes
@@ -924,7 +929,8 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		deleted := 0
 		var deletedNodes []models.Node
 		for _, nodeID := range req.IDs {
@@ -962,10 +968,10 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		for _, node := range deletedNodes {
-			mq.PublishMqUpdatesForDeletedNode(nil, node, true)
+			mq.PublishMqUpdatesForDeletedNode(ctx, nil, node, true)
 		}
 		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // @Summary     Bulk update node connected status
@@ -1001,7 +1007,8 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", eventAction, len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		var nodeIDs []interface{}
 		// filter out invalid node IDs.
 		for _, nodeID := range req.IDs {
@@ -1076,7 +1083,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		mq.PublishPeerUpdate(false)
+		mq.PublishPeerUpdate(ctx, false)
 		slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
-	}()
+	}(ctx)
 }

@@ -116,7 +116,8 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	})
 
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
 	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "created posture check")
@@ -255,7 +256,8 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		pc.UpdateStatus(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
 	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "updated posture check")
@@ -310,7 +312,8 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
 }

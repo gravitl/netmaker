@@ -874,6 +874,12 @@ func disconnectUserExtClients(networkID, userID string) error {
 		return err
 	}
 
+	network := &schema.Network{Name: networkID}
+	ctx := db.WithContext(context.Background())
+	if err := network.Get(ctx); err == nil {
+		ctx = scope.WithContext(ctx, scope.TenantScope, network.TenantID)
+	}
+
 	for _, client := range extClients {
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
@@ -900,7 +906,7 @@ func disconnectUserExtClients(networkID, userID string) error {
 
 			// Publish MQ peer update to notify ingress gateway nodes
 			// This ensures nodes immediately remove the peer from WireGuard config
-			if err := mq.PublishDeletedClientPeerUpdate(&clientCopy); err != nil {
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
 				slog.Warn("failed to publish deleted client peer update",
 					"client_id", client.ClientID, "error", err)
 				// Don't fail the operation, just log

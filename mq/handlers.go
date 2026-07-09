@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
@@ -63,18 +64,23 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
 		if !newNode.Connected {
-			err = PublishDeletedNodePeerUpdate(nil, &newNode)
 			host := &schema.Host{ID: newNode.HostID}
 			if err := host.Get(db.WithContext(context.TODO())); err != nil {
 				slog.Error("failed to get host for the node", "nodeid", newNode.ID.String(), "error", err)
 				return
 			}
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+			err = PublishDeletedNodePeerUpdate(ctx, nil, &newNode)
 			allNodes, err := logic.GetAllNodes()
 			if err == nil {
-				PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
+				PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
 			}
 		} else {
-			err = PublishPeerUpdate(false)
+			host := &schema.Host{ID: currentNode.HostID}
+			if err = host.Get(db.WithContext(context.TODO())); err == nil {
+				ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+				err = PublishPeerUpdate(ctx, false)
+			}
 		}
 		if err != nil {
 			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
@@ -121,7 +127,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		HostUpdate(&models.HostUpdate{
 			Action: models.UpdateHost,
 			Host:   *currentHost})
-		PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, nil, false, nil)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
+		PublishSingleHostPeerUpdate(ctx, currentHost, nodes, nil, nil, nil, false, nil)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
@@ -146,7 +153,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		err := PublishPeerUpdate(replacePeers)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
+		err := PublishPeerUpdate(ctx, replacePeers)
 		if err != nil {
 			slog.Error("failed to publish peer update", "error", err)
 		}
@@ -163,10 +171,11 @@ func DeleteAndCleanupHost(h *schema.Host) {
 
 	// notify of deleted peer change
 
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, h.TenantID)
 	for _, nodeID := range h.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err == nil {
-			PublishMqUpdatesForDeletedNode(h, node, false)
+			PublishMqUpdatesForDeletedNode(ctx, h, node, false)
 		}
 	}
 
@@ -237,7 +246,13 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	case ncutils.ACK:
 		// do we still need this
 	case ncutils.DONE:
-		if err = PublishPeerUpdate(false); err != nil {
+		host := &schema.Host{ID: currentNode.HostID}
+		if err = host.Get(db.WithContext(context.TODO())); err != nil {
+			slog.Error("error getting host for node", "id", currentNode.ID, "error", err)
+			return
+		}
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+		if err = PublishPeerUpdate(ctx, false); err != nil {
 			slog.Error("error publishing peer update for node", "id", currentNode.ID, "error", err)
 			return
 		}

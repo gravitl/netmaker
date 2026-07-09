@@ -292,8 +292,9 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				continue
 			}
 
+			ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, host.TenantID)
 			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
-				db.WithContext(context.TODO()),
+				ctx,
 				host,
 				network,
 				orchestrator.UseKey(&key),
@@ -346,7 +347,8 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 			Action: models.RequestAck,
 			Host:   *host,
 		})
-		if err := mq.PublishPeerUpdate(false); err != nil {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+		if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
 		}
 	}

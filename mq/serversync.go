@@ -71,8 +71,8 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 			logic.NotifyMetricExportIntervalChanged()
 		}
 	case logic.SyncTypePeerUpdate:
-		logic.InvalidateHostPeerCaches()
-		go warmPeerCaches()
+		logic.InvalidateHostPeerCaches(ctx)
+		go warmPeerCaches(ctx)
 	case logic.SyncTypeIDPReset:
 		if servercfg.IsMasterPod() {
 			logic.ResetIDPSyncHook(ctx)
