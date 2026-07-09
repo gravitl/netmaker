@@ -19,7 +19,9 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
-func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, _ ...Option) error {
+func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
+	ops := applyOptions(opts...)
+
 	existing := &schema.User{
 		Username: user.Username,
 	}
@@ -33,22 +35,30 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, _ 
 		if err != nil {
 			return err
 		}
+	} else {
+		user.ID = existing.ID
 	}
 
 	if user.UserGroups.Data() == nil {
 		user.UserGroups = datatypes.NewJSONType(map[schema.UserGroupID]struct{}{})
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
-	if err != nil {
-		return err
-	}
+	if ops.inheritedAuth {
+		user.AuthType = schema.Inherited
+		user.Password = ""
+		user.ExternalIdentityProviderID = ""
+	} else {
+		passwordHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+		if err != nil {
+			return err
+		}
 
-	user.Password = string(passwordHash)
+		user.Password = string(passwordHash)
 
-	err = u.userExt.ConfigureAuthType(user)
-	if err != nil {
-		return err
+		err = u.userExt.ConfigureAuthType(user)
+		if err != nil {
+			return err
+		}
 	}
 
 	if scope.Level(ctx) == scope.TenantScope {

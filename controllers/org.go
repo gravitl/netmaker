@@ -420,7 +420,7 @@ func createTenant(w http.ResponseWriter, r *http.Request) {
 
 	user.PlatformRoleID = schema.SuperAdminRole
 	ctx := scope.WithContext(r.Context(), scope.TenantScope, t.ID)
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, user)
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, user, orchestrator.WithInheritedAuth())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
