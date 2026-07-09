@@ -105,7 +105,6 @@ type UserTOTPVerificationParams struct {
 type UserClaims struct {
 	Scope          scope.Scope
 	ScopeID        string
-	Role           schema.UserRoleID
 	UserName       string
 	Api            string
 	TokenType      TokenType

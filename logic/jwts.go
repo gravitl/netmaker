@@ -61,12 +61,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserAccessJwtToken(ctx context.Context, username string, role schema.UserRoleID, d time.Time, tokenID string) (response string, err error) {
+func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time, tokenID string) (response string, err error) {
 	claims := &models.UserClaims{
 		Scope:     scope.Level(ctx),
 		ScopeID:   scope.ID(ctx),
 		UserName:  username,
-		Role:      role,
 		TokenType: models.AccessTokenType,
 		Api:       servercfg.GetAPIHost(),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -87,7 +86,7 @@ func CreateUserAccessJwtToken(ctx context.Context, username string, role schema.
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(ctx context.Context, username string, role schema.UserRoleID, appName string) (response string, err error) {
+func CreateUserJWT(ctx context.Context, username string, appName string) (response string, err error) {
 	duration := GetJwtValidityDuration()
 	if appName == NetclientApp || appName == NetmakerDesktopApp {
 		duration = GetJwtValidityDurationForClients()
@@ -98,7 +97,6 @@ func CreateUserJWT(ctx context.Context, username string, role schema.UserRoleID,
 		Scope:     scope.Level(ctx),
 		ScopeID:   scope.ID(ctx),
 		UserName:  username,
-		Role:      role,
 		TokenType: models.UserIDTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
@@ -270,7 +268,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			return err
 		}
 
-		if claims.Scope == scope.OrgScope && claims.ScopeID == scope.ID(ctx) && claims.Role == membership.RoleID {
+		if claims.Scope == scope.OrgScope && claims.ScopeID == scope.ID(ctx) {
 			return nil
 		}
 
@@ -307,7 +305,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			}
 
 			return Unauthorized_Err
-		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) && claims.Role == membership.RoleID {
+		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) {
 			return nil
 		}
 	}

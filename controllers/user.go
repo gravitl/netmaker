@@ -130,7 +130,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	req.ID = uuid.New().String()
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
-	jwt, err := logic.CreateUserAccessJwtToken(r.Context(), user.Username, user.PlatformRoleID, req.ExpiresAt, req.ID)
+	jwt, err := logic.CreateUserAccessJwtToken(r.Context(), user.Username, req.ExpiresAt, req.ID)
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		logic.ReturnErrorResponse(
@@ -712,7 +712,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(r.Context(), user.Username, user.PlatformRoleID, appName)
+		jwt, err := logic.CreateUserJWT(r.Context(), user.Username, appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())

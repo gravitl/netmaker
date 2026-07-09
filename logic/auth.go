@@ -93,7 +93,7 @@ func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, a
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(ctx, authRequest.UserName, _user.PlatformRoleID, appName)
+		tokenString, err := CreateUserJWT(ctx, authRequest.UserName, appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
