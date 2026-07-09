@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -146,7 +148,7 @@ func VerifyOTPAuthURL(url, signature string) bool {
 	return hmac.Equal(signatureBytes, signer.Sum(nil))
 }
 
-func GetUserNameFromToken(authtoken string) (username string, err error) {
+func GetUserNameFromToken(ctx context.Context, authtoken string) (username string, err error) {
 	claims := &models.UserClaims{}
 	var tokenSplit = strings.Split(authtoken, " ")
 	var tokenString = ""
@@ -180,38 +182,37 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get(db.WithContext(context.TODO()))
+			err := a.Get(ctx)
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update(db.WithContext(context.TODO()))
+			a.Update(ctx)
 		}
 	}
 
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(db.WithContext(context.TODO()))
+		err = user.Get(ctx)
 		if err != nil {
 			return "", err
 		}
-		if user.Username != "" {
-			return user.Username, nil
+
+		err = checkUserAccess(ctx, user.ID, claims)
+		if err != nil {
+			return "", err
 		}
-		if user.PlatformRoleID != claims.Role {
-			return "", Unauthorized_Err
-		}
-		err = errors.New("user does not exist")
-	} else {
-		err = Unauthorized_Err
+
+		return user.Username, Unauthorized_Err
 	}
-	return "", err
+
+	return "", Unauthorized_Err
 }
 
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
-func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
+func VerifyUserToken(ctx context.Context, tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
 
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
@@ -226,29 +227,92 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get(db.WithContext(context.TODO()))
+			err := a.Get(ctx)
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update(db.WithContext(context.TODO()))
+			a.Update(ctx)
 		}
 	}
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(db.WithContext(context.TODO()))
+		err = user.Get(ctx)
 		if err != nil {
 			return "", false, false, err
 		}
-		if user.Username != "" {
-			return user.Username, user.PlatformRoleID == schema.SuperAdminRole,
-				user.PlatformRoleID == schema.AdminRole, nil
+
+		err = checkUserAccess(ctx, user.ID, claims)
+		if err != nil {
+			return "", false, false, err
 		}
-		err = errors.New("user does not exist")
+
+		return user.Username, user.PlatformRoleID == schema.SuperAdminRole,
+			user.PlatformRoleID == schema.AdminRole, nil
 	}
 	return "", false, false, err
+}
+
+func checkUserAccess(ctx context.Context, userID string, claims *models.UserClaims) error {
+	if scope.Level(ctx) == scope.OrgScope {
+		membership := &schema.OrgMembership{
+			OrganizationID: scope.ID(ctx),
+			UserID:         userID,
+		}
+		err := membership.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return Unauthorized_Err
+			}
+
+			return err
+		}
+
+		if claims.Scope == scope.OrgScope && claims.ScopeID == scope.ID(ctx) && claims.Role == membership.RoleID {
+			return nil
+		}
+
+		return Unauthorized_Err
+	} else if scope.Level(ctx) == scope.TenantScope {
+		membership := &schema.TenantMembership{
+			TenantID: scope.ID(ctx),
+			UserID:   userID,
+		}
+		err := membership.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return Unauthorized_Err
+			}
+
+			return err
+		}
+
+		if claims.Scope == scope.OrgScope {
+			tenant := &schema.Tenant{
+				ID: scope.ID(ctx),
+			}
+			err = tenant.Get(ctx)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return Unauthorized_Err
+				}
+
+				return err
+			}
+
+			if claims.ScopeID == tenant.OrganizationID {
+				return nil
+			}
+
+			return Unauthorized_Err
+		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) && claims.Role == membership.RoleID {
+			return nil
+		}
+	}
+
+	return Unauthorized_Err
 }
 
 // VerifyHostToken - [hosts] Only
