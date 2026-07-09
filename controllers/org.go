@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -27,8 +28,8 @@ func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrgOwner))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrgOwner))).Methods(http.MethodPut)
 
-	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(listTenants))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, http.HandlerFunc(createTenant))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(listTenants)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(deleteTenant))).Methods(http.MethodDelete)
 }
@@ -385,9 +386,18 @@ func listTenants(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func createTenant(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
+	username := r.Header.Get("user")
+
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
+	if err != nil {
+		err = fmt.Errorf("error getting user %s: %w", username, err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
 
 	var req schema.Tenant
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -404,6 +414,14 @@ func createTenant(w http.ResponseWriter, r *http.Request) {
 		Metadata:       req.Metadata,
 	}
 	err = t.Create(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	user.PlatformRoleID = schema.SuperAdminRole
+	ctx := scope.WithContext(r.Context(), scope.TenantScope, t.ID)
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
