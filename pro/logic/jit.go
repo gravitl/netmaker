@@ -47,7 +47,7 @@ type JITStatusResponse struct {
 }
 
 // EnableJITOnNetwork - enables JIT on a network, optionally scoped to jitUserGroupIDs (empty = all users).
-// Disconnects ext clients for users who are subject to JIT under the new configuration.
+// Removes client-app ext clients for users who are subject to JIT under the new configuration.
 func EnableJITOnNetwork(networkID string, jitUserGroupIDs []schema.UserGroupID) error {
 	// Check if JIT feature is enabled
 	featureFlags := GetFeatureFlags()
@@ -725,8 +725,13 @@ func DisconnectExtClientsFromNetwork(networkID string) error {
 	return DisconnectExtClientsFromNetworkForScope(network)
 }
 
-// DisconnectExtClientsFromNetworkForScope deletes ext clients for users who require a JIT grant
-// under the given network configuration (full JIT vs group-scoped).
+// extClientFromClientApp reports whether the ext client was created by the desktop/RAC app.
+func extClientFromClientApp(client models.ExtClient) bool {
+	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+}
+
+// DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
+// a JIT grant under the given network configuration. Admin-managed config files are kept.
 func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(network.Name)
 	if err != nil {
@@ -734,6 +739,9 @@ func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 	}
 
 	for _, client := range extClients {
+		if !extClientFromClientApp(client) {
+			continue
+		}
 		owner := &schema.User{Username: client.OwnerID}
 		ownerErr := owner.Get(db.WithContext(context.TODO()))
 		var ownerPtr *schema.User
@@ -745,7 +753,7 @@ func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 		}
 
 		if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
-			slog.Warn("failed to delete ext client when enabling JIT",
+			slog.Warn("failed to delete client-app ext client when enabling JIT",
 				"client_id", client.ClientID, "network", network.Name, "error", err)
 			continue
 		}
