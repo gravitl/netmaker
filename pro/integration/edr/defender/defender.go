@@ -16,15 +16,15 @@ import (
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
 )
 
-const (
+var (
 	providerName    = edrpkg.ProviderDefender
 	providerDisplay = "Microsoft Defender for Endpoint"
+	defaultPageSz   = 200
 
 	tokenURLFmt = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
 	// Defender for Endpoint tokens must target the WindowsDefenderATP resource, not Graph.
-	tokenScope    = "https://api.securitycenter.microsoft.com/.default"
-	machinesURL   = "https://api.security.microsoft.com/api/machines"
-	defaultPageSz = 200
+	tokenScope  = "https://api.securitycenter.microsoft.com/.default"
+	machinesURL = "https://api.security.microsoft.com/api/machines"
 )
 
 func init() {
@@ -54,9 +54,11 @@ type Client struct {
 	clientSecret string
 	http         *http.Client
 
-	tokenMu  sync.Mutex
-	token    string
-	tokenExp time.Time
+	tokenMu       sync.Mutex
+	token         string
+	tokenExp      time.Time
+	graphToken    string
+	graphTokenExp time.Time
 }
 
 func (c *Client) Name() string { return providerName }
@@ -222,6 +224,7 @@ func normalizeMachine(m securityMachine) edrpkg.ManagedEndpoint {
 	return edrpkg.ManagedEndpoint{
 		ProviderDeviceID: m.ID,
 		Hostname:         m.ComputerDNSName,
+		SerialNumber:     strings.TrimSpace(m.SerialNumber),
 		EntraDeviceID:    m.AadDeviceID,
 		AgentInstalled:   onboarded,
 		AgentHealthy:     healthy && onboarded,
@@ -241,6 +244,7 @@ type securityMachine struct {
 	ID               string `json:"id"`
 	ComputerDNSName  string `json:"computerDnsName"`
 	AadDeviceID      string `json:"aadDeviceId"`
+	SerialNumber     string `json:"serialNumber"`
 	HealthStatus     string `json:"healthStatus"`
 	OnboardingStatus string `json:"onboardingStatus"`
 	RiskScore        string `json:"riskScore"`

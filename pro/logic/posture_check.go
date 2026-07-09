@@ -565,24 +565,24 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 	case schema.MDMCompliance:
 		cfg := ParseMDMComplianceConfig(check.Config)
 		if d.MDMState == nil {
-			return true, "no_mdm_state_for_host"
+			return true, "No MDM status found for this device. It may not be enrolled or matched yet."
 		}
 		if d.MDMState.LastError != "" {
 			slog.Warn("mdm state error during posture check", "host_id", d.HostID, "error", d.MDMState.LastError)
-			return true, "mdm_state_error"
+			return true, "Unable to verify MDM status for this device."
 		}
 		if cfg.RequireEnrolled && !d.MDMState.Enrolled {
-			return true, "device_not_mdm_enrolled"
+			return true, "Device is not enrolled in MDM."
 		}
 		if cfg.RequireCompliant {
 			providerID, _ := mdmpkg.ActiveProviderID(db.WithContext(context.TODO()))
 			if mdmpkg.CapabilitiesFor(providerID).ReportsCompliant && !d.MDMState.Compliant {
-				return true, "device_not_mdm_compliant"
+				return true, "Device is not MDM compliant."
 			}
 		}
 		if cfg.MaxStateAgeHours > 0 &&
 			time.Since(d.MDMState.LastSyncedAt) > time.Duration(cfg.MaxStateAgeHours)*time.Hour {
-			return true, "mdm_state_stale"
+			return true, "MDM status is outdated. Re-sync the device and try again."
 		}
 
 	// ------------------------
@@ -593,31 +593,31 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 	case schema.EDRCompliance:
 		cfg := ParseEDRComplianceConfig(check.Config)
 		if d.EDRState == nil {
-			return true, "no_edr_state_for_host"
+			return true, "No EDR status found for this device. It may not be protected or matched yet."
 		}
 		if d.EDRState.LastError != "" {
 			slog.Warn("edr state error during posture check", "host_id", d.HostID, "error", d.EDRState.LastError)
-			return true, "edr_state_error"
+			return true, "Unable to verify EDR status for this device."
 		}
 		if cfg.RequireAgentInstalled && !d.EDRState.AgentInstalled {
-			return true, "agent_not_installed"
+			return true, "EDR agent is not installed on this device."
 		}
 		if cfg.RequireAgentHealthy && !d.EDRState.AgentHealthy {
-			return true, "agent_not_healthy"
+			return true, "EDR agent is not healthy on this device."
 		}
 		if cfg.MaxAllowedRiskLevel != "" {
 			actual := edrpkg.ParseRiskLevel(d.EDRState.RiskLevel)
 			if actual == edrpkg.RiskUnknown {
-				return true, "edr_risk_level_unknown"
+				return true, "EDR risk level could not be determined."
 			}
 			maxAllowed := edrpkg.ParseRiskLevel(cfg.MaxAllowedRiskLevel)
 			if edrpkg.RiskExceeds(maxAllowed, actual) {
-				return true, "risk_level_exceeded"
+				return true, "EDR risk level exceeds the allowed maximum."
 			}
 		}
 		if cfg.MaxStateAgeHours > 0 &&
 			time.Since(d.EDRState.LastSyncedAt) > time.Duration(cfg.MaxStateAgeHours)*time.Hour {
-			return true, "edr_state_stale"
+			return true, "EDR status is outdated. Re-sync the device and try again."
 		}
 	}
 
