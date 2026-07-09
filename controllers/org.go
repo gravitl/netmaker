@@ -263,6 +263,16 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	existingOwner := &schema.OrgMembership{OrganizationID: orgID}
+	err = existingOwner.GetOwner(r.Context())
+	if err == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization owner already exists"), logic.BadReq))
+		return
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	var user schema.User
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
