@@ -83,7 +83,7 @@ func (o *Organization) Update(ctx context.Context) error {
 
 func (o *Organization) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
-		Where("id = ?", o.ID).
+		Where("id = ? OR slug = ?", o.ID, o.Slug).
 		Delete(o).
 		Error
 }

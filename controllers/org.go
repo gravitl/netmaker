@@ -178,7 +178,7 @@ func createOrg(w http.ResponseWriter, r *http.Request) {
 func getOrg(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID}
+	o := &schema.Organization{ID: orgID, Slug: orgID}
 	err := o.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -317,7 +317,7 @@ func deleteOrg(w http.ResponseWriter, r *http.Request) {
 
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID}
+	o := &schema.Organization{ID: orgID, Slug: orgID}
 	err := o.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -447,7 +447,7 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	tenantID := mux.Vars(r)["tenant_id"]
 
-	t := &schema.Tenant{ID: tenantID}
+	t := &schema.Tenant{ID: tenantID, Slug: tenantID}
 	err := t.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -479,7 +479,7 @@ func deleteTenant(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 	tenantID := mux.Vars(r)["tenant_id"]
 
-	t := &schema.Tenant{ID: tenantID}
+	t := &schema.Tenant{ID: tenantID, Slug: tenantID}
 	err := t.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -92,7 +92,7 @@ func (t *Tenant) Update(ctx context.Context) error {
 
 func (t *Tenant) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
-		Where("id = ?", t.ID).
+		Where("id = ? OR slug = ?", t.ID, t.Slug).
 		Delete(t).
 		Error
 }
