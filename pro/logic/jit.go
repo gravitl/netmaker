@@ -28,7 +28,7 @@ type JITStatusResponse struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
-// EnableJITOnNetwork - enables JIT on a network and disconnects existing ext clients
+// EnableJITOnNetwork - enables JIT on a network and disconnects client-app ext clients.
 func EnableJITOnNetwork(networkID string) error {
 	// Check if JIT feature is enabled
 	featureFlags := GetFeatureFlags()
@@ -48,9 +48,9 @@ func EnableJITOnNetwork(networkID string) error {
 		return fmt.Errorf("failed to save network: %w", err)
 	}
 
-	// Disconnect all ext clients from this network
+	// Disconnect client-app ext clients (desktop/RAC); admin-managed config files are kept.
 	if err := DisconnectExtClientsFromNetwork(networkID); err != nil {
-		logger.Log(0, "failed to disconnect ext clients when enabling JIT:", err.Error())
+		logger.Log(0, "failed to disconnect client-app ext clients when enabling JIT:", err.Error())
 		// Don't fail the operation, just log
 	}
 
@@ -619,7 +619,13 @@ func ExpireJITGrants() error {
 	return nil
 }
 
-// DisconnectExtClientsFromNetwork - disconnects all ext clients from a network
+// extClientFromClientApp reports whether the ext client was created by the desktop/RAC app.
+func extClientFromClientApp(client models.ExtClient) bool {
+	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+}
+
+// DisconnectExtClientsFromNetwork removes client-app ext clients from a network.
+// Admin-managed config files (no device_id / remote_access_client_id) are left intact.
 func DisconnectExtClientsFromNetwork(networkID string) error {
 	extClients, err := logic.GetNetworkExtClients(networkID)
 	if err != nil {
@@ -627,8 +633,11 @@ func DisconnectExtClientsFromNetwork(networkID string) error {
 	}
 
 	for _, client := range extClients {
+		if !extClientFromClientApp(client) {
+			continue
+		}
 		if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
-			slog.Warn("failed to delete ext client when disabling JIT",
+			slog.Warn("failed to delete client-app ext client when enabling JIT",
 				"client_id", client.ClientID, "network", networkID, "error", err)
 			continue
 		}
