@@ -508,6 +508,13 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	var resp models.UserIdentityValidationResponse
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
@@ -535,6 +542,13 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -618,6 +632,13 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
