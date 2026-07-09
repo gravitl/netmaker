@@ -17,9 +17,8 @@ import (
 )
 
 func orgHandlers(r *mux.Router) {
-	// TODO: add permissions check middleware
-	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, http.HandlerFunc(getOrgSettings))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, http.HandlerFunc(upsertOrgSettings))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(getOrgSettings)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(upsertOrgSettings)))).Methods(http.MethodPut)
 
 	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(listOrgs))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
@@ -30,8 +29,8 @@ func orgHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(listTenants)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, http.HandlerFunc(deleteTenant))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(getTenant)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
 }
 
 // @Summary     Get organization SSO settings
