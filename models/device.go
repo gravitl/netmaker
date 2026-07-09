@@ -56,3 +56,8 @@ type DeviceExitNode struct {
 type DeviceExitNodeSelectionReq struct {
 	EgressID string `json:"egress_id"`
 }
+
+// NodeExitNodeSelectionReq selects or clears the exit node for a node (admin API).
+type NodeExitNodeSelectionReq struct {
+	EgressID string `json:"egress_id"`
+}

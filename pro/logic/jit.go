@@ -343,12 +343,6 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	activeGrant, err := grant.GetActiveByUserAndNetwork(ctx)
 	if err != nil {
 		// Grant missing or past expires_at (GetActive filters expires_at > now).
-		if userMustSatisfyJIT(network, subjectUser) {
-			if removeErr := removeUserJITNetworkAccess(networkID, userID); removeErr != nil {
-				slog.Warn("failed to remove network access without active JIT grant",
-					"network", networkID, "user", userID, "error", removeErr)
-			}
-		}
 		return false, nil, nil
 	}
 

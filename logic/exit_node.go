@@ -12,6 +12,99 @@ import (
 // PublishPeerUpdateAfterExitNodeChange notifies peers after exit-node selection changes (wired from mq).
 var PublishPeerUpdateAfterExitNodeChange = func() {}
 
+func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool) models.DeviceExitNode {
+	routingNodeID := FirstInternetEgressRoutingNodeID(e)
+	item := models.DeviceExitNode{
+		EgressID:      e.ID,
+		Name:          e.Name,
+		Description:   e.Description,
+		Network:       e.Network,
+		RoutingNodeID: routingNodeID,
+		Selected:      selected,
+		Status:        e.Status,
+	}
+	if routingNodeID != "" {
+		if rn, err := GetNodeByID(routingNodeID); err == nil {
+			rh := &schema.Host{ID: rn.HostID}
+			if err := rh.Get(db.WithContext(ctx)); err == nil {
+				item.RoutingHostName = rh.Name
+			}
+		}
+	}
+	return item
+}
+
+// ListNodeExitNodes returns active internet egresses in the network for admin assignment.
+func ListNodeExitNodes(ctx context.Context, network, nodeID string) ([]models.DeviceExitNode, error) {
+	if network == "" || nodeID == "" {
+		return nil, errors.New("network and node are required")
+	}
+	node, err := GetNodeByID(nodeID)
+	if err != nil {
+		return nil, errors.New("node not found")
+	}
+	if node.Network != network {
+		return nil, errors.New("node not in network")
+	}
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]models.DeviceExitNode, 0)
+	for _, e := range eli {
+		if !e.Status || !IsEgressInternetGateway(e) {
+			continue
+		}
+		out = append(out, exitNodeItemFromEgress(ctx, e, node.SelectedInternetEgressID == e.ID))
+	}
+	return out, nil
+}
+
+// GetNodeExitNode returns the internet egress currently assigned to the node.
+func GetNodeExitNode(ctx context.Context, network, nodeID string) (*models.DeviceExitNode, error) {
+	nodes, err := ListNodeExitNodes(ctx, network, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range nodes {
+		if nodes[i].Selected {
+			return &nodes[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// AssignNodeExitNode sets or clears the internet egress for a node (admin; no ACL checks).
+func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string) (*models.DeviceExitNode, error) {
+	if network == "" || nodeID == "" {
+		return nil, errors.New("network and node are required")
+	}
+	node, err := GetNodeByID(nodeID)
+	if err != nil {
+		return nil, errors.New("node not found")
+	}
+	if node.Network != network {
+		return nil, errors.New("node not in network")
+	}
+	if egressID != "" {
+		e := &schema.Egress{ID: egressID}
+		if err := e.Get(db.WithContext(ctx)); err != nil {
+			return nil, errors.New("exit node not found")
+		}
+		if !e.Status || e.Network != network || !IsEgressInternetGateway(*e) {
+			return nil, errors.New("egress is not an active internet exit node in this network")
+		}
+	}
+	if err := SetNodeSelectedInternetEgress(&node, egressID); err != nil {
+		return nil, err
+	}
+	PublishPeerUpdateAfterExitNodeChange()
+	if egressID == "" {
+		return nil, nil
+	}
+	return GetNodeExitNode(ctx, network, nodeID)
+}
+
 // ListDeviceExitNodes returns internet-type egresses in the network the user may select,
 // filtered by ACL when the default device policy is disabled.
 func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Host, networkID string) ([]models.DeviceExitNode, error) {
@@ -50,25 +143,7 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 				continue
 			}
 		}
-		routingNodeID := FirstInternetEgressRoutingNodeID(e)
-		item := models.DeviceExitNode{
-			EgressID:      e.ID,
-			Name:          e.Name,
-			Description:   e.Description,
-			Network:       e.Network,
-			RoutingNodeID: routingNodeID,
-			Selected:      node.SelectedInternetEgressID == e.ID,
-			Status:        e.Status,
-		}
-		if routingNodeID != "" {
-			if rn, err := GetNodeByID(routingNodeID); err == nil {
-				rh := &schema.Host{ID: rn.HostID}
-				if err := rh.Get(db.WithContext(ctx)); err == nil {
-					item.RoutingHostName = rh.Name
-				}
-			}
-		}
-		out = append(out, item)
+		out = append(out, exitNodeItemFromEgress(ctx, e, node.SelectedInternetEgressID == e.ID))
 	}
 	return out, nil
 }
