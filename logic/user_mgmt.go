@@ -11,6 +11,19 @@ import (
 )
 
 // Pre-Define Permission Templates for default Roles
+
+var OrgOwnerPermissionTemplate = schema.UserRole{
+	ID:              schema.OrgOwner,
+	Default:         true,
+	OrgGlobalAccess: true,
+}
+
+var OrgAdminPermissionTemplate = schema.UserRole{
+	ID:              schema.OrgAdmin,
+	Default:         true,
+	OrgGlobalAccess: true,
+}
+
 var SuperAdminPermissionTemplate = schema.UserRole{
 	ID:                 schema.SuperAdminRole,
 	Default:            true,
@@ -135,6 +148,8 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 }
 
 func userRolesInit() {
+	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }
