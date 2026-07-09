@@ -177,7 +177,7 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 		} else {
 			authToken = tokenSplit[1]
 		}
-		user, _, _, err := logic.VerifyUserToken(authToken)
+		user, _, _, err := logic.VerifyUserToken(r.Context(), authToken)
 		if err != nil || user == "" {
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
@@ -486,7 +486,7 @@ func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 func getOnboarding(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	username, err := logic.GetUserNameFromToken(r.Header.Get("Authorization"))
+	username, err := logic.GetUserNameFromToken(r.Context(), r.Header.Get("Authorization"))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return

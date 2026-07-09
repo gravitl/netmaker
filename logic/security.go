@@ -10,13 +10,11 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
 	MasterUser       = "masteradministrator"
 	Forbidden_Msg    = "forbidden"
-	Forbidden_Err    = models.Error(Forbidden_Msg)
 	Unauthorized_Msg = "unauthorized"
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
@@ -30,7 +28,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
 		bearerToken := r.Header.Get("Authorization")
-		username, err := GetUserNameFromToken(bearerToken)
+		username, err := GetUserNameFromToken(r.Context(), bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
@@ -95,7 +93,7 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 
 		// first check is user is authenticated.
 		// if yes, allow the user to go through.
-		username, err := GetUserNameFromToken(authHeader)
+		username, err := GetUserNameFromToken(r.Context(), authHeader)
 		if err != nil {
 			// if no, then check the user has a pre-auth token.
 			var claims jwt.RegisteredClaims
