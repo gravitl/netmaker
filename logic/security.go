@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -54,10 +55,15 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		if username == MasterUser {
 			r.Header.Set("ismaster", "yes")
 		} else {
-			if isGlobalAccesss {
-				err = GlobalPermissionsCheck(username, r)
-			} else {
-				err = NetworkPermissionsCheck(username, r)
+			switch scope.Level(r.Context()) {
+			case scope.OrgScope:
+				err = OrgPermissionsCheck(username, r)
+			default:
+				if isGlobalAccesss {
+					err = GlobalPermissionsCheck(username, r)
+				} else {
+					err = NetworkPermissionsCheck(username, r)
+				}
 			}
 		}
 		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
