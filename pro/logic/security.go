@@ -153,6 +153,18 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 	return errors.New("access denied")
 }
 
+func OrgPermissionsCheck(username string, r *http.Request) error {
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
+	if err != nil {
+		return err
+	}
+	if user.PlatformRoleID == schema.OrgOwner || user.PlatformRoleID == schema.OrgAdmin {
+		return nil
+	}
+	return errors.New("access denied")
+}
+
 func GlobalPermissionsCheck(username string, r *http.Request) error {
 	route, err := mux.CurrentRoute(r).GetPathTemplate()
 	if err != nil {

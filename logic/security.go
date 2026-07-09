@@ -22,6 +22,7 @@ const (
 
 var NetworkPermissionsCheck = func(username string, r *http.Request) error { return nil }
 var GlobalPermissionsCheck = func(username string, r *http.Request) error { return nil }
+var OrgPermissionsCheck = func(username string, r *http.Request) error { return nil }
 
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
