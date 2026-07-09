@@ -59,7 +59,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
@@ -1055,6 +1055,8 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		models.ReturnUser
 		PlatformRole *schema.UserRole                        `json:"platform_role"`
 		UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
+		OrgRoles     map[string]schema.UserRole              `json:"org_roles,omitempty"`
+		TenantRoles  map[string]schema.UserRole              `json:"tenant_roles,omitempty"`
 	}
 	resp := ReturnUserWithRolesAndGroups{
 		ReturnUser:   user,
@@ -1065,6 +1067,29 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		grp, err := logic.GetUserGroup(gId)
 		if err == nil {
 			resp.UserGroups[gId] = grp
+		}
+	}
+	if scope.Level(r.Context()) == scope.OrgScope {
+		roles, _ := (&schema.UserRole{}).ListPlatformRoles(r.Context())
+		rolesMap := make(map[schema.UserRoleID]schema.UserRole)
+		for _, role := range roles {
+			rolesMap[role.ID] = role
+		}
+
+		orgMemberships, _ := (&schema.OrgMembership{UserID: _user.ID}).ListByUserID(r.Context())
+		if len(orgMemberships) > 0 {
+			resp.OrgRoles = make(map[string]schema.UserRole)
+		}
+		for _, membership := range orgMemberships {
+			resp.OrgRoles[membership.OrganizationID] = rolesMap[membership.RoleID]
+		}
+
+		tenantMemberships, _ := (&schema.TenantMembership{UserID: _user.ID}).ListByUserID(r.Context())
+		if len(tenantMemberships) > 0 {
+			resp.TenantRoles = make(map[string]schema.UserRole)
+		}
+		for _, membership := range tenantMemberships {
+			resp.TenantRoles[membership.TenantID] = rolesMap[membership.RoleID]
 		}
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
