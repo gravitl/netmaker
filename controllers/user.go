@@ -1053,7 +1053,6 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		models.ReturnUser
 		PlatformRole *schema.UserRole                        `json:"platform_role"`
 		UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
-		OrgRoles     map[string]schema.UserRole              `json:"org_roles,omitempty"`
 		TenantRoles  map[string]schema.UserRole              `json:"tenant_roles,omitempty"`
 	}
 	resp := ReturnUserWithRolesAndGroups{
@@ -1072,14 +1071,6 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		rolesMap := make(map[schema.UserRoleID]schema.UserRole)
 		for _, role := range roles {
 			rolesMap[role.ID] = role
-		}
-
-		orgMemberships, _ := (&schema.OrgMembership{UserID: _user.ID}).ListByUserID(r.Context())
-		if len(orgMemberships) > 0 {
-			resp.OrgRoles = make(map[string]schema.UserRole)
-		}
-		for _, membership := range orgMemberships {
-			resp.OrgRoles[membership.OrganizationID] = rolesMap[membership.RoleID]
 		}
 
 		tenantMemberships, _ := (&schema.TenantMembership{UserID: _user.ID}).ListByUserID(r.Context())
