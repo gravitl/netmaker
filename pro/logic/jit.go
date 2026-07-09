@@ -307,15 +307,6 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
-	// Network admins (per-network or all-networks) bypass JIT access checks.
-	user := &schema.User{Username: userID}
-	userGetErr := user.Get(db.WithContext(context.TODO()))
-	if userGetErr == nil && IsNetworkAdmin(user, networkID) {
-		return true, nil, nil
-	}
-
-	ctx := db.WithContext(context.Background())
-
 	// Check if network has JIT enabled
 	network := &schema.Network{Name: networkID}
 	err := network.Get(db.WithContext(context.TODO()))
@@ -327,6 +318,11 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		// JIT not enabled, allow access
 		return true, nil, nil
 	}
+
+	user := &schema.User{Username: userID}
+	userGetErr := user.Get(db.WithContext(context.TODO()))
+
+	ctx := db.WithContext(context.Background())
 
 	var subjectUser *schema.User
 	if userGetErr == nil {

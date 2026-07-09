@@ -506,10 +506,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userName string
-	if r.Header.Get("ismaster") == "yes" {
+	var caller *schema.User
+	isMaster := r.Header.Get("ismaster") == "yes"
+	if isMaster {
 		userName = logic.MasterUser
 	} else {
-		caller := &schema.User{Username: r.Header.Get("user")}
+		caller = &schema.User{Username: r.Header.Get("user")}
 		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -523,17 +525,20 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		// JIT enforcement: Check if user has access (only for desktop app users)
-		hasAccess, jitGrant, err := logic.CheckJITAccess(gateway.NetID, userName)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-		if !hasAccess {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("JIT access required: please request access from network admin"),
-				"forbidden"))
-			return
+		var jitGrant *schema.JITGrant
+		if extClientCreateRequiresJIT(isMaster, caller, gateway.NetID, customExtClient) {
+			hasAccess, grant, err := logic.CheckJITAccess(gateway.NetID, userName)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			if !hasAccess {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					errors.New("JIT access required: please request access from network admin"),
+					"forbidden"))
+				return
+			}
+			jitGrant = grant
 		}
 		// if device id is sent, we don't want to create another extclient for the same user
 		// and gw, with the same device id.
@@ -613,21 +618,22 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	extclient.Location = customExtClient.Location
-	// JIT enforcement: Check if user has access (only for desktop app users)
-	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if !hasAccess {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(
-			errors.New("JIT access required: please request access from network admin"),
-			"forbidden"))
-		return
-	}
-	// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
-	if grant != nil {
-		extclient.JITExpiresAt = &grant.ExpiresAt
+	if extClientCreateRequiresJIT(isMaster, caller, extclient.Network, customExtClient) {
+		hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
+		// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+		if grant != nil {
+			extclient.JITExpiresAt = &grant.ExpiresAt
+		}
 	}
 
 	if extclient.DeviceID != "" {
@@ -1285,4 +1291,25 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()
+}
+
+// extClientCreateRequiresJIT reports whether create must verify JIT access.
+// Client-app requests (device_id / remote_access_client_id) always require JIT, including for admins.
+// Dashboard config-file creates bypass JIT only for master key, platform admins, and network admins.
+func extClientCreateRequiresJIT(isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
+	if custom.DeviceID != "" || custom.RemoteAccessClientID != "" {
+		return true
+	}
+	if isMaster {
+		return false
+	}
+	if caller != nil {
+		if caller.PlatformRoleID == schema.SuperAdminRole || caller.PlatformRoleID == schema.AdminRole {
+			return false
+		}
+		if logic.IsNetworkAdmin(caller, networkID) {
+			return false
+		}
+	}
+	return true
 }
