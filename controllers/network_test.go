@@ -107,24 +107,6 @@ func TestDeleteNetwork(t *testing.T) {
 	})
 }
 
-func TestSecurityCheck(t *testing.T) {
-	//these seem to work but not sure it the tests are really testing the functionality
-
-	os.Setenv("MASTER_KEY", "secretkey")
-	t.Run("NoNetwork", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer secretkey")
-		assert.Nil(t, err)
-		t.Log(username)
-	})
-
-	t.Run("BadToken", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer badkey")
-		assert.NotNil(t, err)
-		t.Log(err)
-		t.Log(username)
-	})
-}
-
 func TestValidateNetwork(t *testing.T) {
 	//t.Skip()
 	//This functions is not called by anyone

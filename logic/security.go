@@ -140,37 +140,6 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// UserPermissions - checks token stuff
-func UserPermissions(reqAdmin bool, token string) (string, error) {
-	var tokenSplit = strings.Split(token, " ")
-	var authToken = ""
-
-	if len(tokenSplit) < 2 {
-		return "", Unauthorized_Err
-	} else {
-		authToken = tokenSplit[1]
-	}
-	//all endpoints here require master so not as complicated
-	if authenticateMaster(authToken) {
-		// TODO log in as an actual admin user
-		return MasterUser, nil
-	}
-	username, issuperadmin, isadmin, err := VerifyUserToken(authToken)
-	if err != nil {
-		return username, Unauthorized_Err
-	}
-	if reqAdmin && !(issuperadmin || isadmin) {
-		return username, Forbidden_Err
-	}
-
-	return username, nil
-}
-
-// Consider a more secure way of setting master key
-func authenticateMaster(tokenString string) bool {
-	return tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != ""
-}
-
 func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
