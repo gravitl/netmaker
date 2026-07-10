@@ -247,6 +247,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		invite := &schema.UserInvite{
+			TenantID:       scope.ID(r.Context()),
 			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
 			PlatformRoleID: inviteReq.PlatformRoleID,
@@ -271,9 +272,6 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
-		if invite.TenantID == "" {
-			invite.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)

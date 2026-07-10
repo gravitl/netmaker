@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -241,7 +242,9 @@ func updateEnrollmentKeys() {
 		if _, ok := existingNetworks[network.Name]; ok {
 			continue
 		}
-		_, _ = logic.CreateDefaultNetworkEnrollmentKey(network.Name)
+
+		ctx := scope.WithContext(ctx, scope.TenantScope, network.TenantID)
+		_, _ = logic.CreateDefaultNetworkEnrollmentKey(ctx, network.Name)
 	}
 }
 

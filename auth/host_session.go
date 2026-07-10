@@ -275,6 +275,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				// add host to pending host table
 				p := schema.PendingHost{
 					ID:            uuid.NewString(),
+					TenantID:      network.TenantID,
 					HostID:        host.ID.String(),
 					Hostname:      host.Name,
 					Network:       netID,
@@ -285,10 +286,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 					EnrollmentKey: keyB,
 					RequestedAt:   time.Now().UTC(),
 				}
-				if p.TenantID == "" {
-					p.TenantID = scope.ID(logic.DefaultScope(context.TODO()))
-				}
-				p.Create(db.WithContext(context.TODO()))
+				_ = p.Create(db.WithContext(context.TODO()))
 				continue
 			}
 

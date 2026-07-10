@@ -118,6 +118,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
@@ -130,10 +131,6 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
-	}
-
-	if ns.TenantID == "" {
-		ns.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {
@@ -568,21 +565,6 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 
-}
-
-// GetDNSEntry - gets a DNS entry
-func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
-	var entry models.DNSEntry
-	key, err := logic.GetRecordKey(domain, network)
-	if err != nil {
-		return entry, err
-	}
-	r := &schema.DNSRecord{Key: key}
-	if err = r.Get(logic.DefaultScope(db.WithContext(context.TODO()))); err != nil {
-		return entry, err
-	}
-	entry = r.Value.Data()
-	return entry, nil
 }
 
 // @Summary     Push DNS entries to nameserver

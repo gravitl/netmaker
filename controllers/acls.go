@@ -393,7 +393,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		//check if policy exists with same name
 		updateAcl.Acl.Name = updateAcl.NewName
 	}
-	err = logic.UpdateAcl(updateAcl.Acl, acl)
+	err = logic.UpdateAcl(r.Context(), updateAcl.Acl, acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

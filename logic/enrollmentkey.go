@@ -81,6 +81,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 
 	k := &schema.EnrollmentKey{
 		ID:                uuid.NewString(),
+		TenantID:          scope.ID(ctx),
 		Name:              name,
 		Value:             newKeyID,
 		Expiration:        exp,
@@ -121,9 +122,6 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		}
 	}
 
-	if k.TenantID == "" {
-		k.TenantID = scope.ID(DefaultScope(ctx))
-	}
 	if err = k.Create(ctx); err != nil {
 		return nil, err
 	}
@@ -131,8 +129,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 }
 
 // CreateDefaultNetworkEnrollmentKey creates an unlimited default enrollment key for a network.
-func CreateDefaultNetworkEnrollmentKey(networkName string) (*schema.EnrollmentKey, error) {
-	ctx := db.WithContext(context.TODO())
+func CreateDefaultNetworkEnrollmentKey(ctx context.Context, networkName string) (*schema.EnrollmentKey, error) {
 	value, err := getUniqueEnrollmentID(ctx)
 	if err != nil {
 		return nil, err
@@ -140,6 +137,7 @@ func CreateDefaultNetworkEnrollmentKey(networkName string) (*schema.EnrollmentKe
 
 	key := &schema.EnrollmentKey{
 		ID:        uuid.NewString(),
+		TenantID:  scope.ID(ctx),
 		Name:      networkName,
 		Value:     value,
 		Token:     "",
@@ -147,9 +145,6 @@ func CreateDefaultNetworkEnrollmentKey(networkName string) (*schema.EnrollmentKe
 		Unlimited: true,
 		Networks:  []string{networkName},
 		Type:      schema.EnrollmentKeyType_UnlimitedUses,
-	}
-	if key.TenantID == "" {
-		key.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	err = key.Create(ctx)
 	if err != nil {
@@ -178,11 +173,8 @@ func RegenerateEnrollmentKeyToken(ctx context.Context, keyValue string) (*schema
 	key.Value = newValue
 	key.Token = ""
 	key.UpdatedAt = time.Now()
-
-	if key.TenantID == "" {
-		key.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	if err := key.Upsert(ctx); err != nil {
+	err = key.Upsert(ctx)
+	if err != nil {
 		return nil, err
 	}
 	return key, nil
@@ -191,7 +183,8 @@ func RegenerateEnrollmentKeyToken(ctx context.Context, keyValue string) (*schema
 // UpdateEnrollmentKey - updates an existing enrollment key's relay and groups
 func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.APIEnrollmentKey) (*schema.EnrollmentKey, error) {
 	key := &schema.EnrollmentKey{Value: keyValue}
-	if err := key.GetByValue(ctx); err != nil {
+	err := key.GetByValue(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, EnrollmentErrors.NoKeyFound
 		}
@@ -244,10 +237,8 @@ func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.A
 	}
 
 	key.UpdatedAt = time.Now()
-	if key.TenantID == "" {
-		key.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	if err := key.Upsert(ctx); err != nil {
+	err = key.Upsert(ctx)
+	if err != nil {
 		return nil, err
 	}
 	return key, nil
@@ -370,9 +361,6 @@ func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
 		if update {
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
-			if key.TenantID == "" {
-				key.TenantID = scope.ID(DefaultScope(ctx))
-			}
 			_ = key.Upsert(ctx)
 		}
 	}
@@ -421,9 +409,6 @@ func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
 			key.Networks = newNetworks
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
-			if key.TenantID == "" {
-				key.TenantID = scope.ID(DefaultScope(ctx))
-			}
 			if err := key.Upsert(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
 			}
@@ -499,10 +484,8 @@ func clearDefaultEnrollmentKeysForNetworks(ctx context.Context, networks []strin
 		}
 		keys[i].Default = false
 		keys[i].UpdatedAt = time.Now()
-		if keys[i].TenantID == "" {
-			keys[i].TenantID = scope.ID(DefaultScope(ctx))
-		}
-		if err := keys[i].Upsert(ctx); err != nil {
+		err = keys[i].Upsert(ctx)
+		if err != nil {
 			return err
 		}
 	}
@@ -519,9 +502,6 @@ func decrementEnrollmentKey(ctx context.Context, value string) (*schema.Enrollme
 	}
 	k.UsesRemaining--
 	k.UpdatedAt = time.Now()
-	if k.TenantID == "" {
-		k.TenantID = scope.ID(DefaultScope(ctx))
-	}
 	if err = k.Upsert(ctx); err != nil {
 		return nil, err
 	}

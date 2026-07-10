@@ -104,7 +104,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
+	// todo(nm-314): replace with tenant ID from context once multi-tenancy is fully wired
 	defaultTenant := &schema.Tenant{}
 	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {

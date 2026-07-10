@@ -385,7 +385,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.CreateDefaultNetworkEnrollmentKey(network.Name)
+	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
 	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))

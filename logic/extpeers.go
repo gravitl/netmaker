@@ -157,7 +157,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(DefaultScope(db.WithContext(context.TODO()))); err != nil {
+	if err = (&schema.ExtClientRecord{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {

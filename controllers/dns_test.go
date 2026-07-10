@@ -5,13 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"gorm.io/gorm"
-
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 )
 
 var dnsHost schema.Host
@@ -153,35 +151,6 @@ func TestCreateDNS(t *testing.T) {
 	dns, err := logic.CreateDNS(entry)
 	assert.Nil(t, err)
 	assert.Equal(t, "newhost", dns.Name)
-}
-
-func TestGetDNSEntry(t *testing.T) {
-	deleteAllDNS(t)
-	deleteAllNetworks()
-	createNet()
-	createTestNode()
-	entry := models.DNSEntry{Address: "10.0.0.2", Name: "newhost", Network: "skynet"}
-	_, _ = logic.CreateDNS(entry)
-	t.Run("wrong net", func(t *testing.T) {
-		entry, err := GetDNSEntry("newhost", "w286 Toronto Street South, Uxbridge, ONirecat")
-		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
-		assert.Equal(t, models.DNSEntry{}, entry)
-	})
-	t.Run("wrong host", func(t *testing.T) {
-		entry, err := GetDNSEntry("badhost", "skynet")
-		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
-		assert.Equal(t, models.DNSEntry{}, entry)
-	})
-	t.Run("good host", func(t *testing.T) {
-		entry, err := GetDNSEntry("newhost", "skynet")
-		assert.Nil(t, err)
-		assert.Equal(t, "newhost", entry.Name)
-	})
-	t.Run("node", func(t *testing.T) {
-		entry, err := GetDNSEntry("testnode", "skynet")
-		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
-		assert.Equal(t, models.DNSEntry{}, entry)
-	})
 }
 
 func TestDeleteDNS(t *testing.T) {

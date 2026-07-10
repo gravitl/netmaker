@@ -132,11 +132,9 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				pendingUser := &schema.PendingUser{
+					TenantID:                   scope.ID(r.Context()),
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-				}
-				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err = pendingUser.Create(r.Context())
 				if err != nil {

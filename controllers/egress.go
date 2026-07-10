@@ -121,6 +121,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	e := schema.Egress{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		Network:     req.Network,
 		Description: req.Description,
@@ -158,10 +159,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
-	if e.TenantID == "" {
-		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-	}
-	err = e.Create(db.WithContext(r.Context()))
+	err = e.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,

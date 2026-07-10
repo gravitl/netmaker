@@ -107,9 +107,6 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	host.Nodes = append(host.Nodes, node.ID)
-	if host.TenantID == "" {
-		host.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	err = host.Upsert(ctx)
 	if err != nil {
 		return nil, err

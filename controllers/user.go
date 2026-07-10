@@ -128,6 +128,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.ID = uuid.New().String()
+	req.TenantID = scope.ID(r.Context())
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
 	jwt, err := logic.CreateUserAccessJwtToken(user.Username, user.PlatformRoleID, req.ExpiresAt, req.ID)
@@ -139,9 +140,6 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
-	}
-	if req.TenantID == "" {
-		req.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = req.Create(r.Context())
 	if err != nil {

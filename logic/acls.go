@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -2913,7 +2914,7 @@ func UniqueAclPolicyTags(tags []models.AclPolicyTag) []models.AclPolicyTag {
 }
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
-func UpdateAcl(newAcl, acl models.Acl) error {
+func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 	if !acl.Default {
 		acl.Name = newAcl.Name
 		acl.Src = newAcl.Src
@@ -2928,8 +2929,12 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Proto = models.ALL
 	}
 	acl.Enabled = newAcl.Enabled
-	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
-	ctx := DefaultScope(db.WithContext(context.TODO()))
+	r := &schema.AclRecord{
+		Key:       acl.ID,
+		TenantID:  scope.ID(ctx),
+		NetworkID: acl.NetworkID.String(),
+		Value:     datatypes.NewJSONType(acl),
+	}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(acl)
