@@ -204,7 +204,7 @@ func getOrg(w http.ResponseWriter, r *http.Request) {
 func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID}
+	o := &schema.Organization{ID: orgID, Slug: orgID}
 	err := o.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -215,7 +215,7 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	membership := &schema.OrgMembership{OrganizationID: orgID}
+	membership := &schema.OrgMembership{OrganizationID: o.ID}
 	err = membership.GetOwner(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -226,7 +226,7 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := scope.WithContext(r.Context(), scope.OrgScope, orgID)
+	ctx := scope.WithContext(r.Context(), scope.OrgScope, o.ID)
 	owner := &schema.User{ID: membership.UserID}
 	err = owner.Get(ctx)
 	if err != nil {
@@ -252,7 +252,7 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID}
+	o := &schema.Organization{ID: orgID, Slug: orgID}
 	err := o.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -263,7 +263,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existingOwner := &schema.OrgMembership{OrganizationID: orgID}
+	existingOwner := &schema.OrgMembership{OrganizationID: o.ID}
 	err = existingOwner.GetOwner(r.Context())
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization owner already exists"), logic.BadReq))
@@ -282,7 +282,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 
 	user.PlatformRoleID = schema.OrgOwner
 
-	ctx := scope.WithContext(r.Context(), scope.OrgScope, orgID)
+	ctx := scope.WithContext(r.Context(), scope.OrgScope, o.ID)
 
 	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(ctx, &user)
 	if err != nil {
@@ -384,6 +384,12 @@ func listTenants(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createTenant(w http.ResponseWriter, r *http.Request) {
+	// todo: uncomment once amb returns feature flag true
+	//if !logic.GetFeatureFlags().AllowMultipleTenants {
+	//	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating tenants is disabled"), logic.Forbidden))
+	//	return
+	//}
+
 	orgID := scope.ID(r.Context())
 	username := r.Header.Get("user")
 
@@ -467,6 +473,12 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteTenant(w http.ResponseWriter, r *http.Request) {
+	// todo: uncomment once amb returns feature flag true
+	//if !logic.GetFeatureFlags().AllowMultipleTenants {
+	//	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting tenants is disabled"), logic.Forbidden))
+	//	return
+	//}
+
 	orgID := scope.ID(r.Context())
 	tenantID := mux.Vars(r)["tenant_id"]
 
