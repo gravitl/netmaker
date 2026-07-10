@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
@@ -34,6 +35,8 @@ func TestMain(m *testing.M) {
 		OrganizationID: defaultOrg.ID,
 	}
 	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
+	orchestrator.InitializeRepository(extensions.NewProFactory())
 
 	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenant.ID)
 	_ = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
