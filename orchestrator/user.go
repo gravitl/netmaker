@@ -198,7 +198,8 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 			}
 		}
 	}
-	return nil
+
+	return validationErr
 }
 
 func (u *UserOrchestrator) validateUsername(username string) error {
