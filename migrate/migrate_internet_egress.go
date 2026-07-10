@@ -17,7 +17,8 @@ import (
 // migrateInternetEgress:
 // 1) backfills Type=internet on egresses with Range="*"
 // 2) creates internet-type egress resources for legacy IsInternetGateway nodes
-// 3) sets SelectedInternetEgressID on former IGW clients
+// 3) sets SelectedInternetEgressID (and legacy InternetGwID) on former IGW client nodes
+// 4) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -80,28 +81,72 @@ func migrateInternetEgress() {
 		}
 	}
 
+	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress)
+	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
+}
+
+func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
 	for _, node := range nodes {
-		egressID := ""
 		if node.SelectedInternetEgressID != "" {
 			continue
 		}
-		if node.InternetGwID != "" {
-			if id, ok := routingToEgress[node.InternetGwID]; ok {
-				egressID = id
-			} else if e, err := logic.FindInternetEgressByRoutingNode(ctx, node.Network, node.InternetGwID); err == nil {
-				egressID = e.ID
-				routingToEgress[node.InternetGwID] = e.ID
-			}
-		}
+		egressID := internetEgressIDForRoutingNode(ctx, node.InternetGwID, node.Network, routingToEgress)
 		if egressID == "" {
 			continue
 		}
 		n := node
-		n.SelectedInternetEgressID = egressID
-		if err := logic.UpsertNode(&n); err != nil {
+		if err := logic.SetNodeSelectedInternetEgress(&n, egressID); err != nil {
 			logger.Log(0, "migration: failed to set selected internet egress on node", n.ID.String(), err.Error())
 		}
 	}
+}
+
+func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
+	gatewayIsIGW := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		if node.IsInternetGateway {
+			gatewayIsIGW[node.ID.String()] = true
+		}
+	}
+
+	extclients, err := logic.GetAllExtClients()
+	if err != nil {
+		logger.Log(0, "migration: failed to list ext clients for internet egress migrate:", err.Error())
+		return
+	}
+
+	for _, client := range extclients {
+		if client.SelectedInternetEgressID != "" {
+			continue
+		}
+		if !gatewayIsIGW[client.IngressGatewayID] {
+			continue
+		}
+		egressID := internetEgressIDForRoutingNode(ctx, client.IngressGatewayID, client.Network, routingToEgress)
+		if egressID == "" {
+			continue
+		}
+		c := client
+		c.SelectedInternetEgressID = egressID
+		if err := logic.SaveExtClient(&c); err != nil {
+			logger.Log(0, "migration: failed to set selected internet egress on ext client", c.ClientID, err.Error())
+		}
+	}
+}
+
+func internetEgressIDForRoutingNode(ctx context.Context, routingNodeID, network string, routingToEgress map[string]string) string {
+	if routingNodeID == "" {
+		return ""
+	}
+	if id, ok := routingToEgress[routingNodeID]; ok {
+		return id
+	}
+	e, err := logic.FindInternetEgressByRoutingNode(ctx, network, routingNodeID)
+	if err != nil || e == nil {
+		return ""
+	}
+	routingToEgress[routingNodeID] = e.ID
+	return e.ID
 }
 
 func backfillInternetEgressTypes(ctx context.Context) {
@@ -164,12 +209,16 @@ func collectLegacyIGWClients(gw models.Node, all []models.Node) []string {
 }
 
 func createMigrationInternetEgressACL(network string, e schema.Egress, clientNodeIDs []string) {
+	aclID := fmt.Sprintf("%s.inet-egress-%s", network, e.ID)
+	if _, err := logic.GetAcl(aclID); err == nil {
+		return
+	}
 	src := make([]models.AclPolicyTag, 0, len(clientNodeIDs))
 	for _, id := range clientNodeIDs {
 		src = append(src, models.AclPolicyTag{ID: models.NodeID, Value: id})
 	}
 	acl := models.Acl{
-		ID:               fmt.Sprintf("%s.inet-egress-%s", network, e.ID),
+		ID:               aclID,
 		Name:             fmt.Sprintf("Internet egress %s (migrated)", e.Name),
 		NetworkID:        schema.NetworkID(network),
 		RuleType:         models.DevicePolicy,
