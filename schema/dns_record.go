@@ -27,7 +27,7 @@ type DNSEntry struct {
 
 type DNSRecord struct {
 	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:'';index"`
+	TenantID  string `gorm:"primaryKey;default:''"`
 	NetworkID string
 	Value     datatypes.JSONType[DNSEntry]
 }
@@ -41,7 +41,7 @@ func (r *DNSRecord) Get(ctx context.Context) error {
 func (r *DNSRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
+		Columns:   []clause.Column{{Name: "key"}, {Name: "tenant_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
 	}).Create(r).Error
 }

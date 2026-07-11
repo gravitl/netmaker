@@ -70,7 +70,7 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 
 type ExtClientRecord struct {
 	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:'';index"`
+	TenantID  string `gorm:"primaryKey;default:''"`
 	NetworkID string
 	Value     datatypes.JSONType[ExtClient]
 }
@@ -84,7 +84,7 @@ func (r *ExtClientRecord) Get(ctx context.Context) error {
 func (r *ExtClientRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
+		Columns:   []clause.Column{{Name: "key"}, {Name: "tenant_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
 	}).Create(r).Error
 }
