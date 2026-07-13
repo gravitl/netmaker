@@ -3,6 +3,7 @@ package mdm
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,16 +15,15 @@ import (
 // EntraDeviceLookup is implemented by MDM providers that resolve a host using
 // host.entra_device_id as Graph devices.deviceId. Intune queries GET /v1.0/devices
 // first, then GET /deviceManagement/managedDevices when /devices returns no match.
-//
-// Providers without EntraDeviceLookup (Iru, Jamf, JumpCloud) are synced via
-// ListManagedDevices and serial_number matching in sync.go.
+// When entra_device_id is absent, Intune falls back to serial_number matching via
+// ListManagedDevices.
 type EntraDeviceLookup interface {
 	LookupByEntraDeviceID(ctx context.Context, entraDeviceID string) (ManagedDevice, error)
 }
 
-// SyncHostMDMState refreshes MDM posture state for one host. When the host has
-// entra_device_id and the active provider supports Entra-keyed lookup, Graph is
-// queried directly; otherwise this is a no-op.
+// SyncHostMDMState refreshes MDM posture state for one host. When the active
+// provider supports Entra-keyed lookup, Graph is queried by entra_device_id or,
+// when that is absent, the host is matched by serial_number.
 func SyncHostMDMState(ctx context.Context, hostID string) error {
 	intg, err := GetActive(ctx)
 	if err != nil {
@@ -48,10 +48,18 @@ func SyncHostMDMState(ctx context.Context, hostID string) error {
 	if err := h.Get(db.WithContext(ctx)); err != nil {
 		return err
 	}
-	if h.EntraDeviceID == "" {
+	if strings.TrimSpace(h.EntraDeviceID) != "" {
+		return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, *h)
+	}
+	if strings.TrimSpace(h.SerialNumber) == "" {
 		return nil
 	}
-	return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, *h)
+	devices, err := p.ListManagedDevices(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = syncHostMDMBySerial(ctx, intg.ID, *h, devices)
+	return err
 }
 
 func upsertHostMDMFromEntraLookup(
