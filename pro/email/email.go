@@ -16,14 +16,14 @@ const (
 	Resend EmailSenderType = "resend"
 )
 
-func Init() {
+func Init(ctx context.Context) {
 
 	smtpSender := &SmtpSender{
-		SmtpHost:    logic.GetSmtpHost(),
-		SmtpPort:    logic.GetSmtpPort(),
-		SenderEmail: logic.GetSenderEmail(),
-		SendUser:    logic.GetSenderUser(),
-		SenderPass:  logic.GetEmaiSenderPassword(),
+		SmtpHost:    logic.GetSmtpHost(ctx),
+		SmtpPort:    logic.GetSmtpPort(ctx),
+		SenderEmail: logic.GetSenderEmail(ctx),
+		SendUser:    logic.GetSenderUser(ctx),
+		SenderPass:  logic.GetEmaiSenderPassword(ctx),
 	}
 	if smtpSender.SendUser == "" {
 		smtpSender.SendUser = smtpSender.SenderEmail

@@ -138,8 +138,8 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 		return nil
 	}
 
-	if logic.GetManageDNS() {
-		sendDNSSync()
+	if logic.GetManageDNS(ctx) {
+		sendDNSSync(ctx)
 	}
 
 	hosts, err := (&schema.Host{}).ListAll(ctx)
@@ -411,9 +411,9 @@ func sendPeers() {
 	}
 }
 
-func SendDNSSyncByNetwork(network string) error {
+func SendDNSSyncByNetwork(ctx context.Context, network string) error {
 
-	k, err := logic.GetDNS(network)
+	k, err := logic.GetDNS(ctx, network)
 	k = append(k, logic.EgressDNs(network)...)
 	if err == nil && len(k) > 0 {
 		err = PushSyncDNS(k)
@@ -425,11 +425,11 @@ func SendDNSSyncByNetwork(network string) error {
 	return err
 }
 
-func sendDNSSync() error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func sendDNSSync(ctx context.Context) error {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(ctx))
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
-			k, err := logic.GetDNS(v.Name)
+			k, err := logic.GetDNS(ctx, v.Name)
 			k = append(k, logic.EgressDNs(v.Name)...)
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
@@ -476,9 +476,9 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 	return nil
 }
 
-func PublishExporterFeatureFlags() error {
+func PublishExporterFeatureFlags(ctx context.Context) error {
 	featureFlags := models.ExporterFeatureFlags{
-		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs,
+		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings(ctx).EnableFlowLogs,
 	}
 
 	data, err := json.Marshal(featureFlags)

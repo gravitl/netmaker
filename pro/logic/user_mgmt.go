@@ -696,15 +696,17 @@ func UpdateUserGroup(g schema.UserGroup) error {
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, group.TenantID)
+
 	// TODO: wrap in transaction once acls are migrated to sql schema.
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, user := range users {
 		delete(user.UserGroups.Data(), group.ID)
-		err = user.Update(db.WithContext(context.TODO()))
+		err = user.Update(ctx)
 		if err != nil {
 			return err
 		}
@@ -715,7 +717,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		return err
 	}
 
-	err = group.Delete(db.WithContext(context.TODO()))
+	err = group.Delete(ctx)
 	if err != nil {
 		return err
 	}
@@ -732,14 +734,13 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		replacePeers = true
 	}
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, group.TenantID)
 	go mq.PublishPeerUpdate(ctx, replacePeers)
 
 	for networkID := range networksMap {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 	}
 
-	if err := RemoveUserGroupFromAllJITScopes(group.ID); err != nil {
+	if err := RemoveUserGroupFromAllJITScopes(ctx, group.ID); err != nil {
 		slog.Warn("failed to clean up JIT scopes for deleted user group",
 			"group_id", group.ID, "error", err)
 	}
@@ -1128,10 +1129,11 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	}
 
 	// For each network removed, remove the group as the src from all the ACLs.
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, old.TenantID)
 	for networkID := range networksRemoved {
 		if new != nil {
 			RemoveUserGroupFromPostureChecks(new.ID, networkID)
-			if err := RemoveUserGroupFromNetworkJITScope(networkID.String(), new.ID); err != nil {
+			if err := RemoveUserGroupFromNetworkJITScope(ctx, networkID.String(), new.ID); err != nil {
 				slog.Warn("failed to clean up JIT scope for removed user group",
 					"group_id", new.ID, "network", networkID, "error", err)
 			}

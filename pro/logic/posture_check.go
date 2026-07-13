@@ -21,8 +21,8 @@ import (
 
 var postureCheckMutex = &sync.Mutex{}
 
-func AddPostureCheckHook() {
-	settings := logic.GetServerSettings()
+func AddPostureCheckHook(ctx context.Context) {
+	settings := logic.GetServerSettings(logic.DefaultScope(db.WithContext(ctx)))
 	interval := time.Hour
 	i, err := strconv.Atoi(settings.PostureCheckInterval)
 	if err == nil {

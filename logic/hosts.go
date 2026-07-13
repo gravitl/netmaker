@@ -99,7 +99,7 @@ func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) b
 }
 
 // CreateHost - creates a host if not exist
-func CreateHost(h *schema.Host) error {
+func CreateHost(ctx context.Context, h *schema.Host) error {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
 	if err == nil {
@@ -115,13 +115,13 @@ func CreateHost(h *schema.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
-	h.AutoUpdate = AutoUpdateEnabled()
+	h.AutoUpdate = AutoUpdateEnabled(ctx)
 	h.IsDefault = false
 	h.Debug = false
 	h.Verbosity = 0
 	h.EnableFlowLogs = false
 
-	if GetServerSettings().ManageDNS {
+	if GetServerSettings(ctx).ManageDNS {
 		h.DNS = "yes"
 	} else {
 		h.DNS = "no"
@@ -132,7 +132,7 @@ func CreateHost(h *schema.Host) error {
 }
 
 // UpdateHost - updates host data by field
-func UpdateHost(newHost, currentHost *schema.Host) {
+func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 	// unchangeable fields via API here
 	newHost.DaemonInstalled = currentHost.DaemonInstalled
 	newHost.OS = currentHost.OS
@@ -168,7 +168,7 @@ func UpdateHost(newHost, currentHost *schema.Host) {
 		newHost.DNS = currentHost.DNS
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
 	if newHost.IsDefault {

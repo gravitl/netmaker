@@ -202,7 +202,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	// Only run network cleanup hooks on master pod
 	if servercfg.IsMasterPod() {
-		logic.InitNetworkHooks()
+		logic.InitNetworkHooks(ctx)
 	}
 	logic.AddSSOStateCleanupHook()
 }

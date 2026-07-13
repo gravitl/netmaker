@@ -151,7 +151,7 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
-func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNet) {
+func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
 	if relayed.RelayedBy != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
@@ -175,7 +175,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
+		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
 	}
 	return
 }

@@ -58,7 +58,7 @@ func InitPro() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
 		_ = license.ClearLicenseCache()
-		if err := license.ValidateLicense(); err != nil {
+		if err := license.ValidateLicense(logic.DefaultScope(db.WithContext(ctx))); err != nil {
 			slog.Error(err.Error())
 			return
 		}
@@ -78,11 +78,11 @@ func InitPro() {
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
 			auth.AddIDPSyncHooks()
-			proLogic.AddPostureCheckHook()
+			proLogic.AddPostureCheckHook(ctx)
 			// Register JIT expiry hook with email notifications
 			addJitExpiryHookWithEmail()
 
-			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings(logic.DefaultScope(db.WithContext(ctx))).EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
@@ -101,7 +101,7 @@ func InitPro() {
 		}
 
 		// These can run on all pods
-		email.Init()
+		email.Init(logic.DefaultScope(db.WithContext(ctx)))
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 	})

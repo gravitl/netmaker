@@ -133,16 +133,14 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 				logic.DeleteUserInvite(content.Email)
 				logic.DeletePendingUser(content.Email)
 			} else {
-				if !isEmailAllowed(content.Email) {
+				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				pendingUser := &schema.PendingUser{
+					TenantID:                   scope.ID(r.Context()),
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-				}
-				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err = pendingUser.Create(r.Context())
 				if err != nil {

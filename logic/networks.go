@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
@@ -494,24 +493,6 @@ func ValidateNetwork(ctx context.Context, network *schema.Network, isUpdate bool
 	return validationErr
 }
 
-// SaveNetwork - save network struct to database
-func SaveNetwork(_network *schema.Network) error {
-	ctx := db.WithContext(context.TODO())
-	_existingNetwork := schema.Network{Name: _network.Name}
-	// Check if network exists to preserve ID
-	err := _existingNetwork.Get(ctx)
-	if err == nil {
-		_network.ID = _existingNetwork.ID
-		return _network.Update(ctx)
-	}
-
-	if _network.TenantID == "" {
-		_network.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return _network.Create(ctx)
-}
-
-// NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
 	err := (&schema.Network{Name: name}).Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -581,10 +562,10 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	return nil
 }
 
-func InitNetworkHooks() {
+func InitNetworkHooks(ctx context.Context) {
 	HookManagerCh <- models.HookDetails{
 		ID:       "network-hook",
 		Hook:     NetworkHook,
-		Interval: time.Duration(GetServerSettings().CleanUpInterval) * time.Minute,
+		Interval: time.Duration(GetServerSettings(DefaultScope(db.WithContext(ctx))).CleanUpInterval) * time.Minute,
 	}
 }

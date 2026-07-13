@@ -7,12 +7,15 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	testutils "github.com/gravitl/netmaker/test/utils"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/datatypes"
 )
 
 type CENodeOrchestratorTestSuite struct {
+	ctx context.Context
 	suite.Suite
 	db string
 }
@@ -39,6 +42,12 @@ func (c *CENodeOrchestratorTestSuite) SetupSuite() {
 
 	InitializeRepository(extensions.NewCEFactory())
 	testutils.CreateDefaultOrgAndTenant(c.T())
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(c.T().Context()))
+	require.NoError(c.T(), err)
+
+	c.ctx = scope.WithContext(db.WithContext(c.T().Context()), scope.TenantScope, defaultTenant.ID)
 }
 
 func (c *CENodeOrchestratorTestSuite) TearDownSuite() {
@@ -57,7 +66,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	networkIPv10 := testutils.CreateIPv10Network(c.T(), "network-ipv10")
 
 	c.Run("IPv4 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv4)
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv4)
 		c.Require().NoError(err)
 		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
@@ -74,7 +83,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	})
 
 	c.Run("IPv6 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv6)
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv6)
 		c.Require().NoError(err)
 		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
@@ -91,7 +100,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 	})
 
 	c.Run("IPv10 Network", func() {
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv10)
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv10)
 		c.Require().NoError(err)
 		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
@@ -124,10 +133,10 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		host.OS = "linux"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().NoError(err)
 		c.Require().True(node.IsGateway)
 		c.Require().False(node.IsInternetGateway)
@@ -146,10 +155,10 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		host.OS = "windows"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		_, err = GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
 		testutils.DeleteHost(c.T(), host)
@@ -161,10 +170,10 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		host.OS = "darwin"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		_, err = GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
 		testutils.DeleteHost(c.T(), host)
@@ -182,7 +191,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			AutoAssignGateway: true,
 		}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
@@ -194,7 +203,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			AutoAssignGateway: false,
 		}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
@@ -206,7 +215,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			Tags: []string{"tag-0"},
 		}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 		c.Require().NotContains(node.Tags, key.Tags[0])
 
@@ -218,7 +227,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			Tags: []string{},
 		}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 		c.Require().Empty(node.Tags)
 
@@ -231,19 +240,19 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		gatewayHost.OS = "linux"
 		gatewayHost.IsDefault = true
 
-		gateway, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), gatewayHost, network)
+		gateway, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, gatewayHost, network)
 		c.Require().NoError(err)
 
 		key := &schema.EnrollmentKey{
 			GatewayID: &gateway.ID,
 		}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 		c.Require().NotNil(node.RelayedByNodeID)
 		c.Require().Equal(gateway.ID, *node.RelayedByNodeID)
 
-		err = gateway.Get(db.WithContext(context.TODO()))
+		err = gateway.Get(c.ctx)
 		c.Require().NoError(err)
 		c.Require().Contains(gateway.RelayedClients, node.ID)
 
@@ -255,7 +264,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 	c.Run("Without Gateway", func() {
 		key := &schema.EnrollmentKey{}
 
-		node, err := GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, UseKey(key))
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 
 		testutils.DeleteNode(c.T(), node)

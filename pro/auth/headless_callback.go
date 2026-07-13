@@ -54,7 +54,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isEmailAllowed(userClaims.Email) {
+	if !isEmailAllowed(r.Context(), userClaims.Email) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
@@ -74,11 +74,9 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			pendingUser := &schema.PendingUser{
+				TenantID:                   scope.ID(r.Context()),
 				Username:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
-			}
-			if pendingUser.TenantID == "" {
-				pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 			}
 			err = pendingUser.Create(r.Context())
 			if err != nil {

@@ -429,9 +429,9 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var skipFlowLogs bool
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		skipFlowLogs = true
 	}
 	var peers []wgtypes.PeerConfig

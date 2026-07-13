@@ -97,7 +97,7 @@ var PlatformRoleRequiresGroupEnforcement = func(role schema.UserRoleID) bool { r
 var UserHasGlobalNetworksAdminMembership = func(user *schema.User) bool { return false }
 var UserHasNetworkGroupAccess = func(user *schema.User, networkID string) bool { return false }
 var CanUserCreateNetwork = func(ctx context.Context, username string) bool { return true }
-var EmailInit = func() {}
+var EmailInit = func(ctx context.Context) {}
 
 func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	switch rsrc {

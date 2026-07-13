@@ -8,6 +8,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -47,7 +48,8 @@ ORDER BY parts.partition ASC
 	}
 	defer rows.Close()
 
-	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings().AuditLogsRetentionPeriodInDays)
+	settingsCtx := logic.DefaultScope(db.WithContext(context.TODO()))
+	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings(settingsCtx).AuditLogsRetentionPeriodInDays)
 
 	var cleanErr error
 	for rows.Next() {

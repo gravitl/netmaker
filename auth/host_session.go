@@ -73,7 +73,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	if len(registerMessage.User) > 0 { // handle basic auth
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
-		if !logic.IsBasicAuthEnabled() {
+		if !logic.IsBasicAuthEnabled(ctx) {
 			handleHostRegErr(conn, errors.New("basic auth is disabled"))
 			return
 		}
@@ -191,7 +191,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 				}
 			}
 			_ = logic.CheckHostPorts(&result.Host)
-			if err := logic.CreateHost(&result.Host); err != nil {
+			if err := logic.CreateHost(ctx, &result.Host); err != nil {
 				handleHostRegErr(conn, errors.New("host creation failed"))
 				return
 			}
@@ -201,7 +201,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
 			return
 		}
-		server := logic.GetServerInfo()
+		server := logic.GetServerInfo(ctx)
 		server.TrafficKey = key
 		host := result.Host
 		result.Host.HostPass = ""

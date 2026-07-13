@@ -30,6 +30,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	node := &schema.Node{
 		ID:                 uuid.NewString(),
+		TenantID:           scope.ID(ctx),
 		HostID:             host.ID.String(),
 		Host:               host,
 		NetworkID:          network.ID,
@@ -90,9 +91,6 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		node.Address6 = cidr.String()
 	}
 
-	if node.TenantID == "" {
-		node.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	err := node.Create(ctx)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -218,9 +216,6 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
-		if node.Host.TenantID == "" {
-			node.Host.TenantID = scope.ID(logic.DefaultScope(ctx))
-		}
 		err := node.Host.Upsert(ctx)
 		if err != nil {
 			return err

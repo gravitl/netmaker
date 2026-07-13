@@ -57,8 +57,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/enable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
@@ -335,7 +335,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled() {
+	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled(request.Context()) {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -1288,7 +1288,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !logic.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -1357,7 +1357,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !logic.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -1620,7 +1620,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		if logic.IsMFAEnforced() && user.IsMFAEnabled && !userchange.IsMFAEnabled {
+		if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 			err = errors.New("mfa is enforced, user cannot unset their own mfa")
 			slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))

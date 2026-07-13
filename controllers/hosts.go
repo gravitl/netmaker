@@ -360,7 +360,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		IsInternetGw:       hPU.IsInternetGw,
 		NameServers:        hPU.NameServers,
 		EgressWithDomains:  hPU.EgressWithDomains,
-		EndpointDetection:  logic.IsEndpointDetectionEnabled(),
+		EndpointDetection:  logic.IsEndpointDetectionEnabled(r.Context()),
 		DnsNameservers:     hPU.DnsNameservers,
 		ReplacePeers:       hPU.ReplacePeers,
 		AutoRelayNodes:     hPU.AutoRelayNodes,
@@ -412,7 +412,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
-	logic.UpdateHost(newHost, currHost) // update the in memory struct values
+	logic.UpdateHost(r.Context(), newHost, currHost) // update the in memory struct values
 	if newHost.DNS != "yes" {
 		// check if any node is internet gw
 		for _, nodeID := range newHost.Nodes {

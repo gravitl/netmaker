@@ -2221,7 +2221,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 	case "azure-ad":
 		secret := req.ClientSecret
 		if secret == logic.Mask() {
-			secret = logic.GetServerSettings().ClientSecret
+			secret = logic.GetServerSettings(r.Context()).ClientSecret
 		}
 		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
@@ -2282,7 +2282,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(r.Context())
 	settings.AuthProvider = ""
 	settings.OIDCIssuer = ""
 	settings.ClientID = ""
@@ -2297,7 +2297,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	settings.GroupFilters = nil
 	settings.IDPSyncInterval = ""
 
-	err = logic.UpsertServerSettings(settings)
+	err = logic.UpsertServerSettings(r.Context(), settings)
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -29,7 +30,7 @@ func (m *MetricsMonitor) Start() {
 	ctx, m.cancel = context.WithCancel(context.Background())
 
 	go func(ctx context.Context) {
-		metricsInterval, _ := strconv.Atoi(GetServerSettings().MetricInterval)
+		metricsInterval, _ := strconv.Atoi(GetServerSettings(DefaultScope(db.WithContext(ctx))).MetricInterval)
 		if metricsInterval == 0 {
 			return
 		}

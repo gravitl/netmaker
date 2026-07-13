@@ -506,19 +506,14 @@ func migrateEgressDomains() {
 }
 
 func migrateSettings() {
-	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
-	if err != nil {
-		return
-	}
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 
-	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
-	err = settingsRecord.Get(db.WithContext(context.TODO()))
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	err := settingsRecord.Get(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		_ = logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
+		_ = logic.UpsertServerSettings(ctx, logic.GetServerSettingsFromEnv())
 	}
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(ctx)
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
 	}
@@ -543,7 +538,7 @@ func migrateSettings() {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
-	_ = logic.UpsertServerSettings(settings)
+	_ = logic.UpsertServerSettings(ctx, settings)
 }
 
 func deleteOldExtclients() {
@@ -659,7 +654,7 @@ func cleanupDeletedUserGroupRefs() {
 func migrateNameservers() {
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
-		_ = logic.CreateFallbackNameserver(network.Name)
+		_ = logic.CreateFallbackNameserver(&network)
 	}
 
 	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))

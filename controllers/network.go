@@ -390,7 +390,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))
-	logic.CreateFallbackNameserver(network.Name)
+	logic.CreateFallbackNameserver(&network)
 	if featureFlags.EnableOverlappingEgressRanges {
 		if err := logic.AllocateUniqueVNATPool(&network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to allocate unique virtual NAT pool:", err.Error())

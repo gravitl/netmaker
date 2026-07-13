@@ -595,7 +595,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if err = logic.CreateHost(&newHost); err != nil {
+		if err = logic.CreateHost(r.Context(), &newHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -617,7 +617,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		host = currHost
 	}
 
-	server := logic.GetServerInfo()
+	server := logic.GetServerInfo(r.Context())
 	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,

@@ -177,7 +177,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	json.NewEncoder(w).Encode(logic.GetServerInfo())
+	json.NewEncoder(w).Encode(logic.GetServerInfo(r.Context()))
 	// w.WriteHeader(http.StatusOK)
 }
 
@@ -193,7 +193,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := logic.GetServerConfig()
+	scfg := logic.GetServerConfig(r.Context())
 	scfg.IsPro = "no"
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"
@@ -212,7 +212,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
-	scfg := logic.GetServerSettings()
+	scfg := logic.GetServerSettings(r.Context())
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
 	}
@@ -248,7 +248,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
-	currSettings := logic.GetServerSettings()
+	currSettings := logic.GetServerSettings(r.Context())
 
 	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
 		superAdmin, err := logic.GetSuperAdmin()
@@ -282,7 +282,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := logic.UpsertServerSettings(req)
+	err := logic.UpsertServerSettings(r.Context(), req)
 	if err != nil {
 		if req.EnableFlowLogs {
 			logic.StopFlowCleanupLoop()
@@ -311,7 +311,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go reInit(ctx, currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
@@ -320,8 +320,8 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
 	logic.ResetAuthProvider(ctx)
-	logic.EmailInit()
-	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	logic.EmailInit(ctx)
+	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
 	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
@@ -330,7 +330,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		go mq.PublishExporterFeatureFlags()
+		go mq.PublishExporterFeatureFlags(ctx)
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.

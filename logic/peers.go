@@ -31,7 +31,7 @@ var (
 		return nil
 	}
 	// GetAutoRelayPeerIps - gets autorelay peerips
-	GetAutoRelayPeerIps = func(peer, node *models.Node) []net.IPNet {
+	GetAutoRelayPeerIps = func(ctx context.Context, peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
 	// SetAutoRelay - sets autorelay flag on the node
@@ -122,7 +122,7 @@ func RefreshHostPeerInfoCache(ctx context.Context) ([]schema.Host, []models.Node
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
 	}
-	serverInfo := GetServerInfo()
+	serverInfo := GetServerInfo(ctx)
 
 	newCache := make(map[string]map[string]models.HostPeerInfo)
 	for i := range hosts {
@@ -157,7 +157,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 		}
 	}
 	if serverInfo.Server == "" {
-		serverInfo = GetServerInfo()
+		serverInfo = GetServerInfo(ctx)
 	}
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
@@ -213,7 +213,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 		}
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node, make(map[string]models.PeerIdentity))
+			_, extPeerIDAndAddrs, _, err = GetExtPeers(ctx, &node, &node, make(map[string]models.PeerIdentity))
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
@@ -249,7 +249,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		Peers:              []wgtypes.PeerConfig{},
 		NodePeers:          []wgtypes.PeerConfig{},
 		HostNetworkInfo:    models.HostInfoMap{},
-		ServerConfig:       GetServerInfo(),
+		ServerConfig:       GetServerInfo(ctx),
 		DnsNameservers:     GetNameserversForHost(host),
 		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
 		GwNodes:            make(map[schema.NetworkID][]models.Node),
@@ -262,7 +262,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		hostPeerUpdate.ManageDNS = false
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		host.EnableFlowLogs = false
 	}
 
@@ -515,7 +515,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				peer.Connected &&
 				(allowedToComm) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
-				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
+				peerConfig.AllowedIPs = GetAllowedIPs(ctx, &node, &peer, nil) // only append allowed IPs if valid connection
 				if peer.IsAutoRelay {
 					hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)],
 						peer)
@@ -585,7 +585,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node, hostPeerUpdate.AddressIdentityMap)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, &node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
@@ -807,15 +807,15 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
+func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
-	allowedips = getNodeAllowedIPs(peer, node)
+	allowedips = getNodeAllowedIPs(ctx, peer, node)
 	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
+		allowedips = append(allowedips, GetAllowedIpsForRelayed(ctx, node, peer)...)
 		if peer.InternetGwID != "" {
 			return allowedips
 		}
@@ -823,7 +823,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+		extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
@@ -872,7 +872,7 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 	return allowedips
 }
 
-func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
+func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
 	if peer.Address.IP != nil {
 		allowed := net.IPNet{
@@ -914,7 +914,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
 	}
 	if peer.IsAutoRelay {
-		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
+		allowedips = append(allowedips, GetAutoRelayPeerIps(ctx, peer, node)...)
 	}
 	return allowedips
 }

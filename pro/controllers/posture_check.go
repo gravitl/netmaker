@@ -74,6 +74,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	pc := schema.PostureCheck{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
@@ -85,10 +86,6 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
-	}
-
-	if pc.TenantID == "" {
-		pc.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 	}
 	err = pc.Create(db.WithContext(r.Context()))
 	if err != nil {

@@ -56,7 +56,7 @@ func TestCheckPorts(t *testing.T) {
 	defer db.CloseDB()
 
 	RemoveHost(&h, true)
-	CreateHost(&h)
+	CreateHost(context.TODO(), &h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
 		CheckHostPorts(&testHost)

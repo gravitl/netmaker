@@ -36,7 +36,7 @@ func LogEvent(a *models.Event) {
 }
 
 func EventRententionHook() error {
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(logic.DefaultScope(db.WithContext(context.TODO())))
 	retentionPeriod := settings.AuditLogsRetentionPeriodInDays
 	if retentionPeriod <= 0 {
 		retentionPeriod = 30

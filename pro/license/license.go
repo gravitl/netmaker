@@ -31,8 +31,10 @@ import (
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       "license-validation-hook",
-		Hook:     logic.WrapHook(ValidateLicense),
+		ID: "license-validation-hook",
+		Hook: logic.WrapHook(func() error {
+			return ValidateLicense(logic.DefaultScope(db.WithContext(context.Background())))
+		}),
 		Interval: time.Hour,
 	}
 	// logic.HookManagerCh <- models.HookDetails{
@@ -45,7 +47,7 @@ func AddLicenseHooks() {
 // checks if a license is valid + limits are not exceeded
 // if license is free_tier and limits exceeds, then function should error
 // if license is not valid, function should error
-func ValidateLicense() (err error) {
+func ValidateLicense(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %s", errValidation, err.Error())
@@ -132,7 +134,7 @@ func ValidateLicense() (err error) {
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
-	go mq.PublishExporterFeatureFlags()
+	go mq.PublishExporterFeatureFlags(ctx)
 	go func() {
 		ctx := db.WithContext(context.Background())
 		tenants, err := (&schema.Tenant{}).ListAll(ctx)

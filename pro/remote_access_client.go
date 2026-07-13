@@ -45,7 +45,7 @@ func unauthorisedUserNodeHook() error {
 	}
 
 	currentTime := time.Now()
-	validityDuration := logic.GetJwtValidityDuration()
+	validityDuration := logic.GetJwtValidityDuration(logic.DefaultScope(db.WithContext(context.TODO())))
 	for _, user := range users {
 		if user.PlatformRoleID == schema.AdminRole ||
 			user.PlatformRoleID == schema.SuperAdminRole {

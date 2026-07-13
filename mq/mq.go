@@ -143,8 +143,8 @@ const CHECKIN_FLUSH_INTERVAL = 30
 
 // normalizedMetricsExportInterval applies the same minimum as before (invalid/too-small
 // intervals use a 10-minute default).
-func normalizedMetricsExportInterval() time.Duration {
-	d := logic.GetMetricIntervalInMinutes()
+func normalizedMetricsExportInterval(ctx context.Context) time.Duration {
+	d := logic.GetMetricIntervalInMinutes(logic.DefaultScope(db.WithContext(ctx)))
 	if d < time.Minute {
 		return time.Minute * 10
 	}
@@ -164,7 +164,7 @@ func Keepalive(ctx context.Context) {
 		go PublishPeerUpdate(ctx, true)
 	}
 	metricIntervalReset := logic.SubscribeMetricExportIntervalReset()
-	metricsTicker := time.NewTicker(normalizedMetricsExportInterval())
+	metricsTicker := time.NewTicker(normalizedMetricsExportInterval(ctx))
 	defer metricsTicker.Stop()
 	if servercfg.CacheEnabled() {
 		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
@@ -182,7 +182,7 @@ func Keepalive(ctx context.Context) {
 				PushAllMetricsToExporter()
 			case <-metricIntervalReset:
 				metricsTicker.Stop()
-				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
+				metricsTicker = time.NewTicker(normalizedMetricsExportInterval(ctx))
 			}
 		}
 	} else {
@@ -196,7 +196,7 @@ func Keepalive(ctx context.Context) {
 				PushAllMetricsToExporter()
 			case <-metricIntervalReset:
 				metricsTicker.Stop()
-				metricsTicker = time.NewTicker(normalizedMetricsExportInterval())
+				metricsTicker = time.NewTicker(normalizedMetricsExportInterval(ctx))
 			}
 		}
 	}

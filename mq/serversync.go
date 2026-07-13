@@ -7,6 +7,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
@@ -62,12 +63,12 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	}
 	slog.Info("serversync: received sync", "from", syncMsg.Sender, "type", syncMsg.SyncType)
 
-	ctx := scope.WithContext(context.Background(), syncMsg.Scope, syncMsg.ScopeID)
+	ctx := scope.WithContext(db.WithContext(context.Background()), syncMsg.Scope, syncMsg.ScopeID)
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
-		oldInterval := logic.GetMetricInterval()
-		logic.InvalidateServerSettingsCache()
-		if logic.GetMetricInterval() != oldInterval {
+		oldInterval := logic.GetMetricInterval(ctx)
+		logic.InvalidateServerSettingsCache(ctx)
+		if logic.GetMetricInterval(ctx) != oldInterval {
 			logic.NotifyMetricExportIntervalChanged()
 		}
 	case logic.SyncTypePeerUpdate:

@@ -108,7 +108,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		provider.HandleCallback(w, r)
+		provider.HandleCallback(w, r.WithContext(ctx))
 	}
 }
 
@@ -267,8 +267,8 @@ func isStateCached(state string) bool {
 }
 
 // isEmailAllowed checks if email is allowed to signup.
-func isEmailAllowed(email string) bool {
-	allowedDomains := logic.GetAllowedEmailDomains()
+func isEmailAllowed(ctx context.Context, email string) bool {
+	allowedDomains := logic.GetAllowedEmailDomains(ctx)
 	domains := strings.Split(allowedDomains, ",")
 	if len(domains) == 1 && domains[0] == "*" {
 		return true

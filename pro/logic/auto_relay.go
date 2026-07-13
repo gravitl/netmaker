@@ -214,7 +214,7 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
-func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
+func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
@@ -267,7 +267,7 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(&autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}

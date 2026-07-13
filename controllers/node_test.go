@@ -92,7 +92,7 @@ func createNodeHosts() {
 		OS:        "linux",
 		Name:      "linuxhost",
 	}
-	_ = logic.CreateHost(&linuxHost)
+	_ = logic.CreateHost(dnsTestCtx(), &linuxHost)
 	nonLinuxHost = schema.Host{
 		ID:        uuid.New(),
 		OS:        "windows",
@@ -101,5 +101,5 @@ func createNodeHosts() {
 		HostPass:  "password",
 	}
 
-	_ = logic.CreateHost(&nonLinuxHost)
+	_ = logic.CreateHost(dnsTestCtx(), &nonLinuxHost)
 }
