@@ -394,11 +394,8 @@ func ValidateUser(user *schema.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) error {
-	_user := schema.User{
-		Username: user,
-	}
-	err := _user.Delete(db.WithContext(context.TODO()))
+func DeleteUser(ctx context.Context, user *schema.User) error {
+	err := user.DeleteMembership(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user does not exist")
@@ -407,8 +404,8 @@ func DeleteUser(user string) error {
 		return err
 	}
 
-	RemoveUserFromAclPolicy(user)
-	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
+	RemoveUserFromAclPolicy(user.Username)
+	return (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx)
 }
 
 func SetOAuthSecret(secret string) error {

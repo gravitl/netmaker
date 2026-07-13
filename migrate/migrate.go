@@ -33,6 +33,11 @@ func Run() {
 		migrateSettings(ctx)
 		assignSuperAdmin(ctx)
 		logic.IntialiseGroups(ctx)
+
+		networks, _ := (&schema.Network{}).ListAll(ctx)
+		for _, netI := range networks {
+			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name))
+		}
 	}
 
 	updateEnrollmentKeys()
@@ -407,13 +412,6 @@ func MigrateEmqx() {
 func syncUsers() {
 	logger.Log(1, "Migrating Users (SyncUsers)")
 	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
-	// create default network user roles for existing networks
-	if servercfg.IsPro {
-		networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(netI.Name))
-		}
-	}
 
 	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil {

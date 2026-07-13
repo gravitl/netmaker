@@ -194,7 +194,7 @@ func UserGroupsInit(ctx context.Context) {
 	_ = NetworkGlobalUserGroup.Upsert(ctx)
 }
 
-func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
+func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
@@ -294,9 +294,10 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 
 	// create default network groups
 	var NetworkAdminGroup = schema.UserGroup{
-		ID:      GetDefaultNetworkAdminGroupID(netID),
-		Name:    fmt.Sprintf("%s Admin Group", netID),
-		Default: true,
+		ID:       GetDefaultNetworkAdminGroupID(netID),
+		TenantID: scope.ID(ctx),
+		Name:     fmt.Sprintf("%s Admin Group", netID),
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			netID: {
 				GetDefaultNetworkAdminRoleID(netID): {},
@@ -305,25 +306,16 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
 	}
 	var NetworkUserGroup = schema.UserGroup{
-		ID:      GetDefaultNetworkUserGroupID(netID),
-		Name:    fmt.Sprintf("%s User Group", netID),
-		Default: true,
+		ID:       GetDefaultNetworkUserGroupID(netID),
+		TenantID: scope.ID(ctx),
+		Name:     fmt.Sprintf("%s User Group", netID),
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			netID: {
 				GetDefaultNetworkUserRoleID(netID): {},
 			},
 		}),
 		MetaData: fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App. Platform users will have read-only access to the the dashboard.", netID),
-	}
-	ctx := db.WithContext(context.TODO())
-	if NetworkAdminGroup.TenantID == "" || NetworkUserGroup.TenantID == "" {
-		ctx := logic.DefaultScope(ctx)
-		if NetworkAdminGroup.TenantID == "" {
-			NetworkAdminGroup.TenantID = scope.ID(ctx)
-		}
-		if NetworkUserGroup.TenantID == "" {
-			NetworkUserGroup.TenantID = scope.ID(ctx)
-		}
 	}
 	_ = NetworkAdminGroup.Upsert(ctx)
 	_ = NetworkUserGroup.Upsert(ctx)
@@ -593,7 +585,7 @@ func ValidateUpdateGroupReq(new schema.UserGroup) error {
 }
 
 // CreateUserGroup - creates new user group
-func CreateUserGroup(g *schema.UserGroup) error {
+func CreateUserGroup(ctx context.Context, g *schema.UserGroup) error {
 	// default groups are currently created directly in the db.
 	// this check is only to prevent future errors.
 	if g.Default && g.ID == "" {
@@ -611,7 +603,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 
 	err := (&schema.UserGroup{
 		Name: g.Name,
-	}).GetByName(db.WithContext(context.TODO()))
+	}).GetByName(ctx)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -620,10 +612,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 		return errors.New("group already exists")
 	}
 
-	ctx := db.WithContext(context.TODO())
-	if g.TenantID == "" {
-		g.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
+	g.TenantID = scope.ID(ctx)
 	err = g.Create(ctx)
 	if err != nil {
 		return err

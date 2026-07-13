@@ -387,7 +387,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
-	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
+	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))
 	logic.CreateFallbackNameserver(&network)

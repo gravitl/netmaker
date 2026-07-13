@@ -220,7 +220,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// delete the user if it has been archived.
 			user, ok := dbUsersMap[user.Username]
 			if ok {
-				_ = deleteAndCleanUpUser(user)
+				_ = deleteAndCleanUpUser(ctx, user)
 			}
 			continue
 		}
@@ -290,7 +290,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
-				err = deleteAndCleanUpUser(user)
+				err = deleteAndCleanUpUser(ctx, user)
 				if err != nil {
 					return err
 				}
@@ -353,7 +353,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
 			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{})
-			err := proLogic.CreateUserGroup(&dbGroup)
+			err := proLogic.CreateUserGroup(ctx, &dbGroup)
 			if err != nil {
 				return err
 			}
@@ -502,15 +502,14 @@ func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Gro
 // TODO: deduplicate
 // The cyclic import between the package logic and mq requires this
 // function to be duplicated in multiple places.
-func deleteAndCleanUpUser(user *schema.User) error {
-	err := logic.DeleteUser(user.Username)
+func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
+	err := logic.DeleteUser(ctx, user)
 	if err != nil {
 		return err
 	}
 
 	// check and delete extclient with this ownerID
-	go func() {
-		ctx := logic.DefaultScope(db.WithContext(context.Background()))
+	go func(ctx context.Context) {
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			return
@@ -526,7 +525,7 @@ func deleteAndCleanUpUser(user *schema.User) error {
 
 		go logic.DeleteUserInvite(user.Username)
 		go mq.PublishPeerUpdate(ctx, false)
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return nil
 }

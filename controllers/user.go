@@ -1819,7 +1819,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.DeleteMembership(r.Context())
+	err = logic.DeleteUser(r.Context(), user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user membership: ", err.Error())
@@ -1920,7 +1920,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
-	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
@@ -1938,7 +1937,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
-			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+			if err := user.Get(ctx); err != nil {
 				slog.Error("bulk user delete: user not found", "username", username, "error", err)
 				continue
 			}
@@ -1962,8 +1961,9 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: cannot delete idp user", "username", username)
 				continue
 			}
-			deleteCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
-			if err := user.DeleteMembership(deleteCtx); err != nil {
+
+			err = logic.DeleteUser(ctx, user)
+			if err != nil {
 				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
 				continue
 			}

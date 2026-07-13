@@ -31,7 +31,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 			}
 		}
 
-		_ = DeleteNetworkDNS(network)
+		_ = DeleteNetworkDNS(ctx, network)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
