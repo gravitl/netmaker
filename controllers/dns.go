@@ -440,7 +440,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetCustomDNS(network)
+	dns, err := logic.GetCustomDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(
 			0,
@@ -512,7 +512,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	entry, err = logic.CreateDNS(entry)
+	entry, err = logic.CreateDNS(r.Context(), entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("Failed to create DNS entry %+v: %v", entry, err))
@@ -550,7 +550,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	netID := params["network"]
 	entrytext := domain + "." + netID
 	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings(r.Context()).DefaultDomain)
-	err := logic.DeleteDNS(domain, netID)
+	err := logic.DeleteDNS(r.Context(), domain, netID)
 
 	if err != nil {
 		logger.Log(0, "failed to delete dns entry: ", entrytext)

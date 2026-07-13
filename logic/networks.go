@@ -15,14 +15,14 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
 // DeleteNetwork - deletes a network
-func DeleteNetwork(network string, force bool, done chan struct{}) error {
-	defer func() {
+func DeleteNetwork(ctx context.Context, network string, force bool, done chan struct{}) error {
+	defer func(ctx context.Context) {
 		// Delete default network enrollment key
-		ctx := db.WithContext(context.TODO())
 		keys, _ := GetAllEnrollmentKeys(ctx)
 		for _, key := range keys {
 			if key.Default && enrollmentKeyAppliesToNetwork(key, network) {
@@ -32,7 +32,7 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 		}
 
 		_ = DeleteNetworkDNS(network)
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {

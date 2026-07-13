@@ -222,7 +222,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	err = logic.DeleteNetwork(network, force, doneCh)
+	err = logic.DeleteNetwork(r.Context(), network, force, doneCh)
 	if err != nil {
 		errtype := logic.BadReq
 		if strings.Contains(err.Error(), "Node check failed") {

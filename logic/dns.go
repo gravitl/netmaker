@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -111,7 +110,7 @@ func GetDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
-	customdns, err := GetCustomDNS(network)
+	customdns, err := GetCustomDNS(ctx, network)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return dns, err
 	}
@@ -246,9 +245,8 @@ func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
 }
 
 // GetCustomDNS - gets the custom DNS of a network
-func GetCustomDNS(network string) ([]models.DNSEntry, error) {
+func GetCustomDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	ctx := DefaultScope(db.WithContext(context.TODO()))
 	records, err := (&schema.DNSRecord{}).List(ctx)
 	if err != nil {
 		return dns, err
@@ -267,8 +265,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
-func DeleteNetworkDNS(network string) error {
-	ctx := DefaultScope(db.WithContext(context.TODO()))
+func DeleteNetworkDNS(ctx context.Context, network string) error {
 	records, err := (&schema.DNSRecord{}).List(ctx)
 	if err != nil {
 		return err
@@ -279,35 +276,6 @@ func DeleteNetworkDNS(network string) error {
 		}
 	}
 	return nil
-}
-
-// SetCorefile - sets the core file of the system
-func SetCorefile(domains string) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(dir+"/config/dnsconfig", 0744)
-	if err != nil {
-		logger.Log(0, "couldnt find or create /config/dnsconfig")
-		return err
-	}
-
-	corefile := domains + ` {
-    reload 15s
-    hosts /root/dnsconfig/netmaker.hosts {
-	fallthrough	
-    }
-    forward . 8.8.8.8 8.8.4.4
-    log
-}
-`
-	err = os.WriteFile(dir+"/config/dnsconfig/Corefile", []byte(corefile), 0644)
-	if err != nil {
-		return err
-	}
-	return err
 }
 
 // GetAllDNS - gets all dns entries
@@ -425,23 +393,22 @@ func ValidateDNSUpdate(ctx context.Context, change models.DNSEntry, entry models
 }
 
 // DeleteDNS - deletes a DNS entry
-func DeleteDNS(domain string, network string) error {
+func DeleteDNS(ctx context.Context, domain string, network string) error {
 	key, err := GetRecordKey(domain, network)
 	if err != nil {
 		return err
 	}
-	return (&schema.DNSRecord{Key: key}).Delete(DefaultScope(db.WithContext(context.TODO())))
+	return (&schema.DNSRecord{Key: key}).Delete(ctx)
 }
 
 // CreateDNS - creates a DNS entry
-func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
+func CreateDNS(ctx context.Context, entry models.DNSEntry) (models.DNSEntry, error) {
 	entry.Type = models.DNSEntryType_Custom
 	k, err := GetRecordKey(entry.Name, entry.Network)
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
 	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
-	ctx := DefaultScope(db.WithContext(context.TODO()))
 	return entry, r.Upsert(ctx)
 }
 
