@@ -119,7 +119,8 @@ type UserRole struct {
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`
 	DenyDashboardAccess bool                               `json:"deny_dashboard_access"`
-	FullAccess          bool                               `json:"full_access"`
+	OrgGlobalAccess     bool                               `json:"org_global_access"`
+	TenantGlobalAccess  bool                               `json:"tenant_global_access"`
 	NetworkID           NetworkID                          `json:"network_id"`
 	NetworkLevelAccess  datatypes.JSONType[ResourceAccess] `json:"network_level_access"`
 	GlobalLevelAccess   datatypes.JSONType[ResourceAccess] `json:"global_level_access"`

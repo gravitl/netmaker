@@ -59,7 +59,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
@@ -131,7 +131,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	req.TenantID = scope.ID(r.Context())
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
-	jwt, err := logic.CreateUserAccessJwtToken(user.Username, user.PlatformRoleID, req.ExpiresAt, req.ID)
+	jwt, err := logic.CreateUserAccessJwtToken(r.Context(), user.Username, req.ExpiresAt, req.ID)
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		logic.ReturnErrorResponse(
@@ -141,6 +141,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	req.TenantID = scope.ID(r.Context())
 	err = req.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -302,7 +303,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	tenantID := request.Header.Get(scope.HeaderTenantID)
 
 	user := &schema.User{Username: authRequest.UserName}
 	err := user.Get(request.Context())
@@ -313,12 +313,15 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if tenantID != "" {
-		membership := &schema.TenantMembership{TenantID: tenantID, UserID: user.ID}
-		if err := membership.Get(request.Context()); err != nil {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is not a member of this tenant"), "unauthorized"))
-			return
-		}
+	if user.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is not a member of this tenant"), "unauthorized"))
+		return
+	}
+
+	err = logic.ResolveInheritedAuth(request.Context(), user)
+	if err != nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("incorrect credentials"), "unauthorized"))
+		return
 	}
 
 	if logic.IsOauthUser(user) == nil {
@@ -344,20 +347,22 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
 
-		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err := role.Get(request.Context())
-		if err != nil {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
-		}
-		if role.DenyDashboardAccess {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
+		if scope.Level(request.Context()) == scope.TenantScope {
+			role := &schema.UserRole{ID: user.PlatformRoleID}
+			err = role.Get(request.Context())
+			if err != nil {
+				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+				return
+			}
+			if role.DenyDashboardAccess {
+				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+				return
+			}
 		}
 	}
 
 	username := authRequest.UserName
-	jwt, err := logic.VerifyAuthRequest(authRequest, appName)
+	jwt, err := logic.VerifyAuthRequest(request.Context(), authRequest, appName)
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
@@ -504,6 +509,13 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	var resp models.UserIdentityValidationResponse
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
@@ -531,6 +543,13 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -614,6 +633,13 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -714,7 +740,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(user.Username, user.PlatformRoleID, appName)
+		jwt, err := logic.CreateUserJWT(r.Context(), user.Username, appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())
@@ -1052,6 +1078,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		models.ReturnUser
 		PlatformRole *schema.UserRole                        `json:"platform_role"`
 		UserGroups   map[schema.UserGroupID]schema.UserGroup `json:"user_group_ids"`
+		TenantRoles  map[string]schema.UserRole              `json:"tenant_roles,omitempty"`
 	}
 	resp := ReturnUserWithRolesAndGroups{
 		ReturnUser:   user,
@@ -1062,6 +1089,21 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		grp, err := logic.GetUserGroup(gId)
 		if err == nil {
 			resp.UserGroups[gId] = grp
+		}
+	}
+	if scope.Level(r.Context()) == scope.OrgScope {
+		roles, _ := (&schema.UserRole{}).ListPlatformRoles(r.Context())
+		rolesMap := make(map[schema.UserRoleID]schema.UserRole)
+		for _, role := range roles {
+			rolesMap[role.ID] = role
+		}
+
+		tenantMemberships, _ := (&schema.TenantMembership{UserID: _user.ID}).ListByUserID(r.Context())
+		if len(tenantMemberships) > 0 {
+			resp.TenantRoles = make(map[string]schema.UserRole)
+		}
+		for _, membership := range tenantMemberships {
+			resp.TenantRoles[membership.TenantID] = rolesMap[membership.RoleID]
 		}
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)

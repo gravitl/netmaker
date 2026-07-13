@@ -123,7 +123,8 @@ func InitPro() {
 
 	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
-	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
+	logic.TenantPermissionsCheck = proLogic.TenantPermissionsCheck
+	logic.OrgPermissionsCheck = proLogic.OrgPermissionsCheck
 	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole

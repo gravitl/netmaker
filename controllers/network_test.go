@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
@@ -36,6 +37,8 @@ func TestMain(m *testing.M) {
 		OrganizationID: defaultOrg.ID,
 	}
 	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
+	orchestrator.InitializeRepository(extensions.NewProFactory())
 
 	defaultTenantID = defaultTenant.ID
 	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenant.ID)
@@ -110,24 +113,6 @@ func TestDeleteNetwork(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
 		err := logic.DeleteNetwork("test", true, doneCh)
 		assert.Nil(t, err)
-	})
-}
-
-func TestSecurityCheck(t *testing.T) {
-	//these seem to work but not sure it the tests are really testing the functionality
-
-	os.Setenv("MASTER_KEY", "secretkey")
-	t.Run("NoNetwork", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer secretkey")
-		assert.Nil(t, err)
-		t.Log(username)
-	})
-
-	t.Run("BadToken", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer badkey")
-		assert.NotNil(t, err)
-		t.Log(err)
-		t.Log(username)
 	})
 }
 

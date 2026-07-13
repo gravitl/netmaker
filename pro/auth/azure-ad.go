@@ -176,7 +176,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 		UserName: content.UserPrincipalName,
 		Password: newPass,
 	}
-	jwt, jwtErr := logic.VerifyAuthRequest(authRequest, state.AppName)
+	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return

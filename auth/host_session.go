@@ -77,7 +77,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 			handleHostRegErr(conn, errors.New("basic auth is disabled"))
 			return
 		}
-		_, err := logic.VerifyAuthRequest(models.UserAuthParams{
+		_, err := logic.VerifyAuthRequest(ctx, models.UserAuthParams{
 			UserName: registerMessage.User,
 			Password: registerMessage.Password,
 		}, logic.NetclientApp)

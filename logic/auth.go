@@ -50,6 +50,32 @@ func GetUsers() ([]models.ReturnUser, error) {
 	return users, nil
 }
 
+func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
+	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
+		return nil
+	}
+
+	tenant := &schema.Tenant{ID: scope.ID(ctx)}
+	err := tenant.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	orgMembership := &schema.OrgMembership{
+		OrganizationID: tenant.OrganizationID,
+		UserID:         user.ID,
+	}
+	err = orgMembership.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	user.AuthType = orgMembership.AuthType
+	user.Password = orgMembership.Password
+	user.ExternalIdentityProviderID = orgMembership.ExternalIdentityProviderID
+	return nil
+}
+
 // IsOauthUser - returns
 func IsOauthUser(user *schema.User) error {
 	var currentValue, err = FetchOAuthSecret()
@@ -61,7 +87,7 @@ func IsOauthUser(user *schema.User) error {
 }
 
 // VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
+func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, appName string) (string, error) {
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
@@ -71,7 +97,12 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(DefaultScope(db.WithContext(context.TODO())))
+	err := _user.Get(ctx)
+	if err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+
+	err = ResolveInheritedAuth(ctx, _user)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -93,7 +124,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, schema.UserRoleID(_user.PlatformRoleID), appName)
+		tokenString, err := CreateUserJWT(ctx, authRequest.UserName, appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -101,7 +132,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 
 		// update last login time
 		_user.LastLoginAt = time.Now().UTC()
-		err = _user.Update(db.WithContext(context.TODO()))
+		err = _user.Update(ctx)
 		if err != nil {
 			slog.Error("error upserting user", "error", err)
 			return "", err
@@ -450,7 +481,7 @@ func SetState(scope scope.Scope, scopeID, appName, state string) error {
 // Returns an empty slice (not an error) when the user is not found.
 func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.LoginOption, error) {
 	user := &schema.User{Username: username}
-	err := user.Get(db.WithContext(ctx))
+	err := user.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return []models.LoginOption{}, nil
@@ -476,7 +507,11 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		settings := &schema.TenantSettingsRecord{Key: membership.TenantID}
 		err = settings.Get(ctx)
 		if err != nil {
-			continue
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Value = datatypes.NewJSONType(schema.TenantSettings{})
+			} else {
+				continue
+			}
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable
@@ -525,7 +560,9 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		})
 	}
 
-	orgMemberships, err := (&schema.OrgMembership{}).ListByUserID(ctx)
+	orgMemberships, err := (&schema.OrgMembership{
+		UserID: user.ID,
+	}).ListByUserID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing org memberships: %w", err)
 	}
@@ -540,7 +577,11 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		settings := &schema.OrganizationSettings{ID: membership.OrganizationID}
 		err = settings.Get(ctx)
 		if err != nil {
-			continue
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Settings = datatypes.NewJSONType(schema.OrganizationSettingsData{})
+			} else {
+				continue
+			}
 		}
 
 		var methodsAvailable models.LoginMethodsAvailable
