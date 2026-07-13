@@ -66,7 +66,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
 		if (relayedNode.InternetGwID != "" && relayedNode.InternetGwID != relay.NodeID) ||
-			(relayedNode.SelectedInternetEgressID != "" && relayedNode.InternetGwID != relay.NodeID) {
+			(relayedNode.SelectedInternetEgressID != "" && relayedNode.SelectedInternetEgressID != relay.NodeID) {
 			return errors.New("cannot relay an internet client (" + relayedNodeID + ")")
 		}
 		if relayedNode.IsAutoRelay {
