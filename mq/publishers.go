@@ -476,9 +476,9 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 	return nil
 }
 
-func PublishExporterFeatureFlags(ctx context.Context) error {
+func PublishExporterFeatureFlags() error {
 	featureFlags := models.ExporterFeatureFlags{
-		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings(ctx).EnableFlowLogs,
+		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs,
 	}
 
 	data, err := json.Marshal(featureFlags)

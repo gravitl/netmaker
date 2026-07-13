@@ -330,7 +330,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		go mq.PublishExporterFeatureFlags(ctx)
+		go mq.PublishExporterFeatureFlags()
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.

@@ -58,7 +58,7 @@ func InitPro() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
 		_ = license.ClearLicenseCache()
-		if err := license.ValidateLicense(logic.DefaultScope(db.WithContext(ctx))); err != nil {
+		if err := license.ValidateLicense(); err != nil {
 			slog.Error(err.Error())
 			return
 		}
