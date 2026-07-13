@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const jitGrantTable = "jit_grants"
@@ -49,25 +51,34 @@ func (g *JITGrant) GetActiveByUserAndNetwork(ctx context.Context) (*JITGrant, er
 
 func (g *JITGrant) ListActiveByNetwork(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("network_id = ? AND expires_at > ?", g.NetworkID, time.Now()).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("network_id = ? AND expires_at > ?", g.NetworkID, time.Now())
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
 }
 
 func (g *JITGrant) ListExpired(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("expires_at <= ?", time.Now()).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("expires_at <= ?", time.Now())
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
 }
 
 func (g *JITGrant) ListByUserAndNetwork(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("network_id = ? AND user_id = ?", g.NetworkID, g.UserID).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("network_id = ? AND user_id = ?", g.NetworkID, g.UserID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
 }
 

@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -31,7 +33,11 @@ func (p *PendingHost) Create(ctx context.Context) error {
 }
 
 func (p *PendingHost) List(ctx context.Context) (pendingHosts []PendingHost, err error) {
-	err = db.FromContext(ctx).Model(&PendingHost{}).Find(&pendingHosts).Error
+	query := db.FromContext(ctx).Model(&PendingHost{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err = query.Find(&pendingHosts).Error
 	return
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -46,6 +47,10 @@ func (u *UserInvite) GetByEmail(ctx context.Context) error {
 func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]UserInvite, error) {
 	var userInvites []UserInvite
 	query := db.FromContext(ctx).Model(&UserInvite{})
+
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 
 	for _, option := range options {
 		query = option(query)

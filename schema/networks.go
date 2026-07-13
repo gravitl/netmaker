@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
@@ -76,13 +77,21 @@ func (n *Network) Get(ctx context.Context) error {
 
 func (n *Network) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&Network{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&Network{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }
 
 func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 	var networks []Network
-	err := db.FromContext(ctx).Model(&Network{}).Find(&networks).Error
+	query := db.FromContext(ctx).Model(&Network{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&networks).Error
 	return networks, err
 }
 

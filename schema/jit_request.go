@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const jitRequestTable = "jit_requests"
@@ -47,25 +49,41 @@ func (r *JITRequest) Delete(ctx context.Context) error {
 
 func (r *JITRequest) ListByNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Order("requested_at DESC").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Order("requested_at DESC").Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListByUserAndNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND user_id = ?", r.NetworkID, r.UserID).Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND user_id = ?", r.NetworkID, r.UserID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListPendingByNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, "pending").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, "pending")
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListByStatusAndNetwork(ctx context.Context, status string) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status).Order("requested_at DESC").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Order("requested_at DESC").Find(&requests).Error
 	return requests, err
 }
 

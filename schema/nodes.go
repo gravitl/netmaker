@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -134,6 +135,9 @@ func (n *Node) DeleteAll(ctx context.Context) error {
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -148,6 +152,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 		return nil, nil
 	}
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -159,6 +166,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -190,10 +200,12 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
-	err := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID).
-		Find(&violations).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&violations).Error
 	return violations, err
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm/clause"
@@ -52,12 +53,20 @@ func (r *DNSRecord) Delete(ctx context.Context) error {
 
 func (*DNSRecord) List(ctx context.Context) ([]DNSRecord, error) {
 	var records []DNSRecord
-	err := db.FromContext(ctx).Where("tenant_id = ?", scope.ID(ctx)).Find(&records).Error
+	query := db.FromContext(ctx).Model(&DNSRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&records).Error
 	return records, err
 }
 
 func (*DNSRecord) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&DNSRecord{}).Where("tenant_id = ?", scope.ID(ctx)).Count(&count).Error
+	query := db.FromContext(ctx).Model(&DNSRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 var (
@@ -62,6 +63,10 @@ func (p *PendingUser) Get(ctx context.Context) error {
 func (p *PendingUser) ListAll(ctx context.Context, options ...dbtypes.Option) ([]PendingUser, error) {
 	var pendingUsers []PendingUser
 	query := db.FromContext(ctx).Model(&PendingUser{})
+
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 
 	for _, option := range options {
 		query = option(query)
