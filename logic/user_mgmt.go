@@ -51,7 +51,7 @@ var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User)
 var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
 
 var InitialiseRoles = userRolesInit
-var IntialiseGroups = func() {}
+var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID schema.NetworkID) {}
 var CreateDefaultUserPolicies = func(netID schema.NetworkID) {

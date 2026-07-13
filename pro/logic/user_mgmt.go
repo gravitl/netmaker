@@ -163,10 +163,11 @@ func UserRolesInit() {
 	_ = NetworkUserAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }
 
-func UserGroupsInit() {
+func UserGroupsInit(ctx context.Context) {
 	// create default network groups
 	var NetworkGlobalAdminGroup = schema.UserGroup{
 		ID:       globalNetworksAdminGroupID,
+		TenantID: scope.ID(ctx),
 		Default:  true,
 		Name:     "All Networks Admin Group",
 		MetaData: "can manage configuration of all networks",
@@ -177,9 +178,10 @@ func UserGroupsInit() {
 		}),
 	}
 	var NetworkGlobalUserGroup = schema.UserGroup{
-		ID:      globalNetworksUserGroupID,
-		Name:    "All Networks User Group",
-		Default: true,
+		ID:       globalNetworksUserGroupID,
+		TenantID: scope.ID(ctx),
+		Name:     "All Networks User Group",
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			schema.AllNetworks: {
 				globalNetworksUserRoleID: {},
@@ -188,16 +190,6 @@ func UserGroupsInit() {
 		MetaData: "Provides read-only dashboard access to platform users and allows connection to network nodes via the Netmaker Desktop App.",
 	}
 
-	ctx := db.WithContext(context.TODO())
-	if NetworkGlobalAdminGroup.TenantID == "" || NetworkGlobalUserGroup.TenantID == "" {
-		dctx := logic.DefaultScope(ctx)
-		if NetworkGlobalAdminGroup.TenantID == "" {
-			NetworkGlobalAdminGroup.TenantID = scope.ID(dctx)
-		}
-		if NetworkGlobalUserGroup.TenantID == "" {
-			NetworkGlobalUserGroup.TenantID = scope.ID(dctx)
-		}
-	}
 	_ = NetworkGlobalAdminGroup.Upsert(ctx)
 	_ = NetworkGlobalUserGroup.Upsert(ctx)
 }

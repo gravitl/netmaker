@@ -82,21 +82,21 @@ func InitPro() {
 			// Register JIT expiry hook with email notifications
 			addJitExpiryHookWithEmail()
 
-			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings(logic.DefaultScope(db.WithContext(ctx))).EnableFlowLogs {
+			if proLogic.GetFeatureFlags().EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
+				} else {
+					proLogic.StartFlowCleanupLoop()
+
+					wg.Add(1)
+					go func(ctx context.Context, wg *sync.WaitGroup) {
+						<-ctx.Done()
+						proLogic.StopFlowCleanupLoop()
+						ch.Close()
+						wg.Done()
+					}(ctx, wg)
 				}
-
-				proLogic.StartFlowCleanupLoop()
-
-				wg.Add(1)
-				go func(ctx context.Context, wg *sync.WaitGroup) {
-					<-ctx.Done()
-					proLogic.StopFlowCleanupLoop()
-					ch.Close()
-					wg.Done()
-				}(ctx, wg)
 			}
 		}
 

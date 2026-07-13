@@ -27,9 +27,15 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	migrateSettings()
+	tenants, _ := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	for _, tenant := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		migrateSettings(ctx)
+		assignSuperAdmin(ctx)
+		logic.IntialiseGroups(ctx)
+	}
+
 	updateEnrollmentKeys()
-	assignSuperAdmin()
 	updateNewAcls()
 	createDefaultTagsAndPolicies()
 	syncUsers()
@@ -45,7 +51,6 @@ func Run() {
 	cleanUpDeleteNetworksRefs()
 
 	logic.InitialiseRoles()
-	logic.IntialiseGroups()
 }
 
 func updateNetworks() {
@@ -137,18 +142,13 @@ func isValidVNATPool(pool string) bool {
 	return err == nil
 }
 
-func assignSuperAdmin() {
-	if ok, _ := logic.HasSuperAdmin(); ok {
+func assignSuperAdmin(ctx context.Context) {
+	exists, _ := (&schema.User{}).SuperAdminExists(ctx)
+	if exists {
 		return
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
-	if err != nil {
-		return
-	}
-
-	users, err := logic.GetUsers()
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil || len(users) == 0 {
 		return
 	}
@@ -157,17 +157,17 @@ func assignSuperAdmin() {
 	owner := servercfg.GetOwnerEmail()
 	if owner != "" {
 		user := &schema.User{Username: owner}
-		err = user.Get(db.WithContext(context.TODO()))
+		err = user.Get(ctx)
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
 
 		tm := &schema.TenantMembership{
-			TenantID: defaultTenant.ID,
+			TenantID: scope.ID(ctx),
 			UserID:   user.ID,
 			RoleID:   schema.SuperAdminRole,
 		}
-		err = tm.UpdateRoleID(db.WithContext(context.TODO()))
+		err = tm.UpdateRoleID(ctx)
 		if err != nil {
 			log.Fatal(
 				"error updating user to superadmin",
@@ -179,42 +179,30 @@ func assignSuperAdmin() {
 		}
 		return
 	}
-	for _, u := range users {
-		var isAdmin bool
-		if u.PlatformRoleID == schema.AdminRole {
-			isAdmin = true
-		}
-		if u.PlatformRoleID == "" && u.IsAdmin {
-			isAdmin = true
+
+	for _, user := range users {
+		if user.PlatformRoleID != schema.AdminRole {
+			continue
 		}
 
-		if isAdmin {
-			user := &schema.User{Username: u.UserName}
-			err = user.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
-				continue
-			}
-
-			tm := &schema.TenantMembership{
-				TenantID: defaultTenant.ID,
-				UserID:   user.ID,
-				RoleID:   schema.SuperAdminRole,
-			}
-			err = tm.UpdateRoleID(db.WithContext(context.TODO()))
-			if err != nil {
-				slog.Error(
-					"error updating user to superadmin",
-					"user",
-					user.Username,
-					"error",
-					err.Error(),
-				)
-				continue
-			}
-			createdSuperAdmin = true
-			break
+		tm := &schema.TenantMembership{
+			TenantID: scope.ID(ctx),
+			UserID:   user.ID,
+			RoleID:   schema.SuperAdminRole,
 		}
+		err = tm.UpdateRoleID(ctx)
+		if err != nil {
+			slog.Error(
+				"error updating user to superadmin",
+				"user",
+				user.Username,
+				"error",
+				err.Error(),
+			)
+			continue
+		}
+		createdSuperAdmin = true
+		break
 	}
 
 	if !createdSuperAdmin {
@@ -505,9 +493,7 @@ func migrateEgressDomains() {
 	}
 }
 
-func migrateSettings() {
-	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
-
+func migrateSettings(ctx context.Context) {
 	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
 	err := settingsRecord.Get(ctx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {

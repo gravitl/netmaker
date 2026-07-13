@@ -31,11 +31,6 @@ var IsOAuthConfigured = func(context.Context) bool { return false }
 var ResetAuthProvider = func(context.Context) {}
 var ResetIDPSyncHook = func(context.Context) {}
 
-// HasSuperAdmin - checks if server has an superadmin/owner
-func HasSuperAdmin() (bool, error) {
-	return (&schema.User{}).SuperAdminExists(db.WithContext(context.TODO()))
-}
-
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
 	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
