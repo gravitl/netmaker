@@ -12,7 +12,7 @@ import (
 func ExtClientUsesInternetEgress(client models.ExtClient, gwnode models.Node) bool {
 	if client.SelectedInternetEgressID != "" {
 		e := &schema.Egress{ID: client.SelectedInternetEgressID}
-		if err := e.Get(context.TODO()); err != nil {
+		if err := e.Get(db.WithContext(context.TODO())); err != nil {
 			return false
 		}
 		if !e.Status || e.Network != client.Network || !IsEgressInternetGateway(*e) {
