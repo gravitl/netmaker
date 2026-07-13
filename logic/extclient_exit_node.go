@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )

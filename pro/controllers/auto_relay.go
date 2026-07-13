@@ -22,6 +22,17 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+func internetEgressRoutingNodeID(ctx context.Context, egressID string) string {
+	if egressID == "" {
+		return ""
+	}
+	e := &schema.Egress{ID: egressID}
+	if err := e.Get(db.WithContext(ctx)); err != nil {
+		return ""
+	}
+	return logic.FirstInternetEgressRoutingNodeID(*e)
+}
+
 // AutoRelayHandlers - handlers for AutoRelay
 func AutoRelayHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
@@ -299,8 +310,8 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	}
 	if (node.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
 		(peerNode.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) ||
-		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) {
+		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && internetEgressRoutingNodeID(r.Context(), node.SelectedInternetEgressID) != autoRelayNode.ID.String()) ||
+		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && internetEgressRoutingNodeID(r.Context(), peerNode.SelectedInternetEgressID) != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -629,8 +640,8 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 	}
 	if (node.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
 		(peerNode.InternetGwID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) ||
-		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && peerNode.InternetGwID != autoRelayNode.ID.String()) {
+		(node.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && internetEgressRoutingNodeID(r.Context(), node.SelectedInternetEgressID) != autoRelayNode.ID.String()) ||
+		(peerNode.SelectedInternetEgressID != "" && logic.IsInternetGw(autoRelayNode) && internetEgressRoutingNodeID(r.Context(), peerNode.SelectedInternetEgressID) != autoRelayNode.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
