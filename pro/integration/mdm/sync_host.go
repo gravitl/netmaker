@@ -25,10 +25,18 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		return err
 	}
 	if lookup, ok := p.(EntraDeviceLookup); ok {
-		if strings.TrimSpace(h.EntraDeviceID) == "" {
+		if strings.TrimSpace(h.EntraDeviceID) != "" {
+			return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, h)
+		}
+		if strings.TrimSpace(h.SerialNumber) == "" {
 			return clearHostMDMState(ctx, intg.ID, h.ID.String())
 		}
-		return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, h)
+		devices, err := p.ListManagedDevices(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = syncHostMDMBySerial(ctx, intg.ID, h, devices)
+		return err
 	}
 	if strings.TrimSpace(h.SerialNumber) == "" {
 		return clearHostMDMState(ctx, intg.ID, h.ID.String())
