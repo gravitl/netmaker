@@ -61,12 +61,17 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 }
 
 func (u *UserInvite) DeleteByEmail(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ?", u.Email).
-		Delete(u).
-		Error
+	query := db.FromContext(ctx).Model(&UserInvite{}).
+		Where("email = ?", u.Email)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(u).Error
 }
 
 func (u *UserInvite) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM user_invites_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM user_invites_v1").Error
 }

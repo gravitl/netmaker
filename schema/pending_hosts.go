@@ -49,5 +49,9 @@ func (p *PendingHost) CheckIfPendingHostExists(ctx context.Context) error {
 }
 
 func (p *PendingHost) DeleteAllPendingHosts(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PendingHost{}).Where("host_id = ?", p.HostID).Delete(&p).Error
+	query := db.FromContext(ctx).Model(&PendingHost{}).Where("host_id = ?", p.HostID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(&p).Error
 }

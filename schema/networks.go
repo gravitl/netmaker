@@ -132,6 +132,9 @@ func (n *Network) Delete(ctx context.Context) error {
 }
 
 func (n *Network) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM networks_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM networks_v1").Error
 }
 

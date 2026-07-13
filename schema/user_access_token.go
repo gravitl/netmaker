@@ -68,5 +68,9 @@ func (a *UserAccessToken) Delete(ctx context.Context) error {
 }
 
 func (a *UserAccessToken) DeleteAllUserTokens(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName).Delete(&a).Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(&a).Error
 }

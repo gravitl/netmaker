@@ -69,6 +69,9 @@ func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, er
 
 func (ns *Nameserver) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Nameserver{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

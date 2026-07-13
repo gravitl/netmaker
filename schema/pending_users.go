@@ -88,5 +88,8 @@ func (p *PendingUser) Delete(ctx context.Context) error {
 }
 
 func (p *PendingUser) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM pending_users_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM pending_users_v1").Error
 }

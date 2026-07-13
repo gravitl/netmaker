@@ -181,5 +181,9 @@ func (a *Event) List(ctx context.Context, from, to time.Time) (ats []Event, err 
 
 func (a *Event) DeleteOldEvents(ctx context.Context, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
-	return db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff).Delete(&Event{}).Error
+	query := db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(&Event{}).Error
 }

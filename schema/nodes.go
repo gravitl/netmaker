@@ -129,6 +129,9 @@ func (n *Node) Delete(ctx context.Context) error {
 }
 
 func (n *Node) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM nodes_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM nodes_v1").Error
 }
 
@@ -210,14 +213,19 @@ func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, err
 }
 
 func (n *Node) DeleteViolations(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ?", n.ID).
-		Delete(&PostureCheckViolation{}).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(&PostureCheckViolation{}).Error
 }
 
 func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

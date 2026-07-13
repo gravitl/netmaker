@@ -222,5 +222,8 @@ func (h *Host) Delete(ctx context.Context) error {
 }
 
 func (h *Host) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM hosts_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM hosts_v1").Error
 }

@@ -140,6 +140,9 @@ func (p *PostureCheck) ListByNetwork(ctx context.Context) (pcli []PostureCheck, 
 
 func (p *PostureCheck) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&PostureCheck{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
