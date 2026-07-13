@@ -284,7 +284,7 @@ func GetOnboardingStatus(ctx context.Context, username string) (models.Onboardin
 }
 
 // CreateNetwork - creates a network in database
-func CreateNetwork(_network *schema.Network) error {
+func CreateNetwork(ctx context.Context, _network *schema.Network) error {
 	if _network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(_network.AddressRange)
 		if err != nil {
@@ -299,22 +299,18 @@ func CreateNetwork(_network *schema.Network) error {
 		}
 		_network.AddressRange6 = normalizedRange
 	}
-	if !IsNetworkCIDRUnique(GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
+	if !IsNetworkCIDRUnique(ctx, GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
 		return errors.New("network cidr already in use")
 	}
 
 	_network.NodesUpdatedAt = time.Now().UTC()
 
-	err := ValidateNetwork(_network, false)
+	err := ValidateNetwork(ctx, _network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return err
 	}
 
-	ctx := db.WithContext(context.TODO())
-	if _network.TenantID == "" {
-		_network.TenantID = scope.ID(DefaultScope(ctx))
-	}
 	return _network.Create(ctx)
 }
 
@@ -339,8 +335,8 @@ func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 	return len(nodes), err
 }
 
-func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func IsNetworkCIDRUnique(ctx context.Context, cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return errors.Is(err, gorm.ErrRecordNotFound)
 	}
@@ -361,11 +357,11 @@ func intersect(n1, n2 *net.IPNet) bool {
 }
 
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
-func IsNetworkNameUnique(network *schema.Network) (bool, error) {
+func IsNetworkNameUnique(ctx context.Context, network *schema.Network) (bool, error) {
 	_network := &schema.Network{
 		Name: network.Name,
 	}
-	err := _network.Get(db.WithContext(context.TODO()))
+	err := _network.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return true, nil
@@ -382,8 +378,8 @@ func UpsertNetwork(_network *schema.Network) error {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
-	if err := ValidateNetwork(newNetwork, true); err != nil {
+func UpdateNetwork(ctx context.Context, currentNetwork, newNetwork *schema.Network) error {
+	if err := ValidateNetwork(ctx, newNetwork, true); err != nil {
 		return err
 	}
 	if newNetwork.Name != currentNetwork.Name {
@@ -436,7 +432,7 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
 	}
 	// When both VNAT fields are omitted from the update, preserve existing settings
-	return currentNetwork.Update(db.WithContext(context.TODO()))
+	return currentNetwork.Update(ctx)
 }
 
 // validateNetName - checks if a netid of a network uses valid characters
@@ -463,7 +459,7 @@ func validateNetName(network *schema.Network) error {
 }
 
 // Validate - validates fields of an network struct
-func ValidateNetwork(network *schema.Network, isUpdate bool) error {
+func ValidateNetwork(ctx context.Context, network *schema.Network, isUpdate bool) error {
 	var validationErr error
 	err := validateNetName(network)
 	if err != nil {
@@ -471,7 +467,7 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	}
 
 	if !isUpdate {
-		nameUnique, _ := IsNetworkNameUnique(network)
+		nameUnique, _ := IsNetworkNameUnique(ctx, network)
 		if !nameUnique {
 			validationErr = errors.Join(validationErr, errors.New("invalid network name"))
 		}

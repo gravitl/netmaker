@@ -378,7 +378,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if network.AutoRemoveTags == nil {
 		network.AutoRemoveTags = []string{}
 	}
-	err = logic.CreateNetwork(&network)
+	network.TenantID = scope.ID(r.Context())
+	err = logic.CreateNetwork(r.Context(), &network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
@@ -469,7 +470,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateNetwork(currNet, &payload)
+	err = logic.UpdateNetwork(r.Context(), currNet, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
