@@ -196,16 +196,6 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 		privateKey.Value = base64encode(privateKeyBytes)
 		publicKey.Value = base64encode(publicKeyBytes)
 		ctx := db.WithContext(context.TODO())
-		if privateKey.TenantID == "" || publicKey.TenantID == "" {
-			ctx := logic.DefaultScope(ctx)
-			if privateKey.TenantID == "" {
-				privateKey.TenantID = scope.ID(ctx)
-			}
-			if publicKey.TenantID == "" {
-				publicKey.TenantID = scope.ID(ctx)
-			}
-		}
-
 		err = privateKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -334,11 +324,7 @@ func cacheResponse(response []byte) error {
 		Key:   schema.InternalKey_LicenseValidationCachedResponse,
 		Value: base64encode(response),
 	}
-	ctx := db.WithContext(context.TODO())
-	if cachedResponse.TenantID == "" {
-		cachedResponse.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
-	return cachedResponse.Set(ctx)
+	return cachedResponse.Set(db.WithContext(context.TODO()))
 }
 
 func getCachedResponse() ([]byte, error) {

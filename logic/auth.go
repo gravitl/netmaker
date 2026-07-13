@@ -399,11 +399,7 @@ func SetOAuthSecret(secret string) error {
 	}
 
 	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
-	ctx := db.WithContext(context.TODO())
-	if oauthSecret.TenantID == "" {
-		oauthSecret.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return oauthSecret.Set(ctx)
+	return oauthSecret.Set(db.WithContext(context.TODO()))
 }
 
 // FetchOAuthSecret fetches secrets for oauth

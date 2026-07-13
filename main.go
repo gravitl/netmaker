@@ -307,11 +307,7 @@ func setServerID() error {
 	}
 
 	serverID.Value = uuid.NewString()
-	ctx := db.WithContext(context.TODO())
-	if serverID.TenantID == "" {
-		serverID.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
-	return serverID.Set(ctx)
+	return serverID.Set(db.WithContext(context.TODO()))
 }
 
 func setServerVersion() error {
@@ -362,16 +358,6 @@ func setMqKeys() error {
 	mqPublicKey.Value = base64.StdEncoding.EncodeToString(publicKeyBytes)
 
 	ctx := db.WithContext(context.TODO())
-	if mqPrivateKey.TenantID == "" || mqPublicKey.TenantID == "" {
-		ctx := logic.DefaultScope(ctx)
-		if mqPrivateKey.TenantID == "" {
-			mqPrivateKey.TenantID = scope.ID(ctx)
-		}
-		if mqPublicKey.TenantID == "" {
-			mqPublicKey.TenantID = scope.ID(ctx)
-		}
-	}
-
 	err = mqPrivateKey.Set(ctx)
 	if err != nil {
 		return err
