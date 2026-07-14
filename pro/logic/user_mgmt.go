@@ -1532,21 +1532,17 @@ func IsNetworkAdmin(user *schema.User, networkID string) bool {
 	if user == nil || networkID == "" {
 		return false
 	}
-	net := &schema.Network{ID: networkID, Name: networkID}
-	if err := net.Get(db.WithContext(context.TODO())); err == nil && net.Name != "" {
-		networkID = net.Name
-	}
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {
+		if groupID == globalNetworksAdminGroupID {
+			return true
+		}
 		group, err := logic.GetUserGroup(groupID)
 		if err != nil {
 			continue
-		}
-		if groupID == globalNetworksAdminGroupID {
-			return true
 		}
 		// Check if group has network admin role for this network
 		if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
