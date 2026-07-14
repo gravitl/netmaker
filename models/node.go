@@ -24,6 +24,7 @@ type NodeCheckin struct {
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient
 type CommonNode struct {
 	ID                  uuid.UUID `json:"id"                  yaml:"id"`
+	TenantID            string    `json:"tenant_id"`
 	HostID              uuid.UUID `json:"hostid"              yaml:"hostid"`
 	Network             string    `json:"network"             yaml:"network"`
 	NetworkRange        net.IPNet `json:"networkrange"        yaml:"networkrange"        swaggertype:"primitive,integer"`
@@ -263,6 +264,7 @@ func (node *Node) NetworkSettings(n Network) {
 
 type NodeWithHost struct {
 	ID                                string                                `json:"id"`
+	TenantID                          string                                `json:"tenant_id"`
 	HostID                            string                                `json:"host_id"`
 	Host                              *ApiHost                              `json:"host,omitempty"`
 	NetworkID                         string                                `json:"network_id"`
@@ -293,6 +295,7 @@ type NodeWithHost struct {
 
 func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.ID = _node.ID
+	n.TenantID = _node.TenantID
 	n.HostID = _node.HostID
 	n.Host = NewApiHostFromSchemaHost(_node.Host)
 	n.NetworkID = _node.NetworkID

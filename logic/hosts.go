@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"crypto/md5"
 	"errors"
 	"fmt"
 	"net"
@@ -14,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -128,7 +126,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	}
 
 	checkForZombieHosts(ctx, h)
-	return UpsertHost(h)
+	return h.Upsert(ctx)
 }
 
 // UpdateHost - updates host data by field
@@ -280,15 +278,6 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 	return
 }
 
-// UpsertHost - upserts into DB a given host model, does not check for existence*
-func UpsertHost(h *schema.Host) error {
-	ctx := db.WithContext(context.TODO())
-	if h.TenantID == "" {
-		h.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return h.Upsert(ctx)
-}
-
 // UpdateHostNode -  handles updates from client nodes
 func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
 	currentNode, err := GetNodeByID(newNode.ID.String())
@@ -405,12 +394,12 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 		h.Nodes = append(h.Nodes, n.ID.String())
 	}
 
-	return UpsertHost(h)
+	return h.Upsert(db.WithContext(context.TODO()))
 }
 
-// DissasociateNodeFromHost - deletes a node and removes from host nodes
+// DisassociateNodeFromHost - deletes a node and removes from host nodes
 // should be the only way nodes are deleted as of 0.18
-func DissasociateNodeFromHost(ctx context.Context, n *models.Node, h *schema.Host) error {
+func DisassociateNodeFromHost(ctx context.Context, n *models.Node, h *schema.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
@@ -432,7 +421,7 @@ func DissasociateNodeFromHost(ctx context.Context, n *models.Node, h *schema.Hos
 	if err := DeleteNodeByID(ctx, n); err != nil {
 		return err
 	}
-	return UpsertHost(h)
+	return h.Upsert(ctx)
 }
 
 // DisassociateAllNodesFromHost - deletes all nodes of the host.
@@ -464,7 +453,7 @@ func DisassociateAllNodesFromHost(ctx context.Context, hostIDStr string) error {
 		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
 	}
 	host.Nodes = failedNodes
-	if err := UpsertHost(host); err != nil {
+	if err = host.Upsert(ctx); err != nil {
 		slog.Error("failed to upsert host after node cleanup", "host", hostIDStr, "error", err)
 	}
 	if len(failedNodes) > 0 {
@@ -505,33 +494,7 @@ func GetHostNetworks(ctx context.Context, hostID string) []string {
 	return nets
 }
 
-// GetRelatedHosts - fetches related hosts of a given host
-func GetRelatedHosts(ctx context.Context, hostID string) []schema.Host {
-	relatedHosts := []schema.Host{}
-	networks := GetHostNetworks(ctx, hostID)
-	networkMap := make(map[string]struct{})
-	for _, network := range networks {
-		networkMap[network] = struct{}{}
-	}
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
-	if err == nil {
-		for _, host := range hosts {
-			if host.ID.String() == hostID {
-				continue
-			}
-			networks := GetHostNetworks(ctx, host.ID.String())
-			for _, network := range networks {
-				if _, ok := networkMap[network]; ok {
-					relatedHosts = append(relatedHosts, host)
-					break
-				}
-			}
-		}
-	}
-	return relatedHosts
-}
-
-// CheckHostPort checks host endpoints to ensures that hosts on the same server
+// CheckHostPorts checks host endpoints to ensures that hosts on the same server
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(ctx context.Context, h *schema.Host) (changed bool) {
@@ -661,26 +624,6 @@ func HostExists(h *schema.Host) bool {
 	_host := &schema.Host{ID: h.ID}
 	err := _host.Get(db.WithContext(context.TODO()))
 	return err == nil
-}
-
-// GetHostByNodeID - returns a host if found to have a node's ID, else nil
-func GetHostByNodeID(ctx context.Context, id string) *schema.Host {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
-	if err != nil {
-		return nil
-	}
-	for i := range hosts {
-		h := hosts[i]
-		if StringSliceContains(h.Nodes, id) {
-			return &h
-		}
-	}
-	return nil
-}
-
-// ConvHostPassToHash - converts password to md5 hash
-func ConvHostPassToHash(hostPass string) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(hostPass)))
 }
 
 // SortApiHosts - Sorts slice of ApiHosts by their ID alphabetically with numbers first

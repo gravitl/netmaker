@@ -723,7 +723,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if newNode.IsInternetGateway {
 		if host.DNS != "yes" {
 			host.DNS = "yes"
-			logic.UpsertHost(host)
+			_ = host.Upsert(r.Context())
 		}
 	}
 

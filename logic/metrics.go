@@ -4,20 +4,28 @@ import (
 	"context"
 	"math"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/scope"
 )
 
 type MetricsMonitor struct {
-	cancel context.CancelFunc
+	tenantID string
+	cancel   context.CancelFunc
 }
 
-var metricsMonitor MetricsMonitor
+var metricsMonitors sync.Map
 
-func GetMetricsMonitor() *MetricsMonitor {
-	return &metricsMonitor
+func GetMetricsMonitor(ctx context.Context) *MetricsMonitor {
+	v, _ := metricsMonitors.LoadOrStore(scope.ID(ctx), &MetricsMonitor{
+		tenantID: scope.ID(ctx),
+	})
+
+	monitor, _ := v.(*MetricsMonitor)
+	return monitor
 }
 
 func (m *MetricsMonitor) Start() {
@@ -27,11 +35,10 @@ func (m *MetricsMonitor) Start() {
 	}
 
 	var ctx context.Context
-	ctx, m.cancel = context.WithCancel(context.Background())
+	ctx, m.cancel = context.WithCancel(scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, m.tenantID))
 
 	go func(ctx context.Context) {
-		scopedCtx := DefaultScope(db.WithContext(ctx))
-		metricsInterval, _ := strconv.Atoi(GetServerSettings(scopedCtx).MetricInterval)
+		metricsInterval, _ := strconv.Atoi(GetServerSettings(ctx).MetricInterval)
 		if metricsInterval == 0 {
 			return
 		}
@@ -40,13 +47,13 @@ func (m *MetricsMonitor) Start() {
 		for {
 			select {
 			case <-time.After(checkInterval):
-				nodes, _ := GetAllNodes(scopedCtx)
+				nodes, _ := GetAllNodes(ctx)
 				for _, node := range nodes {
 					if node.Connected || node.PendingDelete {
 						continue
 					}
 
-					nodeMetrics, err := GetMetrics(scopedCtx, node.ID.String())
+					nodeMetrics, err := GetMetrics(ctx, node.ID.String())
 					if err == nil {
 						inc := math.Round(float64(time.Since(nodeMetrics.UpdatedAt)) / float64(time.Minute))
 						for peer, peerMetrics := range nodeMetrics.Connectivity {
@@ -55,9 +62,9 @@ func (m *MetricsMonitor) Start() {
 							nodeMetrics.Connectivity[peer] = peerMetrics
 						}
 
-						_ = UpdateMetrics(scopedCtx, node.ID.String(), nodeMetrics)
+						_ = UpdateMetrics(ctx, node.ID.String(), nodeMetrics)
 					}
-					go SetPeerMetricsDisconnected(scopedCtx, node.ID.String())
+					go SetPeerMetricsDisconnected(ctx, node.ID.String())
 				}
 			case <-ctx.Done():
 				return

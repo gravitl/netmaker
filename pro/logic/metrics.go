@@ -233,7 +233,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 		slog.Error("error unmarshaling payload", "error", err)
 		return
 	}
-	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 	updateNodeMetrics(ctx, &currentNode, &newMetrics)
 	if err = logic.UpdateMetrics(ctx, id, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", id, "error", err)

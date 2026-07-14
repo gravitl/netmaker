@@ -426,7 +426,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if err = logic.UpsertHost(newHost); err != nil {
+	if err = newHost.Upsert(r.Context()); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -546,7 +546,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		if endpointChanged || versionChanged {
 			runPostureChecks = true
 		}
-		err := logic.UpsertHost(currentHost)
+		err := currentHost.Upsert(r.Context())
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

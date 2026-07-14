@@ -115,11 +115,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
 	var sendPeerUpdate bool
 	var replacePeers bool
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
 		nodes, err := logic.GetAllNodes(ctx)
 		if err != nil {
 			return
@@ -135,12 +136,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			replacePeers = true
 		}
 		var endpointChanged bool
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
 		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(ctx, &hostUpdate.Host, currentHost)
 		if endpointChanged {
 			logic.CheckHostPorts(ctx, currentHost)
 		}
-		err := logic.UpsertHost(currentHost)
+		err := currentHost.Upsert(ctx)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
 			return
@@ -154,7 +154,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
 		err := PublishPeerUpdate(ctx, replacePeers)
 		if err != nil {
 			slog.Error("failed to publish peer update", "error", err)
@@ -318,7 +317,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 		currentHost.FirewallInUse = h.FirewallInUse
 		currentHost.Version = h.Version
 		currentHost.Interfaces = h.Interfaces
-		if err := logic.UpsertHost(currentHost); err != nil {
+		if err := currentHost.Upsert(db.WithContext(context.TODO())); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
 		}
@@ -409,7 +408,7 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 			}
 		}
 
-		if err := logic.UpsertHost(currentHost); err != nil {
+		if err := currentHost.Upsert(db.WithContext(context.TODO())); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
 		}

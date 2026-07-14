@@ -324,8 +324,8 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
 	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
-		logic.GetMetricsMonitor().Stop()
-		logic.GetMetricsMonitor().Start()
+		logic.GetMetricsMonitor(ctx).Stop()
+		logic.GetMetricsMonitor(ctx).Start()
 		logic.NotifyMetricExportIntervalChanged()
 	}
 
@@ -340,7 +340,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
-			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+			hosts, _ := (&schema.Host{}).ListAll(ctx)
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
 					host.AutoUpdate = new.NetclientAutoUpdate
@@ -348,8 +348,8 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 				if curr.EnableFlowLogs != new.EnableFlowLogs {
 					host.EnableFlowLogs = new.EnableFlowLogs
 				}
-				logic.UpsertHost(&host)
-				mq.HostUpdate(&models.HostUpdate{
+				_ = host.Upsert(ctx)
+				_ = mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
 					Host:   host,
 				})

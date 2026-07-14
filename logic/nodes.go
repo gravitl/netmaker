@@ -115,12 +115,7 @@ func UpsertNode(newNode *models.Node) error {
 	if _node.ID == "" {
 		return errors.New("error converting models.Node to schema.Node")
 	}
-
-	ctx := db.WithContext(context.TODO())
-	if _node.TenantID == "" {
-		_node.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return _node.Upsert(ctx)
+	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -149,12 +144,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if _node.ID == "" {
 			return errors.New("error converting models.Node to schema.Node")
 		}
-
-		ctx := db.WithContext(context.TODO())
-		if _node.TenantID == "" {
-			_node.TenantID = scope.ID(DefaultScope(ctx))
-		}
-		return _node.Upsert(ctx)
+		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
@@ -267,7 +257,7 @@ func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
 		return nil
 	}
-	if err := DissasociateNodeFromHost(ctx, node, host); err != nil {
+	if err := DisassociateNodeFromHost(ctx, node, host); err != nil {
 		return err
 	}
 	return nil
@@ -686,6 +676,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	node := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:                nodeID,
+			TenantID:          _node.TenantID,
 			HostID:            hostID,
 			Network:           _node.Network.Name,
 			NetworkRange:      netAddrRange,
@@ -823,6 +814,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 
 	return &schema.Node{
 		ID:                                node.ID.String(),
+		TenantID:                          node.TenantID,
 		HostID:                            host.ID.String(),
 		Host:                              host,
 		NetworkID:                         network.ID,

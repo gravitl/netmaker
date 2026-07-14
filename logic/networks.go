@@ -57,7 +57,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 					// delete ext clients belonging to gateway
 					DeleteGatewayExtClients(ctx, node.ID.String(), node.Network)
 				}
-				DissasociateNodeFromHost(ctx, &node, host)
+				DisassociateNodeFromHost(ctx, &node, host)
 			}
 		}
 		// delete server nodes first then db records

@@ -23,6 +23,7 @@ import (
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -102,7 +103,16 @@ func InitPro() {
 		// These can run on all pods
 		email.Init(logic.DefaultScope(db.WithContext(ctx)))
 		go proLogic.EventWatcher()
-		logic.GetMetricsMonitor().Start()
+
+		tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+		if err != nil {
+			logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
+		} else {
+			for _, tenant := range tenants {
+				ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
+				logic.GetMetricsMonitor(ctx).Start()
+			}
+		}
 	})
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
