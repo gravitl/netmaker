@@ -26,7 +26,7 @@ import (
 var UpdateMetrics = func(client mqtt.Client, msg mqtt.Message) {
 }
 
-var UpdateMetricsFallBack = func(nodeid string, newMetrics models.Metrics) {}
+var UpdateMetricsFallBack = func(ctx context.Context, nodeid string, newMetrics models.Metrics) {}
 
 // DefaultHandler default message queue handler  -- NOT USED
 func DefaultHandler(client mqtt.Client, msg mqtt.Message) {

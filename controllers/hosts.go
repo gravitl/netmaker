@@ -554,7 +554,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}
 	case models.UpdateNode:
 		var displacedGwNodes []models.Node
-		sendDeletedNodeUpdate, sendPeerUpdate, displacedGwNodes = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
+		sendDeletedNodeUpdate, sendPeerUpdate, displacedGwNodes = logic.UpdateHostNode(r.Context(), &hostUpdate.Host, &hostUpdate.Node)
 		if len(displacedGwNodes) > 0 {
 			go func() {
 				for _, dNode := range displacedGwNodes {
@@ -569,7 +569,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}
 	case models.UpdateMetrics:
 		nodeID := hostUpdate.Node.ID.String()
-		mq.UpdateMetricsFallBack(nodeID, hostUpdate.NewMetrics)
+		mq.UpdateMetricsFallBack(r.Context(), nodeID, hostUpdate.NewMetrics)
 
 		go func(nodeID string) {
 			node, err := logic.GetNodeByID(nodeID)
@@ -1068,7 +1068,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			if err = logic.DeleteNodeByID(&node); err != nil {
+			if err = logic.DeleteNodeByID(r.Context(), &node); err != nil {
 				slog.Error("failed to force delete daemon node",
 					"nodeid", node.ID.String(), "hostid", hostIDStr, "network", network, "error", err)
 				logic.ReturnErrorResponse(
@@ -1108,7 +1108,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			if err = logic.DeleteNodeByID(&node); err != nil {
+			if err = logic.DeleteNodeByID(r.Context(), &node); err != nil {
 				slog.Error("failed to force delete daemon node",
 					"nodeid", node.ID.String(), "hostid", hostIDStr, "network", network, "error", err)
 				logic.ReturnErrorResponse(

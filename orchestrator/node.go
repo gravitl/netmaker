@@ -112,12 +112,12 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	go logic.CheckZombies(node)
 
-	go func() {
-		err := logic.UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
+	go func(ctx context.Context) {
+		err := logic.UpdateMetrics(ctx, node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to initialize metrics for node (%s): %v", node.ID, err))
 		}
-	}()
+	}(ctx)
 
 	if host.IsDefault {
 		err = n.ValidateCreateGateway(ctx, node, SkipPublishPeerUpdate())

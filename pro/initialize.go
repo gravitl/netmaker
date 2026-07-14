@@ -69,7 +69,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		proLogic.LoadNodeMetricsToCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -117,6 +116,7 @@ func InitPro() {
 	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
 	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
 	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
+	logic.LoadMetricsIntoCache = proLogic.LoadNodeMetricsToCache
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess

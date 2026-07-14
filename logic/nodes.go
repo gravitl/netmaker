@@ -260,14 +260,14 @@ func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 	}
 	if err := host.Get(ctx); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
-		if delErr := DeleteNodeByID(node); delErr != nil {
+		if delErr := DeleteNodeByID(ctx, node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
 			return delErr
 		}
 		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
 		return nil
 	}
-	if err := DissasociateNodeFromHost(node, host); err != nil {
+	if err := DissasociateNodeFromHost(ctx, node, host); err != nil {
 		return err
 	}
 	return nil
@@ -288,24 +288,24 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 }
 
 // DeleteNodeByID - deletes a node from database
-func DeleteNodeByID(node *models.Node) error {
+func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
-	err := _node.Delete(db.WithContext(context.TODO()))
+	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	err = _node.DeleteViolations(db.WithContext(context.TODO()))
+	err = _node.DeleteViolations(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = DeleteMetrics(node.ID.String()); err != nil {
+	if err = DeleteMetrics(ctx, node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	go DeleteNodeMetricsFromPeers(node.ID.String())
+	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
 }
 

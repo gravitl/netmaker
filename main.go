@@ -172,6 +172,7 @@ func initCache() {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, t.ID)
 		_ = logic.ListAcls(ctx)
 		_, _ = logic.GetAllExtClients(ctx)
+		_ = logic.LoadMetricsIntoCache(ctx)
 	}
 }
 

@@ -290,7 +290,7 @@ func UpsertHost(h *schema.Host) error {
 }
 
 // UpdateHostNode -  handles updates from client nodes
-func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
+func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
 	currentNode, err := GetNodeByID(newNode.ID.String())
 	if err != nil {
 		return
@@ -309,7 +309,7 @@ func UpdateHostNode(h *schema.Host, newNode *models.Node) (publishDeletedNodeUpd
 		if servercfg.IsPro {
 			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
 		}
-		go SetPeerMetricsDisconnected(newNode.ID.String())
+		go SetPeerMetricsDisconnected(ctx, newNode.ID.String())
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(newNode)
@@ -358,7 +358,7 @@ func RemoveHost(ctx context.Context, h *schema.Host, forceDelete bool) error {
 	for _, hostNode := range hostNodes {
 		node := ConvertSchemaNodeToModelsNode(&hostNode)
 		cleanupNodeReferences(ctx, node)
-		err = DeleteNodeByID(node)
+		err = DeleteNodeByID(ctx, node)
 		if err != nil {
 			slog.Error("failed to delete node", "node", node.ID, "host", h.ID, "error", err)
 		}
@@ -410,7 +410,7 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 
 // DissasociateNodeFromHost - deletes a node and removes from host nodes
 // should be the only way nodes are deleted as of 0.18
-func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
+func DissasociateNodeFromHost(ctx context.Context, n *models.Node, h *schema.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
@@ -418,7 +418,7 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		return fmt.Errorf("node is not associated with host")
 	}
 	currentHost := &schema.Host{ID: h.ID}
-	if err := currentHost.Get(db.WithContext(context.TODO())); err != nil {
+	if err := currentHost.Get(ctx); err != nil {
 		return fmt.Errorf("failed to fetch host before node dissociation: %w", err)
 	}
 	h.Nodes = currentHost.Nodes
@@ -429,7 +429,7 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 		}
 	}
 	h.Nodes = nList
-	if err := DeleteNodeByID(n); err != nil {
+	if err := DeleteNodeByID(ctx, n); err != nil {
 		return err
 	}
 	return UpsertHost(h)
@@ -456,7 +456,7 @@ func DisassociateAllNodesFromHost(ctx context.Context, hostIDStr string) error {
 			continue
 		}
 		cleanupNodeReferences(ctx, &node)
-		if err := DeleteNodeByID(&node); err != nil {
+		if err := DeleteNodeByID(ctx, &node); err != nil {
 			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)
 			failedNodes = append(failedNodes, nodeID)
 			continue

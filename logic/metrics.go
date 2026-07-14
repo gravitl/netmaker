@@ -30,7 +30,8 @@ func (m *MetricsMonitor) Start() {
 	ctx, m.cancel = context.WithCancel(context.Background())
 
 	go func(ctx context.Context) {
-		metricsInterval, _ := strconv.Atoi(GetServerSettings(DefaultScope(db.WithContext(ctx))).MetricInterval)
+		scopedCtx := DefaultScope(db.WithContext(ctx))
+		metricsInterval, _ := strconv.Atoi(GetServerSettings(scopedCtx).MetricInterval)
 		if metricsInterval == 0 {
 			return
 		}
@@ -45,7 +46,7 @@ func (m *MetricsMonitor) Start() {
 						continue
 					}
 
-					nodeMetrics, err := GetMetrics(node.ID.String())
+					nodeMetrics, err := GetMetrics(scopedCtx, node.ID.String())
 					if err == nil {
 						inc := math.Round(float64(time.Since(nodeMetrics.UpdatedAt)) / float64(time.Minute))
 						for peer, peerMetrics := range nodeMetrics.Connectivity {
@@ -54,9 +55,9 @@ func (m *MetricsMonitor) Start() {
 							nodeMetrics.Connectivity[peer] = peerMetrics
 						}
 
-						_ = UpdateMetrics(node.ID.String(), nodeMetrics)
+						_ = UpdateMetrics(scopedCtx, node.ID.String(), nodeMetrics)
 					}
-					go SetPeerMetricsDisconnected(node.ID.String())
+					go SetPeerMetricsDisconnected(scopedCtx, node.ID.String())
 				}
 			case <-ctx.Done():
 				return
@@ -70,23 +71,27 @@ func (m *MetricsMonitor) Stop() {
 	m.cancel = nil
 }
 
-var DeleteMetrics = func(string) error {
+var DeleteMetrics = func(context.Context, string) error {
 	return nil
 }
 
-var UpdateMetrics = func(string, *models.Metrics) error {
+var UpdateMetrics = func(context.Context, string, *models.Metrics) error {
 	return nil
 }
 
-var GetMetrics = func(string) (*models.Metrics, error) {
+var GetMetrics = func(context.Context, string) (*models.Metrics, error) {
 	var metrics models.Metrics
 	return &metrics, nil
 }
 
-var DeleteNodeMetricsFromPeers = func(string) {}
+var DeleteNodeMetricsFromPeers = func(context.Context, string) {}
 
-var SetPeerMetricsDisconnected = func(string) {}
+var SetPeerMetricsDisconnected = func(context.Context, string) {}
 
 // TriggerCollectMetrics - asks the client to push metrics now. Overridden in Pro.
 // reason is a short label (e.g. "join", "reconnect", "checkin_recovered") used for logging.
 var TriggerCollectMetrics = func(hostID, nodeID, reason string) {}
+
+var LoadMetricsIntoCache = func(ctx context.Context) error {
+	return nil
+}

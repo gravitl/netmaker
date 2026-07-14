@@ -55,7 +55,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 			}
 		}
 		// check extclient connection from metrics
-		ingressMetrics, err := GetMetrics(node.StaticNode.IngressGatewayID)
+		ingressMetrics, err := GetMetrics(ctx, node.StaticNode.IngressGatewayID)
 		if err != nil || ingressMetrics == nil || ingressMetrics.Connectivity == nil {
 			node.Status = schema.UnKnown
 			node.StaticNode.Status = schema.UnKnown
@@ -103,7 +103,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		getNodeStatusOld(node)
 		return
 	}
-	metrics, err := logic.GetMetrics(node.ID.String())
+	metrics, err := logic.GetMetrics(ctx, node.ID.String())
 	if err != nil {
 		return
 	}
@@ -152,7 +152,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 	// 	}
 
 	// }
-	peers := buildPeerCache(node, metrics)
+	peers := buildPeerCache(ctx, node, metrics)
 	checkPeerConnectivity(ctx, node, metrics, defaultEnabledPolicy, peers)
 
 }
@@ -164,7 +164,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 // This collapses the per-peer GetNodeByID storm that previously dominated
 // status computation: with P peers the old path issued O(P^2) preloaded
 // First() queries; this path issues exactly one IN-query.
-func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]models.Node {
+func buildPeerCache(ctx context.Context, node *models.Node, metrics *models.Metrics) map[string]models.Node {
 	if metrics == nil || len(metrics.Connectivity) == 0 {
 		return map[string]models.Node{}
 	}
@@ -175,7 +175,7 @@ func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]model
 		// checkPeerStatus walks the peer's own connectivity map; pre-collect
 		// those IDs too so we can resolve everything in one query. GetMetrics
 		// is cache-backed so this loop is cheap.
-		peerMetrics, err := logic.GetMetrics(peerID)
+		peerMetrics, err := logic.GetMetrics(ctx, peerID)
 		if err != nil || peerMetrics == nil {
 			continue
 		}
@@ -203,7 +203,7 @@ func buildPeerCache(node *models.Node, metrics *models.Metrics) map[string]model
 
 func CheckPeerStatus(ctx context.Context, node *models.Node, defaultAclPolicy bool, peers map[string]models.Node) {
 	peerNotConnectedCnt := 0
-	metrics, err := logic.GetMetrics(node.ID.String())
+	metrics, err := logic.GetMetrics(ctx, node.ID.String())
 	if err != nil {
 		return
 	}
