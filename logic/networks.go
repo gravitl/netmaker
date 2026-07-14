@@ -514,7 +514,16 @@ func SortNetworks(unsortedNetworks []schema.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-	ctx := DefaultScope(db.WithContext(context.TODO()))
+	if len(params) != 1 {
+		return errors.New("invalid number of params")
+	}
+
+	tenantID, _ := params[0].(string)
+	if len(tenantID) == 0 {
+		return errors.New("invalid tenant id")
+	}
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
 	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return err
@@ -563,10 +572,15 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	return nil
 }
 
+func GetTenantNetworkHookID(ctx context.Context) string {
+	return fmt.Sprintf("network-hook-%s", scope.ID(ctx))
+}
+
 func InitNetworkHooks(ctx context.Context) {
 	HookManagerCh <- models.HookDetails{
-		ID:       "network-hook",
+		ID:       GetTenantNetworkHookID(ctx),
 		Hook:     NetworkHook,
-		Interval: time.Duration(GetServerSettings(DefaultScope(db.WithContext(ctx))).CleanUpInterval) * time.Minute,
+		Params:   []any{scope.ID(ctx)},
+		Interval: time.Duration(GetServerSettings(ctx).CleanUpInterval) * time.Minute,
 	}
 }

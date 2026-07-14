@@ -27,6 +27,7 @@ const posthog_endpoint = "https://app.posthog.com"
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
+	// todo(nm-341): set telemetry on org settings.
 	if Telemetry(DefaultScope(db.WithContext(context.TODO()))) == "off" {
 		return nil
 	}

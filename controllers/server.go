@@ -357,7 +357,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 		}
 	}
 	if new.CleanUpInterval != curr.CleanUpInterval {
-		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
+		logic.RestartHook(logic.GetTenantNetworkHookID(ctx), time.Duration(new.CleanUpInterval)*time.Minute)
 	}
 	go mq.PublishPeerUpdate(ctx, false)
 }

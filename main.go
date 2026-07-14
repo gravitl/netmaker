@@ -214,7 +214,16 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	// Only run network cleanup hooks on master pod
 	if servercfg.IsMasterPod() {
-		logic.InitNetworkHooks(ctx)
+		tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(ctx))
+		if err != nil {
+			logger.Log(0, "error listing tenants when starting network hooks: ", err.Error())
+		} else {
+			for _, tenant := range tenants {
+				ctx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
+				logic.InitNetworkHooks(ctx)
+			}
+		}
+
 	}
 	logic.AddSSOStateCleanupHook()
 }
