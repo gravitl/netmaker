@@ -9,9 +9,9 @@ import (
 )
 
 // GetNetworkIngresses - gets the gateways of a network
-func GetNetworkIngresses(network string) ([]models.Node, error) {
+func GetNetworkIngresses(ctx context.Context, network string) ([]models.Node, error) {
 	var ingresses []models.Node
-	netNodes, err := logic.GetNetworkNodes(network)
+	netNodes, err := logic.GetNetworkNodes(ctx, network)
 	if err != nil {
 		return []models.Node{}, err
 	}
@@ -23,9 +23,9 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
-func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
+func GetTagMapWithNodes(ctx context.Context) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := logic.GetAllNodes()
+	nodes, _ := logic.GetAllNodes(ctx)
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue
@@ -80,7 +80,7 @@ func GetNodeIDsWithTag(ctx context.Context, tagID models.TagID) (ids []string) {
 	if err != nil {
 		return
 	}
-	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	nodes, _ := logic.GetNetworkNodes(ctx, tag.Network.String())
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue
@@ -104,7 +104,7 @@ func GetNodesWithTag(ctx context.Context, tagID models.TagID) map[string]models.
 	if err != nil {
 		return nMap
 	}
-	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	nodes, _ := logic.GetNetworkNodes(ctx, tag.Network.String())
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue

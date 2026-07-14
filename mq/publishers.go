@@ -147,7 +147,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, del
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 
 // ServerStartNotify - notifies all non server nodes to pull changes after a restart
 func ServerStartNotify() error {
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(db.WithContext(context.Background()))
 	if err != nil {
 		return err
 	}

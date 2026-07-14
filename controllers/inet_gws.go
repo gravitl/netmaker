@@ -66,7 +66,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, false)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -75,7 +75,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsPro {
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
-			logic.ResetAutoRelayedPeer(&node)
+			logic.ResetAutoRelayedPeer(ctx, &node)
 			mq.PublishPeerUpdate(ctx, false)
 		}(ctx)
 
@@ -127,12 +127,12 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, true)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	logic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
@@ -152,7 +152,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(apiNode)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		_ = logic.ResetAutoRelayedPeer(&node)
+		_ = logic.ResetAutoRelayedPeer(ctx, &node)
 		_ = mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 }
@@ -168,7 +168,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

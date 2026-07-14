@@ -100,7 +100,7 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 		}
 		allnetworks = logic.FilterNetworksByRole(allnetworks, user)
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -215,7 +215,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	network := params["networkname"]
 	doneCh := make(chan struct{}, 1)
-	networkNodes, err := logic.GetNetworkNodes(network)
+	networkNodes, err := logic.GetNetworkNodes(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get network nodes [%s]: %v", network, err))
@@ -392,7 +392,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultTags(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateFallbackNameserver(&network)
 	if featureFlags.EnableOverlappingEgressRanges {
-		if err := logic.AllocateUniqueVNATPool(&network); err != nil {
+		if err := logic.AllocateUniqueVNATPool(r.Context(), &network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to allocate unique virtual NAT pool:", err.Error())
 		} else if err := logic.UpsertNetwork(&network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
@@ -400,7 +400,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		defaultHosts := logic.GetDefaultHosts()
+		defaultHosts := logic.GetDefaultHosts(ctx)
 		for i := range defaultHosts {
 			host := &defaultHosts[i]
 			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network)

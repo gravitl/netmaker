@@ -642,7 +642,7 @@ func GetEgressRanges(ctx context.Context, netID schema.NetworkID) (map[string][]
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)
-	networkNodes, err := GetNetworkNodes(netID.String())
+	networkNodes, err := GetNetworkNodes(ctx, netID.String())
 	if err != nil {
 		return nil, nil, err
 	}

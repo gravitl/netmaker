@@ -28,7 +28,7 @@ func getNetworkGraph(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["network"]
-	networkNodes, err := logic.GetNetworkNodes(network)
+	networkNodes, err := logic.GetNetworkNodes(r.Context(), network)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to get network nodes", err.Error())
 		return

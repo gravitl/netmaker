@@ -21,18 +21,18 @@ func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
-		node, err := logic.GetNetworkNodes("badnet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "badnet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
-		node, err := logic.GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()
-		node, err := logic.GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "skynet")
 		assert.Nil(t, err)
 		assert.NotEqual(t, []models.Node(nil), node)
 	})

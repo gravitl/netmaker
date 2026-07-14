@@ -588,7 +588,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
-		_ = logic.CheckHostPorts(&newHost)
+		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
 				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
@@ -606,9 +606,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		endpointChanged, _ := logic.UpdateHostFromClient(&newHost, currHost)
+		endpointChanged, _ := logic.UpdateHostFromClient(r.Context(), &newHost, currHost)
 		if endpointChanged {
-			logic.CheckHostPorts(currHost)
+			logic.CheckHostPorts(r.Context(), currHost)
 		}
 		if err = logic.UpsertHost(currHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

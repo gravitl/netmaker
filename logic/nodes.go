@@ -27,8 +27,8 @@ var (
 )
 
 // GetNetworkNodes - gets the nodes of a network
-func GetNetworkNodes(network string) ([]models.Node, error) {
-	allnodes, err := GetAllNodes()
+func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error) {
+	allnodes, err := GetAllNodes(ctx)
 	if err != nil {
 		return []models.Node{}, err
 	}
@@ -185,7 +185,7 @@ func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 		}
 	}
 	if len(node.AutoRelayedPeers) > 0 {
-		ResetAutoRelayedPeer(node)
+		ResetAutoRelayedPeer(ctx, node)
 	}
 	if node.IsRelay {
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
@@ -205,7 +205,7 @@ func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 		}
 	}
 	if node.IsInternetGateway {
-		UnsetInternetGw(node)
+		UnsetInternetGw(ctx, node)
 	}
 
 	filters := make(map[string]bool)
@@ -274,8 +274,8 @@ func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 }
 
 // GetNodeByHostRef - gets the node by host id and network
-func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
-	nodes, err := GetNetworkNodes(network)
+func GetNodeByHostRef(ctx context.Context, hostid, network string) (node models.Node, err error) {
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -310,9 +310,9 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 }
 
 // GetAllNodes - returns all nodes in the DB
-func GetAllNodes() ([]models.Node, error) {
+func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 	var nodes []models.Node
-	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
+	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(ctx), dbtypes.WithAllPreloads())
 	if err != nil {
 		return nil, err
 	}

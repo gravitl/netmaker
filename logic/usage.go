@@ -9,7 +9,7 @@ import (
 
 func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
 	limits.SetDefaults()
-	hosts, hErr := GetAllHostsWithStatus(schema.OnlineSt)
+	hosts, hErr := GetAllHostsWithStatus(ctx, schema.OnlineSt)
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
@@ -21,7 +21,7 @@ func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
 	limits.Networks, _ = (&schema.Network{}).Count(ctx)
 	limits.Egresses, _ = (&schema.Egress{}).Count(ctx)
 
-	nodes, _ := GetAllNodes()
+	nodes, _ := GetAllNodes(ctx)
 
 	for _, client := range clients {
 		nodes = append(nodes, models.ConvertToStaticNode(client))

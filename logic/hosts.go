@@ -51,8 +51,8 @@ const (
 
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
-func GetAllHostsWithStatus(status schema.NodeStatus) ([]schema.Host, error) {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]schema.Host, error) {
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func DoesHostExistInTheNetworkAlready(h *schema.Host, network *schema.Network) b
 // CreateHost - creates a host if not exist
 func CreateHost(ctx context.Context, h *schema.Host) error {
 	_host := &schema.Host{ID: h.ID}
-	err := _host.Get(db.WithContext(context.TODO()))
+	err := _host.Get(ctx)
 	if err == nil {
 		return ErrHostExists
 	}
@@ -127,7 +127,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		h.DNS = "no"
 	}
 
-	checkForZombieHosts(h)
+	checkForZombieHosts(ctx, h)
 	return UpsertHost(h)
 }
 
@@ -177,7 +177,7 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
-func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, sendPeerUpdate bool) {
+func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (isEndpointChanged, sendPeerUpdate bool) {
 	var peerUpdateReasons []string
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
@@ -224,7 +224,7 @@ func UpdateHostFromClient(newHost, currHost *schema.Host) (isEndpointChanged, se
 				continue
 			}
 			if len(node.AutoRelayedPeers) > 0 {
-				ResetAutoRelayedPeer(&node)
+				ResetAutoRelayedPeer(ctx, &node)
 			}
 		}
 	}
@@ -312,7 +312,7 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 		go SetPeerMetricsDisconnected(ctx, newNode.ID.String())
 	}
 	publishPeerUpdate = true
-	ResetAutoRelayedPeer(newNode)
+	ResetAutoRelayedPeer(ctx, newNode)
 
 	return
 }
@@ -474,9 +474,9 @@ func DisassociateAllNodesFromHost(ctx context.Context, hostIDStr string) error {
 }
 
 // GetDefaultHosts - retrieve all hosts marked as default from DB
-func GetDefaultHosts() []schema.Host {
+func GetDefaultHosts(ctx context.Context) []schema.Host {
 	defaultHostList := []schema.Host{}
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return defaultHostList
 	}
@@ -489,9 +489,9 @@ func GetDefaultHosts() []schema.Host {
 }
 
 // GetHostNetworks - fetches all the networks
-func GetHostNetworks(hostID string) []string {
+func GetHostNetworks(ctx context.Context, hostID string) []string {
 	currHost := &schema.Host{ID: uuid.MustParse(hostID)}
-	if err := currHost.Get(db.WithContext(context.TODO())); err != nil {
+	if err := currHost.Get(ctx); err != nil {
 		return nil
 	}
 	nets := []string{}
@@ -506,20 +506,20 @@ func GetHostNetworks(hostID string) []string {
 }
 
 // GetRelatedHosts - fetches related hosts of a given host
-func GetRelatedHosts(hostID string) []schema.Host {
+func GetRelatedHosts(ctx context.Context, hostID string) []schema.Host {
 	relatedHosts := []schema.Host{}
-	networks := GetHostNetworks(hostID)
+	networks := GetHostNetworks(ctx, hostID)
 	networkMap := make(map[string]struct{})
 	for _, network := range networks {
 		networkMap[network] = struct{}{}
 	}
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err == nil {
 		for _, host := range hosts {
 			if host.ID.String() == hostID {
 				continue
 			}
-			networks := GetHostNetworks(host.ID.String())
+			networks := GetHostNetworks(ctx, host.ID.String())
 			for _, network := range networks {
 				if _, ok := networkMap[network]; ok {
 					relatedHosts = append(relatedHosts, host)
@@ -534,7 +534,7 @@ func GetRelatedHosts(hostID string) []schema.Host {
 // CheckHostPort checks host endpoints to ensures that hosts on the same server
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
-func CheckHostPorts(h *schema.Host) (changed bool) {
+func CheckHostPorts(ctx context.Context, h *schema.Host) (changed bool) {
 	if h.IsStaticPort {
 		return false
 	}
@@ -545,7 +545,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 	// Get the current host from database to check if it already has a valid port assigned
 	// This check happens before the mutex to avoid unnecessary locking
 	currentHost := &schema.Host{ID: h.ID}
-	err := currentHost.Get(db.WithContext(context.TODO()))
+	err := currentHost.Get(ctx)
 	if err == nil && currentHost.ListenPort > 0 {
 		// If the host already has a port in the database, use that instead of the incoming port
 		// This prevents the host from being reassigned when the client sends the old port
@@ -566,7 +566,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 		}
 	}()
 
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return
 	}
@@ -622,7 +622,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 
 		// Re-read hosts to get the latest state (in case another host just changed its port)
 		// This is important to avoid conflicts when multiple hosts are being processed
-		latestHosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+		latestHosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 		if err == nil {
 			// Update portsInUse with latest state
 			for _, host := range latestHosts {
@@ -664,8 +664,8 @@ func HostExists(h *schema.Host) bool {
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
-func GetHostByNodeID(id string) *schema.Host {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+func GetHostByNodeID(ctx context.Context, id string) *schema.Host {
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return nil
 	}

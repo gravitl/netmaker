@@ -68,7 +68,7 @@ func RunPostureChecks() error {
 	if err != nil {
 		return err
 	}
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

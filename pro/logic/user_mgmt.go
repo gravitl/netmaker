@@ -722,7 +722,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 
 func GetUserRAGNodes(ctx context.Context, user *schema.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return
 	}

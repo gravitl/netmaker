@@ -1100,7 +1100,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			allNodes, _ := logic.GetAllNodes()
+			allNodes, _ := logic.GetAllNodes(r.Context())
 			for gwNodeID, clients := range gwDeletedClients {
 				gwNode, err := logic.GetNodeByID(gwNodeID)
 				if err != nil {

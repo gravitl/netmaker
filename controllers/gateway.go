@@ -191,10 +191,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	node.IsGw = false
 	if node.IsAutoRelay {
-		logic.ResetAutoRelay(&node)
+		logic.ResetAutoRelay(r.Context(), &node)
 	}
 	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
@@ -223,7 +223,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		}
 		err = host.Get(ctx)
 		if err == nil {
-			allNodes, err := logic.GetAllNodes()
+			allNodes, err := logic.GetAllNodes(ctx)
 			if err != nil {
 				return
 			}
@@ -248,7 +248,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 				err = h.Get(ctx)
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
-						nodes, err := logic.GetAllNodes()
+						nodes, err := logic.GetAllNodes(ctx)
 						if err != nil {
 							return
 						}

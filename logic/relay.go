@@ -43,7 +43,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 }
 
 // ValidateRelay - checks if relay is valid
-func ValidateRelay(relay models.RelayRequest, update bool) error {
+func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) error {
 	var err error
 
 	node, err := GetNodeByID(relay.NodeID)
@@ -71,7 +71,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 			return errors.New("cannot relay a auto relay node (" + relayedNodeID + ")")
 		}
 		if len(relayedNode.AutoRelayedPeers) > 0 {
-			ResetAutoRelayedPeer(&relayedNode)
+			ResetAutoRelayedPeer(ctx, &relayedNode)
 		}
 	}
 	return err
@@ -100,12 +100,12 @@ func RelayUpdates(currentNode, newNode *models.Node) bool {
 }
 
 // UpdateRelayed - updates a relay's relayed nodes, and sends updates to the relayed nodes over MQ
-func UpdateRelayed(currentNode, newNode *models.Node) {
+func UpdateRelayed(ctx context.Context, currentNode, newNode *models.Node) {
 	updatenodes := UpdateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
-			ResetAutoRelayedPeer(&node)
+			ResetAutoRelayedPeer(ctx, &node)
 		}
 	}
 }
@@ -158,7 +158,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 	if relay.InternetGwID != "" {
 		return GetAllowedIpForInetNodeClient(relayed, relay)
 	}
-	peers, err := GetNetworkNodes(relay.Network)
+	peers, err := GetNetworkNodes(ctx, relay.Network)
 	if err != nil {
 		logger.Log(0, "error getting network clients", err.Error())
 		return

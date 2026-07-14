@@ -221,7 +221,7 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	return true
 }
 
-func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) error {
+func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNodeReq, update bool) error {
 	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
@@ -263,7 +263,7 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 			}
 		}
 		if len(clientNode.AutoRelayedPeers) > 0 {
-			ResetAutoRelayedPeer(&clientNode)
+			ResetAutoRelayedPeer(ctx, &clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != node.ID {
@@ -308,8 +308,8 @@ func SetInternetGw(node *models.Node, req models.InetNodeReq) {
 	}
 }
 
-func UnsetInternetGw(node *models.Node) {
-	nodes, err := GetNetworkNodes(node.Network)
+func UnsetInternetGw(ctx context.Context, node *models.Node) {
+	nodes, err := GetNetworkNodes(ctx, node.Network)
 	if err != nil {
 		slog.Error("failed to get network nodes", "network", node.Network, "error", err)
 		return

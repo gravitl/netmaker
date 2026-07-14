@@ -166,7 +166,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 			currentNetworks = append(currentNetworks, result.Network)
 		}
 		var netsToAdd []string // track the networks not currently owned by host
-		hostNets := logic.GetHostNetworks(result.Host.ID.String())
+		hostNets := logic.GetHostNetworks(ctx, result.Host.ID.String())
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
@@ -190,7 +190,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 					return
 				}
 			}
-			_ = logic.CheckHostPorts(&result.Host)
+			_ = logic.CheckHostPorts(ctx, &result.Host)
 			if err := logic.CreateHost(ctx, &result.Host); err != nil {
 				handleHostRegErr(conn, errors.New("host creation failed"))
 				return

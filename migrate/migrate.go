@@ -242,7 +242,7 @@ func updateEnrollmentKeys() {
 }
 
 func updateNodes() {
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(db.WithContext(context.Background()))
 	if err != nil {
 		slog.Error("migration failed for nodes", "error", err)
 		return
@@ -448,7 +448,7 @@ func createDefaultTagsAndPolicies(ctx context.Context) {
 
 	logic.MigrateAclPolicies(ctx)
 	if !servercfg.IsPro {
-		nodes, _ := logic.GetAllNodes()
+		nodes, _ := logic.GetAllNodes(ctx)
 		for _, node := range nodes {
 			if node.IsGw {
 				node.Tags = make(map[models.TagID]struct{})

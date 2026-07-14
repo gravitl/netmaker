@@ -23,11 +23,11 @@ import (
 
 var (
 	// ResetAutoRelay - function to reset autorelayed peers on this node
-	ResetAutoRelay = func(autoRelayNode *models.Node) error {
+	ResetAutoRelay = func(ctx context.Context, autoRelayNode *models.Node) error {
 		return nil
 	}
 	// ResetAutoRelayedPeer - removes relayed peers for node
-	ResetAutoRelayedPeer = func(failedOverNode *models.Node) error {
+	ResetAutoRelayedPeer = func(ctx context.Context, failedOverNode *models.Node) error {
 		return nil
 	}
 	// GetAutoRelayPeerIps - gets autorelay peerips
@@ -117,7 +117,7 @@ func RefreshHostPeerInfoCache(ctx context.Context) ([]schema.Host, []models.Node
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
 	}
-	allNodes, err := GetAllNodes()
+	allNodes, err := GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
@@ -151,7 +151,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 	}
 	var err error
 	if allNodes == nil {
-		allNodes, err = GetAllNodes()
+		allNodes, err = GetAllNodes(ctx)
 		if err != nil {
 			return peerInfo, err
 		}

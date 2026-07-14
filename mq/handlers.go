@@ -71,7 +71,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			}
 			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 			err = PublishDeletedNodePeerUpdate(ctx, nil, &newNode)
-			allNodes, err := logic.GetAllNodes()
+			allNodes, err := logic.GetAllNodes(ctx)
 			if err == nil {
 				PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
 			}
@@ -119,7 +119,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
-		nodes, err := logic.GetAllNodes()
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
+		nodes, err := logic.GetAllNodes(ctx)
 		if err != nil {
 			return
 		}
@@ -127,7 +128,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		HostUpdate(&models.HostUpdate{
 			Action: models.UpdateHost,
 			Host:   *currentHost})
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
 		PublishSingleHostPeerUpdate(ctx, currentHost, nodes, nil, nil, nil, false, nil)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -135,9 +135,10 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			replacePeers = true
 		}
 		var endpointChanged bool
-		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, currentHost.TenantID)
+		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(ctx, &hostUpdate.Host, currentHost)
 		if endpointChanged {
-			logic.CheckHostPorts(currentHost)
+			logic.CheckHostPorts(ctx, currentHost)
 		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {

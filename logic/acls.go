@@ -446,7 +446,7 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 		})
 	}()
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	nodes, _ := GetNetworkNodes(node.Network)
+	nodes, _ := GetNetworkNodes(ctx, node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), true)...)
 	rules = GetFwRulesForUserNodesOnGw(ctx, node, nodes)
 	if defaultDevicePolicy.Enabled {
@@ -3350,7 +3350,7 @@ func CreateDefaultAclNetworkPolicies(ctx context.Context, netID schema.NetworkID
 
 func getTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := GetNetworkNodes(netID.String())
+	nodes, _ := GetNetworkNodes(ctx, netID.String())
 	netGwTag := models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName))
 	for _, nodeI := range nodes {
 		tagNodesMap[models.TagID(nodeI.ID.String())] = append(tagNodesMap[models.TagID(nodeI.ID.String())], nodeI)

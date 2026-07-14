@@ -337,7 +337,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	networkName := params["network"]
-	nodes, err := logic.GetNetworkNodes(networkName)
+	nodes, err := logic.GetNetworkNodes(r.Context(), networkName)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching nodes on network %s: %v", networkName, err))
@@ -365,7 +365,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var nodes []models.Node
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -418,7 +418,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var nodes []models.Node
-	nodes, err = logic.GetNetworkNodes(netID)
+	nodes, err = logic.GetNetworkNodes(r.Context(), netID)
 	if err != nil {
 		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -462,7 +462,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -685,11 +685,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
-		logic.ResetAutoRelay(newNode)
+		logic.ResetAutoRelay(r.Context(), newNode)
 	}
 
 	if (!currentNode.IsInternetGateway && newNode.IsInternetGateway) || len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
+		err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -700,7 +700,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
-		err = logic.ValidateRelay(models.RelayRequest{
+		err = logic.ValidateRelay(r.Context(), models.RelayRequest{
 			NodeID:       newNode.ID.String(),
 			NetID:        newNode.Network,
 			RelayedNodes: newNode.RelayedNodes,
@@ -735,7 +735,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayUpdate {
-		logic.UpdateRelayed(&currentNode, newNode)
+		logic.UpdateRelayed(r.Context(), &currentNode, newNode)
 	}
 	if !currentNode.IsInternetGateway && newNode.IsInternetGateway {
 		logic.SetInternetGw(newNode, newNode.InetNodeReq)
@@ -744,11 +744,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// logic.UnsetInternetGw resets newNode.InetNodeReq.
 		// So, keeping a copy to pass into logic.SetInternetGw.
 		req := newNode.InetNodeReq
-		logic.UnsetInternetGw(newNode)
+		logic.UnsetInternetGw(r.Context(), newNode)
 		logic.SetInternetGw(newNode, req)
 	}
 	if !newNode.IsInternetGateway {
-		logic.UnsetInternetGw(newNode)
+		logic.UnsetInternetGw(r.Context(), newNode)
 	}
 	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
 		// if relayed remove it
@@ -774,12 +774,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.RelayedBy = ""
 		}
 		if len(currentNode.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&currentNode)
+			logic.ResetAutoRelayedPeer(r.Context(), &currentNode)
 		}
 	}
 	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
 		if len(currentNode.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&currentNode)
+			logic.ResetAutoRelayedPeer(r.Context(), &currentNode)
 		}
 	}
 
@@ -825,7 +825,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
 			}
 		}
-		allNodes, err := logic.GetAllNodes()
+		allNodes, err := logic.GetAllNodes(ctx)
 		if err == nil {
 			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)

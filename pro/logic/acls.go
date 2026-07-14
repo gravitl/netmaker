@@ -1638,7 +1638,7 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 
 func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := logic.GetNetworkNodes(netID.String())
+	nodes, _ := logic.GetNetworkNodes(ctx, netID.String())
 	for _, nodeI := range nodes {
 		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
 			nodeI,

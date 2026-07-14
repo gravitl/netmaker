@@ -110,7 +110,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		return nil, err
 	}
 
-	go logic.CheckZombies(node)
+	go logic.CheckZombies(ctx, node)
 
 	go func(ctx context.Context) {
 		err := logic.UpdateMetrics(ctx, node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})

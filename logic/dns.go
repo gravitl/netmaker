@@ -176,7 +176,7 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 
 	var dns []models.DNSEntry
 
-	nodes, err := GetNetworkNodes(network)
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return dns, err
 	}
@@ -281,7 +281,7 @@ func DeleteNetworkDNS(ctx context.Context, network string) error {
 // GetAllDNS - gets all dns entries
 func GetAllDNS(ctx context.Context) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return []models.DNSEntry{}, err
 	}

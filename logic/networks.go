@@ -34,7 +34,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 		_ = DeleteNetworkDNS(ctx, network)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
-	nodeCount, err := GetNetworkNonServerNodeCount(network)
+	nodeCount, err := GetNetworkNonServerNodeCount(ctx, network)
 	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
 		_network := &schema.Network{
 			Name: network,
@@ -45,7 +45,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 
 	// Remove All Nodes
 	go func(ctx context.Context) {
-		nodes, err := GetNetworkNodes(network)
+		nodes, err := GetNetworkNodes(ctx, network)
 		if err == nil {
 			for _, node := range nodes {
 				node := node
@@ -129,8 +129,8 @@ const (
 
 // AllocateUniqueVNATPool allocates a unique Virtual NAT pool for a network,
 // ensuring it doesn't conflict with pools already assigned to other networks.
-func AllocateUniqueVNATPool(network *schema.Network) error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func AllocateUniqueVNATPool(ctx context.Context, network *schema.Network) error {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		return fmt.Errorf("failed to list networks: %w", err)
 	}
@@ -329,8 +329,8 @@ func GetNetworkNetworkCIDR6(network *schema.Network) *net.IPNet {
 }
 
 // GetNetworkNonServerNodeCount - get number of network non server nodes
-func GetNetworkNonServerNodeCount(networkName string) (int, error) {
-	nodes, err := GetNetworkNodes(networkName)
+func GetNetworkNonServerNodeCount(ctx context.Context, networkName string) (int, error) {
+	nodes, err := GetNetworkNodes(ctx, networkName)
 	return len(nodes), err
 }
 
@@ -519,7 +519,7 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	if err != nil {
 		return err
 	}
-	allNodes, err := GetAllNodes()
+	allNodes, err := GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}

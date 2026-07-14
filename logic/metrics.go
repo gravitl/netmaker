@@ -40,7 +40,7 @@ func (m *MetricsMonitor) Start() {
 		for {
 			select {
 			case <-time.After(checkInterval):
-				nodes, _ := GetAllNodes()
+				nodes, _ := GetAllNodes(scopedCtx)
 				for _, node := range nodes {
 					if node.Connected || node.PendingDelete {
 						continue

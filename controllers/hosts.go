@@ -323,7 +323,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			logic.ResetAutoRelayedPeer(&node)
+			logic.ResetAutoRelayedPeer(r.Context(), &node)
 		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go mq.PublishPeerUpdate(ctx, false)
@@ -331,7 +331,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
 	if !ok || resetFailovered {
-		allNodes, err := logic.GetAllNodes()
+		allNodes, err := logic.GetAllNodes(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -539,9 +539,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		if hostUpdate.Host.Version != currentHost.Version {
 			versionChanged = true
 		}
-		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		endpointChanged, sendPeerUpdate = logic.UpdateHostFromClient(r.Context(), &hostUpdate.Host, currentHost)
 		if endpointChanged {
-			logic.CheckHostPorts(currentHost)
+			logic.CheckHostPorts(r.Context(), currentHost)
 		}
 		if endpointChanged || versionChanged {
 			runPostureChecks = true
@@ -1054,7 +1054,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// check if there is any daemon nodes that needs to be deleted
-			node, err := logic.GetNodeByHostRef(hostIDStr, network)
+			node, err := logic.GetNodeByHostRef(r.Context(), hostIDStr, network)
 			if err != nil {
 				slog.Error(
 					"couldn't get node for host",
@@ -1094,7 +1094,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if node == nil && forceDelete {
 			// force cleanup the node
-			node, err := logic.GetNodeByHostRef(hostIDStr, network)
+			node, err := logic.GetNodeByHostRef(r.Context(), hostIDStr, network)
 			if err != nil {
 				slog.Error(
 					"couldn't get node for host",

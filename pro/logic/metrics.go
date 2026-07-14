@@ -125,7 +125,7 @@ func DeleteMetrics(ctx context.Context, nodeid string) error {
 
 // DeleteNodeMetricsFromPeers - removes a deleted node's entry from all peers' connectivity maps
 func DeleteNodeMetricsFromPeers(ctx context.Context, nodeID string) {
-	peers, err := logic.GetAllNodes()
+	peers, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to fetch nodes for peer metrics cleanup", "error", err)
 		return
@@ -151,7 +151,7 @@ func DeleteNodeMetricsFromPeers(ctx context.Context, nodeID string) {
 
 // SetPeerMetricsDisconnected - marks a node as disconnected in all peers' connectivity maps
 func SetPeerMetricsDisconnected(ctx context.Context, nodeID string) {
-	peers, err := logic.GetAllNodes()
+	peers, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to fetch nodes for peer metrics disconnect update", "error", err)
 		return

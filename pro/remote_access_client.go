@@ -91,7 +91,7 @@ func disableExtClient(ctx context.Context, client *models.ExtClient) error {
 			if err = mq.PublishPeerUpdate(ctx, false); err != nil {
 				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 			}
-			nodes, err := logic.GetAllNodes()
+			nodes, err := logic.GetAllNodes(ctx)
 			if err != nil {
 				return err
 			}

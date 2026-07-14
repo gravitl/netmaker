@@ -29,8 +29,8 @@ var (
 // CheckZombies - checks if new node has same hostid as existing node
 // if so, existing node is added to zombie node quarantine list
 // also cleans up nodes past their expiration date
-func CheckZombies(_node *schema.Node) {
-	nodes, err := GetNetworkNodes(_node.Network.Name)
+func CheckZombies(ctx context.Context, _node *schema.Node) {
+	nodes, err := GetNetworkNodes(ctx, _node.Network.Name)
 	if err != nil {
 		logger.Log(1, "Failed to retrieve network nodes", _node.Network.Name, err.Error())
 		return
@@ -49,8 +49,8 @@ func CheckZombies(_node *schema.Node) {
 
 // checkForZombieHosts - checks if new host has the same macAddress as an existing host
 // if true, existing host is added to host zombie collection
-func checkForZombieHosts(h *schema.Host) {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+func checkForZombieHosts(ctx context.Context, h *schema.Host) {
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
 	if err != nil {
 		logger.Log(3, "error retrieving all hosts", err.Error())
 	}
@@ -146,7 +146,7 @@ func ManageZombies(ctx context.Context) {
 // cleanupOrphanedNodes removes nodes whose host_id references a missing host record.
 func cleanupOrphanedNodes() {
 	ctx := DefaultScope(db.WithContext(context.TODO()))
-	nodes, err := GetAllNodes()
+	nodes, err := GetAllNodes(ctx)
 	if err != nil {
 		logger.Log(1, "failed to retrieve nodes for orphan cleanup", err.Error())
 		return
@@ -173,7 +173,7 @@ func cleanupOrphanedNodes() {
 
 func checkPendingRemovalNodes() {
 	ctx := DefaultScope(db.WithContext(context.TODO()))
-	nodes, _ := GetAllNodes()
+	nodes, _ := GetAllNodes(ctx)
 	for _, node := range nodes {
 		node := node
 		pendingDelete := node.PendingDelete || node.Action == schema.NODE_DELETE
@@ -187,13 +187,14 @@ func checkPendingRemovalNodes() {
 
 // InitializeZombies - populates the zombie quarantine list (should be called from initialization)
 func InitializeZombies() {
-	nodes, err := GetAllNodes()
+	ctx := DefaultScope(db.WithContext(context.TODO()))
+	nodes, err := GetAllNodes(ctx)
 	if err != nil {
 		logger.Log(1, "failed to retrieve nodes", err.Error())
 		return
 	}
 	for _, node := range nodes {
-		othernodes, err := GetNetworkNodes(node.Network)
+		othernodes, err := GetNetworkNodes(ctx, node.Network)
 		if err != nil {
 			logger.Log(1, "failled to retrieve nodes for network", node.Network, err.Error())
 			continue

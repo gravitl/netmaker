@@ -58,7 +58,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	autoRelayNodes := proLogic.DoesAutoRelayExist(node.Network)
+	autoRelayNodes := proLogic.DoesAutoRelayExist(r.Context(), node.Network)
 	if len(autoRelayNodes) == 0 {
 		logic.ReturnErrorResponse(
 			w,
@@ -127,7 +127,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 func resetAutoRelayGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	net := params["network"]
-	nodes, err := logic.GetNetworkNodes(net)
+	nodes, err := logic.GetNetworkNodes(r.Context(), net)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -182,7 +182,7 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		proLogic.ResetAutoRelay(&node)
+		proLogic.ResetAutoRelay(ctx, &node)
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 	w.Header().Set("Content-Type", "application/json")
@@ -433,7 +433,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 			logic.UpsertNode(&peerNode)
 		}
-		allNodes, err := logic.GetAllNodes()
+		allNodes, err := logic.GetAllNodes(r.Context())
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil)
 		}
