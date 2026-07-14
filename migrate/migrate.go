@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 	"errors"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -150,6 +151,16 @@ func isValidVNATPool(pool string) bool {
 func assignSuperAdmin(ctx context.Context) {
 	exists, _ := (&schema.User{}).SuperAdminExists(ctx)
 	if exists {
+		return
+	}
+
+	if ok, _ := logic.HasSuperAdmin(); ok {
+		return
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
 		return
 	}
 
@@ -524,7 +535,18 @@ func migrateSettings(ctx context.Context) {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
-	_ = logic.UpsertServerSettings(ctx, settings)
+	if settings.SmtpHost != "" {
+		var rawValue []byte
+		_ = db.FromContext(db.WithContext(context.TODO())).Table(settingsRecord.TableName()).
+			Where("key = ?", defaultTenant.ID).Pluck("value", &rawValue).Error
+		var settingsD map[string]any
+		_ = json.Unmarshal(rawValue, &settingsD)
+		if _, ok := settingsD["smtp_skip_tls_verify"]; !ok {
+			// skip tls verification for older deployments when tls verification wasn't configurable.
+			settings.SmtpSkipTlsVerify = true
+		}
+	}
+	logic.UpsertServerSettings(settings)
 }
 
 func deleteOldExtclients(ctx context.Context) {

@@ -1,4 +1,4 @@
-package integration
+package siem
 
 import (
 	"bytes"
@@ -54,18 +54,18 @@ func (e *elasticProvider) Test(configJSON json.RawMessage) error {
 	testEvent := map[string]any{
 		"message": "netmaker siem integration test",
 	}
-	return NewElasticSIEMClient(cfg).Export(context.Background(), []any{testEvent})
+	return NewElasticClient(cfg).Export(context.Background(), []any{testEvent})
 }
 
-type ElasticSIEMClient struct {
+type ElasticClient struct {
 	ElasticConfig
 }
 
-func NewElasticSIEMClient(config ElasticConfig) *ElasticSIEMClient {
-	return &ElasticSIEMClient{ElasticConfig: config}
+func NewElasticClient(config ElasticConfig) *ElasticClient {
+	return &ElasticClient{ElasticConfig: config}
 }
 
-func (e *ElasticSIEMClient) Export(ctx context.Context, events []any) error {
+func (e *ElasticClient) Export(ctx context.Context, events []any) error {
 	metaLine, _ := json.Marshal(map[string]any{"index": map[string]any{"_index": e.Index}})
 	var buf bytes.Buffer
 	for _, ev := range events {
@@ -110,3 +110,5 @@ func (e *ElasticSIEMClient) Export(ctx context.Context, events []any) error {
 	}
 	return nil
 }
+
+func ElasticProvider() *elasticProvider { return &elasticProvider{} }

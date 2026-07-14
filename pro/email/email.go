@@ -24,6 +24,7 @@ func Init(ctx context.Context) {
 		SenderEmail: logic.GetSenderEmail(ctx),
 		SendUser:    logic.GetSenderUser(ctx),
 		SenderPass:  logic.GetEmaiSenderPassword(ctx),
+		SkipVerify:  logic.SmtpSkipTlsVerify(),
 	}
 	if smtpSender.SendUser == "" {
 		smtpSender.SendUser = smtpSender.SenderEmail

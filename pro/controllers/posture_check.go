@@ -28,6 +28,7 @@ func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
+  r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
 }
@@ -82,6 +83,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		UserGroups:  req.UserGroups,
 		Attribute:   req.Attribute,
 		Values:      req.Values,
+		Config:      req.Config,
 		Severity:    req.Severity,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
@@ -206,6 +208,12 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	proLogic.MergePostureCheckUpdate(&pc, &updatePc)
+	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	var updateStatus bool
 	if updatePc.Status != pc.Status {
 		updateStatus = true
@@ -234,6 +242,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	pc.UserGroups = updatePc.UserGroups
 	pc.Attribute = updatePc.Attribute
 	pc.Values = updatePc.Values
+	pc.Config = updatePc.Config
 	pc.Description = updatePc.Description
 	pc.Name = updatePc.Name
 	pc.Severity = updatePc.Severity
@@ -313,6 +322,48 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
+}
+
+// @Summary     Trigger an out-of-cycle posture check evaluation
+// @Router      /api/v1/posture_check/run [post]
+// @Tags        Posture Check
+// @Security    oauth
+// @Produce     json
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
+	if !proLogic.GetFeatureFlags().EnablePostureChecks {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture checks are not enabled on your plan"), logic.BadReq))
+		return
+	}
+
+	go func() {
+		if err := proLogic.RunPostureChecks(); err != nil {
+			logger.Log(0, "posture check: manual run failed:", err.Error())
+		}
+		mq.PublishPeerUpdate(false)
+	}()
+
+	logic.LogEvent(&models.Event{
+		Action:      schema.Sync,
+		TriggeredBy: r.Header.Get("user"),
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: schema.UserSub,
+		},
+		Target: models.Subject{
+			ID:   string(schema.AllPostureCheckRsrcID),
+			Name: "all",
+			Type: schema.PostureCheckSub,
+		},
+		Origin: schema.Dashboard,
+		Diff: models.Diff{
+			New: map[string]interface{}{"status": "queued"},
+		},
+	})
+	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "posture checks queued")
 }
 
 // @Summary     List Posture Check violated Nodes

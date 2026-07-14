@@ -283,6 +283,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	ctx := logic.DefaultScope(request.Context())
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
@@ -305,7 +306,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	user := &schema.User{Username: authRequest.UserName}
-	err := user.Get(request.Context())
+	err := user.Get(ctx)
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -349,7 +350,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 		if scope.Level(request.Context()) == scope.TenantScope {
 			role := &schema.UserRole{ID: user.PlatformRoleID}
-			err = role.Get(request.Context())
+			err = role.Get(ctx)
 			if err != nil {
 				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 				return
@@ -1478,6 +1479,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		slog.Error("error upserting membership: ", "user", user.Username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
@@ -1920,6 +1926,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))

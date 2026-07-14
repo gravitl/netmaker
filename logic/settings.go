@@ -344,6 +344,10 @@ func GetSmtpPort(ctx context.Context) int {
 	return GetServerSettings(ctx).SmtpPort
 }
 
+func SmtpSkipTlsVerify() bool {
+	return GetServerSettings().SmtpSkipTlsVerify
+}
+
 func GetSenderEmail(ctx context.Context) string {
 	return GetServerSettings(ctx).EmailSenderAddr
 }

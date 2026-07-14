@@ -146,6 +146,10 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if err = user.UpsertMembership(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	logic.DeleteUserInvite(emailID)
 	logic.DeletePendingUser(emailID)
@@ -272,6 +276,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
+		if invite.TenantID == "" {
+			invite.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)

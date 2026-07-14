@@ -1,4 +1,4 @@
-package integration
+package siem
 
 import (
 	"bytes"
@@ -55,21 +55,21 @@ func (s *sentinelProvider) Test(configJSON json.RawMessage) error {
 	testEvent := map[string]any{
 		"message": "netmaker siem integration test",
 	}
-	return NewSentinelSIEMClient(cfg).Export(context.Background(), []any{testEvent})
+	return NewSentinelClient(cfg).Export(context.Background(), []any{testEvent})
 }
 
-type SentinelSIEMClient struct {
+type SentinelClient struct {
 	SentinelConfig
 }
 
-func NewSentinelSIEMClient(config SentinelConfig) *SentinelSIEMClient {
+func NewSentinelClient(config SentinelConfig) *SentinelClient {
 	if config.LogType == "" {
 		config.LogType = "NetmakerSIEM"
 	}
-	return &SentinelSIEMClient{SentinelConfig: config}
+	return &SentinelClient{SentinelConfig: config}
 }
 
-func (s *SentinelSIEMClient) Export(ctx context.Context, events []any) error {
+func (s *SentinelClient) Export(ctx context.Context, events []any) error {
 	enriched := make([]map[string]any, 0, len(events))
 	for _, ev := range events {
 		var evMap map[string]any
@@ -113,3 +113,5 @@ func (s *SentinelSIEMClient) Export(ctx context.Context, events []any) error {
 	}
 	return nil
 }
+
+func SentinelProvider() *sentinelProvider { return &sentinelProvider{} }

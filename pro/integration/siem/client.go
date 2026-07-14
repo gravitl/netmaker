@@ -1,7 +1,7 @@
-package integration
+package siem
 
 import "context"
 
-type SIEMClient interface {
+type Client interface {
 	Export(ctx context.Context, events []any) error
 }

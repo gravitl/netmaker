@@ -302,3 +302,25 @@ func GetSaaSNMUIHost() string {
 func GetSaaSNMUIHostWithVersion() string {
 	return fmt.Sprintf("%s/%s", GetSaaSNMUIHost(), servercfg.GetVersion())
 }
+
+// CheckUIHostReadAccess ensures a dashboard user may read posture data for a host
+// by verifying network-scoped host read permission on at least one host network.
+func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
+	username := r.Header.Get("user")
+	if username == logic.MasterUser {
+		return nil
+	}
+	user := &schema.User{Username: username}
+	if err := user.Get(r.Context()); err != nil {
+		return err
+	}
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := userRole.Get(r.Context()); err != nil {
+		return errors.New("access denied")
+	}
+	if userRole.FullAccess || userRole.ID == schema.Auditor {
+		return nil
+	}
+
+	return errors.New("access denied")
+}

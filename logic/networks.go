@@ -23,6 +23,7 @@ import (
 func DeleteNetwork(ctx context.Context, network string, force bool, done chan struct{}) error {
 	defer func(ctx context.Context) {
 		// Delete default network enrollment key
+		ctx := db.WithContext(context.TODO())
 		keys, _ := GetAllEnrollmentKeys(ctx)
 		for _, key := range keys {
 			if key.Default && enrollmentKeyAppliesToNetwork(key, network) {

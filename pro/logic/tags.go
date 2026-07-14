@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
@@ -182,11 +183,7 @@ func UpdateTag(ctx context.Context, req models.UpdateTagReq, newID models.TagID)
 		}
 
 		// unassign old tag
-		if _, ok := extclient.Tags[req.ID]; ok {
-			if newID != "" {
-				delete(extclient.Tags, req.ID)
-			}
-		}
+		delete(extclient.Tags, req.ID)
 
 		// assign tag if in taggedExtclientIDs.
 		if _, ok := taggedExtclientIDs[extclient.ClientID]; ok {

@@ -13,18 +13,19 @@ import (
 type CacheValue struct {
 	Scope      scope.Scope `json:"scope"`
 	ScopeID    string      `json:"scope_id"`
-	Network    string      `json:"network,omitempty"`
-	Value      string      `json:"value"`
-	Host       Host        `json:"host"`
-	Pass       string      `json:"pass,omitempty"`
-	User       string      `json:"user,omitempty"`
-	ALL        bool        `json:"all,omitempty"`
-	Expiration time.Time   `json:"expiration"`
+	Network    string    `json:"network,omitempty"`
+	Value      string    `json:"value"`
+	Host       Host      `json:"host"`
+	Pass       string    `json:"pass,omitempty"`
+	User       string    `json:"user,omitempty"`
+	ALL        bool      `json:"all,omitempty"`
+	Expiration time.Time `json:"expiration"`
 }
 
 type CacheRecord struct {
-	Key   string `gorm:"primaryKey"`
-	Value datatypes.JSONType[CacheValue]
+	Key      string `gorm:"primaryKey"`
+	TenantID string `gorm:"default:'';index"`
+	Value    datatypes.JSONType[CacheValue]
 }
 
 func (*CacheRecord) TableName() string { return "cache" }

@@ -56,6 +56,9 @@ const (
 	DisableUser                          Action = "DISABLE_USER"
 	EnableAclPolicy                      Action = "ENABLE_ACL_POLICY"
 	DisableAclPolicy                     Action = "DISABLE_ACL_POLICY"
+	MDMVerify                            Action = "MDM_VERIFY"
+	MDMSync                              Action = "MDM_SYNC"
+	PostureCheckFailed                   Action = "POSTURE_CHECK_FAILED"
 )
 
 type SubjectType string
@@ -81,6 +84,7 @@ const (
 	NameserverSub      SubjectType = "NAMESERVER"
 	PostureCheckSub    SubjectType = "POSTURE_CHECK"
 	JITSub             SubjectType = "JIT"
+	MDMSub             SubjectType = "MDM"
 )
 
 func (sub SubjectType) String() string {

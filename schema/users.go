@@ -28,6 +28,14 @@ const (
 	System Theme = "system"
 )
 
+type Theme string
+
+const (
+	Dark   Theme = "dark"
+	Light  Theme = "light"
+	System Theme = "system"
+)
+
 var (
 	ErrUserIdentifiersNotProvided = errors.New("user identifiers not provided")
 	ErrTenantIDNotProvided        = errors.New("tenant ID not provided")
@@ -153,6 +161,16 @@ func (u *User) Get(ctx context.Context) error {
 		Where("id = ? OR username = ?", u.ID, u.Username).
 		First(u).
 		Error
+	if err != nil {
+		return err
+	}
+	*u = row.User
+	u.PlatformRoleID = row.MemberRoleID
+	u.UserGroups = row.MemberGroups
+	u.AuthType = row.MemberAuthType
+	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+	u.Password = row.MemberPassword
+	return nil
 }
 
 func (u *User) GetByExternalID(ctx context.Context) error {
@@ -296,6 +314,21 @@ func (u *User) UpdateMFA(ctx context.Context) error {
 		Updates(map[string]any{
 			"is_mfa_enabled": u.IsMFAEnabled,
 			"totp_secret":    u.TOTPSecret,
+		}).
+		Error
+}
+
+func (u *User) UpdateUserSettings(ctx context.Context) error {
+	if u.ID == "" && u.Username == "" {
+		return ErrUserIdentifiersNotProvided
+	}
+
+	return db.FromContext(ctx).Model(&User{}).
+		Where("id = ? OR username = ?", u.ID, u.Username).
+		Updates(map[string]any{
+			"theme":          u.Theme,
+			"text_size":      u.TextSize,
+			"reduced_motion": u.ReducedMotion,
 		}).
 		Error
 }

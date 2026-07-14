@@ -40,6 +40,10 @@ type ApiHost struct {
 	EnableFlowLogs      bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
 	Location            string     `json:"location"`
 	CountryCode         string     `json:"country_code"`
+	// Device-matching identifiers reported by netclient; read-only via the API.
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -93,6 +97,9 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.EnableFlowLogs = h.EnableFlowLogs
 	a.Location = h.Location
 	a.CountryCode = h.CountryCode
+	a.EntraDeviceID = h.EntraDeviceID
+	a.SerialNumber = h.SerialNumber
+	a.HardwareUUID = h.HardwareUUID
 	return &a
 }
 
@@ -145,5 +152,8 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.EnableFlowLogs = a.EnableFlowLogs
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
+	h.EntraDeviceID = currentHost.EntraDeviceID
+	h.SerialNumber = currentHost.SerialNumber
+	h.HardwareUUID = currentHost.HardwareUUID
 	return &h
 }

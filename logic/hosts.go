@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -38,8 +40,42 @@ var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schem
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+var CheckPostureViolationsForHost = func(host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
+	if host == nil {
+		return []models.Violation{}, schema.SeverityUnknown
+	}
+	return CheckPostureViolations(models.PostureCheckDeviceInfo{
+		ClientLocation: host.CountryCode,
+		ClientVersion:  host.Version,
+		OS:             host.OS,
+		OSFamily:       host.OSFamily,
+		OSVersion:      host.OSVersion,
+		KernelVersion:  host.KernelVersion,
+		AutoUpdate:     host.AutoUpdate,
+		SkipAutoUpdate: skipAutoUpdate,
+		Tags:           tags,
+		HostID:         host.ID.String(),
+	}, network)
+}
+
 var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
+}
+
+// SyncHostMDMState refreshes MDM posture state for a host (no-op in community).
+var SyncHostMDMState = func(ctx context.Context, hostID string) error {
+	return nil
+}
+
+// SyncHostEDRState refreshes EDR posture state for a host (no-op in community).
+var SyncHostEDRState = func(ctx context.Context, hostID string) error {
+	return nil
+}
+
+// CheckUIHostReadAccess verifies a dashboard user may read the given host.
+// Overridden in Pro to enforce network-scoped host access.
+var CheckUIHostReadAccess = func(r *http.Request, host *schema.Host) error {
+	return nil
 }
 
 const (
@@ -141,6 +177,9 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
+	newHost.EntraDeviceID = currentHost.EntraDeviceID
+	newHost.SerialNumber = currentHost.SerialNumber
+	newHost.HardwareUUID = currentHost.HardwareUUID
 	// changeable fields
 	if len(newHost.Version) == 0 {
 		newHost.Version = currentHost.Version
@@ -243,6 +282,18 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 	}
 	if newHost.Interface != "" {
 		currHost.Interface = newHost.Interface
+	}
+	// MDM device-matching identifiers: only overwrite if the netclient reported
+	// a non-empty value, so we don't clobber a previously reported identifier
+	// when a later check-in omits the field.
+	if newHost.EntraDeviceID != "" {
+		currHost.EntraDeviceID = newHost.EntraDeviceID
+	}
+	if newHost.SerialNumber != "" {
+		currHost.SerialNumber = newHost.SerialNumber
+	}
+	if newHost.HardwareUUID != "" {
+		currHost.HardwareUUID = newHost.HardwareUUID
 	}
 	if isEndpointChanged || currHost.Location == "" || currHost.CountryCode == "" {
 		var nodeIP net.IP
@@ -351,6 +402,14 @@ func RemoveHost(ctx context.Context, h *schema.Host, forceDelete bool) error {
 		if err != nil {
 			slog.Error("failed to delete node", "node", node.ID, "host", h.ID, "error", err)
 		}
+	}
+	mdmState := &schema.DeviceMDMState{HostID: h.ID.String()}
+	if err := mdmState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+		slog.Error("failed to delete mdm state for host", "host", h.ID, "error", err)
+	}
+	edrState := &schema.DeviceEDRState{HostID: h.ID.String()}
+	if err := edrState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+		slog.Error("failed to delete edr state for host", "host", h.ID, "error", err)
 	}
 	return h.Delete(ctx)
 }
