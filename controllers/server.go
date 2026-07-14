@@ -73,11 +73,11 @@ func memProfile(w http.ResponseWriter, r *http.Request) {
 	logic.StartMemProfiling()
 }
 
-func getUsage(w http.ResponseWriter, _ *http.Request) {
+func getUsage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
-		Response: logic.GetCurrentServerUsage(),
+		Response: logic.GetCurrentServerUsage(r.Context()),
 	})
 }
 

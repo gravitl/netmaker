@@ -79,7 +79,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	var extclients []models.ExtClient
 	var params = mux.Vars(r)
 	network := params["network"]
-	extclients, err := logic.GetNetworkExtClients(network)
+	extclients, err := logic.GetNetworkExtClients(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ext clients for network [%s]: %v", network, err))
@@ -128,7 +128,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	clients, err := logic.GetAllExtClients()
+	clients, err := logic.GetAllExtClients(r.Context())
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(0, "failed to get all extclients: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -160,7 +160,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 
 	clientid := params["clientid"]
 	network := params["network"]
-	client, err := logic.GetExtClient(clientid, network)
+	client, err := logic.GetExtClient(r.Context(), clientid, network)
 	if err != nil {
 		logger.Log(
 			0,
@@ -202,7 +202,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	clientid := params["clientid"]
 	networkid := params["network"]
-	client, err := logic.GetExtClient(clientid, networkid)
+	client, err := logic.GetExtClient(r.Context(), clientid, networkid)
 	if err != nil {
 		logger.Log(
 			0,
@@ -455,7 +455,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := validateCustomExtClient(&customExtClient, true); err != nil {
+	if err := validateCustomExtClient(r.Context(), &customExtClient, true); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -489,7 +489,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 		userName = caller.Username
 		// check if user has a config already for remote access client
-		extclients, err := logic.GetNetworkExtClients(node.Network)
+		extclients, err := logic.GetNetworkExtClients(r.Context(), node.Network)
 		if err != nil {
 			slog.Error("failed to get extclients", "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -516,7 +516,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 					extclient.OwnerID == caller.Username && nodeid == extclient.IngressGatewayID {
 					if jitGrant != nil {
 						extclient.JITExpiresAt = &jitGrant.ExpiresAt
-						_ = logic.SaveExtClient(&extclient)
+						_ = logic.SaveExtClient(r.Context(), &extclient)
 					}
 					err = errors.New("remote client config already exists on the gateway")
 					slog.Error("failed to create extclient", "user", userName, "error", err)
@@ -539,7 +539,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 						extclient.JITExpiresAt = &jitGrant.ExpiresAt
 					}
 					extclient.DeviceID = customExtClient.DeviceID
-					_ = logic.SaveExtClient(&extclient)
+					_ = logic.SaveExtClient(r.Context(), &extclient)
 				}
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
@@ -653,7 +653,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if extclient.ClientID == "" {
-		extclient.ClientID, err = logic.GenerateNodeName(extclient.Network)
+		extclient.ClientID, err = logic.GenerateNodeName(r.Context(), extclient.Network)
 		if err != nil {
 			slog.Error(
 				"failed to create extclient",
@@ -718,7 +718,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extclient.LastModified = time.Now().Unix()
-	err = logic.SaveExtClient(&extclient)
+	err = logic.SaveExtClient(r.Context(), &extclient)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
 	if reservedIPv4 != "" {
@@ -831,7 +831,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientid := params["clientid"]
-	oldExtClient, err := logic.GetExtClientByName(clientid)
+	oldExtClient, err := logic.GetExtClientByName(r.Context(), clientid)
 	if err != nil {
 		slog.Error(
 			"failed to retrieve extclient",
@@ -849,12 +849,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		update.ClientID = oldExtClient.ClientID
 	}
 	if oldExtClient.ClientID == update.ClientID {
-		if err := validateCustomExtClient(&update, false); err != nil {
+		if err := validateCustomExtClient(r.Context(), &update, false); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	} else {
-		if err := validateCustomExtClient(&update, true); err != nil {
+		if err := validateCustomExtClient(r.Context(), &update, true); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
@@ -915,7 +915,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err := logic.SaveExtClient(&newclient); err != nil {
+	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
 			"failed to save ext client",
 			"user",
@@ -986,7 +986,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	clientid := params["clientid"]
 	network := params["network"]
-	extclient, err := logic.GetExtClient(clientid, network)
+	extclient, err := logic.GetExtClient(r.Context(), clientid, network)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Log(0, r.Header.Get("user"),
@@ -1069,7 +1069,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		gwDeletedClients := make(map[string][]models.ExtClient)
 		for _, clientID := range req.IDs {
-			extclient, err := logic.GetExtClient(clientID, network)
+			extclient, err := logic.GetExtClient(r.Context(), clientID, network)
 			if err != nil {
 				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
 				continue
@@ -1122,7 +1122,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateCustomExtClient	Validates the extclient object
-func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool) error {
+func validateCustomExtClient(ctx context.Context, customExtClient *models.CustomExtClient, checkID bool) error {
 	v := validator.New()
 	err := v.Struct(customExtClient)
 	if err != nil {
@@ -1130,7 +1130,7 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	}
 	//validate clientid
 	if customExtClient.ClientID != "" {
-		if err := isValid(customExtClient.ClientID, checkID); err != nil {
+		if err := isValid(ctx, customExtClient.ClientID, checkID); err != nil {
 			return fmt.Errorf("client validation: %v", err)
 		}
 	}
@@ -1164,12 +1164,12 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 }
 
 // isValid	Checks if the clientid is valid
-func isValid(clientid string, checkID bool) error {
+func isValid(ctx context.Context, clientid string, checkID bool) error {
 	if !validName(clientid) {
 		return errInvalidExtClientID
 	}
 	if checkID {
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			return fmt.Errorf("extclients isValid: %v", err)
 		}
@@ -1219,7 +1219,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		updated := 0
 		for _, clientID := range req.IDs {
-			client, err := logic.GetExtClient(clientID, network)
+			client, err := logic.GetExtClient(ctx, clientID, network)
 			if err != nil {
 				slog.Error("bulk extclient status: client not found", "client_id", clientID, "error", err)
 				continue

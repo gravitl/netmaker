@@ -123,17 +123,18 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		nodeIDs := make([]interface{}, 0)
 		for _, node := range req.TaggedNodes {
 			if node.IsStatic {
-				extclient, err := logic.GetExtClient(node.StaticNode.ClientID, node.StaticNode.Network)
+				extclient, err := logic.GetExtClient(ctx, node.StaticNode.ClientID, node.StaticNode.Network)
 				if err == nil && extclient.RemoteAccessClientID == "" {
 					if extclient.Tags == nil {
 						extclient.Tags = make(map[models.TagID]struct{})
 					}
 					extclient.Tags[tag.ID] = struct{}{}
-					logic.SaveExtClient(&extclient)
+					logic.SaveExtClient(ctx, &extclient)
 				}
 				continue
 			}
@@ -146,7 +147,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 
 		if len(nodeIDs) > 0 {
 			err = (&schema.Node{}).AssignTag(
-				db.WithContext(context.TODO()),
+				ctx,
 				tag.ID.String(),
 				dbtypes.WithFilter("network_id", network.ID),
 				dbtypes.WithFilter("id", nodeIDs...),
@@ -155,7 +156,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, fmt.Sprintf("failed to assign tag %s to nodes: %v", tag.TagName, err.Error()))
 			}
 		}
-	}()
+	}(ctx)
 	logic.LogEvent(&models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
@@ -172,7 +173,6 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		NetworkID: tag.Network,
 		Origin:    schema.Dashboard,
 	})
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 
 	var res models.TagListRespNodes = models.TagListRespNodes{
@@ -257,7 +257,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		proLogic.UpdateTag(updateTag, newID)
+		proLogic.UpdateTag(ctx, updateTag, newID)
 		if updateTag.NewName != "" {
 			proLogic.UpdateDeviceTag(ctx, updateTag.ID, newID, tag.Network)
 		}

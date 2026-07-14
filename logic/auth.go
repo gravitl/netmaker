@@ -164,10 +164,10 @@ func preserveExternalUserGroups(existing, change *schema.User) {
 }
 
 // UpdateUser - updates a given user
-func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
+func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
 	userCheck := &schema.User{Username: _user.Username}
-	if err := userCheck.Get(db.WithContext(context.TODO())); err != nil {
+	if err := userCheck.Get(ctx); err != nil {
 		return &schema.User{}, err
 	}
 
@@ -175,7 +175,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	if userchange.Username != "" && _user.Username != userchange.Username {
 		// check if username is available
 		userCheck := &schema.User{Username: userchange.Username}
-		if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
+		if err := userCheck.Get(ctx); err == nil {
 			return &schema.User{}, errors.New("username exists already")
 		}
 		if userchange.Username == MasterUser {
@@ -238,7 +238,8 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	}
 
 	// Reset Gw Access for service users
-	go UpdateUserGwAccess(_user, userchange)
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go UpdateUserGwAccess(detachedCtx, _user, userchange)
 	if userchange.PlatformRoleID != "" {
 		_user.PlatformRoleID = userchange.PlatformRoleID
 	}

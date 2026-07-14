@@ -12,8 +12,8 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func getStaticUserNodesByNetwork(network schema.NetworkID) (staticNode []models.Node) {
-	extClients, err := logic.GetAllExtClients()
+func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
+	extClients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		return
 	}
@@ -30,7 +30,7 @@ func getStaticUserNodesByNetwork(network schema.NetworkID) (staticNode []models.
 
 func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(node.Network))
+	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if !userNodeI.StaticNode.Enabled {
 			continue
@@ -510,7 +510,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		}
 		_, nodeErr := logic.GetNodeByID(t.Value)
 		if nodeErr != nil {
-			_, staticNodeErr := logic.GetExtClient(t.Value, a.NetworkID.String())
+			_, staticNodeErr := logic.GetExtClient(ctx, t.Value, a.NetworkID.String())
 			if staticNodeErr != nil {
 				return errors.New("invalid node " + t.Value)
 			}
@@ -961,7 +961,7 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(targetnode.Network))
+	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
@@ -1333,7 +1333,7 @@ func appendUserExtClientRemoteEgressFwdRules(
 
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(schema.NetworkID(targetnode.Network))
+	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
@@ -1636,7 +1636,7 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 	return false
 }
 
-func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := logic.GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
@@ -1663,12 +1663,12 @@ func GetTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (
 	if !withStaticNodes {
 		return
 	}
-	return AddTagMapWithStaticNodes(netID, tagNodesMap)
+	return AddTagMapWithStaticNodes(ctx, netID, tagNodesMap)
 }
 
-func AddTagMapWithStaticNodes(netID schema.NetworkID,
+func AddTagMapWithStaticNodes(ctx context.Context, netID schema.NetworkID,
 	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := logic.GetNetworkExtClients(netID.String())
+	extclients, err := logic.GetNetworkExtClients(ctx, netID.String())
 	if err != nil {
 		return tagNodesMap
 	}

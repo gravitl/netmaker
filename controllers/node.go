@@ -344,7 +344,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -388,7 +388,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -424,7 +424,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// return all the nodes in JSON/API format
 	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")

@@ -259,11 +259,12 @@ func updateNodes() {
 			}
 		}
 	}
-	extclients, _ := logic.GetAllExtClients()
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
+	extclients, _ := logic.GetAllExtClients(ctx)
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
 			extclient.Tags = make(map[models.TagID]struct{})
-			logic.SaveExtClient(&extclient)
+			logic.SaveExtClient(ctx, &extclient)
 		}
 	}
 }
@@ -528,7 +529,8 @@ func migrateSettings(ctx context.Context) {
 }
 
 func deleteOldExtclients() {
-	extclients, _ := logic.GetAllExtClients()
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
+	extclients, _ := logic.GetAllExtClients(ctx)
 	userExtclientMap := make(map[string][]models.ExtClient)
 	for _, extclient := range extclients {
 		if extclient.RemoteAccessClientID == "" {
@@ -546,7 +548,6 @@ func deleteOldExtclients() {
 		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
 	}
 
-	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 	for _, userExtclients := range userExtclientMap {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {

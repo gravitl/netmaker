@@ -326,14 +326,14 @@ func GetAllNodes() ([]models.Node, error) {
 	return nodes, nil
 }
 
-func AddStaticNodestoList(nodes []models.Node) []models.Node {
+func AddStaticNodestoList(ctx context.Context, nodes []models.Node) []models.Node {
 	netMap := make(map[string]struct{})
 	for _, node := range nodes {
 		if _, ok := netMap[node.Network]; ok {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}

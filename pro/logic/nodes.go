@@ -44,9 +44,9 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 	return
 }
 
-func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
+func AddTagMapWithStaticNodesWithUsers(ctx context.Context, netID schema.NetworkID,
 	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := logic.GetNetworkExtClients(netID.String())
+	extclients, err := logic.GetNetworkExtClients(ctx, netID.String())
 	if err != nil {
 		return tagNodesMap
 	}
@@ -119,11 +119,11 @@ func GetNodesWithTag(ctx context.Context, tagID models.TagID) map[string]models.
 			nodeI.Mutex.Unlock()
 		}
 	}
-	return AddStaticNodesWithTag(tag, nMap)
+	return AddStaticNodesWithTag(ctx, tag, nMap)
 }
 
-func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
-	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+func AddStaticNodesWithTag(ctx context.Context, tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+	extclients, err := logic.GetNetworkExtClients(ctx, tag.Network.String())
 	if err != nil {
 		return nMap
 	}
@@ -150,7 +150,7 @@ func GetStaticNodeWithTag(ctx context.Context, tagID models.TagID) map[string]mo
 	if err != nil {
 		return nMap
 	}
-	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+	extclients, err := logic.GetNetworkExtClients(ctx, tag.Network.String())
 	if err != nil {
 		return nMap
 	}

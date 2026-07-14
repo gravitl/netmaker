@@ -38,14 +38,15 @@ func unauthorisedUserNodeHook() error {
 		slog.Error("error getting users: ", "error", err)
 		return err
 	}
-	clients, err := logic.GetAllExtClients()
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
+	clients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("error getting clients: ", "error", err)
 		return err
 	}
 
 	currentTime := time.Now()
-	validityDuration := logic.GetJwtValidityDuration(logic.DefaultScope(db.WithContext(context.TODO())))
+	validityDuration := logic.GetJwtValidityDuration(ctx)
 	for _, user := range users {
 		if user.PlatformRoleID == schema.AdminRole ||
 			user.PlatformRoleID == schema.SuperAdminRole {
@@ -61,7 +62,7 @@ func unauthorisedUserNodeHook() error {
 			if (client.OwnerID == user.UserName) &&
 				client.Enabled {
 				slog.Info(fmt.Sprintf("disabling user node %s for user %s: auth token expired", client.ClientID, client.OwnerID))
-				if err := disableExtClient(&client); err != nil {
+				if err := disableExtClient(ctx, &client); err != nil {
 					slog.Error("error disabling user node", "error", err)
 					continue // dont return but try for other clients
 				}
@@ -73,8 +74,8 @@ func unauthorisedUserNodeHook() error {
 	return nil
 }
 
-func disableExtClient(client *models.ExtClient) error {
-	if newClient, err := logic.ToggleExtClientConnectivity(client, false); err != nil {
+func disableExtClient(ctx context.Context, client *models.ExtClient) error {
+	if newClient, err := logic.ToggleExtClientConnectivity(ctx, client, false); err != nil {
 		return err
 	} else {
 		// publish peer update to ingress gateway
@@ -82,7 +83,7 @@ func disableExtClient(client *models.ExtClient) error {
 			ingressHost := &schema.Host{
 				ID: ingressNode.HostID,
 			}
-			err := ingressHost.Get(db.WithContext(context.TODO()))
+			err := ingressHost.Get(ctx)
 			if err != nil {
 				return err
 			}

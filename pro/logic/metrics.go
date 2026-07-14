@@ -205,7 +205,7 @@ func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
 	if !currentNode.Connected {
 		return
 	}
-	updateNodeMetrics(&currentNode, &newMetrics)
+	updateNodeMetrics(logic.DefaultScope(db.WithContext(context.TODO())), &currentNode, &newMetrics)
 	if err = logic.UpdateMetrics(nodeid, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", nodeid, "error", err)
 		return
@@ -235,7 +235,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 		slog.Error("error unmarshaling payload", "error", err)
 		return
 	}
-	updateNodeMetrics(&currentNode, &newMetrics)
+	updateNodeMetrics(logic.DefaultScope(db.WithContext(context.TODO())), &currentNode, &newMetrics)
 	if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", id, "error", err)
 		return
@@ -243,7 +243,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 	slog.Debug("updated node metrics", "id", id)
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
+func updateNodeMetrics(ctx context.Context, currentNode *models.Node, newMetrics *models.Metrics) {
 	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
 		slog.Error("error finding old metrics for node", "id", currentNode.ID, "error", err)
@@ -252,7 +252,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 
 	var attachedClients []models.ExtClient
 	if currentNode.IsIngressGateway {
-		clients, err := logic.GetExtClientsByID(currentNode.ID.String(), currentNode.Network)
+		clients, err := logic.GetExtClientsByID(ctx, currentNode.ID.String(), currentNode.Network)
 		if err == nil {
 			attachedClients = clients
 		}

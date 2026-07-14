@@ -88,7 +88,7 @@ func DisableJITOnNetwork(ctx context.Context, networkID string) error {
 		return err
 	}
 
-	if err := resetExtClientJITFields(networkID); err != nil {
+	if err := resetExtClientJITFields(ctx, networkID); err != nil {
 		logger.Log(0, "failed to reset ext client JIT fields when disabling JIT:", err.Error())
 	}
 
@@ -96,8 +96,8 @@ func DisableJITOnNetwork(ctx context.Context, networkID string) error {
 }
 
 // resetExtClientJITFields clears JIT-related fields on all ext clients in the network.
-func resetExtClientJITFields(networkID string) error {
-	extClients, err := logic.GetNetworkExtClients(networkID)
+func resetExtClientJITFields(ctx context.Context, networkID string) error {
+	extClients, err := logic.GetNetworkExtClients(ctx, networkID)
 	if err != nil {
 		return fmt.Errorf("failed to get ext clients: %w", err)
 	}
@@ -108,7 +108,7 @@ func resetExtClientJITFields(networkID string) error {
 		}
 		client.JITExpiresAt = nil
 
-		if err := logic.SaveExtClient(&client); err != nil {
+		if err := logic.SaveExtClient(ctx, &client); err != nil {
 			slog.Warn("failed to clear JIT expiry on ext client",
 				"client_id", client.ClientID, "network", networkID, "error", err)
 		}
@@ -602,7 +602,7 @@ func ExpireJITGrants() error {
 		}
 
 		// Disconnect user's ext clients from the network
-		if err := disconnectUserExtClients(expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
+		if err := disconnectUserExtClients(ctx, expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
 			slog.Error("failed to disconnect ext clients for expired grant",
 				"grant_id", expiredGrant.ID, "user_id", expiredGrant.UserID, "error", err)
 		}
@@ -776,7 +776,7 @@ func DisconnectExtClientsFromNetwork(ctx context.Context, networkID string) erro
 // DisconnectExtClientsFromNetworkForScope deletes ext clients for users who require a JIT grant
 // under the given network configuration (full JIT vs group-scoped).
 func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schema.Network) error {
-	extClients, err := logic.GetNetworkExtClients(network.Name)
+	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get ext clients: %w", err)
 	}
@@ -853,20 +853,14 @@ func DeactivateUserGrantsOnNetwork(ctx context.Context, networkID, userID string
 }
 
 // DisconnectUserExtClientsFromNetwork - disconnects a specific user's ext clients from a network
-func DisconnectUserExtClientsFromNetwork(networkID, userID string) error {
-	return disconnectUserExtClients(networkID, userID)
+func DisconnectUserExtClientsFromNetwork(ctx context.Context, networkID, userID string) error {
+	return disconnectUserExtClients(ctx, networkID, userID)
 }
 
-func disconnectUserExtClients(networkID, userID string) error {
-	extClients, err := logic.GetNetworkExtClients(networkID)
+func disconnectUserExtClients(ctx context.Context, networkID, userID string) error {
+	extClients, err := logic.GetNetworkExtClients(ctx, networkID)
 	if err != nil {
 		return err
-	}
-
-	network := &schema.Network{Name: networkID}
-	ctx := db.WithContext(context.Background())
-	if err := network.Get(ctx); err == nil {
-		ctx = scope.WithContext(ctx, scope.TenantScope, network.TenantID)
 	}
 
 	for _, client := range extClients {
@@ -888,7 +882,7 @@ func disconnectUserExtClients(networkID, userID string) error {
 			// This allows desktop apps to see the revocation when they poll the API
 			now := time.Now().UTC()
 			disabledClient.JITExpiresAt = &now
-			if err := logic.SaveExtClient(&disabledClient); err != nil {
+			if err := logic.SaveExtClient(ctx, &disabledClient); err != nil {
 				slog.Warn("failed to update ext client expiry", "client_id", client.ClientID, "error", err)
 				// Continue even if update fails
 			}

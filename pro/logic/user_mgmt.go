@@ -26,15 +26,6 @@ var (
 	globalNetworksUserRoleID   = schema.UserRoleID(fmt.Sprintf("global-%s", schema.NetworkUser))
 )
 
-func scopeCtxForNetwork(networkName string) context.Context {
-	ctx := db.WithContext(context.Background())
-	network := &schema.Network{Name: networkName}
-	if err := network.Get(ctx); err == nil {
-		ctx = scope.WithContext(ctx, scope.TenantScope, network.TenantID)
-	}
-	return ctx
-}
-
 var ServiceUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.ServiceUser,
 	Default:             true,
@@ -703,7 +694,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		return err
 	}
 
-	go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
+	go UpdatesUserGwAccessOnGrpUpdates(ctx, group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 
 	networksMap, err := GetGroupNetworksMap(group)
 	if err != nil {
@@ -855,7 +846,7 @@ func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
 	return user, nil
 }
 
-func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
+func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 	changeNetworkAccess map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope, netID string) {
 	networkChangeMap := make(map[schema.RsrcID]schema.RsrcPermissionScope)
 	for rsrcType, RsrcPermsMap := range currNetworkAccess {
@@ -875,7 +866,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 		}
 	}
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -893,12 +884,12 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -910,12 +901,12 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -926,7 +917,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 	}
 }
 
-func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
+func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
 	networkRemovedMap := make(map[schema.NetworkID]struct{})
 	for netID := range oldNetworkRoles {
 		if _, ok := newNetworkRoles[netID]; !ok {
@@ -934,7 +925,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 		}
 	}
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -961,12 +952,12 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 		}
 
 		if shouldDelete {
-			err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
+			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 			if err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
 			} else {
-				if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
@@ -974,7 +965,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 	}
 }
 
-func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
+func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.User) {
 	if changeUser.PlatformRoleID != schema.ServiceUser {
 		return
 	}
@@ -1001,7 +992,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	}
 	// TODO - cleanup gw access when role and groups are updated
 	//removedGwAccess
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -1009,12 +1000,12 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	for _, extclient := range extclients {
 		if extclient.OwnerID == currentUser.Username {
 			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(scopeCtxForNetwork(extclient.Network), &extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}

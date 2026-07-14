@@ -958,7 +958,7 @@ func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
 			},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			"snowy-waterfall": {{
 				CommonNode: models.CommonNode{
@@ -1061,7 +1061,7 @@ func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-1"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			"snowy-waterfall": {{
 				CommonNode: models.CommonNode{
@@ -1143,10 +1143,10 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsExtclientFwdRule(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{
 			{
 				ClientID:         "ec-1",
@@ -1238,10 +1238,10 @@ func TestGetEgressRulesForNode_RemoteEgressBiEmitsReverse(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{
 			{
 				ClientID:         "ec-1",
@@ -1320,7 +1320,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{{
 			ClientID:         "ec-1",
 			Network:          "netmaker",
@@ -1392,7 +1392,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{{
 			ClientID:         "ec-1",
 			Network:          "netmaker",
@@ -1463,7 +1463,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_IgnoresExtclientsOnOtherGw(t *test
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{{
 			ClientID:         "ec-on-other-gw",
 			Network:          "netmaker",
@@ -1534,10 +1534,10 @@ func TestGetEgressRulesForNode_RemoteEgressIgnoresOtherGwAttachedExtclients(t *t
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return []models.ExtClient{
 			{
 				ClientID:         "ec-on-other-gw",
@@ -1842,10 +1842,10 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsDeviceFwdRule(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return nil, nil
 	}
 	getNodeByID = func(id string) (models.Node, error) {
@@ -1947,10 +1947,10 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
 		return nil, nil
 	}
 	getNodeByID = func(id string) (models.Node, error) {
@@ -2088,12 +2088,12 @@ func TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules(t *test
 			},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()): {macbookNode},
 		}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) { return nil, nil }
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) { return nil, nil }
 
 	rules := GetEgressRulesForNode(db.WithContext(context.Background()), targetNode)
 
@@ -2250,12 +2250,12 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 			},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()): {macbookNode},
 		}
 	}
-	listNetworkExtClients = func(network string) ([]models.ExtClient, error) { return nil, nil }
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) { return nil, nil }
 
 	rules := GetEgressRulesForNode(db.WithContext(context.Background()), targetNode)
 
@@ -2415,7 +2415,7 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 	}
 	// Both nodes are advertised under their NodeID keys so the existing
 	// taggedNodes[NodeID] lookup resolves their mesh AddressIPNet4.
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()):        {macbookNode},
 			models.TagID(srcEgressOwnerID.String()): {srcEgressOwnerNode},
@@ -2519,7 +2519,7 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 			},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()): {macbookNode},
 		}

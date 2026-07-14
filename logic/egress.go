@@ -638,7 +638,7 @@ func RemoveNodeFromEnrollmentKeys(node *models.Node) {
 	_ = _node.ClearGatewayIDFromEnrollmentKeys(db.WithContext(context.TODO()))
 }
 
-func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
+func GetEgressRanges(ctx context.Context, netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)
@@ -659,7 +659,7 @@ func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]st
 			}
 		}
 	}
-	extclients, _ := GetNetworkExtClients(netID.String())
+	extclients, _ := GetNetworkExtClients(ctx, netID.String())
 	for _, extclient := range extclients {
 		if len(extclient.ExtraAllowedIPs) > 0 {
 			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs

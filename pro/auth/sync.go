@@ -510,7 +510,7 @@ func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
 
 	// check and delete extclient with this ownerID
 	go func(ctx context.Context) {
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			return
 		}

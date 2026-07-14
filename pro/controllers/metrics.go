@@ -118,7 +118,7 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clients, err := logic.GetNetworkExtClients(network) // grab all the network ext clients
+	clients, err := logic.GetNetworkExtClients(r.Context(), network) // grab all the network ext clients
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			var metrics struct{}

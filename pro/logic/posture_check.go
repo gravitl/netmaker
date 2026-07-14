@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -72,12 +73,13 @@ func RunPostureChecks() error {
 		return err
 	}
 	for _, netI := range nets {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, netI.TenantID)
 		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
 		if len(networkNodes) == 0 {
 			continue
 		}
-		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
+		networkNodes = logic.AddStaticNodestoList(ctx, networkNodes)
+		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(ctx)
 		if err != nil {
 			continue
 		}
@@ -95,7 +97,7 @@ func RunPostureChecks() error {
 				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
 			}
 			if nodeI.IsUserNode {
-				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
+				extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
 					if noChecks && len(extclient.PostureChecksViolations) == 0 {
 						continue
@@ -103,7 +105,7 @@ func RunPostureChecks() error {
 					extclient.PostureChecksViolations = postureChecksViolations
 					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
 					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(&extclient)
+					logic.SaveExtClient(ctx, &extclient)
 				}
 			} else {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
@@ -130,7 +132,7 @@ func RunPostureChecks() error {
 						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
 					})
 				}
-				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+				_ = _node.UpsertViolations(ctx, _violations)
 			}
 
 		}

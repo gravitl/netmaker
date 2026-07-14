@@ -577,7 +577,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-			extclients, err := logic.GetExtClientsByID(nodeID, node.Network)
+			extclients, err := logic.GetExtClientsByID(r.Context(), nodeID, node.Network)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
@@ -592,7 +592,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			nodesWithStatus := logic.AddStatusToNodes(r.Context(), nodes, true)
 			for _, node := range nodesWithStatus {
 				if node.IsStatic {
-					err = logic.SaveExtClient(&node.StaticNode)
+					err = logic.SaveExtClient(r.Context(), &node.StaticNode)
 					if err != nil {
 						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
 						continue

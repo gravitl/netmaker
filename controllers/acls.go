@@ -160,7 +160,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	}
 	var peer models.Node
 	if peerIsStatic == "true" {
-		extclient, err := logic.GetExtClient(peerID, node.Network)
+		extclient, err := logic.GetExtClient(r.Context(), peerID, node.Network)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return

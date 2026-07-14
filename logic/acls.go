@@ -36,8 +36,8 @@ var getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkI
 }
 
 // listNetworkExtClients fetches all extclients in a network; tests may override.
-var listNetworkExtClients = func(network string) ([]models.ExtClient, error) {
-	return GetNetworkExtClients(network)
+var listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+	return GetNetworkExtClients(ctx, network)
 }
 
 // getNodeByID fetches a node by its UUID; tests may override.
@@ -447,7 +447,7 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 	}()
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
-	nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), true)...)
+	nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), true)...)
 	rules = GetFwRulesForUserNodesOnGw(ctx, node, nodes)
 	if defaultDevicePolicy.Enabled {
 		if len(node.RelayedNodes) > 0 {
@@ -943,7 +943,7 @@ func GetStaticNodeIps(ctx context.Context, node models.Node) (ips []net.IP) {
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 
-	extclients := GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)
+	extclients := GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), false)
 	for _, extclient := range extclients {
 		if extclient.IsUserNode && defaultUserPolicy.Enabled {
 			continue
@@ -1021,9 +1021,9 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 	}
 	var taggedNodes map[models.TagID][]models.Node
 	if targetnode.IsIngressGateway {
-		taggedNodes = GetTagMapWithNodesByNetwork(schema.NetworkID(targetnode.Network), false)
+		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), false)
 	} else {
-		taggedNodes = GetTagMapWithNodesByNetwork(schema.NetworkID(targetnode.Network), true)
+		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 	}
 	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1376,7 +1376,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	defer func() {
 		rules = GetEgressUserRulesForNode(ctx, &targetnode, rules)
 	}()
-	taggedNodes := GetTagMapWithNodesByNetwork(schema.NetworkID(targetnode.Network), true)
+	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 
 	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1512,7 +1512,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 
 	}
 
-	for aclID, aclRule := range appendExtClientRemoteEgressFwdRules(targetnode, acls, remoteEgresses) {
+	for aclID, aclRule := range appendExtClientRemoteEgressFwdRules(ctx, targetnode, acls, remoteEgresses) {
 		rules[aclID] = aclRule
 	}
 
@@ -1535,6 +1535,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 // rules are keyed with the "#ext-fwd" suffix to avoid colliding with the local-egress
 // rules keyed by acl.ID, and a "-reverse" companion is added for Bi policies.
 func appendExtClientRemoteEgressFwdRules(
+	ctx context.Context,
 	targetnode models.Node,
 	acls []models.Acl,
 	remoteEgresses map[string]schema.Egress,
@@ -1543,7 +1544,7 @@ func appendExtClientRemoteEgressFwdRules(
 	if len(remoteEgresses) == 0 {
 		return out
 	}
-	extclients, err := listNetworkExtClients(targetnode.Network)
+	extclients, err := listNetworkExtClients(ctx, targetnode.Network)
 	if err != nil {
 		return out
 	}
@@ -1767,7 +1768,7 @@ func appendDeviceRemoteEgressFwdRules(
 // gateway is not itself an egress gateway (in which case GetEgressRulesForNode
 // is never called for it).
 func getExtClientEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (rules []models.FwRule) {
-	extclients, err := listNetworkExtClients(node.Network)
+	extclients, err := listNetworkExtClients(ctx, node.Network)
 	if err != nil {
 		return
 	}
@@ -2286,7 +2287,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		}
 		_, nodeErr := GetNodeByID(t.Value)
 		if nodeErr != nil {
-			_, staticNodeErr := GetExtClient(t.Value, a.NetworkID.String())
+			_, staticNodeErr := GetExtClient(ctx, t.Value, a.NetworkID.String())
 			if staticNodeErr != nil {
 				return errors.New("invalid node " + t.Value)
 			}
@@ -3347,7 +3348,7 @@ func CreateDefaultAclNetworkPolicies(ctx context.Context, netID schema.NetworkID
 	CreateDefaultUserPolicies(ctx, netID)
 }
 
-func getTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+func getTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	netGwTag := models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName))
@@ -3361,12 +3362,12 @@ func getTagMapWithNodesByNetwork(netID schema.NetworkID, withStaticNodes bool) (
 	if !withStaticNodes {
 		return
 	}
-	return addTagMapWithStaticNodes(netID, tagNodesMap)
+	return addTagMapWithStaticNodes(ctx, netID, tagNodesMap)
 }
 
-func addTagMapWithStaticNodes(netID schema.NetworkID,
+func addTagMapWithStaticNodes(ctx context.Context, netID schema.NetworkID,
 	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := GetNetworkExtClients(netID.String())
+	extclients, err := GetNetworkExtClients(ctx, netID.String())
 	if err != nil {
 		return tagNodesMap
 	}

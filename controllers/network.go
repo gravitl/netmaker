@@ -175,7 +175,7 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodeEgressRoutes, _, err := logic.GetEgressRanges(schema.NetworkID(netname))
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(r.Context(), schema.NetworkID(netname))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

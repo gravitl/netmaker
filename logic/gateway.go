@@ -160,7 +160,7 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	clients, err := GetExtClientsByID(nodeid, node.Network)
+	clients, err := GetExtClientsByID(ctx, nodeid, node.Network)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.Node{}, removedClients, err
 	}
@@ -187,7 +187,7 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
 func DeleteGatewayExtClients(ctx context.Context, gatewayID string, networkName string) error {
-	currentExtClients, err := GetNetworkExtClients(networkName)
+	currentExtClients, err := GetNetworkExtClients(ctx, networkName)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}

@@ -942,7 +942,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		if !force {
 			return
 		}
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
@@ -1692,7 +1692,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	}
-	user, err = logic.UpdateUser(&userchange, user)
+	user, err = logic.UpdateUser(r.Context(), &userchange, user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
@@ -1708,7 +1708,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 	go func(ctx context.Context) {
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
@@ -1849,7 +1849,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
 		delete := r.URL.Query().Get("force_delete_configs") == "true"
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to get extclients", "error", err)
 			return
@@ -1925,7 +1925,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
 		ownerExtClients := make(map[string][]models.ExtClient)
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("bulk user delete: failed to get extclients", "error", err)
 		} else {
@@ -2052,7 +2052,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		var ownerExtClients map[string][]models.ExtClient
 		if forceToggle {
-			extclients, err := logic.GetAllExtClients()
+			extclients, err := logic.GetAllExtClients(ctx)
 			if err != nil {
 				slog.Error("bulk user status: failed to get extclients", "error", err)
 			} else {

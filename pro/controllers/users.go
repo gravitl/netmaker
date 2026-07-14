@@ -656,7 +656,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -1109,7 +1109,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
@@ -1159,7 +1160,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -1293,7 +1295,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context, user *schema.User, remoteGwID string) {
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
@@ -1458,7 +1460,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get node network", "error", err)
 	}
 	var userConf models.ExtClient
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1515,7 +1517,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userConf.ClientID == "" {
-			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
+			userConf.ClientID, err = logic.GenerateNodeName(r.Context(), userConf.Network)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -1580,7 +1582,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userConf.LastModified = time.Now().Unix()
-		err = logic.SaveExtClient(&userConf)
+		err = logic.SaveExtClient(r.Context(), &userConf)
 		// Reservations are freed regardless of outcome: on success the DB is authoritative,
 		// on failure the IPs must be available for reallocation.
 		if reservedIPv4 != "" {
@@ -1671,7 +1673,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		req.RemoteAccessClientID = remoteAccessClientID
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1921,7 +1923,7 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		slog.Error(
 			"failed to get users on ingress gateway",

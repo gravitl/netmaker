@@ -33,7 +33,7 @@ func getNetworkGraph(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, r.Header.Get("user"), "failed to get network nodes", err.Error())
 		return
 	}
-	networkNodes = logic.AddStaticNodestoList(networkNodes)
+	networkNodes = logic.AddStaticNodestoList(r.Context(), networkNodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPIWithLocation(networkNodes[:])
 	logic.SortApiNodes(apiNodes[:])

@@ -169,7 +169,7 @@ func (n *NetworkOrchestrator) isIPv4UniqueInDB(ctx context.Context, network *sch
 		return false
 	}
 
-	extClients, err := logic.GetNetworkExtClients(network.Name)
+	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
 		return true
 	}
@@ -246,7 +246,7 @@ func (n *NetworkOrchestrator) isIPv6UniqueInDB(ctx context.Context, network *sch
 		return false
 	}
 
-	extClients, err := logic.GetNetworkExtClients(network.Name)
+	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
 		return true
 	}

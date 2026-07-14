@@ -150,8 +150,8 @@ func EgressDNs(network string) (entries []models.DNSEntry) {
 }
 
 // GetExtclientDNS - gets all extclients dns entries
-func GetExtclientDNS() []models.DNSEntry {
-	extclients, err := GetAllExtClients()
+func GetExtclientDNS(ctx context.Context) []models.DNSEntry {
+	extclients, err := GetAllExtClients(ctx)
 	if err != nil {
 		return []models.DNSEntry{}
 	}

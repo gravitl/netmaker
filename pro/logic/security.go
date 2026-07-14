@@ -10,7 +10,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -92,7 +91,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		if err == nil {
 			if netRoles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok {
 				for netRoleID := range netRoles {
-					err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
+					err = checkNetworkAccessPermissions(r.Context(), netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 					if err == nil {
 						return nil
 					}
@@ -100,7 +99,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 			}
 			netRoles := userG.NetworkRoles.Data()[schema.NetworkID(netID)]
 			for netRoleID := range netRoles {
-				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
+				err = checkNetworkAccessPermissions(r.Context(), netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 				if err == nil {
 					return nil
 				}
@@ -111,9 +110,9 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
+func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope := &schema.UserRole{ID: netRoleID}
-	err := networkPermissionScope.Get(db.WithContext(context.TODO()))
+	err := networkPermissionScope.Get(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,7 +126,7 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(schema.RsrcType(targetRsrc))]; ok {
 		// handle extclient apis here
 		if schema.RsrcType(targetRsrc) == schema.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
-			extclient, err := logic.GetExtClient(targetRsrcID, netID)
+			extclient, err := logic.GetExtClient(ctx, targetRsrcID, netID)
 			if err != nil {
 				return err
 			}
