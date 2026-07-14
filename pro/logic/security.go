@@ -318,7 +318,7 @@ func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
 	if err := userRole.Get(r.Context()); err != nil {
 		return errors.New("access denied")
 	}
-	if userRole.FullAccess || userRole.ID == schema.Auditor {
+	if userRole.TenantGlobalAccess || userRole.ID == schema.Auditor {
 		return nil
 	}
 

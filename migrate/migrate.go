@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -151,10 +151,6 @@ func isValidVNATPool(pool string) bool {
 func assignSuperAdmin(ctx context.Context) {
 	exists, _ := (&schema.User{}).SuperAdminExists(ctx)
 	if exists {
-		return
-	}
-
-	if ok, _ := logic.HasSuperAdmin(); ok {
 		return
 	}
 
@@ -537,8 +533,8 @@ func migrateSettings(ctx context.Context) {
 	}
 	if settings.SmtpHost != "" {
 		var rawValue []byte
-		_ = db.FromContext(db.WithContext(context.TODO())).Table(settingsRecord.TableName()).
-			Where("key = ?", defaultTenant.ID).Pluck("value", &rawValue).Error
+		_ = db.FromContext(ctx).Table(settingsRecord.TableName()).
+			Where("key = ?", scope.ID(ctx)).Pluck("value", &rawValue).Error
 		var settingsD map[string]any
 		_ = json.Unmarshal(rawValue, &settingsD)
 		if _, ok := settingsD["smtp_skip_tls_verify"]; !ok {
@@ -546,7 +542,7 @@ func migrateSettings(ctx context.Context) {
 			settings.SmtpSkipTlsVerify = true
 		}
 	}
-	logic.UpsertServerSettings(settings)
+	_ = logic.UpsertServerSettings(ctx, settings)
 }
 
 func deleteOldExtclients(ctx context.Context) {

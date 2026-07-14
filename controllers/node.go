@@ -943,7 +943,8 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			if _node.Network.Name != network {
 				continue
 			}
-			if err := logic.DeleteNode(r.Context(), &node, true); err != nil {
+			node := logic.ConvertSchemaNodeToModelsNode(_node)
+			if err := logic.DeleteNode(r.Context(), node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}

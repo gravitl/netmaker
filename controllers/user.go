@@ -1926,7 +1926,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
-	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))

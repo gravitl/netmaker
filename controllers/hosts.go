@@ -1735,7 +1735,7 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Per-network status - copy from already-evaluated nodes belonging to the
 	// host. No new posture computation happens on this read path (v1).
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
 		return

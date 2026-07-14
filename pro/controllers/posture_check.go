@@ -28,7 +28,7 @@ func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
-  r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
 }
@@ -210,7 +210,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proLogic.MergePostureCheckUpdate(&pc, &updatePc)
-	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
+	if err := proLogic.ValidatePostureCheck(r.Context(), &updatePc); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -338,14 +338,14 @@ func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		if err := proLogic.RunPostureChecks(); err != nil {
 			logger.Log(0, "posture check: manual run failed:", err.Error())
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context())))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action:      schema.Sync,
 		TriggeredBy: r.Header.Get("user"),
 		Source: models.Subject{
