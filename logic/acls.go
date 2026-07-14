@@ -2278,7 +2278,7 @@ func getSelectedEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IP
 	return
 }
 
-func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
+func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
 	case models.NodeID:
 		if a.RuleType == models.UserPolicy && isSrc {
@@ -2295,7 +2295,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		e := schema.Egress{
 			ID: t.Value,
 		}
-		err := e.Get(db.WithContext(context.TODO()))
+		err := e.Get(ctx)
 		if err != nil {
 			return errors.New("invalid egress")
 		}
@@ -2326,7 +2326,7 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 			if srcI.ID == models.NodeTagID && srcI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName) {
 				continue
 			}
-			if err = checkIfAclTagisValid(acl, srcI, true); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, srcI, true); err != nil {
 				return err
 			}
 		}
@@ -2338,7 +2338,7 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName) {
 				continue
 			}
-			if err = checkIfAclTagisValid(acl, dstI, false); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, dstI, false); err != nil {
 				return
 			}
 		}

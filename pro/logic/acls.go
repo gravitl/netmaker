@@ -519,7 +519,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		e := schema.Egress{
 			ID: t.Value,
 		}
-		err := e.Get(db.WithContext(context.TODO()))
+		err := e.Get(ctx)
 		if err != nil {
 			return errors.New("invalid egress")
 		}
@@ -537,7 +537,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 			return errors.New("user cannot be added to destination")
 		}
 		userCheck := &schema.User{Username: t.Value}
-		err = userCheck.Get(db.WithContext(context.TODO()))
+		err = userCheck.Get(ctx)
 		if err != nil {
 			return errors.New("invalid user " + t.Value)
 		}
