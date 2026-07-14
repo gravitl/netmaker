@@ -81,8 +81,29 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	existing := &schema.OrganizationSettings{ID: orgID}
 	err = existing.Get(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("failed to upsert org %s settings: error checking for existing settings: %v", orgID, err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	} else {
+		if req.AuthProvider != existing.Settings.Data().AuthProvider && req.AuthProvider == "" {
+			om := &schema.OrgMembership{
+				OrganizationID: orgID,
+			}
+			err = om.GetOwner(r.Context())
+			if err != nil {
+				err = fmt.Errorf("failed to upsert org %s settings: error getting org owner: %v", orgID, err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+
+			if om.AuthType == schema.OAuth {
+				err := fmt.Errorf("cannot remove Oauth integration because an OAuth user has the org-owner role")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+		}
 	}
 
 	if req.ClientSecret == logic.Mask() {
