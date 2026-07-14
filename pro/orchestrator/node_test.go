@@ -212,7 +212,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("With Tags", func() {
