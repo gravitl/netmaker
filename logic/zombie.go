@@ -107,7 +107,7 @@ func ManageZombies(ctx context.Context) {
 						continue
 					}
 					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
-						if err := DeleteNode(&node, true); err != nil {
+						if err := DeleteNode(ctx, &node, true); err != nil {
 							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
 						}
@@ -123,7 +123,7 @@ func ManageZombies(ctx context.Context) {
 				logger.Log(3, "checking host zombies")
 				for i := len(hostZombies) - 1; i >= 0; i-- {
 					host := &schema.Host{ID: hostZombies[i]}
-					err := host.Get(db.WithContext(context.TODO()))
+					err := host.Get(ctx)
 					if err != nil {
 						logger.Log(1, "error retrieving zombie host", err.Error())
 						logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
@@ -131,7 +131,7 @@ func ManageZombies(ctx context.Context) {
 						continue
 					}
 					if len(host.Nodes) == 0 {
-						if err := RemoveHost(host, true); err != nil {
+						if err := RemoveHost(ctx, host, true); err != nil {
 							logger.Log(0, "error deleting zombie host", host.ID.String(), err.Error())
 						}
 						hostZombies = append(hostZombies[:i], hostZombies[i+1:]...)
@@ -145,6 +145,7 @@ func ManageZombies(ctx context.Context) {
 
 // cleanupOrphanedNodes removes nodes whose host_id references a missing host record.
 func cleanupOrphanedNodes() {
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	nodes, err := GetAllNodes()
 	if err != nil {
 		logger.Log(1, "failed to retrieve nodes for orphan cleanup", err.Error())
@@ -156,13 +157,13 @@ func cleanupOrphanedNodes() {
 			continue
 		}
 		host := &schema.Host{ID: node.HostID}
-		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		if err := host.Get(ctx); err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				logger.Log(0, "error checking host for orphaned node", node.ID.String(), err.Error())
 				continue
 			}
 			logger.Log(0, "orphaned node found (no host record), deleting", node.ID.String())
-			if err := DeleteNode(&node, true); err != nil {
+			if err := DeleteNode(ctx, &node, true); err != nil {
 				logger.Log(0, "error deleting orphaned node", node.ID.String(), err.Error())
 				continue
 			}
@@ -171,12 +172,13 @@ func cleanupOrphanedNodes() {
 }
 
 func checkPendingRemovalNodes() {
+	ctx := DefaultScope(db.WithContext(context.TODO()))
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {
 		node := node
 		pendingDelete := node.PendingDelete || node.Action == schema.NODE_DELETE
 		if pendingDelete {
-			DeleteNode(&node, true)
+			DeleteNode(ctx, &node, true)
 			DeleteNodesCh <- &node
 			continue
 		}

@@ -49,7 +49,7 @@ func InsertTag(tag models.Tag) error {
 }
 
 // DeleteTag - delete tag, will also untag hosts
-func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
+func DeleteTag(ctx context.Context, tagID models.TagID, removeFromPolicy bool) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
@@ -60,20 +60,20 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 	network := &schema.Network{
 		Name: tag.Network.String(),
 	}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		return err
 	}
 
 	_ = (&schema.Node{}).UnassignTag(
-		db.WithContext(context.TODO()),
+		ctx,
 		tag.ID.String(),
 		dbtypes.WithFilter("network_id", network.ID),
 	)
 
 	if removeFromPolicy {
 		// remove tag used on acl policy
-		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
+		go RemoveDeviceTagFromAclPolicies(ctx, tagID, tag.Network)
 	}
 	go RemoveTagFromEgress(tag.Network, tagID)
 	extclients, _ := logic.GetNetworkExtClients(tag.Network.String())
@@ -83,7 +83,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 			logic.SaveExtClient(&extclient)
 		}
 	}
-	return (&schema.TagRecord{Key: tagID.String()}).Delete(logic.DefaultScope(db.WithContext(context.TODO())))
+	return (&schema.TagRecord{Key: tagID.String()}).Delete(ctx)
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
@@ -104,10 +104,10 @@ func ListTagsWithNodes(netID schema.NetworkID) ([]models.TagListResp, error) {
 	}
 	return resp, nil
 }
-func DeleteAllNetworkTags(networkID schema.NetworkID) {
+func DeleteAllNetworkTags(ctx context.Context, networkID schema.NetworkID) {
 	tags, _ := ListNetworkTags(networkID)
 	for _, tagI := range tags {
-		DeleteTag(tagI.ID, false)
+		DeleteTag(ctx, tagI.ID, false)
 	}
 }
 

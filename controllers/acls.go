@@ -183,8 +183,8 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		EgressNets    map[string]models.Node
 	}
 
-	allowed, ps := logic.IsNodeAllowedToCommunicate(node, peer, true)
-	isallowed := logic.IsPeerAllowed(node, peer, true)
+	allowed, ps := logic.IsNodeAllowedToCommunicate(r.Context(), node, peer, true)
+	isallowed := logic.IsPeerAllowed(r.Context(), node, peer, true)
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
@@ -193,7 +193,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	if peerIsStatic == "true" {
 		ingress, err := logic.GetNodeByID(peer.StaticNode.IngressGatewayID)
 		if err == nil {
-			re.IngressRules = logic.GetFwRulesOnIngressGateway(ingress)
+			re.IngressRules = logic.GetFwRulesOnIngressGateway(r.Context(), ingress)
 		}
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, re, "fetched all acls in the network ")
@@ -219,7 +219,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListAclsByNetwork(schema.NetworkID(netID))
+	acls, err := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -251,7 +251,7 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListEgressAcls(eID)
+	acls, err := logic.ListEgressAcls(r.Context(), eID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -311,12 +311,12 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.InsertAcl(acl)
+	err = logic.InsertAcl(r.Context(), acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	acl, err = logic.GetAcl(acl.ID)
+	acl, err = logic.GetAcl(r.Context(), acl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -364,7 +364,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl, err := logic.GetAcl(updateAcl.ID)
+	acl, err := logic.GetAcl(r.Context(), updateAcl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -420,7 +420,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, true)
-	updatedAcl, err := logic.GetAcl(acl.ID)
+	updatedAcl, err := logic.GetAcl(r.Context(), acl.ID)
 	if err != nil {
 		logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 		return
@@ -445,7 +445,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("acl id is required"), "badrequest"))
 		return
 	}
-	acl, err := logic.GetAcl(aclID)
+	acl, err := logic.GetAcl(r.Context(), aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -454,7 +454,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default policy"), "badrequest"))
 		return
 	}
-	err = logic.DeleteAcl(acl)
+	err = logic.DeleteAcl(r.Context(), acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(errors.New("cannot delete default policy"), "internal"))

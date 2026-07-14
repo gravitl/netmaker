@@ -589,7 +589,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				nodes = append(nodes, models.ConvertToStaticNode(extclient))
 			}
 
-			nodesWithStatus := logic.AddStatusToNodes(nodes, true)
+			nodesWithStatus := logic.AddStatusToNodes(r.Context(), nodes, true)
 			for _, node := range nodesWithStatus {
 				if node.IsStatic {
 					err = logic.SaveExtClient(&node.StaticNode)
@@ -726,7 +726,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		}
 		hostNodes = append(hostNodes, node)
 	}
-	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
+	if err = logic.RemoveHost(r.Context(), currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -866,7 +866,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				}
 				hostNodes = append(hostNodes, node)
 			}
-			if err = logic.RemoveHost(currHost, true); err != nil {
+			if err = logic.RemoveHost(r.Context(), currHost, true); err != nil {
 				slog.Debug("bulk host delete: failed to remove host", "id", idStr, "error", err)
 				continue
 			}
@@ -1136,7 +1136,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
-	if err := logic.DeleteNode(node, forceDelete); err != nil {
+	if err := logic.DeleteNode(r.Context(), node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,

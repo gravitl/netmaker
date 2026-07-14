@@ -233,11 +233,11 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
-	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go logic.DeleteAllNetworkTags(ctx, schema.NetworkID(network))
+	go logic.DeleteNetworkPolicies(ctx, schema.NetworkID(network))
 	go func(ctx context.Context) {
 		<-doneCh
 		mq.PublishPeerUpdate(ctx, true)
@@ -388,7 +388,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
 	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name))
-	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
+	logic.CreateDefaultAclNetworkPolicies(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(schema.NetworkID(network.Name))
 	logic.CreateFallbackNameserver(&network)
 	if featureFlags.EnableOverlappingEgressRanges {

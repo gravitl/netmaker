@@ -67,7 +67,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	defaultPolicy, err := logic.GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := logic.GetDefaultPolicy(r.Context(), schema.NetworkID(node.Network), models.DevicePolicy)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -75,7 +75,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 	returnautoRelayNodes := []models.Node{}
 	if !defaultPolicy.Enabled {
 		for _, autoRelayNode := range autoRelayNodes {
-			if logic.IsPeerAllowed(node, autoRelayNode, false) {
+			if logic.IsPeerAllowed(r.Context(), node, autoRelayNode, false) {
 				returnautoRelayNodes = append(returnautoRelayNodes, autoRelayNode)
 			}
 		}
@@ -251,7 +251,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
@@ -587,7 +587,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
+	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
@@ -665,7 +665,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if ok := logic.IsPeerAllowed(node, peerNode, true); !ok {
+	if ok := logic.IsPeerAllowed(r.Context(), node, peerNode, true); !ok {
 		logic.ReturnErrorResponse(
 			w,
 			r,

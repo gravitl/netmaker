@@ -618,7 +618,7 @@ func CreateUserGroup(ctx context.Context, g *schema.UserGroup) error {
 		return err
 	}
 	// create default network gateway policies
-	_ = EnsureDefaultUserGroupNetworkPolicies(nil, g)
+	_ = EnsureDefaultUserGroupNetworkPolicies(ctx, nil, g)
 	return nil
 }
 
@@ -693,7 +693,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		}
 	}
 
-	err = EnsureDefaultUserGroupNetworkPolicies(group, nil)
+	err = EnsureDefaultUserGroupNetworkPolicies(ctx, group, nil)
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 	return nil
 }
 
-func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
+func GetUserRAGNodes(ctx context.Context, user *schema.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	nodes, err := logic.GetAllNodes()
 	if err != nil {
@@ -743,7 +743,7 @@ func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
 		if !UserHasNetworkGroupAccess(user, node.Network) {
 			continue
 		}
-		if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
+		if ok, _ := IsUserAllowedToCommunicate(ctx, user.Username, node); ok {
 			gws[node.ID.String()] = node
 		}
 	}
@@ -893,7 +893,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -910,7 +910,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -961,7 +961,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 		}
 
 		if shouldDelete {
-			err = logic.DeleteExtClientAndCleanup(extclient)
+			err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
 			if err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -1009,7 +1009,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	for _, extclient := range extclients {
 		if extclient.OwnerID == currentUser.Username {
 			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(scopeCtxForNetwork(extclient.Network), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
@@ -1024,7 +1024,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	}
 }
 
-func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
+func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema.UserGroup) error {
 	oldNetworks, err := GetGroupNetworksMap(old)
 	if err != nil {
 		return err
@@ -1068,7 +1068,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	defaultAclName := GetDefaultGroupAclName(groupName)
 	for networkID, network := range networksAdded {
 		var exists bool
-		acls, err := logic.ListAclsByNetwork(networkID)
+		acls, err := logic.ListAclsByNetwork(ctx, networkID)
 		if err != nil {
 			continue
 		}
@@ -1081,7 +1081,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 		}
 
 		if !exists {
-			_ = logic.InsertAcl(models.Acl{
+			_ = logic.InsertAcl(ctx, models.Acl{
 				ID:          uuid.New().String(),
 				Name:        defaultAclName,
 				MetaData:    "This Policy allows user group to communicate with all gateways",
@@ -1110,7 +1110,6 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	}
 
 	// For each network removed, remove the group as the src from all the ACLs.
-	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, old.TenantID)
 	for networkID := range networksRemoved {
 		if new != nil {
 			RemoveUserGroupFromPostureChecks(new.ID, networkID)
@@ -1120,7 +1119,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 			}
 		}
 
-		acls, err := logic.ListAclsByNetwork(networkID)
+		acls, err := logic.ListAclsByNetwork(ctx, networkID)
 		if err != nil {
 			continue
 		}
@@ -1150,10 +1149,10 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 
 			if groupSrcExists {
 				if len(newAclSrc) == 0 {
-					_ = logic.DeleteAcl(acl)
+					_ = logic.DeleteAcl(ctx, acl)
 				} else {
 					acl.Src = newAclSrc
-					_ = logic.UpsertAcl(acl)
+					_ = logic.UpsertAcl(ctx, acl)
 				}
 			}
 		}
@@ -1202,12 +1201,12 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 	return networksMap, nil
 }
 
-func CreateDefaultUserPolicies(netID schema.NetworkID) {
+func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
@@ -1233,10 +1232,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin)) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin)) {
 		networkAdminGroupID := GetDefaultNetworkAdminGroupID(netID)
 
 		defaultUserAcl := models.Acl{
@@ -1268,10 +1267,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser)) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser)) {
 		networkUserGroupID := GetDefaultNetworkUserGroupID(netID)
 
 		defaultUserAcl := models.Acl{
@@ -1303,10 +1302,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	groups, _ := (&schema.UserGroup{}).ListAll(ctx)
 	for _, group := range groups {
 		if group.Default {
 			continue
@@ -1323,7 +1322,7 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 
 		if hasAccess {
 			var exists bool
-			acls, err := logic.ListAclsByNetwork(netID)
+			acls, err := logic.ListAclsByNetwork(ctx, netID)
 			if err != nil {
 				continue
 			}
@@ -1337,7 +1336,7 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			}
 
 			if !exists {
-				_ = logic.InsertAcl(models.Acl{
+				_ = logic.InsertAcl(ctx, models.Acl{
 					ID:          uuid.New().String(),
 					Name:        defaultAclName,
 					MetaData:    "This Policy allows user group to communicate with all gateways",

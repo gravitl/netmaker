@@ -54,11 +54,11 @@ var InitialiseRoles = userRolesInit
 var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(ctx context.Context, netID schema.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
+var CreateDefaultUserPolicies = func(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !IsAclExists(ctx, fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
@@ -84,7 +84,7 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		InsertAcl(defaultUserAcl)
+		InsertAcl(ctx, defaultUserAcl)
 	}
 }
 var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }

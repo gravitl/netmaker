@@ -950,7 +950,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		extclientStatus := !disableAccount
 		for _, extclient := range extclients {
 			if extclient.OwnerID == _user.Username && extclient.Enabled != extclientStatus {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, extclientStatus)
+				_, err = logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus)
 				if err != nil {
 					logger.Log(1, "failed to delete user extclient:", err.Error())
 				}
@@ -1720,7 +1720,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(user, extclient.Network) {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -1862,7 +1862,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", username, "error", err)
@@ -1990,7 +1990,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
 					continue
 				}
-				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
+				if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
 					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
 					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
@@ -2134,7 +2134,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 				extclientStatus := !req.Disable
 				for _, extclient := range ownerExtClients[user.Username] {
 					if extclient.Enabled != extclientStatus {
-						if _, err := logic.ToggleExtClientConnectivity(&extclient, extclientStatus); err != nil {
+						if _, err := logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus); err != nil {
 							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 						}
 					}

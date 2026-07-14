@@ -154,7 +154,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error) {
+func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
@@ -168,7 +168,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+	if err = DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
@@ -186,7 +186,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 }
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
-func DeleteGatewayExtClients(gatewayID string, networkName string) error {
+func DeleteGatewayExtClients(ctx context.Context, gatewayID string, networkName string) error {
 	currentExtClients, err := GetNetworkExtClients(networkName)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
@@ -196,7 +196,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	}
 	for _, extClient := range currentExtClients {
 		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(networkName, extClient.ClientID, false); err != nil {
+			if err = DeleteExtClient(ctx, networkName, extClient.ClientID, false); err != nil {
 				logger.Log(1, "failed to remove ext client", extClient.ClientID)
 				continue
 			}

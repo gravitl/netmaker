@@ -177,7 +177,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SetDNSOnWgConfig(&gwNode, &client)
-	client.AllowedIPs = logic.GetExtclientAllowedIPs(client)
+	client.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -229,7 +229,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(client.Network))
+	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(client.Network))
 	logic.GetNodeEgressInfo(&gwnode, eli, acls)
 	host := &schema.Host{
 		ID: gwnode.HostID,
@@ -333,7 +333,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		if network.AddressRange6 != "" {
 			newAllowedIPs += network.AddressRange6
 		}
-		if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
+		if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(r.Context(), &client); err == nil {
 			for _, egressGatewayRange := range egressGatewayRanges {
 				newAllowedIPs += "," + egressGatewayRange
 			}
@@ -752,7 +752,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if extclient.DeviceID != "" {
-		err = logic.CleanupOtherExtclients(&extclient)
+		err = logic.CleanupOtherExtclients(r.Context(), &extclient)
 		if err != nil {
 			slog.Error(
 				"failed to clean up older extclients",
@@ -789,7 +789,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	extclient.AllowedIPs = logic.GetExtclientAllowedIPs(extclient)
+	extclient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extclient)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclient)
@@ -900,7 +900,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
+	if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
 			"failed to delete ext client",
 			"user",
@@ -934,7 +934,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if newclient.DeviceID != "" && update.Enabled {
 		// user wants to enable this extclient, so delete all the other extclients.
-		err = logic.CleanupOtherExtclients(&newclient)
+		err = logic.CleanupOtherExtclients(r.Context(), &newclient)
 		if err != nil {
 			slog.Error(
 				"failed to clean up older extclients",
@@ -950,7 +950,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newclient.AllowedIPs = logic.GetExtclientAllowedIPs(newclient)
+	newclient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), newclient)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
@@ -1016,7 +1016,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteExtClientAndCleanup(extclient)
+	err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 	if err != nil {
 		slog.Error("deleteExtClient: ", "Error", err.Error())
 		err = errors.New("Could not delete extclient " + params["clientid"])
@@ -1074,7 +1074,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
 				continue
 			}
-			if err = logic.DeleteExtClientAndCleanup(extclient); err != nil {
+			if err = logic.DeleteExtClientAndCleanup(r.Context(), extclient); err != nil {
 				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
 				continue
 			}
@@ -1228,7 +1228,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			oldClient := client
-			if _, err := logic.ToggleExtClientConnectivity(&client, req.Enabled); err != nil {
+			if _, err := logic.ToggleExtClientConnectivity(r.Context(), &client, req.Enabled); err != nil {
 				slog.Error("bulk extclient status: failed to toggle", "client_id", clientID, "error", err)
 				continue
 			}

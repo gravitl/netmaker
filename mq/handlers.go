@@ -179,7 +179,7 @@ func DeleteAndCleanupHost(h *schema.Host) {
 		}
 	}
 
-	if err := logic.DisassociateAllNodesFromHost(h.ID.String()); err != nil {
+	if err := logic.DisassociateAllNodesFromHost(ctx, h.ID.String()); err != nil {
 		slog.Error("failed to delete all nodes of host", "id", h.ID, "error", err)
 		return
 	}

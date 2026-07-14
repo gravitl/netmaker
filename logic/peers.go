@@ -170,7 +170,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -192,7 +192,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 			if defaultDevicePolicy.Enabled {
 				allowedToComm = true
 			} else {
-				allowedToComm = IsPeerAllowed(node, peer, false)
+				allowedToComm = IsPeerAllowed(ctx, node, peer, false)
 			}
 			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
@@ -319,7 +319,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		}
 
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
-		acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
+		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		GetNodeEgressInfo(&node, eli, acls)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
@@ -330,9 +330,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
-		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
@@ -352,7 +352,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		} else {
 			networkAllowAll = false
 			hostPeerUpdate.FwUpdate.AllowAll = false
-			rules := GetAclRulesForNode(&node)
+			rules := GetAclRulesForNode(ctx, &node)
 			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
 				hostPeerUpdate.FwUpdate.AclRules = rules
 			} else {
@@ -435,13 +435,13 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
 			}
 			var allowedToComm bool
 			if defaultDevicePolicy.Enabled {
 				allowedToComm = true
 			} else {
-				allowedToComm = IsPeerAllowed(node, peer, false)
+				allowedToComm = IsPeerAllowed(ctx, node, peer, false)
 			}
 
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
@@ -592,10 +592,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,
 						Network6:      node.NetworkRange6,
-						StaticNodeIps: GetStaticNodeIps(node),
-						Rules:         GetFwRulesOnIngressGateway(node),
+						StaticNodeIps: GetStaticNodeIps(ctx, node),
+						Rules:         GetFwRulesOnIngressGateway(ctx, node),
 					}
-					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(node)
+					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
@@ -646,7 +646,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				if egressInfo.EgressFwRules == nil {
 					egressInfo.EgressFwRules = make(map[string]models.AclRule)
 				}
-				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
+				egressInfo.EgressFwRules = GetEgressRulesForNode(ctx, node)
 				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
 			} else if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
 				if r, ok := GetEgressDefaultAllowAllFwRule(node); ok {
@@ -911,7 +911,7 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 		allowedips = append(allowedips, egressIPs...)
 	}
 	if peer.IsRelay {
-		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
+		allowedips = append(allowedips, RelayedAllowedIPs(ctx, peer, node)...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, GetAutoRelayPeerIps(ctx, peer, node)...)

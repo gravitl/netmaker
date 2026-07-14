@@ -162,7 +162,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	node, removedClients, err := logic.DeleteIngressGateway(r.Context(), nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",

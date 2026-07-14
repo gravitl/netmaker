@@ -408,10 +408,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
-	acls := ListUserPolicies(network)
-	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
+func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
+	acls := ListUserPolicies(ctx, network)
+	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	seen := make(map[string]struct{})
 	for _, e := range eli {
@@ -441,10 +441,10 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 	return
 }
 
-func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(schema.NetworkID(node.Network))
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
+	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {

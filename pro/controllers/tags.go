@@ -245,7 +245,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// delete old Tag entry
-		proLogic.DeleteTag(updateTag.ID, false)
+		proLogic.DeleteTag(r.Context(), updateTag.ID, false)
 	}
 	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
 		tag.ColorCode = updateTag.ColorCode
@@ -259,7 +259,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		proLogic.UpdateTag(updateTag, newID)
 		if updateTag.NewName != "" {
-			proLogic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+			proLogic.UpdateDeviceTag(ctx, updateTag.ID, newID, tag.Network)
 		}
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
@@ -294,11 +294,11 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if active policy is using the tag
-	if proLogic.CheckIfTagAsActivePolicy(tag.ID, tag.Network) {
+	if proLogic.CheckIfTagAsActivePolicy(r.Context(), tag.ID, tag.Network) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tag is currently in use by an active policy"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteTag(models.TagID(tagID), true)
+	err = proLogic.DeleteTag(r.Context(), models.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -306,7 +306,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		proLogic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+		proLogic.RemoveDeviceTagFromAclPolicies(ctx, tag.ID, tag.Network)
 		proLogic.RemoveTagFromPostureChecks(tag.ID, tag.Network)
 		proLogic.RemoveTagFromNameservers(tag.ID, tag.Network)
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)

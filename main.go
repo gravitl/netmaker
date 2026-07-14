@@ -159,7 +159,7 @@ func initialize() { // Client Mode Prereq Check
 
 	//initialize cache
 	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
+	_ = logic.ListAcls(logic.DefaultScope(db.WithContext(context.TODO())))
 	_ = logic.CleanExpiredSSOStates()
 
 }
@@ -236,7 +236,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			if err := logic.DeleteNode(node, true); err != nil {
+			if err := logic.DeleteNode(ctx, node, true); err != nil {
 				slog.Error(
 					"error deleting expired node",
 					"nodeid",

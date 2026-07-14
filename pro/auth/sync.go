@@ -516,7 +516,7 @@ func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err == nil {
 					_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 				}

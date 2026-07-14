@@ -44,18 +44,18 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 	}
 
 	// Remove All Nodes
-	go func() {
+	go func(ctx context.Context) {
 		nodes, err := GetNetworkNodes(network)
 		if err == nil {
 			for _, node := range nodes {
 				node := node
 				host := &schema.Host{ID: node.HostID}
-				if err := host.Get(db.WithContext(context.TODO())); err != nil {
+				if err := host.Get(ctx); err != nil {
 					continue
 				}
 				if node.IsGw {
 					// delete ext clients belonging to gateway
-					DeleteGatewayExtClients(node.ID.String(), node.Network)
+					DeleteGatewayExtClients(ctx, node.ID.String(), node.Network)
 				}
 				DissasociateNodeFromHost(&node, host)
 			}
@@ -64,13 +64,13 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 		_network := &schema.Network{
 			Name: network,
 		}
-		err = _network.Delete(db.WithContext(context.TODO()))
+		err = _network.Delete(ctx)
 		if err != nil {
 			return
 		}
 		done <- struct{}{}
 		close(done)
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return nil
 }
@@ -514,7 +514,8 @@ func SortNetworks(unsortedNetworks []schema.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	ctx := DefaultScope(db.WithContext(context.TODO()))
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
@@ -546,15 +547,15 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 				continue
 			}
 			if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
-				if err := DeleteNode(&node, true); err != nil {
+				if err := DeleteNode(ctx, &node, true); err != nil {
 					continue
 				}
 				node.PendingDelete = true
 				node.Action = schema.NODE_DELETE
 				DeleteNodesCh <- &node
 				host := &schema.Host{ID: node.HostID}
-				if err := host.Get(db.WithContext(context.TODO())); err == nil && len(host.Nodes) == 0 {
-					(&schema.Host{ID: host.ID}).Delete(db.WithContext(context.TODO()))
+				if err := host.Get(ctx); err == nil && len(host.Nodes) == 0 {
+					(&schema.Host{ID: host.ID}).Delete(ctx)
 				}
 			}
 		}

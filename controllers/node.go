@@ -886,7 +886,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
 	purge := forceDelete || fromNode
-	if err := logic.DeleteNode(&node, purge); err != nil {
+	if err := logic.DeleteNode(r.Context(), &node, purge); err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -942,7 +942,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			if node.Network != network {
 				continue
 			}
-			if err := logic.DeleteNode(&node, true); err != nil {
+			if err := logic.DeleteNode(r.Context(), &node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}

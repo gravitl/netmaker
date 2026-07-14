@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -128,10 +127,10 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
-func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
+func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, relayedNodeID := range peer.RelayedNodes {
 		if node.ID.String() == relayedNodeID {
 			continue
@@ -164,14 +163,14 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
-	acls, _ := ListAclsByNetwork(schema.NetworkID(relay.Network))
-	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(relay.Network), models.DevicePolicy)
+	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(relay.Network))
+	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
+	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if !IsPeerAllowed(*relayed, peer, true) {
+		if !IsPeerAllowed(ctx, *relayed, peer, true) {
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)

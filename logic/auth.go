@@ -404,7 +404,7 @@ func DeleteUser(ctx context.Context, user *schema.User) error {
 		return err
 	}
 
-	RemoveUserFromAclPolicy(user.Username)
+	RemoveUserFromAclPolicy(ctx, user.Username)
 	return (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx)
 }
 

@@ -38,19 +38,19 @@ func Run() {
 		for _, netI := range networks {
 			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name))
 		}
+
+		createDefaultTagsAndPolicies(ctx)
+		cleanupDeletedUserGroupRefs(ctx)
+		updateNewAcls(ctx)
+		logic.CleanupGwsMigration(ctx)
 	}
 
 	updateEnrollmentKeys()
-	updateNewAcls()
-	createDefaultTagsAndPolicies()
 	syncUsers()
 	updateNodes()
-	updateNewAcls()
 	migrateEgressDomains()
-	logic.CleanupGwsMigration()
 	updateNetworks()
 	deleteOldExtclients()
-	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
 	migrateEgressNatMode()
 	cleanUpDeleteNetworksRefs()
@@ -279,9 +279,9 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 	return egressRanges, update
 }
 
-func updateNewAcls() {
+func updateNewAcls(ctx context.Context) {
 	if servercfg.IsPro {
-		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+		userGroups, _ := (&schema.UserGroup{}).ListAll(ctx)
 		for _, userGroup := range userGroups {
 			group := userGroup
 			if group.Default {
@@ -296,7 +296,7 @@ func updateNewAcls() {
 			for networkID, network := range networks {
 				createSeparateACL := false
 				enableSeparateACL := true
-				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
+				adminAcl, err := logic.GetAcl(ctx, fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range adminAcl.Src {
@@ -309,10 +309,10 @@ func updateNewAcls() {
 					}
 
 					adminAcl.Src = newAclSrc
-					_ = logic.UpsertAcl(adminAcl)
+					_ = logic.UpsertAcl(ctx, adminAcl)
 				}
 
-				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
+				userAcl, err := logic.GetAcl(ctx, fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range userAcl.Src {
@@ -334,7 +334,7 @@ func updateNewAcls() {
 					}
 
 					userAcl.Src = newAclSrc
-					_ = logic.UpsertAcl(userAcl)
+					_ = logic.UpsertAcl(ctx, userAcl)
 				}
 
 				expectedAcl := models.Acl{
@@ -363,7 +363,7 @@ func updateNewAcls() {
 					CreatedAt:        time.Now().UTC(),
 				}
 
-				acls, _ := logic.ListAclsByNetwork(networkID)
+				acls, _ := logic.ListAclsByNetwork(ctx, networkID)
 				for _, acl := range acls {
 					if acl.Name == expectedAcl.Name &&
 						acl.MetaData == expectedAcl.MetaData &&
@@ -376,7 +376,7 @@ func updateNewAcls() {
 						acl.AllowedDirection == expectedAcl.AllowedDirection {
 
 						acl.Default = true
-						_ = logic.UpsertAcl(acl)
+						_ = logic.UpsertAcl(ctx, acl)
 						createSeparateACL = false
 						break
 					}
@@ -384,11 +384,11 @@ func updateNewAcls() {
 
 				if createSeparateACL {
 					expectedAcl.Enabled = enableSeparateACL
-					_ = logic.InsertAcl(expectedAcl)
+					_ = logic.InsertAcl(ctx, expectedAcl)
 				}
 			}
 
-			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group)
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(ctx, nil, &group)
 		}
 	}
 }
@@ -432,18 +432,20 @@ func syncUsers() {
 
 }
 
-func createDefaultTagsAndPolicies() {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func createDefaultTagsAndPolicies(ctx context.Context) {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return
 	}
+
 	for _, network := range networks {
 		logic.CreateDefaultTags(schema.NetworkID(network.Name))
-		logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
+		logic.CreateDefaultAclNetworkPolicies(ctx, schema.NetworkID(network.Name))
 		// delete old remote access gws policy
-		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
+		_ = logic.DeleteAcl(ctx, models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
 	}
-	logic.MigrateAclPolicies()
+
+	logic.MigrateAclPolicies(ctx)
 	if !servercfg.IsPro {
 		nodes, _ := logic.GetAllNodes()
 		for _, node := range nodes {
@@ -544,17 +546,18 @@ func deleteOldExtclients() {
 		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
 	}
 
+	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 	for _, userExtclients := range userExtclientMap {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {
-				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+				_ = logic.DeleteExtClient(ctx, extclient.Network, extclient.Network, false)
 			}
 		}
 	}
 }
 
-func cleanupDeletedUserGroupRefs() {
-	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func cleanupDeletedUserGroupRefs(ctx context.Context) {
+	groups, err := (&schema.UserGroup{}).ListAll(ctx)
 	if err != nil {
 		// skip if we can't list all groups.
 		return
@@ -566,7 +569,7 @@ func cleanupDeletedUserGroupRefs() {
 	}
 
 	existingUsers := make(map[string]schema.User)
-	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, _ := (&schema.User{}).ListAll(ctx)
 	for _, user := range users {
 		existingUsers[user.Username] = user
 		var update bool
@@ -578,11 +581,11 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if update {
-			_ = user.Update(db.WithContext(context.TODO()))
+			_ = user.Update(ctx)
 		}
 	}
 
-	for _, acl := range logic.ListAcls() {
+	for _, acl := range logic.ListAcls(ctx) {
 		var newSrc []models.AclPolicyTag
 		for _, src := range acl.Src {
 			if src.ID == models.UserGroupAclID {
@@ -610,14 +613,14 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if len(newSrc) == 0 {
-			_ = logic.DeleteAcl(acl)
+			_ = logic.DeleteAcl(ctx, acl)
 		} else if len(acl.Src) != len(newSrc) {
 			acl.Src = newSrc
-			_ = logic.UpsertAcl(acl)
+			_ = logic.UpsertAcl(ctx, acl)
 		}
 	}
 
-	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(ctx)
 	for _, postureCheck := range postureChecks {
 		var update bool
 		for groupID := range postureCheck.UserGroups {
@@ -630,7 +633,7 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if update {
-			_ = postureCheck.Update(db.WithContext(context.TODO()))
+			_ = postureCheck.Update(ctx)
 		}
 	}
 }

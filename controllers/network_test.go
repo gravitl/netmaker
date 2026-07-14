@@ -100,18 +100,18 @@ func TestDeleteNetwork(t *testing.T) {
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("skynet", false, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistentNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("skynet", false, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	createNetv1("test")
 	t.Run("ForceDeleteNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("test", true, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "test", true, doneCh)
 		assert.Nil(t, err)
 	})
 }

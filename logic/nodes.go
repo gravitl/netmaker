@@ -164,9 +164,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // cleanupNodeReferences handles best-effort cleanup of all external references
 // to a node (relay, internet gw, failover, nameservers, ACL, egress, enrollment keys).
 // Errors are logged but do not prevent node deletion.
-func cleanupNodeReferences(node *models.Node) {
+func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+		if err := DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
@@ -217,22 +217,23 @@ func cleanupNodeReferences(node *models.Node) {
 	}
 	nameservers, _ := (&schema.Nameserver{
 		NetworkID: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
+	}).ListByNetwork(ctx)
 	for _, ns := range nameservers {
 		ns.Servers = FilterOutIPs(ns.Servers, filters)
 		if len(ns.Servers) > 0 {
-			_ = ns.Update(db.WithContext(context.TODO()))
+			_ = ns.Update(ctx)
 		} else {
-			_ = ns.Delete(db.WithContext(context.TODO()))
+			_ = ns.Delete(ctx)
 		}
 	}
 
-	go RemoveNodeFromAclPolicy(*node)
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go RemoveNodeFromAclPolicy(detachedCtx, *node)
 	go RemoveNodeFromEgress(*node)
 	go RemoveNodeFromEnrollmentKeys(node)
 }
 
-func DeleteNode(node *models.Node, purge bool) error {
+func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == schema.NODE_DELETE
 	node.Action = schema.NODE_DELETE
 
@@ -243,7 +244,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 			Action:        schema.NODE_DELETE,
 			PendingDelete: true,
 		}
-		err := node.MarkForDeletion(db.WithContext(context.TODO()))
+		err := node.MarkForDeletion(ctx)
 		if err != nil {
 			return err
 		}
@@ -253,11 +254,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	cleanupNodeReferences(node)
+	cleanupNodeReferences(ctx, node)
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+	if err := host.Get(ctx); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
@@ -339,16 +340,16 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 	return nodes
 }
 
-func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
+func AddStatusToNodes(ctx context.Context, nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
-			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+			GetNodeStatus(ctx, &node, aclDefaultPolicyStatusMap[node.Network])
 		} else {
 			getNodeCheckInStatus(&node, true)
 		}

@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -66,13 +67,13 @@ func storeExtClientInCache(key string, extclient models.ExtClient) {
 }
 
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
-func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
+func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(ctx)
 	staticNode := models.ConvertToStaticNode(*client)
-	userPolicies := ListUserPolicies(schema.NetworkID(client.Network))
-	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(client.Network), models.UserPolicy)
+	userPolicies := ListUserPolicies(ctx, schema.NetworkID(client.Network))
+	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(client.Network), models.UserPolicy)
 
 	for _, eI := range eli {
 		if !eI.Status {
@@ -100,7 +101,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		} else {
 			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
 				user := &schema.User{Username: staticNode.StaticNode.OwnerID}
-				err := user.Get(db.WithContext(context.TODO()))
+				err := user.Get(ctx)
 				if err != nil {
 					return []string{}, errors.New("user not found")
 				}
@@ -148,7 +149,7 @@ func UniqueIPNetStrList(ipnets []string) []string {
 }
 
 // DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(network string, clientid string, isUpdate bool) error {
+func DeleteExtClient(ctx context.Context, network string, clientid string, isUpdate bool) error {
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
 		return err
@@ -157,7 +158,7 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	if err != nil {
 		return err
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(db.WithContext(context.TODO())); err != nil {
+	if err = (&schema.ExtClientRecord{Key: key}).Delete(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
@@ -182,15 +183,16 @@ func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 			Origin:    schema.ClientApp,
 		})
 	}
-	go RemoveNodeFromAclPolicy(models.ConvertToStaticNode(extClient))
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
 	return nil
 }
 
 // DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
-func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
+func DeleteExtClientAndCleanup(ctx context.Context, extClient models.ExtClient) error {
 
 	//delete extClient record
-	err := DeleteExtClient(extClient.Network, extClient.ClientID, false)
+	err := DeleteExtClient(ctx, extClient.Network, extClient.ClientID, false)
 	if err != nil {
 		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
 		return err
@@ -404,7 +406,7 @@ func GetAllExtClientsWithStatus(status schema.NodeStatus) ([]models.ExtClient, e
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
-func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.ExtClient, error) {
+func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, enable bool) (models.ExtClient, error) {
 	update := models.CustomExtClient{
 		Enabled:              enable,
 		ClientID:             client.ClientID,
@@ -417,7 +419,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 
 	// update in DB
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(client.Network, client.ClientID, true); err != nil {
+	if err := DeleteExtClient(ctx, client.Network, client.ClientID, true); err != nil {
 		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
 		return newClient, err
 	}
@@ -444,18 +446,18 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	err = host.Get(db.WithContext(context.TODO()))
+	err = host.Get(ctx)
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(models.ConvertToStaticNode(extPeer), *peer, true); !ok {
+			if ok := IsPeerAllowed(ctx, models.ConvertToStaticNode(extPeer), *peer, true); !ok {
 				continue
 			}
 		} else {
-			if ok, _ := IsUserAllowedToCommunicate(extPeer.OwnerID, *peer); !ok {
+			if ok, _ := IsUserAllowedToCommunicate(ctx, extPeer.OwnerID, *peer); !ok {
 				continue
 			}
 		}
@@ -579,7 +581,7 @@ func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRo
 	return
 }
 
-func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
+func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, ranges6 []net.IPNet) {
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
 		return
@@ -588,7 +590,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -606,7 +608,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 	return
 }
 
-func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
+func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
 		return
@@ -615,7 +617,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
@@ -623,7 +625,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 	return
 }
 
-func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
+func GetExtclientAllowedIPs(ctx context.Context, client models.ExtClient) (allowedIPs []string) {
 	gwnode, err := GetNodeByID(client.IngressGatewayID)
 	if err != nil {
 		logger.Log(0,
@@ -632,7 +634,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	}
 
 	network := &schema.Network{Name: client.Network}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return
@@ -649,7 +651,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		if network.AddressRange6 != "" {
 			allowedIPs = append(allowedIPs, network.AddressRange6)
 		}
-		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
+		if egressGatewayRanges, err := GetEgressRangesOnNetwork(ctx, &client); err == nil {
 			allowedIPs = append(allowedIPs, egressGatewayRanges...)
 		}
 	}
@@ -675,7 +677,7 @@ func GetStaticNodesByNetwork(network schema.NetworkID, onlyWg bool) (staticNode 
 }
 
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
-func CleanupOtherExtclients(extclient *models.ExtClient) error {
+func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) error {
 	extclients, err := GetNetworkExtClients(extclient.Network)
 	if err != nil {
 		return err
@@ -683,7 +685,7 @@ func CleanupOtherExtclients(extclient *models.ExtClient) error {
 
 	for _, extI := range extclients {
 		if extI.ClientID != extclient.ClientID && extI.DeviceID == extclient.DeviceID && extI.OwnerID == extclient.OwnerID {
-			err = DeleteExtClient(extI.Network, extI.ClientID, false)
+			err = DeleteExtClient(ctx, extI.Network, extI.ClientID, false)
 			if err != nil {
 				return err
 			}

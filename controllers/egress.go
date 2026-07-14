@@ -526,7 +526,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	// delete related acl policies
-	acls := logic.ListAcls()
+	acls := logic.ListAcls(r.Context())
 	for _, acl := range acls {
 
 		for i := len(acl.Dst) - 1; i >= 0; i-- {
@@ -535,9 +535,9 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(acl.Dst) == 0 {
-			logic.DeleteAcl(acl)
+			logic.DeleteAcl(r.Context(), acl)
 		} else {
-			logic.UpsertAcl(acl)
+			logic.UpsertAcl(r.Context(), acl)
 		}
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))

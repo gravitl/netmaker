@@ -344,9 +344,9 @@ func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
 }
 
 // RemoveHost - removes a given host from server
-func RemoveHost(h *schema.Host, forceDelete bool) error {
+func RemoveHost(ctx context.Context, h *schema.Host, forceDelete bool) error {
 	hostNodes, err := (&schema.Node{}).ListAll(
-		db.WithContext(context.TODO()),
+		ctx,
 		dbtypes.WithFilter("host_id", h.ID.String()),
 	)
 	if err != nil {
@@ -357,13 +357,13 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 	}
 	for _, hostNode := range hostNodes {
 		node := ConvertSchemaNodeToModelsNode(&hostNode)
-		cleanupNodeReferences(node)
+		cleanupNodeReferences(ctx, node)
 		err = DeleteNodeByID(node)
 		if err != nil {
 			slog.Error("failed to delete node", "node", node.ID, "host", h.ID, "error", err)
 		}
 	}
-	return h.Delete(db.WithContext(context.TODO()))
+	return h.Delete(ctx)
 }
 
 // UpdateHostNetwork - adds/deletes host from a network
@@ -438,14 +438,14 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 // DisassociateAllNodesFromHost - deletes all nodes of the host.
 // Performs reference cleanup and directly deletes each node record,
 // bypassing host-association updates since the host itself is being removed.
-func DisassociateAllNodesFromHost(hostIDStr string) error {
+func DisassociateAllNodesFromHost(ctx context.Context, hostIDStr string) error {
 	hostID, err := uuid.Parse(hostIDStr)
 	if err != nil {
 		return err
 	}
 
 	host := &schema.Host{ID: hostID}
-	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+	if err := host.Get(ctx); err != nil {
 		return err
 	}
 	var failedNodes []string
@@ -455,7 +455,7 @@ func DisassociateAllNodesFromHost(hostIDStr string) error {
 			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
-		cleanupNodeReferences(&node)
+		cleanupNodeReferences(ctx, &node)
 		if err := DeleteNodeByID(&node); err != nil {
 			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)
 			failedNodes = append(failedNodes, nodeID)

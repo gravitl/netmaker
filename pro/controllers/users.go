@@ -653,10 +653,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 
-	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -1300,7 +1300,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -1343,7 +1343,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	var networks []schema.Network
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		network := &schema.Network{Name: node.Network}
 		err := network.Get(r.Context())
@@ -1381,7 +1381,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -1434,7 +1434,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1469,7 +1469,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 			userConf = extClient
-			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extClient)
 		}
 	}
 	if userConf.ClientID == "" {
@@ -1676,7 +1676,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 
 	userExtClients := make(map[string][]models.ExtClient)
 
@@ -1762,7 +1762,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				host.EndpointIPv6,
 				logic.GetPeerListenPort(host),
 			)
-			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), gwClient)
 		}
 
 		gw := models.UserRemoteGws{
@@ -1794,7 +1794,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
@@ -1852,7 +1852,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}

@@ -55,8 +55,8 @@ func TestCheckPorts(t *testing.T) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	RemoveHost(&h, true)
-	CreateHost(context.TODO(), &h)
+	RemoveHost(db.WithContext(context.TODO()), &h, true)
+	CreateHost(db.WithContext(context.TODO()), &h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
 		CheckHostPorts(&testHost)

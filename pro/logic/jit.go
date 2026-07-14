@@ -66,7 +66,7 @@ func EnableJITOnNetwork(ctx context.Context, networkID string, jitUserGroupIDs [
 		return fmt.Errorf("failed to save network: %w", err)
 	}
 
-	if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
+	if err := DisconnectExtClientsFromNetworkForScope(ctx, network); err != nil {
 		logger.Log(0, "failed to disconnect ext clients when enabling JIT:", err.Error())
 	}
 
@@ -137,7 +137,7 @@ func UpdateJITUserGroupsOnNetwork(ctx context.Context, networkID string, jitUser
 		return fmt.Errorf("failed to save network: %w", err)
 	}
 
-	if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
+	if err := DisconnectExtClientsFromNetworkForScope(ctx, network); err != nil {
 		logger.Log(0, "failed to disconnect ext clients when updating JIT user groups:", err.Error())
 	}
 	return nil
@@ -756,7 +756,7 @@ func pruneUserGroupFromNetworkJITScope(ctx context.Context, network *schema.Netw
 	}
 
 	if network.JITEnabled {
-		if err := DisconnectExtClientsFromNetworkForScope(network); err != nil {
+		if err := DisconnectExtClientsFromNetworkForScope(ctx, network); err != nil {
 			slog.Warn("failed to reconcile ext clients after pruning JIT user group",
 				"network", network.Name, "group_id", groupID, "error", err)
 		}
@@ -765,17 +765,17 @@ func pruneUserGroupFromNetworkJITScope(ctx context.Context, network *schema.Netw
 }
 
 // DisconnectExtClientsFromNetwork - disconnects ext clients whose owners are subject to JIT on this network.
-func DisconnectExtClientsFromNetwork(networkID string) error {
+func DisconnectExtClientsFromNetwork(ctx context.Context, networkID string) error {
 	network := &schema.Network{Name: networkID}
-	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+	if err := network.Get(ctx); err != nil {
 		return fmt.Errorf("failed to get network: %w", err)
 	}
-	return DisconnectExtClientsFromNetworkForScope(network)
+	return DisconnectExtClientsFromNetworkForScope(ctx, network)
 }
 
 // DisconnectExtClientsFromNetworkForScope deletes ext clients for users who require a JIT grant
 // under the given network configuration (full JIT vs group-scoped).
-func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
+func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(network.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get ext clients: %w", err)
@@ -783,7 +783,7 @@ func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 
 	for _, client := range extClients {
 		owner := &schema.User{Username: client.OwnerID}
-		ownerErr := owner.Get(db.WithContext(context.TODO()))
+		ownerErr := owner.Get(ctx)
 		var ownerPtr *schema.User
 		if ownerErr == nil {
 			ownerPtr = owner
@@ -795,7 +795,7 @@ func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 			continue
 		}
 
-		if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
+		if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
 			slog.Warn("failed to delete ext client when enabling JIT",
 				"client_id", client.ClientID, "network", network.Name, "error", err)
 			continue
@@ -878,7 +878,7 @@ func disconnectUserExtClients(networkID, userID string) error {
 
 			// Disable the ext client instead of deleting it
 			// This preserves the client record so desktop apps can see the expiry status
-			disabledClient, err := logic.ToggleExtClientConnectivity(&client, false)
+			disabledClient, err := logic.ToggleExtClientConnectivity(ctx, &client, false)
 			if err != nil {
 				slog.Warn("failed to disable ext client", "client_id", client.ClientID, "error", err)
 				continue
