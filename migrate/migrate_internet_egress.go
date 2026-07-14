@@ -17,9 +17,9 @@ import (
 // migrateInternetEgress:
 // 1) backfills Type=internet on egresses with Range="*"
 // 2) creates internet-type egress resources for legacy IsInternetGateway nodes
-// 3) sets SelectedInternetEgressID on former IGW client nodes (routing node resolved at peer-update time)
-// 4) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
-// 5) clears legacy inet_node_client / relayed_igw_clients client rosters on IGW routing nodes
+// 3) clears obsolete central relayed_igw_clients rosters on IGW routing nodes
+// 4) sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
+// 5) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -35,11 +35,18 @@ func migrateInternetEgress() {
 
 	// Map routing-node-id -> egress ID for internet egresses created/found in this run.
 	routingToEgress := make(map[string]string)
+	// Clients to migrate per routing node (from InetNodeReq / InternetGwID), for selection after roster clear.
+	legacyClientsByRoutingNode := make(map[string][]string)
 
 	for _, node := range nodes {
 		if !node.IsInternetGateway {
 			continue
 		}
+		clientIDs := collectLegacyIGWClients(node, nodes)
+		if len(clientIDs) > 0 {
+			legacyClientsByRoutingNode[node.ID.String()] = clientIDs
+		}
+
 		if existing, err := logic.FindInternetEgressByRoutingNode(ctx, node.Network, node.ID.String()); err == nil && existing != nil {
 			routingToEgress[node.ID.String()] = existing.ID
 			continue
@@ -76,18 +83,52 @@ func migrateInternetEgress() {
 		logger.Log(1, fmt.Sprintf("migration: created internet egress %s for node %s", e.ID, node.ID.String()))
 
 		// Preserve access for previously assigned clients with an allow ACL when default policies are off.
-		clientIDs := collectLegacyIGWClients(node, nodes)
 		if len(clientIDs) > 0 {
 			createMigrationInternetEgressACL(node.Network, e, clientIDs)
 		}
 	}
 
-	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress)
-	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
+	// Clear obsolete central rosters before re-applying per-client RelayedBy/IsIGWClient via AssignGateway.
 	clearLegacyInetNodeClientLists(ctx, nodes)
+	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress, legacyClientsByRoutingNode)
+	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
 }
 
-func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
+func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {
+	nodesByID := make(map[string]models.Node, len(nodes))
+	for _, node := range nodes {
+		nodesByID[node.ID.String()] = node
+	}
+
+	migrateOne := func(n models.Node, egressID string) {
+		// Skip only when a different exit is already selected; re-apply when the same
+		// egress is selected so RelayedBy/IsIGWClient pairing is restored.
+		if n.SelectedInternetEgressID != "" && n.SelectedInternetEgressID != egressID {
+			return
+		}
+		if err := logic.SetNodeSelectedInternetEgress(&n, egressID); err != nil {
+			logger.Log(0, "migration: failed to set selected internet egress on node", n.ID.String(), err.Error())
+		}
+	}
+
+	for routingNodeID, clientIDs := range legacyClientsByRoutingNode {
+		network := ""
+		if gw, ok := nodesByID[routingNodeID]; ok {
+			network = gw.Network
+		}
+		egressID := internetEgressIDForRoutingNode(ctx, routingNodeID, network, routingToEgress)
+		if egressID == "" {
+			continue
+		}
+		for _, clientID := range clientIDs {
+			n, ok := nodesByID[clientID]
+			if !ok {
+				continue
+			}
+			migrateOne(n, egressID)
+		}
+	}
+
 	for _, node := range nodes {
 		if node.SelectedInternetEgressID != "" {
 			continue
@@ -96,10 +137,7 @@ func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Nod
 		if egressID == "" {
 			continue
 		}
-		n := node
-		if err := logic.SetNodeSelectedInternetEgress(&n, egressID); err != nil {
-			logger.Log(0, "migration: failed to set selected internet egress on node", n.ID.String(), err.Error())
-		}
+		migrateOne(node, egressID)
 	}
 }
 
@@ -137,7 +175,8 @@ func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []model
 }
 
 // clearLegacyInetNodeClientLists clears RelayedIGWClients (source of InetNodeReq.InetNodeClientIDs)
-// on legacy internet gateway routing nodes after selections have been migrated.
+// on legacy internet gateway routing nodes. Per-client RelayedBy/IsIGWClient are preserved and
+// re-applied afterwards via SetNodeSelectedInternetEgress → AssignGateway.
 func clearLegacyInetNodeClientLists(ctx context.Context, nodes []models.Node) {
 	for _, node := range nodes {
 		if !node.IsInternetGateway {

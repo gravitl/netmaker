@@ -381,18 +381,30 @@ func FindInternetEgressByRoutingNode(ctx context.Context, network, nodeID string
 }
 
 // SetNodeSelectedInternetEgress sets or clears the node's selected internet egress.
-// Routing node for peer updates is derived via InternetExitRoutingNodeID; InternetGwID is not dual-written.
+// Selecting an exit also relays the node through that egress routing node (IsIGWClient),
+// so NAT'd full-tunnel clients remain reachable via the gateway. InternetGwID is not dual-written.
 func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if node == nil {
 		return errors.New("node is required")
 	}
-	if egressID == "" {
-		node.SelectedInternetEgressID = ""
-		node.InternetGwID = ""
-		return UpsertNode(node)
+	ctx := db.WithContext(context.TODO())
+	schemaNode := &schema.Node{ID: node.ID.String()}
+	if err := schemaNode.Get(ctx); err != nil {
+		return err
 	}
+	if schemaNode.NetworkID == "" && node.Network != "" {
+		nw := &schema.Network{Name: node.Network}
+		if err := nw.Get(ctx); err == nil {
+			schemaNode.NetworkID = nw.ID
+		}
+	}
+
+	if egressID == "" {
+		return clearNodeSelectedInternetEgress(ctx, node, schemaNode)
+	}
+
 	e := &schema.Egress{ID: egressID}
-	if err := e.Get(db.WithContext(context.TODO())); err != nil {
+	if err := e.Get(ctx); err != nil {
 		return err
 	}
 	if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(*e) {
@@ -405,18 +417,82 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if routingNodeID == node.ID.String() {
 		return errors.New("routing node cannot select itself as exit node")
 	}
-	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
+	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || schemaNode.IsGateway {
 		return errors.New("gateway nodes cannot be assigned an exit node")
 	}
-	if node.AutoAssignGateway {
-		node.AutoAssignGateway = false
+	if schemaNode.RelayedByNodeID != nil && *schemaNode.RelayedByNodeID != "" && *schemaNode.RelayedByNodeID != routingNodeID {
+		return errors.New("node is relayed by a different gateway")
 	}
-	if node.IsRelayed {
-		return errors.New("relayed nodes cannot be assigned an exit node")
+
+	if schemaNode.AutoAssignGateway {
+		schemaNode.AutoAssignGateway = false
+		if err := schemaNode.ResetAutoAssignGateway(ctx); err != nil {
+			return err
+		}
 	}
-	node.SelectedInternetEgressID = egressID
-	node.InternetGwID = ""
-	return UpsertNode(node)
+	if len(schemaNode.AutoRelayedPeers.Data()) > 0 {
+		_ = schemaNode.ResetAutoRelayedPeers(ctx)
+	}
+
+	schemaNode.IsIGWClient = true
+	schemaNode.RelayedByNodeID = &routingNodeID
+	schemaNode.SelectedInternetEgressID = egressID
+	if err := schemaNode.AssignGateway(ctx); err != nil {
+		return err
+	}
+	if err := db.FromContext(ctx).Model(&schema.Node{}).Where("id = ?", schemaNode.ID).
+		Update("selected_internet_egress_id", egressID).Error; err != nil {
+		return err
+	}
+
+	updated := ConvertSchemaNodeToModelsNode(schemaNode)
+	if updated == nil || updated.ID.String() == "" {
+		return errors.New("failed to reload node after exit node selection")
+	}
+	updated.SelectedInternetEgressID = egressID
+	updated.InternetGwID = ""
+	*node = *updated
+	return nil
+}
+
+func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, schemaNode *schema.Node) error {
+	prevRoutingNodeID := ""
+	if schemaNode.SelectedInternetEgressID != "" {
+		e := &schema.Egress{ID: schemaNode.SelectedInternetEgressID}
+		if err := e.Get(ctx); err == nil {
+			prevRoutingNodeID = FirstInternetEgressRoutingNodeID(*e)
+		}
+	}
+	if prevRoutingNodeID == "" && schemaNode.IsIGWClient && schemaNode.RelayedByNodeID != nil {
+		prevRoutingNodeID = *schemaNode.RelayedByNodeID
+	}
+
+	if err := db.FromContext(ctx).Model(&schema.Node{}).Where("id = ?", schemaNode.ID).
+		Update("selected_internet_egress_id", "").Error; err != nil {
+		return err
+	}
+	schemaNode.SelectedInternetEgressID = ""
+
+	shouldUnassign := schemaNode.IsIGWClient &&
+		schemaNode.RelayedByNodeID != nil &&
+		*schemaNode.RelayedByNodeID != "" &&
+		(prevRoutingNodeID == "" || *schemaNode.RelayedByNodeID == prevRoutingNodeID)
+	if shouldUnassign {
+		schemaNode.RelayedByNodeID = nil
+		schemaNode.IsIGWClient = false
+		if err := schemaNode.UnassignGateway(ctx); err != nil {
+			return err
+		}
+	}
+
+	updated := ConvertSchemaNodeToModelsNode(schemaNode)
+	if updated == nil || updated.ID.String() == "" {
+		return errors.New("failed to reload node after clearing exit node")
+	}
+	updated.SelectedInternetEgressID = ""
+	updated.InternetGwID = ""
+	*node = *updated
+	return nil
 }
 
 // ClearNodesSelectedInternetEgress clears SelectedInternetEgressID for all nodes that selected this egress.
@@ -430,11 +506,8 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 	}
 	for _, node := range nodes {
 		if node.SelectedInternetEgressID == egressID {
-			node.SelectedInternetEgressID = ""
-			if node.InternetGwID != "" {
-				node.InternetGwID = ""
-			}
-			_ = UpsertNode(&node)
+			n := node
+			_ = SetNodeSelectedInternetEgress(&n, "")
 		}
 	}
 }

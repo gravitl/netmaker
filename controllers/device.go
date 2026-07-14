@@ -286,7 +286,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 			"egress is not an active internet exit node in this network",
 			"routing node cannot select itself as exit node",
 			"gateway nodes cannot be assigned an exit node",
-			"relayed nodes cannot be assigned an exit node",
+			"node is relayed by a different gateway",
 			"internet egress has no routing node":
 			errType = logic.BadReq
 		}

@@ -126,7 +126,7 @@ func exitNodeErrType(err error) logic.ApiErrorType {
 		"routing node cannot select itself as exit node",
 		"internet egress has no routing node",
 		"gateway nodes cannot be assigned an exit node",
-		"relayed nodes cannot be assigned an exit node":
+		"node is relayed by a different gateway":
 		return logic.BadReq
 	default:
 		return logic.Internal

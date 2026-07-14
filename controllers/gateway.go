@@ -337,14 +337,22 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if node.SelectedInternetEgressID != "" {
-		err = errors.New("node is using an exit node egress; gateway assignment is not allowed")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-
 	if !servercfg.IsPro {
 		autoAssignGw = false
+	}
+
+	if node.SelectedInternetEgressID != "" {
+		if autoAssignGw {
+			err = errors.New("node is using an exit node egress; auto-assign gateway is not allowed")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		exitRoutingNodeID := logic.InternetExitRoutingNodeID(logic.ConvertSchemaNodeToModelsNode(node))
+		if exitRoutingNodeID == "" || gatewayID != exitRoutingNodeID {
+			err = errors.New("node is using an exit node egress; cannot assign a different gateway")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
 	}
 
 	if autoAssignGw {
