@@ -1,15 +1,17 @@
 package logic
 
 import (
+	"context"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
 // GetNetworkIngresses - gets the gateways of a network
-func GetNetworkIngresses(network string) ([]models.Node, error) {
+func GetNetworkIngresses(ctx context.Context, network string) ([]models.Node, error) {
 	var ingresses []models.Node
-	netNodes, err := logic.GetNetworkNodes(network)
+	netNodes, err := logic.GetNetworkNodes(ctx, network)
 	if err != nil {
 		return []models.Node{}, err
 	}
@@ -21,9 +23,9 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
-func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
+func GetTagMapWithNodes(ctx context.Context) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := logic.GetAllNodes()
+	nodes, _ := logic.GetAllNodes(ctx)
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue
@@ -42,9 +44,9 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 	return
 }
 
-func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
+func AddTagMapWithStaticNodesWithUsers(ctx context.Context, netID schema.NetworkID,
 	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := logic.GetNetworkExtClients(netID.String())
+	extclients, err := logic.GetNetworkExtClients(ctx, netID.String())
 	if err != nil {
 		return tagNodesMap
 	}
@@ -72,13 +74,13 @@ func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 	return tagNodesMap
 }
 
-func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+func GetNodeIDsWithTag(ctx context.Context, tagID models.TagID) (ids []string) {
 
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return
 	}
-	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	nodes, _ := logic.GetNetworkNodes(ctx, tag.Network.String())
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue
@@ -96,13 +98,13 @@ func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
 	return
 }
 
-func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+func GetNodesWithTag(ctx context.Context, tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return nMap
 	}
-	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	nodes, _ := logic.GetNetworkNodes(ctx, tag.Network.String())
 	for _, nodeI := range nodes {
 		if nodeI.Tags == nil {
 			continue
@@ -117,11 +119,11 @@ func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 			nodeI.Mutex.Unlock()
 		}
 	}
-	return AddStaticNodesWithTag(tag, nMap)
+	return AddStaticNodesWithTag(ctx, tag, nMap)
 }
 
-func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
-	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+func AddStaticNodesWithTag(ctx context.Context, tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+	extclients, err := logic.GetNetworkExtClients(ctx, tag.Network.String())
 	if err != nil {
 		return nMap
 	}
@@ -142,13 +144,13 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 	return nMap
 }
 
-func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+func GetStaticNodeWithTag(ctx context.Context, tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return nMap
 	}
-	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+	extclients, err := logic.GetNetworkExtClients(ctx, tag.Network.String())
 	if err != nil {
 		return nMap
 	}

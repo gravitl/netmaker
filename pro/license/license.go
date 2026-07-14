@@ -31,8 +31,10 @@ import (
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       "license-validation-hook",
-		Hook:     logic.WrapHook(ValidateLicense),
+		ID: "license-validation-hook",
+		Hook: logic.WrapHook(func() error {
+			return ValidateLicense()
+		}),
 		Interval: time.Hour,
 	}
 	// logic.HookManagerCh <- models.HookDetails{
@@ -79,7 +81,7 @@ func ValidateLicense() (err error) {
 
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
-		Usage:        logic.GetCurrentServerUsage(),
+		Usage:        logic.GetCurrentServerUsage(db.WithContext(context.TODO())),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
@@ -133,7 +135,18 @@ func ValidateLicense() (err error) {
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
 	go mq.PublishExporterFeatureFlags()
-	go mq.PublishPeerUpdate(false)
+	go func() {
+		ctx := db.WithContext(context.Background())
+		tenants, err := (&schema.Tenant{}).ListAll(ctx)
+		if err != nil {
+			slog.Error("failed to list tenants for peer update", "error", err)
+			return
+		}
+		for _, tenant := range tenants {
+			ctx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+			mq.PublishPeerUpdate(ctx, false)
+		}
+	}()
 
 	slog.Info("License validation succeeded!")
 	return nil
@@ -185,16 +198,6 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 		privateKey.Value = base64encode(privateKeyBytes)
 		publicKey.Value = base64encode(publicKeyBytes)
 		ctx := db.WithContext(context.TODO())
-		if privateKey.TenantID == "" || publicKey.TenantID == "" {
-			ctx := logic.DefaultScope(ctx)
-			if privateKey.TenantID == "" {
-				privateKey.TenantID = scope.ID(ctx)
-			}
-			if publicKey.TenantID == "" {
-				publicKey.TenantID = scope.ID(ctx)
-			}
-		}
-
 		err = privateKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -323,11 +326,7 @@ func cacheResponse(response []byte) error {
 		Key:   schema.InternalKey_LicenseValidationCachedResponse,
 		Value: base64encode(response),
 	}
-	ctx := db.WithContext(context.TODO())
-	if cachedResponse.TenantID == "" {
-		cachedResponse.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
-	return cachedResponse.Set(ctx)
+	return cachedResponse.Set(db.WithContext(context.TODO()))
 }
 
 func getCachedResponse() ([]byte, error) {

@@ -247,6 +247,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		invite := &schema.UserInvite{
+			TenantID:       scope.ID(r.Context()),
 			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
 			PlatformRoleID: inviteReq.PlatformRoleID,
@@ -271,14 +272,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
-		if invite.TenantID == "" {
-			invite.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Create,
 			Source: models.Subject{
 				ID:   callerUserName,
@@ -349,7 +347,7 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -386,7 +384,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -553,7 +551,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateUserGroup(&userGroupReq.Group)
+
+	err = proLogic.CreateUserGroup(r.Context(), &userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -571,7 +570,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
 		_ = logic.UpsertUser(*user)
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -586,7 +585,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -632,7 +632,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -653,10 +653,11 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 
-	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	go mq.PublishPeerUpdate(replacePeers)
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -815,7 +816,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	oldUser := *user
 	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
 	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -871,7 +872,7 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	oldUser := *user
 	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
 	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -926,7 +927,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1034,7 +1035,7 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1088,7 +1089,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1108,7 +1109,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
@@ -1139,7 +1141,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1158,7 +1160,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -1290,26 +1293,27 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	go func(user *schema.User, remoteGwID string) {
-		extclients, err := logic.GetAllExtClients()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, user *schema.User, remoteGwID string) {
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
-	}(user, remoteGwID)
+	}(ctx, user, remoteGwID)
 
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -1341,7 +1345,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	var networks []schema.Network
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		network := &schema.Network{Name: node.Network}
 		err := network.Get(r.Context())
@@ -1379,7 +1383,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -1432,7 +1436,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1456,7 +1460,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get node network", "error", err)
 	}
 	var userConf models.ExtClient
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1467,7 +1471,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 			userConf = extClient
-			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extClient)
 		}
 	}
 	if userConf.ClientID == "" {
@@ -1513,7 +1517,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userConf.ClientID == "" {
-			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
+			userConf.ClientID, err = logic.GenerateNodeName(r.Context(), userConf.Network)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -1578,7 +1582,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userConf.LastModified = time.Now().Unix()
-		err = logic.SaveExtClient(&userConf)
+		err = logic.SaveExtClient(r.Context(), &userConf)
 		// Reservations are freed regardless of outcome: on success the DB is authoritative,
 		// on failure the IPs must be available for reallocation.
 		if reservedIPv4 != "" {
@@ -1669,12 +1673,12 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		req.RemoteAccessClientID = remoteAccessClientID
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 
 	userExtClients := make(map[string][]models.ExtClient)
 
@@ -1760,7 +1764,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				host.EndpointIPv6,
 				logic.GetPeerListenPort(host),
 			)
-			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), gwClient)
 		}
 
 		gw := models.UserRemoteGws{
@@ -1792,7 +1796,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
@@ -1850,7 +1854,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
@@ -1919,7 +1923,7 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		slog.Error(
 			"failed to get users on ingress gateway",
@@ -2055,7 +2059,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2110,7 +2114,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2148,7 +2152,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2174,6 +2178,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsMasterPod() {
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
@@ -2181,7 +2186,7 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
 		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
@@ -2219,7 +2224,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 	case "azure-ad":
 		secret := req.ClientSecret
 		if secret == logic.Mask() {
-			secret = logic.GetServerSettings().ClientSecret
+			secret = logic.GetServerSettings(r.Context()).ClientSecret
 		}
 		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
@@ -2280,7 +2285,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(r.Context())
 	settings.AuthProvider = ""
 	settings.OIDCIssuer = ""
 	settings.ClientID = ""
@@ -2295,7 +2300,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	settings.GroupFilters = nil
 	settings.IDPSyncInterval = ""
 
-	err = logic.UpsertServerSettings(settings)
+	err = logic.UpsertServerSettings(r.Context(), settings)
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -2309,6 +2314,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
@@ -2316,7 +2322,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}(scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context())))
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
 		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}

@@ -249,7 +249,7 @@ func regenerateEnrollmentKeyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -293,7 +293,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -408,7 +408,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -472,7 +472,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -588,14 +588,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
-		_ = logic.CheckHostPorts(&newHost)
+		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
 				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 				return
 			}
 		}
-		if err = logic.CreateHost(&newHost); err != nil {
+		if err = logic.CreateHost(r.Context(), &newHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -606,18 +606,18 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		endpointChanged, _ := logic.UpdateHostFromClient(&newHost, currHost)
+		endpointChanged, _ := logic.UpdateHostFromClient(r.Context(), &newHost, currHost)
 		if endpointChanged {
-			logic.CheckHostPorts(currHost)
+			logic.CheckHostPorts(r.Context(), currHost)
 		}
-		if err = logic.UpsertHost(currHost); err != nil {
+		if err = currHost.Upsert(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		host = currHost
 	}
 
-	server := logic.GetServerInfo()
+	server := logic.GetServerInfo(r.Context())
 	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,

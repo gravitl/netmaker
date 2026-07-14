@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,6 +121,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	e := schema.Egress{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		Network:     req.Network,
 		Description: req.Description,
@@ -147,7 +149,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			e.Nodes[nodeID] = metric
 		}
 	}
-	if err := logic.ValidateEgressReq(&e); err != nil {
+	if err := logic.ValidateEgressReq(r.Context(), &e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -157,10 +159,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
-	if e.TenantID == "" {
-		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-	}
-	err = e.Create(db.WithContext(r.Context()))
+	err = e.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -169,7 +168,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -223,7 +222,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		go mq.PublishPeerUpdate(false)
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go mq.PublishPeerUpdate(ctx, false)
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
@@ -398,7 +398,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e.UpdatedAt = time.Now().UTC()
-	if err := logic.ValidateEgressReq(&e); err != nil {
+	if err := logic.ValidateEgressReq(r.Context(), &e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -441,7 +441,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	event.Diff.New = e
-	logic.LogEvent(event)
+	logic.LogEvent(r.Context(), event)
 	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
@@ -472,7 +472,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
 
@@ -504,7 +505,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -525,7 +526,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	// delete related acl policies
-	acls := logic.ListAcls()
+	acls := logic.ListAcls(r.Context())
 	for _, acl := range acls {
 
 		for i := len(acl.Dst) - 1; i >= 0; i-- {
@@ -534,11 +535,12 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(acl.Dst) == 0 {
-			logic.DeleteAcl(acl)
+			logic.DeleteAcl(r.Context(), acl)
 		} else {
-			logic.UpsertAcl(acl)
+			logic.UpsertAcl(r.Context(), acl)
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted egress resource")
 }

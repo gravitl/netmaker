@@ -83,7 +83,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNameserverReq(&req); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -118,6 +118,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
@@ -131,10 +132,6 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-
-	if ns.TenantID == "" {
-		ns.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-	}
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -144,7 +141,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -160,8 +157,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		NetworkID: schema.NetworkID(ns.NetworkID),
 		Origin:    schema.Dashboard,
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "created nameserver")
 }
 
@@ -217,7 +214,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.ValidateNameserverReq(&updateNs); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -318,8 +315,9 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Status = updateNs.Status
 		ns.UpdateStatus(db.WithContext(context.TODO()))
 	}
-	logic.LogEvent(event)
-	go mq.PublishPeerUpdate(false)
+	logic.LogEvent(r.Context(), event)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "updated nameserver")
 }
 
@@ -356,7 +354,7 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -376,8 +374,8 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted nameserver resource")
 }
 
@@ -396,7 +394,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetNodeDNS(network)
+	dns, err := logic.GetNodeDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get node DNS entries for network [%s]: %v", network, err))
@@ -416,7 +414,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	dns, err := logic.GetAllDNS()
+	dns, err := logic.GetAllDNS(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -442,7 +440,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetCustomDNS(network)
+	dns, err := logic.GetCustomDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(
 			0,
@@ -475,7 +473,7 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetDNS(network)
+	dns, err := logic.GetDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get all DNS entries for network [%s]: %v", network, err.Error()))
@@ -507,14 +505,14 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&entry)
 	entry.Network = params["network"]
 
-	err := logic.ValidateDNSCreate(entry)
+	err := logic.ValidateDNSCreate(r.Context(), entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("invalid DNS entry %+v: %v", entry, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	entry, err = logic.CreateDNS(entry)
+	entry, err = logic.CreateDNS(r.Context(), entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("Failed to create DNS entry %+v: %v", entry, err))
@@ -522,8 +520,8 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if logic.GetManageDNS() {
-		mq.SendDNSSyncByNetwork(netID)
+	if logic.GetManageDNS(r.Context()) {
+		mq.SendDNSSyncByNetwork(r.Context(), netID)
 	}
 
 	logger.Log(1, "new DNS record added:", entry.Name)
@@ -551,8 +549,8 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	domain := params["domain"]
 	netID := params["network"]
 	entrytext := domain + "." + netID
-	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings().DefaultDomain)
-	err := logic.DeleteDNS(domain, netID)
+	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings(r.Context()).DefaultDomain)
+	err := logic.DeleteDNS(r.Context(), domain, netID)
 
 	if err != nil {
 		logger.Log(0, "failed to delete dns entry: ", entrytext)
@@ -561,27 +559,12 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "deleted dns entry: ", entrytext)
 
-	if logic.GetManageDNS() {
-		mq.SendDNSSyncByNetwork(netID)
+	if logic.GetManageDNS(r.Context()) {
+		mq.SendDNSSyncByNetwork(r.Context(), netID)
 	}
 
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 
-}
-
-// GetDNSEntry - gets a DNS entry
-func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
-	var entry models.DNSEntry
-	key, err := logic.GetRecordKey(domain, network)
-	if err != nil {
-		return entry, err
-	}
-	r := &schema.DNSRecord{Key: key}
-	if err = r.Get(db.WithContext(context.TODO())); err != nil {
-		return entry, err
-	}
-	entry = r.Value.Data()
-	return entry, nil
 }
 
 // @Summary     Push DNS entries to nameserver
@@ -622,7 +605,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 func syncDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-	if !logic.GetManageDNS() {
+	if !logic.GetManageDNS(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -632,7 +615,7 @@ func syncDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	var params = mux.Vars(r)
 	netID := params["network"]
-	k, err := logic.GetDNS(netID)
+	k, err := logic.GetDNS(r.Context(), netID)
 	if err == nil && len(k) > 0 {
 		err = mq.PushSyncDNS(k)
 	}

@@ -29,14 +29,14 @@ type AzureADProvider struct {
 }
 
 // NewAzureADProvider constructs an AzureADProvider for the given OAuth2 credentials.
-func NewAzureADProvider(redirectURL, clientID, clientSecret string) *AzureADProvider {
+func NewAzureADProvider(ctx context.Context, redirectURL, clientID, clientSecret string) *AzureADProvider {
 	return &AzureADProvider{
 		cfg: &oauth2.Config{
 			RedirectURL:  redirectURL,
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"User.Read", "email", "profile", "openid"},
-			Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant()),
+			Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant(ctx)),
 		},
 	}
 }
@@ -115,16 +115,14 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 				logic.DeletePendingUser(content.UserPrincipalName)
 				logic.DeletePendingUser(content.Email)
 			} else {
-				if !isEmailAllowed(content.Email) {
+				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				pendingUser := &schema.PendingUser{
+					TenantID:                   scope.ID(r.Context()),
 					Username:                   content.UserPrincipalName,
 					ExternalIdentityProviderID: string(content.ID),
-				}
-				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err := pendingUser.Create(r.Context())
 				if err != nil {
@@ -182,7 +180,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,

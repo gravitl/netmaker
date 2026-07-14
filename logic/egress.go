@@ -22,7 +22,7 @@ var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) err
 	return nil
 }
 
-func validateEgressReq(e *schema.Egress) error {
+func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
@@ -39,7 +39,7 @@ func validateEgressReq(e *schema.Egress) error {
 		e.VirtualRange = ""
 	}
 	network := &schema.Network{Name: e.Network}
-	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+	if err := network.Get(ctx); err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
 	if e.Range != "" {
@@ -408,10 +408,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
-	acls := ListUserPolicies(network)
-	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
+func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
+	acls := ListUserPolicies(ctx, network)
+	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	seen := make(map[string]struct{})
 	for _, e := range eli {
@@ -441,10 +441,10 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 	return
 }
 
-func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(schema.NetworkID(node.Network))
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
+	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
@@ -638,11 +638,11 @@ func RemoveNodeFromEnrollmentKeys(node *models.Node) {
 	_ = _node.ClearGatewayIDFromEnrollmentKeys(db.WithContext(context.TODO()))
 }
 
-func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
+func GetEgressRanges(ctx context.Context, netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)
-	networkNodes, err := GetNetworkNodes(netID.String())
+	networkNodes, err := GetNetworkNodes(ctx, netID.String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -659,7 +659,7 @@ func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]st
 			}
 		}
 	}
-	extclients, _ := GetNetworkExtClients(netID.String())
+	extclients, _ := GetNetworkExtClients(ctx, netID.String())
 	for _, extclient := range extclients {
 		if len(extclient.ExtraAllowedIPs) > 0 {
 			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs

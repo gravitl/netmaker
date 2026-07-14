@@ -8,6 +8,8 @@ import (
 	core "github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
+	"github.com/stretchr/testify/require"
 
 	testutils "github.com/gravitl/netmaker/test/utils"
 	"github.com/stretchr/testify/suite"
@@ -15,6 +17,7 @@ import (
 )
 
 type ProNodeOrchestratorTestSuite struct {
+	ctx context.Context
 	suite.Suite
 	db string
 }
@@ -40,7 +43,15 @@ func (c *ProNodeOrchestratorTestSuite) SetupSuite() {
 	}
 
 	core.InitializeRepository(extensions.NewProFactory())
-	testutils.CreateDefaultOrgAndTenant(c.T())
+	testutils.CreateDefaultOrgAndTenant(c.T(), db.WithContext(c.T().Context()))
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(c.T().Context()))
+	require.NoError(c.T(), err)
+
+	c.T().Context()
+
+	c.ctx = scope.WithContext(db.WithContext(c.T().Context()), scope.TenantScope, defaultTenant.ID)
 }
 
 func (c *ProNodeOrchestratorTestSuite) TearDownSuite() {
@@ -53,13 +64,13 @@ func (c *ProNodeOrchestratorTestSuite) TearDownSuite() {
 }
 
 func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
-	host := testutils.CreateHost(c.T(), "host-0")
-	networkIPv4 := testutils.CreateIPv4Network(c.T(), "network-ipv4")
-	networkIPv6 := testutils.CreateIPv6Network(c.T(), "network-ipv6")
-	networkIPv10 := testutils.CreateIPv10Network(c.T(), "network-ipv10")
+	host := testutils.CreateHost(c.T(), c.ctx, "host-0")
+	networkIPv4 := testutils.CreateIPv4Network(c.T(), c.ctx, "network-ipv4")
+	networkIPv6 := testutils.CreateIPv6Network(c.T(), c.ctx, "network-ipv6")
+	networkIPv10 := testutils.CreateIPv10Network(c.T(), c.ctx, "network-ipv10")
 
 	c.Run("IPv4 Network", func() {
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv4)
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv4)
 		c.Require().NoError(err)
 		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
@@ -72,11 +83,11 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().Empty(node.Address6)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("IPv6 Network", func() {
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv6)
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv6)
 		c.Require().NoError(err)
 		c.Require().Equal(host.ID.String(), node.HostID)
 		c.Require().NotNil(node.Host)
@@ -89,11 +100,11 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("IPv10 Network", func() {
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, networkIPv10)
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv10)
 		c.Require().NoError(err)
 		c.Require().Equal(node.HostID, host.ID.String())
 		c.Require().NotNil(node.Host)
@@ -108,28 +119,28 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
-	testutils.DeleteNetwork(c.T(), networkIPv4)
-	testutils.DeleteNetwork(c.T(), networkIPv6)
-	testutils.DeleteNetwork(c.T(), networkIPv10)
-	testutils.DeleteHost(c.T(), host)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv4)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv6)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv10)
+	testutils.DeleteHost(c.T(), c.ctx, host)
 }
 
 func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
-	network := testutils.CreateIPv10Network(c.T(), "network-0")
+	network := testutils.CreateIPv10Network(c.T(), c.ctx, "network-0")
 
 	c.Run("Linux", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "linux"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().NoError(err)
 		c.Require().True(node.IsGateway)
 		c.Require().False(node.IsInternetGateway)
@@ -138,58 +149,58 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		c.Require().Empty(node.RelayedIGWClients)
 		c.Require().Equal(datatypes.NewJSONType(map[string]string{}), node.AutoRelayedPeers)
 
-		testutils.DeleteNode(c.T(), node)
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteNode(c.T(), c.ctx, node)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
 	c.Run("Windows", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "windows"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		_, err = core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		_, err = core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
 	c.Run("Darwin", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "darwin"
 		host.IsDefault = true
 
-		err := host.Upsert(db.WithContext(context.TODO()))
+		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		_, err = core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network)
+		_, err = core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
-	testutils.DeleteNetwork(c.T(), network)
+	testutils.DeleteNetwork(c.T(), c.ctx, network)
 }
 
 func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
-	host := testutils.CreateHost(c.T(), "host-0")
-	network := testutils.CreateIPv10Network(c.T(), "network-0")
-	tag := testutils.CreateTag(c.T(), "tag-0", network.Name)
+	host := testutils.CreateHost(c.T(), c.ctx, "host-0")
+	network := testutils.CreateIPv10Network(c.T(), c.ctx, "network-0")
+	tag := testutils.CreateTag(c.T(), c.ctx, "tag-0", network.Name)
 
 	c.Run("With AutoAssignGateway", func() {
 		key := &schema.EnrollmentKey{
 			AutoAssignGateway: true,
 		}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().True(node.AutoAssignGateway)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("Without AutoAssignGateway", func() {
@@ -197,7 +208,7 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			AutoAssignGateway: false,
 		}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
@@ -209,11 +220,11 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			Tags: []string{tag.ID.String()},
 		}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().Contains(node.Tags, key.Tags[0])
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("Without Tags", func() {
@@ -221,50 +232,50 @@ func (c *ProNodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 			Tags: []string{},
 		}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().Empty(node.Tags)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("With Gateway", func() {
-		gatewayHost := testutils.CreateHost(c.T(), "gateway-0")
+		gatewayHost := testutils.CreateHost(c.T(), c.ctx, "gateway-0")
 
 		gatewayHost.OS = "linux"
 		gatewayHost.IsDefault = true
 
-		gateway, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), gatewayHost, network)
+		gateway, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, gatewayHost, network)
 		c.Require().NoError(err)
 
 		key := &schema.EnrollmentKey{
 			GatewayID: &gateway.ID,
 		}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 		c.Require().NotNil(node.RelayedByNodeID)
 		c.Require().Equal(gateway.ID, *node.RelayedByNodeID)
 
-		err = gateway.Get(db.WithContext(context.TODO()))
+		err = gateway.Get(c.ctx)
 		c.Require().NoError(err)
 		c.Require().Contains(gateway.RelayedClients, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
-		testutils.DeleteNode(c.T(), gateway)
-		testutils.DeleteHost(c.T(), gatewayHost)
+		testutils.DeleteNode(c.T(), c.ctx, node)
+		testutils.DeleteNode(c.T(), c.ctx, gateway)
+		testutils.DeleteHost(c.T(), c.ctx, gatewayHost)
 	})
 
 	c.Run("Without Gateway", func() {
 		key := &schema.EnrollmentKey{}
 
-		node, err := core.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, network, core.UseKey(key))
+		node, err := core.GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, core.UseKey(key))
 		c.Require().NoError(err)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
-	testutils.DeleteTag(c.T(), tag)
-	testutils.DeleteNetwork(c.T(), network)
-	testutils.DeleteHost(c.T(), host)
+	testutils.DeleteTag(c.T(), c.ctx, tag)
+	testutils.DeleteNetwork(c.T(), c.ctx, network)
+	testutils.DeleteHost(c.T(), c.ctx, host)
 }

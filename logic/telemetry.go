@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/models"
@@ -18,7 +17,9 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var LogEvent = func(a *models.Event) {}
+//var LogEvent = func(a *models.Event) {}
+
+func LogEvent(ctx context.Context, a *models.Event) {}
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
@@ -28,7 +29,8 @@ const posthog_endpoint = "https://app.posthog.com"
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
-	if Telemetry() == "off" {
+	// todo(nm-341): set telemetry on org settings.
+	if Telemetry(DefaultScope(db.WithContext(context.TODO()))) == "off" {
 		return nil
 	}
 
@@ -87,7 +89,7 @@ func FetchTelemetryData() telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(db.WithContext(context.TODO()))
+	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(DefaultScope(db.WithContext(context.TODO())))
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
@@ -134,11 +136,7 @@ func setTelemetryLastReportedAt() error {
 		Key:   schema.InternalKey_TelemetryLastReportedAt,
 		Value: time.Now().UTC().Format(time.RFC3339),
 	}
-	ctx := db.WithContext(context.TODO())
-	if lastHookRunAt.TenantID == "" {
-		lastHookRunAt.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return lastHookRunAt.Set(ctx)
+	return lastHookRunAt.Set(db.WithContext(context.TODO()))
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions

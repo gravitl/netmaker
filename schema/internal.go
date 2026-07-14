@@ -20,9 +20,8 @@ const (
 )
 
 type Internal struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:'';index"`
-	Value    string `gorm:"not null"`
+	Key   string `gorm:"primaryKey"`
+	Value string `gorm:"not null"`
 }
 
 func (i *Internal) TableName() string {

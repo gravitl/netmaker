@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
@@ -26,10 +26,9 @@ var (
 	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
-var ServerSettingsDBKey = "server_cfg" // kept for migration reference only
 var SettingsMutex = &sync.RWMutex{}
 
-var serverSettingsCache atomic.Value
+var serverSettingsCache sync.Map
 
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
@@ -37,42 +36,38 @@ var defaultUserSettings = models.UserSettings{
 	ReducedMotion: false,
 }
 
-func GetServerSettings() (s models.ServerSettings) {
-	if cached, ok := serverSettingsCache.Load().(*models.ServerSettings); ok && cached != nil {
-		return *cached
+func GetServerSettings(ctx context.Context) (s models.ServerSettings) {
+	tenantID := scope.ID(ctx)
+	if cached, ok := serverSettingsCache.Load(tenantID); ok {
+		if cachedSettings, ok := cached.(*models.ServerSettings); ok && cachedSettings != nil {
+			return *cachedSettings
+		}
 	}
-	s, err := getServerSettingsFromDB()
+	s, err := getServerSettingsFromDB(ctx)
 	if err == nil {
-		serverSettingsCache.Store(&s)
+		serverSettingsCache.Store(tenantID, &s)
 	}
 	return
 }
 
-// InvalidateServerSettingsCache clears the in-memory settings cache so
-// the next GetServerSettings call re-reads from the database.
-func InvalidateServerSettingsCache() {
-	serverSettingsCache.Store((*models.ServerSettings)(nil))
+// InvalidateServerSettingsCache clears the in-memory settings cache for the tenant
+// scoped by ctx so the next GetServerSettings call re-reads from the database.
+func InvalidateServerSettingsCache(ctx context.Context) {
+	serverSettingsCache.Delete(scope.ID(ctx))
 }
 
-func getServerSettingsFromDB() (models.ServerSettings, error) {
-	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
-	if err != nil {
-		return models.ServerSettings{}, err
-	}
-
-	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID}
-	err = settingsRecord.Get(db.WithContext(context.TODO()))
+func getServerSettingsFromDB(ctx context.Context) (models.ServerSettings, error) {
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	err := settingsRecord.Get(ctx)
 	if err != nil {
 		return models.ServerSettings{}, err
 	}
 	return settingsRecord.Value.Data(), nil
 }
 
-func UpsertServerSettings(s models.ServerSettings) error {
+func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	// get curr settings from DB directly (not cache) for accurate comparison
-	currSettings, _ := getServerSettingsFromDB()
+	currSettings, _ := getServerSettingsFromDB(ctx)
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -104,21 +99,20 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	// TODO: replace with tenant ID from context once multi-tenancy is fully wired
 	defaultTenant := &schema.Tenant{}
 	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
-	settingsRecord := &schema.TenantSettingsRecord{Key: defaultTenant.ID, Value: datatypes.NewJSONType(s)}
-	err = settingsRecord.Upsert(db.WithContext(context.TODO()))
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx), Value: datatypes.NewJSONType(s)}
+	err = settingsRecord.Upsert(ctx)
 	if err != nil {
 		return err
 	}
-	serverSettingsCache.Store(&s)
+	serverSettingsCache.Store(scope.ID(ctx), &s)
 	if PublishServerSync != nil {
-		PublishServerSync(DefaultScope(context.TODO()), SyncTypeSettings)
+		PublishServerSync(ctx, SyncTypeSettings)
 	}
 	return nil
 }
@@ -205,9 +199,9 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 }
 
 // GetServerConfig - gets the server config into memory from file or env
-func GetServerConfig() config.ServerConfig {
+func GetServerConfig(ctx context.Context) config.ServerConfig {
 	var cfg config.ServerConfig
-	settings := GetServerSettings()
+	settings := GetServerSettings(ctx)
 	cfg.APIConnString = servercfg.GetAPIConnString()
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIHost = servercfg.GetAPIHost()
@@ -271,9 +265,9 @@ func GetServerConfig() config.ServerConfig {
 }
 
 // GetServerInfo - gets the server config into memory from file or env
-func GetServerInfo() models.ServerConfig {
+func GetServerInfo(ctx context.Context) models.ServerConfig {
 	var cfg models.ServerConfig
-	serverSettings := GetServerSettings()
+	serverSettings := GetServerSettings(ctx)
 	cfg.Server = servercfg.GetServer()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		cfg.MQUserName = "HOST_ID"
@@ -309,8 +303,8 @@ func GetServerInfo() models.ServerConfig {
 }
 
 // GetDefaultDomain - get the default domain
-func GetDefaultDomain() string {
-	return GetServerSettings().DefaultDomain
+func GetDefaultDomain(ctx context.Context) string {
+	return GetServerSettings(ctx).DefaultDomain
 }
 
 func ValidateDomain(domain string) bool {
@@ -322,50 +316,50 @@ func ValidateDomain(domain string) bool {
 }
 
 // Telemetry - checks if telemetry data should be sent
-func Telemetry() string {
-	return GetServerSettings().Telemetry
+func Telemetry(ctx context.Context) string {
+	return GetServerSettings(ctx).Telemetry
 }
 
 // GetJwtValidityDuration - returns the JWT validity duration in minutes
-func GetJwtValidityDuration() time.Duration {
-	return time.Duration(GetServerSettings().JwtValidityDuration) * time.Minute
+func GetJwtValidityDuration(ctx context.Context) time.Duration {
+	return time.Duration(GetServerSettings(ctx).JwtValidityDuration) * time.Minute
 }
 
 // GetJwtValidityDurationForClients returns the JWT validity duration in
 // minutes for clients.
-func GetJwtValidityDurationForClients() time.Duration {
-	return time.Duration(GetServerSettings().JwtValidityDurationClients) * time.Minute
+func GetJwtValidityDurationForClients(ctx context.Context) time.Duration {
+	return time.Duration(GetServerSettings(ctx).JwtValidityDurationClients) * time.Minute
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
-func GetRacRestrictToSingleNetwork() bool {
-	return GetServerSettings().RacRestrictToSingleNetwork
+func GetRacRestrictToSingleNetwork(ctx context.Context) bool {
+	return GetServerSettings(ctx).RacRestrictToSingleNetwork
 }
 
-func GetSmtpHost() string {
-	return GetServerSettings().SmtpHost
+func GetSmtpHost(ctx context.Context) string {
+	return GetServerSettings(ctx).SmtpHost
 }
 
-func GetSmtpPort() int {
-	return GetServerSettings().SmtpPort
+func GetSmtpPort(ctx context.Context) int {
+	return GetServerSettings(ctx).SmtpPort
 }
 
-func GetSenderEmail() string {
-	return GetServerSettings().EmailSenderAddr
+func GetSenderEmail(ctx context.Context) string {
+	return GetServerSettings(ctx).EmailSenderAddr
 }
 
-func GetSenderUser() string {
-	return GetServerSettings().EmailSenderUser
+func GetSenderUser(ctx context.Context) string {
+	return GetServerSettings(ctx).EmailSenderUser
 }
 
-func GetEmaiSenderPassword() string {
-	return GetServerSettings().EmailSenderPassword
+func GetEmaiSenderPassword(ctx context.Context) string {
+	return GetServerSettings(ctx).EmailSenderPassword
 }
 
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
 // default is enabled
-func AutoUpdateEnabled() bool {
-	return GetServerSettings().NetclientAutoUpdate
+func AutoUpdateEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).NetclientAutoUpdate
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
@@ -394,19 +388,19 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 }
 
 // GetAzureTenant - retrieve the azure tenant ID from env variable or config file
-func GetAzureTenant() string {
-	return GetServerSettings().AzureTenant
+func GetAzureTenant(ctx context.Context) string {
+	return GetServerSettings(ctx).AzureTenant
 }
 
 // IsSyncEnabled returns whether auth provider sync is enabled.
-func IsSyncEnabled() bool {
-	return GetServerSettings().SyncEnabled
+func IsSyncEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).SyncEnabled
 }
 
 // GetIDPSyncInterval returns the interval at which the netmaker should sync
 // data from IDP.
-func GetIDPSyncInterval() time.Duration {
-	syncInterval, err := time.ParseDuration(GetServerSettings().IDPSyncInterval)
+func GetIDPSyncInterval(ctx context.Context) time.Duration {
+	syncInterval, err := time.ParseDuration(GetServerSettings(ctx).IDPSyncInterval)
 	if err != nil {
 		return 24 * time.Hour
 	}
@@ -419,14 +413,14 @@ func GetIDPSyncInterval() time.Duration {
 }
 
 // GetMetricsPort - get metrics port
-func GetMetricsPort() int {
-	return GetServerSettings().MetricsPort
+func GetMetricsPort(ctx context.Context) int {
+	return GetServerSettings(ctx).MetricsPort
 }
 
 // GetMetricIntervalInMinutes returns the publish-to-exporter interval from server
 // settings (dashboard), with fallback to servercfg / env when unset or invalid.
-func GetMetricIntervalInMinutes() time.Duration {
-	mi := strings.TrimSpace(GetServerSettings().MetricInterval)
+func GetMetricIntervalInMinutes(ctx context.Context) time.Duration {
+	mi := strings.TrimSpace(GetServerSettings(ctx).MetricInterval)
 	if mi != "" {
 		if interval, err := strconv.Atoi(mi); err == nil && interval > 0 {
 			return time.Duration(interval) * time.Minute
@@ -437,23 +431,27 @@ func GetMetricIntervalInMinutes() time.Duration {
 
 var (
 	metricExportIntervalMu   sync.Mutex
-	metricExportIntervalSubs []chan struct{}
+	metricExportIntervalSubs = map[string][]chan struct{}{}
 )
 
-// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval setting changes.
-func SubscribeMetricExportIntervalReset() <-chan struct{} {
+// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval
+// setting changes for ctx's tenant.
+func SubscribeMetricExportIntervalReset(ctx context.Context) <-chan struct{} {
+	tenantID := scope.ID(ctx)
 	ch := make(chan struct{}, 1)
 	metricExportIntervalMu.Lock()
-	metricExportIntervalSubs = append(metricExportIntervalSubs, ch)
+	metricExportIntervalSubs[tenantID] = append(metricExportIntervalSubs[tenantID], ch)
 	metricExportIntervalMu.Unlock()
 	return ch
 }
 
-// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
-func NotifyMetricExportIntervalChanged() {
+// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker
+// for ctx's tenant.
+func NotifyMetricExportIntervalChanged(ctx context.Context) {
+	tenantID := scope.ID(ctx)
 	metricExportIntervalMu.Lock()
 	defer metricExportIntervalMu.Unlock()
-	for _, ch := range metricExportIntervalSubs {
+	for _, ch := range metricExportIntervalSubs[tenantID] {
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -462,50 +460,50 @@ func NotifyMetricExportIntervalChanged() {
 }
 
 // GetMetricInterval - get the publish metric interval
-func GetMetricInterval() string {
-	return GetServerSettings().MetricInterval
+func GetMetricInterval(ctx context.Context) string {
+	return GetServerSettings(ctx).MetricInterval
 }
 
 // GetManageDNS - if manage DNS enabled or not
-func GetManageDNS() bool {
-	return GetServerSettings().ManageDNS
+func GetManageDNS(ctx context.Context) bool {
+	return GetServerSettings(ctx).ManageDNS
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
-func IsBasicAuthEnabled() bool {
+func IsBasicAuthEnabled(ctx context.Context) bool {
 	if servercfg.DeployedByOperator() {
 		return true
 	}
 
-	return GetServerSettings().BasicAuth
+	return GetServerSettings(ctx).BasicAuth
 }
 
 // IsMFAEnforced returns whether MFA has been enforced.
-func IsMFAEnforced() bool {
-	return GetServerSettings().MFAEnforced
+func IsMFAEnforced(ctx context.Context) bool {
+	return GetServerSettings(ctx).MFAEnforced
 }
 
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled
-func IsEndpointDetectionEnabled() bool {
-	return GetServerSettings().EndpointDetection
+func IsEndpointDetectionEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).EndpointDetection
 }
 
 // IsStunEnabled - returns true if STUN set to on
-func IsStunEnabled() bool {
-	return GetServerSettings().Stun
+func IsStunEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).Stun
 }
 
-func GetStunServers() string {
-	return GetServerSettings().StunServers
+func GetStunServers(ctx context.Context) string {
+	return GetServerSettings(ctx).StunServers
 }
 
 // GetAllowedEmailDomains - gets the allowed email domains for oauth signup
-func GetAllowedEmailDomains() string {
-	return GetServerSettings().AllowedEmailDomains
+func GetAllowedEmailDomains(ctx context.Context) string {
+	return GetServerSettings(ctx).AllowedEmailDomains
 }
 
-func GetVerbosity() int32 {
-	return GetServerSettings().Verbosity
+func GetVerbosity(ctx context.Context) int32 {
+	return GetServerSettings(ctx).Verbosity
 }
 
 func Mask() string {

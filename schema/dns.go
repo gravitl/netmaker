@@ -6,6 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -49,17 +50,28 @@ func (ns *Nameserver) Create(ctx context.Context) error {
 }
 
 func (ns *Nameserver) ListAll(ctx context.Context) (dnsli []Nameserver, err error) {
-	err = db.FromContext(ctx).Model(&Nameserver{}).Find(&dnsli).Error
+	query := db.FromContext(ctx).Model(&Nameserver{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err = query.Find(&dnsli).Error
 	return
 }
 
 func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, err error) {
-	err = db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Find(&dnsli).Error
+	query := db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err = query.Find(&dnsli).Error
 	return
 }
 
 func (ns *Nameserver) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Nameserver{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

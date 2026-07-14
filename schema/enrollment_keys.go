@@ -8,6 +8,7 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 )
 
 type EnrollmentKeyType int
@@ -70,6 +71,9 @@ func (e *EnrollmentKey) DeleteByValue(ctx context.Context) error {
 func (e *EnrollmentKey) ListAll(ctx context.Context, options ...dbtypes.Option) ([]EnrollmentKey, error) {
 	var keys []EnrollmentKey
 	query := db.FromContext(ctx).Model(&EnrollmentKey{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -80,6 +84,9 @@ func (e *EnrollmentKey) ListAll(ctx context.Context, options ...dbtypes.Option) 
 func (e *EnrollmentKey) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&EnrollmentKey{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

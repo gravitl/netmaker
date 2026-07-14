@@ -16,13 +16,14 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
 var postureCheckMutex = &sync.Mutex{}
 
-func AddPostureCheckHook() {
-	settings := logic.GetServerSettings()
+func AddPostureCheckHook(ctx context.Context) {
+	settings := logic.GetServerSettings(ctx)
 	interval := time.Hour
 	i, err := strconv.Atoi(settings.PostureCheckInterval)
 	if err == nil {
@@ -67,17 +68,18 @@ func RunPostureChecks() error {
 	if err != nil {
 		return err
 	}
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 	for _, netI := range nets {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, netI.TenantID)
 		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
 		if len(networkNodes) == 0 {
 			continue
 		}
-		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
+		networkNodes = logic.AddStaticNodestoList(ctx, networkNodes)
+		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(ctx)
 		if err != nil {
 			continue
 		}
@@ -95,7 +97,7 @@ func RunPostureChecks() error {
 				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
 			}
 			if nodeI.IsUserNode {
-				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
+				extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
 					if noChecks && len(extclient.PostureChecksViolations) == 0 {
 						continue
@@ -103,7 +105,7 @@ func RunPostureChecks() error {
 					extclient.PostureChecksViolations = postureChecksViolations
 					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
 					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(&extclient)
+					logic.SaveExtClient(ctx, &extclient)
 				}
 			} else {
 				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
@@ -130,7 +132,7 @@ func RunPostureChecks() error {
 						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
 					})
 				}
-				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+				_ = _node.UpsertViolations(ctx, _violations)
 			}
 
 		}
@@ -538,11 +540,11 @@ func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
 	}
 }
 
-func ValidatePostureCheck(pc *schema.PostureCheck) error {
+func ValidatePostureCheck(ctx context.Context, pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(ctx)
 	if err != nil {
 		return errors.New("invalid network")
 	}
@@ -587,7 +589,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if tagID == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}

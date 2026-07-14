@@ -10,7 +10,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func ValidateNameserverReq(ns *schema.Nameserver) error {
+func ValidateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -25,7 +25,7 @@ func ValidateNameserverReq(ns *schema.Nameserver) error {
 			if tagI == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagI))
+			_, err := GetTag(ctx, models.TagID(tagI))
 			if err != nil {
 				return errors.New("invalid tag")
 			}

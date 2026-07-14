@@ -6,6 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -120,17 +121,28 @@ func (p *PostureCheck) Create(ctx context.Context) error {
 
 func (p *PostureCheck) ListAll(ctx context.Context) ([]PostureCheck, error) {
 	var postureChecks []PostureCheck
-	err := db.FromContext(ctx).Model(&PostureCheck{}).Find(&postureChecks).Error
+	query := db.FromContext(ctx).Model(&PostureCheck{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&postureChecks).Error
 	return postureChecks, err
 }
 
 func (p *PostureCheck) ListByNetwork(ctx context.Context) (pcli []PostureCheck, err error) {
-	err = db.FromContext(ctx).Model(&PostureCheck{}).Where("network_id = ?", p.NetworkID).Find(&pcli).Error
+	query := db.FromContext(ctx).Model(&PostureCheck{}).Where("network_id = ?", p.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err = query.Find(&pcli).Error
 	return
 }
 
 func (p *PostureCheck) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&PostureCheck{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

@@ -117,16 +117,14 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 				logic.DeleteUserInvite(user.Username)
 				logic.DeletePendingUser(content.Email)
 			} else {
-				if !isEmailAllowed(content.Email) {
+				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				pendingUser := &schema.PendingUser{
+					TenantID:                   scope.ID(r.Context()),
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-				}
-				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err = pendingUser.Create(r.Context())
 				if err != nil {
@@ -186,7 +184,7 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,

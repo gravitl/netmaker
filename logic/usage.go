@@ -3,33 +3,33 @@ package logic
 import (
 	"context"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
-func GetCurrentServerUsage() (limits models.Usage) {
+func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
+	// todo(nm-341): get usage of all tenants or specific tenant?
 	limits.SetDefaults()
-	hosts, hErr := GetAllHostsWithStatus(schema.OnlineSt)
+	hosts, hErr := GetAllHostsWithStatus(ctx, schema.OnlineSt)
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
-	clients, cErr := GetAllExtClientsWithStatus(schema.OnlineSt)
+	clients, cErr := GetAllExtClientsWithStatus(ctx, schema.OnlineSt)
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
-	limits.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
-	limits.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
-	limits.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
+	limits.Users, _ = (&schema.User{}).Count(ctx)
+	limits.Networks, _ = (&schema.Network{}).Count(ctx)
+	limits.Egresses, _ = (&schema.Egress{}).Count(ctx)
 
-	nodes, _ := GetAllNodes()
+	nodes, _ := GetAllNodes(ctx)
 
 	for _, client := range clients {
 		nodes = append(nodes, models.ConvertToStaticNode(client))
 	}
 
 	limits.NetworkUsage = make(map[string]models.NetworkUsage)
-	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	networks, _ := (&schema.Network{}).ListAll(ctx)
 	for _, network := range networks {
 		limits.NetworkUsage[network.Name] = models.NetworkUsage{}
 	}

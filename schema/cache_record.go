@@ -23,9 +23,8 @@ type CacheValue struct {
 }
 
 type CacheRecord struct {
-	Key      string `gorm:"primaryKey"`
-	TenantID string `gorm:"default:'';index"`
-	Value    datatypes.JSONType[CacheValue]
+	Key   string `gorm:"primaryKey"`
+	Value datatypes.JSONType[CacheValue]
 }
 
 func (*CacheRecord) TableName() string { return "cache" }

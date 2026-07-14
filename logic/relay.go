@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -44,7 +43,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 }
 
 // ValidateRelay - checks if relay is valid
-func ValidateRelay(relay models.RelayRequest, update bool) error {
+func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) error {
 	var err error
 
 	node, err := GetNodeByID(relay.NodeID)
@@ -72,7 +71,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 			return errors.New("cannot relay a auto relay node (" + relayedNodeID + ")")
 		}
 		if len(relayedNode.AutoRelayedPeers) > 0 {
-			ResetAutoRelayedPeer(&relayedNode)
+			ResetAutoRelayedPeer(ctx, &relayedNode)
 		}
 	}
 	return err
@@ -101,12 +100,12 @@ func RelayUpdates(currentNode, newNode *models.Node) bool {
 }
 
 // UpdateRelayed - updates a relay's relayed nodes, and sends updates to the relayed nodes over MQ
-func UpdateRelayed(currentNode, newNode *models.Node) {
+func UpdateRelayed(ctx context.Context, currentNode, newNode *models.Node) {
 	updatenodes := UpdateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
-			ResetAutoRelayedPeer(&node)
+			ResetAutoRelayedPeer(ctx, &node)
 		}
 	}
 }
@@ -128,10 +127,10 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
-func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
+func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, relayedNodeID := range peer.RelayedNodes {
 		if node.ID.String() == relayedNodeID {
 			continue
@@ -151,7 +150,7 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
-func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNet) {
+func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
 	if relayed.RelayedBy != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
@@ -159,23 +158,23 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	if relay.InternetGwID != "" {
 		return GetAllowedIpForInetNodeClient(relayed, relay)
 	}
-	peers, err := GetNetworkNodes(relay.Network)
+	peers, err := GetNetworkNodes(ctx, relay.Network)
 	if err != nil {
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
-	acls, _ := ListAclsByNetwork(schema.NetworkID(relay.Network))
-	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(relay.Network), models.DevicePolicy)
+	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(relay.Network))
+	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
+	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if !IsPeerAllowed(*relayed, peer, true) {
+		if !IsPeerAllowed(ctx, *relayed, peer, true) {
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
+		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
 	}
 	return
 }

@@ -16,8 +16,8 @@ var GetDeploymentMode = func() string {
 	// All CE deployments are self-hosted.
 	return "self-hosted"
 }
-var StartFlowCleanupLoop = func() {}
-var StopFlowCleanupLoop = func() {}
+var StartFlowCleanupLoop = func(ctx context.Context) {}
+var StopFlowCleanupLoop = func(ctx context.Context) {}
 
 // == Join, Checkin, and Leave for Server ==
 

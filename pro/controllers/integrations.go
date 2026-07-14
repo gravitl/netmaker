@@ -151,13 +151,10 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	intg = &schema.Integration{
-		ID:     string(id),
-		Type:   string(intType),
-		Config: datatypes.JSON(config),
-	}
-
-	if intg.TenantID == "" {
-		intg.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+		ID:       string(id),
+		TenantID: scope.ID(r.Context()),
+		Type:     string(intType),
+		Config:   datatypes.JSON(config),
 	}
 	err = intg.Upsert(r.Context())
 	if err != nil {

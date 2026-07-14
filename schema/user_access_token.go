@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 // UserAccessToken - token used to access netmaker
@@ -32,12 +34,20 @@ func (a *UserAccessToken) Create(ctx context.Context) error {
 }
 
 func (a *UserAccessToken) List(ctx context.Context) (ats []UserAccessToken, err error) {
-	err = db.FromContext(ctx).Model(&UserAccessToken{}).Find(&ats).Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err = query.Find(&ats).Error
 	return
 }
 
 func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken) {
-	db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName).Find(&ats)
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	query.Find(&ats)
 	if ats == nil {
 		ats = []UserAccessToken{}
 	}
@@ -58,5 +68,9 @@ func (a *UserAccessToken) Delete(ctx context.Context) error {
 }
 
 func (a *UserAccessToken) DeleteAllUserTokens(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName).Delete(&a).Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	return query.Delete(&a).Error
 }

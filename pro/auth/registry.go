@@ -32,12 +32,12 @@ func Registry() *ProviderRegistry {
 	return registry
 }
 
-func (p *ProviderRegistry) GetOrInit(scopeLevel scope.Scope, scopeID string) (Provider, bool) {
+func (p *ProviderRegistry) GetOrInit(ctx context.Context, scopeLevel scope.Scope, scopeID string) (Provider, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	provider, ok := p.providers[scopeLevel][scopeID]
 	if !ok {
-		provider = p.initProvider(scopeLevel, scopeID)
+		provider = p.initProvider(ctx, scopeLevel, scopeID)
 		if provider == nil {
 			return nil, false
 		}
@@ -57,10 +57,10 @@ func (p *ProviderRegistry) Delete(scopeLevel scope.Scope, scopeID string) {
 
 // FromContext returns the provider for the scope embedded in ctx.
 func (p *ProviderRegistry) FromContext(ctx context.Context) (Provider, bool) {
-	return p.GetOrInit(scope.Level(ctx), scope.ID(ctx))
+	return p.GetOrInit(ctx, scope.Level(ctx), scope.ID(ctx))
 }
 
-func (p *ProviderRegistry) initProvider(scopeLevel scope.Scope, scopeID string) Provider {
+func (p *ProviderRegistry) initProvider(ctx context.Context, scopeLevel scope.Scope, scopeID string) Provider {
 	redirectUrl := p.getRedirectURL()
 	switch scopeLevel {
 	case scope.OrgScope:
@@ -77,7 +77,7 @@ func (p *ProviderRegistry) initProvider(scopeLevel scope.Scope, scopeID string) 
 		case google_provider_name:
 			return NewGoogleProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
 		case azure_ad_provider_name:
-			return NewAzureADProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
+			return NewAzureADProvider(ctx, redirectUrl, settings.ClientID, settings.ClientSecret)
 		case github_provider_name:
 			return NewGitHubProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
 		case okta_provider_name:
@@ -109,7 +109,7 @@ func (p *ProviderRegistry) initProvider(scopeLevel scope.Scope, scopeID string) 
 		case google_provider_name:
 			return NewGoogleProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
 		case azure_ad_provider_name:
-			return NewAzureADProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
+			return NewAzureADProvider(ctx, redirectUrl, settings.ClientID, settings.ClientSecret)
 		case github_provider_name:
 			return NewGitHubProvider(redirectUrl, settings.ClientID, settings.ClientSecret)
 		case okta_provider_name:

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -38,26 +37,6 @@ func serverHandlers(r *mux.Router) {
 			resp.Write([]byte("Server is up and running!!"))
 		},
 	).Methods(http.MethodGet)
-	r.HandleFunc(
-		"/api/server/shutdown", logic.SecurityCheck(true,
-			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("ismaster") != "yes" {
-					caller := &schema.User{
-						Username: r.Header.Get("user"),
-					}
-					err := caller.Get(r.Context())
-					if err != nil || caller.PlatformRoleID != schema.SuperAdminRole {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only a super-admin can shut down the server"), "forbidden"))
-						return
-					}
-				}
-				msg := "received api call to shutdown server, sending interruption..."
-				slog.Warn(msg)
-				_, _ = w.Write([]byte(msg))
-				w.WriteHeader(http.StatusOK)
-				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-			})),
-	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
@@ -94,11 +73,11 @@ func memProfile(w http.ResponseWriter, r *http.Request) {
 	logic.StartMemProfiling()
 }
 
-func getUsage(w http.ResponseWriter, _ *http.Request) {
+func getUsage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
-		Response: logic.GetCurrentServerUsage(),
+		Response: logic.GetCurrentServerUsage(r.Context()),
 	})
 }
 
@@ -198,7 +177,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	json.NewEncoder(w).Encode(logic.GetServerInfo())
+	json.NewEncoder(w).Encode(logic.GetServerInfo(r.Context()))
 	// w.WriteHeader(http.StatusOK)
 }
 
@@ -214,7 +193,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := logic.GetServerConfig()
+	scfg := logic.GetServerConfig(r.Context())
 	scfg.IsPro = "no"
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"
@@ -233,7 +212,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
-	scfg := logic.GetServerSettings()
+	scfg := logic.GetServerSettings(r.Context())
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
 	}
@@ -269,7 +248,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
-	currSettings := logic.GetServerSettings()
+	currSettings := logic.GetServerSettings(r.Context())
 
 	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
 		superAdmin, err := logic.GetSuperAdmin()
@@ -296,23 +275,23 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 				return
 			}
-			logic.StartFlowCleanupLoop()
+			logic.StartFlowCleanupLoop(r.Context())
 		} else {
-			logic.StopFlowCleanupLoop()
+			logic.StopFlowCleanupLoop(r.Context())
 			ch.Close()
 		}
 	}
 
-	err := logic.UpsertServerSettings(req)
+	err := logic.UpsertServerSettings(r.Context(), req)
 	if err != nil {
 		if req.EnableFlowLogs {
-			logic.StopFlowCleanupLoop()
+			logic.StopFlowCleanupLoop(r.Context())
 			ch.Close()
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: identifySettingsUpdateAction(currSettings, req),
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -332,7 +311,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go reInit(ctx, currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
@@ -341,13 +320,13 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
 	logic.ResetAuthProvider(ctx)
-	logic.EmailInit()
-	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	logic.EmailInit(ctx)
+	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
 	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
-		logic.GetMetricsMonitor().Stop()
-		logic.GetMetricsMonitor().Start()
-		logic.NotifyMetricExportIntervalChanged()
+		logic.GetMetricsMonitor(ctx).Stop()
+		logic.GetMetricsMonitor(ctx).Start()
+		logic.NotifyMetricExportIntervalChanged(ctx)
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
@@ -361,7 +340,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
-			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+			hosts, _ := (&schema.Host{}).ListAll(ctx)
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
 					host.AutoUpdate = new.NetclientAutoUpdate
@@ -369,8 +348,8 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 				if curr.EnableFlowLogs != new.EnableFlowLogs {
 					host.EnableFlowLogs = new.EnableFlowLogs
 				}
-				logic.UpsertHost(&host)
-				mq.HostUpdate(&models.HostUpdate{
+				_ = host.Upsert(ctx)
+				_ = mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
 					Host:   host,
 				})
@@ -378,9 +357,9 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 		}
 	}
 	if new.CleanUpInterval != curr.CleanUpInterval {
-		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
+		logic.RestartHook(logic.GetTenantNetworkHookID(ctx), time.Duration(new.CleanUpInterval)*time.Minute)
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action {

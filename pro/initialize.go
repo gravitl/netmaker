@@ -23,6 +23,7 @@ import (
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -69,7 +70,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		proLogic.LoadNodeMetricsToCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -77,33 +77,51 @@ func InitPro() {
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
-			auth.AddIDPSyncHooks()
-			proLogic.AddPostureCheckHook()
+			tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+			if err != nil {
+				logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
+			} else {
+				for _, tenant := range tenants {
+					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
+					auth.StartIDPSyncHookForTenant(scopedCtx)
+					proLogic.AddPostureCheckHook(scopedCtx)
+					logic.GetMetricsMonitor(scopedCtx).Start()
+
+					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
+						proLogic.StartFlowCleanupLoop(scopedCtx)
+
+						wg.Add(1)
+						go func(ctx context.Context, wg *sync.WaitGroup) {
+							<-ctx.Done()
+							proLogic.StopFlowCleanupLoop(scopedCtx)
+							wg.Done()
+						}(ctx, wg)
+					}
+				}
+			}
+
 			// Register JIT expiry hook with email notifications
 			addJitExpiryHookWithEmail()
 
-			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+			if proLogic.GetFeatureFlags().EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
+				} else {
+					wg.Add(1)
+					go func(ctx context.Context, wg *sync.WaitGroup) {
+						<-ctx.Done()
+						ch.Close()
+						wg.Done()
+					}(ctx, wg)
 				}
-
-				proLogic.StartFlowCleanupLoop()
-
-				wg.Add(1)
-				go func(ctx context.Context, wg *sync.WaitGroup) {
-					<-ctx.Done()
-					proLogic.StopFlowCleanupLoop()
-					ch.Close()
-					wg.Done()
-				}(ctx, wg)
 			}
 		}
 
 		// These can run on all pods
-		email.Init()
+		// todo(nm-341): move email creds to org settings.
+		email.Init(logic.DefaultScope(db.WithContext(ctx)))
 		go proLogic.EventWatcher()
-		logic.GetMetricsMonitor().Start()
 	})
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
@@ -117,6 +135,7 @@ func InitPro() {
 	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
 	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
 	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
+	logic.LoadMetricsIntoCache = proLogic.LoadNodeMetricsToCache
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
@@ -148,7 +167,7 @@ func InitPro() {
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
-	logic.LogEvent = proLogic.LogEvent
+	//logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
 	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap

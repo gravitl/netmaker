@@ -73,7 +73,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	if len(registerMessage.User) > 0 { // handle basic auth
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
-		if !logic.IsBasicAuthEnabled() {
+		if !logic.IsBasicAuthEnabled(ctx) {
 			handleHostRegErr(conn, errors.New("basic auth is disabled"))
 			return
 		}
@@ -166,7 +166,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 			currentNetworks = append(currentNetworks, result.Network)
 		}
 		var netsToAdd []string // track the networks not currently owned by host
-		hostNets := logic.GetHostNetworks(result.Host.ID.String())
+		hostNets := logic.GetHostNetworks(ctx, result.Host.ID.String())
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
@@ -190,8 +190,8 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 					return
 				}
 			}
-			_ = logic.CheckHostPorts(&result.Host)
-			if err := logic.CreateHost(&result.Host); err != nil {
+			_ = logic.CheckHostPorts(ctx, &result.Host)
+			if err := logic.CreateHost(ctx, &result.Host); err != nil {
 				handleHostRegErr(conn, errors.New("host creation failed"))
 				return
 			}
@@ -201,7 +201,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 			handleHostRegErr(conn, errors.New("internal server error, please try again later"))
 			return
 		}
-		server := logic.GetServerInfo()
+		server := logic.GetServerInfo(ctx)
 		server.TrafficKey = key
 		host := result.Host
 		result.Host.HostPass = ""
@@ -275,6 +275,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				// add host to pending host table
 				p := schema.PendingHost{
 					ID:            uuid.NewString(),
+					TenantID:      network.TenantID,
 					HostID:        host.ID.String(),
 					Hostname:      host.Name,
 					Network:       netID,
@@ -285,15 +286,13 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 					EnrollmentKey: keyB,
 					RequestedAt:   time.Now().UTC(),
 				}
-				if p.TenantID == "" {
-					p.TenantID = scope.ID(logic.DefaultScope(context.TODO()))
-				}
-				p.Create(db.WithContext(context.TODO()))
+				_ = p.Create(db.WithContext(context.TODO()))
 				continue
 			}
 
+			ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, host.TenantID)
 			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
-				db.WithContext(context.TODO()),
+				ctx,
 				host,
 				network,
 				orchestrator.UseKey(&key),
@@ -304,7 +303,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			} else {
 				if len(username) > 0 {
-					logic.LogEvent(&models.Event{
+					logic.LogEvent(ctx, &models.Event{
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   username,
@@ -321,7 +320,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 						Origin:    schema.Dashboard,
 					})
 				} else {
-					logic.LogEvent(&models.Event{
+					logic.LogEvent(ctx, &models.Event{
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   key.Value,
@@ -346,7 +345,8 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 			Action: models.RequestAck,
 			Host:   *host,
 		})
-		if err := mq.PublishPeerUpdate(false); err != nil {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+		if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
 		}
 	}

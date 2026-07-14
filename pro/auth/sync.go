@@ -35,8 +35,8 @@ var (
 	idpSyncErrs     = make(map[string]error)
 )
 
-func idpSyncHookID(tenantID string) string {
-	return "idp-sync:" + tenantID
+func idpSyncHookID(ctx context.Context) string {
+	return fmt.Sprintf("idp-sync-%s", scope.ID(ctx))
 }
 
 func tenantSyncLock(tenantID string) *sync.Mutex {
@@ -58,19 +58,6 @@ func idpSyncInterval(settings schema.TenantSettings) time.Duration {
 	return interval
 }
 
-// AddIDPSyncHooks registers an idp sync hook for every tenant whose settings
-// have sync enabled. Called once at startup on the master pod.
-func AddIDPSyncHooks() {
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		logger.Log(0, "failed to list tenants for idp sync hooks: ", err.Error())
-		return
-	}
-	for _, tenant := range tenants {
-		startIDPSyncHookForTenant(tenant.ID)
-	}
-}
-
 // ResetIDPSyncHook re-reads the settings for the tenant carried in ctx and
 // either (re)registers or stops that tenant's idp sync hook accordingly.
 func ResetIDPSyncHook(ctx context.Context) {
@@ -81,27 +68,22 @@ func ResetIDPSyncHook(ctx context.Context) {
 		return
 	}
 
-	startIDPSyncHookForTenant(scope.ID(ctx))
+	StartIDPSyncHookForTenant(ctx)
 }
 
-// startIDPSyncHookForTenant (re)registers or stops the idp sync hook for a
-// single tenant based on that tenant's current settings. Sending a
-// HookDetails with an ID that's already running replaces the existing hook
-// in place (see logic.StartHookManager), so this covers both first-time
-// registration and interval/setting changes.
-func startIDPSyncHookForTenant(tenantID string) {
-	hookID := idpSyncHookID(tenantID)
+func StartIDPSyncHookForTenant(ctx context.Context) {
+	hookID := idpSyncHookID(ctx)
 
 	// Embed scope/db into a fresh context so the hook goroutine carries its
 	// own tenant identity independently of any caller's request lifetime.
-	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
+	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 
-	settingsRecord := &schema.TenantSettingsRecord{Key: tenantID}
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
 	if err := settingsRecord.Get(tenantCtx); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return
 		}
-		logger.Log(0, "failed to load settings for tenant ", tenantID, ": ", err.Error())
+		logger.Log(0, "failed to load settings for tenant ", scope.ID(ctx), ": ", err.Error())
 		return
 	}
 	settings := settingsRecord.Value.Data()
@@ -112,8 +94,10 @@ func startIDPSyncHookForTenant(tenantID string) {
 	}
 
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       hookID,
-		Hook:     logic.WrapHook(func() error { return SyncFromIDP(tenantCtx) }),
+		ID: hookID,
+		Hook: logic.WrapHook(func() error {
+			return SyncFromIDP(tenantCtx)
+		}),
 		Interval: idpSyncInterval(settings),
 	}
 }
@@ -220,7 +204,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// delete the user if it has been archived.
 			user, ok := dbUsersMap[user.Username]
 			if ok {
-				_ = deleteAndCleanUpUser(user)
+				_ = deleteAndCleanUpUser(ctx, user)
 			}
 			continue
 		}
@@ -290,7 +274,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
-				err = deleteAndCleanUpUser(user)
+				err = deleteAndCleanUpUser(ctx, user)
 				if err != nil {
 					return err
 				}
@@ -353,7 +337,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
 			dbGroup.NetworkRoles = datatypes.NewJSONType(schema.NetworkRoles{})
-			err := proLogic.CreateUserGroup(&dbGroup)
+			err := proLogic.CreateUserGroup(ctx, &dbGroup)
 			if err != nil {
 				return err
 			}
@@ -502,30 +486,30 @@ func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Gro
 // TODO: deduplicate
 // The cyclic import between the package logic and mq requires this
 // function to be duplicated in multiple places.
-func deleteAndCleanUpUser(user *schema.User) error {
-	err := logic.DeleteUser(user.Username)
+func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
+	err := logic.DeleteUser(ctx, user)
 	if err != nil {
 		return err
 	}
 
 	// check and delete extclient with this ownerID
-	go func() {
-		extclients, err := logic.GetAllExtClients()
+	go func(ctx context.Context) {
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			return
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err == nil {
-					_ = mq.PublishDeletedClientPeerUpdate(&extclient)
+					_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 				}
 			}
 		}
 
 		go logic.DeleteUserInvite(user.Username)
-		go mq.PublishPeerUpdate(false)
-	}()
+		go mq.PublishPeerUpdate(ctx, false)
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return nil
 }

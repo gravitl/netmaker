@@ -6,6 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -57,6 +58,10 @@ func (u *UserGroup) Count(ctx context.Context, options ...dbtypes.Option) (int, 
 	var count int64
 	query := db.FromContext(ctx).Model(&UserGroup{})
 
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
+
 	for _, option := range options {
 		query = option(query)
 	}
@@ -68,6 +73,10 @@ func (u *UserGroup) Count(ctx context.Context, options ...dbtypes.Option) (int, 
 func (u *UserGroup) ListAll(ctx context.Context, options ...dbtypes.Option) ([]UserGroup, error) {
 	var userGroups []UserGroup
 	query := db.FromContext(ctx).Model(&UserGroup{})
+
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
 
 	for _, option := range options {
 		query = option(query)

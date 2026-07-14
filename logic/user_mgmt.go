@@ -48,17 +48,17 @@ var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User)
 	return allnetworks
 }
 
-var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
+var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *schema.User) {}
 
 var InitialiseRoles = userRolesInit
-var IntialiseGroups = func() {}
+var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(netID string) {}
-var CreateDefaultNetworkRolesAndGroups = func(netID schema.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
+var CreateDefaultNetworkRolesAndGroups = func(ctx context.Context, netID schema.NetworkID) {}
+var CreateDefaultUserPolicies = func(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !IsAclExists(ctx, fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
@@ -84,7 +84,7 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		InsertAcl(defaultUserAcl)
+		InsertAcl(ctx, defaultUserAcl)
 	}
 }
 var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
@@ -97,7 +97,7 @@ var PlatformRoleRequiresGroupEnforcement = func(role schema.UserRoleID) bool { r
 var UserHasGlobalNetworksAdminMembership = func(user *schema.User) bool { return false }
 var UserHasNetworkGroupAccess = func(user *schema.User, networkID string) bool { return false }
 var CanUserCreateNetwork = func(ctx context.Context, username string) bool { return true }
-var EmailInit = func() {}
+var EmailInit = func(ctx context.Context) {}
 
 func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	switch rsrc {

@@ -57,8 +57,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/enable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}/settings", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
@@ -128,6 +128,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.ID = uuid.New().String()
+	req.TenantID = scope.ID(r.Context())
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
 	jwt, err := logic.CreateUserAccessJwtToken(r.Context(), user.Username, req.ExpiresAt, req.ID)
@@ -150,7 +151,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -248,7 +249,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -334,7 +335,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled() {
+	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled(request.Context()) {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -415,7 +416,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	// log user activity
 	if !user.IsMFAEnabled {
 		if val := request.Header.Get("From-Ui"); val == "true" {
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(request.Context(), &models.Event{
 				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
@@ -431,7 +432,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				Origin: schema.Dashboard,
 			})
 		} else {
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(request.Context(), &models.Event{
 				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
@@ -671,7 +672,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.EnableMFA,
 			Source: models.Subject{
 				ID:   user.Username,
@@ -757,7 +758,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Login,
 			Source: models.Subject{
 				ID:   user.Username,
@@ -936,11 +937,12 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		return
 	}
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if !force {
 			return
 		}
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
@@ -948,14 +950,14 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		extclientStatus := !disableAccount
 		for _, extclient := range extclients {
 			if extclient.OwnerID == _user.Username && extclient.Enabled != extclientStatus {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, extclientStatus)
+				_, err = logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus)
 				if err != nil {
 					logger.Log(1, "failed to delete user extclient:", err.Error())
 				}
 			}
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 
 	src := logic.MasterUser
 	if !isMaster {
@@ -967,7 +969,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		event = schema.DisableUser
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: event,
 		Source: models.Subject{
 			ID:   src,
@@ -1286,7 +1288,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !logic.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -1355,7 +1357,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !logic.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -1477,7 +1479,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -1495,7 +1497,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	})
 	logic.DeleteUserInvite(user.Username)
 	logic.DeletePendingUser(user.Username)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	slog.Info("user was created", "username", user.Username)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
 }
@@ -1617,7 +1620,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		if logic.IsMFAEnforced() && user.IsMFAEnabled && !userchange.IsMFAEnabled {
+		if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 			err = errors.New("mfa is enforced, user cannot unset their own mfa")
 			slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
@@ -1689,7 +1692,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	}
-	user, err = logic.UpdateUser(&userchange, user)
+	user, err = logic.UpdateUser(r.Context(), &userchange, user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
@@ -1701,10 +1704,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&e)
-	go mq.PublishPeerUpdate(false)
-	go func() {
-		extclients, err := logic.GetAllExtClients()
+	logic.LogEvent(r.Context(), &e)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
+	go func(ctx context.Context) {
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
@@ -1716,18 +1720,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(user, extclient.Network) {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
-	}()
+	}(ctx)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -1815,14 +1819,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.DeleteMembership(r.Context())
+	err = logic.DeleteUser(r.Context(), user)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user membership: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -1842,9 +1846,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	// check and delete extclient with this ownerID
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		delete := r.URL.Query().Get("force_delete_configs") == "true"
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to get extclients", "error", err)
 			return
@@ -1857,20 +1862,20 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
 		_ = logic.DeleteUserInvite(user.Username)
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
 }
@@ -1915,12 +1920,12 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
-	tenantID := scope.ID(r.Context())
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d user(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		ownerExtClients := make(map[string][]models.ExtClient)
-		extclients, err := logic.GetAllExtClients()
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("bulk user delete: failed to get extclients", "error", err)
 		} else {
@@ -1932,7 +1937,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
-			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+			if err := user.Get(ctx); err != nil {
 				slog.Error("bulk user delete: user not found", "username", username, "error", err)
 				continue
 			}
@@ -1956,12 +1961,13 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: cannot delete idp user", "username", username)
 				continue
 			}
-			deleteCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
-			if err := user.DeleteMembership(deleteCtx); err != nil {
+
+			err = logic.DeleteUser(ctx, user)
+			if err != nil {
 				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   callerName,
@@ -1984,10 +1990,10 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
 					continue
 				}
-				if err := logic.DeleteExtClientAndCleanup(extclient); err != nil {
+				if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
 					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
 					}
 				}
@@ -1995,10 +2001,10 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			_ = logic.DeleteUserInvite(user.Username)
 		}
 		if deleted > 0 {
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk user delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // @Summary     Bulk disable/enable user accounts
@@ -2042,10 +2048,11 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d user(s) accepted", action, len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		var ownerExtClients map[string][]models.ExtClient
 		if forceToggle {
-			extclients, err := logic.GetAllExtClients()
+			extclients, err := logic.GetAllExtClients(ctx)
 			if err != nil {
 				slog.Error("bulk user status: failed to get extclients", "error", err)
 			} else {
@@ -2101,7 +2108,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Update,
 				Source: models.Subject{
 					ID:   callerName,
@@ -2127,7 +2134,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 				extclientStatus := !req.Disable
 				for _, extclient := range ownerExtClients[user.Username] {
 					if extclient.Enabled != extclientStatus {
-						if _, err := logic.ToggleExtClientConnectivity(&extclient, extclientStatus); err != nil {
+						if _, err := logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus); err != nil {
 							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 						}
 					}
@@ -2135,10 +2142,10 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if updated > 0 && forceToggle {
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 		}
 		slog.Info("bulk user status update completed", "action", action, "updated", updated, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // Called when vpn client dials in to start the auth flow and first stage is to get register URL itself
@@ -2199,7 +2206,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		target = schema.ClientAppSub
 	}
 	if target != "" {
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.LogOut,
 			Source: models.Subject{
 				ID:   user.Username,

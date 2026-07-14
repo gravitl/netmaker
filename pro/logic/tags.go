@@ -9,12 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
@@ -22,84 +20,76 @@ import (
 var tagMutex = &sync.RWMutex{}
 
 // GetTag - fetches tag info
-func GetTag(tagID models.TagID) (models.Tag, error) {
+func GetTag(ctx context.Context, tagID models.TagID) (models.Tag, error) {
 	r := &schema.TagRecord{Key: tagID.String()}
-	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+	if err := r.Get(ctx); err != nil {
 		return models.Tag{}, err
 	}
 	return r.Value.Data(), nil
 }
 
-func UpsertTag(tag models.Tag) error {
+func UpsertTag(ctx context.Context, tag models.Tag) error {
 	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
-	ctx := db.WithContext(context.TODO())
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	return r.Upsert(ctx)
 }
 
 // InsertTag - creates new tag
-func InsertTag(tag models.Tag) error {
+func InsertTag(ctx context.Context, tag models.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	ctx := db.WithContext(context.TODO())
 	r := &schema.TagRecord{Key: tag.ID.String()}
 	if err := r.Get(ctx); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
 	r.Value = datatypes.NewJSONType(tag)
-	if r.TenantID == "" {
-		r.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	return r.Upsert(ctx)
 }
 
 // DeleteTag - delete tag, will also untag hosts
-func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
+func DeleteTag(ctx context.Context, tagID models.TagID, removeFromPolicy bool) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return err
 	}
 	network := &schema.Network{
 		Name: tag.Network.String(),
 	}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		return err
 	}
 
 	_ = (&schema.Node{}).UnassignTag(
-		db.WithContext(context.TODO()),
+		ctx,
 		tag.ID.String(),
 		dbtypes.WithFilter("network_id", network.ID),
 	)
 
 	if removeFromPolicy {
 		// remove tag used on acl policy
-		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
+		go RemoveDeviceTagFromAclPolicies(ctx, tagID, tag.Network)
 	}
 	go RemoveTagFromEgress(tag.Network, tagID)
-	extclients, _ := logic.GetNetworkExtClients(tag.Network.String())
+	extclients, _ := logic.GetNetworkExtClients(ctx, tag.Network.String())
 	for _, extclient := range extclients {
 		if _, ok := extclient.Tags[tagID]; ok {
 			delete(extclient.Tags, tagID)
-			logic.SaveExtClient(&extclient)
+			logic.SaveExtClient(ctx, &extclient)
 		}
 	}
-	return (&schema.TagRecord{Key: tagID.String()}).Delete(db.WithContext(context.TODO()))
+	return (&schema.TagRecord{Key: tagID.String()}).Delete(ctx)
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
-func ListTagsWithNodes(netID schema.NetworkID) ([]models.TagListResp, error) {
-	tags, err := ListNetworkTags(netID)
+func ListTagsWithNodes(ctx context.Context, netID schema.NetworkID) ([]models.TagListResp, error) {
+	tags, err := ListNetworkTags(ctx, netID)
 	if err != nil {
 		return []models.TagListResp{}, err
 	}
-	tagsNodeMap := GetTagMapWithNodesByNetwork(netID, true)
+	tagsNodeMap := GetTagMapWithNodesByNetwork(ctx, netID, true)
 	resp := []models.TagListResp{}
 	for _, tagI := range tags {
 		tagRespI := models.TagListResp{
@@ -111,18 +101,18 @@ func ListTagsWithNodes(netID schema.NetworkID) ([]models.TagListResp, error) {
 	}
 	return resp, nil
 }
-func DeleteAllNetworkTags(networkID schema.NetworkID) {
-	tags, _ := ListNetworkTags(networkID)
+func DeleteAllNetworkTags(ctx context.Context, networkID schema.NetworkID) {
+	tags, _ := ListNetworkTags(ctx, networkID)
 	for _, tagI := range tags {
-		DeleteTag(tagI.ID, false)
+		DeleteTag(ctx, tagI.ID, false)
 	}
 }
 
 // ListNetworkTags - lists all tags in network
-func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
+func ListNetworkTags(ctx context.Context, netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	records, err := (&schema.TagRecord{}).List(db.WithContext(context.TODO()))
+	records, err := (&schema.TagRecord{}).List(ctx)
 	if err != nil {
 		return []models.Tag{}, err
 	}
@@ -137,13 +127,13 @@ func ListNetworkTags(netID schema.NetworkID) ([]models.Tag, error) {
 }
 
 // UpdateTag - updates and syncs hosts with tag update
-func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
+func UpdateTag(ctx context.Context, req models.UpdateTagReq, newID models.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	network := &schema.Network{
 		Name: req.Network.String(),
 	}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err != nil {
 		return
 	}
@@ -162,7 +152,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	}
 
 	_ = (&schema.Node{}).UnassignTag(
-		db.WithContext(context.TODO()),
+		ctx,
 		req.ID.String(),
 		dbtypes.WithFilter("network_id", network.ID),
 	)
@@ -178,14 +168,14 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	// To avoid that ensure the taggedNodeIDs is non-empty.
 	if len(taggedNodeIDs) > 0 {
 		_ = (&schema.Node{}).AssignTag(
-			db.WithContext(context.TODO()),
+			ctx,
 			tagID.String(),
 			dbtypes.WithFilter("network_id", network.ID),
 			dbtypes.WithFilter("id", taggedNodeIDs...),
 		)
 	}
 
-	extclients, _ := logic.GetNetworkExtClients(req.Network.String())
+	extclients, _ := logic.GetNetworkExtClients(ctx, req.Network.String())
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
 			extclient.Tags = make(map[models.TagID]struct{})
@@ -202,7 +192,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 		if _, ok := taggedExtclientIDs[extclient.ClientID]; ok {
 			extclient.Tags[tagID] = struct{}{}
 		}
-		_ = logic.SaveExtClient(&extclient)
+		_ = logic.SaveExtClient(ctx, &extclient)
 	}
 }
 
@@ -230,7 +220,7 @@ func CheckIDSyntax(id string) error {
 	return nil
 }
 
-func CreateDefaultTags(netID schema.NetworkID) {
+func CreateDefaultTags(ctx context.Context, netID schema.NetworkID) {
 	// create tag for gws in the network
 	tag := models.Tag{
 		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),
@@ -239,11 +229,11 @@ func CreateDefaultTags(netID schema.NetworkID) {
 		CreatedBy: "auto",
 		CreatedAt: time.Now().UTC(),
 	}
-	_, err := GetTag(tag.ID)
+	_, err := GetTag(ctx, tag.ID)
 	if err == nil {
 		return
 	}
-	err = InsertTag(tag)
+	err = InsertTag(ctx, tag)
 	if err != nil {
 		slog.Error("failed to create gw tag", "error", err.Error())
 		return

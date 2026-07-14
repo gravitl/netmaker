@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
 type Integration struct {
 	ID        string         `gorm:"primaryKey;column:id" json:"id"`
-	TenantID  string         `gorm:"default:'';index" json:"tenant_id"`
+	TenantID  string         `gorm:"primaryKey;default:''" json:"tenant_id"`
 	Type      string         `gorm:"not null;column:type"              json:"type"`
 	Config    datatypes.JSON `gorm:"not null;column:config"            json:"config"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -26,18 +28,20 @@ func (i *Integration) Upsert(ctx context.Context) error {
 }
 
 func (i *Integration) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(i, "id = ?", i.ID).Error
+	return db.FromContext(ctx).Where("id = ? AND tenant_id = ?", i.ID, scope.ID(ctx)).First(i).Error
 }
 
 func (i *Integration) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(i, "id = ?", i.ID).Error
+	return db.FromContext(ctx).Where("id = ? AND tenant_id = ?", i.ID, scope.ID(ctx)).Delete(i).Error
 }
 
 func (i *Integration) ListByType(ctx context.Context) ([]Integration, error) {
 	var integrations []Integration
-	err := db.FromContext(ctx).Model(&Integration{}).
-		Where("type = ?", i.Type).
-		Find(&integrations).
-		Error
+	query := db.FromContext(ctx).Model(&Integration{}).
+		Where("type = ?", i.Type)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&integrations).Error
 	return integrations, err
 }

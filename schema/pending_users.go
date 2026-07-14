@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 var (
@@ -63,6 +64,10 @@ func (p *PendingUser) ListAll(ctx context.Context, options ...dbtypes.Option) ([
 	var pendingUsers []PendingUser
 	query := db.FromContext(ctx).Model(&PendingUser{})
 
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+	}
+
 	for _, option := range options {
 		query = option(query)
 	}
@@ -83,5 +88,8 @@ func (p *PendingUser) Delete(ctx context.Context) error {
 }
 
 func (p *PendingUser) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM pending_users_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM pending_users_v1").Error
 }

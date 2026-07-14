@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -62,35 +64,45 @@ func (n *Network) Create(ctx context.Context) error {
 }
 
 func (n *Network) Get(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		First(n).
 		Error
 }
 
 func (n *Network) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&Network{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&Network{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }
 
 func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 	var networks []Network
-	err := db.FromContext(ctx).Model(&Network{}).Find(&networks).Error
+	query := db.FromContext(ctx).Model(&Network{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+	}
+	err := query.Find(&networks).Error
 	return networks, err
 }
 
 func (n *Network) Update(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Updates(map[string]interface{}{
 			"default_keep_alive":               n.DefaultKeepAlive,
 			"default_mtu":                      n.DefaultMTU,
@@ -108,27 +120,32 @@ func (n *Network) Update(ctx context.Context) error {
 }
 
 func (n *Network) Delete(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Delete(n).
 		Error
 }
 
 func (n *Network) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM networks_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM networks_v1").Error
 }
 
 func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {
-	if n.ID == "" && n.Name == "" {
+	tenantID := scope.ID(ctx)
+	if n.ID == "" && (n.Name == "" || tenantID == "") {
 		return ErrNetworkIdentifiersNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&Network{}).
-		Where("id = ? OR name = ?", n.ID, n.Name).
+		Where("id = ? OR (name = ? AND tenant_id = ?)", n.ID, n.Name, n.TenantID).
 		Updates(map[string]interface{}{
 			"nodes_updated_at": n.NodesUpdatedAt,
 		}).

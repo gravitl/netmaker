@@ -123,7 +123,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	node.Status = logic.GetNodeCheckInStatus(node)
 	apiNode := logic.ConvertSchemaNodeToApiNode(node)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -162,7 +162,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	node, removedClients, err := logic.DeleteIngressGateway(r.Context(), nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
@@ -191,10 +191,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	node.IsGw = false
 	if node.IsAutoRelay {
-		logic.ResetAutoRelay(&node)
+		logic.ResetAutoRelay(r.Context(), &node)
 	}
 	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
@@ -216,13 +216,14 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		host := &schema.Host{
 			ID: node.HostID,
 		}
-		err = host.Get(db.WithContext(context.TODO()))
+		err = host.Get(ctx)
 		if err == nil {
-			allNodes, err := logic.GetAllNodes()
+			allNodes, err := logic.GetAllNodes(ctx)
 			if err != nil {
 				return
 			}
@@ -244,26 +245,26 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 				h := &schema.Host{
 					ID: relayedNode.HostID,
 				}
-				err = h.Get(db.WithContext(context.TODO()))
+				err = h.Get(ctx)
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
-						nodes, err := logic.GetAllNodes()
+						nodes, err := logic.GetAllNodes(ctx)
 						if err != nil {
 							return
 						}
 						node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-						if err = mq.PublishSingleHostPeerUpdate(h, nodes, nil, &node, nil, false, nil); err != nil {
+						if err = mq.PublishSingleHostPeerUpdate(ctx, h, nodes, nil, &node, nil, false, nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}
 				}
 			}
 			if len(removedClients) > 0 {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, removedClients[:], false, nil); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 			}
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error(
 					"error publishing node update to node",
@@ -276,8 +277,8 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logic.RemoveNodeFromEnrollmentKeys(&node)
-	}()
-	logic.LogEvent(&models.Event{
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -378,7 +379,8 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		go func() {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
 			if len(node.AutoRelayedPeers.Data()) > 0 {
 				_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
 			}
@@ -387,8 +389,8 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
 
-			_ = mq.PublishPeerUpdate(false)
-		}()
+			_ = mq.PublishPeerUpdate(ctx, false)
+		}(ctx)
 
 		logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "auto assigned gateway")
 		return
@@ -432,7 +434,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("assigned nodes to gateway [%s] on network [%s]",
 			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -450,15 +452,16 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 
 	modelsNodes := logic.ConvertSchemaNodeToModelsNode(node)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if len(node.AutoRelayedPeers.Data()) > 0 {
 			_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
 		}
 		if err := mq.NodeUpdate(modelsNodes); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 
 	logic.ReturnSuccessResponseWithJson(w, r, modelsNodes.ConvertToAPINode(), "assigned gateway")
 }
@@ -504,12 +507,13 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		if node.RelayedByNodeID == nil {
 			modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-			go func() {
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+			go func(ctx context.Context) {
 				if err := mq.NodeUpdate(modelsNode); err != nil {
 					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 				}
-				_ = mq.PublishPeerUpdate(false)
-			}()
+				_ = mq.PublishPeerUpdate(ctx, false)
+			}(ctx)
 
 			logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
 			return
@@ -528,7 +532,7 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
 			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayUnAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -546,12 +550,13 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 
 	modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if err := mq.NodeUpdate(modelsNode); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		_ = mq.PublishPeerUpdate(false)
-	}()
+		_ = mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 
 	logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
 }

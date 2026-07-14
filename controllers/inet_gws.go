@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
@@ -64,17 +66,18 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, false)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
-		go func() {
-			logic.ResetAutoRelayedPeer(&node)
-			mq.PublishPeerUpdate(false)
-		}()
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			logic.ResetAutoRelayedPeer(ctx, &node)
+			mq.PublishPeerUpdate(ctx, false)
+		}(ctx)
 
 	}
 	if node.IsGw && node.IngressDNS == "" {
@@ -96,7 +99,8 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func updateInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -123,12 +127,12 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, true)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	logic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
@@ -146,10 +150,11 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		_ = logic.ResetAutoRelayedPeer(&node)
-		_ = mq.PublishPeerUpdate(false)
-	}()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		_ = logic.ResetAutoRelayedPeer(ctx, &node)
+		_ = mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +168,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -180,5 +185,6 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }
