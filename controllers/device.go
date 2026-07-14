@@ -284,7 +284,10 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 			errType = logic.Forbidden
 		case "device is not joined to network", "network is required", "exit node not found",
 			"egress is not an active internet exit node in this network",
-			"routing node cannot select itself as exit node":
+			"routing node cannot select itself as exit node",
+			"gateway nodes cannot be assigned an exit node",
+			"relayed nodes cannot be assigned an exit node",
+			"internet egress has no routing node":
 			errType = logic.BadReq
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))

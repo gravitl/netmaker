@@ -228,7 +228,7 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
-	if node.IsIGWClient {
+	if node.IsIGWClient || node.SelectedInternetEgressID != "" {
 		return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
 	}
 	if node.RelayedByNodeID != nil {
@@ -257,11 +257,11 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
 		if update {
-			if clientNode.InternetGwID != "" && clientNode.InternetGwID != node.ID {
+			if exitID := InternetExitRoutingNodeID(&clientNode); exitID != "" && exitID != node.ID {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
 		} else {
-			if clientNode.InternetGwID != "" {
+			if InternetExitRoutingNodeID(&clientNode) != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
 		}
@@ -329,34 +329,8 @@ func UnsetInternetGw(node *models.Node) {
 
 }
 
-func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if relay.InternetGwID != "" || relay.SelectedInternetEgressID != "" {
-		relayedHost := &schema.Host{
-			ID: relayed.HostID,
-		}
-		err := relayedHost.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			return peerUpdate
-		}
-		peerUpdate.ChangeDefaultGw = true
-		peerUpdate.DefaultGwIp = relay.Address.IP
-		if peerUpdate.DefaultGwIp == nil || relayedHost.EndpointIP == nil {
-			peerUpdate.DefaultGwIp = relay.Address6.IP
-		}
-
-	}
-	return peerUpdate
-}
-
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	inetNodeID := node.InternetGwID
-	if node.SelectedInternetEgressID != "" {
-		if e, err := GetSelectedInternetEgress(&node); err == nil {
-			if routingNodeID := FirstInternetEgressRoutingNodeID(*e); routingNodeID != "" {
-				inetNodeID = routingNodeID
-			}
-		}
-	}
+	inetNodeID := InternetExitRoutingNodeID(&node)
 	if inetNodeID == "" {
 		return peerUpdate
 	}

@@ -356,6 +356,10 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 		return fmt.Errorf("relayed node %s cannot be used as a gateway", node.Host.Name)
 	}
 
+	if node.SelectedInternetEgressID != "" {
+		return fmt.Errorf("node %s is using an exit node egress and cannot be set as a gateway", node.Host.Name)
+	}
+
 	for _, relayedClientID := range ops.relayedClients {
 		err := (&schema.Node{
 			ID: relayedClientID,

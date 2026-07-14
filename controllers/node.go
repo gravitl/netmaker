@@ -686,6 +686,15 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ResetAutoRelay(newNode)
 	}
 
+	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway &&
+		(newNode.SelectedInternetEgressID != "" || currentNode.SelectedInternetEgressID != "") {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("node is using an exit node egress; auto-assign gateway is not allowed"),
+			"badrequest",
+		))
+		return
+	}
+
 	if (!currentNode.IsInternetGateway && newNode.IsInternetGateway) || len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
 		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {

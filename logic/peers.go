@@ -308,6 +308,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		GetNodeEgressInfo(&node, eli, acls)
+		ResolveInternetExitRoutingNode(&node)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
@@ -441,9 +442,6 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 				continue
 			}
-			if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-				hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
-			}
 
 			uselocal := false
 			if host.EndpointIP.String() == peerHost.EndpointIP.String() {
@@ -479,7 +477,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
-			if node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "" && !peer.IsStatic {
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && InternetExitRoutingNodeID(&peer) == "" && !peer.IsStatic {
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}
@@ -851,9 +849,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		if peer.InternetGwID != "" || peer.SelectedInternetEgressID != "" {
-			return allowedips
-		}
 	}
 
 	// handle ingress gateway peers
@@ -877,18 +872,8 @@ func usesPeerAsInternetExit(node, peer *models.Node) bool {
 	if node == nil || peer == nil {
 		return false
 	}
-	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
-		return true
-	}
-	if node.SelectedInternetEgressID == "" {
-		return false
-	}
-	e, err := GetSelectedInternetEgress(node)
-	if err != nil {
-		return false
-	}
-	_, ok := e.Nodes[peer.ID.String()]
-	return ok
+	routingNodeID := InternetExitRoutingNodeID(node)
+	return routingNodeID != "" && routingNodeID == peer.ID.String()
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {

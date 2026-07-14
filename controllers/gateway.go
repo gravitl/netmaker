@@ -337,6 +337,12 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if node.SelectedInternetEgressID != "" {
+		err = errors.New("node is using an exit node egress; gateway assignment is not allowed")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	if !servercfg.IsPro {
 		autoAssignGw = false
 	}

@@ -224,7 +224,7 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 	for _, nodeID := range host.Nodes {
 
 		node, err := logic.GetNodeByID(nodeID)
-		if err == nil && node.Connected && (node.InternetGwID != "" || node.SelectedInternetEgressID != "") {
+		if err == nil && node.Connected && logic.InternetExitRoutingNodeID(&node) != "" {
 			replacePeers = false
 		}
 	}

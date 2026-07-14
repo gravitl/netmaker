@@ -17,8 +17,9 @@ import (
 // migrateInternetEgress:
 // 1) backfills Type=internet on egresses with Range="*"
 // 2) creates internet-type egress resources for legacy IsInternetGateway nodes
-// 3) sets SelectedInternetEgressID (and legacy InternetGwID) on former IGW client nodes
+// 3) sets SelectedInternetEgressID on former IGW client nodes (routing node resolved at peer-update time)
 // 4) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
+// 5) clears legacy inet_node_client / relayed_igw_clients client rosters on IGW routing nodes
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -83,6 +84,7 @@ func migrateInternetEgress() {
 
 	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress)
 	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
+	clearLegacyInetNodeClientLists(ctx, nodes)
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
@@ -131,6 +133,31 @@ func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []model
 		if err := logic.SaveExtClient(&c); err != nil {
 			logger.Log(0, "migration: failed to set selected internet egress on ext client", c.ClientID, err.Error())
 		}
+	}
+}
+
+// clearLegacyInetNodeClientLists clears RelayedIGWClients (source of InetNodeReq.InetNodeClientIDs)
+// on legacy internet gateway routing nodes after selections have been migrated.
+func clearLegacyInetNodeClientLists(ctx context.Context, nodes []models.Node) {
+	for _, node := range nodes {
+		if !node.IsInternetGateway {
+			continue
+		}
+		_node := &schema.Node{ID: node.ID.String()}
+		if err := _node.Get(ctx); err != nil {
+			logger.Log(0, "migration: failed to load node to clear igw client list:", node.ID.String(), err.Error())
+			continue
+		}
+		if len(_node.RelayedIGWClients) == 0 && len(node.InetNodeReq.InetNodeClientIDs) == 0 {
+			continue
+		}
+		if err := db.FromContext(ctx).Model(&schema.Node{}).
+			Where("id = ?", node.ID.String()).
+			Update("relayed_igw_clients", datatypes.JSONMap{}).Error; err != nil {
+			logger.Log(0, "migration: failed to clear relayed_igw_clients on node", node.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(1, fmt.Sprintf("migration: cleared legacy inet gw client list on node %s", node.ID.String()))
 	}
 }
 

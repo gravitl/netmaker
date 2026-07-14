@@ -190,8 +190,8 @@ func cleanupNodeReferences(node *models.Node) {
 	if node.IsRelay {
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	if node.InternetGwID != "" {
-		inetNode, err := GetNodeByID(node.InternetGwID)
+	if routingID := InternetExitRoutingNodeID(node); routingID != "" {
+		inetNode, err := GetNodeByID(routingID)
 		if err == nil {
 			clientNodeIDs := []string{}
 			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {

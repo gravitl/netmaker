@@ -237,7 +237,7 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	if host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
-	if node.SelectedInternetEgressID != "" || node.InternetGwID != "" {
+	if InternetExitRoutingNodeID(node) != "" {
 		return fmt.Errorf("node %s is using an internet gateway already", host.Name)
 	}
 	if node.IsRelayed {
@@ -279,6 +279,33 @@ func GetSelectedInternetEgress(node *models.Node) (*schema.Egress, error) {
 		return nil, errors.New("selected internet egress is not available")
 	}
 	return e, nil
+}
+
+// InternetExitRoutingNodeID returns the node ID used for full-internet exit.
+// Prefers SelectedInternetEgressID (source of truth); falls back to legacy InternetGwID.
+func InternetExitRoutingNodeID(node *models.Node) string {
+	if node == nil {
+		return ""
+	}
+	if node.SelectedInternetEgressID != "" {
+		if e, err := GetSelectedInternetEgress(node); err == nil {
+			if id := FirstInternetEgressRoutingNodeID(*e); id != "" {
+				return id
+			}
+		}
+	}
+	return node.InternetGwID
+}
+
+// ResolveInternetExitRoutingNode sets node.InternetGwID in-memory from SelectedInternetEgressID
+// for peer-update helpers that still read InternetGwID. Does not persist.
+func ResolveInternetExitRoutingNode(node *models.Node) {
+	if node == nil {
+		return
+	}
+	if id := InternetExitRoutingNodeID(node); id != "" {
+		node.InternetGwID = id
+	}
 }
 
 // FirstInternetEgressRoutingNodeID returns a routing node ID from an internet egress.
@@ -353,7 +380,8 @@ func FindInternetEgressByRoutingNode(ctx context.Context, network, nodeID string
 	return nil, errors.New("internet egress not found for routing node")
 }
 
-// SetNodeSelectedInternetEgress sets or clears the node's selected internet egress and syncs legacy InternetGwID.
+// SetNodeSelectedInternetEgress sets or clears the node's selected internet egress.
+// Routing node for peer updates is derived via InternetExitRoutingNodeID; InternetGwID is not dual-written.
 func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if node == nil {
 		return errors.New("node is required")
@@ -377,8 +405,17 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if routingNodeID == node.ID.String() {
 		return errors.New("routing node cannot select itself as exit node")
 	}
+	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
+		return errors.New("gateway nodes cannot be assigned an exit node")
+	}
+	if node.AutoAssignGateway {
+		node.AutoAssignGateway = false
+	}
+	if node.IsRelayed {
+		return errors.New("relayed nodes cannot be assigned an exit node")
+	}
 	node.SelectedInternetEgressID = egressID
-	node.InternetGwID = routingNodeID
+	node.InternetGwID = ""
 	return UpsertNode(node)
 }
 
