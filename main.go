@@ -159,9 +159,20 @@ func initialize() { // Client Mode Prereq Check
 
 	//initialize cache
 	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls(logic.DefaultScope(db.WithContext(context.TODO())))
+	initCache()
 	_ = logic.CleanExpiredSSOStates()
 
+}
+
+func initCache() {
+	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+	for _, t := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, t.ID)
+		_ = logic.ListAcls(ctx)
+	}
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {

@@ -2513,10 +2513,19 @@ var (
 )
 
 var (
-	aclCacheMutex       = &sync.RWMutex{}
-	aclCacheMap         = make(map[string]models.Acl)
-	aclCacheFullyLoaded atomic.Bool
+	aclCacheMap         sync.Map
+	aclCacheFullyLoaded sync.Map
 )
+
+func getTenantAclCache(tenantID string) *sync.Map {
+	v, _ := aclCacheMap.LoadOrStore(tenantID, &sync.Map{})
+	return v.(*sync.Map)
+}
+
+func getTenantAclCacheLoaded(tenantID string) *atomic.Bool {
+	v, _ := aclCacheFullyLoaded.LoadOrStore(tenantID, &atomic.Bool{})
+	return v.(*atomic.Bool)
+}
 
 func MigrateAclPolicies(ctx context.Context) {
 	acls := ListAcls(ctx)
@@ -2937,7 +2946,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 	}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(acl)
+		storeAclInCache(ctx, acl)
 	}
 	return err
 }
@@ -2947,7 +2956,7 @@ func UpsertAcl(ctx context.Context, acl models.Acl) error {
 	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(acl)
+		storeAclInCache(ctx, acl)
 	}
 	return err
 }
@@ -2956,14 +2965,14 @@ func UpsertAcl(ctx context.Context, acl models.Acl) error {
 func DeleteAcl(ctx context.Context, a models.Acl) error {
 	err := (&schema.AclRecord{Key: a.ID}).Delete(ctx)
 	if err == nil && servercfg.CacheEnabled() {
-		removeAclFromCache(a)
+		removeAclFromCache(ctx, a)
 	}
 	return err
 }
 
 func ListAcls(ctx context.Context) (acls []models.Acl) {
-	if servercfg.CacheEnabled() && aclCacheFullyLoaded.Load() {
-		return listAclFromCache()
+	if servercfg.CacheEnabled() && getTenantAclCacheLoaded(scope.ID(ctx)).Load() {
+		return listAclFromCache(ctx)
 	}
 
 	aclRecords, err := (&schema.AclRecord{}).List(ctx)
@@ -2971,7 +2980,7 @@ func ListAcls(ctx context.Context) (acls []models.Acl) {
 		return []models.Acl{}
 	}
 	if servercfg.CacheEnabled() {
-		resetAclCacheLocked()
+		resetAclCacheLocked(ctx)
 	}
 	for _, r := range aclRecords {
 		acl := r.Value.Data()
@@ -3002,11 +3011,11 @@ func ListAcls(ctx context.Context) (acls []models.Acl) {
 		}
 		acls = append(acls, acl)
 		if servercfg.CacheEnabled() {
-			storeAclInCache(acl)
+			storeAclInCache(ctx, acl)
 		}
 	}
 	if servercfg.CacheEnabled() {
-		aclCacheFullyLoaded.Store(true)
+		getTenantAclCacheLoaded(scope.ID(ctx)).Store(true)
 	}
 	return
 }
@@ -3130,40 +3139,35 @@ func ValidateCreateAclReq(req models.Acl) error {
 	return nil
 }
 
-func listAclFromCache() (acls []models.Acl) {
-	aclCacheMutex.RLock()
-	defer aclCacheMutex.RUnlock()
-	for _, acl := range aclCacheMap {
-		acls = append(acls, acl)
+func listAclFromCache(ctx context.Context) (acls []models.Acl) {
+	tenantCache := getTenantAclCache(scope.ID(ctx))
+	tenantCache.Range(func(_, v any) bool {
+		acls = append(acls, v.(models.Acl))
+		return true
+	})
+	return
+}
+
+func resetAclCacheLocked(ctx context.Context) {
+	tenantID := scope.ID(ctx)
+	aclCacheMap.Store(tenantID, &sync.Map{})
+	getTenantAclCacheLoaded(tenantID).Store(false)
+}
+
+func storeAclInCache(ctx context.Context, a models.Acl) {
+	getTenantAclCache(scope.ID(ctx)).Store(a.ID, a)
+}
+
+func removeAclFromCache(ctx context.Context, a models.Acl) {
+	getTenantAclCache(scope.ID(ctx)).Delete(a.ID)
+}
+
+func getAclFromCache(ctx context.Context, aID string) (a models.Acl, ok bool) {
+	v, ok := getTenantAclCache(scope.ID(ctx)).Load(aID)
+	if !ok {
+		return a, false
 	}
-	return
-}
-
-func resetAclCacheLocked() {
-	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
-	aclCacheMap = make(map[string]models.Acl)
-	aclCacheFullyLoaded.Store(false)
-}
-
-func storeAclInCache(a models.Acl) {
-	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
-	aclCacheMap[a.ID] = a
-
-}
-
-func removeAclFromCache(a models.Acl) {
-	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
-	delete(aclCacheMap, a.ID)
-}
-
-func getAclFromCache(aID string) (a models.Acl, ok bool) {
-	aclCacheMutex.RLock()
-	defer aclCacheMutex.RUnlock()
-	a, ok = aclCacheMap[aID]
-	return
+	return v.(models.Acl), true
 }
 
 // InsertAcl - creates acl policy
@@ -3171,7 +3175,7 @@ func InsertAcl(ctx context.Context, a models.Acl) error {
 	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(a)
+		storeAclInCache(ctx, a)
 	}
 	return err
 }
@@ -3181,7 +3185,7 @@ func GetAcl(ctx context.Context, aID string) (models.Acl, error) {
 	a := models.Acl{}
 	if servercfg.CacheEnabled() {
 		var ok bool
-		a, ok = getAclFromCache(aID)
+		a, ok = getAclFromCache(ctx, aID)
 		if ok {
 			return a, nil
 		}
@@ -3192,7 +3196,7 @@ func GetAcl(ctx context.Context, aID string) (models.Acl, error) {
 	}
 	a = r.Value.Data()
 	if servercfg.CacheEnabled() {
-		storeAclInCache(a)
+		storeAclInCache(ctx, a)
 	}
 	return a, nil
 }
