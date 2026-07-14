@@ -1164,15 +1164,6 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 		}
 	}
 
-	// Members of an admin group bypass JIT, so any network where the group now
-	// grants admin access must drop it from its JIT scope.
-	if new != nil {
-		if err := ReconcileUserGroupJITScope(new); err != nil {
-			slog.Warn("failed to reconcile JIT scope for updated user group",
-				"group_id", new.ID, "error", err)
-		}
-	}
-
 	return nil
 }
 
