@@ -19,9 +19,9 @@ import (
 )
 
 // userMustSatisfyJIT reports whether an active JIT grant is required for this user on the network.
-// Admins must be ruled out by the caller before invoking this. If jit_user_group_ids is empty,
-// all non-admin users are subject to JIT. If non-empty, only users belonging to at least one
-// listed group are subject; unknown users (nil) are not subject when the list is non-empty.
+// If jit_user_group_ids is empty, every user is subject to JIT (including network admins).
+// If non-empty, only users belonging to at least one listed group are subject; unknown users (nil)
+// are not subject when the list is non-empty.
 func userMustSatisfyJIT(network *schema.Network, user *schema.User) bool {
 	if len(network.JITUserGroupIDs) == 0 {
 		return true
@@ -45,8 +45,9 @@ type JITStatusResponse struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
-// EnableJITOnNetwork - enables JIT on a network, optionally scoped to jitUserGroupIDs (empty = all non-admins).
-// Removes client-app ext clients for users who are subject to JIT under the new configuration.
+// EnableJITOnNetwork - enables JIT on a network, optionally scoped to jitUserGroupIDs
+// (empty = all users). Removes client-app ext clients for users who are subject to JIT
+// under the new configuration.
 func EnableJITOnNetwork(networkID string, jitUserGroupIDs []schema.UserGroupID) error {
 	// Check if JIT feature is enabled
 	featureFlags := GetFeatureFlags()
@@ -171,9 +172,6 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 	var subjectUser *schema.User
 	if userGetErr == nil {
 		subjectUser = reqUser
-		if IsNetworkAdmin(subjectUser, networkID) {
-			return nil, errors.New("JIT does not apply to your account on this network")
-		}
 	}
 	if !userMustSatisfyJIT(network, subjectUser) {
 		return nil, errors.New("JIT does not apply to your account on this network")
@@ -354,6 +352,24 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	return true, activeGrant, nil
 }
 
+// UserSubjectToNetworkJIT reports whether client-app extclient create must verify a JIT grant
+// for this user on the network. False when the feature/network JIT is off or the user is
+// outside jit_user_group_ids scope.
+func UserSubjectToNetworkJIT(networkID string, user *schema.User) bool {
+	featureFlags := GetFeatureFlags()
+	if !featureFlags.EnableJIT {
+		return false
+	}
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+		return false
+	}
+	if !network.JITEnabled {
+		return false
+	}
+	return userMustSatisfyJIT(network, user)
+}
+
 // JITRequestWithGrant - JIT request with grant ID for approved requests
 type JITRequestWithGrant struct {
 	schema.JITRequest
@@ -525,15 +541,7 @@ func GetUserJITNetworksStatus(networks []schema.Network, user *schema.User) ([]U
 			PendingRequest: false,
 		}
 
-		// Check if user is admin - if so, show JIT as disabled and has access
-		if IsNetworkAdmin(user, network.Name) {
-			status.JITEnabled = false
-			status.JitAppliesToUser = false
-			status.HasAccess = true
-			result = append(result, status)
-			continue
-		}
-
+		// When JIT is enabled it applies to all users unless scoped to jit_user_group_ids.
 		status.JitAppliesToUser = network.JITEnabled && userMustSatisfyJIT(&network, user)
 
 		// Only check JIT status if JIT is enabled on the network
@@ -779,7 +787,8 @@ func extClientFromClientApp(client models.ExtClient) bool {
 }
 
 // DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
-// a JIT grant under the given network configuration. Admin-managed config files are kept.
+// a JIT grant under the given network configuration. Admin-managed config files (no device/
+// remote_access_client id) are kept.
 func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(network.Name)
 	if err != nil {
@@ -795,9 +804,6 @@ func DisconnectExtClientsFromNetworkForScope(network *schema.Network) error {
 		var ownerPtr *schema.User
 		if ownerErr == nil {
 			ownerPtr = owner
-			if IsNetworkAdmin(ownerPtr, network.Name) {
-				continue
-			}
 		}
 		if !userMustSatisfyJIT(network, ownerPtr) {
 			continue

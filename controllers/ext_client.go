@@ -1294,17 +1294,15 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // extClientCreateRequiresJIT reports whether create must verify JIT access.
-// Client-app requests (device_id / remote_access_client_id) always require JIT, including for admins.
-// Dashboard config-file creates bypass JIT only for master key and group-verified network admins.
+// Only client-app requests (device_id / remote_access_client_id) are enforced.
+// Dashboard config-file creates skip JIT. Master key skips. When JIT groups are set,
+// users outside that allowlist are not subject.
 func extClientCreateRequiresJIT(isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
-	if custom.DeviceID != "" || custom.RemoteAccessClientID != "" {
-		return true
+	if custom.DeviceID == "" && custom.RemoteAccessClientID == "" {
+		return false
 	}
 	if isMaster {
 		return false
 	}
-	if caller != nil && logic.IsNetworkAdmin(caller, networkID) {
-		return false
-	}
-	return true
+	return logic.UserSubjectToNetworkJIT(networkID, caller)
 }
