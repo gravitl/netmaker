@@ -275,9 +275,9 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 				return
 			}
-			logic.StartFlowCleanupLoop()
+			logic.StartFlowCleanupLoop(r.Context())
 		} else {
-			logic.StopFlowCleanupLoop()
+			logic.StopFlowCleanupLoop(r.Context())
 			ch.Close()
 		}
 	}
@@ -285,13 +285,13 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	err := logic.UpsertServerSettings(r.Context(), req)
 	if err != nil {
 		if req.EnableFlowLogs {
-			logic.StopFlowCleanupLoop()
+			logic.StopFlowCleanupLoop(r.Context())
 			ch.Close()
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: identifySettingsUpdateAction(currSettings, req),
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -326,7 +326,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor(ctx).Stop()
 		logic.GetMetricsMonitor(ctx).Start()
-		logic.NotifyMetricExportIntervalChanged()
+		logic.NotifyMetricExportIntervalChanged(ctx)
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {

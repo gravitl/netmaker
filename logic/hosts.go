@@ -50,7 +50,7 @@ const (
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
 func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]schema.Host, error) {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(ctx))
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -431,23 +431,27 @@ func GetMetricIntervalInMinutes(ctx context.Context) time.Duration {
 
 var (
 	metricExportIntervalMu   sync.Mutex
-	metricExportIntervalSubs []chan struct{}
+	metricExportIntervalSubs = map[string][]chan struct{}{}
 )
 
-// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval setting changes.
-func SubscribeMetricExportIntervalReset() <-chan struct{} {
+// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval
+// setting changes for ctx's tenant.
+func SubscribeMetricExportIntervalReset(ctx context.Context) <-chan struct{} {
+	tenantID := scope.ID(ctx)
 	ch := make(chan struct{}, 1)
 	metricExportIntervalMu.Lock()
-	metricExportIntervalSubs = append(metricExportIntervalSubs, ch)
+	metricExportIntervalSubs[tenantID] = append(metricExportIntervalSubs[tenantID], ch)
 	metricExportIntervalMu.Unlock()
 	return ch
 }
 
-// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
-func NotifyMetricExportIntervalChanged() {
+// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker
+// for ctx's tenant.
+func NotifyMetricExportIntervalChanged(ctx context.Context) {
+	tenantID := scope.ID(ctx)
 	metricExportIntervalMu.Lock()
 	defer metricExportIntervalMu.Unlock()
-	for _, ch := range metricExportIntervalSubs {
+	for _, ch := range metricExportIntervalSubs[tenantID] {
 		select {
 		case ch <- struct{}{}:
 		default:

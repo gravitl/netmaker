@@ -77,8 +77,29 @@ func InitPro() {
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
-			auth.AddIDPSyncHooks()
-			proLogic.AddPostureCheckHook(ctx)
+			tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+			if err != nil {
+				logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
+			} else {
+				for _, tenant := range tenants {
+					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
+					auth.StartIDPSyncHookForTenant(scopedCtx)
+					proLogic.AddPostureCheckHook(scopedCtx)
+					logic.GetMetricsMonitor(scopedCtx).Start()
+
+					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
+						proLogic.StartFlowCleanupLoop(scopedCtx)
+
+						wg.Add(1)
+						go func(ctx context.Context, wg *sync.WaitGroup) {
+							<-ctx.Done()
+							proLogic.StopFlowCleanupLoop(scopedCtx)
+							wg.Done()
+						}(ctx, wg)
+					}
+				}
+			}
+
 			// Register JIT expiry hook with email notifications
 			addJitExpiryHookWithEmail()
 
@@ -87,12 +108,9 @@ func InitPro() {
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
 				} else {
-					proLogic.StartFlowCleanupLoop()
-
 					wg.Add(1)
 					go func(ctx context.Context, wg *sync.WaitGroup) {
 						<-ctx.Done()
-						proLogic.StopFlowCleanupLoop()
 						ch.Close()
 						wg.Done()
 					}(ctx, wg)
@@ -101,18 +119,9 @@ func InitPro() {
 		}
 
 		// These can run on all pods
+		// todo(nm-341): move email creds to org settings.
 		email.Init(logic.DefaultScope(db.WithContext(ctx)))
 		go proLogic.EventWatcher()
-
-		tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
-		if err != nil {
-			logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
-		} else {
-			for _, tenant := range tenants {
-				ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
-				logic.GetMetricsMonitor(ctx).Start()
-			}
-		}
 	})
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
@@ -158,7 +167,7 @@ func InitPro() {
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
-	logic.LogEvent = proLogic.LogEvent
+	//logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
 	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap

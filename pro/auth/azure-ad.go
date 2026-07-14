@@ -180,7 +180,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,

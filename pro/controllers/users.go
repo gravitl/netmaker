@@ -276,7 +276,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Create,
 			Source: models.Subject{
 				ID:   callerUserName,
@@ -347,7 +347,7 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -384,7 +384,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -570,7 +570,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
 		_ = logic.UpsertUser(*user)
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -632,7 +632,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -816,7 +816,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	oldUser := *user
 	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
 	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -872,7 +872,7 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	oldUser := *user
 	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
 	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -927,7 +927,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1035,7 +1035,7 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1089,7 +1089,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1141,7 +1141,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2059,7 +2059,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2114,7 +2114,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2152,7 +2152,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

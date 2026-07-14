@@ -144,11 +144,30 @@ const CHECKIN_FLUSH_INTERVAL = 30
 // normalizedMetricsExportInterval applies the same minimum as before (invalid/too-small
 // intervals use a 10-minute default).
 func normalizedMetricsExportInterval(ctx context.Context) time.Duration {
-	d := logic.GetMetricIntervalInMinutes(logic.DefaultScope(db.WithContext(ctx)))
+	d := logic.GetMetricIntervalInMinutes(ctx)
 	if d < time.Minute {
 		return time.Minute * 10
 	}
 	return d
+}
+
+// runTenantMetricsExporter runs the metrics-export ticker for a single tenant, resetting
+// it whenever that tenant's metric interval setting changes, until ctx is done.
+func runTenantMetricsExporter(ctx context.Context) {
+	metricIntervalReset := logic.SubscribeMetricExportIntervalReset(ctx)
+	metricsTicker := time.NewTicker(normalizedMetricsExportInterval(ctx))
+	defer metricsTicker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-metricsTicker.C:
+			PushAllMetricsToExporter(ctx)
+		case <-metricIntervalReset:
+			metricsTicker.Stop()
+			metricsTicker = time.NewTicker(normalizedMetricsExportInterval(ctx))
+		}
+	}
 }
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
@@ -158,14 +177,12 @@ func Keepalive(ctx context.Context) {
 		slog.Error("failed to list tenants for peer update workers", "error", err)
 	}
 	for _, tenant := range tenants {
-		ctx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
-		warmPeerCaches(ctx)
-		StartPeerUpdateWorker(ctx)
-		go PublishPeerUpdate(ctx, true)
+		tenantCtx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
+		warmPeerCaches(tenantCtx)
+		StartPeerUpdateWorker(tenantCtx)
+		go PublishPeerUpdate(tenantCtx, true)
+		go runTenantMetricsExporter(tenantCtx)
 	}
-	metricIntervalReset := logic.SubscribeMetricExportIntervalReset()
-	metricsTicker := time.NewTicker(normalizedMetricsExportInterval(ctx))
-	defer metricsTicker.Stop()
 	if servercfg.CacheEnabled() {
 		checkinTicker := time.NewTicker(CHECKIN_FLUSH_INTERVAL * time.Second)
 		defer checkinTicker.Stop()
@@ -178,11 +195,6 @@ func Keepalive(ctx context.Context) {
 				sendPeers()
 			case <-checkinTicker.C:
 				logic.FlushNodeCheckins()
-			case <-metricsTicker.C:
-				PushAllMetricsToExporter()
-			case <-metricIntervalReset:
-				metricsTicker.Stop()
-				metricsTicker = time.NewTicker(normalizedMetricsExportInterval(ctx))
 			}
 		}
 	} else {
@@ -192,11 +204,6 @@ func Keepalive(ctx context.Context) {
 				return
 			case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
 				sendPeers()
-			case <-metricsTicker.C:
-				PushAllMetricsToExporter()
-			case <-metricIntervalReset:
-				metricsTicker.Stop()
-				metricsTicker = time.NewTicker(normalizedMetricsExportInterval(ctx))
 			}
 		}
 	}

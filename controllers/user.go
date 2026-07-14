@@ -151,7 +151,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -249,7 +249,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -416,7 +416,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	// log user activity
 	if !user.IsMFAEnabled {
 		if val := request.Header.Get("From-Ui"); val == "true" {
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(request.Context(), &models.Event{
 				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
@@ -432,7 +432,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				Origin: schema.Dashboard,
 			})
 		} else {
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(request.Context(), &models.Event{
 				Action: schema.Login,
 				Source: models.Subject{
 					ID:   user.Username,
@@ -672,7 +672,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.EnableMFA,
 			Source: models.Subject{
 				ID:   user.Username,
@@ -758,7 +758,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Login,
 			Source: models.Subject{
 				ID:   user.Username,
@@ -969,7 +969,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		event = schema.DisableUser
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: event,
 		Source: models.Subject{
 			ID:   src,
@@ -1479,7 +1479,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -1704,7 +1704,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&e)
+	logic.LogEvent(r.Context(), &e)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 	go func(ctx context.Context) {
@@ -1826,7 +1826,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   caller.Username,
@@ -1967,7 +1967,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   callerName,
@@ -2108,7 +2108,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Update,
 				Source: models.Subject{
 					ID:   callerName,
@@ -2206,7 +2206,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		target = schema.ClientAppSub
 	}
 	if target != "" {
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.LogOut,
 			Source: models.Subject{
 				ID:   user.Username,

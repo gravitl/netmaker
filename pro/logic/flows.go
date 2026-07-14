@@ -11,28 +11,43 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
-	flowsCleanupHookID       = "flows-cleanup-hook"
 	flowsCleanupHookInterval = 24 * time.Hour
 )
 
-func StartFlowCleanupLoop() {
+func getFlowCleanupLoopID(ctx context.Context) string {
+	return fmt.Sprintf("flows-cleanup-loop-%s", scope.ID(ctx))
+}
+
+func StartFlowCleanupLoop(ctx context.Context) {
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       flowsCleanupHookID,
-		Hook:     logic.WrapHook(CleanupFlows),
+		ID:       getFlowCleanupLoopID(ctx),
+		Hook:     CleanupFlows,
+		Params:   []any{scope.ID(ctx)},
 		Interval: flowsCleanupHookInterval,
 	}
 }
 
-func StopFlowCleanupLoop() {
-	logic.StopHook(flowsCleanupHookID)
+func StopFlowCleanupLoop(ctx context.Context) {
+	logic.StopHook(getFlowCleanupLoopID(ctx))
 }
 
-func CleanupFlows() error {
-	ctx := ch.WithContext(context.TODO())
+func CleanupFlows(params ...any) error {
+	if len(params) != 1 {
+		return errors.New("invalid number of params")
+	}
+
+	tenantID, _ := params[0].(string)
+	if len(tenantID) == 0 {
+		return errors.New("invalid tenant id")
+	}
+
+	ctx := scope.WithContext(db.WithContext(ch.WithContext(context.Background())), scope.TenantScope, tenantID)
+
 	conn, err := ch.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("clickhouse connection not available: %w", err)
@@ -48,8 +63,7 @@ ORDER BY parts.partition ASC
 	}
 	defer rows.Close()
 
-	settingsCtx := logic.DefaultScope(db.WithContext(context.TODO()))
-	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings(settingsCtx).AuditLogsRetentionPeriodInDays)
+	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings(ctx).AuditLogsRetentionPeriodInDays)
 
 	var cleanErr error
 	for rows.Next() {

@@ -81,7 +81,7 @@ func ValidateLicense() (err error) {
 
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
-		Usage:        logic.GetCurrentServerUsage(logic.DefaultScope(db.WithContext(context.TODO()))),
+		Usage:        logic.GetCurrentServerUsage(db.WithContext(context.TODO())),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)

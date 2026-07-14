@@ -168,7 +168,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -441,7 +441,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	event.Diff.New = e
-	logic.LogEvent(event)
+	logic.LogEvent(r.Context(), event)
 	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
@@ -505,7 +505,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

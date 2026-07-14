@@ -96,7 +96,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -252,7 +252,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	if updateStatus {
 		pc.UpdateStatus(db.WithContext(context.TODO()))
 	}
-	logic.LogEvent(event)
+	logic.LogEvent(r.Context(), event)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
@@ -288,7 +288,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

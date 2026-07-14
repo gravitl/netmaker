@@ -303,7 +303,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
 			} else {
 				if len(username) > 0 {
-					logic.LogEvent(&models.Event{
+					logic.LogEvent(ctx, &models.Event{
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   username,
@@ -320,7 +320,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 						Origin:    schema.Dashboard,
 					})
 				} else {
-					logic.LogEvent(&models.Event{
+					logic.LogEvent(ctx, &models.Event{
 						Action: schema.JoinHostToNet,
 						Source: models.Subject{
 							ID:   key.Value,

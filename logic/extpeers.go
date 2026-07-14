@@ -167,7 +167,7 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 		deleteExtClientFromCache(ctx, key)
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
-		LogEvent(&models.Event{
+		LogEvent(ctx, &models.Event{
 			Action: schema.Disconnect,
 			Source: models.Subject{
 				ID:   extClient.OwnerID,

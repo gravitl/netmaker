@@ -123,7 +123,7 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.UpgradeAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -454,7 +454,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}(ctx)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -762,7 +762,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	(&schema.PendingHost{
 		HostID: currHost.ID.String(),
 	}).DeleteAllPendingHosts(db.WithContext(r.Context()))
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -885,7 +885,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				slog.Debug("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
 			}
 			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   user,
@@ -998,7 +998,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("user"),
 		fmt.Sprintf("added host %s to network %s", host.Name, networkID),
 	)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JoinHostToNet,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1148,7 +1148,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		mq.PublishMqUpdatesForDeletedNode(ctx, nil, *node, true)
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.RemoveHostFromNet,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1397,7 +1397,7 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.RefreshAllKeys,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1456,7 +1456,7 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to send host key update", host.ID.String(), err.Error())
 		}
 	}()
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.RefreshKey,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1510,7 +1510,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1568,7 +1568,7 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
 		}
 	}()
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Sync,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

@@ -249,7 +249,7 @@ func regenerateEnrollmentKeyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -293,7 +293,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -408,7 +408,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -472,7 +472,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

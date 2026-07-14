@@ -340,7 +340,7 @@ func PublishMqUpdatesForDeletedNode(ctx context.Context, delHost *schema.Host, n
 // PushAllMetricsToExporter fetches all node metrics from the database
 // and POSTs them as a batch to the exporter's HTTP API.
 // Called periodically by a ticker instead of on every individual metrics MQTT message.
-func PushAllMetricsToExporter() {
+func PushAllMetricsToExporter(ctx context.Context) {
 	if !servercfg.IsMetricsExporter() {
 		return
 	}
@@ -355,7 +355,7 @@ func PushAllMetricsToExporter() {
 		slog.Warn("metrics export: exporter unhealthy, skipping", "status", healthResp.StatusCode)
 		return
 	}
-	metricRecords, err := (&schema.MetricsRecord{}).List(logic.DefaultScope(db.WithContext(context.TODO())))
+	metricRecords, err := (&schema.MetricsRecord{}).List(ctx)
 	if err != nil {
 		slog.Error("metrics export: failed to fetch records", "error", err)
 		return

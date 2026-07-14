@@ -8,6 +8,7 @@ import (
 )
 
 func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
+	// todo(nm-341): get usage of all tenants or specific tenant?
 	limits.SetDefaults()
 	hosts, hErr := GetAllHostsWithStatus(ctx, schema.OnlineSt)
 	if hErr == nil {

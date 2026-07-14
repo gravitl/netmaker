@@ -123,7 +123,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	node.Status = logic.GetNodeCheckInStatus(node)
 	apiNode := logic.ConvertSchemaNodeToApiNode(node)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -278,7 +278,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 		logic.RemoveNodeFromEnrollmentKeys(&node)
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -434,7 +434,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("assigned nodes to gateway [%s] on network [%s]",
 			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -532,7 +532,7 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
 			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayUnAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

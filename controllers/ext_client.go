@@ -770,7 +770,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.RemoteAccessClientID != "" {
 		// if created by user from client app, log event
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Connect,
 			Source: models.Subject{
 				ID:   userName,
@@ -1079,7 +1079,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			gwDeletedClients[extclient.IngressGatewayID] = append(gwDeletedClients[extclient.IngressGatewayID], extclient)
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   user,
@@ -1237,7 +1237,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient status: error publishing peer update", "client_id", clientID, "error", err)
 				}
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: eventAction,
 				Source: models.Subject{
 					ID:   user,

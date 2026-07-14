@@ -35,8 +35,8 @@ var (
 	idpSyncErrs     = make(map[string]error)
 )
 
-func idpSyncHookID(tenantID string) string {
-	return "idp-sync:" + tenantID
+func idpSyncHookID(ctx context.Context) string {
+	return fmt.Sprintf("idp-sync-%s", scope.ID(ctx))
 }
 
 func tenantSyncLock(tenantID string) *sync.Mutex {
@@ -58,19 +58,6 @@ func idpSyncInterval(settings schema.TenantSettings) time.Duration {
 	return interval
 }
 
-// AddIDPSyncHooks registers an idp sync hook for every tenant whose settings
-// have sync enabled. Called once at startup on the master pod.
-func AddIDPSyncHooks() {
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		logger.Log(0, "failed to list tenants for idp sync hooks: ", err.Error())
-		return
-	}
-	for _, tenant := range tenants {
-		startIDPSyncHookForTenant(tenant.ID)
-	}
-}
-
 // ResetIDPSyncHook re-reads the settings for the tenant carried in ctx and
 // either (re)registers or stops that tenant's idp sync hook accordingly.
 func ResetIDPSyncHook(ctx context.Context) {
@@ -81,27 +68,22 @@ func ResetIDPSyncHook(ctx context.Context) {
 		return
 	}
 
-	startIDPSyncHookForTenant(scope.ID(ctx))
+	StartIDPSyncHookForTenant(ctx)
 }
 
-// startIDPSyncHookForTenant (re)registers or stops the idp sync hook for a
-// single tenant based on that tenant's current settings. Sending a
-// HookDetails with an ID that's already running replaces the existing hook
-// in place (see logic.StartHookManager), so this covers both first-time
-// registration and interval/setting changes.
-func startIDPSyncHookForTenant(tenantID string) {
-	hookID := idpSyncHookID(tenantID)
+func StartIDPSyncHookForTenant(ctx context.Context) {
+	hookID := idpSyncHookID(ctx)
 
 	// Embed scope/db into a fresh context so the hook goroutine carries its
 	// own tenant identity independently of any caller's request lifetime.
-	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
+	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 
-	settingsRecord := &schema.TenantSettingsRecord{Key: tenantID}
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
 	if err := settingsRecord.Get(tenantCtx); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return
 		}
-		logger.Log(0, "failed to load settings for tenant ", tenantID, ": ", err.Error())
+		logger.Log(0, "failed to load settings for tenant ", scope.ID(ctx), ": ", err.Error())
 		return
 	}
 	settings := settingsRecord.Value.Data()
@@ -112,8 +94,10 @@ func startIDPSyncHookForTenant(tenantID string) {
 	}
 
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       hookID,
-		Hook:     logic.WrapHook(func() error { return SyncFromIDP(tenantCtx) }),
+		ID: hookID,
+		Hook: logic.WrapHook(func() error {
+			return SyncFromIDP(tenantCtx)
+		}),
 		Interval: idpSyncInterval(settings),
 	}
 }

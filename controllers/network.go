@@ -266,7 +266,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			slog.Error("error deleting network posture checks", "network", network, "error", err)
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -419,7 +419,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "added new node", newNode.ID, "to host", host.Name)
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

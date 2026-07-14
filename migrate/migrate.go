@@ -42,15 +42,15 @@ func Run() {
 		createDefaultTagsAndPolicies(ctx)
 		cleanupDeletedUserGroupRefs(ctx)
 		updateNewAcls(ctx)
+		updateNodes(ctx)
 		logic.CleanupGwsMigration(ctx)
+		deleteOldExtclients(ctx)
 	}
 
 	updateEnrollmentKeys()
 	syncUsers()
-	updateNodes()
 	migrateEgressDomains()
 	updateNetworks()
-	deleteOldExtclients()
 	migrateNameservers()
 	migrateEgressNatMode()
 	cleanUpDeleteNetworksRefs()
@@ -241,8 +241,8 @@ func updateEnrollmentKeys() {
 	}
 }
 
-func updateNodes() {
-	nodes, err := logic.GetAllNodes(db.WithContext(context.Background()))
+func updateNodes(ctx context.Context) {
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("migration failed for nodes", "error", err)
 		return
@@ -253,13 +253,12 @@ func updateNodes() {
 			host := &schema.Host{
 				ID: node.HostID,
 			}
-			err = host.Get(db.WithContext(context.TODO()))
+			err = host.Get(ctx)
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
 		}
 	}
-	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
 	extclients, _ := logic.GetAllExtClients(ctx)
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
@@ -528,8 +527,7 @@ func migrateSettings(ctx context.Context) {
 	_ = logic.UpsertServerSettings(ctx, settings)
 }
 
-func deleteOldExtclients() {
-	ctx := logic.DefaultScope(db.WithContext(context.TODO()))
+func deleteOldExtclients(ctx context.Context) {
 	extclients, _ := logic.GetAllExtClients(ctx)
 	userExtclientMap := make(map[string][]models.ExtClient)
 	for _, extclient := range extclients {

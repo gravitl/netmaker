@@ -238,7 +238,7 @@ func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 		if err != nil {
 			return err
 		}
-		newZombie <- nodeID
+		zombieChan(scope.ID(ctx)) <- nodeID
 		return nil
 	}
 	if alreadyDeleted {

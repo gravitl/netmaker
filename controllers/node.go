@@ -792,7 +792,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		"on network",
 		currentNode.Network,
 	)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -946,7 +946,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   user,
@@ -1057,7 +1057,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				}
 				go logic.SetPeerMetricsDisconnected(ctx, nodeID)
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: eventAction,
 				Source: models.Subject{
 					ID:   user,

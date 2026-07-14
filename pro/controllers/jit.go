@@ -175,7 +175,7 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitEnable,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -208,7 +208,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitDisable,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -262,7 +262,7 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 		Old: oldSnapshot,
 		New: newJITNetworkAuditSnapshot(updatedNet),
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitGroupsUpdate,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -370,7 +370,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 			slog.Error("failed to send approval notification", "error", err)
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitRequestApprove,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -418,7 +418,7 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 		}
 	}()
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitRequestDeny,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -541,7 +541,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to disconnect ext clients when revoking grant:", err.Error())
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitGrantRevoke,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -700,7 +700,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 		}
 	}(ctx)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitRequestCreate,
 		Source: models.Subject{
 			ID:   user.Username,

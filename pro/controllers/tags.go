@@ -157,7 +157,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -264,7 +264,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 	e.Diff.New = updateTag
-	logic.LogEvent(e)
+	logic.LogEvent(r.Context(), e)
 	var res models.TagListRespNodes = models.TagListRespNodes{
 		Tag:         tag,
 		UsedByCnt:   len(updateTag.TaggedNodes),
@@ -312,7 +312,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
