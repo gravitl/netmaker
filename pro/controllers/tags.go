@@ -55,7 +55,7 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	tags, err := proLogic.ListTagsWithNodes(schema.NetworkID(netID))
+	tags, err := proLogic.ListTagsWithNodes(r.Context(), schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -107,7 +107,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		ColorCode: req.ColorCode,
 		CreatedAt: time.Now().UTC(),
 	}
-	_, err = proLogic.GetTag(tag.ID)
+	_, err = proLogic.GetTag(r.Context(), tag.ID)
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("tag with id %s exists already", tag.TagName), "badrequest"))
 		return
@@ -118,7 +118,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.InsertTag(tag)
+	err = proLogic.InsertTag(r.Context(), tag)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -203,7 +203,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := proLogic.GetTag(updateTag.ID)
+	tag, err := proLogic.GetTag(r.Context(), updateTag.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -239,7 +239,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
 		tag.ID = newID
 		tag.TagName = updateTag.NewName
-		err = proLogic.InsertTag(tag)
+		err = proLogic.InsertTag(r.Context(), tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -249,7 +249,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
 		tag.ColorCode = updateTag.ColorCode
-		err = proLogic.UpsertTag(tag)
+		err = proLogic.UpsertTag(r.Context(), tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -288,7 +288,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	tag, err := proLogic.GetTag(models.TagID(tagID))
+	tag, err := proLogic.GetTag(r.Context(), models.TagID(tagID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

@@ -2310,7 +2310,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 	return nil
 }
 
-var IsAclPolicyValid = func(acl models.Acl) (err error) {
+var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 
 	//check if src and dst are valid
 	if acl.AllowedDirection == models.TrafficDirectionUni {
@@ -2493,7 +2493,7 @@ func CheckTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 }
 
 var (
-	CreateDefaultTags = func(netID schema.NetworkID) {}
+	CreateDefaultTags = func(ctx context.Context, netID schema.NetworkID) {}
 
 	DeleteAllNetworkTags = func(ctx context.Context, networkID schema.NetworkID) {}
 

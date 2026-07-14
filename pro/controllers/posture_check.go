@@ -67,7 +67,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := proLogic.ValidatePostureCheck(&req); err != nil {
+	if err := proLogic.ValidatePostureCheck(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -195,7 +195,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
+	if err := proLogic.ValidatePostureCheck(r.Context(), &updatePc); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

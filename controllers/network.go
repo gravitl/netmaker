@@ -389,7 +389,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
 	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateDefaultAclNetworkPolicies(r.Context(), schema.NetworkID(network.Name))
-	logic.CreateDefaultTags(schema.NetworkID(network.Name))
+	logic.CreateDefaultTags(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateFallbackNameserver(&network)
 	if featureFlags.EnableOverlappingEgressRanges {
 		if err := logic.AllocateUniqueVNATPool(&network); err != nil {

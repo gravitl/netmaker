@@ -439,7 +439,7 @@ func createDefaultTagsAndPolicies(ctx context.Context) {
 	}
 
 	for _, network := range networks {
-		logic.CreateDefaultTags(schema.NetworkID(network.Name))
+		logic.CreateDefaultTags(ctx, schema.NetworkID(network.Name))
 		logic.CreateDefaultAclNetworkPolicies(ctx, schema.NetworkID(network.Name))
 		// delete old remote access gws policy
 		_ = logic.DeleteAcl(ctx, models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})

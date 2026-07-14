@@ -83,7 +83,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNameserverReq(&req); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -214,7 +214,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.ValidateNameserverReq(&updateNs); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

@@ -22,7 +22,7 @@ var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) err
 	return nil
 }
 
-func validateEgressReq(e *schema.Egress) error {
+func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
@@ -39,7 +39,7 @@ func validateEgressReq(e *schema.Egress) error {
 		e.VirtualRange = ""
 	}
 	network := &schema.Network{Name: e.Network}
-	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+	if err := network.Get(ctx); err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
 	if e.Range != "" {

@@ -307,7 +307,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		acl.Proto = models.ALL
 	}
 	// validate create acl policy
-	if err := logic.IsAclPolicyValid(acl); err != nil {
+	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -381,7 +381,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.IsAclPolicyValid(updateAcl.Acl); err != nil {
+	if err := logic.IsAclPolicyValid(r.Context(), updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

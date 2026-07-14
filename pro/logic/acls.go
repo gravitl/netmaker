@@ -493,14 +493,14 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 	return
 }
 
-func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
+func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
 	case models.NodeTagID:
 		if a.RuleType == models.UserPolicy && isSrc {
 			return errors.New("user policy source mismatch")
 		}
 		// check if tag is valid
-		_, err := GetTag(models.TagID(t.Value))
+		_, err := GetTag(ctx, models.TagID(t.Value))
 		if err != nil {
 			return errors.New("invalid tag " + t.Value)
 		}
@@ -564,7 +564,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 }
 
 // IsAclPolicyValid - validates if acl policy is valid
-func IsAclPolicyValid(acl models.Acl) (err error) {
+func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 	//check if src and dst are valid
 	if acl.AllowedDirection != models.TrafficDirectionBi &&
 		acl.AllowedDirection != models.TrafficDirectionUni {
@@ -579,7 +579,7 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 				continue
 			}
 			// check if user group is valid
-			if err = checkIfAclTagisValid(acl, srcI, true); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, srcI, true); err != nil {
 				return
 			}
 		}
@@ -590,7 +590,7 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 			}
 
 			// check if user group is valid
-			if err = checkIfAclTagisValid(acl, dstI, false); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, dstI, false); err != nil {
 				return
 			}
 		}
@@ -600,7 +600,7 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 				continue
 			}
 			// check if user group is valid
-			if err = checkIfAclTagisValid(acl, srcI, true); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, srcI, true); err != nil {
 				return err
 			}
 		}
@@ -610,7 +610,7 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 				continue
 			}
 			// check if user group is valid
-			if err = checkIfAclTagisValid(acl, dstI, false); err != nil {
+			if err = checkIfAclTagisValid(ctx, acl, dstI, false); err != nil {
 				return
 			}
 		}

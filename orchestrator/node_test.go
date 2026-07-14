@@ -41,7 +41,7 @@ func (c *CENodeOrchestratorTestSuite) SetupSuite() {
 	}
 
 	InitializeRepository(extensions.NewCEFactory())
-	testutils.CreateDefaultOrgAndTenant(c.T())
+	testutils.CreateDefaultOrgAndTenant(c.T(), db.WithContext(c.T().Context()))
 
 	defaultTenant := &schema.Tenant{}
 	err := defaultTenant.GetDefault(db.WithContext(c.T().Context()))
@@ -60,10 +60,10 @@ func (c *CENodeOrchestratorTestSuite) TearDownSuite() {
 }
 
 func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
-	host := testutils.CreateHost(c.T(), "host-0")
-	networkIPv4 := testutils.CreateIPv4Network(c.T(), "network-ipv4")
-	networkIPv6 := testutils.CreateIPv6Network(c.T(), "network-ipv6")
-	networkIPv10 := testutils.CreateIPv10Network(c.T(), "network-ipv10")
+	host := testutils.CreateHost(c.T(), c.ctx, "host-0")
+	networkIPv4 := testutils.CreateIPv4Network(c.T(), c.ctx, "network-ipv4")
+	networkIPv6 := testutils.CreateIPv6Network(c.T(), c.ctx, "network-ipv6")
+	networkIPv10 := testutils.CreateIPv10Network(c.T(), c.ctx, "network-ipv10")
 
 	c.Run("IPv4 Network", func() {
 		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, networkIPv4)
@@ -79,7 +79,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().Empty(node.Address6)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("IPv6 Network", func() {
@@ -96,7 +96,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("IPv10 Network", func() {
@@ -115,20 +115,20 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNode() {
 		c.Require().NoError(err)
 		c.Require().Contains(host.Nodes, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
-	testutils.DeleteNetwork(c.T(), networkIPv4)
-	testutils.DeleteNetwork(c.T(), networkIPv6)
-	testutils.DeleteNetwork(c.T(), networkIPv10)
-	testutils.DeleteHost(c.T(), host)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv4)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv6)
+	testutils.DeleteNetwork(c.T(), c.ctx, networkIPv10)
+	testutils.DeleteHost(c.T(), c.ctx, host)
 }
 
 func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
-	network := testutils.CreateIPv10Network(c.T(), "network-0")
+	network := testutils.CreateIPv10Network(c.T(), c.ctx, "network-0")
 
 	c.Run("Linux", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "linux"
 		host.IsDefault = true
@@ -145,12 +145,12 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		c.Require().Empty(node.RelayedIGWClients)
 		c.Require().Equal(datatypes.NewJSONType(map[string]string{}), node.AutoRelayedPeers)
 
-		testutils.DeleteNode(c.T(), node)
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteNode(c.T(), c.ctx, node)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
 	c.Run("Windows", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "windows"
 		host.IsDefault = true
@@ -161,11 +161,11 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
 	c.Run("Darwin", func() {
-		host := testutils.CreateHost(c.T(), "host-0")
+		host := testutils.CreateHost(c.T(), c.ctx, "host-0")
 
 		host.OS = "darwin"
 		host.IsDefault = true
@@ -176,15 +176,15 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
 		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
 
-		testutils.DeleteHost(c.T(), host)
+		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
-	testutils.DeleteNetwork(c.T(), network)
+	testutils.DeleteNetwork(c.T(), c.ctx, network)
 }
 
 func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
-	host := testutils.CreateHost(c.T(), "host-0")
-	network := testutils.CreateIPv10Network(c.T(), "network-0")
+	host := testutils.CreateHost(c.T(), c.ctx, "host-0")
+	network := testutils.CreateIPv10Network(c.T(), c.ctx, "network-0")
 
 	c.Run("With AutoAssignGateway", func() {
 		key := &schema.EnrollmentKey{
@@ -195,7 +195,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("Without AutoAssignGateway", func() {
@@ -207,7 +207,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().False(node.AutoAssignGateway)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("With Tags", func() {
@@ -219,7 +219,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().NotContains(node.Tags, key.Tags[0])
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("Without Tags", func() {
@@ -231,11 +231,11 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().Empty(node.Tags)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
 	c.Run("With Gateway", func() {
-		gatewayHost := testutils.CreateHost(c.T(), "gateway-0")
+		gatewayHost := testutils.CreateHost(c.T(), c.ctx, "gateway-0")
 
 		gatewayHost.OS = "linux"
 		gatewayHost.IsDefault = true
@@ -256,9 +256,9 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		c.Require().NoError(err)
 		c.Require().Contains(gateway.RelayedClients, node.ID)
 
-		testutils.DeleteNode(c.T(), node)
-		testutils.DeleteNode(c.T(), gateway)
-		testutils.DeleteHost(c.T(), gatewayHost)
+		testutils.DeleteNode(c.T(), c.ctx, node)
+		testutils.DeleteNode(c.T(), c.ctx, gateway)
+		testutils.DeleteHost(c.T(), c.ctx, gatewayHost)
 	})
 
 	c.Run("Without Gateway", func() {
@@ -267,9 +267,9 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithEnrollmentKey() {
 		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network, UseKey(key))
 		c.Require().NoError(err)
 
-		testutils.DeleteNode(c.T(), node)
+		testutils.DeleteNode(c.T(), c.ctx, node)
 	})
 
-	testutils.DeleteNetwork(c.T(), network)
-	testutils.DeleteHost(c.T(), host)
+	testutils.DeleteNetwork(c.T(), c.ctx, network)
+	testutils.DeleteHost(c.T(), c.ctx, host)
 }

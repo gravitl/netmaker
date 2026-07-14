@@ -19,7 +19,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func ValidateEgressReq(e *schema.Egress) error {
+func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
@@ -40,7 +40,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 		e.Mode = schema.DirectNAT
 		e.VirtualRange = ""
 	}
-	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: e.Network}).Get(ctx)
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
@@ -60,7 +60,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
 			}

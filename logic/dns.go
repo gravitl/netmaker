@@ -412,7 +412,7 @@ func CreateDNS(ctx context.Context, entry models.DNSEntry) (models.DNSEntry, err
 	return entry, r.Upsert(ctx)
 }
 
-func validateNameserverReq(ns *schema.Nameserver) error {
+func validateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -422,7 +422,7 @@ func validateNameserverReq(ns *schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	err := (&schema.Network{Name: ns.NetworkID}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: ns.NetworkID}).Get(ctx)
 	if err != nil {
 		return errors.New("invalid network id")
 	}

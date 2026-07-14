@@ -149,7 +149,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			e.Nodes[nodeID] = metric
 		}
 	}
-	if err := logic.ValidateEgressReq(&e); err != nil {
+	if err := logic.ValidateEgressReq(r.Context(), &e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -398,7 +398,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e.UpdatedAt = time.Now().UTC()
-	if err := logic.ValidateEgressReq(&e); err != nil {
+	if err := logic.ValidateEgressReq(r.Context(), &e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

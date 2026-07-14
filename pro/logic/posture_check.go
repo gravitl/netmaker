@@ -538,11 +538,11 @@ func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
 	}
 }
 
-func ValidatePostureCheck(pc *schema.PostureCheck) error {
+func ValidatePostureCheck(ctx context.Context, pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(ctx)
 	if err != nil {
 		return errors.New("invalid network")
 	}
@@ -587,7 +587,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if tagID == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}

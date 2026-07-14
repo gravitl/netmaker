@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"context"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -72,9 +74,9 @@ func AddTagMapWithStaticNodesWithUsers(netID schema.NetworkID,
 	return tagNodesMap
 }
 
-func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+func GetNodeIDsWithTag(ctx context.Context, tagID models.TagID) (ids []string) {
 
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return
 	}
@@ -96,9 +98,9 @@ func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
 	return
 }
 
-func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+func GetNodesWithTag(ctx context.Context, tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return nMap
 	}
@@ -142,9 +144,9 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 	return nMap
 }
 
-func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+func GetStaticNodeWithTag(ctx context.Context, tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
+	tag, err := GetTag(ctx, tagID)
 	if err != nil {
 		return nMap
 	}
