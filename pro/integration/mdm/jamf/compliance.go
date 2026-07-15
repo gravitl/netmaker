@@ -48,8 +48,8 @@ func complianceVendorSet(vendors []string) map[string]struct{} {
 }
 
 type deviceComplianceInfo struct {
-	DeviceID        string `json:"deviceId"`
-	Applicable      bool   `json:"applicable"`
-	ComplianceState string `json:"complianceState"`
+	DeviceID         string `json:"deviceId"`
+	Applicable       bool   `json:"applicable"`
+	ComplianceState  string `json:"complianceState"`
 	ComplianceVendor string `json:"complianceVendor"`
 }

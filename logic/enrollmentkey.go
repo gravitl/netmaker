@@ -122,7 +122,7 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		}
 	}
 
-if k.TenantID == "" {
+	if k.TenantID == "" {
 		k.TenantID = scope.ID(DefaultScope(ctx))
 	}
 	if err = k.Create(ctx); err != nil {

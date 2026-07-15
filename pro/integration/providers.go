@@ -18,14 +18,14 @@ const (
 )
 
 const (
-	ProviderDatadog  ProviderID = "datadog"
-	ProviderElastic  ProviderID = "elastic"
-	ProviderSentinel ProviderID = "sentinel"
-	ProviderSplunk   ProviderID = "splunk"
-	ProviderIntune    ProviderID = "intune"
-	ProviderJamf      ProviderID = "jamf"
-	ProviderJumpCloud ProviderID = "jumpcloud"
-	ProviderIru       ProviderID = "iru"
+	ProviderDatadog     ProviderID = "datadog"
+	ProviderElastic     ProviderID = "elastic"
+	ProviderSentinel    ProviderID = "sentinel"
+	ProviderSplunk      ProviderID = "splunk"
+	ProviderIntune      ProviderID = "intune"
+	ProviderJamf        ProviderID = "jamf"
+	ProviderJumpCloud   ProviderID = "jumpcloud"
+	ProviderIru         ProviderID = "iru"
 	ProviderDefender    ProviderID = "defender"
 	ProviderCrowdStrike ProviderID = "crowdstrike"
 	ProviderSentinelOne ProviderID = "sentinelone"

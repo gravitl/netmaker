@@ -7,9 +7,9 @@ import (
 )
 
 type OrgMembership struct {
-	OrganizationID string     `gorm:"primaryKey" json:"organization_id"`
-	UserID         string     `gorm:"primaryKey" json:"user_id"`
-	RoleID         UserRoleID `json:"role_id"`
+	OrganizationID             string     `gorm:"primaryKey" json:"organization_id"`
+	UserID                     string     `gorm:"primaryKey" json:"user_id"`
+	RoleID                     UserRoleID `json:"role_id"`
 	AuthType                   AuthType   `json:"auth_type"`
 	ExternalIdentityProviderID string     `json:"external_identity_provider_id"`
 	Password                   string     `json:"password"`

@@ -15,9 +15,9 @@ const DefaultSsoStateDuration = time.Minute * 5
 type SsoState struct {
 	Scope      scope.Scope `json:"scope"`
 	ScopeID    string      `json:"scope_id"`
-	AppName    string    `json:"app_name"`
-	Value      string    `json:"value"`
-	Expiration time.Time `json:"expiration"`
+	AppName    string      `json:"app_name"`
+	Value      string      `json:"value"`
+	Expiration time.Time   `json:"expiration"`
 }
 
 func (s *SsoState) IsExpired() bool { return time.Now().After(s.Expiration) }

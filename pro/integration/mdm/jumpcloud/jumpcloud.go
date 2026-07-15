@@ -22,12 +22,12 @@ const (
 	providerName    = mdmpkg.ProviderJumpCloud
 	providerDisplay = "JumpCloud"
 
-	tokenURL          = "https://admin-oauth.id.jumpcloud.com/oauth2/token"
-	defaultBaseURL    = "https://console.jumpcloud.com"
-	systemsListPath   = "/api/systems"
-	defaultPageSize   = 100
-	tokenScope        = "api"
-	maxPolicyFetches  = 8
+	tokenURL         = "https://admin-oauth.id.jumpcloud.com/oauth2/token"
+	defaultBaseURL   = "https://console.jumpcloud.com"
+	systemsListPath  = "/api/systems"
+	defaultPageSize  = 100
+	tokenScope       = "api"
+	maxPolicyFetches = 8
 )
 
 func init() {
@@ -325,15 +325,15 @@ type systemsListResponse struct {
 }
 
 type jumpcloudSystem struct {
-	ID          string             `json:"id"`
-	DisplayName string             `json:"displayName"`
-	Hostname    string             `json:"hostname"`
-	SerialNumber string            `json:"serialNumber"`
-	HardwareUUID string            `json:"hardwareUuid"`
-	Active      bool               `json:"active"`
-	LastContact string             `json:"lastContact"`
-	Created     string             `json:"created"`
-	Modified    string             `json:"modified"`
+	ID                string             `json:"id"`
+	DisplayName       string             `json:"displayName"`
+	Hostname          string             `json:"hostname"`
+	SerialNumber      string             `json:"serialNumber"`
+	HardwareUUID      string             `json:"hardwareUuid"`
+	Active            bool               `json:"active"`
+	LastContact       string             `json:"lastContact"`
+	Created           string             `json:"created"`
+	Modified          string             `json:"modified"`
 	PrimarySystemUser *primarySystemUser `json:"primarySystemUser"`
 }
 

@@ -36,10 +36,10 @@ type IntuneConfig struct {
 // When empty, every applicable compliance record for the device must be COMPLIANT.
 type JamfConfig struct {
 	SyncSettings
-	ClientID            string   `json:"client_id"`
-	ClientSecret        string   `json:"client_secret"`
-	BaseURL             string   `json:"base_url"`
-	ComplianceVendors   []string `json:"compliance_vendors,omitempty"`
+	ClientID          string   `json:"client_id"`
+	ClientSecret      string   `json:"client_secret"`
+	BaseURL           string   `json:"base_url"`
+	ComplianceVendors []string `json:"compliance_vendors,omitempty"`
 }
 
 // JumpCloudConfig is stored in integrations_v1.config for the jumpcloud provider.

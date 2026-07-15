@@ -19,12 +19,12 @@ const (
 
 // DeviceEDRState is the per-host snapshot of an EDR provider's view of an endpoint.
 type DeviceEDRState struct {
-	HostID       string         `gorm:"primaryKey;column:host_id" json:"host_id"`
-	Provider     string         `gorm:"primaryKey;column:provider" json:"provider"`
-	EDRDeviceID  string         `gorm:"column:edr_device_id" json:"edr_device_id"`
-	MatchedBy    string         `gorm:"column:matched_by" json:"matched_by"`
-	AgentInstalled bool         `gorm:"column:agent_installed" json:"agent_installed"`
-	AgentHealthy   bool         `gorm:"column:agent_healthy" json:"agent_healthy"`
+	HostID         string         `gorm:"primaryKey;column:host_id" json:"host_id"`
+	Provider       string         `gorm:"primaryKey;column:provider" json:"provider"`
+	EDRDeviceID    string         `gorm:"column:edr_device_id" json:"edr_device_id"`
+	MatchedBy      string         `gorm:"column:matched_by" json:"matched_by"`
+	AgentInstalled bool           `gorm:"column:agent_installed" json:"agent_installed"`
+	AgentHealthy   bool           `gorm:"column:agent_healthy" json:"agent_healthy"`
 	RiskLevel      string         `gorm:"column:risk_level" json:"risk_level"`
 	ThreatCount    int            `gorm:"column:threat_count" json:"threat_count"`
 	ActiveThreats  bool           `gorm:"column:active_threats" json:"active_threats"`

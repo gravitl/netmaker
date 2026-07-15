@@ -202,8 +202,8 @@ func normalizeGUID(id string) string {
 
 func upsertUnmatchedHostEDRState(ctx context.Context, providerID, hostID string) error {
 	state := schema.DeviceEDRState{
-		HostID:       hostID,
-		Provider:     providerID,
+		HostID:         hostID,
+		Provider:       providerID,
 		AgentInstalled: false,
 		AgentHealthy:   false,
 		RiskLevel:      string(RiskCritical),
