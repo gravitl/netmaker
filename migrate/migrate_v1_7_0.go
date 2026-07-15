@@ -313,7 +313,12 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 }
 
 func migrateServerSettings(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerSettings) {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
 		return nil
 	}
 
