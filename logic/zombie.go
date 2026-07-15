@@ -92,7 +92,7 @@ func checkForZombieHosts(ctx context.Context, h *schema.Host) {
 // ManageZombies - lists tenants and starts a per-tenant zombie-management worker for each.
 func ManageZombies(ctx context.Context) {
 	logger.Log(2, "Zombie management started")
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(ctx))
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(ctx))
 	if err != nil {
 		logger.Log(1, "failed to list tenants for zombie management", err.Error())
 	}

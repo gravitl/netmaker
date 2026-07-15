@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/orchestrator"
@@ -349,10 +350,7 @@ func deleteOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t := &schema.Tenant{
-		OrganizationID: orgID,
-	}
-	tenants, err := t.ListByOrg(r.Context())
+	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -382,10 +380,7 @@ func deleteOrg(w http.ResponseWriter, r *http.Request) {
 func listTenants(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
-	t := &schema.Tenant{
-		OrganizationID: orgID,
-	}
-	tenants, err := t.ListByOrg(r.Context())
+	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -406,8 +401,16 @@ func listTenants(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func createTenant(w http.ResponseWriter, r *http.Request) {
 	if !logic.GetFeatureFlags().AllowMultipleTenants {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating tenants is disabled"), logic.Forbidden))
-		return
+		numTenants, err := (&schema.Tenant{}).Count(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error validating request"), logic.Internal))
+			return
+		}
+
+		if numTenants != 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating multiple tenants is forbidden"), logic.Forbidden))
+			return
+		}
 	}
 
 	orgID := scope.ID(r.Context())

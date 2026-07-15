@@ -137,7 +137,7 @@ func ValidateLicense() (err error) {
 	go mq.PublishExporterFeatureFlags()
 	go func() {
 		ctx := db.WithContext(context.Background())
-		tenants, err := (&schema.Tenant{}).ListAll(ctx)
+		tenants, err := (&schema.Tenant{}).List(ctx)
 		if err != nil {
 			slog.Error("failed to list tenants for peer update", "error", err)
 			return

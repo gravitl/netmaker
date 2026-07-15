@@ -172,7 +172,7 @@ func runTenantMetricsExporter(ctx context.Context) {
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
 func Keepalive(ctx context.Context) {
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(ctx))
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(ctx))
 	if err != nil {
 		slog.Error("failed to list tenants for peer update workers", "error", err)
 	}

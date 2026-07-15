@@ -90,7 +90,7 @@ func InitPro() {
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
-			tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+			tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 			if err != nil {
 				logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
 			} else {

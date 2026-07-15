@@ -37,7 +37,7 @@ func LogEvent(ctx context.Context, a *models.Event) {
 }
 
 func EventRetentionHook() error {
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	tenants, _ := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	tenants, _ := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	for _, tenant := range tenants {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
 		migrateSettings(ctx)

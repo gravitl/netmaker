@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 )
 
 const defaultTenantSlug = "default"
@@ -75,18 +76,13 @@ func (t *Tenant) GetDefault(ctx context.Context) error {
 		Error
 }
 
-func (t *Tenant) ListAll(ctx context.Context) ([]Tenant, error) {
+func (t *Tenant) List(ctx context.Context, options ...dbtypes.Option) ([]Tenant, error) {
 	var tenants []Tenant
-	err := db.FromContext(ctx).Model(&Tenant{}).Find(&tenants).Error
-	return tenants, err
-}
-
-func (t *Tenant) ListByOrg(ctx context.Context) ([]Tenant, error) {
-	var tenants []Tenant
-	err := db.FromContext(ctx).Model(&Tenant{}).
-		Where("organization_id = ?", t.OrganizationID).
-		Find(&tenants).
-		Error
+	query := db.FromContext(ctx).Model(&Tenant{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	err := query.Find(&tenants).Error
 	return tenants, err
 }
 
@@ -102,4 +98,14 @@ func (t *Tenant) Delete(ctx context.Context) error {
 		Where("id = ? OR slug = ?", t.ID, t.Slug).
 		Delete(&Tenant{}).
 		Error
+}
+
+func (t *Tenant) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
+	var count int64
+	query := db.FromContext(ctx).Model(&Tenant{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	err := query.Count(&count).Error
+	return int(count), err
 }

@@ -165,7 +165,7 @@ func initialize() { // Client Mode Prereq Check
 }
 
 func initCache() {
-	tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(context.TODO()))
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}
@@ -215,7 +215,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	// Only run network cleanup hooks on master pod
 	if servercfg.IsMasterPod() {
-		tenants, err := (&schema.Tenant{}).ListAll(db.WithContext(ctx))
+		tenants, err := (&schema.Tenant{}).List(db.WithContext(ctx))
 		if err != nil {
 			logger.Log(0, "error listing tenants when starting network hooks: ", err.Error())
 		} else {
