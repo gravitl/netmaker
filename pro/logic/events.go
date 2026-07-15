@@ -144,6 +144,7 @@ func EventWatcher() {
 				Target:      dstStruct,
 				Diff:        diffStruct,
 				TsMs:        a.TimeStamp.UnixMilli(),
+				TenantId:    a.TenantID,
 			})
 		}
 	}
