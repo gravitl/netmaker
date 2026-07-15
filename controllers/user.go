@@ -335,29 +335,28 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled(request.Context()) {
-		logic.ReturnErrorResponse(
-			response,
-			request,
-			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
-		)
-		return
+	if scope.Level(request.Context()) == scope.TenantScope {
+		if user.PlatformRoleID != schema.SuperAdminRole && !logic.IsBasicAuthEnabled(request.Context()) {
+			logic.ReturnErrorResponse(
+				response,
+				request,
+				logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
+			)
+			return
+		}
 	}
 
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
-
-		if scope.Level(request.Context()) == scope.TenantScope {
-			role := &schema.UserRole{ID: user.PlatformRoleID}
-			err = role.Get(request.Context())
-			if err != nil {
-				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-				return
-			}
-			if role.DenyDashboardAccess {
-				logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-				return
-			}
+		role := &schema.UserRole{ID: user.PlatformRoleID}
+		err = role.Get(request.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
+		}
+		if role.DenyDashboardAccess {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
 		}
 	}
 
