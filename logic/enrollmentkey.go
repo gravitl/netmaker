@@ -122,9 +122,6 @@ func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, ne
 		}
 	}
 
-	if k.TenantID == "" {
-		k.TenantID = scope.ID(DefaultScope(ctx))
-	}
 	if err = k.Create(ctx); err != nil {
 		return nil, err
 	}
@@ -413,9 +410,6 @@ func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
 			key.Tags = newTags
 			key.UpdatedAt = time.Now()
 			key.UpdatedAt = time.Now()
-			if key.TenantID == "" {
-				key.TenantID = scope.ID(DefaultScope(ctx))
-			}
 			if err := key.Upsert(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
 			}

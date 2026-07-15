@@ -115,11 +115,7 @@ func UpsertNode(newNode *models.Node) error {
 	if _node.ID == "" {
 		return errors.New("error converting models.Node to schema.Node")
 	}
-	ctx := db.WithContext(context.TODO())
-	if _node.TenantID == "" {
-		_node.TenantID = scope.ID(DefaultScope(ctx))
-	}
-	return _node.Upsert(ctx)
+	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -148,11 +144,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if _node.ID == "" {
 			return errors.New("error converting models.Node to schema.Node")
 		}
-		ctx := db.WithContext(context.TODO())
-		if _node.TenantID == "" {
-			_node.TenantID = scope.ID(DefaultScope(ctx))
-		}
-		return _node.Upsert(ctx)
+		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())

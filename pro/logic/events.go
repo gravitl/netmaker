@@ -108,11 +108,7 @@ func EventWatcher() {
 			Diff:        diff,
 			TimeStamp:   time.Now().UTC(),
 		}
-		ctx := db.WithContext(context.TODO())
-		if a.TenantID == "" {
-			a.TenantID = scope.ID(logic.DefaultScope(ctx))
-		}
-		a.Create(ctx)
+		a.Create(db.WithContext(context.TODO()))
 
 		_siemMtx.Lock()
 		if !_pushToSiem {
