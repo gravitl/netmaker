@@ -21,18 +21,19 @@ import (
 	"github.com/gravitl/netmaker/pro/email"
 	"github.com/gravitl/netmaker/pro/license"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+
 	// Blank-import MDM provider packages so their init() registers with
 	// the integration/mdm registry. Add new providers by appending another import.
-	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
-	_ "github.com/gravitl/netmaker/pro/integration/mdm/intune"
-	_ "github.com/gravitl/netmaker/pro/integration/mdm/iru"
-	_ "github.com/gravitl/netmaker/pro/integration/mdm/jamf"
-	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/crowdstrike"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/defender"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/sentinelone"
 	_ "github.com/gravitl/netmaker/pro/integration/edr/wazuh"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
+	_ "github.com/gravitl/netmaker/pro/integration/mdm/intune"
+	_ "github.com/gravitl/netmaker/pro/integration/mdm/iru"
+	_ "github.com/gravitl/netmaker/pro/integration/mdm/jamf"
+	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -200,6 +201,7 @@ func InitPro() {
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
 	proLogic.RegisterDeviceHooks()
+	logic.UserSubjectToNetworkJIT = proLogic.UserSubjectToNetworkJIT
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }

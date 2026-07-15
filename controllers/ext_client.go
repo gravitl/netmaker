@@ -508,11 +508,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userName string
+	var caller *schema.User
 	isMaster := r.Header.Get("ismaster") == "yes"
 	if isMaster {
 		userName = logic.MasterUser
 	} else {
-		caller := &schema.User{Username: r.Header.Get("user")}
+		caller = &schema.User{Username: r.Header.Get("user")}
 		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -527,7 +528,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var jitGrant *schema.JITGrant
-		if extClientCreateRequiresJIT(isMaster, customExtClient) {
+		if extClientCreateRequiresJIT(isMaster, caller, gateway.NetID, customExtClient) {
 			hasAccess, grant, err := logic.CheckJITAccess(gateway.NetID, userName)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -619,7 +620,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	extclient.Location = customExtClient.Location
-	if extClientCreateRequiresJIT(isMaster, customExtClient) {
+	if extClientCreateRequiresJIT(isMaster, caller, extclient.Network, customExtClient) {
 		hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -631,7 +632,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				"forbidden"))
 			return
 		}
-		// Set JIT expiry time if grant exists (nil when JIT not enabled or user is outside JIT scope)
+		// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
 		if grant != nil {
 			extclient.JITExpiresAt = &grant.ExpiresAt
 		}
@@ -1303,14 +1304,15 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // extClientCreateRequiresJIT reports whether create must verify JIT access.
-// Admin-managed config files (no device_id / remote_access_client_id) bypass JIT.
-// Desktop/RAC clients require JIT unless CheckJITAccess grants an admin bypass.
-func extClientCreateRequiresJIT(isMaster bool, custom models.CustomExtClient) bool {
+// Only client-app requests (device_id / remote_access_client_id) are enforced.
+// Dashboard config-file creates skip JIT. Master key skips. When JIT groups are set,
+// users outside that allowlist are not subject.
+func extClientCreateRequiresJIT(isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
 	if custom.DeviceID == "" && custom.RemoteAccessClientID == "" {
 		return false
 	}
 	if isMaster {
 		return false
 	}
-	return true
+	return logic.UserSubjectToNetworkJIT(networkID, caller)
 }
