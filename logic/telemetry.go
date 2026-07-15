@@ -29,6 +29,12 @@ const posthog_endpoint = "https://app.posthog.com"
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return nil
+	}
+
 	// todo(nm-341): set telemetry on org settings.
 	if Telemetry(DefaultScope(db.WithContext(context.TODO()))) == "off" {
 		return nil
@@ -37,7 +43,7 @@ func sendTelemetry() error {
 	serverID := &schema.Internal{
 		Key: schema.InternalKey_ServerID,
 	}
-	err := serverID.Get(db.WithContext(context.TODO()))
+	err = serverID.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

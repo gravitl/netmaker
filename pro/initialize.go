@@ -131,9 +131,12 @@ func InitPro() {
 			}
 		}
 
-		// These can run on all pods
-		// todo(nm-341): move email creds to org settings.
-		email.Init(logic.DefaultScope(db.WithContext(ctx)))
+		defaultTenant := &schema.Tenant{}
+		err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+		if err == nil {
+			// todo(nm-341): move email creds to org settings.
+			email.Init(logic.DefaultScope(db.WithContext(ctx)))
+		}
 		go proLogic.EventWatcher()
 	})
 
