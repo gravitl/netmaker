@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -142,6 +143,9 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		return fmt.Errorf("failed to check host existence: %w", err)
 	}
 
+	if h.TenantID == "" {
+		h.TenantID = scope.ID(ctx)
+	}
 	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
 	if err != nil {

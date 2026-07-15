@@ -11,9 +11,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/schema"
-	"golang.org/x/exp/slog"
-
 	"github.com/gravitl/netmaker/auth"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -21,8 +18,10 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
@@ -38,7 +37,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/register/{token}", middleware.Scope(scope.TenantScope, http.HandlerFunc(handleHostRegister))).
+	r.HandleFunc("/api/v1/host/register/{token}", handleHostRegister).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEnrollmentKey)))).
 		Methods(http.MethodPut)
@@ -586,6 +585,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		newHost.TenantID = enrollmentKey.TenantID
 		if err = logic.CreateHost(r.Context(), &newHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
