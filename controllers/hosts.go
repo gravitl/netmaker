@@ -575,13 +575,14 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		nodeID := hostUpdate.Node.ID.String()
 		mq.UpdateMetricsFallBack(r.Context(), nodeID, hostUpdate.NewMetrics)
 
-		go func(nodeID string) {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context, nodeID string) {
 			node, err := logic.GetNodeByID(nodeID)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-			extclients, err := logic.GetExtClientsByID(r.Context(), nodeID, node.Network)
+			extclients, err := logic.GetExtClientsByID(ctx, nodeID, node.Network)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
@@ -593,10 +594,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				nodes = append(nodes, models.ConvertToStaticNode(extclient))
 			}
 
-			nodesWithStatus := logic.AddStatusToNodes(r.Context(), nodes, true)
+			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
 			for _, node := range nodesWithStatus {
 				if node.IsStatic {
-					err = logic.SaveExtClient(r.Context(), &node.StaticNode)
+					err = logic.SaveExtClient(ctx, &node.StaticNode)
 					if err != nil {
 						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
 						continue
@@ -606,14 +607,14 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						ID:     node.ID.String(),
 						Status: node.Status,
 					}
-					err = _node.UpdateStatus(db.WithContext(context.TODO()))
+					err = _node.UpdateStatus(ctx)
 					if err != nil {
 						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
 						continue
 					}
 				}
 			}
-		}(nodeID)
+		}(ctx, nodeID)
 	case models.EgressUpdate:
 		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
 		err = e.Get(db.WithContext(r.Context()))
@@ -640,7 +641,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	go func(ctx context.Context) {
 		if runPostureChecks {
 			_nodes, _ := (&schema.Node{}).ListAll(
-				db.WithContext(context.TODO()),
+				ctx,
 				dbtypes.WithFilter("host_id", currentHost.ID.String()),
 			)
 			for _, _node := range _nodes {
@@ -663,7 +664,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
 					})
 				}
-				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+				_ = _node.UpsertViolations(ctx, _violations)
 			}
 
 		}
