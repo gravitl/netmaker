@@ -167,9 +167,6 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		return jwtSecretKey, nil
 	})
 	if err != nil {
-		fmt.Println("TOKEN PARSE:", err.Error())
-		fmt.Println(tokenString)
-		fmt.Println(jwtSecretKey)
 		return "", Unauthorized_Err
 	}
 
