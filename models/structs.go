@@ -303,6 +303,7 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
+	TenantID                    string `yaml:"tenant_id"`
 	CoreDNSAddr                 string `yaml:"corednsaddr"`
 	API                         string `yaml:"api"`
 	APIHost                     string `yaml:"apihost"`
