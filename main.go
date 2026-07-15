@@ -145,6 +145,7 @@ func initialize() { // Client Mode Prereq Check
 		}
 
 		logic.SetJWTSecret()
+
 		err = logic.SetOAuthSecret(logic.RandomString(64))
 		if err != nil {
 			logger.Log(0, "error setting oauth secret: ", err.Error())

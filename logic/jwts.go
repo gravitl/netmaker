@@ -87,9 +87,12 @@ func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(ctx context.Context, username string, appName string) (response string, err error) {
-	duration := GetJwtValidityDuration(ctx)
-	if appName == NetclientApp || appName == NetmakerDesktopApp {
-		duration = GetJwtValidityDurationForClients(ctx)
+	duration := time.Duration(12) * time.Hour
+	if scope.Level(ctx) == scope.TenantScope {
+		duration = GetJwtValidityDuration(ctx)
+		if appName == NetclientApp || appName == NetmakerDesktopApp {
+			duration = GetJwtValidityDurationForClients(ctx)
+		}
 	}
 
 	expirationTime := time.Now().Add(duration)
@@ -164,6 +167,9 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		return jwtSecretKey, nil
 	})
 	if err != nil {
+		fmt.Println("TOKEN PARSE:", err.Error())
+		fmt.Println(tokenString)
+		fmt.Println(jwtSecretKey)
 		return "", Unauthorized_Err
 	}
 
