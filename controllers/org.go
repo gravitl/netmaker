@@ -405,11 +405,10 @@ func listTenants(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createTenant(w http.ResponseWriter, r *http.Request) {
-	// todo(nm-341): uncomment once amb returns feature flag true
-	//if !logic.GetFeatureFlags().AllowMultipleTenants {
-	//	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating tenants is disabled"), logic.Forbidden))
-	//	return
-	//}
+	if !logic.GetFeatureFlags().AllowMultipleTenants {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating tenants is disabled"), logic.Forbidden))
+		return
+	}
 
 	orgID := scope.ID(r.Context())
 	username := r.Header.Get("user")
@@ -503,11 +502,10 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteTenant(w http.ResponseWriter, r *http.Request) {
-	// todo(nm-341): uncomment once amb returns feature flag true
-	//if !logic.GetFeatureFlags().AllowMultipleTenants {
-	//	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting tenants is disabled"), logic.Forbidden))
-	//	return
-	//}
+	if !logic.GetFeatureFlags().AllowMultipleTenants {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting tenants is disabled"), logic.Forbidden))
+		return
+	}
 
 	orgID := scope.ID(r.Context())
 	tenantID := mux.Vars(r)["tenant_id"]

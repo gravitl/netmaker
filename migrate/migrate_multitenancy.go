@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -34,33 +35,32 @@ func createDefaults(ctx context.Context) error {
 }
 
 func isNewDeployment(ctx context.Context) (bool, error) {
-	// todo(nm-341): uncomment when context is wired everywhere
-	//if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
-	//	numUsers, err := kvCount(ctx, TableName_Users)
-	//	if err != nil {
-	//		return false, err
-	//	}
-	//
-	//	if numUsers == 0 {
-	//		numUsers, err = (&schema.User{}).Count(ctx)
-	//		if err != nil {
-	//			return false, err
-	//		}
-	//
-	//		if numUsers == 0 {
-	//			return true, nil
-	//		}
-	//	}
-	//} else {
-	//	numUsers, err := (&schema.User{}).Count(ctx)
-	//	if err != nil {
-	//		return false, err
-	//	}
-	//
-	//	if numUsers == 0 {
-	//		return true, nil
-	//	}
-	//}
+	if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
+		numUsers, err := kvCount(ctx, TableName_Users)
+		if err != nil {
+			return false, err
+		}
+
+		if numUsers == 0 {
+			numUsers, err = (&schema.User{}).Count(ctx)
+			if err != nil {
+				return false, err
+			}
+
+			if numUsers == 0 {
+				return true, nil
+			}
+		}
+	} else {
+		numUsers, err := (&schema.User{}).Count(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		if numUsers == 0 {
+			return true, nil
+		}
+	}
 
 	return false, nil
 }
