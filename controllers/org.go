@@ -10,6 +10,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -302,6 +303,11 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authParams := models.UserAuthParams{
+		UserName: user.Username,
+		Password: user.Password,
+	}
+
 	user.PlatformRoleID = schema.OrgOwner
 
 	ctx := scope.WithContext(r.Context(), scope.OrgScope, o.ID)
@@ -318,7 +324,23 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(&user), "created organization owner")
+	authToken, err := logic.VerifyAuthRequest(ctx, authParams, logic.DashboardApp)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	type userWithToken struct {
+		models.ReturnUser
+		AuthToken string `json:"auth_token"`
+	}
+
+	response := userWithToken{
+		ReturnUser: logic.ToReturnUser(&user),
+		AuthToken:  authToken,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "created organization owner")
 }
 
 // @Summary     Delete an organization

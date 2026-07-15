@@ -12,19 +12,6 @@ import (
 
 var SyncFromIDP = func(context.Context) error { return nil }
 
-// GetReturnUser - gets a user
-func GetReturnUser(username string) (models.ReturnUser, error) {
-	_user := &schema.User{
-		Username: username,
-	}
-	err := _user.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return models.ReturnUser{}, err
-	}
-
-	return ToReturnUser(_user), nil
-}
-
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user *schema.User) models.ReturnUser {
 	return models.ReturnUser{
