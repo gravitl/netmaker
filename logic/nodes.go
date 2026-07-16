@@ -121,8 +121,9 @@ func UpsertNode(newNode *models.Node) error {
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 		network := &schema.Network{Name: newNode.Network}
-		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+		if err := network.Get(ctx); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -303,7 +304,7 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 	var nodes []models.Node
-	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(ctx), dbtypes.WithAllPreloads())
+	_nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithAllPreloads())
 	if err != nil {
 		return nil, err
 	}
@@ -552,9 +553,9 @@ func ValidateEgressCIDR(network *schema.Network, cidr string) error {
 	return nil
 }
 
-func ValidateEgressRange(netID string, ranges []string) error {
+func ValidateEgressRange(ctx context.Context, netID string, ranges []string) error {
 	network := &schema.Network{Name: netID}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())

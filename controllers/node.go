@@ -534,7 +534,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["nodeid"]
-	err = logic.ValidateEgressRange(gateway.NetID, gateway.Ranges)
+	err = logic.ValidateEgressRange(r.Context(), gateway.NetID, gateway.Ranges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
