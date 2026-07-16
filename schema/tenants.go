@@ -10,7 +10,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 )
 
-const defaultTenantSlug = "default"
+const DefaultTenantSlug = "default"
 
 type Tenant struct {
 	ID             string    `gorm:"primaryKey"           json:"id"`
@@ -28,8 +28,8 @@ func (t *Tenant) TableName() string {
 
 func (t *Tenant) CreateDefault(ctx context.Context) error {
 	t.ID = uuid.NewString()
-	t.Name = defaultTenantSlug
-	t.Slug = defaultTenantSlug
+	t.Name = DefaultTenantSlug
+	t.Slug = DefaultTenantSlug
 	t.Metadata = "Default Tenant"
 	return db.FromContext(ctx).Model(&Tenant{}).Create(&t).Error
 }
@@ -71,7 +71,7 @@ func (t *Tenant) Get(ctx context.Context) error {
 
 func (t *Tenant) GetDefault(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
-		Where("slug = ?", defaultTenantSlug).
+		Where("slug = ?", DefaultTenantSlug).
 		First(t).
 		Error
 }

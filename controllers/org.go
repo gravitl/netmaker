@@ -458,8 +458,15 @@ func createTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Slug == schema.DefaultTenantSlug {
+		err = fmt.Errorf("cannot use slug '%s'", schema.DefaultTenantSlug)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	t := &schema.Tenant{
 		Name:           req.Name,
+		Slug:           req.Slug,
 		OrganizationID: orgID,
 		Metadata:       req.Metadata,
 	}
