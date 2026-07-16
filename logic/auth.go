@@ -298,46 +298,34 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		return &schema.User{}, err
 	}
 
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-			logger.Log(1, "updated user", queryUser)
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
 	// Fetch existing user to get ID
 	_schemaUser := schema.User{Username: queryUser}
-	err = _schemaUser.Get(dbctx)
+	err = _schemaUser.Get(ctx)
 	if err != nil {
 		return &schema.User{}, err
 	}
 
 	_user.ID = _schemaUser.ID
 
-	err = _user.Update(dbctx)
+	err = _user.Update(ctx)
 	if err != nil {
 		return &schema.User{}, err
 	}
 
 	if updateAccountStatus {
-		err = _user.UpdateAccountStatus(dbctx)
+		err = _user.UpdateAccountStatus(ctx)
 		if err != nil {
 			return &schema.User{}, err
 		}
 	}
 
 	if updateMFA {
-		err = _user.UpdateMFA(dbctx)
+		err = _user.UpdateMFA(ctx)
 		if err != nil {
 			return &schema.User{}, err
 		}
 	}
 
-	commit = true
 	return _user, nil
 }
 
@@ -385,10 +373,6 @@ func ValidateUser(user *schema.User) error {
 	err = validateUserName(user)
 	if err != nil {
 		validationErr = errors.Join(validationErr, err)
-	}
-
-	if len(user.Password) < 5 {
-		validationErr = errors.Join(validationErr, errors.New("password must have a minimum of 5 characters"))
 	}
 
 	return validationErr
