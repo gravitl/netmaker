@@ -251,7 +251,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(r.Context())
 	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(client.Network))
 	logic.GetNodeEgressInfo(&gwnode, eli, acls)
 	host := &schema.Host{
@@ -673,7 +673,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	parentNetwork := &schema.Network{Name: extclient.Network}
-	err = parentNetwork.Get(db.WithContext(context.TODO()))
+	err = parentNetwork.Get(r.Context())
 	if err != nil {
 		slog.Error(
 			"failed to create extclient",
@@ -710,7 +710,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address == "" {
 		if parentNetwork.AddressRange != "" {
-			newAddress, err := networkOrch.AllocateExtclientIP(db.WithContext(context.TODO()), parentNetwork)
+			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -731,7 +731,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address6 == "" {
 		if parentNetwork.AddressRange6 != "" {
-			addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), parentNetwork)
+			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork)
 			if err != nil {
 				if reservedIPv4 != "" {
 					networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
@@ -1105,17 +1105,17 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		gwDeletedClients := make(map[string][]models.ExtClient)
 		for _, clientID := range req.IDs {
-			extclient, err := logic.GetExtClient(r.Context(), clientID, network)
+			extclient, err := logic.GetExtClient(ctx, clientID, network)
 			if err != nil {
 				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
 				continue
 			}
-			if err = logic.DeleteExtClientAndCleanup(r.Context(), extclient); err != nil {
+			if err = logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
 				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
 				continue
 			}
 			gwDeletedClients[extclient.IngressGatewayID] = append(gwDeletedClients[extclient.IngressGatewayID], extclient)
-			logic.LogEvent(r.Context(), &models.Event{
+			logic.LogEvent(ctx, &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   user,
@@ -1136,7 +1136,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			allNodes, _ := logic.GetAllNodes(r.Context())
+			allNodes, _ := logic.GetAllNodes(ctx)
 			for gwNodeID, clients := range gwDeletedClients {
 				gwNode, err := logic.GetNodeByID(gwNodeID)
 				if err != nil {
@@ -1144,7 +1144,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				gwHost := &schema.Host{ID: gwNode.HostID}
-				if err := gwHost.Get(db.WithContext(context.TODO())); err != nil {
+				if err := gwHost.Get(ctx); err != nil {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
@@ -1264,7 +1264,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			oldClient := client
-			if _, err := logic.ToggleExtClientConnectivity(r.Context(), &client, req.Enabled); err != nil {
+			if _, err := logic.ToggleExtClientConnectivity(ctx, &client, req.Enabled); err != nil {
 				slog.Error("bulk extclient status: failed to toggle", "client_id", clientID, "error", err)
 				continue
 			}
@@ -1273,7 +1273,7 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient status: error publishing peer update", "client_id", clientID, "error", err)
 				}
 			}
-			logic.LogEvent(r.Context(), &models.Event{
+			logic.LogEvent(ctx, &models.Event{
 				Action: eventAction,
 				Source: models.Subject{
 					ID:   user,
