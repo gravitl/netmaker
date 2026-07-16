@@ -28,8 +28,8 @@ type DNSEntry struct {
 }
 
 type DNSRecord struct {
-	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"primaryKey;default:''"`
+	Key       string `gorm:"primaryKey;uniqueIndex:idx_dns_key_tenant"`
+	TenantID  string `gorm:"uniqueIndex:idx_dns_key_tenant;default:''"`
 	NetworkID string
 	Value     datatypes.JSONType[DNSEntry]
 }
