@@ -193,11 +193,16 @@ func applyDeviceNetworkApprovalPolicy(network schema.Network, user *schema.User,
 
 func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
 	if pending, _ := getPendingHostOnNetwork(ctx, host.ID.String(), network.Name); pending != nil {
-		dn.Pending = true
-		dn.Status = models.DeviceNetworkStatusPending
-		ts := pending.RequestedAt.Unix()
-		dn.ApprovalRequestedAt = &ts
-		return
+		// Stale pending from before JIT/admin skip should not block the client UI.
+		if !deviceJoinRequiresApproval(network, user) {
+			_ = pending.Delete(ctx)
+		} else {
+			dn.Pending = true
+			dn.Status = models.DeviceNetworkStatusPending
+			ts := pending.RequestedAt.Unix()
+			dn.ApprovalRequestedAt = &ts
+			return
+		}
 	}
 
 	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {

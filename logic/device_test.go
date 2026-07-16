@@ -345,7 +345,7 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
 	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
-		return []schema.Network{{Name: netName}}
+		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
 	stalePending := schema.PendingHost{
