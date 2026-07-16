@@ -67,9 +67,6 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]models.EnrollmentKey, 0, len(keys))
 	for _, key := range keys {
-		networks := make([]string, 0)
-		networks = append(networks, key.Networks...)
-
 		keyType := models.KeyType(key.Type)
 
 		var relay uuid.UUID
@@ -85,7 +82,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 			Expiration:        key.Expiration,
 			UsesRemaining:     key.UsesRemaining,
 			Value:             key.Value,
-			Networks:          networks,
+			Networks:          key.Networks,
 			Unlimited:         key.Unlimited,
 			Tags:              []string{key.Name},
 			Token:             key.Token,
@@ -422,9 +419,35 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
+
+	keyType := models.KeyType(newKey.Type)
+
+	var relay uuid.UUID
+	if newKey.GatewayID != nil {
+		relay, _ = uuid.Parse(*newKey.GatewayID)
+	}
+
+	var groups []models.TagID
+	for _, tag := range newKey.Tags {
+		groups = append(groups, models.TagID(tag))
+	}
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newKey)
+	json.NewEncoder(w).Encode(models.EnrollmentKey{
+		Expiration:        newKey.Expiration,
+		UsesRemaining:     newKey.UsesRemaining,
+		Value:             newKey.Value,
+		Networks:          newKey.Networks,
+		Unlimited:         newKey.Unlimited,
+		Tags:              []string{newKey.Name},
+		Token:             newKey.Token,
+		Type:              keyType,
+		Relay:             relay,
+		Groups:            groups,
+		Default:           newKey.Default,
+		AutoEgress:        newKey.AutoEgress,
+		AutoAssignGateway: newKey.AutoAssignGateway,
+	})
 }
 
 // @Summary     Updates an EnrollmentKey
