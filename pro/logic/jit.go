@@ -175,7 +175,7 @@ func CreateJITRequest(ctx context.Context, networkID, userName, reason string) (
 	}
 
 	// Check if user already has an active grant
-	hasAccess, _, err := CheckJITAccess(networkID, userName)
+	hasAccess, _, err := CheckJITAccess(ctx, networkID, userName)
 	if err == nil && hasAccess {
 		return nil, errors.New("user already has active access grant")
 	}
@@ -292,7 +292,7 @@ func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, erro
 }
 
 // CheckJITAccess - checks if a user has active JIT access for a network
-func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
+func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schema.JITGrant, error) {
 	// Check if JIT feature is enabled
 	featureFlags := GetFeatureFlags()
 	if !featureFlags.EnableJIT {
@@ -302,7 +302,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 
 	// Check if network has JIT enabled
 	network := &schema.Network{Name: networkID}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err != nil {
 		return false, nil, fmt.Errorf("network not found: %w", err)
 	}
@@ -313,9 +313,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	}
 
 	user := &schema.User{Username: userID}
-	userGetErr := user.Get(db.WithContext(context.TODO()))
-
-	ctx := db.WithContext(context.Background())
+	userGetErr := user.Get(ctx)
 
 	var subjectUser *schema.User
 	if userGetErr == nil {
@@ -350,13 +348,13 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 // UserSubjectToNetworkJIT reports whether client-app extclient create must verify a JIT grant
 // for this user on the network. False when the feature/network JIT is off or the user is
 // outside jit_user_group_ids scope.
-func UserSubjectToNetworkJIT(networkID string, user *schema.User) bool {
+func UserSubjectToNetworkJIT(ctx context.Context, networkID string, user *schema.User) bool {
 	featureFlags := GetFeatureFlags()
 	if !featureFlags.EnableJIT {
 		return false
 	}
 	network := &schema.Network{Name: networkID}
-	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+	if err := network.Get(ctx); err != nil {
 		return false
 	}
 	if !network.JITEnabled {
@@ -476,13 +474,11 @@ func GetNetworkJITRequestsPaginated(ctx context.Context, networkID string, statu
 }
 
 // GetUserJITStatus - gets JIT status for a user on a network
-func GetUserJITStatus(networkID, userID string) (*JITStatusResponse, error) {
-	ctx := db.WithContext(context.Background())
-
+func GetUserJITStatus(ctx context.Context, networkID, userID string) (*JITStatusResponse, error) {
 	response := &JITStatusResponse{}
 
 	// Check for active grant
-	hasAccess, grant, err := CheckJITAccess(networkID, userID)
+	hasAccess, grant, err := CheckJITAccess(ctx, networkID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -522,8 +518,7 @@ type UserJITNetworkStatus struct {
 }
 
 // GetUserJITNetworksStatus - gets JIT status for multiple networks for a user
-func GetUserJITNetworksStatus(networks []schema.Network, user *schema.User) ([]UserJITNetworkStatus, error) {
-	ctx := db.WithContext(context.Background())
+func GetUserJITNetworksStatus(ctx context.Context, networks []schema.Network, user *schema.User) ([]UserJITNetworkStatus, error) {
 	var result []UserJITNetworkStatus
 	userID := user.Username
 
@@ -542,7 +537,7 @@ func GetUserJITNetworksStatus(networks []schema.Network, user *schema.User) ([]U
 		// Only check JIT status if JIT is enabled on the network
 		if network.JITEnabled {
 			// Check for active grant
-			hasAccess, grant, err := CheckJITAccess(network.Name, userID)
+			hasAccess, grant, err := CheckJITAccess(ctx, network.Name, userID)
 			if err != nil {
 				slog.Warn("failed to check JIT access", "network", network.Name, "user", userID, "error", err)
 				// Continue with default values

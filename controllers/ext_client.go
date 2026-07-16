@@ -528,8 +528,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var jitGrant *schema.JITGrant
-		if extClientCreateRequiresJIT(isMaster, caller, gateway.NetID, customExtClient) {
-			hasAccess, grant, err := logic.CheckJITAccess(gateway.NetID, userName)
+		if extClientCreateRequiresJIT(r.Context(), isMaster, caller, gateway.NetID, customExtClient) {
+			hasAccess, grant, err := logic.CheckJITAccess(r.Context(), gateway.NetID, userName)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 				return
@@ -620,8 +620,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	extclient.Location = customExtClient.Location
-	if extClientCreateRequiresJIT(isMaster, caller, extclient.Network, customExtClient) {
-		hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
+	if extClientCreateRequiresJIT(r.Context(), isMaster, caller, extclient.Network, customExtClient) {
+		hasAccess, grant, err := logic.CheckJITAccess(r.Context(), extclient.Network, userName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
@@ -920,7 +920,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// JIT enforcement: Check if user has access (only for desktop app users)
-		hasAccess, jitGrant, err := logic.CheckJITAccess(newclient.Network, newclient.OwnerID)
+		hasAccess, jitGrant, err := logic.CheckJITAccess(r.Context(), newclient.Network, newclient.OwnerID)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
@@ -1304,12 +1304,12 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 // Only client-app requests (device_id / remote_access_client_id) are enforced.
 // Dashboard config-file creates skip JIT. Master key skips. When JIT groups are set,
 // users outside that allowlist are not subject.
-func extClientCreateRequiresJIT(isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
+func extClientCreateRequiresJIT(ctx context.Context, isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
 	if custom.DeviceID == "" && custom.RemoteAccessClientID == "" {
 		return false
 	}
 	if isMaster {
 		return false
 	}
-	return logic.UserSubjectToNetworkJIT(networkID, caller)
+	return logic.UserSubjectToNetworkJIT(ctx, networkID, caller)
 }

@@ -601,7 +601,7 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	userNetworks := logic.FilterNetworksByRole(allNetworks, user)
 
 	// Build response with JIT status for each network
-	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user)
+	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(r.Context(), userNetworks, user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

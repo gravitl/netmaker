@@ -181,7 +181,7 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	err = SetNetworkNodesLastModified(node.Network)
+	err = SetNetworkNodesLastModified(ctx, node.Network)
 	return node, removedClients, err
 }
 

@@ -300,7 +300,7 @@ func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(ctx, key, *extclient)
 	}
-	return SetNetworkNodesLastModified(extclient.Network)
+	return SetNetworkNodesLastModified(ctx, extclient.Network)
 }
 
 // UpdateExtClient - updates an ext client with new values
