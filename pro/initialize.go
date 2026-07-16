@@ -216,6 +216,7 @@ func InitPro() {
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
+	logic.UserSubjectToNetworkJIT = proLogic.UserSubjectToNetworkJIT
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
