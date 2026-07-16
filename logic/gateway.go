@@ -243,7 +243,7 @@ func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNo
 		clientHost := &schema.Host{
 			ID: clientNode.HostID,
 		}
-		err = clientHost.Get(db.WithContext(context.TODO()))
+		err = clientHost.Get(ctx)
 		if err != nil {
 			return err
 		}
