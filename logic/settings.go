@@ -99,14 +99,9 @@ func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
 
 	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx), Value: datatypes.NewJSONType(s)}
-	err = settingsRecord.Upsert(ctx)
+	err := settingsRecord.Upsert(ctx)
 	if err != nil {
 		return err
 	}
