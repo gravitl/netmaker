@@ -3109,9 +3109,9 @@ func populateTagNames(tags []models.AclPolicyTag) {
 }
 
 // ValidateCreateAclReq - validates create req for acl
-func ValidateCreateAclReq(req models.Acl) error {
+func ValidateCreateAclReq(ctx context.Context, req models.Acl) error {
 	// check if acl network exists
-	err := (&schema.Network{Name: req.NetworkID.String()}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: req.NetworkID.String()}).Get(ctx)
 	if err != nil {
 		return errors.New("failed to get network details for " + req.NetworkID.String())
 	}

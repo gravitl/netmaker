@@ -582,6 +582,8 @@ func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
 }
 
 func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
+
 	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
 		return &models.Node{}
@@ -617,7 +619,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Host = &schema.Host{
 			ID: hostID,
 		}
-		err = _node.Host.Get(db.WithContext(context.TODO()))
+		err = _node.Host.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Host = &schema.Host{}
@@ -632,7 +634,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Network = &schema.Network{
 			ID: _node.NetworkID,
 		}
-		err = _node.Network.Get(db.WithContext(context.TODO()))
+		err = _node.Network.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Network = &schema.Network{}
@@ -661,7 +663,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	}
 
 	var violations []models.Violation
-	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
+	_violations, err := _node.ListViolations(ctx)
 	if err == nil {
 		for _, _violation := range _violations {
 			violations = append(violations, models.Violation{
@@ -754,6 +756,8 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+
 	var address, address6 string
 	if node.Address.IP != nil {
 		address = node.Address.String()
@@ -766,7 +770,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	err := host.Get(db.WithContext(context.TODO()))
+	err := host.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}
@@ -774,7 +778,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	network := &schema.Network{
 		Name: node.Network,
 	}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}

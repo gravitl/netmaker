@@ -88,6 +88,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} object "Server status"
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
+		IsMSP            bool      `json:"is_msp"`
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
 		IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
@@ -126,6 +127,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currentServerStatus := status{
+		IsMSP:            logic.GetFeatureFlags().AllowMultipleTenants,
 		DB:               isDBConnected,
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),

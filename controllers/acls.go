@@ -287,7 +287,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.ValidateCreateAclReq(req)
+	err = logic.ValidateCreateAclReq(r.Context(), req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
