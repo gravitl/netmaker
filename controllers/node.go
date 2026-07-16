@@ -651,7 +651,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	network := &schema.Network{Name: currentNode.Network}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -827,7 +827,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		allNodes, err := logic.GetAllNodes(ctx)
 		if err == nil {
-			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
@@ -849,7 +848,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
 				for _, dNode := range displacedNodes {
 					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+					if err := dHost.Get(ctx); err != nil {
 						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
 						continue
 					}
@@ -935,7 +934,7 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 		var deletedNodes []models.Node
 		for _, nodeID := range req.IDs {
 			_node := &schema.Node{ID: nodeID}
-			err := _node.Get(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
+			err := _node.Get(ctx, dbtypes.WithAllPreloads())
 			if err != nil {
 				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
 				continue
@@ -944,11 +943,11 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			node := logic.ConvertSchemaNodeToModelsNode(_node)
-			if err := logic.DeleteNode(r.Context(), node, true); err != nil {
+			if err := logic.DeleteNode(ctx, node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
-			logic.LogEvent(r.Context(), &models.Event{
+			logic.LogEvent(ctx, &models.Event{
 				Action: schema.RemoveHostFromNet,
 				Source: models.Subject{
 					ID:   r.Header.Get("user"),
@@ -1016,7 +1015,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			node := &schema.Node{
 				ID: nodeID,
 			}
-			exists, err := node.Exists(db.WithContext(context.TODO()))
+			exists, err := node.Exists(ctx)
 			if err == nil && exists {
 				nodeIDs = append(nodeIDs, nodeID)
 			}
@@ -1035,10 +1034,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		} else {
 			nodeUpdate.Status = schema.Disconnected
 		}
-		err := nodeUpdate.UpdateConnectedStatus(
-			db.WithContext(context.TODO()),
-			dbtypes.WithFilter("id", nodeIDs...),
-		)
+		err := nodeUpdate.UpdateConnectedStatus(ctx, dbtypes.WithFilter("id", nodeIDs...))
 		if err != nil {
 			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
 			return
