@@ -67,6 +67,10 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]models.EnrollmentKey, 0, len(keys))
 	for _, key := range keys {
+		if len(key.Networks) == 0 {
+			key.Networks = make([]string, 0)
+		}
+
 		keyType := models.KeyType(key.Type)
 
 		var relay uuid.UUID
@@ -419,6 +423,10 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
+
+	if len(newKey.Networks) == 0 {
+		newKey.Networks = make([]string, 0)
+	}
 
 	keyType := models.KeyType(newKey.Type)
 
