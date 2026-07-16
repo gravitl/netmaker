@@ -40,7 +40,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 			Name: network,
 		}
 		// delete server nodes first then db records
-		return _network.Delete(db.WithContext(context.TODO()))
+		return _network.Delete(ctx)
 	}
 
 	// Remove All Nodes
@@ -130,7 +130,7 @@ const (
 // AllocateUniqueVNATPool allocates a unique Virtual NAT pool for a network,
 // ensuring it doesn't conflict with pools already assigned to other networks.
 func AllocateUniqueVNATPool(ctx context.Context, network *schema.Network) error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(ctx))
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list networks: %w", err)
 	}
