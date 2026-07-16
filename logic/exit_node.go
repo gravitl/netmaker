@@ -114,7 +114,7 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	if networkID == "" {
 		return nil, errors.New("network is required")
 	}
-	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return nil, errors.New("user does not have access to network")
 	}
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
@@ -170,7 +170,7 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 	if networkID == "" {
 		return nil, errors.New("network is required")
 	}
-	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return nil, errors.New("user does not have access to network")
 	}
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)

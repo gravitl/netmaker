@@ -168,7 +168,7 @@ func SessionHandler(conn *websocket.Conn) {
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
-					if !logic.IsUserAllowedToJoinNetwork(result.User, newNet) {
+					if !logic.IsUserAllowedToJoinNetwork(db.WithContext(context.TODO()), result.User, newNet) {
 						err = fmt.Errorf("user %s does not have access to network %s", result.User, newNet)
 						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)

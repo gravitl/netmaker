@@ -5,25 +5,49 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 // IsUserAllowedToJoinNetwork reports whether username may join the given network.
 // network may be the network name (netid) or UUID.
+// ctx should carry tenant scope so User.Get can load PlatformRoleID and UserGroups
+// from tenant_memberships_v1; if missing, DefaultScope is applied.
 var IsUserAllowedToJoinNetwork = defaultIsUserAllowedToJoinNetwork
 
-func defaultIsUserAllowedToJoinNetwork(username, network string) bool {
+func defaultIsUserAllowedToJoinNetwork(ctx context.Context, username, network string) bool {
 	if username == "" || network == "" {
 		return false
 	}
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	ctx = db.WithContext(ctx)
+	if scope.ID(ctx) == "" {
+		ctx = DefaultScope(ctx)
+	}
 	user := &schema.User{Username: username}
-	if err := user.Get(db.WithContext(context.TODO())); err != nil {
+	if err := user.Get(ctx); err != nil {
 		return false
 	}
+	return UserHasAccessToNetwork(ctx, user, network)
+}
+
+// UserHasAccessToNetwork reports whether the given user (with membership fields
+// already loaded) may access/join the network. Prefer this when the caller
+// already fetched the user under the correct tenant scope.
+func UserHasAccessToNetwork(ctx context.Context, user *schema.User, network string) bool {
+	if user == nil || user.Username == "" || network == "" {
+		return false
+	}
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	ctx = db.WithContext(ctx)
 
 	// Resolve name vs UUID so group keys (network name) match path params that use either.
 	networkName := network
 	net := &schema.Network{ID: network, Name: network}
-	if err := net.Get(db.WithContext(context.TODO())); err == nil && net.Name != "" {
+	if err := net.Get(ctx); err == nil && net.Name != "" {
 		networkName = net.Name
 	}
 
@@ -32,7 +56,7 @@ func defaultIsUserAllowedToJoinNetwork(username, network string) bool {
 		return true
 	}
 
-	allNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	allNetworks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return false
 	}

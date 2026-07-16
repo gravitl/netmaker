@@ -246,6 +246,35 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	return nil
 }
 
+// ErrExitNodeBlocksGatewayOps returns an error when the node must not use GW assign/unassign/auto-assign.
+// Exit clients have RelayedBy managed by exit selection; exit routers cannot be gateway clients.
+func ErrExitNodeBlocksGatewayOps(node *models.Node) error {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		return errors.New("node is using an exit node; gateway assignment is managed by the exit node")
+	}
+	if NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+		return errors.New("exit node cannot use gateway or auto-assign gateway options")
+	}
+	return nil
+}
+
+// ErrExitNodeBlocksAutoRelay returns an error when the node must not participate in auto-relay.
+func ErrExitNodeBlocksAutoRelay(node *models.Node) error {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		return errors.New("node is using an exit node; auto-relay is not allowed")
+	}
+	if NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+		return errors.New("exit node cannot use auto-relay options")
+	}
+	return nil
+}
+
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
 func NodeIsInternetEgressRouter(nodeID, network string) bool {
 	if nodeID == "" || network == "" {

@@ -40,6 +40,15 @@ func SetAutoRelay(node *models.Node) {
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.RLock()
 	defer autoRelayCtxMutex.RUnlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		return nil
 	}
@@ -68,6 +77,15 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.Lock()
 	defer autoRelayCtxMutex.Unlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		peerNode.AutoRelayedPeers = make(map[string]string)
 	}
@@ -293,6 +311,9 @@ func CreateAutoRelay(node models.Node) error {
 	}
 	if node.IsRelayed {
 		return errors.New("relayed node cannot be set as autoRelay")
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		return err
 	}
 	node.IsAutoRelay = true
 	err = logic.UpsertNode(&node)

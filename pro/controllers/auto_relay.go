@@ -105,9 +105,21 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = proLogic.CreateAutoRelay(node)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		switch err.Error() {
+		case "exit node cannot use auto-relay options",
+			"node is using an exit node; auto-relay is not allowed",
+			"relayed node cannot be set as autoRelay",
+			"only linux nodes are allowed to be set as autoRelay":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 	go mq.PublishPeerUpdate(false)
@@ -252,6 +264,18 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if peerNode.IsAutoRelay {
 		logic.ReturnErrorResponse(
 			w,
@@ -379,6 +403,14 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksGatewayOps(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	host := &schema.Host{
 		ID: node.HostID,
 	}
@@ -462,6 +494,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
 			if node.RelayedBy != "" {
@@ -489,6 +525,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(errors.New("peer not found"), "badrequest"),
 		)
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if len(node.AutoRelayedPeers) == 0 {
@@ -583,6 +623,18 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if peerNode.IsAutoRelay {
 		logic.ReturnErrorResponse(
 			w,

@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 )
@@ -297,5 +298,6 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 	if req.EgressID == "" {
 		msg = "exit node cleared"
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, selected, msg)
 }
