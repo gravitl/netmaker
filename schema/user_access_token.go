@@ -2,12 +2,15 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 )
+
+const userAccessTokensTable = "user_access_tokens"
 
 // UserAccessToken - token used to access netmaker
 type UserAccessToken struct {
@@ -19,6 +22,10 @@ type UserAccessToken struct {
 	LastUsed  time.Time `json:"last_used"`
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+func (a *UserAccessToken) TableName() string {
+	return userAccessTokensTable
 }
 
 func (a *UserAccessToken) Get(ctx context.Context) error {
@@ -36,7 +43,7 @@ func (a *UserAccessToken) Create(ctx context.Context) error {
 func (a *UserAccessToken) List(ctx context.Context) (ats []UserAccessToken, err error) {
 	query := db.FromContext(ctx).Model(&UserAccessToken{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
 	}
 	err = query.Find(&ats).Error
 	return
@@ -45,7 +52,7 @@ func (a *UserAccessToken) List(ctx context.Context) (ats []UserAccessToken, err 
 func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken) {
 	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
 	}
 	query.Find(&ats)
 	if ats == nil {
@@ -70,7 +77,7 @@ func (a *UserAccessToken) Delete(ctx context.Context) error {
 func (a *UserAccessToken) DeleteAllUserTokens(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
 	}
 	return query.Delete(&a).Error
 }

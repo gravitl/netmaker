@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -19,8 +20,10 @@ type Integration struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
+const integrationsTable = "integrations_v1"
+
 func (i *Integration) TableName() string {
-	return "integrations_v1"
+	return integrationsTable
 }
 
 func (i *Integration) Upsert(ctx context.Context) error {
@@ -40,7 +43,7 @@ func (i *Integration) ListByType(ctx context.Context) ([]Integration, error) {
 	query := db.FromContext(ctx).Model(&Integration{}).
 		Where("type = ?", i.Type)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", integrationsTable), tenantID)(query)
 	}
 	err := query.Find(&integrations).Error
 	return integrations, err

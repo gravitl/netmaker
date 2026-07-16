@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -9,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
+
+const eventsTable = "events"
 
 type Action string
 
@@ -113,6 +116,10 @@ type Event struct {
 	TimeStamp   time.Time      `gorm:"time_stamp" json:"time_stamp"`
 }
 
+func (e *Event) TableName() string {
+	return eventsTable
+}
+
 func (a *Event) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Event{}).First(&a).Where("id = ?", a.ID).Error
 }
@@ -128,7 +135,7 @@ func (a *Event) Create(ctx context.Context) error {
 func (a *Event) ListByNetwork(ctx context.Context, from, to time.Time) (ats []Event, err error) {
 	query := db.FromContext(ctx).Model(&Event{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
 	if !from.IsZero() && !to.IsZero() {
 		// "created_at BETWEEN ? AND ?
@@ -144,7 +151,7 @@ func (a *Event) ListByNetwork(ctx context.Context, from, to time.Time) (ats []Ev
 func (a *Event) ListByUser(ctx context.Context, from, to time.Time) (ats []Event, err error) {
 	query := db.FromContext(ctx).Model(&Event{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
 	if !from.IsZero() && !to.IsZero() {
 		err = query.Where("triggered_by = ? AND time_stamp BETWEEN ? AND ?",
@@ -158,7 +165,7 @@ func (a *Event) ListByUser(ctx context.Context, from, to time.Time) (ats []Event
 func (a *Event) ListByUserAndNetwork(ctx context.Context, from, to time.Time) (ats []Event, err error) {
 	query := db.FromContext(ctx).Model(&Event{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
 	if !from.IsZero() && !to.IsZero() {
 		err = query.Where("network_id = ? AND triggered_by = ? AND time_stamp BETWEEN ? AND ?",
@@ -173,7 +180,7 @@ func (a *Event) ListByUserAndNetwork(ctx context.Context, from, to time.Time) (a
 func (a *Event) List(ctx context.Context, from, to time.Time) (ats []Event, err error) {
 	query := db.FromContext(ctx).Model(&Event{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
 	if !from.IsZero() && !to.IsZero() {
 		err = query.Where("time_stamp BETWEEN ? AND ?", from, to).Order("time_stamp DESC").Find(&ats).Error
@@ -187,7 +194,7 @@ func (a *Event) DeleteOldEvents(ctx context.Context, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 	query := db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
 	return query.Delete(&Event{}).Error
 }

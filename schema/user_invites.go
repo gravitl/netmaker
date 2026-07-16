@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -25,8 +26,10 @@ type UserInvite struct {
 	UserGroups     datatypes.JSONType[map[UserGroupID]struct{}] `json:"user_group_ids"`
 }
 
+const userInvitesTable = "user_invites_v1"
+
 func (u *UserInvite) TableName() string {
-	return "user_invites_v1"
+	return userInvitesTable
 }
 
 func (u *UserInvite) Create(ctx context.Context) error {
@@ -49,7 +52,7 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 	query := db.FromContext(ctx).Model(&UserInvite{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userInvitesTable), tenantID))
 	}
 
 	for _, option := range options {
@@ -64,7 +67,7 @@ func (u *UserInvite) DeleteByEmail(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&UserInvite{}).
 		Where("email = ?", u.Email)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userInvitesTable), tenantID)(query)
 	}
 	return query.Delete(u).Error
 }

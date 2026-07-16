@@ -3,12 +3,14 @@ package schema
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 )
 
 var (
@@ -23,8 +25,33 @@ type PendingUser struct {
 	CreatedAt                  time.Time `json:"created_at"`
 }
 
+const pendingUsersTable = "pending_users_v1"
+
 func (p *PendingUser) TableName() string {
-	return "pending_users_v1"
+	return pendingUsersTable
+}
+
+// whereIdentifiers builds a query scoped to this pending user's ID or
+// username, always qualifying tenant_id with the table name and requiring it
+// whenever a tenant is in scope so an ID lookup can't cross tenant boundaries.
+func (p *PendingUser) whereIdentifiers(ctx context.Context, tenantID string) (*gorm.DB, error) {
+	if p.ID == "" && p.Username == "" {
+		return nil, ErrPendingUserIdentifiersNotProvided
+	}
+
+	query := db.FromContext(ctx).Model(&PendingUser{})
+	if p.ID != "" {
+		query = query.Where(fmt.Sprintf("%s.id = ?", pendingUsersTable), p.ID)
+		if tenantID != "" {
+			query = query.Where(fmt.Sprintf("%s.tenant_id = ?", pendingUsersTable), tenantID)
+		}
+		return query, nil
+	}
+
+	if tenantID == "" {
+		return nil, ErrPendingUserIdentifiersNotProvided
+	}
+	return query.Where(fmt.Sprintf("%s.username = ? AND %s.tenant_id = ?", pendingUsersTable, pendingUsersTable), p.Username, tenantID), nil
 }
 
 func (p *PendingUser) Create(ctx context.Context) error {
@@ -36,28 +63,23 @@ func (p *PendingUser) Create(ctx context.Context) error {
 }
 
 func (p *PendingUser) Exists(ctx context.Context) (bool, error) {
-	if p.ID == "" && p.Username == "" {
-		return false, ErrPendingUserIdentifiersNotProvided
+	query, err := p.whereIdentifiers(ctx, scope.ID(ctx))
+	if err != nil {
+		return false, err
 	}
 
-	var exists bool
-	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM pending_users_v1 WHERE id = ? OR username = ?)",
-		p.ID,
-		p.Username,
-	).Scan(&exists).Error
-	return exists, err
+	var count int64
+	err = query.Count(&count).Error
+	return count > 0, err
 }
 
 func (p *PendingUser) Get(ctx context.Context) error {
-	if p.ID == "" && p.Username == "" {
-		return ErrPendingUserIdentifiersNotProvided
+	query, err := p.whereIdentifiers(ctx, scope.ID(ctx))
+	if err != nil {
+		return err
 	}
 
-	return db.FromContext(ctx).Model(&PendingUser{}).
-		Where("id = ? OR username = ?", p.ID, p.Username).
-		First(p).
-		Error
+	return query.First(p).Error
 }
 
 func (p *PendingUser) ListAll(ctx context.Context, options ...dbtypes.Option) ([]PendingUser, error) {
@@ -65,7 +87,7 @@ func (p *PendingUser) ListAll(ctx context.Context, options ...dbtypes.Option) ([
 	query := db.FromContext(ctx).Model(&PendingUser{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", pendingUsersTable), tenantID))
 	}
 
 	for _, option := range options {
@@ -77,14 +99,11 @@ func (p *PendingUser) ListAll(ctx context.Context, options ...dbtypes.Option) ([
 }
 
 func (p *PendingUser) Delete(ctx context.Context) error {
-	if p.ID == "" && p.Username == "" {
-		return ErrPendingUserIdentifiersNotProvided
+	query, err := p.whereIdentifiers(ctx, scope.ID(ctx))
+	if err != nil {
+		return err
 	}
-
-	return db.FromContext(ctx).Model(&PendingUser{}).
-		Where("id = ? OR username = ?", p.ID, p.Username).
-		Delete(p).
-		Error
+	return query.Delete(p).Error
 }
 
 func (p *PendingUser) DeleteAll(ctx context.Context) error {

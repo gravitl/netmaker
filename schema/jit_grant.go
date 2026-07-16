@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -54,7 +55,7 @@ func (g *JITGrant) ListActiveByNetwork(ctx context.Context) ([]JITGrant, error) 
 	query := db.FromContext(ctx).Table(g.Table()).
 		Where("network_id = ? AND expires_at > ?", g.NetworkID, time.Now())
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
 	}
 	err := query.Find(&grants).Error
 	return grants, err
@@ -65,7 +66,7 @@ func (g *JITGrant) ListExpired(ctx context.Context) ([]JITGrant, error) {
 	query := db.FromContext(ctx).Table(g.Table()).
 		Where("expires_at <= ?", time.Now())
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
 	}
 	err := query.Find(&grants).Error
 	return grants, err
@@ -76,7 +77,7 @@ func (g *JITGrant) ListByUserAndNetwork(ctx context.Context) ([]JITGrant, error)
 	query := db.FromContext(ctx).Table(g.Table()).
 		Where("network_id = ? AND user_id = ?", g.NetworkID, g.UserID)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
 	}
 	err := query.Find(&grants).Error
 	return grants, err

@@ -139,7 +139,7 @@ func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, 
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)
@@ -156,7 +156,7 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	}
 	query := db.FromContext(ctx).Model(&Node{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)
@@ -170,7 +170,7 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)
@@ -206,7 +206,7 @@ func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, err
 	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
 		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
 	}
 	err := query.Find(&violations).Error
 	return violations, err
@@ -216,7 +216,7 @@ func (n *Node) DeleteViolations(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
 		Where("node_id = ?", n.ID)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
 	}
 	return query.Delete(&PostureCheckViolation{}).Error
 }
@@ -224,7 +224,7 @@ func (n *Node) DeleteViolations(ctx context.Context) error {
 func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Node{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)

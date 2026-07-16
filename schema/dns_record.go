@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -33,10 +34,12 @@ type DNSRecord struct {
 	Value     datatypes.JSONType[DNSEntry]
 }
 
-func (*DNSRecord) TableName() string { return "dns" }
+const dnsRecordsTable = "dns"
+
+func (*DNSRecord) TableName() string { return dnsRecordsTable }
 
 func (r *DNSRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).First(r).Error
+	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", dnsRecordsTable), r.Key, scope.ID(ctx)).First(r).Error
 }
 
 func (r *DNSRecord) Upsert(ctx context.Context) error {
@@ -48,14 +51,14 @@ func (r *DNSRecord) Upsert(ctx context.Context) error {
 }
 
 func (r *DNSRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Where("key = ? AND tenant_id = ?", r.Key, scope.ID(ctx)).Delete(r).Error
+	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", dnsRecordsTable), r.Key, scope.ID(ctx)).Delete(r).Error
 }
 
 func (*DNSRecord) List(ctx context.Context) ([]DNSRecord, error) {
 	var records []DNSRecord
 	query := db.FromContext(ctx).Model(&DNSRecord{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", dnsRecordsTable), tenantID)(query)
 	}
 	err := query.Find(&records).Error
 	return records, err
@@ -65,7 +68,7 @@ func (*DNSRecord) Count(ctx context.Context) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&DNSRecord{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", dnsRecordsTable), tenantID)(query)
 	}
 	err := query.Count(&count).Error
 	return int(count), err

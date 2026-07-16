@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -9,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
+
+const nameserversTable = "nameservers"
 
 type Nameserver struct {
 	ID          string                                `gorm:"primaryKey" json:"id"`
@@ -37,6 +40,10 @@ type NameserverDomain struct {
 	IsADDomain     bool   `json:"is_ad_domain"`
 }
 
+func (ns *Nameserver) TableName() string {
+	return nameserversTable
+}
+
 func (ns *Nameserver) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).First(&ns).Where("id = ?", ns.ID).Error
 }
@@ -52,7 +59,7 @@ func (ns *Nameserver) Create(ctx context.Context) error {
 func (ns *Nameserver) ListAll(ctx context.Context) (dnsli []Nameserver, err error) {
 	query := db.FromContext(ctx).Model(&Nameserver{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nameserversTable), tenantID)(query)
 	}
 	err = query.Find(&dnsli).Error
 	return
@@ -61,7 +68,7 @@ func (ns *Nameserver) ListAll(ctx context.Context) (dnsli []Nameserver, err erro
 func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, err error) {
 	query := db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID)
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter("tenant_id", tenantID)(query)
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nameserversTable), tenantID)(query)
 	}
 	err = query.Find(&dnsli).Error
 	return
@@ -70,7 +77,7 @@ func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, er
 func (ns *Nameserver) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Nameserver{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nameserversTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)

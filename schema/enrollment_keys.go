@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -40,8 +41,10 @@ type EnrollmentKey struct {
 	UpdatedAt         time.Time                   `json:"updated_at"`
 }
 
+const enrollmentKeysTable = "enrollment_keys_v1"
+
 func (e *EnrollmentKey) TableName() string {
-	return "enrollment_keys_v1"
+	return enrollmentKeysTable
 }
 
 func (e *EnrollmentKey) Create(ctx context.Context) error {
@@ -72,7 +75,7 @@ func (e *EnrollmentKey) ListAll(ctx context.Context, options ...dbtypes.Option) 
 	var keys []EnrollmentKey
 	query := db.FromContext(ctx).Model(&EnrollmentKey{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", enrollmentKeysTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)
@@ -85,7 +88,7 @@ func (e *EnrollmentKey) Count(ctx context.Context, options ...dbtypes.Option) (i
 	var count int64
 	query := db.FromContext(ctx).Model(&EnrollmentKey{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", enrollmentKeysTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)

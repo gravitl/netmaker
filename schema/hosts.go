@@ -171,8 +171,10 @@ type Host struct {
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
+const hostsTable = "hosts_v1"
+
 func (h *Host) TableName() string {
-	return "hosts_v1"
+	return hostsTable
 }
 
 func (h *Host) Create(ctx context.Context) error {
@@ -191,7 +193,7 @@ func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	query := db.FromContext(ctx).Model(&Host{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
 	}
 
 	for _, option := range options {
@@ -207,7 +209,7 @@ func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, 
 	query := db.FromContext(ctx).Model(&Host{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
 	}
 
 	for _, option := range options {

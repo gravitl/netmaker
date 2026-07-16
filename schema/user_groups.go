@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -32,8 +33,10 @@ type UserGroup struct {
 	UpdatedAt                  time.Time                        `json:"updated_at"`
 }
 
+const userGroupsTable = "user_groups_v1"
+
 func (u *UserGroup) TableName() string {
-	return "user_groups_v1"
+	return userGroupsTable
 }
 
 func (u *UserGroup) Create(ctx context.Context) error {
@@ -59,7 +62,7 @@ func (u *UserGroup) Count(ctx context.Context, options ...dbtypes.Option) (int, 
 	query := db.FromContext(ctx).Model(&UserGroup{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userGroupsTable), tenantID))
 	}
 
 	for _, option := range options {
@@ -75,7 +78,7 @@ func (u *UserGroup) ListAll(ctx context.Context, options ...dbtypes.Option) ([]U
 	query := db.FromContext(ctx).Model(&UserGroup{})
 
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter("tenant_id", tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userGroupsTable), tenantID))
 	}
 
 	for _, option := range options {
