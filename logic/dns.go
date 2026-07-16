@@ -119,10 +119,10 @@ func GetDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
-func EgressDNs(network string) (entries []models.DNSEntry) {
+func EgressDNs(ctx context.Context, network string) (entries []models.DNSEntry) {
 	egs, _ := (&schema.Egress{
 		Network: network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
+	}).ListByNetwork(ctx)
 	for _, egI := range egs {
 		if !egI.Status {
 			continue
@@ -188,7 +188,7 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 		host := &schema.Host{
 			ID: node.HostID,
 		}
-		err = host.Get(db.WithContext(context.TODO()))
+		err = host.Get(ctx)
 		if err != nil {
 			continue
 		}
@@ -281,7 +281,7 @@ func DeleteNetworkDNS(ctx context.Context, network string) error {
 // GetAllDNS - gets all dns entries
 func GetAllDNS(ctx context.Context) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(ctx))
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return []models.DNSEntry{}, err
 	}
@@ -346,7 +346,7 @@ func ValidateDNSCreate(ctx context.Context, entry models.DNSEntry) error {
 	})
 
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		err := (&schema.Network{Name: entry.Network}).Get(db.WithContext(context.TODO()))
+		err := (&schema.Network{Name: entry.Network}).Get(ctx)
 		return err == nil
 	})
 
@@ -378,7 +378,7 @@ func ValidateDNSUpdate(ctx context.Context, change models.DNSEntry, entry models
 		return err == nil && num == 0
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		err := (&schema.Network{Name: change.Network}).Get(db.WithContext(context.TODO()))
+		err := (&schema.Network{Name: change.Network}).Get(ctx)
 		return err == nil
 	})
 
@@ -463,7 +463,7 @@ func validateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 	return nil
 }
 
-func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+func getNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
 	filters := make(map[string]bool)
 	if node.Address.IP != nil {
 		filters[node.Address.IP.String()] = true
@@ -476,7 +476,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	ns := &schema.Nameserver{
 		NetworkID: node.Network,
 	}
-	nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+	nsLi, _ := ns.ListByNetwork(ctx)
 	for _, nsI := range nsLi {
 		if !nsI.Status {
 			continue
@@ -529,7 +529,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func getNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
+func getNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}
@@ -551,7 +551,7 @@ func getNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 		ns := &schema.Nameserver{
 			NetworkID: node.Network,
 		}
-		nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		nsLi, _ := ns.ListByNetwork(ctx)
 		for _, nsI := range nsLi {
 			if !nsI.Status {
 				continue

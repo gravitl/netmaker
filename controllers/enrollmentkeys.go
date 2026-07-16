@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -649,7 +651,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	go auth.CheckNetRegAndHostUpdate(key, host, r.Header.Get("user"))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+	go auth.CheckNetRegAndHostUpdate(ctx, key, host, r.Header.Get("user"))
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.

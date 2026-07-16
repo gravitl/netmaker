@@ -1788,7 +1788,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		hNs := logic.GetNameserversForNode(&node)
+		hNs := logic.GetNameserversForNode(r.Context(), &node)
 		for _, nsI := range hNs {
 			if nsI.IsFallback {
 				// skip fallback nameservers for user remote access gws.
@@ -1846,7 +1846,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		hNs := logic.GetNameserversForNode(&node)
+		hNs := logic.GetNameserversForNode(r.Context(), &node)
 		for _, nsI := range hNs {
 			if nsI.IsFallback {
 				// skip fallback nameservers for user remote access gws.

@@ -217,7 +217,9 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(schema.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
+
+		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+		go CheckNetRegAndHostUpdate(detachedCtx, schema.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -231,7 +233,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, username string) {
+func CheckNetRegAndHostUpdate(ctx context.Context, key schema.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	keyTags := make(map[models.TagID]struct{})
@@ -240,7 +242,7 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 	}
 	for _, netID := range key.Networks {
 		network := &schema.Network{Name: netID}
-		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+		if err := network.Get(ctx); err == nil {
 			if logic.DoesHostExistInTheNetworkAlready(host, network) {
 				continue
 			}
@@ -260,14 +262,14 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				if err := (&schema.PendingHost{
 					HostID:  host.ID.String(),
 					Network: netID,
-				}).CheckIfPendingHostExists(db.WithContext(context.TODO())); err == nil {
+				}).CheckIfPendingHostExists(ctx); err == nil {
 					continue
 				}
 				keyB, _ := json.Marshal(key)
 				// add host to pending host table
 				p := schema.PendingHost{
 					ID:            uuid.NewString(),
-					TenantID:      network.TenantID,
+					TenantID:      scope.ID(ctx),
 					HostID:        host.ID.String(),
 					Hostname:      host.Name,
 					Network:       netID,
@@ -282,7 +284,6 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 				continue
 			}
 
-			ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, host.TenantID)
 			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
 				ctx,
 				host,
@@ -337,7 +338,6 @@ func CheckNetRegAndHostUpdate(key schema.EnrollmentKey, host *schema.Host, usern
 			Action: models.RequestAck,
 			Host:   *host,
 		})
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 		if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
 		}

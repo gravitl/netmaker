@@ -250,7 +250,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		NodePeers:          []wgtypes.PeerConfig{},
 		HostNetworkInfo:    models.HostInfoMap{},
 		ServerConfig:       GetServerInfo(ctx),
-		DnsNameservers:     GetNameserversForHost(host),
+		DnsNameservers:     GetNameserversForHost(ctx, host),
 		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
 		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: make(map[string]models.PeerIdentity),
