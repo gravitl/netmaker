@@ -12,7 +12,7 @@ import (
 var defaultTenantID atomic.Value
 
 // DefaultScope returns a context scoped to the default tenant.
-// todo(nm-314): remove usage
+// todo(nm-341): remove usage
 func DefaultScope(ctx context.Context) context.Context {
 	if defaultTenantID.Load() == nil {
 		t := &schema.Tenant{}

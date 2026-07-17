@@ -36,7 +36,7 @@ func (t Tag) GetIDFromName() string {
 	return fmt.Sprintf("%s.%s", t.Network, t.TagName)
 }
 
-// todo (nm-341): composite primary key
+// todo(nm-341): composite primary key
 type TagRecord struct {
 	Key       string `gorm:"primaryKey"`
 	TenantID  string `gorm:"default:'';index"`
