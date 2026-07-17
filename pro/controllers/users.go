@@ -809,13 +809,26 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != schema.ServiceUser {
+
+	tm := &schema.TenantMembership{
+		TenantID: scope.ID(r.Context()),
+		UserID:   user.ID,
+	}
+	err = tm.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if tm.RoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
+
 	oldUser := *user
-	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
-	logic.UpsertUser(*user)
+	tm.Groups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
+	user.UserGroups = tm.Groups
+	_ = tm.Upsert(r.Context())
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -865,13 +878,25 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != schema.ServiceUser {
+
+	tm := &schema.TenantMembership{
+		TenantID: scope.ID(r.Context()),
+		UserID:   user.ID,
+	}
+	err = tm.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if tm.RoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
 	oldUser := *user
+	delete(tm.Groups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
 	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
-	logic.UpsertUser(*user)
+	_ = tm.Upsert(r.Context())
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
