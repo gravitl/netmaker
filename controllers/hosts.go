@@ -655,6 +655,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				for _, violation := range node.PostureChecksViolations {
 					_violations = append(_violations, schema.PostureCheckViolation{
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+						TenantID:          _node.TenantID,
 						CheckID:           violation.CheckID,
 						NodeID:            _node.ID,
 						Name:              violation.Name,

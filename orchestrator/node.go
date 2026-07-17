@@ -165,6 +165,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		for _, violation := range modelsNode.PostureChecksViolations {
 			_violations = append(_violations, schema.PostureCheckViolation{
 				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
+				TenantID:          node.TenantID,
 				CheckID:           violation.CheckID,
 				NodeID:            node.ID,
 				Name:              violation.Name,

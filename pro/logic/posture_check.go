@@ -134,6 +134,7 @@ func RunPostureChecks() error {
 				for _, violation := range postureChecksViolations {
 					_violations = append(_violations, schema.PostureCheckViolation{
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+						TenantID:          nodeI.TenantID,
 						CheckID:           violation.CheckID,
 						NodeID:            _node.ID,
 						Name:              violation.Name,

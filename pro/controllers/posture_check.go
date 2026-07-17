@@ -235,7 +235,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 			Old: pc,
 			New: updatePc,
 		},
-		NetworkID: schema.NetworkID(pc.NetworkID),
+		NetworkID: pc.NetworkID,
 		Origin:    schema.Dashboard,
 	}
 	pc.Tags = updatePc.Tags
