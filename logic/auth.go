@@ -532,6 +532,7 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 			Scope:         scope.TenantScope,
 			ScopeID:       tenant.ID,
 			ScopeName:     tenant.Name,
+			ScopeSlug:     tenant.Slug,
 			ScopeMetadata: tenant.Metadata,
 			Methods:       methodsAvailable,
 		})
@@ -576,6 +577,7 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 			Scope:         scope.OrgScope,
 			ScopeID:       org.ID,
 			ScopeName:     org.Name,
+			ScopeSlug:     org.Slug,
 			ScopeMetadata: org.Metadata,
 			Methods:       methodsAvailable,
 		})

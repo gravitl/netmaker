@@ -158,6 +158,7 @@ type LoginOption struct {
 	Scope         scope.Scope           `json:"scope"`
 	ScopeID       string                `json:"scope_id"`
 	ScopeName     string                `json:"scope_name"`
+	ScopeSlug     string                `json:"scope_slug"`
 	ScopeMetadata string                `json:"scope_metadata"`
 	Methods       LoginMethodsAvailable `json:"methods"`
 }
