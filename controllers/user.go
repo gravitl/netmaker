@@ -1127,7 +1127,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users := make([]models.ReturnUser, len(_users))
+	users := make([]models.ReturnUser, 0, len(_users))
 	for i := range _users {
 		users = append(users, logic.ToReturnUser(&_users[i]))
 		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
@@ -1215,7 +1215,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users := make([]models.ReturnUser, len(_users))
+	users := make([]models.ReturnUser, 0, len(_users))
 	for i, _user := range _users {
 		users[i] = logic.ToReturnUser(&_user)
 	}
