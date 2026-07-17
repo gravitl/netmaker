@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
@@ -109,10 +110,11 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.OwnerID = currentNode.OwnerID
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 	network := &schema.Network{
 		Name: a.Network,
 	}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err == nil {
 		_, networkRange, err := net.ParseCIDR(network.AddressRange)
 		if err == nil {

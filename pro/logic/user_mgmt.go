@@ -474,16 +474,16 @@ func CreateRole(role *schema.UserRole) error {
 }
 
 // DeleteRole - deletes user role
-func DeleteRole(rid schema.UserRoleID, force bool) error {
+func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	if rid.String() == "" {
 		return errors.New("role id cannot be empty")
 	}
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
 	role := &schema.UserRole{ID: rid}
-	err = role.Get(db.WithContext(context.TODO()))
+	err = role.Get(ctx)
 	if err != nil {
 		return err
 	}
@@ -495,7 +495,7 @@ func DeleteRole(rid schema.UserRoleID, force bool) error {
 		return errors.New("cannot delete default network role")
 	}
 	// check if network exists
-	exists, _ := logic.NetworkExists(role.NetworkID.String())
+	exists, _ := logic.NetworkExists(ctx, role.NetworkID.String())
 	if role.Default {
 		if exists && !force {
 			return errors.New("cannot delete default role")
@@ -525,7 +525,7 @@ func DeleteRole(rid schema.UserRoleID, force bool) error {
 	}
 	return (&schema.UserRole{
 		ID: rid,
-	}).Delete(db.WithContext(context.TODO()))
+	}).Delete(ctx)
 }
 
 func ValidateCreateGroupReq(g schema.UserGroup) error {

@@ -260,8 +260,9 @@ func expireJITGrantsWithEmail() error {
 		if expiredGrant.ExpiresAt.After(fiveMinutesAgo) && expiredGrant.RequestID != "" {
 			request := schema.JITRequest{ID: expiredGrant.RequestID}
 			if err := request.Get(ctx); err == nil {
+				netCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, expiredGrant.TenantID)
 				network := &schema.Network{Name: expiredGrant.NetworkID}
-				err = network.Get(db.WithContext(context.TODO()))
+				err = network.Get(netCtx)
 				if err == nil {
 					grantsToEmail = append(grantsToEmail, struct {
 						Grant   *schema.JITGrant

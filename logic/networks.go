@@ -489,8 +489,8 @@ func ValidateNetwork(ctx context.Context, network *schema.Network, isUpdate bool
 	return validationErr
 }
 
-func NetworkExists(name string) (bool, error) {
-	err := (&schema.Network{Name: name}).Get(db.WithContext(context.TODO()))
+func NetworkExists(ctx context.Context, name string) (bool, error) {
+	err := (&schema.Network{Name: name}).Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil

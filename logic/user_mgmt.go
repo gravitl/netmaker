@@ -40,7 +40,7 @@ var GetFilteredNodesByUserAccess = func(user *schema.User, nodes []models.Node) 
 	return
 }
 
-var DeleteRole = func(r schema.UserRoleID, force bool) error {
+var DeleteRole = func(ctx context.Context, r schema.UserRoleID, force bool) error {
 	return nil
 }
 

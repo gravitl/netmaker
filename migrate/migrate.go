@@ -263,7 +263,7 @@ func updateNodes(ctx context.Context) {
 			}
 			err = host.Get(ctx)
 			if err == nil {
-				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
+				go logic.DeleteRole(ctx, models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
 		}
 	}
