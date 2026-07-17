@@ -63,10 +63,11 @@ func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken
 
 func (a *UserAccessToken) CountByUser(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&UserAccessToken{}).
-		Where("user_name = ?", a.UserName).
-		Count(&count).
-		Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }
 

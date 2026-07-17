@@ -726,20 +726,16 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
-	allUsers, err := logic.GetUsers()
+
+	_users, err := (&schema.User{}).ListAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 	var networkUsers []models.ReturnUser
-	for _, user := range allUsers {
-		schemaUser := &schema.User{
-			Username:       user.UserName,
-			PlatformRoleID: user.PlatformRoleID,
-			UserGroups:     datatypes.NewJSONType(user.UserGroups),
-		}
-		if logic.UserHasNetworkGroupAccess(schemaUser, network) {
-			networkUsers = append(networkUsers, user)
+	for _, _user := range _users {
+		if logic.UserHasNetworkGroupAccess(&_user, network) {
+			networkUsers = append(networkUsers, logic.ToReturnUser(&_user))
 		}
 	}
 	if networkUsers == nil {
@@ -763,13 +759,13 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var unassignedUsers []models.ReturnUser
-	users, _ := logic.GetUsers()
-	for _, user := range users {
-		if user.PlatformRoleID != schema.ServiceUser {
+	_users, _ := (&schema.User{}).ListAll(r.Context())
+	for _, _user := range _users {
+		if _user.PlatformRoleID != schema.ServiceUser {
 			continue
 		}
 		skipUser := false
-		for userGID := range user.UserGroups {
+		for userGID := range _user.UserGroups.Data() {
 			userG, err := proLogic.GetUserGroup(userGID)
 			if err != nil {
 				continue
@@ -782,7 +778,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		if skipUser {
 			continue
 		}
-		unassignedUsers = append(unassignedUsers, user)
+		unassignedUsers = append(unassignedUsers, logic.ToReturnUser(&_user))
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, unassignedUsers, "returned unassigned network service users")
 }

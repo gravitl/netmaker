@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -136,18 +137,19 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 
 // GetIngressGwUsers - lists the users having to access to ingressGW
 func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
-
 	gwUsers := models.IngressGwUsers{
 		NodeID:  node.ID.String(),
 		Network: node.Network,
 	}
-	users, err := GetUsers()
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+	_users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return gwUsers, err
 	}
-	for _, user := range users {
-		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
-			gwUsers.Users = append(gwUsers.Users, user)
+	for _, _user := range _users {
+		if _user.PlatformRoleID != schema.SuperAdminRole && _user.PlatformRoleID != schema.AdminRole {
+			gwUsers.Users = append(gwUsers.Users, ToReturnUser(&_user))
 		}
 	}
 	return gwUsers, nil

@@ -31,20 +31,6 @@ var IsOAuthConfigured = func(context.Context) bool { return false }
 var ResetAuthProvider = func(context.Context) {}
 var ResetIDPSyncHook = func(context.Context) {}
 
-// GetUsers - gets users
-func GetUsers() ([]models.ReturnUser, error) {
-	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	users := make([]models.ReturnUser, len(_users))
-	for i, _user := range _users {
-		users[i] = ToReturnUser(&_user)
-	}
-	return users, nil
-}
-
 func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
 		return nil

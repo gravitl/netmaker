@@ -1120,13 +1120,16 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.GetUsers()
+	_users, err := (&schema.User{}).ListAll(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	for i := range users {
+
+	users := make([]models.ReturnUser, len(_users))
+	for i := range _users {
+		users = append(users, logic.ToReturnUser(&_users[i]))
 		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
 			UserName: users[i].UserName,
 		}).CountByUser(r.Context())
