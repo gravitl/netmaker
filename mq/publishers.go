@@ -461,6 +461,7 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 		}
 		return err
 	}
+	// todo(nm-341): is this good for multi-tenancy?
 	if !servercfg.DeployedByOperator() {
 		if token := mqclient.Publish(fmt.Sprintf("host/dns/sync/%s", dnsEntries[0].Network), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 			var err error
