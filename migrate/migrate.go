@@ -132,7 +132,8 @@ func initializeVirtualNATSettings() {
 			continue
 		}
 
-		if err := logic.UpsertNetwork(&network); err != nil {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, network.TenantID)
+		if err := network.Update(ctx); err != nil {
 			logger.Log(0, "failed to update network", network.Name, "with Virtual NAT settings:", err.Error())
 			continue
 		}
@@ -295,7 +296,7 @@ func updateNewAcls(ctx context.Context) {
 				continue
 			}
 
-			networks, err := logic.GetGroupNetworksMap(&group)
+			networks, err := logic.GetGroupNetworksMap(ctx, &group)
 			if err != nil {
 				continue
 			}

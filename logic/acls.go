@@ -2508,7 +2508,7 @@ var (
 		return nil
 	}
 
-	GetGroupNetworksMap = func(group *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
+	GetGroupNetworksMap = func(ctx context.Context, group *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
 		return nil, nil
 	}
 )

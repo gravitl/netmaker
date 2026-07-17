@@ -394,7 +394,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if featureFlags.EnableOverlappingEgressRanges {
 		if err := logic.AllocateUniqueVNATPool(r.Context(), &network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to allocate unique virtual NAT pool:", err.Error())
-		} else if err := logic.UpsertNetwork(&network); err != nil {
+		} else if err := network.Update(r.Context()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
 		}
 	}

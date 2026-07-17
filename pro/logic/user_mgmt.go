@@ -696,7 +696,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 
 	go UpdatesUserGwAccessOnGrpUpdates(ctx, group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 
-	networksMap, err := GetGroupNetworksMap(group)
+	networksMap, err := GetGroupNetworksMap(ctx, group)
 	if err != nil {
 		return err
 	}
@@ -1016,12 +1016,12 @@ func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.Use
 }
 
 func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema.UserGroup) error {
-	oldNetworks, err := GetGroupNetworksMap(old)
+	oldNetworks, err := GetGroupNetworksMap(ctx, old)
 	if err != nil {
 		return err
 	}
 
-	newNetworks, err := GetGroupNetworksMap(new)
+	newNetworks, err := GetGroupNetworksMap(ctx, new)
 	if err != nil {
 		return err
 	}
@@ -1152,7 +1152,7 @@ func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema
 	return nil
 }
 
-func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
+func GetGroupNetworksMap(ctx context.Context, g *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
 	networksMap := make(map[schema.NetworkID]schema.Network)
 	if g == nil {
 		return networksMap, nil
@@ -1160,7 +1160,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 
 	if _, ok := g.NetworkRoles.Data()[schema.AllNetworks]; ok {
 		var err error
-		networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+		networks, err := (&schema.Network{}).ListAll(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1171,7 +1171,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 	} else {
 		for networkID := range g.NetworkRoles.Data() {
 			network := &schema.Network{Name: networkID.String()}
-			err := network.Get(db.WithContext(context.TODO()))
+			err := network.Get(ctx)
 			if err != nil {
 				return nil, err
 			}

@@ -372,10 +372,6 @@ func IsNetworkNameUnique(ctx context.Context, network *schema.Network) (bool, er
 	return false, nil
 }
 
-func UpsertNetwork(_network *schema.Network) error {
-	return _network.Update(db.WithContext(context.TODO()))
-}
-
 // UpdateNetwork - updates a network with another network's fields
 func UpdateNetwork(ctx context.Context, currentNetwork, newNetwork *schema.Network) error {
 	if err := ValidateNetwork(ctx, newNetwork, true); err != nil {

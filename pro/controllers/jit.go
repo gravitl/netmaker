@@ -410,13 +410,14 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 	}
 
 	// Send denial email to requester
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		network := &schema.Network{Name: networkID}
-		_ = network.Get(db.WithContext(context.TODO()))
+		_ = network.Get(ctx)
 		if err := email.SendJITDeniedEmail(request, network); err != nil {
 			slog.Error("failed to send JIT denied notification", "error", err)
 		}
-	}()
+	}(ctx)
 
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitRequestDeny,

@@ -156,7 +156,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	case result := <-answer: // a read from req.answerCh has occurred
 		var currentNetworks []string
 		if result.ALL {
-			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+			_networks, err := (&schema.Network{}).ListAll(ctx)
 			if err == nil && len(_networks) > 0 {
 				for i := range _networks {
 					currentNetworks = append(currentNetworks, _networks[i].Name)
