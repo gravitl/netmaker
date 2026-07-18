@@ -1327,7 +1327,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
-				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -2203,7 +2203,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsMasterPod() {
-		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
@@ -2339,7 +2339,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
-		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go func(ctx context.Context) {
 			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {

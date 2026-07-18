@@ -820,7 +820,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	_user := &schema.User{
 		Username: username,
 	}
-	err := _user.Get(db.WithContext(context.TODO()))
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -949,7 +949,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		extclientStatus := !disableAccount
 		for _, extclient := range extclients {
 			if extclient.OwnerID == _user.Username && extclient.Enabled != extclientStatus {
-				_, err = logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus)
+				_, err = logic.ToggleExtClientConnectivity(ctx, &extclient, extclientStatus)
 				if err != nil {
 					logger.Log(1, "failed to delete user extclient:", err.Error())
 				}
@@ -2070,7 +2070,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 		updated := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
-			if err := user.Get(db.WithContext(context.TODO())); err != nil {
+			if err := user.Get(ctx); err != nil {
 				slog.Error("bulk user status: user not found", "username", username, "error", err)
 				continue
 			}
@@ -2108,11 +2108,11 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 			}
 			oldUser := *user
 			user.AccountDisabled = req.Disable
-			if err := user.UpdateAccountStatus(db.WithContext(context.TODO())); err != nil {
+			if err := user.UpdateAccountStatus(ctx); err != nil {
 				slog.Error("bulk user status: failed to update status", "username", username, "error", err)
 				continue
 			}
-			logic.LogEvent(r.Context(), &models.Event{
+			logic.LogEvent(ctx, &models.Event{
 				Action: schema.Update,
 				Source: models.Subject{
 					ID:   callerName,
@@ -2138,7 +2138,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 				extclientStatus := !req.Disable
 				for _, extclient := range ownerExtClients[user.Username] {
 					if extclient.Enabled != extclientStatus {
-						if _, err := logic.ToggleExtClientConnectivity(r.Context(), &extclient, extclientStatus); err != nil {
+						if _, err := logic.ToggleExtClientConnectivity(ctx, &extclient, extclientStatus); err != nil {
 							slog.Error("bulk user status: failed to toggle extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
 						}
 					}
@@ -2165,7 +2165,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := scope.WithContext(context.TODO(), scope.Level(r.Context()), scope.ID(r.Context()))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	// Start handling the session
 	go auth.SessionHandler(ctx, conn)
 }

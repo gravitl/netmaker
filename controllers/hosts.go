@@ -859,7 +859,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			currHost := &schema.Host{ID: hostID}
-			if err = currHost.Get(db.WithContext(context.Background())); err != nil {
+			if err = currHost.Get(ctx); err != nil {
 				slog.Debug("bulk host delete: host not found", "id", idStr, "error", err)
 				continue
 			}
@@ -872,7 +872,7 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 				}
 				hostNodes = append(hostNodes, node)
 			}
-			if err = logic.RemoveHost(r.Context(), currHost, true); err != nil {
+			if err = logic.RemoveHost(ctx, currHost, true); err != nil {
 				slog.Debug("bulk host delete: failed to remove host", "id", idStr, "error", err)
 				continue
 			}
@@ -890,8 +890,8 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 			}); err != nil {
 				slog.Debug("bulk host delete: failed to send host update", "id", currHost.ID, "error", err)
 			}
-			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(db.WithContext(context.TODO()))
-			logic.LogEvent(r.Context(), &models.Event{
+			(&schema.PendingHost{HostID: currHost.ID.String()}).DeleteAllPendingHosts(ctx)
+			logic.LogEvent(ctx, &models.Event{
 				Action: schema.Delete,
 				Source: models.Subject{
 					ID:   user,

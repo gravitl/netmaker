@@ -249,7 +249,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	pc.Status = updatePc.Status
 	pc.UpdatedAt = time.Now().UTC()
 
-	err = pc.Update(db.WithContext(context.TODO()))
+	err = pc.Update(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -259,7 +259,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if updateStatus {
-		pc.UpdateStatus(db.WithContext(context.TODO()))
+		pc.UpdateStatus(r.Context())
 	}
 	logic.LogEvent(r.Context(), event)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))

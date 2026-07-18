@@ -245,7 +245,7 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 	// Snapshot the previous group names before we mutate the network, so the
 	// audit diff retains human-readable names even if any of the listed groups
 	// are deleted later.
-	oldSnapshot := newJITNetworkAuditSnapshot(currNet)
+	oldSnapshot := newJITNetworkAuditSnapshot(r.Context(), currNet)
 
 	if err := proLogic.UpdateJITUserGroupsOnNetwork(r.Context(), networkID, jitRequestToGroupIDs(userGroupIDs)); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -260,7 +260,7 @@ func handleUpdateJITUserGroups(w http.ResponseWriter, r *http.Request, networkID
 	}
 	diff := models.Diff{
 		Old: oldSnapshot,
-		New: newJITNetworkAuditSnapshot(updatedNet),
+		New: newJITNetworkAuditSnapshot(r.Context(), updatedNet),
 	}
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.JitGroupsUpdate,
@@ -300,7 +300,7 @@ type jitNetworkAuditSnapshot struct {
 	JITUserGroups []jitUserGroupRef `json:"jit_user_groups"`
 }
 
-func newJITNetworkAuditSnapshot(network *schema.Network) jitNetworkAuditSnapshot {
+func newJITNetworkAuditSnapshot(ctx context.Context, network *schema.Network) jitNetworkAuditSnapshot {
 	snap := jitNetworkAuditSnapshot{Network: network}
 	if network == nil {
 		return snap
@@ -309,7 +309,7 @@ func newJITNetworkAuditSnapshot(network *schema.Network) jitNetworkAuditSnapshot
 	for _, gid := range network.JITUserGroupIDs {
 		ref := jitUserGroupRef{ID: gid}
 		grp := &schema.UserGroup{ID: gid}
-		if err := grp.Get(db.WithContext(context.TODO())); err == nil {
+		if err := grp.Get(ctx); err == nil {
 			ref.Name = grp.Name
 		}
 		snap.JITUserGroups = append(snap.JITUserGroups, ref)

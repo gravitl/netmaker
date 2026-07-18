@@ -290,7 +290,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Nodes = updateNs.Nodes
 		ns.UpdatedAt = time.Now().UTC()
 
-		err = ns.Update(db.WithContext(context.TODO()))
+		err = ns.Update(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(
 				w,
@@ -302,18 +302,18 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 
 		if updateMatchAll {
 			ns.MatchAll = updateNs.MatchAll
-			ns.UpdateMatchAll(db.WithContext(context.TODO()))
+			ns.UpdateMatchAll(r.Context())
 		}
 
 		if updateFallback {
 			ns.Fallback = updateNs.Fallback
-			ns.UpdateFallback(db.WithContext(context.TODO()))
+			ns.UpdateFallback(r.Context())
 		}
 	}
 
 	if updateStatus {
 		ns.Status = updateNs.Status
-		ns.UpdateStatus(db.WithContext(context.TODO()))
+		ns.UpdateStatus(r.Context())
 	}
 	logic.LogEvent(r.Context(), event)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))

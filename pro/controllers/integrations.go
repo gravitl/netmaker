@@ -16,8 +16,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
-	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	siempkg "github.com/gravitl/netmaker/pro/integration/siem"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -369,12 +369,12 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	syncCtx := db.WithContext(context.Background())
-	go func() {
-		if err := mdmpkg.RunMDMSyncForce(syncCtx); err != nil {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := mdmpkg.RunMDMSyncForce(ctx); err != nil {
 			logger.Log(0, "mdm: manual sync failed:", err.Error())
 		}
-	}()
+	}(ctx)
 
 	logic.LogEvent(r.Context(), &models.Event{
 		Action:      schema.MDMSync,
@@ -452,12 +452,13 @@ func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no EDR integration configured"), logic.BadReq))
 		return
 	}
-	syncCtx := db.WithContext(context.Background())
-	go func() {
-		if err := edrpkg.RunEDRSyncForce(syncCtx); err != nil {
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := edrpkg.RunEDRSyncForce(ctx); err != nil {
 			logger.Log(0, "edr: manual sync failed:", err.Error())
 		}
-	}()
+	}(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "edr sync queued")
 }
 

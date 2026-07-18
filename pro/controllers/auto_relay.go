@@ -250,7 +250,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
 	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
@@ -586,7 +586,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
 	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
