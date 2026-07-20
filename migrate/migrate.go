@@ -37,7 +37,7 @@ func Run() {
 
 		networks, _ := (&schema.Network{}).ListAll(ctx)
 		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name))
+			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name), "")
 		}
 
 		createDefaultTagsAndPolicies(ctx)

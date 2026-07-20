@@ -185,7 +185,7 @@ func UserGroupsInit(ctx context.Context) {
 	_ = NetworkGlobalUserGroup.Upsert(ctx)
 }
 
-func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.NetworkID) {
+func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.NetworkID, username string) {
 	if netID.String() == "" {
 		return
 	}
@@ -310,6 +310,24 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 	}
 	_ = NetworkAdminGroup.Upsert(ctx)
 	_ = NetworkUserGroup.Upsert(ctx)
+
+	if username != "" {
+		user := &schema.User{
+			Username: username,
+		}
+		err := user.Get(ctx)
+		if err == nil {
+			tm := &schema.TenantMembership{
+				TenantID: scope.ID(ctx),
+				UserID:   user.ID,
+			}
+			err = tm.Get(ctx)
+			if err == nil {
+				tm.Groups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+				_ = tm.Upsert(ctx)
+			}
+		}
+	}
 }
 
 func DeleteNetworkRoles(netID string) {

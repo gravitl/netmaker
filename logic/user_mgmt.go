@@ -53,7 +53,7 @@ var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *sche
 var InitialiseRoles = userRolesInit
 var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(netID string) {}
-var CreateDefaultNetworkRolesAndGroups = func(ctx context.Context, netID schema.NetworkID) {}
+var CreateDefaultNetworkRolesAndGroups = func(ctx context.Context, netID schema.NetworkID, username string) {}
 var CreateDefaultUserPolicies = func(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
