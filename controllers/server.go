@@ -252,7 +252,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	currSettings := logic.GetServerSettings(r.Context())
 
 	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
-		superAdmin, err := logic.GetSuperAdmin()
+		superAdmin, err := logic.GetSuperAdmin(r.Context())
 		if err != nil {
 			err = fmt.Errorf("failed to get super admin: %v", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

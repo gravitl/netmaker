@@ -2292,7 +2292,7 @@ func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
-	superAdmin, err := logic.GetSuperAdmin()
+	superAdmin, err := logic.GetSuperAdmin(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
