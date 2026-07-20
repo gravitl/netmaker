@@ -727,7 +727,7 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_users, err := (&schema.User{}).ListAll(r.Context())
+	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -759,7 +759,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var unassignedUsers []models.ReturnUser
-	_users, _ := (&schema.User{}).ListAll(r.Context())
+	_users, _ := (&schema.User{}).ListAllWithMembership(r.Context())
 	for _, _user := range _users {
 		if _user.PlatformRoleID != schema.ServiceUser {
 			continue

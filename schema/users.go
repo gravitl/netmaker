@@ -103,8 +103,21 @@ func (u *User) Create(ctx context.Context) error {
 }
 
 func (u *User) Get(ctx context.Context) error {
+	return u.get(ctx, false)
+}
+
+func (u *User) GetWithMembership(ctx context.Context) error {
+	return u.get(ctx, true)
+}
+
+func (u *User) get(ctx context.Context, requireMembership bool) error {
 	if u.ID == "" && u.Username == "" {
 		return ErrUserIdentifiersNotProvided
+	}
+
+	joinType := "LEFT"
+	if requireMembership {
+		joinType = "INNER"
 	}
 
 	if scope.Level(ctx) == scope.OrgScope {
@@ -113,7 +126,7 @@ func (u *User) Get(ctx context.Context) error {
 		err := db.FromContext(ctx).
 			Table("users_v1").
 			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password").
-			Joins("LEFT JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
+			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
 			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 			First(&row).
 			Error
@@ -134,7 +147,7 @@ func (u *User) Get(ctx context.Context) error {
 		err := db.FromContext(ctx).
 			Table("users_v1").
 			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
-			Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
+			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 			First(&row).
 			Error
@@ -147,6 +160,11 @@ func (u *User) Get(ctx context.Context) error {
 		u.AuthType = row.MemberAuthType
 		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 		u.Password = row.MemberPassword
+		return nil
+	}
+
+	if requireMembership {
+		return ErrTenantIDNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&User{}).
@@ -224,42 +242,85 @@ func (u *User) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 }
 
 func (u *User) ListAll(ctx context.Context, options ...dbtypes.Option) ([]User, error) {
-	tenantID := scope.ID(ctx)
+	return u.listAll(ctx, false, options...)
+}
 
-	if tenantID == "" {
-		var users []User
-		query := db.FromContext(ctx).Model(&User{})
+func (u *User) ListAllWithMembership(ctx context.Context, options ...dbtypes.Option) ([]User, error) {
+	return u.listAll(ctx, true, options...)
+}
+
+func (u *User) listAll(ctx context.Context, requireMembership bool, options ...dbtypes.Option) ([]User, error) {
+	joinType := "LEFT"
+	if requireMembership {
+		joinType = "INNER"
+	}
+
+	if scope.Level(ctx) == scope.OrgScope {
+		orgID := scope.ID(ctx)
+		query := db.FromContext(ctx).
+			Table("users_v1").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password").
+			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID)
+
 		for _, option := range options {
 			query = option(query)
 		}
-		err := query.Find(&users).Error
-		return users, err
+
+		var rows []userWithOrgMembership
+		if err := query.Find(&rows).Error; err != nil {
+			return nil, err
+		}
+
+		users := make([]User, len(rows))
+		for i, row := range rows {
+			users[i] = row.User
+			users[i].PlatformRoleID = row.MemberRoleID
+			users[i].AuthType = row.MemberAuthType
+			users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+			users[i].Password = row.MemberPassword
+		}
+		return users, nil
 	}
 
-	query := db.FromContext(ctx).
-		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
-		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
+	if scope.Level(ctx) == scope.TenantScope {
+		tenantID := scope.ID(ctx)
+		query := db.FromContext(ctx).
+			Table("users_v1").
+			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 
+		for _, option := range options {
+			query = option(query)
+		}
+
+		var rows []userWithMembership
+		if err := query.Find(&rows).Error; err != nil {
+			return nil, err
+		}
+
+		users := make([]User, len(rows))
+		for i, row := range rows {
+			users[i] = row.User
+			users[i].PlatformRoleID = row.MemberRoleID
+			users[i].UserGroups = row.MemberGroups
+			users[i].AuthType = row.MemberAuthType
+			users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+			users[i].Password = row.MemberPassword
+		}
+		return users, nil
+	}
+
+	if requireMembership {
+		return nil, ErrTenantIDNotProvided
+	}
+
+	var users []User
+	query := db.FromContext(ctx).Model(&User{})
 	for _, option := range options {
 		query = option(query)
 	}
-
-	var rows []userWithMembership
-	if err := query.Find(&rows).Error; err != nil {
-		return nil, err
-	}
-
-	users := make([]User, len(rows))
-	for i, row := range rows {
-		users[i] = row.User
-		users[i].PlatformRoleID = row.MemberRoleID
-		users[i].UserGroups = row.MemberGroups
-		users[i].AuthType = row.MemberAuthType
-		users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
-		users[i].Password = row.MemberPassword
-	}
-	return users, nil
+	err := query.Find(&users).Error
+	return users, err
 }
 
 func (u *User) Update(ctx context.Context) error {

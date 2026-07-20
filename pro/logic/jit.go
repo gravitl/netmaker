@@ -165,7 +165,7 @@ func CreateJITRequest(ctx context.Context, networkID, userName, reason string) (
 	}
 
 	reqUser := &schema.User{Username: userName}
-	userGetErr := reqUser.Get(ctx)
+	userGetErr := reqUser.GetWithMembership(ctx)
 	var subjectUser *schema.User
 	if userGetErr == nil {
 		subjectUser = reqUser
@@ -313,7 +313,7 @@ func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schem
 	}
 
 	user := &schema.User{Username: userID}
-	userGetErr := user.Get(ctx)
+	userGetErr := user.GetWithMembership(ctx)
 
 	var subjectUser *schema.User
 	if userGetErr == nil {

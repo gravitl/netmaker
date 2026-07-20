@@ -103,7 +103,7 @@ func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]
 		} else {
 			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
 				user := &schema.User{Username: staticNode.StaticNode.OwnerID}
-				err := user.Get(ctx)
+				err := user.GetWithMembership(ctx)
 				if err != nil {
 					return []string{}, errors.New("user not found")
 				}

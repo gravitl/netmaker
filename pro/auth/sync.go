@@ -179,7 +179,7 @@ func SyncFromIDP(ctx context.Context) error {
 }
 
 func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, removeIntegration bool) error {
-	dbUsers, err := (&schema.User{}).ListAll(ctx)
+	dbUsers, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return err
 	}
@@ -223,9 +223,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 		}
 
 		dbUser, ok := dbUsersMap[user.Username]
-		if !ok || dbUser.PlatformRoleID == "" {
-			// if user not in db, create.
-			// if user's membership not in db, create.
+		if !ok {
 			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
@@ -292,7 +290,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 		return err
 	}
 
-	dbUsers, err := (&schema.User{}).ListAll(ctx)
+	dbUsers, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return err
 	}
