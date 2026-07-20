@@ -223,8 +223,9 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 		}
 
 		dbUser, ok := dbUsersMap[user.Username]
-		if !ok {
-			// create the user only if it doesn't exist.
+		if !ok || dbUser.PlatformRoleID == "" {
+			// if user not in db, create.
+			// if user's membership not in db, create.
 			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
