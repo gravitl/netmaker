@@ -340,23 +340,30 @@ func cacheResponse(ctx context.Context, response ValidatedLicense) error {
 	return cacheResponseInDB(ctx, raw)
 }
 
-func getCachedResponse(ctx context.Context) ValidatedLicense {
-	if v := cachedResponse.Load(); v != nil {
-		return v.(ValidatedLicense)
+var errNoCachedResponse = errors.New("no cached license validation response available")
+
+var errCachedResponseExpired = errors.New("cached license validation response has expired")
+
+func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
+	response, ok := cachedResponse.Load().(ValidatedLicense)
+	if !ok {
+		raw, err := getCachedResponseFromDB(ctx)
+		if err != nil {
+			return ValidatedLicense{}, errNoCachedResponse
+		}
+
+		if err := json.Unmarshal(raw, &response); err != nil {
+			return ValidatedLicense{}, errNoCachedResponse
+		}
+
+		cachedResponse.Store(response)
 	}
 
-	raw, err := getCachedResponseFromDB(ctx)
-	if err != nil {
-		return ValidatedLicense{}
+	if !response.Expiry.IsZero() && time.Now().After(response.Expiry) {
+		return response, errCachedResponseExpired
 	}
 
-	var response ValidatedLicense
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return ValidatedLicense{}
-	}
-
-	cachedResponse.Store(response)
-	return response
+	return response, nil
 }
 
 func cacheResponseInDB(ctx context.Context, response []byte) error {
