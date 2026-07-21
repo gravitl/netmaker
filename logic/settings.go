@@ -185,19 +185,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 	return
 }
 
-// GetOrgSettingsFromEnv returns organization settings seeded from env/config
-// fallbacks (used to populate defaults for orgs with no settings record yet).
-func GetOrgSettingsFromEnv() (s schema.OrganizationSettingsData) {
-	s = schema.OrganizationSettingsData{
-		EmailSenderAddr:     servercfg.GetSenderEmail(),
-		EmailSenderUser:     servercfg.GetSenderUser(),
-		EmailSenderPassword: servercfg.GetEmaiSenderPassword(),
-		SmtpHost:            servercfg.GetSmtpHost(),
-		SmtpPort:            servercfg.GetSmtpPort(),
-	}
-	return
-}
-
 // GetServerConfig - gets the server config into memory from file or env
 func GetServerConfig(ctx context.Context) config.ServerConfig {
 	var cfg config.ServerConfig
