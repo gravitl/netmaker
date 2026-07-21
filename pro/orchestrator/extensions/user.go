@@ -34,7 +34,10 @@ func (p *ProUserExtensions) ConfigureAuthType(user *schema.User) error {
 
 func (p *ProUserExtensions) ConfigureGlobalAdminGroup(membership *schema.TenantMembership) {
 	if membership.RoleID == schema.SuperAdminRole || membership.RoleID == schema.AdminRole {
-		membership.Groups.Data()[proLogic.GetDefaultGlobalAdminGroupID()] = struct{}{}
+		if len(membership.Groups.Data()) == 0 {
+			membership.Groups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+			membership.Groups.Data()[proLogic.GetDefaultGlobalAdminGroupID()] = struct{}{}
+		}
 	}
 }
 
