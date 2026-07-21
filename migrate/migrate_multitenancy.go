@@ -8,30 +8,103 @@ import (
 )
 
 func migrateMultiTenancy(ctx context.Context) error {
-	return createDefaults(ctx)
+	return SyncOrgAndTenants(ctx)
 }
 
-func createDefaults(ctx context.Context) error {
-	defaultOrg := &schema.Organization{}
-	err := defaultOrg.CreateDefault(ctx)
+var SyncOrgAndTenants = CreateLocalDefaults
+
+func CreateLocalDefaults(ctx context.Context) error {
+	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
 		return err
 	}
 
-	// skip default tenant creation if a new deployment.
-	skip, err := isNewDeployment(ctx)
+	_, err = EnsureLocalTenant(ctx, org.ID)
+	return err
+}
+
+func EnsureLocalOrganization(ctx context.Context) (*schema.Organization, error) {
+	orgs, err := (&schema.Organization{}).ListAll(ctx)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if len(orgs) > 0 {
+		return &orgs[0], nil
 	}
 
-	if skip {
+	org := &schema.Organization{}
+	if err := org.CreateDefault(ctx); err != nil {
+		return nil, err
+	}
+	return org, nil
+}
+
+func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error) {
+	tenants, err := (&schema.Tenant{}).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(tenants) > 0 {
+		return &tenants[0], nil
+	}
+
+	tenant := &schema.Tenant{OrganizationID: orgID}
+	if err := tenant.CreateDefault(ctx); err != nil {
+		return nil, err
+	}
+	return tenant, nil
+}
+
+func tenantScopedModels() []any {
+	return []any{
+		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
+		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
+		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
+		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
+		&schema.PendingUser{}, &schema.PostureCheck{}, &schema.PostureCheckViolation{},
+		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
+	}
+}
+
+func RekeyTenant(ctx context.Context, oldID, newID string) error {
+	if oldID == newID {
 		return nil
 	}
 
-	defaultTenant := &schema.Tenant{
-		OrganizationID: defaultOrg.ID,
+	models := append(tenantScopedModels(), &schema.TenantMembership{})
+	for _, model := range models {
+		if err := db.FromContext(ctx).Model(model).
+			Where("tenant_id = ?", oldID).
+			Update("tenant_id", newID).Error; err != nil {
+			return err
+		}
 	}
-	return defaultTenant.CreateDefault(ctx)
+
+	return db.FromContext(ctx).Model(&schema.Tenant{}).
+		Where("id = ?", oldID).
+		Update("id", newID).Error
+}
+
+func RekeyOrganization(ctx context.Context, oldID, newID string) error {
+	if oldID == newID {
+		return nil
+	}
+
+	if err := db.FromContext(ctx).Model(&schema.Tenant{}).
+		Where("organization_id = ?", oldID).
+		Update("organization_id", newID).Error; err != nil {
+		return err
+	}
+
+	if err := db.FromContext(ctx).Model(&schema.OrgMembership{}).
+		Where("organization_id = ?", oldID).
+		Update("organization_id", newID).Error; err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&schema.Organization{}).
+		Where("id = ?", oldID).
+		Update("id", newID).Error
 }
 
 func isNewDeployment(ctx context.Context) (bool, error) {
