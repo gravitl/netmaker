@@ -37,8 +37,9 @@ type ValidatedLicense struct {
 
 // LicenseSecret - the encrypted struct for sending user-id
 type LicenseSecret struct {
-	AssociatedID string       `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
-	Usage        models.Usage `json:"limits"        binding:"required"`
+	AssociatedID string                  `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
+	Usage        models.Usage            `json:"limits"        binding:"required"`
+	TenantUsage  map[string]models.Usage `json:"tenant_usage"`
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint

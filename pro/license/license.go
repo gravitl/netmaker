@@ -82,6 +82,18 @@ func ValidateLicense() (err error) {
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
 		Usage:        logic.GetCurrentServerUsage(db.WithContext(context.TODO())),
+		TenantUsage:  make(map[string]models.Usage),
+	}
+
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		err = fmt.Errorf("failed to list tenants: %w", err)
+		return err
+	}
+
+	for _, tenant := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		licenseSecret.TenantUsage[tenant.ID] = logic.GetCurrentServerUsage(ctx)
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
