@@ -32,11 +32,6 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 		case scope.TenantScope:
 			id = r.Header.Get(scope.HeaderTenantID)
 			if id == "" {
-				if logic.GetFeatureFlags().AllowMultipleTenants {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
-					return
-				}
-
 				if defaultTenantID.Load() == nil {
 					t := &schema.Tenant{}
 					if err := t.GetDefault(r.Context()); err != nil {
@@ -106,11 +101,6 @@ func InferScope(next http.Handler) http.HandlerFunc {
 				return
 			}
 		} else {
-			if logic.GetFeatureFlags().AllowMultipleTenants {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
-				return
-			}
-
 			if defaultTenantID.Load() == nil {
 				t := &schema.Tenant{}
 				if err := t.GetDefault(r.Context()); err != nil {

@@ -23,16 +23,16 @@ func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(upsertOrgSettings)))).Methods(http.MethodPut)
 
 	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(listOrgs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
+	//r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrg))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(deleteOrg))).Methods(http.MethodDelete)
+	//r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(deleteOrg))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrgOwner))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrgOwner))).Methods(http.MethodPut)
 
 	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(listTenants)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
+	//r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
+	//r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
 }
 
 // @Summary     Get organization SSO settings
@@ -158,36 +158,31 @@ func listOrgs(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} schema.Organization
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func createOrg(w http.ResponseWriter, r *http.Request) {
-	if !logic.GetFeatureFlags().AllowMultipleOrgs {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating organizations is disabled"), logic.Forbidden))
-		return
-	}
-
-	var req schema.Organization
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-
-	if req.Name == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
-		return
-	}
-
-	o := &schema.Organization{
-		Name:     req.Name,
-		Metadata: req.Metadata,
-	}
-	err = o.Create(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	logic.ReturnSuccessResponseWithJson(w, r, o, "created organization")
-}
+//func createOrg(w http.ResponseWriter, r *http.Request) {
+//	var req schema.Organization
+//	err := json.NewDecoder(r.Body).Decode(&req)
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+//		return
+//	}
+//
+//	if req.Name == "" {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
+//		return
+//	}
+//
+//	o := &schema.Organization{
+//		Name:     req.Name,
+//		Metadata: req.Metadata,
+//	}
+//	err = o.Create(r.Context())
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	logic.ReturnSuccessResponseWithJson(w, r, o, "created organization")
+//}
 
 // @Summary     Get an organization
 // @Router      /api/v1/orgs/{org_id} [get]
@@ -353,43 +348,38 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func deleteOrg(w http.ResponseWriter, r *http.Request) {
-	if !logic.GetFeatureFlags().AllowMultipleOrgs {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting organizations is disabled"), logic.Forbidden))
-		return
-	}
-
-	orgID := mux.Vars(r)["org_id"]
-
-	o := &schema.Organization{ID: orgID, Slug: orgID}
-	err := o.Get(r.Context())
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
-			return
-		}
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if len(tenants) > 0 {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete organization with existing tenants"), logic.BadReq))
-		return
-	}
-
-	err = o.Delete(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	logic.ReturnSuccessResponse(w, r, "deleted organization")
-}
+//func deleteOrg(w http.ResponseWriter, r *http.Request) {
+//	orgID := mux.Vars(r)["org_id"]
+//
+//	o := &schema.Organization{ID: orgID, Slug: orgID}
+//	err := o.Get(r.Context())
+//	if err != nil {
+//		if errors.Is(err, gorm.ErrRecordNotFound) {
+//			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
+//			return
+//		}
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//	if len(tenants) > 0 {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete organization with existing tenants"), logic.BadReq))
+//		return
+//	}
+//
+//	err = o.Delete(r.Context())
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	logic.ReturnSuccessResponse(w, r, "deleted organization")
+//}
 
 // @Summary     List tenants in an organization
 // @Router      /api/v1/tenants [get]
@@ -421,71 +411,58 @@ func listTenants(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} schema.Tenant
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func createTenant(w http.ResponseWriter, r *http.Request) {
-	if !logic.GetFeatureFlags().AllowMultipleTenants {
-		numTenants, err := (&schema.Tenant{}).Count(r.Context())
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error validating request"), logic.Internal))
-			return
-		}
-
-		if numTenants != 0 {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("creating multiple tenants is forbidden"), logic.Forbidden))
-			return
-		}
-	}
-
-	orgID := scope.ID(r.Context())
-	username := r.Header.Get("user")
-
-	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
-	if err != nil {
-		err = fmt.Errorf("error getting user %s: %w", username, err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	var req schema.Tenant
-	err = json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-
-	if req.Name == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
-		return
-	}
-
-	if req.Slug == schema.DefaultTenantSlug {
-		err = fmt.Errorf("cannot use slug '%s'", schema.DefaultTenantSlug)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-
-	t := &schema.Tenant{
-		Name:           req.Name,
-		Slug:           req.Slug,
-		OrganizationID: orgID,
-		Metadata:       req.Metadata,
-	}
-	err = t.Create(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	user.PlatformRoleID = schema.SuperAdminRole
-	ctx := scope.WithContext(r.Context(), scope.TenantScope, t.ID)
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, user, orchestrator.WithInheritedAuth())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	logic.ReturnSuccessResponseWithJson(w, r, t, "created tenant")
-}
+//func createTenant(w http.ResponseWriter, r *http.Request) {
+//	orgID := scope.ID(r.Context())
+//	username := r.Header.Get("user")
+//
+//	user := &schema.User{Username: username}
+//	err := user.Get(r.Context())
+//	if err != nil {
+//		err = fmt.Errorf("error getting user %s: %w", username, err)
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	var req schema.Tenant
+//	err = json.NewDecoder(r.Body).Decode(&req)
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+//		return
+//	}
+//
+//	if req.Name == "" {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
+//		return
+//	}
+//
+//	if req.Slug == schema.DefaultTenantSlug {
+//		err = fmt.Errorf("cannot use slug '%s'", schema.DefaultTenantSlug)
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+//		return
+//	}
+//
+//	t := &schema.Tenant{
+//		Name:           req.Name,
+//		Slug:           req.Slug,
+//		OrganizationID: orgID,
+//		Metadata:       req.Metadata,
+//	}
+//	err = t.Create(r.Context())
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	user.PlatformRoleID = schema.SuperAdminRole
+//	ctx := scope.WithContext(r.Context(), scope.TenantScope, t.ID)
+//	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, user, orchestrator.WithInheritedAuth())
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	logic.ReturnSuccessResponseWithJson(w, r, t, "created tenant")
+//}
 
 // @Summary     Get a tenant
 // @Router      /api/v1/tenants/{tenant_id} [get]
@@ -524,36 +501,31 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-func deleteTenant(w http.ResponseWriter, r *http.Request) {
-	if !logic.GetFeatureFlags().AllowMultipleTenants {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("deleting tenants is disabled"), logic.Forbidden))
-		return
-	}
-
-	orgID := scope.ID(r.Context())
-	tenantID := mux.Vars(r)["tenant_id"]
-
-	t := &schema.Tenant{ID: tenantID, Slug: tenantID}
-	err := t.Get(r.Context())
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
-			return
-		}
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	if t.OrganizationID != orgID {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
-		return
-	}
-
-	err = t.Delete(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	logic.ReturnSuccessResponse(w, r, "deleted tenant")
-}
+//func deleteTenant(w http.ResponseWriter, r *http.Request) {
+//	orgID := scope.ID(r.Context())
+//	tenantID := mux.Vars(r)["tenant_id"]
+//
+//	t := &schema.Tenant{ID: tenantID, Slug: tenantID}
+//	err := t.Get(r.Context())
+//	if err != nil {
+//		if errors.Is(err, gorm.ErrRecordNotFound) {
+//			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
+//			return
+//		}
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	if t.OrganizationID != orgID {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
+//		return
+//	}
+//
+//	err = t.Delete(r.Context())
+//	if err != nil {
+//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+//		return
+//	}
+//
+//	logic.ReturnSuccessResponse(w, r, "deleted tenant")
+//}
