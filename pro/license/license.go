@@ -352,11 +352,3 @@ func getCachedResponse() ([]byte, error) {
 
 	return base64decode(cachedResponse.Value), nil
 }
-
-// ClearLicenseCache - clears the cached validate response
-func ClearLicenseCache() error {
-	cachedResponse := &schema.Internal{
-		Key: schema.InternalKey_LicenseValidationCachedResponse,
-	}
-	return cachedResponse.Reset(db.WithContext(context.TODO()))
-}
