@@ -15,10 +15,16 @@ type OrganizationSettings struct {
 }
 
 type OrganizationSettingsData struct {
-	AuthProvider string `json:"auth_provider"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	OIDCIssuer   string `json:"oidc_issuer"`
+	AuthProvider        string `json:"auth_provider"`
+	ClientID            string `json:"client_id"`
+	ClientSecret        string `json:"client_secret"`
+	OIDCIssuer          string `json:"oidc_issuer"`
+	EmailSenderAddr     string `json:"email_sender_addr"`
+	EmailSenderUser     string `json:"email_sender_user"`
+	EmailSenderPassword string `json:"email_sender_password"`
+	SmtpHost            string `json:"smtp_host"`
+	SmtpPort            int    `json:"smtp_port"`
+	SmtpSkipTlsVerify   bool   `json:"smtp_skip_tls_verify"`
 }
 
 func (o *OrganizationSettings) TableName() string {
