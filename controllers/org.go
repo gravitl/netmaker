@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
@@ -55,6 +57,9 @@ func getOrgSettings(w http.ResponseWriter, r *http.Request) {
 	data := os.Settings.Data()
 	if data.ClientSecret != "" {
 		data.ClientSecret = logic.Mask()
+	}
+	if data.EmailSenderPassword != "" {
+		data.EmailSenderPassword = logic.Mask()
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, data, "fetched org settings")
@@ -111,6 +116,9 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	if req.ClientSecret == logic.Mask() {
 		req.ClientSecret = existing.Settings.Data().ClientSecret
 	}
+	if req.EmailSenderPassword == logic.Mask() {
+		req.EmailSenderPassword = existing.Settings.Data().EmailSenderPassword
+	}
 
 	os := &schema.OrganizationSettings{
 		ID:       orgID,
@@ -123,9 +131,13 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ResetAuthProvider(r.Context())
+	logic.EmailInit(scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, orgID))
 
 	if req.ClientSecret != "" {
 		req.ClientSecret = logic.Mask()
+	}
+	if req.EmailSenderPassword != "" {
+		req.EmailSenderPassword = logic.Mask()
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated org settings")
 }
