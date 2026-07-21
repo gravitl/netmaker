@@ -29,12 +29,12 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// AddLicenseHooks - adds the validation and cache clear hooks
+// AddLicenseHooks - adds the validation hook
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
 		ID: "license-validation-hook",
 		Hook: logic.WrapHook(func() error {
-			return ValidateLicense()
+			return ValidateLicense(db.WithContext(context.Background()))
 		}),
 		Interval: time.Hour,
 	}
@@ -232,6 +232,53 @@ func FetchApiServerKeys(ctx context.Context) (pub *[32]byte, priv *[32]byte, err
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	decodedPubKey := base64decode(licensePubKeyEncoded)
 	return ncutils.ConvertBytesToKey(decodedPubKey)
+}
+
+// ValidateLicense - the initial and periodic license check for netmaker server
+// checks if a license is valid + limits are not exceeded
+// if license is free_tier and limits exceeds, then function should error
+// if license is not valid, function should error
+func ValidateLicense(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %s", errValidation, err.Error())
+		}
+	}()
+
+	hadCache := hasCachedResponse(ctx)
+
+	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
+	if err != nil {
+		return err
+	}
+	if isCachedResp {
+		return
+	}
+
+	if err = syncOrgAndTenantsFromResponse(ctx, licenseResponse, hadCache); err != nil {
+		err = fmt.Errorf("failed to sync organization/tenants from license: %w", err)
+		return err
+	}
+
+	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
+
+	// todo(nm-341): per-tenant feature flags.
+	go mq.PublishExporterFeatureFlags(ctx)
+	go func() {
+		ctx := db.WithContext(context.Background())
+		tenants, err := (&schema.Tenant{}).List(ctx)
+		if err != nil {
+			slog.Error("failed to list tenants for peer update", "error", err)
+			return
+		}
+		for _, tenant := range tenants {
+			ctx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+			mq.PublishPeerUpdate(ctx, false)
+		}
+	}()
+
+	slog.Info("License validation succeeded!")
+	return nil
 }
 
 func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicense, isCachedResp bool, err error) {
