@@ -328,7 +328,38 @@ func validateLicenseKey(ctx context.Context, encryptedData []byte, publicKey *[3
 	return validationResponse, timedOut, err
 }
 
-func cacheResponse(ctx context.Context, response []byte) error {
+var cachedResponse atomic.Value // ValidatedLicense
+
+func cacheResponse(ctx context.Context, response ValidatedLicense) error {
+	cachedResponse.Store(response)
+
+	raw, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	return cacheResponseInDB(ctx, raw)
+}
+
+func getCachedResponse(ctx context.Context) ValidatedLicense {
+	if v := cachedResponse.Load(); v != nil {
+		return v.(ValidatedLicense)
+	}
+
+	raw, err := getCachedResponseFromDB(ctx)
+	if err != nil {
+		return ValidatedLicense{}
+	}
+
+	var response ValidatedLicense
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return ValidatedLicense{}
+	}
+
+	cachedResponse.Store(response)
+	return response
+}
+
+func cacheResponseInDB(ctx context.Context, response []byte) error {
 	cached := &schema.Internal{
 		Key:   schema.InternalKey_LicenseValidationCachedResponse,
 		Value: base64encode(response),
@@ -336,7 +367,7 @@ func cacheResponse(ctx context.Context, response []byte) error {
 	return cached.Set(ctx)
 }
 
-func getCachedResponse(ctx context.Context) ([]byte, error) {
+func getCachedResponseFromDB(ctx context.Context) ([]byte, error) {
 	cached := &schema.Internal{
 		Key: schema.InternalKey_LicenseValidationCachedResponse,
 	}
