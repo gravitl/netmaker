@@ -234,6 +234,96 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	return ncutils.ConvertBytesToKey(decodedPubKey)
 }
 
+func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicense, isCachedResp bool, err error) {
+	licenseKeyValue := servercfg.GetLicenseKey()
+	netmakerTenantID := servercfg.GetNetmakerTenantID()
+	slog.Info("proceeding with Netmaker license validation...")
+	if len(licenseKeyValue) == 0 {
+		return licenseResponse, false, errors.New("empty license-key (LICENSE_KEY environment variable)")
+	}
+	if len(netmakerTenantID) == 0 {
+		return licenseResponse, false, errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)")
+	}
+
+	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to get license public key: %w", err)
+	}
+
+	tempPubKey, tempPrivKey, err := FetchApiServerKeys(ctx)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to fetch api server keys: %w", err)
+	}
+
+	licenseSecret := LicenseSecret{
+		AssociatedID: netmakerTenantID,
+		Usage:        logic.GetCurrentServerUsage(ctx),
+		TenantUsage:  make(map[string]models.Usage),
+	}
+
+	tenants, err := (&schema.Tenant{}).List(ctx)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to list tenants: %w", err)
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+		licenseSecret.TenantUsage[tenant.ID] = logic.GetCurrentServerUsage(tenantCtx)
+	}
+
+	secretData, err := json.Marshal(&licenseSecret)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to marshal license secret: %w", err)
+	}
+
+	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to encrypt license secret data: %w", err)
+	}
+
+	validationResponse, apiErr := callLicenseValidationApi(ctx, encryptedData, tempPubKey)
+	if apiErr != nil {
+		slog.Warn("failed to validate license key, falling back to cached response", "error", apiErr)
+		validationResponse, err = getCachedResponseFromDB(ctx)
+		if err != nil {
+			return licenseResponse, false, fmt.Errorf("failed to validate license key: %w", apiErr)
+		}
+		isCachedResp = true
+	} else {
+		if err := cacheResponseInDB(ctx, validationResponse); err != nil {
+			slog.Warn("failed to cache response", "error", err)
+		}
+	}
+
+	if len(validationResponse) == 0 {
+		return licenseResponse, false, errors.New("empty validation response")
+	}
+
+	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to unmarshal validation response: %w", err)
+	}
+
+	respData, err := ncutils.BoxDecrypt(
+		base64decode(licenseResponse.EncryptedLicense),
+		apiPublicKey,
+		tempPrivKey,
+	)
+	if err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to decrypt license: %w", err)
+	}
+
+	license := LicenseKey{}
+	if err = json.Unmarshal(respData, &license); err != nil {
+		return licenseResponse, false, fmt.Errorf("failed to unmarshal license key: %w", err)
+	}
+
+	if !licenseResponse.Expiry.IsZero() && time.Now().After(licenseResponse.Expiry) {
+		return licenseResponse, isCachedResp, fmt.Errorf("license validation response expired at %s", licenseResponse.Expiry)
+	}
+
+	return licenseResponse, isCachedResp, nil
+}
+
 func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
