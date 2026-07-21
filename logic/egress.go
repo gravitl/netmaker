@@ -365,19 +365,19 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 		}
 	}
 	e := &schema.Egress{
-		ID:          uuid.New().String(),
-		Name:        name,
-		Network:     node.Network,
-		Type:        schema.EgressTypeInternet,
-		Range:       "*",
-		Nat:         true,
-		Mode:        schema.DirectNAT,
-		Nodes:       datatypes.JSONMap{node.ID.String(): 256},
-		Tags:        make(datatypes.JSONMap),
-		Status:      true,
-		CreatedBy:   createdBy,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
+		ID:        uuid.New().String(),
+		Name:      name,
+		Network:   node.Network,
+		Type:      schema.EgressTypeInternet,
+		Range:     "*",
+		Nat:       true,
+		Mode:      schema.DirectNAT,
+		Nodes:     datatypes.JSONMap{node.ID.String(): 256},
+		Tags:      make(datatypes.JSONMap),
+		Status:    true,
+		CreatedBy: createdBy,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 	if err := ValidateEgressReq(e); err != nil {
 		return nil, err
@@ -443,14 +443,13 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if routingNodeID == "" {
 		return errors.New("internet egress has no routing node")
 	}
-	if routingNodeID == node.ID.String() {
-		return errors.New("routing node cannot select itself as exit node")
-	}
-	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || schemaNode.IsGateway {
-		return errors.New("gateway nodes cannot be assigned an exit node")
-	}
-	if schemaNode.RelayedByNodeID != nil && *schemaNode.RelayedByNodeID != "" && *schemaNode.RelayedByNodeID != routingNodeID {
-		return errors.New("node is relayed by a different gateway")
+	if err := validateInternetEgressSelection(
+		node,
+		schemaNode,
+		routingNodeID,
+		NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+	); err != nil {
+		return err
 	}
 
 	if schemaNode.AutoAssignGateway {
@@ -463,6 +462,24 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 		_ = schemaNode.ResetAutoRelayedPeers(ctx)
 	}
 
+	// Phase 1: relay the node through the exit routing node without enabling full
+	// tunnel yet (IsIGWClient stays false so InternetGwID/exit resolution does not
+	// kick in). Publish a peer update so clients establish mesh reachability via the
+	// gateway before the exit (0.0.0.0/0) config is applied.
+	alreadyRelayedByRoutingNode := schemaNode.RelayedByNodeID != nil &&
+		*schemaNode.RelayedByNodeID == routingNodeID
+	if !alreadyRelayedByRoutingNode {
+		schemaNode.IsIGWClient = false
+		schemaNode.RelayedByNodeID = &routingNodeID
+		if err := schemaNode.AssignGateway(ctx); err != nil {
+			return err
+		}
+		PublishPeerUpdateAfterExitNodeChange()
+		time.Sleep(1 * time.Second)
+	}
+
+	// Phase 2: apply the exit selection and mark the node as an IGW client so full
+	// tunnel resolves. Callers publish the second (exit) peer update after return.
 	schemaNode.IsIGWClient = true
 	schemaNode.RelayedByNodeID = &routingNodeID
 	schemaNode.SelectedInternetEgressID = egressID
@@ -481,6 +498,27 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	updated.SelectedInternetEgressID = egressID
 	updated.InternetGwID = ""
 	*node = *updated
+	return nil
+}
+
+func validateInternetEgressSelection(
+	node *models.Node,
+	schemaNode *schema.Node,
+	routingNodeID string,
+	isExitNode bool,
+) error {
+	if isExitNode {
+		return errors.New("exit node cannot use another exit node")
+	}
+	if routingNodeID == node.ID.String() {
+		return errors.New("routing node cannot select itself as exit node")
+	}
+	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || schemaNode.IsGateway {
+		return errors.New("gateway nodes cannot be assigned an exit node")
+	}
+	if schemaNode.RelayedByNodeID != nil && *schemaNode.RelayedByNodeID != "" && *schemaNode.RelayedByNodeID != routingNodeID {
+		return errors.New("node is relayed by a different gateway")
+	}
 	return nil
 }
 

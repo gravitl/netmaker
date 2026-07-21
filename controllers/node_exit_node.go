@@ -123,6 +123,7 @@ func exitNodeErrType(err error) logic.ApiErrorType {
 		"node not in network",
 		"exit node not found",
 		"egress is not an active internet exit node in this network",
+		"exit node cannot use another exit node",
 		"routing node cannot select itself as exit node",
 		"internet egress has no routing node",
 		"gateway nodes cannot be assigned an exit node",

@@ -156,6 +156,7 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(httpResponse)
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, result, "joined network")
 }
 
@@ -173,6 +174,7 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponse(w, r, "left network")
 }
 
@@ -285,6 +287,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 			errType = logic.Forbidden
 		case "device is not joined to network", "network is required", "exit node not found",
 			"egress is not an active internet exit node in this network",
+			"exit node cannot use another exit node",
 			"routing node cannot select itself as exit node",
 			"gateway nodes cannot be assigned an exit node",
 			"node is relayed by a different gateway",
