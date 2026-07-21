@@ -33,7 +33,9 @@ func (p *ProUserExtensions) ConfigureAuthType(user *schema.User) error {
 }
 
 func (p *ProUserExtensions) ConfigureGlobalAdminGroup(membership *schema.TenantMembership) {
-	membership.Groups.Data()[proLogic.GetDefaultGlobalAdminGroupID()] = struct{}{}
+	if membership.RoleID == schema.SuperAdminRole || membership.RoleID == schema.AdminRole {
+		membership.Groups.Data()[proLogic.GetDefaultGlobalAdminGroupID()] = struct{}{}
+	}
 }
 
 func (p *ProUserExtensions) ConfigureGroups(membership *schema.TenantMembership, groups datatypes.JSONType[map[schema.UserGroupID]struct{}]) {
