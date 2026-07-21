@@ -1199,12 +1199,20 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
+	// role_id and auth_type live on the membership tables, not users_v1. Qualify them
+	// with the join alias used by ListAllWithMembership/CountWithMembership so they
+	// don't collide with the identically named legacy columns still present on users_v1.
+	membershipAlias := "tm"
+	if scope.Level(r.Context()) == scope.OrgScope {
+		membershipAlias = "om"
+	}
+
 	_users, err := (&schema.User{}).ListAllWithMembership(
 		r.Context(),
 		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
-		dbtypes.WithFilter("platform_role_id", roleFilter...),
-		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
+		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
 		dbtypes.InAscOrder("username"),
 		dbtypes.WithPagination(page, pageSize),
@@ -1223,12 +1231,12 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		}).CountByUser(r.Context())
 	}
 
-	total, err := (&schema.User{}).Count(
+	total, err := (&schema.User{}).CountWithMembership(
 		r.Context(),
 		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
-		dbtypes.WithFilter("platform_role_id", roleFilter...),
-		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
+		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
 	)
 	if err != nil {
