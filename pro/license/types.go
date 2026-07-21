@@ -50,10 +50,25 @@ type LicenseTenant struct {
 	ID           string              `json:"id"`
 	Name         string              `json:"name"`
 	Metadata     string              `json:"metadata"`
-	Status       string              `json:"status"`
+	Status       TenantStatusMessage `json:"status"`
 	Limits       Limits              `json:"limits"`
 	FeatureFlags models.FeatureFlags `json:"feature_flags"`
 }
+
+// TenantStatusMessage is an enumeration of the status of the tenant,
+// represented as string message codes.
+type TenantStatusMessage string
+
+const (
+	// TenantStatusOk indicates all is fine with the tenant status
+	TenantStatusOk TenantStatusMessage = "ok"
+	// TenantStatusPaymentInvalid indicates the user provided an invalid payment method (payment failed too many times)
+	TenantStatusPaymentInvalid TenantStatusMessage = "payment_invalid"
+	// TenantStatusPaymentMissing indicates the user has not provided a payment method
+	TenantStatusPaymentMissing TenantStatusMessage = "payment_missing"
+	// TenantStatusLicenseExpired indicates that the tenant's license has expired
+	TenantStatusLicenseExpired TenantStatusMessage = "license_expired"
+)
 
 type Limits struct {
 	Servers   int `json:"servers"`
