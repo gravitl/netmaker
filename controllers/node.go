@@ -686,6 +686,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ResetAutoRelay(newNode)
 	}
 
+	// Disconnecting while using an exit node can strand the host; require unassign first.
+	if currentNode.Connected && !newNode.Connected {
+		if err := logic.ErrExitNodeBlocksDisconnect(&currentNode); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
 		if err := logic.ErrExitNodeBlocksGatewayOps(newNode); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1010,6 +1018,23 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 	if len(req.IDs) == 0 {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no node IDs provided"), logic.BadReq))
 		return
+	}
+
+	// Reject bulk disconnect when any target still uses an exit node.
+	if !req.Connected {
+		for _, nodeID := range req.IDs {
+			n, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			if err := logic.ErrExitNodeBlocksDisconnect(&n); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					fmt.Errorf("%s (node %s)", err.Error(), nodeID),
+					logic.BadReq,
+				))
+				return
+			}
+		}
 	}
 
 	eventAction := schema.Connect

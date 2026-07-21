@@ -275,6 +275,19 @@ func ErrExitNodeBlocksAutoRelay(node *models.Node) error {
 	return nil
 }
 
+// ErrExitNodeBlocksDisconnect returns an error when a node using an exit node
+// must not be disconnected from the network. Disconnecting while full-tunnel
+// routed through an exit node can strand connectivity; unassign the exit node first.
+func ErrExitNodeBlocksDisconnect(node *models.Node) error {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		return errors.New("node is using an exit node; unassign the exit node before disconnecting from the network")
+	}
+	return nil
+}
+
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
 func NodeIsInternetEgressRouter(nodeID, network string) bool {
 	if nodeID == "" || network == "" {
