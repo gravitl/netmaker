@@ -2,6 +2,7 @@ package license
 
 import (
 	"errors"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -33,6 +34,36 @@ type ValidatedLicense struct {
 	EncryptedLicense string              `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
 	DeploymentMode   string              `json:"deployment_mode"`
 	FeatureFlags     models.FeatureFlags `json:"feature_flags" binding:"required"`
+	Expiry           time.Time           `json:"expiry"`
+	Organization     LicenseOrg          `json:"organization"`
+	Tenants          []LicenseTenant     `json:"tenants"`
+}
+
+type LicenseOrg struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Metadata string `json:"metadata"`
+	Status   string `json:"status"`
+}
+
+type LicenseTenant struct {
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	Metadata     string              `json:"metadata"`
+	Status       string              `json:"status"`
+	Limits       Limits              `json:"limits"`
+	FeatureFlags models.FeatureFlags `json:"feature_flags"`
+}
+
+type Limits struct {
+	Servers   int `json:"servers"`
+	Users     int `json:"users"`
+	Clients   int `json:"clients"`
+	Hosts     int `json:"hosts"`
+	Networks  int `json:"networks"`
+	Machines  int `json:"machines"`
+	Ingresses int `json:"ingresses"`
+	Egresses  int `json:"egresses"`
 }
 
 // LicenseSecret - the encrypted struct for sending user-id
