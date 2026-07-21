@@ -333,7 +333,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnablePostureChecks {
+	if !logic.GetFeatureFlags(r.Context()).EnablePostureChecks {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture checks are not enabled on your plan"), logic.BadReq))
 		return
 	}

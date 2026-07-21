@@ -141,13 +141,13 @@ func UpsertUserSettings(username string, userSettings models.UserSettings) error
 	return u.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
-func ValidateNewSettings(req models.ServerSettings) error {
+func ValidateNewSettings(ctx context.Context, req models.ServerSettings) error {
 	// TODO: add checks for different fields
 	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
 		return ErrInvalidJwtValidityDuration
 	}
 
-	if req.EnableFlowLogs && !GetFeatureFlags().EnableFlowLogs {
+	if req.EnableFlowLogs && !GetFeatureFlags(ctx).EnableFlowLogs {
 		return ErrFlowLogsNotSupported
 	}
 

@@ -262,7 +262,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		hostPeerUpdate.ManageDNS = false
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
+	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		host.EnableFlowLogs = false
 	}
 

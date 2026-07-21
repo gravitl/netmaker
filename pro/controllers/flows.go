@@ -12,7 +12,6 @@ import (
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
@@ -91,7 +90,7 @@ type FlowRow struct {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func handleListFlows(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnableFlowLogs || !logic.GetServerSettings(r.Context()).EnableFlowLogs {
+	if !logic.GetFeatureFlags(r.Context()).EnableFlowLogs || !logic.GetServerSettings(r.Context()).EnableFlowLogs {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("flow logs not enabled"), logic.Forbidden))
 		return
 	}

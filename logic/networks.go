@@ -380,7 +380,7 @@ func UpdateNetwork(ctx context.Context, currentNetwork, newNetwork *schema.Netwo
 	if newNetwork.Name != currentNetwork.Name {
 		return errors.New("failed to update network " + newNetwork.Name + ", cannot change netid.")
 	}
-	featureFlags := GetFeatureFlags()
+	featureFlags := GetFeatureFlags(ctx)
 	if featureFlags.EnableDeviceApproval {
 		currentNetwork.AutoJoin = newNetwork.AutoJoin
 	} else {

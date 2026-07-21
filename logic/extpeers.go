@@ -434,7 +434,7 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 
 func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var skipFlowLogs bool
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
+	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		skipFlowLogs = true
 	}
 	var peers []wgtypes.PeerConfig

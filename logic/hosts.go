@@ -208,7 +208,7 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.DNS = currentHost.DNS
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
+	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
 	if newHost.IsDefault {

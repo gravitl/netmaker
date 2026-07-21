@@ -117,7 +117,8 @@ func EventWatcher() {
 		}
 		_siemMtx.Unlock()
 
-		if GetFeatureFlags().EnableSIEMIntegration {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, e.TenantID)
+		if logic.GetFeatureFlags(ctx).EnableSIEMIntegration {
 			sourceMap := make(map[string]interface{})
 			dstMap := make(map[string]interface{})
 			diffMap := make(map[string]interface{})

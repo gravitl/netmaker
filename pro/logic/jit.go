@@ -51,7 +51,7 @@ type JITStatusResponse struct {
 // under the new configuration.
 func EnableJITOnNetwork(ctx context.Context, networkID string, jitUserGroupIDs []schema.UserGroupID) error {
 	// Check if JIT feature is enabled
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		return errors.New("JIT feature is not enabled")
 	}
@@ -121,7 +121,7 @@ func resetExtClientJITFields(ctx context.Context, networkID string) error {
 
 // UpdateJITUserGroupsOnNetwork updates the JIT user-group allowlist while JIT remains enabled.
 func UpdateJITUserGroupsOnNetwork(ctx context.Context, networkID string, jitUserGroupIDs []schema.UserGroupID) error {
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		return errors.New("JIT feature is not enabled")
 	}
@@ -148,7 +148,7 @@ func UpdateJITUserGroupsOnNetwork(ctx context.Context, networkID string, jitUser
 // CreateJITRequest - creates a new JIT access request
 func CreateJITRequest(ctx context.Context, networkID, userName, reason string) (*schema.JITRequest, error) {
 	// Check if JIT feature is enabled
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		return nil, errors.New("JIT feature is not enabled")
 	}
@@ -294,7 +294,7 @@ func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, erro
 // CheckJITAccess - checks if a user has active JIT access for a network
 func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schema.JITGrant, error) {
 	// Check if JIT feature is enabled
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		// Feature flag disabled, allow access (backward compatibility)
 		return true, nil, nil
@@ -349,7 +349,7 @@ func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schem
 // for this user on the network. False when the feature/network JIT is off or the user is
 // outside jit_user_group_ids scope.
 func UserSubjectToNetworkJIT(ctx context.Context, networkID string, user *schema.User) bool {
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		return false
 	}

@@ -312,7 +312,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableDeviceApproval {
 		network.AutoJoin = true
 	}

@@ -47,7 +47,7 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 			return err
 		}
 	}
-	if !GetFeatureFlags().EnableEgressHA && len(e.Nodes) > 1 {
+	if !GetFeatureFlags(ctx).EnableEgressHA && len(e.Nodes) > 1 {
 		return errors.New("can only set one routing node on CE")
 	}
 

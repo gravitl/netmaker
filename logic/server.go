@@ -9,7 +9,7 @@ import (
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func(ctx context.Context, wg *sync.WaitGroup)
-var GetFeatureFlags = func() models.FeatureFlags {
+var GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
 	return models.FeatureFlags{}
 }
 var GetDeploymentMode = func() string {

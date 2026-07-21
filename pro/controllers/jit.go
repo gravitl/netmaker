@@ -61,7 +61,7 @@ func JITHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func handleJIT(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableJIT {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("JIT feature is not enabled"), "forbidden"))
 		return
@@ -451,7 +451,7 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 // @Failure     500 {object} models.ErrorResponse
 func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableJIT {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("JIT feature is not enabled"), "forbidden"))
 		return
@@ -572,7 +572,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableJIT {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("JIT feature is not enabled"), "forbidden"))
 		return
@@ -624,7 +624,7 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableJIT {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("JIT feature is not enabled"), "forbidden"))
 		return

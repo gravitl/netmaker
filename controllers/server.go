@@ -52,7 +52,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(memProfile)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/feature_flags", middleware.Scope(scope.TenantScope, http.HandlerFunc(getFeatureFlags))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/onboarding", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
@@ -245,7 +245,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNewSettings(req); err != nil {
+	if err := logic.ValidateNewSettings(r.Context(), req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
@@ -331,7 +331,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	}
 
 	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		go mq.PublishExporterFeatureFlags()
+		go mq.PublishExporterFeatureFlags(ctx)
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
@@ -452,7 +452,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 // @Produce     json
 // @Success     200 {object} models.FeatureFlags
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(r.Context()), "")
 }
 
 // @Summary     Get onboarding status for the UI

@@ -235,7 +235,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 // CheckNetRegAndHostUpdate - run through networks and send a host update
 func CheckNetRegAndHostUpdate(ctx context.Context, key schema.EnrollmentKey, host *schema.Host, username string) {
 	// publish host update through MQ
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	keyTags := make(map[models.TagID]struct{})
 	for _, tagI := range key.Tags {
 		keyTags[models.TagID(tagI)] = struct{}{}
