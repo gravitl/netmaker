@@ -33,8 +33,8 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 			id = r.Header.Get(scope.HeaderTenantID)
 			if id == "" {
 				if defaultTenantID.Load() == nil {
-					t := &schema.Tenant{}
-					if err := t.GetDefault(r.Context()); err != nil {
+					t, err := logic.SoleTenant(r.Context())
+					if err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
 						return
 					}
@@ -102,8 +102,8 @@ func InferScope(next http.Handler) http.HandlerFunc {
 			}
 		} else {
 			if defaultTenantID.Load() == nil {
-				t := &schema.Tenant{}
-				if err := t.GetDefault(r.Context()); err != nil {
+				t, err := logic.SoleTenant(r.Context())
+				if err != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
 					return
 				}

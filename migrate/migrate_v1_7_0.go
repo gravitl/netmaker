@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -327,8 +328,7 @@ func migrateServerSettings(ctx context.Context) error {
 		return err
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
+	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
 	}
@@ -393,14 +393,12 @@ func createMemberships(ctx context.Context) error {
 		return nil
 	}
 
-	defaultOrg := &schema.Organization{}
-	err = defaultOrg.GetDefault(ctx)
+	defaultOrg, err := logic.SoleOrganization(ctx)
 	if err != nil {
 		return err
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
+	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
 	}
@@ -456,22 +454,12 @@ func setTenantID(ctx context.Context) error {
 		return nil
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
+	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
 	}
 
-	tenantModels := []any{
-		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
-		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
-		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
-		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
-		&schema.PendingUser{}, &schema.PostureCheck{}, &schema.PostureCheckViolation{},
-		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
-	}
-
-	for _, model := range tenantModels {
+	for _, model := range tenantScopedModels() {
 		err := db.FromContext(ctx).Model(model).
 			Where("tenant_id = ?", "").
 			Update("tenant_id", defaultTenant.ID).
