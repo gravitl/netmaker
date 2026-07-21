@@ -9,13 +9,15 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/grpc/siem"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/integration"
 	"github.com/gravitl/netmaker/schema"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func HandleExporterIntegrationPull(_ mqtt.Client, _ mqtt.Message) {
-	if GetFeatureFlags().EnableSIEMIntegration {
+	// todo(nm-341): handle multiple-tenants.
+	if logic.GetFeatureFlags(context.Background()).EnableSIEMIntegration {
 		intg := &schema.Integration{
 			Type: string(integration.TypeSIEM),
 		}
