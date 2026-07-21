@@ -494,9 +494,15 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	// Note: an exit node that is also a gateway is a valid target for auto-assign
+	// gateway (the client simply relays its overlay traffic through that gateway).
+	// The exit-node restriction only applies to the NAT auto-relay path below,
+	// where the node acts as a hole-punching relay, so scope the check to that path.
+	if !node.AutoAssignGateway {
+		if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
