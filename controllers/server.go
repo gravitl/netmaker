@@ -101,8 +101,9 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	licenseErr := ""
-	if servercfg.ErrLicenseValidation != nil {
-		licenseErr = servercfg.ErrLicenseValidation.Error()
+	// todo(nm-341): get status is public/global api. r.Context() doesn't have a tenant.
+	if err := servercfg.ErrLicenseValidation(r.Context()); err != nil {
+		licenseErr = err.Error()
 	}
 	//var trialEndDate time.Time
 	//var err error

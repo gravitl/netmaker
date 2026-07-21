@@ -36,10 +36,12 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
+// todo(nm-341): add ctx to func
 var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schema.NetworkID) (v []models.Violation, level schema.Severity) {
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+// todo(nm-341): add ctx to func
 var CheckPostureViolationsForHost = func(host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown
