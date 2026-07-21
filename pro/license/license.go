@@ -163,12 +163,12 @@ func ValidateLicense() (err error) {
 // FetchApiServerKeys - fetches netmaker license keys for identification
 // as well as secure communication with API
 // if none present, it generates a new pair
-func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
+func FetchApiServerKeys(ctx context.Context) (pub *[32]byte, priv *[32]byte, err error) {
 	var create bool
 	privateKey := &schema.Internal{
 		Key: schema.InternalKey_LicenseValidationPrivateKey,
 	}
-	err = privateKey.Get(db.WithContext(context.TODO()))
+	err = privateKey.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			create = true
@@ -180,7 +180,7 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	publicKey := &schema.Internal{
 		Key: schema.InternalKey_LicenseValidationPublicKey,
 	}
-	err = publicKey.Get(db.WithContext(context.TODO()))
+	err = publicKey.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			create = true
@@ -205,7 +205,6 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 
 		privateKey.Value = base64encode(privateKeyBytes)
 		publicKey.Value = base64encode(publicKeyBytes)
-		ctx := db.WithContext(context.TODO())
 		err = privateKey.Set(ctx)
 		if err != nil {
 			return nil, nil, err
@@ -234,7 +233,7 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	return ncutils.ConvertBytesToKey(decodedPubKey)
 }
 
-func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool, error) {
+func validateLicenseKey(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, bool, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
 		return nil, false, err
@@ -293,7 +292,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 		},
 		OnMaxTries: func() {
 			slog.Warn("proceeding with cached response, Netmaker API may be down")
-			validationResponse, err = getCachedResponse()
+			validationResponse, err = getCachedResponse(ctx)
 			timedOut = false
 		},
 		OnSuccess: func() {
@@ -309,7 +308,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 					return
 				}
 
-				if err := cacheResponse(validationResponse); err != nil {
+				if err := cacheResponse(ctx, validationResponse); err != nil {
 					slog.Warn("failed to cache response", "error", err)
 				}
 			} else {
@@ -329,22 +328,22 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 	return validationResponse, timedOut, err
 }
 
-func cacheResponse(response []byte) error {
-	cachedResponse := &schema.Internal{
+func cacheResponse(ctx context.Context, response []byte) error {
+	cached := &schema.Internal{
 		Key:   schema.InternalKey_LicenseValidationCachedResponse,
 		Value: base64encode(response),
 	}
-	return cachedResponse.Set(db.WithContext(context.TODO()))
+	return cached.Set(ctx)
 }
 
-func getCachedResponse() ([]byte, error) {
-	cachedResponse := &schema.Internal{
+func getCachedResponse(ctx context.Context) ([]byte, error) {
+	cached := &schema.Internal{
 		Key: schema.InternalKey_LicenseValidationCachedResponse,
 	}
-	err := cachedResponse.Get(db.WithContext(context.TODO()))
+	err := cached.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return base64decode(cachedResponse.Value), nil
+	return base64decode(cached.Value), nil
 }
