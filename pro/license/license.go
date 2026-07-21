@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -16,7 +17,7 @@ import (
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/utils"
+	"github.com/hashicorp/go-retryablehttp"
 	"gorm.io/gorm"
 
 	"golang.org/x/crypto/nacl/box"
@@ -233,10 +234,10 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	return ncutils.ConvertBytesToKey(decodedPubKey)
 }
 
-func validateLicenseKey(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, bool, error) {
+func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	msg := ValidateLicenseRequest{
 		ServerVersion:  servercfg.GetVersion(),
@@ -248,84 +249,44 @@ func validateLicenseKey(ctx context.Context, encryptedData []byte, publicKey *[3
 
 	requestBody, err := json.Marshal(msg)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	var validateResponse *http.Response
-	var validationResponse []byte
-	var timedOut bool
+	client := retryablehttp.NewClient()
+	client.Logger = nil
+	client.RetryMax = 15
+	client.RetryWaitMin = time.Second * 5
+	client.RetryWaitMax = time.Second * 35
 
-	validationRetries := utils.RetryStrategy{
-		WaitTime:         time.Second * 5,
-		WaitTimeIncrease: time.Second * 2,
-		MaxTries:         15,
-		Wait: func(duration time.Duration) {
-			time.Sleep(duration)
-		},
-		Try: func() error {
-			req, err := http.NewRequest(
-				http.MethodPost,
-				proLogic.GetAccountsHost()+"/api/v1/license/validate",
-				bytes.NewReader(requestBody),
-			)
-			if err != nil {
-				return err
-			}
-			req.Header.Add("Content-Type", "application/json")
-			req.Header.Add("Accept", "application/json")
-			client := &http.Client{}
+	req, err := retryablehttp.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		proLogic.GetAccountsHost()+"/api/v1/license/validate",
+		bytes.NewReader(requestBody),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
 
-			validateResponse, err = client.Do(req)
-			if err != nil {
-				slog.Warn(fmt.Sprintf("error while validating license key: %v", err))
-				return err
-			}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reach netmaker api: %w", err)
+	}
+	defer resp.Body.Close()
 
-			if validateResponse.StatusCode == http.StatusServiceUnavailable ||
-				validateResponse.StatusCode == http.StatusGatewayTimeout ||
-				validateResponse.StatusCode == http.StatusBadGateway {
-				timedOut = true
-				return errors.New("failed to reach netmaker api")
-			}
-
-			return nil
-		},
-		OnMaxTries: func() {
-			slog.Warn("proceeding with cached response, Netmaker API may be down")
-			validationResponse, err = getCachedResponse(ctx)
-			timedOut = false
-		},
-		OnSuccess: func() {
-			defer validateResponse.Body.Close()
-
-			// if we received a 200, cache the response locally
-			if validateResponse.StatusCode == http.StatusOK {
-				validationResponse, err = io.ReadAll(validateResponse.Body)
-				if err != nil {
-					slog.Warn("failed to parse response", "error", err)
-					validationResponse = nil
-					timedOut = false
-					return
-				}
-
-				if err := cacheResponse(ctx, validationResponse); err != nil {
-					slog.Warn("failed to cache response", "error", err)
-				}
-			} else {
-				// at this point the backend returned some undesired state
-
-				// inform failure via logs
-				body, _ := io.ReadAll(validateResponse.Body)
-				err = fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
-					validateResponse.StatusCode, string(body))
-				slog.Warn(err.Error())
-			}
-		},
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read validation response: %w", err)
 	}
 
-	validationRetries.DoStrategy()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
+			resp.StatusCode, string(body))
+	}
 
-	return validationResponse, timedOut, err
+	return body, nil
 }
 
 var cachedResponse atomic.Value // ValidatedLicense
