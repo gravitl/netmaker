@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
@@ -69,9 +70,11 @@ func InitPro() {
 		proControllers.IntegrationHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
+	migrate.SyncOrgAndTenants = license.SyncOrgAndTenants
+	servercfg.ErrLicenseValidation = license.ErrLicenseValidation
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
-		if err := license.ValidateLicense(); err != nil {
+		if err := license.ValidateLicense(ctx); err != nil {
 			slog.Error(err.Error())
 			return
 		}
@@ -113,9 +116,9 @@ func InitPro() {
 			}
 
 			// Register JIT expiry hook with email notifications
-			addJitExpiryHookWithEmail()
+			addJitExpiryHookWithEmail(ctx)
 
-			if proLogic.GetFeatureFlags().EnableFlowLogs {
+			if license.GetFeatureFlags(ctx).EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
@@ -199,7 +202,7 @@ func InitPro() {
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
-	logic.GetFeatureFlags = proLogic.GetFeatureFlags
+	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
@@ -221,8 +224,8 @@ func InitPro() {
 }
 
 // addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications
-func addJitExpiryHookWithEmail() {
-	if !proLogic.GetFeatureFlags().EnableJIT {
+func addJitExpiryHookWithEmail(ctx context.Context) {
+	if !license.GetFeatureFlags(ctx).EnableJIT {
 		return
 	}
 	// Register JIT grant expiry hook with email notifications - runs every 5 minutes

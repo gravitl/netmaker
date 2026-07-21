@@ -16,9 +16,9 @@ var limitedApis = map[string]struct{}{
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if servercfg.ErrLicenseValidation != nil {
+		if err := servercfg.ErrLicenseValidation(request.Context()); err != nil {
 			if _, ok := limitedApis[request.URL.Path]; !ok {
-				logic.ReturnErrorResponse(writer, request, logic.FormatError(servercfg.ErrLicenseValidation, "forbidden"))
+				logic.ReturnErrorResponse(writer, request, logic.FormatError(err, "forbidden"))
 				return
 			}
 		}

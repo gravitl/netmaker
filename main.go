@@ -70,7 +70,7 @@ func main() {
 	// TODO: although this doesn't cause any problem, it's not the best way to do this.
 	defer ch.Close()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	ctx, stop := signal.NotifyContext(db.WithContext(context.Background()), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun

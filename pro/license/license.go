@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -40,124 +41,231 @@ func AddLicenseHooks() {
 	}
 }
 
-// ValidateLicense - the initial and periodic license check for netmaker server
-// checks if a license is valid + limits are not exceeded
-// if license is free_tier and limits exceeds, then function should error
-// if license is not valid, function should error
-func ValidateLicense() (err error) {
-	defer func() {
+func GetFeatureFlags(ctx context.Context) models.FeatureFlags {
+	response, _ := getCachedResponse(ctx)
+
+	if scope.Level(ctx) == scope.TenantScope {
+		tenantID := scope.ID(ctx)
+		for _, t := range response.Tenants {
+			if t.ID == tenantID {
+				return t.FeatureFlags
+			}
+		}
+	}
+
+	return response.FeatureFlags
+}
+
+func ErrLicenseValidation(ctx context.Context) error {
+	response, err := getCachedResponse(ctx)
+	if err != nil {
+		return err
+	}
+
+	if scope.Level(ctx) != scope.TenantScope {
+		return nil
+	}
+
+	tenantID := scope.ID(ctx)
+	for _, t := range response.Tenants {
+		if t.ID == tenantID {
+			return tenantStatusError(t.Status)
+		}
+	}
+
+	return nil
+}
+
+func tenantStatusError(status TenantStatusMessage) error {
+	switch status {
+	case "", TenantStatusOk:
+		return nil
+	case TenantStatusPaymentInvalid:
+		return errors.New("invalid payment method on file")
+	case TenantStatusPaymentMissing:
+		return errors.New("no payment method on file")
+	case TenantStatusLicenseExpired:
+		return errors.New("license has expired")
+	default:
+		return fmt.Errorf("tenant status: %s", status)
+	}
+}
+
+func SyncOrgAndTenants(ctx context.Context) error {
+	hadCache := hasCachedResponse(ctx)
+
+	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
+	if err != nil {
+		return err
+	}
+	if isCachedResp {
+		if hadCache {
+			return nil
+		}
+		return migrate.CreateLocalDefaults(ctx)
+	}
+
+	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, hadCache)
+}
+
+func hasCachedResponse(ctx context.Context) bool {
+	cached := &schema.Internal{Key: schema.InternalKey_LicenseValidationCachedResponse}
+	return cached.Get(ctx) == nil
+}
+
+func syncOrgAndTenantsFromResponse(ctx context.Context, licenseResponse ValidatedLicense, hadCache bool) error {
+	if hadCache {
+		return upsertOrgAndTenants(ctx, licenseResponse)
+	}
+	return reconcileOrgAndTenants(ctx, licenseResponse)
+}
+
+func upsertOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) error {
+	orgID, err := upsertOrganization(ctx, licenseResponse.Organization)
+	if err != nil {
+		return fmt.Errorf("failed to sync organization: %w", err)
+	}
+
+	for _, licenseTenant := range licenseResponse.Tenants {
+		if err := upsertTenant(ctx, licenseTenant, orgID); err != nil {
+			return fmt.Errorf("failed to sync tenant %q: %w", licenseTenant.ID, err)
+		}
+	}
+
+	return nil
+}
+
+func upsertOrganization(ctx context.Context, licenseOrg LicenseOrg) (string, error) {
+	if licenseOrg.ID == "" {
+		// single-tenant PRO: the license carries no organization.
+		org, err := migrate.EnsureLocalOrganization(ctx)
 		if err != nil {
-			err = fmt.Errorf("%w: %s", errValidation, err.Error())
+			return "", err
 		}
-		servercfg.ErrLicenseValidation = err
-	}()
-
-	licenseKeyValue := servercfg.GetLicenseKey()
-	netmakerTenantID := servercfg.GetNetmakerTenantID()
-	slog.Info("proceeding with Netmaker license validation...")
-	if len(licenseKeyValue) == 0 {
-		err = errors.New("empty license-key (LICENSE_KEY environment variable)")
-		return err
-	}
-	if len(netmakerTenantID) == 0 {
-		err = errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)")
-		return err
+		return org.ID, nil
 	}
 
-	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
+	org := &schema.Organization{ID: licenseOrg.ID}
+	err := org.Get(ctx)
 	if err != nil {
-		err = fmt.Errorf("failed to get license public key: %w", err)
-		return err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", err
+		}
+		org = &schema.Organization{
+			ID:       licenseOrg.ID,
+			Name:     licenseOrg.Name,
+			Metadata: licenseOrg.Metadata,
+		}
+		if err := org.Create(ctx); err != nil {
+			return "", err
+		}
+		return org.ID, nil
 	}
 
-	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
+	return org.ID, nil
+}
+
+func upsertTenant(ctx context.Context, licenseTenant LicenseTenant, orgID string) error {
+	tenant := &schema.Tenant{ID: licenseTenant.ID}
+	err := tenant.Get(ctx)
 	if err != nil {
-		err = fmt.Errorf("failed to fetch api server keys: %w", err)
-		return err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		tenant = &schema.Tenant{
+			ID:             licenseTenant.ID,
+			Name:           licenseTenant.Name,
+			Metadata:       licenseTenant.Metadata,
+			OrganizationID: orgID,
+		}
+		return tenant.Create(ctx)
 	}
 
-	licenseSecret := LicenseSecret{
-		AssociatedID: netmakerTenantID,
-		Usage:        logic.GetCurrentServerUsage(db.WithContext(context.TODO())),
-		TenantUsage:  make(map[string]models.Usage),
-	}
+	return nil
+}
 
-	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+func reconcileOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) error {
+	orgID, err := reconcileOrganization(ctx, licenseResponse.Organization)
 	if err != nil {
-		err = fmt.Errorf("failed to list tenants: %w", err)
-		return err
+		return fmt.Errorf("failed to reconcile organization: %w", err)
 	}
 
-	for _, tenant := range tenants {
-		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
-		licenseSecret.TenantUsage[tenant.ID] = logic.GetCurrentServerUsage(ctx)
+	if err := reconcileTenants(ctx, licenseResponse.Tenants, orgID); err != nil {
+		return fmt.Errorf("failed to reconcile tenants: %w", err)
 	}
 
-	secretData, err := json.Marshal(&licenseSecret)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal license secret: %w", err)
-		return err
-	}
+	return nil
+}
 
-	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
-	if err != nil {
-		err = fmt.Errorf("failed to encrypt license secret data: %w", err)
-		return err
-	}
-
-	validationResponse, timedOut, err := validateLicenseKey(encryptedData, tempPubKey)
-	if err != nil {
-		err = fmt.Errorf("failed to validate license key: %w", err)
-		return err
-	}
-	if timedOut {
-		return
-	}
-	if len(validationResponse) == 0 {
-		err = errors.New("empty validation response")
-		return err
-	}
-
-	var licenseResponse ValidatedLicense
-	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		err = fmt.Errorf("failed to unmarshal validation response: %w", err)
-		return err
-	}
-
-	respData, err := ncutils.BoxDecrypt(
-		base64decode(licenseResponse.EncryptedLicense),
-		apiPublicKey,
-		tempPrivKey,
-	)
-	if err != nil {
-		err = fmt.Errorf("failed to decrypt license: %w", err)
-		return err
-	}
-
-	license := LicenseKey{}
-	if err = json.Unmarshal(respData, &license); err != nil {
-		err = fmt.Errorf("failed to unmarshal license key: %w", err)
-		return err
-	}
-
-	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
-	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
-
-	go mq.PublishExporterFeatureFlags()
-	go func() {
-		ctx := db.WithContext(context.Background())
-		tenants, err := (&schema.Tenant{}).List(ctx)
+func reconcileOrganization(ctx context.Context, licenseOrg LicenseOrg) (string, error) {
+	if licenseOrg.ID == "" {
+		org, err := migrate.EnsureLocalOrganization(ctx)
 		if err != nil {
-			slog.Error("failed to list tenants for peer update", "error", err)
-			return
+			return "", err
 		}
-		for _, tenant := range tenants {
-			ctx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-			mq.PublishPeerUpdate(ctx, false)
-		}
-	}()
+		return org.ID, nil
+	}
 
-	slog.Info("License validation succeeded!")
+	orgs, err := (&schema.Organization{}).ListAll(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	switch len(orgs) {
+	case 0:
+		org := &schema.Organization{ID: licenseOrg.ID, Name: licenseOrg.Name, Metadata: licenseOrg.Metadata}
+		if err := org.Create(ctx); err != nil {
+			return "", err
+		}
+		return org.ID, nil
+	case 1:
+		existing := orgs[0]
+		if existing.ID != licenseOrg.ID {
+			if err := migrate.RekeyOrganization(ctx, existing.ID, licenseOrg.ID); err != nil {
+				return "", err
+			}
+		}
+		org := &schema.Organization{ID: licenseOrg.ID, Name: licenseOrg.Name, Metadata: licenseOrg.Metadata}
+		if err := org.Update(ctx); err != nil {
+			return "", err
+		}
+		return licenseOrg.ID, nil
+	default:
+		return "", fmt.Errorf("cannot reconcile license organization: %d local organizations already exist", len(orgs))
+	}
+}
+
+func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID string) error {
+	existing, err := (&schema.Tenant{}).List(ctx)
+	if err != nil {
+		return err
+	}
+
+	switch len(existing) {
+	case 0:
+		// nothing pre-existing locally -- nothing to rekey.
+	case 1:
+		if len(licenseTenants) != 1 {
+			return fmt.Errorf(
+				"local tenant %q exists but license returned %d tenants (expected 1); manual resolution required",
+				existing[0].ID, len(licenseTenants),
+			)
+		}
+		if existing[0].ID != licenseTenants[0].ID {
+			if err := migrate.RekeyTenant(ctx, existing[0].ID, licenseTenants[0].ID); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("cannot reconcile license tenants: %d local tenants already exist", len(existing))
+	}
+
+	for _, licenseTenant := range licenseTenants {
+		if err := upsertTenant(ctx, licenseTenant, orgID); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
