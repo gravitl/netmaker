@@ -37,10 +37,6 @@ func AddLicenseHooks() {
 		}),
 		Interval: time.Hour,
 	}
-	// logic.HookManagerCh <- models.HookDetails{
-	// 	Hook:     ClearLicenseCache,
-	// 	Interval: time.Hour,
-	// }
 }
 
 // ValidateLicense - the initial and periodic license check for netmaker server
