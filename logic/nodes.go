@@ -744,6 +744,22 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
 			}
 		}
+	} else if len(_node.RelayedClients) > 0 {
+		// A non-gateway node can still relay clients when it acts as an internet
+		// exit node: the peers using it as their exit node are relayed through it
+		// for overlay stability. Surface those relationships (previously only
+		// populated for gateways) so peer AllowedIPs and ACL/firewall rules
+		// account for them, and so a model->schema round-trip doesn't wipe them.
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+		}
 	}
 
 	if _node.RelayedByNodeID != nil && *_node.RelayedByNodeID != "" {

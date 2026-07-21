@@ -950,8 +950,27 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		}
 		allowedips = append(allowedips, egressIPs...)
 	}
+	// A relay advertises its relayed clients' overlay IPs to other peers.
 	if peer.IsRelay {
 		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
+	} else if len(peer.RelayedNodes) > 0 && !usesPeerAsInternetExit(node, peer) {
+		// A non-gateway internet exit node also relays the overlay traffic of the
+		// peers using it as an exit node (they are kept in RelayedNodes for
+		// stability). Advertise ONLY those clients' overlay addresses to other
+		// peers so they remain reachable through the exit node.
+		//
+		// Deliberately do not use RelayedAllowedIPs here: it additionally appends
+		// each relayed client's egress ranges (which may be broad, e.g. 0.0.0.0/0),
+		// which can cover the exit node's public endpoint and create a WireGuard
+		// routing loop, causing the exit node's endpoint to flap to an overlay
+		// address. Only third-party peers need these routes; the exit node's own
+		// clients already receive a default route to it.
+		for _, relayedNodeID := range peer.RelayedNodes {
+			if relayedNodeID == node.ID.String() {
+				continue
+			}
+			allowedips = append(allowedips, getRelayedAddresses(relayedNodeID)...)
+		}
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
