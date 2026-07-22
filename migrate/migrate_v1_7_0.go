@@ -400,8 +400,8 @@ func migrateTenantEmailSettingsToOrg(ctx context.Context, orgID string, rawSetti
 	}
 
 	data := schema.OrganizationSettingsData{SmtpHost: smtpHost}
-	if v, ok := legacy["smtp_port"].(float64); ok {
-		data.SmtpPort = int(v)
+	if v, ok := legacy["smtp_port"].(int); ok {
+		data.SmtpPort = v
 	}
 	if v, ok := legacy["email_sender_addr"].(string); ok {
 		data.EmailSenderAddr = v
@@ -420,13 +420,7 @@ func migrateTenantEmailSettingsToOrg(ctx context.Context, orgID string, rawSetti
 		data.SmtpSkipTlsVerify = true
 	}
 
-	orgSettings := &schema.OrganizationSettings{ID: orgID}
-	if err := orgSettings.Get(ctx); err == nil && orgSettings.Settings.Data().SmtpHost != "" {
-		// org settings already carry email/SMTP config.
-		return nil
-	}
-
-	orgSettings = &schema.OrganizationSettings{
+	orgSettings := &schema.OrganizationSettings{
 		ID:       orgID,
 		Settings: datatypes.NewJSONType(data),
 	}
