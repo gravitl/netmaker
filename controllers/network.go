@@ -383,7 +383,11 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		errType := logic.BadReq
+		if errors.Is(err, logic.ErrNetworkLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)

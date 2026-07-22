@@ -316,6 +316,10 @@ func CreateNetwork(ctx context.Context, _network *schema.Network) error {
 		return err
 	}
 
+	if NetworkLimitExceeded(ctx) {
+		return ErrNetworkLimitExceeded
+	}
+
 	return _network.Create(ctx)
 }
 
