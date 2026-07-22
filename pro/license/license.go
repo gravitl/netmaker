@@ -93,8 +93,6 @@ func tenantStatusError(status TenantStatusMessage) error {
 }
 
 func SyncOrgAndTenants(ctx context.Context) error {
-	hadCache := hasCachedResponse(ctx)
-
 	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
 	if err != nil {
 		return err
@@ -104,7 +102,7 @@ func SyncOrgAndTenants(ctx context.Context) error {
 		return nil
 	}
 
-	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, hadCache)
+	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, false)
 }
 
 func hasCachedResponse(ctx context.Context) bool {
