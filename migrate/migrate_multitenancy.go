@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -48,11 +49,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 		return &tenants[0], nil
 	}
 
-	tenant := &schema.Tenant{OrganizationID: orgID}
-	if err := tenant.CreateDefault(ctx); err != nil {
-		return nil, err
-	}
-	return tenant, nil
+	return orchestrator.GetRepository().TenantOrchestrator().CreateDefaultTenant(ctx, orgID)
 }
 
 func tenantScopedModels() []any {

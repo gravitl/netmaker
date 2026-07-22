@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/orchestrator"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -176,7 +177,7 @@ func upsertTenant(ctx context.Context, licenseTenant LicenseTenant, orgID string
 			Metadata:       licenseTenant.Metadata,
 			OrganizationID: orgID,
 		}
-		return tenant.Create(ctx)
+		return orchestrator.GetRepository().TenantOrchestrator().CreateTenant(ctx, tenant)
 	}
 
 	return nil
