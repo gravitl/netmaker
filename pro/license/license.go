@@ -98,11 +98,9 @@ func SyncOrgAndTenants(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if isCachedResp {
-		if hadCache {
-			return nil
-		}
-		return migrate.CreateLocalDefaults(ctx)
+		return nil
 	}
 
 	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, hadCache)
