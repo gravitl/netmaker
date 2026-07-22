@@ -193,6 +193,36 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 	return
 }
 
+func GetDefaultTenantSettings() models.ServerSettings {
+	return models.ServerSettings{
+		NetclientAutoUpdate:        true,
+		Verbosity:                  0,
+		AuthProvider:               "",
+		OIDCIssuer:                 "",
+		ClientID:                   "",
+		ClientSecret:               "",
+		AzureTenant:                "",
+		Telemetry:                  "on",
+		BasicAuth:                  true,
+		JwtValidityDuration:        720,
+		JwtValidityDurationClients: 720,
+		RacRestrictToSingleNetwork: false,
+		EndpointDetection:          true,
+		AllowedEmailDomains:        "*",
+		EmailSenderAddr:            "",
+		EmailSenderUser:            "",
+		EmailSenderPassword:        "",
+		SmtpHost:                   "",
+		SmtpPort:                   587,
+		MetricInterval:             "15",
+		MetricsPort:                51821,
+		ManageDNS:                  true,
+		DefaultDomain:              "nm.internal",
+		Stun:                       true,
+		StunServers:                "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302",
+	}
+}
+
 // GetServerConfig - gets the server config into memory from file or env
 func GetServerConfig(ctx context.Context) config.ServerConfig {
 	var cfg config.ServerConfig

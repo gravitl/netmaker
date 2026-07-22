@@ -44,7 +44,7 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 
 func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *schema.Tenant) error {
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-	return logic.UpsertServerSettings(tenantCtx, logic.GetServerSettingsFromEnv())
+	return logic.UpsertServerSettings(tenantCtx, logic.GetDefaultTenantSettings())
 }
 
 func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
