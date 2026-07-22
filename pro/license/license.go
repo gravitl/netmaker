@@ -35,7 +35,7 @@ func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
 		ID: "license-validation-hook",
 		Hook: logic.WrapHook(func() error {
-			return ValidateLicense(db.WithContext(context.Background()))
+			return ValidateLicense(db.WithContext(context.Background()), false)
 		}),
 		Interval: time.Hour,
 	}
@@ -346,12 +346,19 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 // checks if a license is valid + limits are not exceeded
 // if license is free_tier and limits exceeds, then function should error
 // if license is not valid, function should error
-func ValidateLicense(ctx context.Context) (err error) {
+func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %s", errValidation, err.Error())
 		}
 	}()
+
+	if clearCache {
+		err = clearCachedResponse(ctx)
+		if err != nil {
+			return err
+		}
+	}
 
 	hadCache := hasCachedResponse(ctx)
 
@@ -445,7 +452,7 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 		}
 		isCachedResp = true
 	} else {
-		if err := cacheResponseInDB(ctx, validationResponse); err != nil {
+		if err := cacheResponse(ctx, validationResponse); err != nil {
 			slog.Warn("failed to cache response", "error", err)
 		}
 	}
@@ -530,36 +537,45 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 	return body, nil
 }
 
-var cachedResponse atomic.Value // ValidatedLicense
+var cachedResponse atomic.Pointer[ValidatedLicense]
 
-func cacheResponse(ctx context.Context, response ValidatedLicense) error {
-	cachedResponse.Store(response)
-
-	raw, err := json.Marshal(response)
+func cacheResponse(ctx context.Context, response []byte) error {
+	var validationResponse ValidatedLicense
+	err := json.Unmarshal(response, &validationResponse)
 	if err != nil {
 		return err
 	}
-	return cacheResponseInDB(ctx, raw)
+
+	cachedResponse.Store(&validationResponse)
+	return cacheResponseInDB(ctx, response)
 }
 
 var errNoCachedResponse = errors.New("no cached license validation response available")
 
 func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
-	response, ok := cachedResponse.Load().(ValidatedLicense)
-	if !ok {
+	response := cachedResponse.Load()
+	if response == nil {
 		raw, err := getCachedResponseFromDB(ctx)
 		if err != nil {
 			return ValidatedLicense{}, errNoCachedResponse
 		}
 
-		if err := json.Unmarshal(raw, &response); err != nil {
+		var validationResponse ValidatedLicense
+		err = json.Unmarshal(raw, &validationResponse)
+		if err != nil {
 			return ValidatedLicense{}, errNoCachedResponse
 		}
 
 		cachedResponse.Store(response)
+		return validationResponse, nil
 	}
 
-	return response, nil
+	return *response, nil
+}
+
+func clearCachedResponse(ctx context.Context) error {
+	cachedResponse.Store(nil)
+	return clearCachedResponseFromDB(ctx)
 }
 
 func cacheResponseInDB(ctx context.Context, response []byte) error {
@@ -580,4 +596,12 @@ func getCachedResponseFromDB(ctx context.Context) ([]byte, error) {
 	}
 
 	return base64decode(cached.Value), nil
+}
+
+func clearCachedResponseFromDB(ctx context.Context) error {
+	cached := &schema.Internal{
+		Key:   schema.InternalKey_LicenseValidationCachedResponse,
+		Value: base64encode([]byte("{}")),
+	}
+	return cached.Set(ctx)
 }

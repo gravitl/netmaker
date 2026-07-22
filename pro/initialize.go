@@ -74,7 +74,7 @@ func InitPro() {
 	servercfg.ErrLicenseValidation = license.ErrLicenseValidation
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
-		if err := license.ValidateLicense(ctx); err != nil {
+		if err := license.ValidateLicense(ctx, true); err != nil {
 			slog.Error(err.Error())
 			return
 		}

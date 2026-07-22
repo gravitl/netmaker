@@ -14,7 +14,7 @@ func ServerHandlers(r *mux.Router) {
 }
 
 func triggerLicenseValidation(w http.ResponseWriter, r *http.Request) {
-	err := license.ValidateLicense(r.Context())
+	err := license.ValidateLicense(r.Context(), false)
 	if err != nil {
 		err = fmt.Errorf("error validating license: %v", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
