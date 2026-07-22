@@ -31,10 +31,14 @@ var (
 
 var (
 	// ErrHostExists error indicating that host exists when trying to create new host
-	ErrHostExists error = errors.New("host already exists")
-	// ErrInvalidHostID
-	ErrInvalidHostID error = errors.New("invalid host id")
+	ErrHostExists        = errors.New("host already exists")
+	ErrInvalidHostID     = errors.New("invalid host id")
+	ErrHostLimitExceeded = errors.New("host limit reached for this tenant, please upgrade your license")
 )
+
+var HostLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
 
 // todo(nm-341): add ctx to func
 var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network schema.NetworkID) (v []models.Violation, level schema.Severity) {

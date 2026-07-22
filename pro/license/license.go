@@ -42,75 +42,6 @@ func AddLicenseHooks() {
 	}
 }
 
-func GetFeatureFlags(ctx context.Context) models.FeatureFlags {
-	response, _ := getCachedResponse(ctx)
-
-	if scope.Level(ctx) == scope.TenantScope {
-		tenantID := scope.ID(ctx)
-		for _, t := range response.Tenants {
-			if t.ID == tenantID {
-				return t.FeatureFlags
-			}
-		}
-	}
-
-	return response.FeatureFlags
-}
-
-func EnforceLimits(ctx context.Context) bool {
-	response, _ := getCachedResponse(ctx)
-	if scope.Level(ctx) == scope.TenantScope {
-		tenantID := scope.ID(ctx)
-		for _, t := range response.Tenants {
-			if t.ID == tenantID {
-				return t.EnforceLimits
-			}
-		}
-	}
-
-	return false
-}
-
-func ErrLicenseValidation(ctx context.Context) error {
-	invalidErr := licenseInvalidErr.Load()
-	if invalidErr != nil {
-		return *invalidErr
-	}
-
-	response, err := getCachedResponse(ctx)
-	if err != nil {
-		return err
-	}
-
-	if scope.Level(ctx) != scope.TenantScope {
-		return nil
-	}
-
-	tenantID := scope.ID(ctx)
-	for _, t := range response.Tenants {
-		if t.ID == tenantID {
-			return tenantStatusError(t.Status)
-		}
-	}
-
-	return nil
-}
-
-func tenantStatusError(status TenantStatusMessage) error {
-	switch status {
-	case "", TenantStatusOk:
-		return nil
-	case TenantStatusPaymentInvalid:
-		return errors.New("invalid payment method on file")
-	case TenantStatusPaymentMissing:
-		return errors.New("no payment method on file")
-	case TenantStatusLicenseExpired:
-		return errors.New("license has expired")
-	default:
-		return fmt.Errorf("tenant status: %s", status)
-	}
-}
-
 func SyncOrgAndTenants(ctx context.Context) error {
 	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
 	if err != nil {
@@ -122,11 +53,6 @@ func SyncOrgAndTenants(ctx context.Context) error {
 	}
 
 	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, false)
-}
-
-func hasCachedResponse(ctx context.Context) bool {
-	cached := &schema.Internal{Key: schema.InternalKey_LicenseValidationCachedResponse}
-	return cached.Get(ctx) == nil
 }
 
 func syncOrgAndTenantsFromResponse(ctx context.Context, licenseResponse ValidatedLicense, hadCache bool) error {
@@ -568,73 +494,4 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 	licenseInvalidErr.Store(nil)
 
 	return body, nil
-}
-
-var cachedResponse atomic.Pointer[ValidatedLicense]
-
-func cacheResponse(ctx context.Context, response []byte) error {
-	var validationResponse ValidatedLicense
-	err := json.Unmarshal(response, &validationResponse)
-	if err != nil {
-		return err
-	}
-
-	cachedResponse.Store(&validationResponse)
-	return cacheResponseInDB(ctx, response)
-}
-
-var errNoCachedResponse = errors.New("no cached license validation response available")
-
-func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
-	response := cachedResponse.Load()
-	if response == nil {
-		raw, err := getCachedResponseFromDB(ctx)
-		if err != nil {
-			return ValidatedLicense{}, errNoCachedResponse
-		}
-
-		var validationResponse ValidatedLicense
-		err = json.Unmarshal(raw, &validationResponse)
-		if err != nil {
-			return ValidatedLicense{}, errNoCachedResponse
-		}
-
-		cachedResponse.Store(response)
-		return validationResponse, nil
-	}
-
-	return *response, nil
-}
-
-func clearCachedResponse(ctx context.Context) error {
-	cachedResponse.Store(nil)
-	return clearCachedResponseFromDB(ctx)
-}
-
-func cacheResponseInDB(ctx context.Context, response []byte) error {
-	cached := &schema.Internal{
-		Key:   schema.InternalKey_LicenseValidationCachedResponse,
-		Value: base64encode(response),
-	}
-	return cached.Set(ctx)
-}
-
-func getCachedResponseFromDB(ctx context.Context) ([]byte, error) {
-	cached := &schema.Internal{
-		Key: schema.InternalKey_LicenseValidationCachedResponse,
-	}
-	err := cached.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return base64decode(cached.Value), nil
-}
-
-func clearCachedResponseFromDB(ctx context.Context) error {
-	cached := &schema.Internal{
-		Key:   schema.InternalKey_LicenseValidationCachedResponse,
-		Value: base64encode([]byte("{}")),
-	}
-	return cached.Set(ctx)
 }

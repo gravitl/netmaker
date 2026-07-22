@@ -204,6 +204,12 @@ func InitPro() {
 	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.EnforceLimits = license.EnforceLimits
+	logic.HostLimitExceeded = license.HostLimitExceeded
+	logic.NetworkLimitExceeded = license.NetworkLimitExceeded
+	logic.ClientLimitExceeded = license.ClientLimitExceeded
+	logic.UserLimitExceeded = license.UserLimitExceeded
+	logic.IngressLimitExceeded = license.IngressLimitExceeded
+	logic.EgressLimitExceeded = license.EgressLimitExceeded
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq

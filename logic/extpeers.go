@@ -24,6 +24,12 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrClientLimitExceeded = errors.New("client limit reached for this tenant, please upgrade your license")
+
+var ClientLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 // extClientCacheMap maps tenant ID -> *sync.Map of record key -> models.ExtClient
 var extClientCacheMap sync.Map
 

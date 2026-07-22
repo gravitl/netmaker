@@ -19,6 +19,12 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrNetworkLimitExceeded = errors.New("network limit reached for this tenant, please upgrade your license")
+
+var NetworkLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 // DeleteNetwork - deletes a network
 func DeleteNetwork(ctx context.Context, network string, force bool, done chan struct{}) error {
 	defer func(ctx context.Context) {

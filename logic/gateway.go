@@ -24,6 +24,12 @@ var (
 	IPv6Network = "::/0"
 )
 
+var ErrIngressLimitExceeded = errors.New("gateway limit reached for this tenant, please upgrade your license")
+
+var IngressLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 // IsInternetGw - checks if node is acting as internet gw
 func IsInternetGw(node models.Node) bool {
 	return node.IsInternetGateway

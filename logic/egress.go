@@ -18,6 +18,12 @@ import (
 
 var ValidateEgressReq = validateEgressReq
 
+var ErrEgressLimitExceeded = errors.New("egress limit reached for this tenant, please upgrade your license")
+
+var EgressLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) error {
 	return nil
 }

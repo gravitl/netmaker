@@ -12,6 +12,12 @@ import (
 
 var SyncFromIDP = func(context.Context) error { return nil }
 
+var ErrUserLimitExceeded = errors.New("user limit reached for this tenant, please upgrade your license")
+
+var UserLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user *schema.User) models.ReturnUser {
 	return models.ReturnUser{
