@@ -58,6 +58,11 @@ func GetFeatureFlags(ctx context.Context) models.FeatureFlags {
 }
 
 func ErrLicenseValidation(ctx context.Context) error {
+	invalidErr := licenseInvalidErr.Load()
+	if invalidErr != nil {
+		return *invalidErr
+	}
+
 	response, err := getCachedResponse(ctx)
 	if err != nil {
 		return err
@@ -479,6 +484,13 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 	return licenseResponse, isCachedResp, nil
 }
 
+type licenseErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+var licenseInvalidErr atomic.Pointer[error]
+
 func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
@@ -527,9 +539,19 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			var errResp licenseErrorResponse
+			jsonErr := json.Unmarshal(body, &errResp)
+			if jsonErr == nil && errResp.Code == http.StatusUnauthorized {
+				invalidErr := errors.New(errResp.Message)
+				licenseInvalidErr.Store(&invalidErr)
+			}
+		}
 		return nil, fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
 			resp.StatusCode, string(body))
 	}
+
+	licenseInvalidErr.Store(nil)
 
 	return body, nil
 }
