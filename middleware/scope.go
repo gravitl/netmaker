@@ -32,6 +32,10 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 		case scope.TenantScope:
 			id = r.Header.Get(scope.HeaderTenantID)
 			if id == "" {
+				id = r.URL.Query().Get(scope.QueryTenantID)
+			}
+
+			if id == "" {
 				if logic.GetFeatureFlags().AllowMultipleTenants {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.BadReq))
 					return
@@ -58,6 +62,10 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 		case scope.OrgScope:
 			id = r.Header.Get(scope.HeaderOrgID)
 			if id == "" {
+				id = r.URL.Query().Get(scope.QueryOrgID)
+			}
+
+			if id == "" {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingOrgID, logic.BadReq))
 				return
 			}
@@ -82,7 +90,14 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 func InferScope(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		orgID := r.Header.Get(scope.HeaderOrgID)
+		if orgID == "" {
+			orgID = r.URL.Query().Get(scope.QueryOrgID)
+		}
+
 		tenantID := r.Header.Get(scope.HeaderTenantID)
+		if tenantID == "" {
+			tenantID = r.URL.Query().Get(scope.QueryTenantID)
+		}
 
 		if orgID != "" && tenantID != "" {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errAmbiguousScope, logic.BadReq))
