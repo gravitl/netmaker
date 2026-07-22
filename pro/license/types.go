@@ -45,12 +45,13 @@ type LicenseOrg struct {
 }
 
 type LicenseTenant struct {
-	ID           string              `json:"id"`
-	Name         string              `json:"name"`
-	Metadata     string              `json:"metadata"`
-	Status       TenantStatusMessage `json:"status"`
-	Limits       Limits              `json:"limits"`
-	FeatureFlags models.FeatureFlags `json:"feature_flags"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Metadata      string              `json:"metadata"`
+	Status        TenantStatusMessage `json:"status"`
+	EnforceLimits bool                `json:"enforce_limits"`
+	Limits        Limits              `json:"limits"`
+	FeatureFlags  models.FeatureFlags `json:"feature_flags"`
 }
 
 // TenantStatusMessage is an enumeration of the status of the tenant,
