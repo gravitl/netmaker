@@ -10,6 +10,7 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type AuthType string
@@ -230,8 +231,39 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 }
 
 func (u *User) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
+	return u.count(ctx, false, options...)
+}
+
+func (u *User) CountWithMembership(ctx context.Context, options ...dbtypes.Option) (int, error) {
+	return u.count(ctx, true, options...)
+}
+
+func (u *User) count(ctx context.Context, requireMembership bool, options ...dbtypes.Option) (int, error) {
+	joinType := "LEFT"
+	if requireMembership {
+		joinType = "INNER"
+	}
+
 	var count int64
-	query := db.FromContext(ctx).Model(&User{})
+	var query *gorm.DB
+
+	switch scope.Level(ctx) {
+	case scope.OrgScope:
+		orgID := scope.ID(ctx)
+		query = db.FromContext(ctx).
+			Table("users_v1").
+			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID)
+	case scope.TenantScope:
+		tenantID := scope.ID(ctx)
+		query = db.FromContext(ctx).
+			Table("users_v1").
+			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
+	default:
+		if requireMembership {
+			return 0, ErrTenantIDNotProvided
+		}
+		query = db.FromContext(ctx).Model(&User{})
+	}
 
 	for _, option := range options {
 		query = option(query)
