@@ -257,6 +257,16 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				if err != nil {
 					return err
 				}
+
+				tm := &schema.TenantMembership{
+					TenantID:                   scope.ID(ctx),
+					UserID:                     dbUser.ID,
+					ExternalIdentityProviderID: user.ID,
+				}
+				err = tm.UpdateExternalIdentityProviderID(ctx)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			logger.Log(0, "user with username "+user.Username+" already exists, skipping creation")
@@ -375,7 +385,12 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 	for userID := range modifiedUsers {
 		user, ok := dbUsersMap[userID]
 		if ok {
-			err = logic.UpsertUser(*user)
+			tm := &schema.TenantMembership{
+				TenantID: scope.ID(ctx),
+				UserID:   user.ID,
+				Groups:   user.UserGroups,
+			}
+			err = tm.UpdateGroups(ctx)
 			if err != nil {
 				return err
 			}
