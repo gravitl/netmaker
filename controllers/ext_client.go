@@ -490,6 +490,11 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if logic.ClientLimitExceeded(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(logic.ErrClientLimitExceeded, logic.Forbidden))
+		return
+	}
+
 	var gateway models.EgressGatewayRequest
 	gateway.NetID = params["network"]
 	gateway.Ranges = customExtClient.ExtraAllowedIPs
