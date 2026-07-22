@@ -324,7 +324,10 @@ func GetSelectedInternetEgress(node *models.Node) (*schema.Egress, error) {
 }
 
 // InternetExitRoutingNodeID returns the node ID used for full-internet exit.
-// Prefers SelectedInternetEgressID (source of truth); falls back to legacy InternetGwID.
+// Prefers SelectedInternetEgressID (source of truth). When a selection is set but the
+// egress is unavailable (disabled/missing), returns "" so clients fail open to local
+// internet while keeping the sticky selection — do not fall back to InternetGwID in
+// that case. Legacy InternetGwID is only used when no selection is set.
 func InternetExitRoutingNodeID(node *models.Node) string {
 	if node == nil {
 		return ""
@@ -335,18 +338,26 @@ func InternetExitRoutingNodeID(node *models.Node) string {
 				return id
 			}
 		}
+		// Selection present but egress unavailable: fail open (sticky selection).
+		return ""
 	}
 	return node.InternetGwID
 }
 
 // ResolveInternetExitRoutingNode sets node.InternetGwID in-memory from SelectedInternetEgressID
 // for peer-update helpers that still read InternetGwID. Does not persist.
+// When the selected egress is unavailable, clears InternetGwID so fail-open is consistent.
 func ResolveInternetExitRoutingNode(node *models.Node) {
 	if node == nil {
 		return
 	}
 	if id := InternetExitRoutingNodeID(node); id != "" {
 		node.InternetGwID = id
+		return
+	}
+	if node.SelectedInternetEgressID != "" {
+		// Sticky selection but egress unavailable (disabled/missing): fail open.
+		node.InternetGwID = ""
 	}
 }
 
@@ -590,6 +601,67 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 			_ = SetNodeSelectedInternetEgress(&n, "")
 		}
 	}
+}
+
+// ListNodesBySelectedInternetEgress returns network nodes that have selected the given egress.
+func ListNodesBySelectedInternetEgress(network, egressID string) []models.Node {
+	if network == "" || egressID == "" {
+		return nil
+	}
+	nodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return nil
+	}
+	out := make([]models.Node, 0)
+	for _, node := range nodes {
+		if node.SelectedInternetEgressID == egressID {
+			out = append(out, node)
+		}
+	}
+	return out
+}
+
+// ListExitClientsForRoutingNode returns mesh nodes using this node as their internet exit,
+// via RelayedIGWClients and/or SelectedInternetEgressID pointing at an egress this node routes.
+func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID string) []models.Node {
+	if network == "" || routingNodeID == "" {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]models.Node, 0)
+
+	addClient := func(id string) {
+		if id == "" || id == routingNodeID {
+			return
+		}
+		if _, ok := seen[id]; ok {
+			return
+		}
+		n, err := GetNodeByID(id)
+		if err != nil {
+			return
+		}
+		seen[id] = struct{}{}
+		out = append(out, n)
+	}
+
+	routing := &schema.Node{ID: routingNodeID}
+	if err := routing.Get(db.WithContext(ctx)); err == nil {
+		for clientID := range routing.RelayedIGWClients {
+			addClient(clientID)
+		}
+	}
+
+	if e, err := FindInternetEgressByRoutingNode(ctx, network, routingNodeID); err == nil && e != nil {
+		for _, n := range ListNodesBySelectedInternetEgress(network, e.ID) {
+			if _, ok := seen[n.ID.String()]; ok {
+				continue
+			}
+			seen[n.ID.String()] = struct{}{}
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // DeleteInternetEgressesForRoutingNode removes internet egress resources where nodeID is a routing node.

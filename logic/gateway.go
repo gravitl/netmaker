@@ -225,6 +225,7 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 }
 
 func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) error {
+	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
 	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
@@ -256,14 +257,10 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 		if clientNode.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
-		if update {
-			if exitID := InternetExitRoutingNodeID(&clientNode); exitID != "" && exitID != node.ID {
-				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
-			}
-		} else {
-			if InternetExitRoutingNodeID(&clientNode) != "" {
-				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
-			}
+		// Allow clients already using THIS node as their exit (SelectedInternetEgressID /
+		// legacy InternetGwID). Only reject when they are assigned to a different exit.
+		if exitID := InternetExitRoutingNodeID(&clientNode); exitID != "" && exitID != node.ID {
+			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 		}
 		if len(clientNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&clientNode)
@@ -337,6 +334,11 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 
 	inetNode, err := GetNodeByID(inetNodeID)
 	if err != nil {
+		return peerUpdate
+	}
+	// Fail open when the exit routing node is disconnected: do not keep pointing the
+	// client's OS default route at a dead overlay next-hop.
+	if !inetNode.Connected {
 		return peerUpdate
 	}
 	host := &schema.Host{

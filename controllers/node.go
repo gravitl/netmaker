@@ -711,27 +711,45 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if (!currentNode.IsInternetGateway && newNode.IsInternetGateway) || len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
+	// Skip IGW/relay churn on connect↔disconnect toggles. The UI may still send
+	// inet_node_req / relaynodes that include exit clients (RelayedIGWClients),
+	// which must not be treated as a new IGW or manual relay assignment.
+	connectionToggle := currentNode.Connected != newNode.Connected
+	if !connectionToggle {
+		enablingInetGw := !currentNode.IsInternetGateway && newNode.IsInternetGateway
+		updatingInetGwClients := newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0
+		if enablingInetGw || updatingInetGwClients {
+			err = logic.ValidateInetGwReq(
+				logic.ConvertModelsNodeToSchemaNode(newNode),
+				newNode.InetNodeReq,
+				currentNode.IsInternetGateway && newNode.IsInternetGateway,
+			)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+			newNode.RelayedNodes = append(newNode.RelayedNodes, newNode.InetNodeReq.InetNodeClientIDs...)
+			newNode.RelayedNodes = logic.UniqueStrings(newNode.RelayedNodes)
 		}
-		newNode.RelayedNodes = append(newNode.RelayedNodes, newNode.InetNodeReq.InetNodeClientIDs...)
-		newNode.RelayedNodes = logic.UniqueStrings(newNode.RelayedNodes)
 	}
 
-	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
-	if relayUpdate && newNode.IsRelay {
-		err = logic.ValidateRelay(models.RelayRequest{
-			NodeID:       newNode.ID.String(),
-			NetID:        newNode.Network,
-			RelayedNodes: newNode.RelayedNodes,
-		}, true)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
+	relayUpdate := false
+	if !connectionToggle {
+		relayUpdate = logic.RelayUpdates(&currentNode, newNode)
+		if relayUpdate && newNode.IsRelay {
+			err = logic.ValidateRelay(models.RelayRequest{
+				NodeID:       newNode.ID.String(),
+				NetID:        newNode.Network,
+				RelayedNodes: newNode.RelayedNodes,
+			}, true)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
 		}
+	} else {
+		// Preserve existing relay membership across connect/disconnect.
+		newNode.RelayedNodes = currentNode.RelayedNodes
 	}
 	host := &schema.Host{
 		ID: newNode.HostID,
@@ -760,18 +778,21 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayUpdate {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
-	if !currentNode.IsInternetGateway && newNode.IsInternetGateway {
-		logic.SetInternetGw(newNode, newNode.InetNodeReq)
-	}
-	if currentNode.IsInternetGateway && newNode.IsInternetGateway {
-		// logic.UnsetInternetGw resets newNode.InetNodeReq.
-		// So, keeping a copy to pass into logic.SetInternetGw.
-		req := newNode.InetNodeReq
-		logic.UnsetInternetGw(newNode)
-		logic.SetInternetGw(newNode, req)
-	}
-	if !newNode.IsInternetGateway {
-		logic.UnsetInternetGw(newNode)
+	// Do not churn internet-gateway client assignment on a connect/disconnect toggle.
+	if !connectionToggle {
+		if !currentNode.IsInternetGateway && newNode.IsInternetGateway {
+			logic.SetInternetGw(newNode, newNode.InetNodeReq)
+		}
+		if currentNode.IsInternetGateway && newNode.IsInternetGateway {
+			// logic.UnsetInternetGw resets newNode.InetNodeReq.
+			// So, keeping a copy to pass into logic.SetInternetGw.
+			req := newNode.InetNodeReq
+			logic.UnsetInternetGw(newNode)
+			logic.SetInternetGw(newNode, req)
+		}
+		if !newNode.IsInternetGateway {
+			logic.UnsetInternetGw(newNode)
+		}
 	}
 	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
 		// if relayed remove it
@@ -838,7 +859,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func(relayupdate bool, newNode *models.Node) {
+	go func(relayupdate bool, newNode *models.Node, connToggle bool) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -878,8 +899,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
+		// exit-client peer updates first before the global mesh update.
+		if connToggle {
+			exitClients := logic.ListExitClientsForRoutingNode(context.TODO(), newNode.Network, newNode.ID.String())
+			if len(exitClients) > 0 {
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				return
+			}
+		}
 		mq.PublishPeerUpdate(false)
-	}(relayUpdate, newNode)
+	}(relayUpdate, newNode, connectionToggle)
 }
 
 // @Summary     Delete an individual node
@@ -1117,6 +1147,30 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to publish node update", "id", nodeID, "error", err)
 				}
 			}
+		}
+
+		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
+		// exit-client peer updates first before the global mesh update.
+		seenClient := map[string]struct{}{}
+		exitClients := make([]models.Node, 0)
+		for i := range nodeIDs {
+			nodeID := nodeIDs[i].(string)
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			for _, c := range logic.ListExitClientsForRoutingNode(context.TODO(), node.Network, node.ID.String()) {
+				if _, ok := seenClient[c.ID.String()]; ok {
+					continue
+				}
+				seenClient[c.ID.String()] = struct{}{}
+				exitClients = append(exitClients, c)
+			}
+		}
+		if len(exitClients) > 0 {
+			_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+			slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
+			return
 		}
 
 		mq.PublishPeerUpdate(false)

@@ -348,6 +348,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
+	oldStatus := e.Status
 
 	e.Range = egressRange
 	e.Type = egressType
@@ -491,7 +492,16 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	go mq.PublishPeerUpdate(false)
+	// Internet egress disabled: keep sticky selection, but push exit clients first so
+	// they fail open (drop full tunnel) before the global peer update.
+	if oldStatus && !e.Status && logic.IsEgressInternetGateway(e) {
+		clients := logic.ListNodesBySelectedInternetEgress(e.Network, e.ID)
+		go func(clients []models.Node) {
+			_ = mq.PublishPeerUpdatesForExitClientsFirst(clients)
+		}(clients)
+	} else {
+		go mq.PublishPeerUpdate(false)
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
 

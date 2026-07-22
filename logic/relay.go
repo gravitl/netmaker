@@ -66,8 +66,14 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
 		// Exit clients are relayed only via exit-node selection (background AssignGateway).
+		// Allow them when they are already exit-relayed by THIS node (idempotent gateway
+		// / reconnect updates). Reject only when trying to manually attach them here.
 		if relayedNode.SelectedInternetEgressID != "" {
-			return errors.New("cannot manually relay an exit node client (" + relayedNodeID + ")")
+			exitID := InternetExitRoutingNodeID(&relayedNode)
+			if relayedNode.RelayedBy != relay.NodeID && exitID != relay.NodeID {
+				return errors.New("cannot manually relay an exit node client (" + relayedNodeID + ")")
+			}
+			continue
 		}
 		if relayedNode.IsAutoRelay {
 			return errors.New("cannot relay a auto relay node (" + relayedNodeID + ")")
