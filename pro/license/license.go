@@ -353,14 +353,14 @@ func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 		}
 	}()
 
+	hadCache := hasCachedResponse(ctx)
+
 	if clearCache {
 		err = clearCachedResponse(ctx)
 		if err != nil {
 			return err
 		}
 	}
-
-	hadCache := hasCachedResponse(ctx)
 
 	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
 	if err != nil {
