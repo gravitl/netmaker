@@ -330,37 +330,39 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 	}
 }
 
-func DeleteNetworkRoles(netID string) {
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+func DeleteNetworkRoles(ctx context.Context, netID string) {
+	memberships, err := (&schema.TenantMembership{
+		TenantID: scope.ID(ctx),
+	}).ListByTenantID(ctx)
 	if err != nil {
 		return
 	}
 
 	defaultAdminGrpID := GetDefaultNetworkAdminGroupID(schema.NetworkID(netID))
 	defaultUserGrpID := GetDefaultNetworkUserGroupID(schema.NetworkID(netID))
-	for _, user := range users {
+	for _, membership := range memberships {
 		var upsert bool
-		if _, ok := user.UserGroups.Data()[defaultUserGrpID]; ok {
-			delete(user.UserGroups.Data(), defaultUserGrpID)
+		if _, ok := membership.Groups.Data()[defaultUserGrpID]; ok {
+			delete(membership.Groups.Data(), defaultUserGrpID)
 			upsert = true
 		}
-		if _, ok := user.UserGroups.Data()[defaultAdminGrpID]; ok {
-			delete(user.UserGroups.Data(), defaultAdminGrpID)
+		if _, ok := membership.Groups.Data()[defaultAdminGrpID]; ok {
+			delete(membership.Groups.Data(), defaultAdminGrpID)
 			upsert = true
 		}
 		if upsert {
-			logic.UpsertUser(user)
+			_ = membership.Upsert(ctx)
 		}
 	}
 	_ = (&schema.UserGroup{
 		ID: defaultUserGrpID,
-	}).Delete(db.WithContext(context.TODO()))
+	}).Delete(ctx)
 
 	_ = (&schema.UserGroup{
 		ID: defaultAdminGrpID,
-	}).Delete(db.WithContext(context.TODO()))
+	}).Delete(ctx)
 
-	userGs, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	userGs, _ := (&schema.UserGroup{}).ListAll(ctx)
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles.Data()[schema.NetworkID(netID)]; ok {
 			delete(userGI.NetworkRoles.Data(), schema.NetworkID(netID))
@@ -371,7 +373,7 @@ func DeleteNetworkRoles(netID string) {
 	networkRoles := &schema.UserRole{
 		NetworkID: schema.NetworkID(netID),
 	}
-	_ = networkRoles.DeleteNetworkRoles(db.WithContext(context.TODO()))
+	_ = networkRoles.DeleteNetworkRoles(ctx)
 }
 
 func ValidateCreateRoleReq(userRole *schema.UserRole) error {
