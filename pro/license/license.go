@@ -472,10 +472,6 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 		return licenseResponse, false, fmt.Errorf("failed to unmarshal license key: %w", err)
 	}
 
-	if !licenseResponse.Expiry.IsZero() && time.Now().After(licenseResponse.Expiry) {
-		return licenseResponse, isCachedResp, fmt.Errorf("license validation response expired at %s", licenseResponse.Expiry)
-	}
-
 	return licenseResponse, isCachedResp, nil
 }
 
@@ -548,8 +544,6 @@ func cacheResponse(ctx context.Context, response ValidatedLicense) error {
 
 var errNoCachedResponse = errors.New("no cached license validation response available")
 
-var errCachedResponseExpired = errors.New("cached license validation response has expired")
-
 func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
 	response, ok := cachedResponse.Load().(ValidatedLicense)
 	if !ok {
@@ -563,10 +557,6 @@ func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
 		}
 
 		cachedResponse.Store(response)
-	}
-
-	if !response.Expiry.IsZero() && time.Now().After(response.Expiry) {
-		return response, errCachedResponseExpired
 	}
 
 	return response, nil
