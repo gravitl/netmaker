@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -320,24 +319,18 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !servercfg.IsPro {
-		// CE has a single org and a single tenant, so the org owner must
-		// also be a member of the default tenant to be able to log in.
-		tenant, err := logic.SoleTenant(r.Context())
+	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", o.ID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	for _, tenant := range tenants {
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(r.Context(), tenant.ID, &user)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-
-		tenantCtx := scope.WithContext(r.Context(), scope.TenantScope, tenant.ID)
-		user.PlatformRoleID = schema.SuperAdminRole
-		err = orchestrator.GetRepository().UserOrchestrator().CreateUser(tenantCtx, &user, orchestrator.WithInheritedAuth())
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-
-		user.PlatformRoleID = schema.OrgOwner
 	}
 
 	authToken, err := logic.VerifyAuthRequest(ctx, authParams, logic.DashboardApp)
