@@ -620,7 +620,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		newHost.TenantID = enrollmentKey.TenantID
 		if err = logic.CreateHost(r.Context(), &newHost); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			errType := logic.Internal
+			if errors.Is(err, logic.ErrHostLimitExceeded) {
+				errType = logic.Forbidden
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 			return
 		}
 		host = &newHost

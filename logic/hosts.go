@@ -152,6 +152,11 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	if h.TenantID == "" {
 		h.TenantID = scope.ID(ctx)
 	}
+
+	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
+		return ErrHostLimitExceeded
+	}
+
 	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
 	if err != nil {
