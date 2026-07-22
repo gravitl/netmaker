@@ -218,9 +218,6 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
 	}
-	if scfg.EmailSenderPassword != "" {
-		scfg.EmailSenderPassword = logic.Mask()
-	}
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
 	}
@@ -321,7 +318,6 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
 	logic.ResetAuthProvider(ctx)
-	logic.EmailInit(ctx)
 	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
 	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
@@ -419,14 +415,6 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 		old.MetricInterval != new.MetricInterval ||
 		old.AuditLogsRetentionPeriodInDays != new.AuditLogsRetentionPeriodInDays {
 		return schema.UpdateMonitoringAndDebuggingSettings
-	}
-
-	if old.EmailSenderAddr != new.EmailSenderAddr ||
-		old.EmailSenderUser != new.EmailSenderUser ||
-		old.EmailSenderPassword != new.EmailSenderPassword ||
-		old.SmtpHost != new.SmtpHost ||
-		old.SmtpPort != new.SmtpPort {
-		return schema.UpdateSMTPSettings
 	}
 
 	if old.AuthProvider != new.AuthProvider ||

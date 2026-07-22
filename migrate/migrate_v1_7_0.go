@@ -344,6 +344,11 @@ func migrateServerSettings(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+
+			err = migrateTenantEmailSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(value))
+			if err != nil {
+				return err
+			}
 		} else {
 			var userSettings models.UserSettings
 			err = json.Unmarshal([]byte(value), &userSettings)
@@ -381,6 +386,45 @@ func migrateServerSettings(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func migrateTenantEmailSettingsToOrg(ctx context.Context, orgID string, rawSettings []byte) error {
+	var legacy map[string]any
+	if err := json.Unmarshal(rawSettings, &legacy); err != nil {
+		return nil
+	}
+
+	smtpHost, _ := legacy["smtp_host"].(string)
+	if smtpHost == "" {
+		return nil
+	}
+
+	data := schema.OrganizationSettingsData{SmtpHost: smtpHost}
+	if v, ok := legacy["smtp_port"].(int); ok {
+		data.SmtpPort = v
+	}
+	if v, ok := legacy["email_sender_addr"].(string); ok {
+		data.EmailSenderAddr = v
+	}
+	if v, ok := legacy["email_sender_user"].(string); ok {
+		data.EmailSenderUser = v
+	}
+	if v, ok := legacy["email_sender_password"].(string); ok {
+		data.EmailSenderPassword = v
+	}
+	if v, ok := legacy["smtp_skip_tls_verify"].(bool); ok {
+		data.SmtpSkipTlsVerify = v
+	} else {
+		// older deployments never had this key: preserve the legacy
+		// skip-verify default from before it was configurable.
+		data.SmtpSkipTlsVerify = true
+	}
+
+	orgSettings := &schema.OrganizationSettings{
+		ID:       orgID,
+		Settings: datatypes.NewJSONType(data),
+	}
+	return orgSettings.Upsert(ctx)
 }
 
 func createMemberships(ctx context.Context) error {
