@@ -149,6 +149,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			e.Nodes[nodeID] = metric
 		}
 	}
+	if logic.EgressLimitExceeded(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(logic.ErrEgressLimitExceeded, logic.Forbidden))
+		return
+	}
 	if err := logic.ValidateEgressReq(r.Context(), &e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
