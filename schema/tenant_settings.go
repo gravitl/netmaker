@@ -31,12 +31,6 @@ type TenantSettings struct {
 	RacRestrictToSingleNetwork     bool     `json:"rac_restrict_to_single_network"`
 	EndpointDetection              bool     `json:"endpoint_detection"`
 	AllowedEmailDomains            string   `json:"allowed_email_domains"`
-	EmailSenderAddr                string   `json:"email_sender_addr"`
-	EmailSenderUser                string   `json:"email_sender_user"`
-	EmailSenderPassword            string   `json:"email_sender_password"`
-	SmtpHost                       string   `json:"smtp_host"`
-	SmtpPort                       int      `json:"smtp_port"`
-	SmtpSkipTlsVerify              bool     `json:"smtp_skip_tls_verify"`
 	MetricInterval                 string   `json:"metric_interval"`
 	MetricsPort                    int      `json:"metrics_port"`
 	IPDetectionInterval            int      `json:"ip_detection_interval"`

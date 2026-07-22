@@ -235,7 +235,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
-	go logic.DeleteNetworkRoles(network)
+	go logic.DeleteNetworkRoles(ctx, network)
 	go logic.DeleteAllNetworkTags(ctx, schema.NetworkID(network))
 	go logic.DeleteNetworkPolicies(ctx, schema.NetworkID(network))
 	go func(ctx context.Context) {
@@ -387,7 +387,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
-	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name))
+	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name), r.Header.Get("user"))
 	logic.CreateDefaultAclNetworkPolicies(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateDefaultTags(r.Context(), schema.NetworkID(network.Name))
 	logic.CreateFallbackNameserver(&network)

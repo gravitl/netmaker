@@ -143,7 +143,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 	}
 
 	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
-	_users, err := (&schema.User{}).ListAll(ctx)
+	_users, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return gwUsers, err
 	}

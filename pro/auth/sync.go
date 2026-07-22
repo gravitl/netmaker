@@ -179,7 +179,7 @@ func SyncFromIDP(ctx context.Context) error {
 }
 
 func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, removeIntegration bool) error {
-	dbUsers, err := (&schema.User{}).ListAll(ctx)
+	dbUsers, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,6 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 
 		dbUser, ok := dbUsersMap[user.Username]
 		if !ok {
-			// create the user only if it doesn't exist.
 			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
@@ -255,6 +254,16 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				dbUser.ExternalIdentityProviderID = user.ID
 
 				err = logic.UpsertUser(*dbUser)
+				if err != nil {
+					return err
+				}
+
+				tm := &schema.TenantMembership{
+					TenantID:                   scope.ID(ctx),
+					UserID:                     dbUser.ID,
+					ExternalIdentityProviderID: user.ID,
+				}
+				err = tm.UpdateExternalIdentityProviderID(ctx)
 				if err != nil {
 					return err
 				}
@@ -291,7 +300,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 		return err
 	}
 
-	dbUsers, err := (&schema.User{}).ListAll(ctx)
+	dbUsers, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return err
 	}
@@ -376,7 +385,12 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 	for userID := range modifiedUsers {
 		user, ok := dbUsersMap[userID]
 		if ok {
-			err = logic.UpsertUser(*user)
+			tm := &schema.TenantMembership{
+				TenantID: scope.ID(ctx),
+				UserID:   user.ID,
+				Groups:   user.UserGroups,
+			}
+			err = tm.UpdateGroups(ctx)
 			if err != nil {
 				return err
 			}

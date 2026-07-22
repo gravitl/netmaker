@@ -78,7 +78,7 @@ func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, a
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(ctx)
+	err := _user.GetWithMembership(ctx)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}

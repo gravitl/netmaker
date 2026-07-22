@@ -537,7 +537,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 			return errors.New("user cannot be added to destination")
 		}
 		userCheck := &schema.User{Username: t.Value}
-		err = userCheck.Get(ctx)
+		err = userCheck.GetWithMembership(ctx)
 		if err != nil {
 			return errors.New("invalid user " + t.Value)
 		}
@@ -712,7 +712,7 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 		return true, []models.Acl{acl}
 	}
 	user := &schema.User{Username: userName}
-	err := user.Get(ctx)
+	err := user.GetWithMembership(ctx)
 	if err != nil {
 		return false, []models.Acl{}
 	}

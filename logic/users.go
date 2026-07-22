@@ -61,9 +61,9 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 }
 
 // GetSuperAdmin - fetches superadmin user
-func GetSuperAdmin() (models.ReturnUser, error) {
+func GetSuperAdmin(ctx context.Context) (models.ReturnUser, error) {
 	_user := &schema.User{}
-	err := _user.GetSuperAdmin(db.WithContext(context.TODO()))
+	err := _user.GetSuperAdmin(ctx)
 	if err != nil {
 		return models.ReturnUser{}, err
 	}

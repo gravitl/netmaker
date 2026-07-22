@@ -74,9 +74,6 @@ func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	if s.OktaAPIToken == Mask() {
 		s.OktaAPIToken = currSettings.OktaAPIToken
 	}
-	if s.EmailSenderPassword == Mask() {
-		s.EmailSenderPassword = currSettings.EmailSenderPassword
-	}
 
 	if servercfg.DeployedByOperator() {
 		s.BasicAuth = true
@@ -177,11 +174,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
-		EmailSenderAddr:            servercfg.GetSenderEmail(),
-		EmailSenderUser:            servercfg.GetSenderUser(),
-		EmailSenderPassword:        servercfg.GetEmaiSenderPassword(),
-		SmtpHost:                   servercfg.GetSmtpHost(),
-		SmtpPort:                   servercfg.GetSmtpPort(),
 		MetricInterval:             servercfg.GetMetricInterval(),
 		MetricsPort:                servercfg.GetMetricsPort(),
 		ManageDNS:                  servercfg.GetManageDNS(),
@@ -362,28 +354,42 @@ func GetRacRestrictToSingleNetwork(ctx context.Context) bool {
 	return GetServerSettings(ctx).RacRestrictToSingleNetwork
 }
 
+// GetOrgSettings returns the organization settings for the organization
+// scoped by ctx (resolving through the tenant if ctx is tenant-scoped).
+func GetOrgSettings(ctx context.Context) schema.OrganizationSettingsData {
+	orgSettings := &schema.OrganizationSettings{
+		ID: scope.ID(ctx),
+	}
+	err := orgSettings.Get(ctx)
+	if err != nil {
+		return schema.OrganizationSettingsData{}
+	}
+
+	return orgSettings.Settings.Data()
+}
+
 func GetSmtpHost(ctx context.Context) string {
-	return GetServerSettings(ctx).SmtpHost
+	return GetOrgSettings(ctx).SmtpHost
 }
 
 func GetSmtpPort(ctx context.Context) int {
-	return GetServerSettings(ctx).SmtpPort
+	return GetOrgSettings(ctx).SmtpPort
 }
 
 func SmtpSkipTlsVerify(ctx context.Context) bool {
-	return GetServerSettings(ctx).SmtpSkipTlsVerify
+	return GetOrgSettings(ctx).SmtpSkipTlsVerify
 }
 
 func GetSenderEmail(ctx context.Context) string {
-	return GetServerSettings(ctx).EmailSenderAddr
+	return GetOrgSettings(ctx).EmailSenderAddr
 }
 
 func GetSenderUser(ctx context.Context) string {
-	return GetServerSettings(ctx).EmailSenderUser
+	return GetOrgSettings(ctx).EmailSenderUser
 }
 
 func GetEmaiSenderPassword(ctx context.Context) string {
-	return GetServerSettings(ctx).EmailSenderPassword
+	return GetOrgSettings(ctx).EmailSenderPassword
 }
 
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled

@@ -50,10 +50,33 @@ func (t *TenantMembership) UpdateRoleID(ctx context.Context) error {
 		Error
 }
 
+func (t *TenantMembership) UpdateGroups(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("groups", t.Groups).
+		Error
+}
+
+func (t *TenantMembership) UpdateExternalIdentityProviderID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("external_identity_provider_id", t.ExternalIdentityProviderID).
+		Error
+}
+
 func (t *TenantMembership) ListByUserID(ctx context.Context) ([]TenantMembership, error) {
 	var memberships []TenantMembership
 	err := db.FromContext(ctx).Model(&TenantMembership{}).
 		Where("user_id = ?", t.UserID).
+		Find(&memberships).
+		Error
+	return memberships, err
+}
+
+func (t *TenantMembership) ListByTenantID(ctx context.Context) ([]TenantMembership, error) {
+	var memberships []TenantMembership
+	err := db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?", t.TenantID).
 		Find(&memberships).
 		Error
 	return memberships, err

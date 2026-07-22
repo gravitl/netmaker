@@ -2,7 +2,6 @@ package migrate
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -37,7 +36,7 @@ func Run() {
 
 		networks, _ := (&schema.Network{}).ListAll(ctx)
 		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name))
+			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name), "")
 		}
 
 		createDefaultTagsAndPolicies(ctx)
@@ -534,17 +533,6 @@ func migrateSettings(ctx context.Context) {
 	}
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
-	}
-	if settings.SmtpHost != "" {
-		var rawValue []byte
-		_ = db.FromContext(ctx).Table(settingsRecord.TableName()).
-			Where("key = ?", scope.ID(ctx)).Pluck("value", &rawValue).Error
-		var settingsD map[string]any
-		_ = json.Unmarshal(rawValue, &settingsD)
-		if _, ok := settingsD["smtp_skip_tls_verify"]; !ok {
-			// skip tls verification for older deployments when tls verification wasn't configurable.
-			settings.SmtpSkipTlsVerify = true
-		}
 	}
 	_ = logic.UpsertServerSettings(ctx, settings)
 }

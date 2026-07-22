@@ -196,7 +196,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(ctx)
+		err = user.GetWithMembership(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -240,7 +240,7 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(ctx)
+		err = user.GetWithMembership(ctx)
 		if err != nil {
 			return "", false, false, err
 		}

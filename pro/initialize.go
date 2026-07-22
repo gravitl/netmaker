@@ -133,11 +133,10 @@ func InitPro() {
 			}
 		}
 
-		defaultTenant := &schema.Tenant{}
-		err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+		defaultOrg := &schema.Organization{}
+		err := defaultOrg.Get(db.WithContext(context.TODO()))
 		if err == nil {
-			// todo(nm-341): move email creds to org settings.
-			email.Init(logic.DefaultScope(db.WithContext(ctx)))
+			email.Init(scope.WithContext(db.WithContext(ctx), scope.OrgScope, defaultOrg.ID))
 		}
 		go proLogic.EventWatcher()
 	})

@@ -104,13 +104,13 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	caller := &schema.User{Username: r.Header.Get("user")}
-	err = caller.Get(r.Context())
+	err = caller.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
 	user := &schema.User{Username: req.UserName}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
@@ -217,13 +217,13 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	caller := &schema.User{Username: r.Header.Get("user")}
-	err = caller.Get(r.Context())
+	err = caller.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
 	user := &schema.User{Username: a.UserName}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
@@ -500,7 +500,7 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -628,7 +628,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -723,7 +723,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -869,7 +869,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 
 	username := mux.Vars(r)["username"]
 	_user := &schema.User{Username: username}
-	err := _user.Get(r.Context())
+	err := _user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -882,7 +882,7 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		isMaster = true
 	} else {
 		_caller = &schema.User{Username: r.Header.Get("user")}
-		err = _caller.Get(r.Context())
+		err = _caller.GetWithMembership(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -1055,7 +1055,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	_user := &schema.User{
 		Username: usernameFetched,
 	}
-	err := _user.Get(r.Context())
+	err := _user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1120,7 +1120,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	_users, err := (&schema.User{}).ListAll(r.Context())
+	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1199,12 +1199,20 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
-	_users, err := (&schema.User{}).ListAll(
+	// role_id and auth_type live on the membership tables, not users_v1. Qualify them
+	// with the join alias used by ListAllWithMembership/CountWithMembership so they
+	// don't collide with the identically named legacy columns still present on users_v1.
+	membershipAlias := "tm"
+	if scope.Level(r.Context()) == scope.OrgScope {
+		membershipAlias = "om"
+	}
+
+	_users, err := (&schema.User{}).ListAllWithMembership(
 		r.Context(),
 		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
-		dbtypes.WithFilter("platform_role_id", roleFilter...),
-		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
+		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
 		dbtypes.InAscOrder("username"),
 		dbtypes.WithPagination(page, pageSize),
@@ -1223,12 +1231,12 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		}).CountByUser(r.Context())
 	}
 
-	total, err := (&schema.User{}).Count(
+	total, err := (&schema.User{}).CountWithMembership(
 		r.Context(),
 		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
 		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
-		dbtypes.WithFilter("platform_role_id", roleFilter...),
-		dbtypes.WithFilter("auth_type", authTypeFilter...),
+		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
+		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
 	)
 	if err != nil {
@@ -1412,7 +1420,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller := &schema.User{Username: r.Header.Get("user")}
-	err := caller.Get(r.Context())
+	err := caller.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -1530,7 +1538,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		ismaster = true
 	} else {
 		caller = &schema.User{Username: r.Header.Get("user")}
-		err = caller.Get(r.Context())
+		err = caller.GetWithMembership(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -1539,7 +1547,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	username := params["username"]
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
@@ -1757,7 +1765,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 	caller := &schema.User{Username: r.Header.Get("user")}
-	err := caller.Get(r.Context())
+	err := caller.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1771,7 +1779,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	username := params["username"]
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
@@ -1913,7 +1921,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		isMaster = true
 	} else {
 		caller = &schema.User{Username: callerName}
-		if err := caller.Get(r.Context()); err != nil {
+		if err := caller.GetWithMembership(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -1941,7 +1949,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
-			if err := user.Get(ctx); err != nil {
+			if err := user.GetWithMembership(ctx); err != nil {
 				slog.Error("bulk user delete: user not found", "username", username, "error", err)
 				continue
 			}
@@ -2039,7 +2047,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 		isMaster = true
 	} else {
 		caller = &schema.User{Username: callerName}
-		if err := caller.Get(r.Context()); err != nil {
+		if err := caller.GetWithMembership(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -2070,7 +2078,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 		updated := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
-			if err := user.Get(ctx); err != nil {
+			if err := user.GetWithMembership(ctx); err != nil {
 				slog.Error("bulk user status: user not found", "username", username, "error", err)
 				continue
 			}
@@ -2198,7 +2206,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	userName := r.URL.Query().Get("username")
 	user := &schema.User{Username: userName}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return

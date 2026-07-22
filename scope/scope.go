@@ -6,7 +6,9 @@ import (
 
 const (
 	HeaderTenantID = "X-Tenant-ID"
+	QueryTenantID  = "tenant_id"
 	HeaderOrgID    = "X-Organization-ID"
+	QueryOrgID     = "org_id"
 )
 
 // Scope represents the tenancy level of a request.
