@@ -57,6 +57,20 @@ func GetFeatureFlags(ctx context.Context) models.FeatureFlags {
 	return response.FeatureFlags
 }
 
+func EnforceLimits(ctx context.Context) bool {
+	response, _ := getCachedResponse(ctx)
+	if scope.Level(ctx) == scope.TenantScope {
+		tenantID := scope.ID(ctx)
+		for _, t := range response.Tenants {
+			if t.ID == tenantID {
+				return t.EnforceLimits
+			}
+		}
+	}
+
+	return false
+}
+
 func ErrLicenseValidation(ctx context.Context) error {
 	invalidErr := licenseInvalidErr.Load()
 	if invalidErr != nil {

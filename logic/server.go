@@ -18,6 +18,9 @@ var GetDeploymentMode = func() string {
 }
 var StartFlowCleanupLoop = func(ctx context.Context) {}
 var StopFlowCleanupLoop = func(ctx context.Context) {}
+var EnforceLimits = func(ctx context.Context) bool {
+	return false
+}
 
 // == Join, Checkin, and Leave for Server ==
 
