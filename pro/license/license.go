@@ -499,7 +499,7 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 
 	client := retryablehttp.NewClient()
 	client.Logger = nil
-	client.RetryMax = 15
+	client.RetryMax = 3
 	client.RetryWaitMin = time.Second * 5
 	client.RetryWaitMax = time.Second * 35
 
