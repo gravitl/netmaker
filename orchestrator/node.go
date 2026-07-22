@@ -212,6 +212,10 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
+	if logic.IngressLimitExceeded(ctx) {
+		return logic.ErrIngressLimitExceeded
+	}
+
 	node.IsGateway = true
 
 	if ops.isInternetGateway {

@@ -108,9 +108,13 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 	err = orchestrator.GetRepository().NodeOrchestrator().CreateGateway(r.Context(), node, options...)
 	if err != nil {
-		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error creating gateway: %v", nodeID, networkName, err)
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrIngressLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error creating gateway: %w", nodeID, networkName, err)
 		logger.Log(0, r.Header.Get("user"), err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
