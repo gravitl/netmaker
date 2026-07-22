@@ -13,6 +13,7 @@ type Repository struct {
 	user    *UserOrchestrator
 	network *NetworkOrchestrator
 	node    *NodeOrchestrator
+	tenant  *TenantOrchestrator
 }
 
 func InitializeRepository(extFactory *extensions.Factory) {
@@ -25,6 +26,7 @@ func InitializeRepository(extFactory *extensions.Factory) {
 			node: &NodeOrchestrator{
 				nodeExt: extFactory.NodeExtensions(),
 			},
+			tenant: &TenantOrchestrator{},
 		}
 	})
 }
@@ -43,4 +45,8 @@ func (r *Repository) NetworkOrchestrator() *NetworkOrchestrator {
 
 func (r *Repository) NodeOrchestrator() *NodeOrchestrator {
 	return r.node
+}
+
+func (r *Repository) TenantOrchestrator() *TenantOrchestrator {
+	return r.tenant
 }
