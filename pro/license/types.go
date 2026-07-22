@@ -2,7 +2,6 @@ package license
 
 import (
 	"errors"
-	"time"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -34,7 +33,6 @@ type ValidatedLicense struct {
 	EncryptedLicense string              `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
 	DeploymentMode   string              `json:"deployment_mode"`
 	FeatureFlags     models.FeatureFlags `json:"feature_flags" binding:"required"`
-	Expiry           time.Time           `json:"expiry"`
 	Organization     LicenseOrg          `json:"organization"`
 	Tenants          []LicenseTenant     `json:"tenants"`
 }
