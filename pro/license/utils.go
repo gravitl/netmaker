@@ -28,6 +28,10 @@ func base64decode(input string) []byte {
 }
 
 func tenantLimits(ctx context.Context) (Limits, bool) {
+	if scope.Level(ctx) != scope.TenantScope {
+		return Limits{}, false
+	}
+
 	response, _ := getCachedResponse(ctx)
 	tenantID := scope.ID(ctx)
 	for _, t := range response.Tenants {
@@ -88,7 +92,7 @@ func UserLimitExceeded(ctx context.Context) bool {
 		return false
 	}
 	return limitExceeded(ctx, limits.Users, func() (int, error) {
-		return (&schema.User{}).Count(ctx)
+		return (&schema.User{}).CountWithMembership(ctx)
 	})
 }
 

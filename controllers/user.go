@@ -1482,7 +1482,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.Username, "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		errType := logic.BadReq
+		if errors.Is(err, logic.ErrUserLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 	if err = user.UpsertMembership(r.Context()); err != nil {

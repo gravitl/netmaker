@@ -224,7 +224,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 
 		dbUser, ok := dbUsersMap[user.Username]
 		if !ok {
-			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
+			createErr := orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
 				Username:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
 				DisplayName:                user.DisplayName,
@@ -233,8 +233,12 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				AuthType:                   schema.OAuth,
 				PlatformRoleID:             schema.ServiceUser,
 			})
-			if err != nil {
-				return err
+			if createErr != nil {
+				if errors.Is(createErr, logic.ErrUserLimitExceeded) {
+					logger.Log(0, "idp sync: skipping user", user.Username, "user limit reached for tenant", scope.ID(ctx))
+					continue
+				}
+				return createErr
 			}
 
 			// It's possible that a user can attempt to log in to Netmaker

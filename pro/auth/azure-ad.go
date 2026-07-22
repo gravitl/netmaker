@@ -108,6 +108,10 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 				user.ExternalIdentityProviderID = string(content.ID)
 				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
 				if err != nil {
+					if errors.Is(err, logic.ErrUserLimitExceeded) {
+						handleUserLimitExceeded(w)
+						return
+					}
 					handleSomethingWentWrong(w)
 					return
 				}

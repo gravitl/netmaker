@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -29,6 +30,10 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+
+		if logic.UserLimitExceeded(ctx) {
+			return logic.ErrUserLimitExceeded
 		}
 
 		err = user.Create(ctx)

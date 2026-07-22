@@ -2076,7 +2076,11 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		PlatformRoleID:             schema.ServiceUser,
 	})
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %w", err), errType))
 		return
 	}
 	err = logic.DeletePendingUser(username)
