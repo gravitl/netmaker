@@ -26,8 +26,10 @@ func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
 
 		ctx := db.WithContext(context.TODO())
 		if tenantID == "" {
-			tenant, _ := logic.SoleTenant(ctx)
-			tenantID = tenant.ID
+			tenant, err := logic.SoleTenant(ctx)
+			if err == nil {
+				tenantID = tenant.ID
+			}
 		}
 
 		if tenantID != "" {
