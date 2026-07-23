@@ -20,6 +20,7 @@ import (
 // 3) clears obsolete central relayed_igw_clients rosters on IGW routing nodes
 // 4) sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
 // 5) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
+// 6) clears IsInternetGateway on routing nodes that were successfully migrated
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -91,7 +92,9 @@ func migrateInternetEgress() {
 	// Clear obsolete central rosters before re-applying per-client RelayedBy/IsIGWClient via AssignGateway.
 	clearLegacyInetNodeClientLists(ctx, nodes)
 	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress, legacyClientsByRoutingNode)
+	// Ext-client migration still uses in-memory IsInternetGateway; clear the DB flag after.
 	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
+	clearLegacyIsInternetGateway(ctx, routingToEgress)
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {
@@ -197,6 +200,20 @@ func clearLegacyInetNodeClientLists(ctx context.Context, nodes []models.Node) {
 			continue
 		}
 		logger.Log(1, fmt.Sprintf("migration: cleared legacy inet gw client list on node %s", node.ID.String()))
+	}
+}
+
+// clearLegacyIsInternetGateway clears the legacy IsInternetGateway flag on routing nodes
+// that were successfully migrated to an internet-type egress resource.
+func clearLegacyIsInternetGateway(ctx context.Context, routingToEgress map[string]string) {
+	for routingNodeID := range routingToEgress {
+		if err := db.FromContext(ctx).Model(&schema.Node{}).
+			Where("id = ?", routingNodeID).
+			Update("is_internet_gateway", false).Error; err != nil {
+			logger.Log(0, "migration: failed to clear is_internet_gateway on node", routingNodeID, err.Error())
+			continue
+		}
+		logger.Log(1, fmt.Sprintf("migration: cleared legacy is_internet_gateway on node %s", routingNodeID))
 	}
 }
 
