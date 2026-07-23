@@ -2,7 +2,6 @@ package schema
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,10 +9,6 @@ import (
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
-)
-
-var (
-	ErrUserInviteIdentifiersNotProvided = errors.New("user invite identifiers not provided")
 )
 
 type UserInvite struct {
@@ -52,8 +47,11 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 	var userInvites []UserInvite
 	query := db.FromContext(ctx).Model(&UserInvite{})
 
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userInvitesTable), tenantID))
+	if scopeID := scope.ID(ctx); scopeID != "" {
+		options = append(options,
+			dbtypes.WithFilter(fmt.Sprintf("%s.scope", userInvitesTable), scope.Level(ctx)),
+			dbtypes.WithFilter(fmt.Sprintf("%s.scope_id", userInvitesTable), scopeID),
+		)
 	}
 
 	for _, option := range options {
@@ -67,15 +65,17 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 func (u *UserInvite) DeleteByEmail(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&UserInvite{}).
 		Where("email = ?", u.Email)
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userInvitesTable), tenantID)(query)
+	if scopeID := scope.ID(ctx); scopeID != "" {
+		query = query.
+			Where(fmt.Sprintf("%s.scope = ?", userInvitesTable), scope.Level(ctx)).
+			Where(fmt.Sprintf("%s.scope_id = ?", userInvitesTable), scopeID)
 	}
 	return query.Delete(u).Error
 }
 
 func (u *UserInvite) DeleteAll(ctx context.Context) error {
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		return db.FromContext(ctx).Exec("DELETE FROM user_invites_v1 WHERE tenant_id = ?", tenantID).Error
+	if scopeID := scope.ID(ctx); scopeID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM user_invites_v1 WHERE scope = ? AND scope_id = ?", scope.Level(ctx), scopeID).Error
 	}
 	return db.FromContext(ctx).Exec("DELETE FROM user_invites_v1").Error
 }
