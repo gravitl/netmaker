@@ -82,8 +82,18 @@ func IsOAuthConfigured(ctx context.Context) bool {
 // Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state, _ := getStateAndCode(r)
-	cache, err := netcache.Get(state)
-	if err == nil || errors.Is(err, netcache.ErrExpired) {
+
+	var isHeadlessLogin bool
+	_, err := netcache.Get(state)
+	if err != nil {
+		if errors.Is(err, netcache.ErrExpired) {
+			isHeadlessLogin = true
+		}
+	} else {
+		isHeadlessLogin = true
+	}
+
+	if isHeadlessLogin {
 		switch len(state) {
 		case node_signin_length:
 			logger.Log(1, "proceeding with host SSO callback")
@@ -96,12 +106,18 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			handleSomethingWentWrong(w)
 		}
 	} else {
-		if cache.Scope == 0 || cache.ScopeID == "" {
+		ssoState, err := logic.GetState(state)
+		if err != nil {
 			handleSomethingWentWrong(w)
 			return
 		}
 
-		ctx := scope.WithContext(r.Context(), cache.Scope, cache.ScopeID)
+		if ssoState.Scope == 0 || ssoState.ScopeID == "" {
+			handleSomethingWentWrong(w)
+			return
+		}
+
+		ctx := scope.WithContext(r.Context(), ssoState.Scope, ssoState.ScopeID)
 		provider, ok := Registry().FromContext(ctx)
 		if !ok {
 			handleOauthNotConfigured(w)
