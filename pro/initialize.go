@@ -185,7 +185,7 @@ func InitPro() {
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
-	//logic.LogEvent = proLogic.LogEvent
+	logic.LogEvent = proLogic.LogEvent
 	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
 	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
