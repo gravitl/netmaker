@@ -152,7 +152,10 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.DeleteUserInvite(emailID)
-	logic.DeletePendingUser(emailID)
+
+	_ = (&schema.PendingUser{
+		Username: emailID,
+	}).Delete(r.Context())
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	logic.ReturnSuccessResponse(w, r, "created user successfully "+emailID)
 }
@@ -2083,7 +2086,10 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %w", err), errType))
 		return
 	}
-	err = logic.DeletePendingUser(username)
+
+	err = (&schema.PendingUser{
+		Username: username,
+	}).Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
 		return

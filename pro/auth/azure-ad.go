@@ -116,8 +116,15 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 					return
 				}
 				logic.DeleteUserInvite(content.Email)
-				logic.DeletePendingUser(content.UserPrincipalName)
-				logic.DeletePendingUser(content.Email)
+
+				_ = (&schema.PendingUser{
+					Username: content.UserPrincipalName,
+				}).Delete(r.Context())
+
+				_ = (&schema.PendingUser{
+					Username: content.Email,
+				}).Delete(r.Context())
+
 			} else {
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)

@@ -246,7 +246,9 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// Since the user doesn't exist, a pending user will be
 			// created. Now, since the user is created, the pending user
 			// can be deleted.
-			_ = logic.DeletePendingUser(user.Username)
+			_ = (&schema.PendingUser{
+				Username: user.Username,
+			}).Delete(ctx)
 		} else if dbUser.AuthType == schema.OAuth {
 			if dbUser.PlatformRoleID != schema.SuperAdminRole &&
 				(dbUser.AccountDisabled != user.AccountDisabled ||

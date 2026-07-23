@@ -129,7 +129,10 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				logic.DeleteUserInvite(user.Username)
-				logic.DeletePendingUser(content.Email)
+
+				_ = (&schema.PendingUser{
+					Username: content.Email,
+				}).Delete(r.Context())
 			} else {
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)

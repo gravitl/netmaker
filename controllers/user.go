@@ -1512,7 +1512,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 	logic.DeleteUserInvite(user.Username)
-	logic.DeletePendingUser(user.Username)
+
+	_ = (&schema.PendingUser{
+		Username: user.Username,
+	}).Delete(r.Context())
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 	slog.Info("user was created", "username", user.Username)

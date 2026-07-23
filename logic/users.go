@@ -77,12 +77,6 @@ func GetSuperAdmin(ctx context.Context) (models.ReturnUser, error) {
 	return ToReturnUser(_user), nil
 }
 
-func DeletePendingUser(username string) error {
-	return (&schema.PendingUser{
-		Username: username,
-	}).Delete(db.WithContext(context.TODO()))
-}
-
 func IsPendingUser(username string) bool {
 	exists, err := (&schema.PendingUser{
 		Username: username,
