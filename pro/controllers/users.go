@@ -256,7 +256,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		invite := &schema.UserInvite{
-			TenantID:       scope.ID(r.Context()),
+			Scope:          scope.Level(r.Context()),
+			ScopeID:        scope.ID(r.Context()),
 			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
 			PlatformRoleID: inviteReq.PlatformRoleID,
