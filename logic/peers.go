@@ -928,12 +928,15 @@ func withoutDefaultRoutes(ips []net.IPNet) []net.IPNet {
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {
-	peerHost := &schema.Host{
-		ID: peer.HostID,
-	}
-	err := peerHost.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
+	peerHost := &schema.Host{}
+	// Skip DB lookup when HostID is unset (e.g. unit tests); EndpointIP overlap
+	// checks below simply no-op when peerHost is empty.
+	if peer.HostID != uuid.Nil {
+		peerHost.ID = peer.HostID
+		err := peerHost.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
+		}
 	}
 
 	// check for internet gateway
