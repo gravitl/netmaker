@@ -800,6 +800,9 @@ func GetPeerListenPort(host *schema.Host) int {
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {
 	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRanges)
+	if !usesPeerAsInternetExit(&node, &peer) {
+		egressIPs = withoutDefaultRouteStrings(egressIPs)
+	}
 	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
@@ -818,6 +821,16 @@ func filterConflictingEgressRoutes(node, peer models.Node) []string {
 
 func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
 	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRequest.RangesWithMetric)
+	if !usesPeerAsInternetExit(&node, &peer) {
+		filtered := make([]models.EgressRangeMetric, 0, len(egressIPs))
+		for _, r := range egressIPs {
+			if r.Network == IPv4Network || r.Network == IPv6Network {
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+		egressIPs = filtered
+	}
 	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
@@ -839,6 +852,21 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 	return egressIPs
 }
 
+// withoutDefaultRouteStrings strips full-tunnel CIDR strings from egress range lists.
+func withoutDefaultRouteStrings(ranges []string) []string {
+	if len(ranges) == 0 {
+		return ranges
+	}
+	out := make([]string, 0, len(ranges))
+	for _, r := range ranges {
+		if r == IPv4Network || r == IPv6Network {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
@@ -847,8 +875,10 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
+	// Non-exit clients must never inherit default routes from egress/relay aggregation.
+	allowedips = withoutDefaultRoutes(allowedips)
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
 	}
 
 	// handle ingress gateway peers
@@ -858,8 +888,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
 		for _, extPeer := range extPeers {
-
-			allowedips = append(allowedips, extPeer.AllowedIPs...)
+			allowedips = append(allowedips, withoutDefaultRoutes(extPeer.AllowedIPs)...)
 		}
 	}
 
@@ -874,6 +903,28 @@ func usesPeerAsInternetExit(node, peer *models.Node) bool {
 	}
 	routingNodeID := InternetExitRoutingNodeID(node)
 	return routingNodeID != "" && routingNodeID == peer.ID.String()
+}
+
+// isDefaultRoute reports whether ipnet is a full-tunnel default route.
+func isDefaultRoute(ipnet net.IPNet) bool {
+	s := ipnet.String()
+	return s == IPv4Network || s == IPv6Network
+}
+
+// withoutDefaultRoutes strips 0.0.0.0/0 and ::/0. Full-tunnel routes must only be
+// added via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient.
+func withoutDefaultRoutes(ips []net.IPNet) []net.IPNet {
+	if len(ips) == 0 {
+		return ips
+	}
+	out := make([]net.IPNet, 0, len(ips))
+	for _, ip := range ips {
+		if isDefaultRoute(ip) {
+			continue
+		}
+		out = append(out, ip)
+	}
+	return out
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {
@@ -948,11 +999,17 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 				}
 			}
 		}
+		// Default routes are opt-in via exit selection only (see GetAllowedIPs).
+		if !usesPeerAsInternetExit(node, peer) {
+			egressIPs = withoutDefaultRoutes(egressIPs)
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
-	// A relay advertises its relayed clients' overlay IPs to other peers.
+	// A relay advertises its relayed clients' overlay IPs (and non-default egress
+	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
+	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
 	if peer.IsRelay {
-		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
+		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(peer, node))...)
 	} else if len(peer.RelayedNodes) > 0 && !usesPeerAsInternetExit(node, peer) {
 		// A non-gateway internet exit node also relays the overlay traffic of the
 		// peers using it as an exit node (they are kept in RelayedNodes for
@@ -973,7 +1030,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		}
 	}
 	if peer.IsAutoRelay {
-		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(peer, node))...)
 	}
 	return allowedips
 }

@@ -883,18 +883,6 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 	}
 }
 
-// nodeUsesInternetEgress reports whether the client node should receive routes for this internet egress.
-func nodeUsesInternetEgress(node *models.Node, e schema.Egress, routingNodeID string) bool {
-	if node == nil || !IsEgressInternetGateway(e) {
-		return false
-	}
-	if node.SelectedInternetEgressID != "" {
-		return node.SelectedInternetEgressID == e.ID
-	}
-	// Legacy shim: assigned via InternetGwID to the routing node.
-	return node.InternetGwID != "" && node.InternetGwID == routingNodeID
-}
-
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
@@ -908,7 +896,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if IsEgressInternetGateway(e) && !nodeUsesInternetEgress(node, e, targetNode.ID.String()) {
+		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) {
 			continue
 		}
 		if !isDefaultPolicyActive {

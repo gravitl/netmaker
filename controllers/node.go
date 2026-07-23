@@ -203,7 +203,7 @@ func AuthorizeHost(
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
-// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned)
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -268,6 +268,15 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 			filters = append(filters, dbtypes.WithNotFilter("relayed_by_node_id", nil))
 		case "gw_unassigned":
 			filters = append(filters, dbtypes.WithFilter("relayed_by_node_id", nil))
+		case "exit_assigned":
+			// Nodes using an exit node (selected internet egress). Also include
+			// legacy IGW clients that may still only have is_igw_client set.
+			filters = append(filters, func(db *gorm.DB) *gorm.DB {
+				return db.Where(
+					"(selected_internet_egress_id IS NOT NULL AND selected_internet_egress_id != '') OR is_igw_client = ?",
+					true,
+				)
+			})
 		}
 	}
 
