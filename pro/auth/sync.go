@@ -527,7 +527,10 @@ func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
 			}
 		}
 
-		go logic.DeleteUserInvite(user.Username)
+		_ = (&schema.UserInvite{
+			Email: user.Username,
+		}).DeleteByEmail(ctx)
+
 		go mq.PublishPeerUpdate(ctx, false)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 

@@ -114,13 +114,6 @@ func GetUserInvite(email string) (*schema.UserInvite, error) {
 	return userInvite, nil
 }
 
-func DeleteUserInvite(email string) error {
-	userInvite := &schema.UserInvite{
-		Email: email,
-	}
-	return userInvite.DeleteByEmail(db.WithContext(context.TODO()))
-}
-
 func ValidateAndApproveUserInvite(email, code string) error {
 	in, err := GetUserInvite(email)
 	if err != nil {

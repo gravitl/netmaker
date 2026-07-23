@@ -151,7 +151,9 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.DeleteUserInvite(emailID)
+	_ = (&schema.UserInvite{
+		Email: emailID,
+	}).DeleteByEmail(r.Context())
 
 	_ = (&schema.PendingUser{
 		Username: emailID,
@@ -348,7 +350,9 @@ func listUserInvites(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("invitee_email")
-	err := logic.DeleteUserInvite(email)
+	err := (&schema.UserInvite{
+		Email: email,
+	}).DeleteByEmail(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to delete user invite: ", email, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

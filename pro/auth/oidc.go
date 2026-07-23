@@ -128,7 +128,9 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.Username)
+				_ = (&schema.UserInvite{
+					Email: user.Username,
+				}).DeleteByEmail(r.Context())
 
 				_ = (&schema.PendingUser{
 					Username: content.Email,

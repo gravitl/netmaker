@@ -115,7 +115,9 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(content.Email)
+				_ = (&schema.UserInvite{
+					Email: content.Email,
+				}).DeleteByEmail(r.Context())
 
 				_ = (&schema.PendingUser{
 					Username: content.UserPrincipalName,

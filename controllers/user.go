@@ -1511,7 +1511,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	logic.DeleteUserInvite(user.Username)
+
+	_ = (&schema.UserInvite{
+		Email: user.Username,
+	}).DeleteByEmail(r.Context())
 
 	_ = (&schema.PendingUser{
 		Username: user.Username,
@@ -1892,7 +1895,11 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		_ = logic.DeleteUserInvite(user.Username)
+
+		_ = (&schema.UserInvite{
+			Email: user.Username,
+		}).DeleteByEmail(ctx)
+
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 	logger.Log(1, username, "was deleted")
@@ -2017,7 +2024,10 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			_ = logic.DeleteUserInvite(user.Username)
+
+			_ = (&schema.UserInvite{
+				Email: user.Username,
+			}).DeleteByEmail(ctx)
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(ctx, false)
