@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/models"
@@ -29,27 +30,37 @@ const posthog_endpoint = "https://app.posthog.com"
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	ctx := db.WithContext(context.TODO())
+	err := (&schema.Organization{}).GetDefault(ctx)
 	if err != nil {
-		return nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// skip telemetry for msps.
+			return nil
+		}
+
+		return err
 	}
 
-	// todo(nm-341): set telemetry on org settings.
-	if Telemetry(DefaultScope(db.WithContext(context.TODO()))) == "off" {
+	tenant, err := SoleTenant(ctx)
+	if err != nil {
+		return err
+	}
+
+	ctx = scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+	if Telemetry(ctx) == "off" {
 		return nil
 	}
 
 	serverID := &schema.Internal{
 		Key: schema.InternalKey_ServerID,
 	}
-	err = serverID.Get(db.WithContext(context.TODO()))
+	err = serverID.Get(ctx)
 	if err != nil {
 		return err
 	}
 
 	// get telemetry data
-	d := FetchTelemetryData()
+	d := fetchTelemetryData(ctx)
 	// get tenant admin email
 	adminEmail := os.Getenv("NM_EMAIL")
 	client, err := posthog.NewWithConfig(posthog_pub_key, posthog.Config{Endpoint: posthog_endpoint})
@@ -90,18 +101,18 @@ func sendTelemetry() error {
 	})
 }
 
-// FetchTelemetryData - fetches telemetry data: count of various object types in DB
-func FetchTelemetryData() telemetryData {
+// fetchTelemetryData - fetches telemetry data: count of various object types in DB
+func fetchTelemetryData(ctx context.Context) telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(db.WithContext(context.TODO()))
-	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
-	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
-	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
+	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(ctx)
+	data.Users, _ = (&schema.User{}).Count(ctx)
+	data.Networks, _ = (&schema.Network{}).Count(ctx)
+	data.Hosts, _ = (&schema.Host{}).Count(ctx)
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
-	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithPreloads("Host"))
+	nodes, _ := (&schema.Node{}).ListAll(ctx, dbtypes.WithPreloads("Host"))
 	data.Nodes = len(nodes)
 	data.Count = getClientCount(nodes)
 	data.ProTrialEndDate, _ = time.Parse("2006-Jan-02", "2021-Apr-01")
