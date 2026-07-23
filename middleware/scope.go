@@ -12,12 +12,11 @@ import (
 )
 
 var (
-	errMissingTenantID       = errors.New("X-Tenant-ID header is required")
-	errTenantNotFound        = errors.New("tenant not found")
-	errDefaultTenantNotFound = errors.New("default tenant not found")
-	errMissingOrgID          = errors.New("X-Organization-ID header is required")
-	errOrgNotFound           = errors.New("organization not found")
-	errAmbiguousScope        = errors.New("only one of org or tenant scope header may be provided")
+	errMissingTenantID = errors.New("X-Tenant-ID header is required")
+	errTenantNotFound  = errors.New("tenant not found")
+	errMissingOrgID    = errors.New("X-Organization-ID header is required")
+	errOrgNotFound     = errors.New("organization not found")
+	errAmbiguousScope  = errors.New("only one of org or tenant scope header may be provided")
 )
 
 var defaultTenantID atomic.Value
@@ -39,7 +38,7 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 				if defaultTenantID.Load() == nil {
 					t, err := logic.SoleTenant(r.Context())
 					if err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.Internal))
 						return
 					}
 					defaultTenantID.Store(t.ID)
@@ -119,7 +118,7 @@ func InferScope(next http.Handler) http.HandlerFunc {
 			if defaultTenantID.Load() == nil {
 				t, err := logic.SoleTenant(r.Context())
 				if err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(errDefaultTenantNotFound, logic.Internal))
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errMissingTenantID, logic.Internal))
 					return
 				}
 				defaultTenantID.Store(t.ID)
