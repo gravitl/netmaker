@@ -8,18 +8,16 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
 	"golang.org/x/exp/slog"
 )
 
-//var LogEvent = func(a *models.Event) {}
-
-func LogEvent(ctx context.Context, a *models.Event) {}
+var LogEvent = func(ctx context.Context, a *models.Event) {}
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
