@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -511,6 +512,16 @@ func setTenantID(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	err = db.FromContext(ctx).Model(&schema.PendingUser{}).
+		Where("scope_id = ?", "").
+		Updates(map[string]any{
+			"scope":    scope.TenantScope,
+			"scope_id": defaultTenant.ID,
+		}).Error
+	if err != nil {
+		return err
 	}
 
 	return nil

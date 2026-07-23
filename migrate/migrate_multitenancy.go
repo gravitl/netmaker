@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func migrateMultiTenancy(ctx context.Context) error {
@@ -58,7 +59,7 @@ func tenantScopedModels() []any {
 		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
-		&schema.PendingUser{}, &schema.PostureCheck{}, &schema.PostureCheckViolation{},
+		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
 		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
 	}
 }
@@ -75,6 +76,12 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 			Update("tenant_id", newID).Error; err != nil {
 			return err
 		}
+	}
+
+	if err := db.FromContext(ctx).Model(&schema.PendingUser{}).
+		Where("scope = ? AND scope_id = ?", scope.TenantScope, oldID).
+		Update("scope_id", newID).Error; err != nil {
+		return err
 	}
 
 	return db.FromContext(ctx).Model(&schema.Tenant{}).
@@ -96,6 +103,12 @@ func RekeyOrganization(ctx context.Context, oldID, newID string) error {
 	if err := db.FromContext(ctx).Model(&schema.OrgMembership{}).
 		Where("organization_id = ?", oldID).
 		Update("organization_id", newID).Error; err != nil {
+		return err
+	}
+
+	if err := db.FromContext(ctx).Model(&schema.PendingUser{}).
+		Where("scope = ? AND scope_id = ?", scope.OrgScope, oldID).
+		Update("scope_id", newID).Error; err != nil {
 		return err
 	}
 
