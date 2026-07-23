@@ -695,11 +695,18 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ResetAutoRelay(newNode)
 	}
 
-	// Disconnecting while using an exit node can strand the host; require unassign first.
+	// Disconnecting while using an exit node: clear exit first so a peer update can
+	// remove full-tunnel routes locally before Connected is flipped off.
+	preDisconnectExitClear := false
 	if currentNode.Connected && !newNode.Connected {
-		if err := logic.ErrExitNodeBlocksDisconnect(&currentNode); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		cleared, err := logic.ClearExitNodeForDisconnect(&currentNode)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
+		}
+		if cleared {
+			logic.SyncClearedExitNodeFields(newNode, &currentNode)
+			preDisconnectExitClear = true
 		}
 	}
 
@@ -774,6 +781,19 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if host.DNS != "yes" {
 			host.DNS = "yes"
 			logic.UpsertHost(host)
+		}
+	}
+
+	// Push peer update while still connected so the client drops exit/default routes
+	// before the disconnect NodeUpdate is applied.
+	if preDisconnectExitClear {
+		allNodes, peerErr := logic.GetAllNodes()
+		if peerErr != nil {
+			slog.Error("pre-disconnect exit clear: failed to list nodes", "error", peerErr)
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
+			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
+		} else {
+			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -1059,23 +1079,6 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reject bulk disconnect when any target still uses an exit node.
-	if !req.Connected {
-		for _, nodeID := range req.IDs {
-			n, err := logic.GetNodeByID(nodeID)
-			if err != nil {
-				continue
-			}
-			if err := logic.ErrExitNodeBlocksDisconnect(&n); err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(
-					fmt.Errorf("%s (node %s)", err.Error(), nodeID),
-					logic.BadReq,
-				))
-				return
-			}
-		}
-	}
-
 	eventAction := schema.Connect
 	if !req.Connected {
 		eventAction = schema.Disconnect
@@ -1098,6 +1101,31 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 
 		if len(nodeIDs) == 0 {
 			return
+		}
+
+		// On disconnect, clear exit selection and push peer updates first so clients
+		// drop full-tunnel routes before Connected is flipped off.
+		if !req.Connected {
+			exitClients := make([]models.Node, 0)
+			for i := range nodeIDs {
+				nodeID := nodeIDs[i].(string)
+				n, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					continue
+				}
+				cleared, err := logic.ClearExitNodeForDisconnect(&n)
+				if err != nil {
+					slog.Error("bulk disconnect: failed to clear exit node", "node", nodeID, "error", err)
+					continue
+				}
+				if cleared {
+					exitClients = append(exitClients, n)
+				}
+			}
+			if len(exitClients) > 0 {
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				time.Sleep(1 * time.Second)
+			}
 		}
 
 		nodeUpdate := &schema.Node{

@@ -113,8 +113,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
-		case "exit node cannot use auto-relay options",
-			"node is using an exit node; auto-relay is not allowed",
+		case "node is using an exit node; auto-relay is not allowed",
 			"relayed node cannot be set as autoRelay",
 			"only linux nodes are allowed to be set as autoRelay":
 			errType = logic.BadReq
@@ -494,16 +493,8 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// Note: an exit node that is also a gateway is a valid target for auto-assign
-	// gateway (the client simply relays its overlay traffic through that gateway).
-	// The exit-node restriction only applies to the NAT auto-relay path below,
-	// where the node acts as a hole-punching relay, so scope the check to that path.
-	if !node.AutoAssignGateway {
-		if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-	}
+	// Exit-node gateways are valid auto-relay / auto-assign targets. Only clients
+	// using an exit are blocked (checked on node/peerNode above and in SetAutoRelayCtx).
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
 			if node.RelayedBy != "" {

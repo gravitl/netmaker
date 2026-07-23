@@ -261,7 +261,10 @@ func ErrExitNodeBlocksGatewayOps(node *models.Node) error {
 	return nil
 }
 
-// ErrExitNodeBlocksAutoRelay returns an error when the node must not participate in auto-relay.
+// ErrExitNodeBlocksAutoRelay returns an error when the node must not participate
+// in auto-relay as a client. Nodes using an exit already have RelayedBy managed
+// by exit selection. Exit routing nodes that are also gateways remain valid
+// auto-relay / auto-assign targets for other peers.
 func ErrExitNodeBlocksAutoRelay(node *models.Node) error {
 	if node == nil {
 		return nil
@@ -269,23 +272,34 @@ func ErrExitNodeBlocksAutoRelay(node *models.Node) error {
 	if node.SelectedInternetEgressID != "" {
 		return errors.New("node is using an exit node; auto-relay is not allowed")
 	}
-	if NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
-		return errors.New("exit node cannot use auto-relay options")
-	}
 	return nil
 }
 
-// ErrExitNodeBlocksDisconnect returns an error when a node using an exit node
-// must not be disconnected from the network. Disconnecting while full-tunnel
-// routed through an exit node can strand connectivity; unassign the exit node first.
-func ErrExitNodeBlocksDisconnect(node *models.Node) error {
-	if node == nil {
-		return nil
+// ClearExitNodeForDisconnect clears the node's internet exit selection so a
+// subsequent peer update can remove full-tunnel routes before disconnect.
+// Returns true when a selection was cleared. Callers should sync related fields
+// onto any in-flight node copy (SelectedInternetEgressID, InternetGwID,
+// IsRelayed, RelayedBy) from the updated node.
+func ClearExitNodeForDisconnect(node *models.Node) (bool, error) {
+	if node == nil || node.SelectedInternetEgressID == "" {
+		return false, nil
 	}
-	if node.SelectedInternetEgressID != "" {
-		return errors.New("node is using an exit node; unassign the exit node before disconnecting from the network")
+	if err := SetNodeSelectedInternetEgress(node, ""); err != nil {
+		return false, err
 	}
-	return nil
+	return true, nil
+}
+
+// SyncClearedExitNodeFields copies exit/relay fields after ClearExitNodeForDisconnect
+// onto another node object that will be persisted (e.g. the disconnect update payload).
+func SyncClearedExitNodeFields(dst, src *models.Node) {
+	if dst == nil || src == nil {
+		return
+	}
+	dst.SelectedInternetEgressID = src.SelectedInternetEgressID
+	dst.InternetGwID = src.InternetGwID
+	dst.IsRelayed = src.IsRelayed
+	dst.RelayedBy = src.RelayedBy
 }
 
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
