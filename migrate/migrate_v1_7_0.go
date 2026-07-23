@@ -514,14 +514,16 @@ func setTenantID(ctx context.Context) error {
 		}
 	}
 
-	err = db.FromContext(ctx).Model(&schema.PendingUser{}).
-		Where("scope_id = ?", "").
-		Updates(map[string]any{
-			"scope":    scope.TenantScope,
-			"scope_id": defaultTenant.ID,
-		}).Error
-	if err != nil {
-		return err
+	for _, model := range scopedModels() {
+		err := db.FromContext(ctx).Model(model).
+			Where("scope_id = ?", "").
+			Updates(map[string]any{
+				"scope":    scope.TenantScope,
+				"scope_id": defaultTenant.ID,
+			}).Error
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

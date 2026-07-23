@@ -60,8 +60,12 @@ func tenantScopedModels() []any {
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
-		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
+		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{},
 	}
+}
+
+func scopedModels() []any {
+	return []any{&schema.PendingUser{}, &schema.UserInvite{}}
 }
 
 func RekeyTenant(ctx context.Context, oldID, newID string) error {
@@ -78,10 +82,12 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
-	if err := db.FromContext(ctx).Model(&schema.PendingUser{}).
-		Where("scope = ? AND scope_id = ?", scope.TenantScope, oldID).
-		Update("scope_id", newID).Error; err != nil {
-		return err
+	for _, model := range scopedModels() {
+		if err := db.FromContext(ctx).Model(model).
+			Where("scope = ? AND scope_id = ?", scope.TenantScope, oldID).
+			Update("scope_id", newID).Error; err != nil {
+			return err
+		}
 	}
 
 	return db.FromContext(ctx).Model(&schema.Tenant{}).
@@ -106,10 +112,12 @@ func RekeyOrganization(ctx context.Context, oldID, newID string) error {
 		return err
 	}
 
-	if err := db.FromContext(ctx).Model(&schema.PendingUser{}).
-		Where("scope = ? AND scope_id = ?", scope.OrgScope, oldID).
-		Update("scope_id", newID).Error; err != nil {
-		return err
+	for _, model := range scopedModels() {
+		if err := db.FromContext(ctx).Model(model).
+			Where("scope = ? AND scope_id = ?", scope.OrgScope, oldID).
+			Update("scope_id", newID).Error; err != nil {
+			return err
+		}
 	}
 
 	return db.FromContext(ctx).Model(&schema.Organization{}).
