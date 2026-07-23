@@ -42,9 +42,31 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 	return t.grantExistingOwnerAccess(ctx, tenant)
 }
 
+func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenantID string, user *schema.User) error {
+	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenantID)
+	user.PlatformRoleID = schema.SuperAdminRole
+	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
+}
+
 func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *schema.Tenant) error {
+	defaultSettings := logic.GetDefaultTenantSettings()
+
+	if !t.isMSPTenant(ctx, tenant.OrganizationID) {
+		defaultSettings.Telemetry = "off"
+	}
+
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-	return logic.UpsertServerSettings(tenantCtx, logic.GetDefaultTenantSettings())
+	return logic.UpsertServerSettings(tenantCtx, defaultSettings)
+}
+
+func (t *TenantOrchestrator) isMSPTenant(ctx context.Context, orgID string) bool {
+	defaultOrg := &schema.Organization{}
+	err := defaultOrg.GetDefault(ctx)
+	if err != nil {
+		return false
+	}
+
+	return defaultOrg.ID == orgID
 }
 
 func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
@@ -65,10 +87,4 @@ func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenan
 	}
 
 	return t.GrantTenantSuperAdmin(ctx, tenant.ID, user)
-}
-
-func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenantID string, user *schema.User) error {
-	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenantID)
-	user.PlatformRoleID = schema.SuperAdminRole
-	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
 }
