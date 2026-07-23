@@ -18,11 +18,12 @@ var (
 )
 
 type PendingUser struct {
-	ID                         string    `gorm:"primaryKey" json:"id"`
-	TenantID                   string    `gorm:"default:'';uniqueIndex:udx_pending_user_tenant_username" json:"tenant_id"`
-	Username                   string    `gorm:"uniqueIndex:udx_pending_user_tenant_username" json:"username"`
-	ExternalIdentityProviderID string    `json:"external_identity_provider_id"`
-	CreatedAt                  time.Time `json:"created_at"`
+	ID                         string      `gorm:"primaryKey" json:"id"`
+	Scope                      scope.Scope `gorm:"default:0;uniqueIndex:udx_pending_user_scope_username" json:"scope"`
+	ScopeID                    string      `gorm:"default:'';uniqueIndex:udx_pending_user_scope_username" json:"scope_id"`
+	Username                   string      `gorm:"uniqueIndex:udx_pending_user_scope_username" json:"username"`
+	ExternalIdentityProviderID string      `json:"external_identity_provider_id"`
+	CreatedAt                  time.Time   `json:"created_at"`
 }
 
 const pendingUsersTable = "pending_users_v1"

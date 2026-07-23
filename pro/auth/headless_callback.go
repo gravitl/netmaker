@@ -74,7 +74,8 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			pendingUser := &schema.PendingUser{
-				TenantID:                   scope.ID(r.Context()),
+				Scope:                      scope.Level(r.Context()),
+				ScopeID:                    scope.ID(r.Context()),
 				Username:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
 			}

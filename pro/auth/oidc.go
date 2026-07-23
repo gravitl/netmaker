@@ -139,7 +139,8 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				pendingUser := &schema.PendingUser{
-					TenantID:                   scope.ID(r.Context()),
+					Scope:                      scope.Level(r.Context()),
+					ScopeID:                    scope.ID(r.Context()),
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
 				}
