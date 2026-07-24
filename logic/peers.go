@@ -657,7 +657,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			}
 			inetEgressesPublished = true
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
-			egressrange := ExpandEgressRouteRanges(e, node.Address6.IP != nil)
+			egressrange := ExpandEgressRouteRanges(e, exitHostHasEndpointIPv6(&node))
 			rangeWithMetric := []models.EgressRangeMetric{}
 			for _, rangeI := range egressrange {
 				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
@@ -697,7 +697,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		if !inetEgressesPublished && IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
-			if node.Address6.IP != nil {
+			if exitHostHasEndpointIPv6(&node) {
 				egressrange = append(egressrange, "::/0")
 			}
 			rangeWithMetric := []models.EgressRangeMetric{}

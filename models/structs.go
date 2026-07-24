@@ -271,6 +271,7 @@ type HostPull struct {
 	FwUpdate           FwUpdate                    `json:"fw_update"`
 	ChangeDefaultGw    bool                        `json:"change_default_gw"`
 	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
+	DefaultGwIp6       net.IP                      `json:"default_gw_ip6"`
 	IsInternetGw       bool                        `json:"is_inet_gw"`
 	EndpointDetection  bool                        `json:"endpoint_detection"`
 	NameServers        []string                    `json:"name_servers"`

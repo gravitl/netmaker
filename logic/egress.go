@@ -905,7 +905,8 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		NatEnabled: "yes",
 	}
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
-	includeIPv6 := targetNode.Address6.IP != nil
+	// For internet egress, ::/0 is gated on the exit host's public IPv6 endpoint.
+	includeIPv6 := exitHostHasEndpointIPv6(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -1053,7 +1054,8 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 		NatEnabled: "yes",
 	}
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
-	includeIPv6 := targetNode.Address6.IP != nil
+	// For internet egress, ::/0 is gated on the exit host's public IPv6 endpoint.
+	includeIPv6 := exitHostHasEndpointIPv6(targetNode)
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue

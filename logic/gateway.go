@@ -10,6 +10,7 @@ import (
 
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -341,32 +342,82 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 	if !inetNode.Connected {
 		return peerUpdate
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(db.WithContext(context.TODO()))
-	if err != nil {
+
+	gw4, gw6 := internetEgressGwIPs(&inetNode)
+	if gw4 == nil && gw6 == nil {
 		return peerUpdate
 	}
 
 	peerUpdate.ChangeDefaultGw = true
-	peerUpdate.DefaultGwIp = inetNode.Address.IP
-	if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
-		peerUpdate.DefaultGwIp = inetNode.Address6.IP
+	peerUpdate.DefaultGwIp6 = gw6
+	peerUpdate.DefaultGwIp = gw4
+	// Legacy DefaultGwIp field: IPv4 preferred, else IPv6.
+	if peerUpdate.DefaultGwIp == nil {
+		peerUpdate.DefaultGwIp = peerUpdate.DefaultGwIp6
 	}
 	return peerUpdate
 }
 
-// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw
+// internetEgressGwIPs returns overlay nexthops for a client using inetNode as exit,
+// gated on the exit host's public endpoints (dual-stack = both EndpointIP and EndpointIPv6 present).
+func internetEgressGwIPs(inetNode *models.Node) (gw4, gw6 net.IP) {
+	if inetNode == nil {
+		return nil, nil
+	}
+	host, ok := getExitHostSafe(inetNode.HostID)
+	if !ok {
+		// Safe fallback: use overlay addresses when host lookup fails.
+		return inetNode.Address.IP, inetNode.Address6.IP
+	}
+	if host.EndpointIP != nil && len(host.EndpointIP) > 0 {
+		gw4 = inetNode.Address.IP
+	}
+	if host.EndpointIPv6 != nil && len(host.EndpointIPv6) > 0 {
+		gw6 = inetNode.Address6.IP
+	}
+	return gw4, gw6
+}
+
+// exitHostHasEndpointIPv6 reports whether the exit node's host has a public IPv6 endpoint.
+// Used to decide whether internet egress should expand ::/0.
+func exitHostHasEndpointIPv6(node *models.Node) bool {
+	if node == nil {
+		return false
+	}
+	host, ok := getExitHostSafe(node.HostID)
+	if !ok {
+		return node.Address6.IP != nil
+	}
+	return host.EndpointIPv6 != nil && len(host.EndpointIPv6) > 0
+}
+
+// getExitHostSafe loads a host without panicking when the DB is uninitialized (unit tests).
+func getExitHostSafe(hostID uuid.UUID) (host *schema.Host, ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+			host = nil
+		}
+	}()
+	h := &schema.Host{ID: hostID}
+	if err := h.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, false
+	}
+	return h, true
+}
+
+// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw.
+// Dual-stack is decided from the exit peer host's public endpoints.
 func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
+	gw4, gw6 := internetEgressGwIPs(peer)
 
-	if peer.Address.IP != nil {
+	if len(gw4) > 0 {
 		_, ipnet, _ := net.ParseCIDR(IPv4Network)
 		allowedips = append(allowedips, *ipnet)
 	}
 
-	if peer.Address6.IP != nil {
+	if len(gw6) > 0 {
 		_, ipnet, _ := net.ParseCIDR(IPv6Network)
 		allowedips = append(allowedips, *ipnet)
 	}
