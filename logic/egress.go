@@ -261,11 +261,26 @@ func ErrExitNodeBlocksGatewayOps(node *models.Node) error {
 	return nil
 }
 
-// ErrExitNodeBlocksAutoRelay returns an error when the node must not participate
-// in auto-relay as a client. Nodes using an exit already have RelayedBy managed
-// by exit selection. Exit routing nodes that are also gateways remain valid
-// auto-relay / auto-assign targets for other peers.
+// ErrExitNodeBlocksAutoRelay returns an error when the node must not be auto-relayed
+// (as victim/peer). Exit clients already have RelayedBy managed by exit selection;
+// exit routing nodes must not be auto-relayed (same as manual relay). Exit routing
+// nodes may still act as auto-relay gateways for other peers.
 func ErrExitNodeBlocksAutoRelay(node *models.Node) error {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		return errors.New("node is using an exit node; auto-relay is not allowed")
+	}
+	if IsInternetGw(*node) {
+		return errors.New("exit node cannot be auto-relayed")
+	}
+	return nil
+}
+
+// ErrExitClientBlocksAutoRelayRole returns an error when an exit client tries to act
+// as an auto-relay gateway. Exit routing nodes remain valid auto-relay targets.
+func ErrExitClientBlocksAutoRelayRole(node *models.Node) error {
 	if node == nil {
 		return nil
 	}

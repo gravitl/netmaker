@@ -105,7 +105,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -271,7 +271,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -493,8 +493,9 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// Exit-node gateways are valid auto-relay / auto-assign targets. Only clients
-	// using an exit are blocked (checked on node/peerNode above and in SetAutoRelayCtx).
+	// Exit-node gateways are valid auto-relay / auto-assign targets. Only exit
+	// clients and exit routing nodes are blocked from being auto-relayed
+	// (checked on node/peerNode above and in SetAutoRelayCtx).
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
 			if node.RelayedBy != "" {
@@ -628,7 +629,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err = logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

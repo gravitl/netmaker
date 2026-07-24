@@ -46,7 +46,7 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		return err
 	}
 	if peerNode.AutoRelayedPeers == nil {
@@ -83,7 +83,7 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitNodeBlocksAutoRelay(&autoRelayNode); err != nil {
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		return err
 	}
 	if peerNode.AutoRelayedPeers == nil {
@@ -312,7 +312,7 @@ func CreateAutoRelay(node models.Node) error {
 	if node.IsRelayed {
 		return errors.New("relayed node cannot be set as autoRelay")
 	}
-	if err := logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
 		return err
 	}
 	node.IsAutoRelay = true

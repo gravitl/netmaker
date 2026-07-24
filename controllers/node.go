@@ -721,7 +721,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !currentNode.IsAutoRelay && newNode.IsAutoRelay {
-		if err := logic.ErrExitNodeBlocksAutoRelay(newNode); err != nil {
+		if err := logic.ErrExitClientBlocksAutoRelayRole(newNode); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}

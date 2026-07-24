@@ -369,10 +369,10 @@ func internetEgressGwIPs(inetNode *models.Node) (gw4, gw6 net.IP) {
 		// Safe fallback: use overlay addresses when host lookup fails.
 		return inetNode.Address.IP, inetNode.Address6.IP
 	}
-	if host.EndpointIP != nil && len(host.EndpointIP) > 0 {
+	if len(host.EndpointIP) > 0 {
 		gw4 = inetNode.Address.IP
 	}
-	if host.EndpointIPv6 != nil && len(host.EndpointIPv6) > 0 {
+	if len(host.EndpointIPv6) > 0 {
 		gw6 = inetNode.Address6.IP
 	}
 	return gw4, gw6
@@ -388,7 +388,7 @@ func exitHostHasEndpointIPv6(node *models.Node) bool {
 	if !ok {
 		return node.Address6.IP != nil
 	}
-	return host.EndpointIPv6 != nil && len(host.EndpointIPv6) > 0
+	return len(host.EndpointIPv6) > 0
 }
 
 // getExitHostSafe loads a host without panicking when the DB is uninitialized (unit tests).
