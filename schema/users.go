@@ -41,11 +41,11 @@ type User struct {
 	DisplayName                string     `json:"display_name"`
 	PlatformRoleID             UserRoleID `gorm:"-" json:"platform_role_id,omitempty"`
 	ExternalIdentityProviderID string     `gorm:"-" json:"external_identity_provider_id"`
-	AccountDisabled            bool       `json:"account_disabled"`
+	AccountDisabled            bool       `gorm:"-" json:"account_disabled"`
 	AuthType                   AuthType   `gorm:"-" json:"auth_type"`
 	Password                   string     `gorm:"-" json:"password"`
-	IsMFAEnabled               bool       `json:"is_mfa_enabled"`
-	TOTPSecret                 string     `json:"totp_secret"`
+	IsMFAEnabled               bool       `gorm:"-" json:"is_mfa_enabled"`
+	TOTPSecret                 string     `gorm:"-" json:"totp_secret"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
 	LastLoginAt time.Time `json:"last_login_time"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
@@ -69,6 +69,7 @@ type userWithOrgMembership struct {
 	MemberAuthType                   AuthType   `gorm:"column:member_auth_type"`
 	MemberExternalIdentityProviderID string     `gorm:"column:member_external_identity_provider_id"`
 	MemberPassword                   string     `gorm:"column:member_password"`
+	MemberAccountDisabled            bool       `gorm:"column:member_account_disabled"`
 }
 
 // userWithMembership is a flattened scan target for queries that JOIN tenant_memberships_v1.
@@ -79,6 +80,9 @@ type userWithMembership struct {
 	MemberAuthType                   AuthType                                     `gorm:"column:member_auth_type"`
 	MemberExternalIdentityProviderID string                                       `gorm:"column:member_external_identity_provider_id"`
 	MemberPassword                   string                                       `gorm:"column:member_password"`
+	MemberAccountDisabled            bool                                         `gorm:"column:member_account_disabled"`
+	MemberIsMFAEnabled               bool                                         `gorm:"column:member_is_mfa_enabled"`
+	MemberTOTPSecret                 string                                       `gorm:"column:member_totp_secret"`
 }
 
 func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {
@@ -127,7 +131,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		var row userWithOrgMembership
 		err := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled").
 			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
 			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 			First(&row).
@@ -140,6 +144,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		u.AuthType = row.MemberAuthType
 		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 		u.Password = row.MemberPassword
+		u.AccountDisabled = row.MemberAccountDisabled
 		return nil
 	}
 
@@ -148,7 +153,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		var row userWithMembership
 		err := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password, tm.account_disabled AS member_account_disabled, tm.is_mfa_enabled AS member_is_mfa_enabled, tm.totp_secret AS member_totp_secret").
 			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 			First(&row).
@@ -162,6 +167,9 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		u.AuthType = row.MemberAuthType
 		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 		u.Password = row.MemberPassword
+		u.AccountDisabled = row.MemberAccountDisabled
+		u.IsMFAEnabled = row.MemberIsMFAEnabled
+		u.TOTPSecret = row.MemberTOTPSecret
 		return nil
 	}
 
@@ -188,7 +196,7 @@ func (u *User) GetByExternalID(ctx context.Context) error {
 	var row userWithMembership
 	err := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password, tm.account_disabled AS member_account_disabled, tm.is_mfa_enabled AS member_is_mfa_enabled, tm.totp_secret AS member_totp_secret").
 		Joins("LEFT JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 		Where("tm.external_identity_provider_id = ?", u.ExternalIdentityProviderID).
 		First(&row).
@@ -202,6 +210,9 @@ func (u *User) GetByExternalID(ctx context.Context) error {
 	u.AuthType = row.MemberAuthType
 	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 	u.Password = row.MemberPassword
+	u.AccountDisabled = row.MemberAccountDisabled
+	u.IsMFAEnabled = row.MemberIsMFAEnabled
+	u.TOTPSecret = row.MemberTOTPSecret
 	return nil
 }
 
@@ -214,7 +225,7 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 	var row userWithMembership
 	err := db.FromContext(ctx).
 		Table("users_v1").
-		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password, tm.account_disabled AS member_account_disabled, tm.is_mfa_enabled AS member_is_mfa_enabled, tm.totp_secret AS member_totp_secret").
 		Joins("INNER JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID).
 		Where("tm.role_id = ?", SuperAdminRole).
 		First(&row).
@@ -228,6 +239,9 @@ func (u *User) GetSuperAdmin(ctx context.Context) error {
 	u.AuthType = row.MemberAuthType
 	u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 	u.Password = row.MemberPassword
+	u.AccountDisabled = row.MemberAccountDisabled
+	u.IsMFAEnabled = row.MemberIsMFAEnabled
+	u.TOTPSecret = row.MemberTOTPSecret
 	return nil
 }
 
@@ -292,7 +306,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 		orgID := scope.ID(ctx)
 		query := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled").
 			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID)
 
 		for _, option := range options {
@@ -311,6 +325,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 			users[i].AuthType = row.MemberAuthType
 			users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 			users[i].Password = row.MemberPassword
+			users[i].AccountDisabled = row.MemberAccountDisabled
 		}
 		return users, nil
 	}
@@ -319,7 +334,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 		tenantID := scope.ID(ctx)
 		query := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password").
+			Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password, tm.account_disabled AS member_account_disabled, tm.is_mfa_enabled AS member_is_mfa_enabled, tm.totp_secret AS member_totp_secret").
 			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 
 		for _, option := range options {
@@ -339,6 +354,9 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 			users[i].AuthType = row.MemberAuthType
 			users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 			users[i].Password = row.MemberPassword
+			users[i].AccountDisabled = row.MemberAccountDisabled
+			users[i].IsMFAEnabled = row.MemberIsMFAEnabled
+			users[i].TOTPSecret = row.MemberTOTPSecret
 		}
 		return users, nil
 	}
@@ -368,30 +386,38 @@ func (u *User) Update(ctx context.Context) error {
 }
 
 func (u *User) UpdateAccountStatus(ctx context.Context) error {
-	if u.ID == "" && u.Username == "" {
-		return ErrUserIdentifiersNotProvided
+	scopeID := scope.ID(ctx)
+	if scopeID == "" {
+		return ErrScopeNotProvider
 	}
 
-	return db.FromContext(ctx).Model(&User{}).
-		Where("id = ? OR username = ?", u.ID, u.Username).
-		Updates(map[string]any{
-			"account_disabled": u.AccountDisabled,
-		}).
-		Error
+	if scope.Level(ctx) == scope.OrgScope {
+		return (&OrgMembership{
+			OrganizationID:  scopeID,
+			UserID:          u.ID,
+			AccountDisabled: u.AccountDisabled,
+		}).UpdateAccountStatus(ctx)
+	}
+
+	return (&TenantMembership{
+		TenantID:        scopeID,
+		UserID:          u.ID,
+		AccountDisabled: u.AccountDisabled,
+	}).UpdateAccountStatus(ctx)
 }
 
 func (u *User) UpdateMFA(ctx context.Context) error {
-	if u.ID == "" && u.Username == "" {
-		return ErrUserIdentifiersNotProvided
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return ErrTenantIDNotProvided
 	}
 
-	return db.FromContext(ctx).Model(&User{}).
-		Where("id = ? OR username = ?", u.ID, u.Username).
-		Updates(map[string]any{
-			"is_mfa_enabled": u.IsMFAEnabled,
-			"totp_secret":    u.TOTPSecret,
-		}).
-		Error
+	return (&TenantMembership{
+		TenantID:     tenantID,
+		UserID:       u.ID,
+		IsMFAEnabled: u.IsMFAEnabled,
+		TOTPSecret:   u.TOTPSecret,
+	}).UpdateMFA(ctx)
 }
 
 func (u *User) UpdateUserSettings(ctx context.Context) error {
@@ -434,6 +460,7 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 			AuthType:                   u.AuthType,
 			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
 			Password:                   u.Password,
+			AccountDisabled:            u.AccountDisabled,
 		}).Upsert(ctx)
 	}
 
@@ -445,6 +472,9 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 		AuthType:                   u.AuthType,
 		ExternalIdentityProviderID: u.ExternalIdentityProviderID,
 		Password:                   u.Password,
+		AccountDisabled:            u.AccountDisabled,
+		IsMFAEnabled:               u.IsMFAEnabled,
+		TOTPSecret:                 u.TOTPSecret,
 	}).Upsert(ctx)
 }
 

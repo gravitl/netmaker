@@ -13,6 +13,7 @@ type OrgMembership struct {
 	AuthType                   AuthType   `json:"auth_type"`
 	ExternalIdentityProviderID string     `json:"external_identity_provider_id"`
 	Password                   string     `json:"password"`
+	AccountDisabled            bool       `json:"account_disabled"`
 }
 
 func (o *OrgMembership) TableName() string {
@@ -48,6 +49,13 @@ func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, erro
 
 func (o *OrgMembership) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(o).Error
+}
+
+func (o *OrgMembership) UpdateAccountStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Update("account_disabled", o.AccountDisabled).
+		Error
 }
 
 func (o *OrgMembership) Delete(ctx context.Context) error {

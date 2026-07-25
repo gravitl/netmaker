@@ -15,6 +15,9 @@ type TenantMembership struct {
 	AuthType                   AuthType                                     `json:"auth_type"`
 	ExternalIdentityProviderID string                                       `json:"external_identity_provider_id"`
 	Password                   string                                       `json:"password"`
+	AccountDisabled            bool                                         `json:"account_disabled"`
+	IsMFAEnabled               bool                                         `json:"is_mfa_enabled"`
+	TOTPSecret                 string                                       `json:"totp_secret"`
 }
 
 func (t *TenantMembership) TableName() string {
@@ -61,6 +64,23 @@ func (t *TenantMembership) UpdateExternalIdentityProviderID(ctx context.Context)
 	return db.FromContext(ctx).Model(&TenantMembership{}).
 		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
 		Update("external_identity_provider_id", t.ExternalIdentityProviderID).
+		Error
+}
+
+func (t *TenantMembership) UpdateAccountStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		Update("account_disabled", t.AccountDisabled).
+		Error
+}
+
+func (t *TenantMembership) UpdateMFA(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		Updates(map[string]any{
+			"is_mfa_enabled": t.IsMFAEnabled,
+			"totp_secret":    t.TOTPSecret,
+		}).
 		Error
 }
 

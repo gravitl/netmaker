@@ -14,6 +14,9 @@ type LegacyUser struct {
 	AuthType                   schema.AuthType                                     `gorm:"column:auth_type"`
 	ExternalIdentityProviderID string                                              `gorm:"column:external_identity_provider_id"`
 	Password                   string                                              `gorm:"column:password"`
+	AccountDisabled            bool                                                `gorm:"column:account_disabled"`
+	IsMFAEnabled               bool                                                `gorm:"column:is_mfa_enabled"`
+	TOTPSecret                 string                                              `gorm:"column:totp_secret"`
 }
 
 func (LegacyUser) TableName() string {
