@@ -5,6 +5,7 @@ import (
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
@@ -18,7 +19,12 @@ func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
-	limits.Users, _ = (&schema.User{}).Count(ctx)
+
+	if scope.Level(ctx) == scope.TenantScope {
+		limits.Users, _ = (&schema.User{}).CountWithMembership(ctx)
+	} else {
+		limits.Users, _ = (&schema.User{}).Count(ctx)
+	}
 	limits.Networks, _ = (&schema.Network{}).Count(ctx)
 	limits.Egresses, _ = (&schema.Egress{}).Count(ctx)
 
