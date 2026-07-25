@@ -71,10 +71,10 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users_pending", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users_pending", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser)))).Methods(http.MethodPost)
 
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW)))).Methods(http.MethodDelete)
