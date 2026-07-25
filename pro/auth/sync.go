@@ -273,6 +273,11 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				if err != nil {
 					return err
 				}
+
+				err = dbUser.UpdateAccountStatus(ctx)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			logger.Log(0, "user with username "+user.Username+" already exists, skipping creation")
