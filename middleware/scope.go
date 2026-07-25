@@ -93,11 +93,6 @@ func InferScope(next http.Handler) http.HandlerFunc {
 			tenantID = r.URL.Query().Get(scope.QueryTenantID)
 		}
 
-		if orgID != "" && tenantID != "" {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errAmbiguousScope, logic.BadReq))
-			return
-		}
-
 		if orgID != "" {
 			o := &schema.Organization{ID: orgID}
 			if err := o.Get(db.WithContext(r.Context())); err != nil {
@@ -106,9 +101,7 @@ func InferScope(next http.Handler) http.HandlerFunc {
 			}
 			next.ServeHTTP(w, r.WithContext(scope.WithContext(r.Context(), scope.OrgScope, orgID)))
 			return
-		}
-
-		if tenantID != "" {
+		} else if tenantID != "" {
 			t := &schema.Tenant{ID: tenantID}
 			if err := t.Get(db.WithContext(r.Context())); err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
