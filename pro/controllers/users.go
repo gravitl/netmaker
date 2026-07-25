@@ -2107,7 +2107,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		ExternalIdentityProviderID: pendingUser.ExternalIdentityProviderID,
 		Password:                   newPass,
 		AuthType:                   schema.OAuth,
-		PlatformRoleID:             schema.ServiceUser,
+		PlatformRoleID:             proLogic.DefaultRoleForScope(scope.Level(r.Context())),
 	})
 	if err != nil {
 		errType := logic.Internal
