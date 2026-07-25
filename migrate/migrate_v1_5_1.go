@@ -129,6 +129,9 @@ func migrateUsers(ctx context.Context) error {
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
+			AccountDisabled:            user.AccountDisabled,
+			IsMFAEnabled:               user.IsMFAEnabled,
+			TOTPSecret:                 user.TOTPSecret,
 		}
 		err = tm.Create(ctx)
 		if err != nil {
@@ -144,6 +147,7 @@ func migrateUsers(ctx context.Context) error {
 				AuthType:                   user.AuthType,
 				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 				Password:                   user.Password,
+				AccountDisabled:            user.AccountDisabled,
 			}
 			err = om.Create(ctx)
 			if err != nil {

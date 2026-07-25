@@ -463,6 +463,9 @@ func createMemberships(ctx context.Context) error {
 			AuthType:                   u.AuthType,
 			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
 			Password:                   u.Password,
+			AccountDisabled:            u.AccountDisabled,
+			IsMFAEnabled:               u.IsMFAEnabled,
+			TOTPSecret:                 u.TOTPSecret,
 		}
 		err = db.FromContext(ctx).
 			Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
@@ -473,9 +476,10 @@ func createMemberships(ctx context.Context) error {
 
 		if u.PlatformRoleID == schema.SuperAdminRole {
 			om := &schema.OrgMembership{
-				OrganizationID: defaultOrg.ID,
-				UserID:         u.ID,
-				RoleID:         schema.OrgOwner,
+				OrganizationID:  defaultOrg.ID,
+				UserID:          u.ID,
+				RoleID:          schema.OrgOwner,
+				AccountDisabled: u.AccountDisabled,
 			}
 			err = db.FromContext(ctx).
 				Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
