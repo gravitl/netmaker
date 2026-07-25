@@ -663,7 +663,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if totp.Validate(req.TOTP, totpSecret) {
 		user.IsMFAEnabled = true
 		user.TOTPSecret = totpSecret
-		err = logic.UpsertUser(*user)
+		err = user.UpdateMFA(r.Context())
 		if err != nil {
 			err = fmt.Errorf("error upserting user: %v", err)
 			logger.Log(0, err.Error())
