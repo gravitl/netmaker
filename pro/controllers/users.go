@@ -101,7 +101,7 @@ func UserHandlers(r *mux.Router) {
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	in, err := logic.GetUserInvite(emailID)
+	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -131,7 +131,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
-		user.PlatformRoleID = schema.ServiceUser
+		user.PlatformRoleID = proLogic.DefaultRoleForScope(in.Scope)
 	}
 
 	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(r.Context(), &user)
@@ -143,10 +143,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 
 	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if err = user.UpsertMembership(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -200,6 +196,19 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	orgScoped := scope.Level(r.Context()) == scope.OrgScope
+
+	if orgScoped {
+		if len(inviteReq.UserGroups) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user groups are not supported for organization scope"), "badrequest"))
+			return
+		}
+		if len(inviteReq.NetworkRoles) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network roles are not supported for organization scope"), "badrequest"))
+			return
+		}
+	}
+
 	callerUserName := r.Header.Get("user")
 	if r.Header.Get("ismaster") != "yes" {
 		caller := &schema.User{Username: callerUserName}
@@ -208,31 +217,40 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 			return
 		}
-		if inviteReq.PlatformRoleID == schema.SuperAdminRole.String() {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
-			return
-		}
 		if inviteReq.PlatformRoleID == "" {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
 			return
 		}
-		if (inviteReq.PlatformRoleID == schema.AdminRole.String() ||
-			inviteReq.PlatformRoleID == schema.SuperAdminRole.String()) && caller.PlatformRoleID != schema.SuperAdminRole {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
-			return
+		if orgScoped {
+			if inviteReq.PlatformRoleID == schema.OrgOwner.String() {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("org owner cannot be invited"), "badrequest"))
+				return
+			}
+		} else {
+			if inviteReq.PlatformRoleID == schema.SuperAdminRole.String() {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
+				return
+			}
+			if (inviteReq.PlatformRoleID == schema.AdminRole.String() ||
+				inviteReq.PlatformRoleID == schema.SuperAdminRole.String()) && caller.PlatformRoleID != schema.SuperAdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
+				return
+			}
 		}
 	}
 
 	//validate Req
-	err = proLogic.IsGroupsValid(inviteReq.UserGroups)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	if !orgScoped {
+		err = proLogic.IsGroupsValid(inviteReq.UserGroups)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	// check platform role
@@ -240,6 +258,14 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	err = roleCheck.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	validRoles := orchestrator.ValidTenantRoles
+	if orgScoped {
+		validRoles = orchestrator.ValidOrgRoles
+	}
+	if !validRoles[roleCheck.ID] {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
 		return
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {

@@ -861,9 +861,16 @@ func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
 	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
-		user.PlatformRoleID = schema.ServiceUser
+		user.PlatformRoleID = DefaultRoleForScope(in.Scope)
 	}
 	return user, nil
+}
+
+func DefaultRoleForScope(s scope.Scope) schema.UserRoleID {
+	if s == scope.OrgScope {
+		return schema.OrgAdmin
+	}
+	return schema.ServiceUser
 }
 
 func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
