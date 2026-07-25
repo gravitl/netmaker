@@ -37,10 +37,14 @@ func (u *UserInvite) Create(ctx context.Context) error {
 }
 
 func (u *UserInvite) GetByEmail(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ?", u.Email).
-		First(u).
-		Error
+	query := db.FromContext(ctx).Model(&UserInvite{}).
+		Where("email = ?", u.Email)
+	if scopeID := scope.ID(ctx); scopeID != "" {
+		query = query.
+			Where(fmt.Sprintf("%s.scope = ?", userInvitesTable), scope.Level(ctx)).
+			Where(fmt.Sprintf("%s.scope_id = ?", userInvitesTable), scopeID)
+	}
+	return query.First(u).Error
 }
 
 func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]UserInvite, error) {
