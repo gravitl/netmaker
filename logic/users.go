@@ -102,11 +102,11 @@ func GetUserMap() (map[string]schema.User, error) {
 	return userMap, nil
 }
 
-func GetUserInvite(email string) (*schema.UserInvite, error) {
+func GetUserInvite(ctx context.Context, email string) (*schema.UserInvite, error) {
 	userInvite := &schema.UserInvite{
 		Email: email,
 	}
-	err := userInvite.GetByEmail(db.WithContext(context.TODO()))
+	err := userInvite.GetByEmail(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +114,8 @@ func GetUserInvite(email string) (*schema.UserInvite, error) {
 	return userInvite, nil
 }
 
-func ValidateAndApproveUserInvite(email, code string) error {
-	in, err := GetUserInvite(email)
+func ValidateAndApproveUserInvite(ctx context.Context, email, code string) error {
+	in, err := GetUserInvite(ctx, email)
 	if err != nil {
 		return err
 	}

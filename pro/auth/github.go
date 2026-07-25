@@ -87,7 +87,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var inviteExists bool
-	in, err := logic.GetUserInvite(content.Email)
+	in, err := logic.GetUserInvite(r.Context(), content.Email)
 	if err == nil {
 		inviteExists = true
 	}

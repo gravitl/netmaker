@@ -173,7 +173,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	err := logic.ValidateAndApproveUserInvite(email, code)
+	err := logic.ValidateAndApproveUserInvite(r.Context(), email, code)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
