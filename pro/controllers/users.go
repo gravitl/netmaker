@@ -64,12 +64,12 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
 
 	// User Invite Handlers
-	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, http.HandlerFunc(userInviteVerify))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite-signup", middleware.Scope(scope.TenantScope, http.HandlerFunc(userInviteSignUp))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(http.HandlerFunc(userInviteVerify))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite-signup", middleware.InferScope(http.HandlerFunc(userInviteSignUp))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
 
 	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
