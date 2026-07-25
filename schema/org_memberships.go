@@ -45,3 +45,14 @@ func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, erro
 		Error
 	return memberships, err
 }
+
+func (o *OrgMembership) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(o).Error
+}
+
+func (o *OrgMembership) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Delete(o).
+		Error
+}
