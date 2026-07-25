@@ -32,6 +32,7 @@ const (
 var (
 	ErrUserIdentifiersNotProvided = errors.New("user identifiers not provided")
 	ErrTenantIDNotProvided        = errors.New("tenant ID not provided")
+	ErrScopeNotProvider           = errors.New("scope not provider")
 )
 
 type User struct {
@@ -419,16 +420,25 @@ func (u *User) Delete(ctx context.Context) error {
 		Error
 }
 
-// UpsertMembership persists PlatformRoleID and UserGroups to tenant_memberships_v1
-// using the tenant ID from the scope context. No-op when no tenant is in scope.
 func (u *User) UpsertMembership(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	if tenantID == "" {
-		return nil
+	scopeID := scope.ID(ctx)
+	if scopeID == "" {
+		return ErrScopeNotProvider
+	}
+
+	if scope.Level(ctx) == scope.OrgScope {
+		return (&OrgMembership{
+			OrganizationID:             scopeID,
+			UserID:                     u.ID,
+			RoleID:                     u.PlatformRoleID,
+			AuthType:                   u.AuthType,
+			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
+			Password:                   u.Password,
+		}).Upsert(ctx)
 	}
 
 	return (&TenantMembership{
-		TenantID:                   tenantID,
+		TenantID:                   scopeID,
 		UserID:                     u.ID,
 		RoleID:                     u.PlatformRoleID,
 		Groups:                     u.UserGroups,
@@ -438,13 +448,15 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 	}).Upsert(ctx)
 }
 
-// DeleteMembership removes the user's membership from the tenant in scope.
-// No-op when no tenant is in scope.
 func (u *User) DeleteMembership(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	if tenantID == "" {
-		return nil
+	scopeID := scope.ID(ctx)
+	if scopeID == "" {
+		return ErrScopeNotProvider
 	}
 
-	return (&TenantMembership{TenantID: tenantID, UserID: u.ID}).Delete(ctx)
+	if scope.Level(ctx) == scope.OrgScope {
+		return (&OrgMembership{OrganizationID: scopeID, UserID: u.ID}).Delete(ctx)
+	}
+
+	return (&TenantMembership{TenantID: scopeID, UserID: u.ID}).Delete(ctx)
 }
