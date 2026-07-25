@@ -90,6 +90,9 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
+			AccountDisabled:            user.AccountDisabled,
+			IsMFAEnabled:               user.IsMFAEnabled,
+			TOTPSecret:                 user.TOTPSecret,
 		}
 
 		u.userExt.ConfigureGroups(membership, user.UserGroups)
@@ -108,6 +111,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
+			AccountDisabled:            user.AccountDisabled,
 		}
 		err = membership.Create(ctx)
 		if err != nil {
