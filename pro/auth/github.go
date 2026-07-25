@@ -91,7 +91,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	if err == nil {
 		inviteExists = true
 	}
-	if !inviteExists && logic.IsPendingUser(content.Email) {
+	if !inviteExists && logic.IsPendingUser(r.Context(), content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}

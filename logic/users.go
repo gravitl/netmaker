@@ -77,10 +77,10 @@ func GetSuperAdmin(ctx context.Context) (models.ReturnUser, error) {
 	return ToReturnUser(_user), nil
 }
 
-func IsPendingUser(username string) bool {
+func IsPendingUser(ctx context.Context, username string) bool {
 	exists, err := (&schema.PendingUser{
 		Username: username,
-	}).Exists(db.WithContext(context.TODO()))
+	}).Exists(ctx)
 	if err == nil {
 		return exists
 	}

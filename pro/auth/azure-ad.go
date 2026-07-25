@@ -90,7 +90,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 	if err == nil {
 		inviteExists = true
 	}
-	if !inviteExists && (logic.IsPendingUser(content.Email) || logic.IsPendingUser(content.UserPrincipalName)) {
+	if !inviteExists && (logic.IsPendingUser(r.Context(), content.Email) || logic.IsPendingUser(r.Context(), content.UserPrincipalName)) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
