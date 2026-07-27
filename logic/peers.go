@@ -873,6 +873,23 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
 	if usesPeerAsInternetExit(node, peer) {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
+		// Exit clients still need explicit overlay routes through the exit node for
+		// mesh peers (including peers auto-relayed by this exit). 0.0.0.0/0 alone is
+		// not sufficient when auto-relayed peers must accept return traffic / when
+		// default-route handling is separate from overlay.
+		if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
+		}
+		// handle ingress gateway peers
+		if peer.IsIngressGateway {
+			extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+			if err != nil {
+				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
+			}
+			for _, extPeer := range extPeers {
+				allowedips = append(allowedips, withoutDefaultRoutes(extPeer.AllowedIPs)...)
+			}
+		}
 		return allowedips
 	}
 	// Non-exit clients must never inherit default routes from egress/relay aggregation.
@@ -1013,7 +1030,10 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
 	if peer.IsRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(peer, node))...)
-	} else if len(peer.RelayedNodes) > 0 && !usesPeerAsInternetExit(node, peer) {
+		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
+		// appear only under InetNodeClientIDs / RelayedIGWClients.
+		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
+	} else if !usesPeerAsInternetExit(node, peer) {
 		// A non-gateway internet exit node also relays the overlay traffic of the
 		// peers using it as an exit node (they are kept in RelayedNodes for
 		// stability). Advertise ONLY those clients' overlay addresses to other
@@ -1025,12 +1045,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		// routing loop, causing the exit node's endpoint to flap to an overlay
 		// address. Only third-party peers need these routes; the exit node's own
 		// clients already receive a default route to it.
-		for _, relayedNodeID := range peer.RelayedNodes {
-			if relayedNodeID == node.ID.String() {
-				continue
-			}
-			allowedips = append(allowedips, getRelayedAddresses(relayedNodeID)...)
-		}
+		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(peer, node))...)

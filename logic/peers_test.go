@@ -158,3 +158,4 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	}
 	assert.True(t, hasV4, "exit client should get 0.0.0.0/0")
 }
+

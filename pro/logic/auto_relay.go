@@ -260,9 +260,19 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 			if autoRelayedpeer.EgressDetails.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
 			}
+			// Advertise clients relayed by this auto-relayed peer (including exit-node
+			// clients on a non-gateway exit). Overlay only unless the peer is a relay,
+			// matching getNodeAllowedIPs — avoid attaching broad egress ranges that can
+			// loop the auto-relay endpoint onto an overlay address.
 			if autoRelayedpeer.IsRelay {
 				for _, id := range autoRelayedpeer.RelayedNodes {
-					rNode, _ := logic.GetNodeByID(id)
+					if id == node.ID.String() {
+						continue
+					}
+					rNode, err := logic.GetNodeByID(id)
+					if err != nil {
+						continue
+					}
 					logic.GetNodeEgressInfo(&rNode, eli, acls)
 					if rNode.Address.IP != nil {
 						allowed := net.IPNet{
@@ -282,6 +292,9 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
 				}
+				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
+			} else if len(autoRelayedpeer.RelayedNodes) > 0 || len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
+				allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node.ID.String())...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {

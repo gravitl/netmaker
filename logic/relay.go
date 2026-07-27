@@ -201,3 +201,53 @@ func getRelayedAddresses(id string) []net.IPNet {
 	}
 	return addrs
 }
+
+// ExitClientOverlayIPs returns /32 and /128 overlay addresses for clients in
+// peer.RelayedNodes and peer.InetNodeReq.InetNodeClientIDs, excluding excludeID.
+func ExitClientOverlayIPs(peer *models.Node, excludeID string) []net.IPNet {
+	if peer == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var out []net.IPNet
+	add := func(id string) {
+		if id == "" || id == excludeID {
+			return
+		}
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+		out = append(out, getRelayedAddresses(id)...)
+	}
+	for _, id := range peer.RelayedNodes {
+		add(id)
+	}
+	for _, id := range peer.InetNodeReq.InetNodeClientIDs {
+		add(id)
+	}
+	return out
+}
+
+// ExitClientOverlayIPsFromInetClients returns overlay IPs for InetNodeClientIDs
+// that are not already listed in RelayedNodes (RelayedAllowedIPs covers those).
+func ExitClientOverlayIPsFromInetClients(peer *models.Node, excludeID string) []net.IPNet {
+	if peer == nil || len(peer.InetNodeReq.InetNodeClientIDs) == 0 {
+		return nil
+	}
+	inRelayed := map[string]struct{}{}
+	for _, id := range peer.RelayedNodes {
+		inRelayed[id] = struct{}{}
+	}
+	var out []net.IPNet
+	for _, id := range peer.InetNodeReq.InetNodeClientIDs {
+		if id == "" || id == excludeID {
+			continue
+		}
+		if _, ok := inRelayed[id]; ok {
+			continue
+		}
+		out = append(out, getRelayedAddresses(id)...)
+	}
+	return out
+}

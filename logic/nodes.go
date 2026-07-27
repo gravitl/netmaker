@@ -741,6 +741,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			// Keep RelayedNodes complete for AllowedIPs: exit clients must be
+			// advertised even if RelayedClients and RelayedIGWClients diverge.
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
+			}
 		}
 
 		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
@@ -764,6 +769,9 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		}
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
+			}
 		}
 	}
 
