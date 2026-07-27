@@ -1375,8 +1375,8 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 	}
 }
 
-func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
-	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func GetUserGroupsInNetwork(ctx context.Context, netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
+	groups, _ := (&schema.UserGroup{}).ListAll(ctx)
 	networkGrps = make(map[schema.UserGroupID]schema.UserGroup)
 	for _, grp := range groups {
 		if _, ok := grp.NetworkRoles.Data()[schema.AllNetworks]; ok {

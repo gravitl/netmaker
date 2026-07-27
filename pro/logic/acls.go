@@ -553,7 +553,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 			return errors.New("invalid user group " + t.Value)
 		}
 		// check if group belongs to this network
-		netGrps := GetUserGroupsInNetwork(a.NetworkID)
+		netGrps := GetUserGroupsInNetwork(ctx, a.NetworkID)
 		if _, ok := netGrps[schema.UserGroupID(t.Value)]; !ok {
 			return errors.New("invalid user group " + t.Value)
 		}
