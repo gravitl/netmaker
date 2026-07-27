@@ -576,33 +576,20 @@ func validateInternetEgressSelection(
 }
 
 func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, schemaNode *schema.Node) error {
-	prevRoutingNodeID := ""
-	if schemaNode.SelectedInternetEgressID != "" {
-		e := &schema.Egress{ID: schemaNode.SelectedInternetEgressID}
-		if err := e.Get(ctx); err == nil {
-			prevRoutingNodeID = FirstInternetEgressRoutingNodeID(*e)
-		}
-	}
-	if prevRoutingNodeID == "" && schemaNode.IsIGWClient && schemaNode.RelayedByNodeID != nil {
-		prevRoutingNodeID = *schemaNode.RelayedByNodeID
-	}
-
 	if err := db.FromContext(ctx).Model(&schema.Node{}).Where("id = ?", schemaNode.ID).
 		Update("selected_internet_egress_id", "").Error; err != nil {
 		return err
 	}
 	schemaNode.SelectedInternetEgressID = ""
 
-	shouldUnassign := schemaNode.IsIGWClient &&
-		schemaNode.RelayedByNodeID != nil &&
-		*schemaNode.RelayedByNodeID != "" &&
-		(prevRoutingNodeID == "" || *schemaNode.RelayedByNodeID == prevRoutingNodeID)
-	if shouldUnassign {
-		schemaNode.RelayedByNodeID = nil
-		schemaNode.IsIGWClient = false
-		if err := schemaNode.UnassignGateway(ctx); err != nil {
-			return err
-		}
+	// Always drop exit RelayedBy / IsIGWClient when clearing selection. RelayedBy may
+	// still point at a deleted routing node while egress.Nodes already lists a new one;
+	// matching only FirstInternetEgressRoutingNodeID would leave a stale RelayedBy and
+	// block reassignment with "relayed by a different gateway".
+	schemaNode.RelayedByNodeID = nil
+	schemaNode.IsIGWClient = false
+	if err := schemaNode.UnassignGateway(ctx); err != nil {
+		return err
 	}
 
 	updated := ConvertSchemaNodeToModelsNode(schemaNode)
@@ -610,6 +597,46 @@ func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, sch
 		return errors.New("failed to reload node after clearing exit node")
 	}
 	updated.SelectedInternetEgressID = ""
+	updated.InternetGwID = ""
+	*node = *updated
+	return nil
+}
+
+// failOpenExitClientKeepSelection clears RelayedBy / IsIGWClient so full-tunnel
+// routes fail open, while keeping SelectedInternetEgressID for sticky reassignment.
+func failOpenExitClientKeepSelection(ctx context.Context, node *models.Node) error {
+	if node == nil {
+		return errors.New("node is required")
+	}
+	dbCtx := db.WithContext(ctx)
+	schemaNode := &schema.Node{ID: node.ID.String()}
+	if err := schemaNode.Get(dbCtx); err != nil {
+		return err
+	}
+	if schemaNode.NetworkID == "" && node.Network != "" {
+		nw := &schema.Network{Name: node.Network}
+		if err := nw.Get(dbCtx); err == nil {
+			schemaNode.NetworkID = nw.ID
+		}
+	}
+	if !schemaNode.IsIGWClient &&
+		(schemaNode.RelayedByNodeID == nil || *schemaNode.RelayedByNodeID == "") {
+		return nil
+	}
+	schemaNode.RelayedByNodeID = nil
+	schemaNode.IsIGWClient = false
+	if err := schemaNode.UnassignGateway(dbCtx); err != nil {
+		return err
+	}
+	updated := ConvertSchemaNodeToModelsNode(schemaNode)
+	if updated == nil || updated.ID.String() == "" {
+		return errors.New("failed to reload node after exit fail-open")
+	}
+	// Preserve sticky selection from the pre-update node / DB column.
+	updated.SelectedInternetEgressID = node.SelectedInternetEgressID
+	if updated.SelectedInternetEgressID == "" {
+		updated.SelectedInternetEgressID = schemaNode.SelectedInternetEgressID
+	}
 	updated.InternetGwID = ""
 	*node = *updated
 	return nil
@@ -708,6 +735,105 @@ func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID s
 		}
 		ClearNodesSelectedInternetEgress(ctx, e.ID, network)
 		_ = e.Delete(db.WithContext(ctx))
+	}
+}
+
+// PublishExitClientsFailOpen is wired from mq to push fail-open peer updates to
+// exit clients before their routing node is removed from the mesh.
+var PublishExitClientsFailOpen = func(clients []models.Node) {}
+
+// FailOpenAndDetachExitRoutingNode detaches exit routing state for a node about to
+// be removed, then pushes ordered fail-open peer updates to affected clients.
+func FailOpenAndDetachExitRoutingNode(ctx context.Context, node *models.Node) {
+	clients := DetachExitRoutingNode(ctx, node)
+	if len(clients) == 0 {
+		return
+	}
+	PublishExitClientsFailOpen(clients)
+	// Give clients a moment to apply fail-open before the peer disappears.
+	time.Sleep(1 * time.Second)
+}
+
+// DetachExitRoutingNode prepares a routing node for removal from the network:
+// fails open RelayedBy / IsIGWClient for exit clients (keeps sticky
+// SelectedInternetEgressID), removes the node from internet egress routing maps
+// (egress resource is kept for reassignment), and returns affected clients for
+// an ordered fail-open peer update.
+func DetachExitRoutingNode(ctx context.Context, node *models.Node) []models.Node {
+	if node == nil || node.Network == "" || node.ID == uuid.Nil {
+		return nil
+	}
+	// List clients before mutating egress.Nodes so sticky selections are still found.
+	clients := ListExitClientsForRoutingNode(ctx, node.Network, node.ID.String())
+	if len(clients) == 0 && !IsInternetGw(*node) && !NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+		return nil
+	}
+
+	dbCtx := db.WithContext(ctx)
+	eli, err := (&schema.Egress{Network: node.Network}).ListByNetwork(dbCtx)
+	if err != nil {
+		slog.Error("DetachExitRoutingNode: list egresses failed", "error", err)
+	}
+	for i := range eli {
+		e := &eli[i]
+		if !IsEgressInternetGateway(*e) {
+			continue
+		}
+		if _, ok := e.Nodes[node.ID.String()]; !ok {
+			continue
+		}
+		// Keep egress + sticky client selections; empty Nodes → fail-open exit routes.
+		delete(e.Nodes, node.ID.String())
+		newNodes := make(datatypes.JSONMap)
+		for k, v := range e.Nodes {
+			newNodes[k] = v
+		}
+		if err := db.FromContext(dbCtx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+			"nodes": newNodes,
+		}).Error; err != nil {
+			slog.Error("DetachExitRoutingNode: failed to update egress nodes", "id", e.ID, "error", err)
+		}
+	}
+
+	for i := range clients {
+		c := &clients[i]
+		if err := failOpenExitClientKeepSelection(ctx, c); err != nil {
+			slog.Error("DetachExitRoutingNode: fail-open client failed", "node", c.ID, "error", err)
+		}
+		if c.InternetGwID == node.ID.String() {
+			c.InternetGwID = ""
+			_ = UpsertNode(c)
+		}
+	}
+	if node.IsInternetGateway {
+		UnsetInternetGw(node)
+	}
+	return clients
+}
+
+// RebindInternetEgressClients re-applies exit selection for clients of an internet
+// egress after its routing node set changes (e.g. reassignment to a new node).
+func RebindInternetEgressClients(e schema.Egress) {
+	if !IsEgressInternetGateway(e) {
+		return
+	}
+	clients := ListNodesBySelectedInternetEgress(e.Network, e.ID)
+	routingID := FirstInternetEgressRoutingNodeID(e)
+	ctx := context.TODO()
+	for i := range clients {
+		c := clients[i]
+		// Drop RelayedBy to a removed/old routing node first; otherwise
+		// SetNodeSelectedInternetEgress rejects "relayed by a different gateway".
+		if err := failOpenExitClientKeepSelection(ctx, &c); err != nil {
+			slog.Error("RebindInternetEgressClients: fail-open failed", "node", c.ID, "error", err)
+			continue
+		}
+		if routingID == "" || !e.Status {
+			continue
+		}
+		if err := SetNodeSelectedInternetEgress(&c, e.ID); err != nil {
+			slog.Error("RebindInternetEgressClients: rebind failed", "node", c.ID, "egress", e.ID, "error", err)
+		}
 	}
 }
 

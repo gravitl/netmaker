@@ -349,6 +349,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
 	oldStatus := e.Status
+	oldRoutingNodes := make(map[string]struct{}, len(e.Nodes))
+	for nodeID := range e.Nodes {
+		oldRoutingNodes[nodeID] = struct{}{}
+	}
 
 	e.Range = egressRange
 	e.Type = egressType
@@ -462,6 +466,30 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
+
+	internetRoutingChanged := false
+	if logic.IsEgressInternetGateway(e) {
+		newRoutingNodes := make(map[string]struct{}, len(e.Nodes))
+		for nodeID := range e.Nodes {
+			newRoutingNodes[nodeID] = struct{}{}
+		}
+		internetRoutingChanged = len(oldRoutingNodes) != len(newRoutingNodes)
+		if !internetRoutingChanged {
+			for id := range oldRoutingNodes {
+				if _, ok := newRoutingNodes[id]; !ok {
+					internetRoutingChanged = true
+					break
+				}
+			}
+		}
+		if internetRoutingChanged {
+			go func(eg schema.Egress) {
+				logic.RebindInternetEgressClients(eg)
+				_ = mq.PublishPeerUpdate(false)
+			}(e)
+		}
+	}
+
 	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
@@ -499,7 +527,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		go func(clients []models.Node) {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(clients)
 		}(clients)
-	} else {
+	} else if !internetRoutingChanged {
 		go mq.PublishPeerUpdate(false)
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")

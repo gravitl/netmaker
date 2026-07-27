@@ -17,6 +17,9 @@ func init() {
 	logic.PublishPeerUpdateAfterExitNodeChange = func() {
 		_ = PublishPeerUpdate(false)
 	}
+	logic.PublishExitClientsFailOpen = func(clients []models.Node) {
+		_ = PublishPeerUpdatesToExitClientHosts(clients)
+	}
 }
 
 func provisionDeviceHostMessaging(host *schema.Host) error {

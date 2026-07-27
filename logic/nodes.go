@@ -254,6 +254,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
+
+	// Before removing an exit routing node: fail-open its clients and detach from
+	// internet egress maps so sticky selections are not left pointing at a dead relay.
+	FailOpenAndDetachExitRoutingNode(context.TODO(), node)
+
 	cleanupNodeReferences(node)
 	host := &schema.Host{
 		ID: node.HostID,

@@ -245,17 +245,15 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
-// PublishPeerUpdatesForExitClientsFirst pushes a peer update to each unique host among
-// exit-node clients synchronously, then queues a global peer update. Call this when an
-// exit becomes unavailable (routing node disconnect or internet egress disabled) so
-// clients drop full-tunnel routes before the rest of the mesh updates.
-func PublishPeerUpdatesForExitClientsFirst(clientNodes []models.Node) error {
+// PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
+// the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
+// routes before a routing node is removed.
+func PublishPeerUpdatesToExitClientHosts(clientNodes []models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
-		_ = PublishPeerUpdate(false)
 		return err
 	}
 	seenHosts := map[string]struct{}{}
@@ -276,6 +274,18 @@ func PublishPeerUpdatesForExitClientsFirst(clientNodes []models.Node) error {
 		if err := PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil); err != nil {
 			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
 		}
+	}
+	return nil
+}
+
+// PublishPeerUpdatesForExitClientsFirst pushes a peer update to each unique host among
+// exit-node clients synchronously, then queues a global peer update. Call this when an
+// exit becomes unavailable (routing node disconnect or internet egress disabled) so
+// clients drop full-tunnel routes before the rest of the mesh updates.
+func PublishPeerUpdatesForExitClientsFirst(clientNodes []models.Node) error {
+	if err := PublishPeerUpdatesToExitClientHosts(clientNodes); err != nil {
+		_ = PublishPeerUpdate(false)
+		return err
 	}
 	return PublishPeerUpdate(false)
 }
