@@ -70,6 +70,8 @@ type userWithOrgMembership struct {
 	MemberExternalIdentityProviderID string     `gorm:"column:member_external_identity_provider_id"`
 	MemberPassword                   string     `gorm:"column:member_password"`
 	MemberAccountDisabled            bool       `gorm:"column:member_account_disabled"`
+	MemberIsMFAEnabled               bool       `gorm:"column:member_is_mfa_enabled"`
+	MemberTOTPSecret                 string     `gorm:"column:member_totp_secret"`
 }
 
 // userWithMembership is a flattened scan target for queries that JOIN tenant_memberships_v1.
@@ -131,7 +133,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		var row userWithOrgMembership
 		err := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled, om.is_mfa_enabled AS member_is_mfa_enabled, om.totp_secret AS member_totp_secret").
 			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
 			Where("users_v1.id = ? OR users_v1.username = ?", u.ID, u.Username).
 			First(&row).
@@ -145,6 +147,8 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 		u.Password = row.MemberPassword
 		u.AccountDisabled = row.MemberAccountDisabled
+		u.IsMFAEnabled = row.MemberIsMFAEnabled
+		u.TOTPSecret = row.MemberTOTPSecret
 		return nil
 	}
 
@@ -306,7 +310,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 		orgID := scope.ID(ctx)
 		query := db.FromContext(ctx).
 			Table("users_v1").
-			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled, om.is_mfa_enabled AS member_is_mfa_enabled, om.totp_secret AS member_totp_secret").
 			Joins(joinType+" JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID)
 
 		for _, option := range options {
@@ -326,6 +330,8 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 			users[i].ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
 			users[i].Password = row.MemberPassword
 			users[i].AccountDisabled = row.MemberAccountDisabled
+			users[i].IsMFAEnabled = row.MemberIsMFAEnabled
+			users[i].TOTPSecret = row.MemberTOTPSecret
 		}
 		return users, nil
 	}
@@ -407,13 +413,22 @@ func (u *User) UpdateAccountStatus(ctx context.Context) error {
 }
 
 func (u *User) UpdateMFA(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	if tenantID == "" {
-		return ErrTenantIDNotProvided
+	scopeID := scope.ID(ctx)
+	if scopeID == "" {
+		return ErrScopeNotProvider
+	}
+
+	if scope.Level(ctx) == scope.OrgScope {
+		return (&OrgMembership{
+			OrganizationID: scopeID,
+			UserID:         u.ID,
+			IsMFAEnabled:   u.IsMFAEnabled,
+			TOTPSecret:     u.TOTPSecret,
+		}).UpdateMFA(ctx)
 	}
 
 	return (&TenantMembership{
-		TenantID:     tenantID,
+		TenantID:     scopeID,
 		UserID:       u.ID,
 		IsMFAEnabled: u.IsMFAEnabled,
 		TOTPSecret:   u.TOTPSecret,
@@ -461,6 +476,8 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
 			Password:                   u.Password,
 			AccountDisabled:            u.AccountDisabled,
+			IsMFAEnabled:               u.IsMFAEnabled,
+			TOTPSecret:                 u.TOTPSecret,
 		}).Upsert(ctx)
 	}
 

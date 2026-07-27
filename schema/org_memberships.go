@@ -14,6 +14,8 @@ type OrgMembership struct {
 	ExternalIdentityProviderID string     `json:"external_identity_provider_id"`
 	Password                   string     `json:"password"`
 	AccountDisabled            bool       `json:"account_disabled"`
+	IsMFAEnabled               bool       `json:"is_mfa_enabled"`
+	TOTPSecret                 string     `json:"totp_secret"`
 }
 
 func (o *OrgMembership) TableName() string {
@@ -55,6 +57,16 @@ func (o *OrgMembership) UpdateAccountStatus(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&OrgMembership{}).
 		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
 		Update("account_disabled", o.AccountDisabled).
+		Error
+}
+
+func (o *OrgMembership) UpdateMFA(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Updates(map[string]any{
+			"is_mfa_enabled": o.IsMFAEnabled,
+			"totp_secret":    o.TOTPSecret,
+		}).
 		Error
 }
 

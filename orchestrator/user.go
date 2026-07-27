@@ -112,6 +112,8 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
 			AccountDisabled:            user.AccountDisabled,
+			IsMFAEnabled:               user.IsMFAEnabled,
+			TOTPSecret:                 user.TOTPSecret,
 		}
 		err = membership.Create(ctx)
 		if err != nil {
