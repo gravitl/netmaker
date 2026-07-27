@@ -3077,7 +3077,7 @@ func populateTagNames(ctx context.Context, tags []models.AclPolicyTag) {
 		case models.UserAclID:
 			tag.Name = tag.Value
 		case models.UserGroupAclID:
-			grp, err := GetUserGroup(schema.UserGroupID(tag.Value))
+			grp, err := GetUserGroup(ctx, schema.UserGroupID(tag.Value))
 			if err == nil {
 				tag.Name = grp.Name
 			} else {
@@ -3126,7 +3126,7 @@ func ValidateCreateAclReq(ctx context.Context, req models.Acl) error {
 	// }
 	for _, src := range req.Src {
 		if src.ID == models.UserGroupAclID {
-			userGroup, err := GetUserGroup(schema.UserGroupID(src.Value))
+			userGroup, err := GetUserGroup(ctx, schema.UserGroupID(src.Value))
 			if err != nil {
 				return err
 			}

@@ -95,7 +95,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			TOTPSecret:                 user.TOTPSecret,
 		}
 
-		u.userExt.ConfigureGroups(membership, user.UserGroups)
+		u.userExt.ConfigureGroups(ctx, membership, user.UserGroups)
 		u.userExt.ConfigureGlobalAdminGroup(membership)
 
 		err = membership.Create(ctx)

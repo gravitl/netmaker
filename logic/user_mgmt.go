@@ -44,7 +44,7 @@ var DeleteRole = func(ctx context.Context, r schema.UserRoleID, force bool) erro
 	return nil
 }
 
-var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User) []schema.Network {
+var FilterNetworksByRole = func(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	return allnetworks
 }
 
@@ -87,7 +87,9 @@ var CreateDefaultUserPolicies = func(ctx context.Context, netID schema.NetworkID
 		InsertAcl(ctx, defaultUserAcl)
 	}
 }
-var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
+var GetUserGroup = func(ctx context.Context, groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) {
+	return
+}
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var StripGroupsOnRoleDowngrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
@@ -95,8 +97,8 @@ var AddGlobalGroupOnRoleUpgrade = func(oldRole, newRole schema.UserRoleID, group
 }
 var PlatformRoleRequiresGroupEnforcement = func(role schema.UserRoleID) bool { return false }
 var UserHasGlobalNetworksAdminMembership = func(user *schema.User) bool { return false }
-var UserHasNetworkGroupAccess = func(user *schema.User, networkID string) bool { return false }
-var IsNetworkAdmin = func(user *schema.User, networkID string) bool { return false }
+var UserHasNetworkGroupAccess = func(ctx context.Context, user *schema.User, networkID string) bool { return false }
+var IsNetworkAdmin = func(ctx context.Context, user *schema.User, networkID string) bool { return false }
 var CanUserCreateNetwork = func(ctx context.Context, username string) bool { return true }
 var EmailInit = func(ctx context.Context) {}
 

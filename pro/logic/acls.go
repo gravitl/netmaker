@@ -548,7 +548,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		if !isSrc {
 			return errors.New("user cannot be added to destination")
 		}
-		err := IsGroupValid(schema.UserGroupID(t.Value))
+		err := IsGroupValid(ctx, schema.UserGroupID(t.Value))
 		if err != nil {
 			return errors.New("invalid user group " + t.Value)
 		}

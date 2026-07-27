@@ -45,7 +45,7 @@ const (
 func NetworkPermissionsCheck(username string, r *http.Request) error {
 	// at this point global checks should be completed
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 
 	for groupID := range user.UserGroups.Data() {
 
-		userG, err := GetUserGroup(groupID)
+		userG, err := GetUserGroup(r.Context(), groupID)
 		if err == nil {
 			if netRoles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok {
 				for netRoleID := range netRoles {

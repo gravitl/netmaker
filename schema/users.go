@@ -174,7 +174,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 	}
 
 	if requireMembership {
-		return ErrTenantIDNotProvided
+		return ErrScopeNotProvider
 	}
 
 	return db.FromContext(ctx).Model(&User{}).
@@ -275,7 +275,7 @@ func (u *User) count(ctx context.Context, requireMembership bool, options ...dbt
 			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 	default:
 		if requireMembership {
-			return 0, ErrTenantIDNotProvided
+			return 0, ErrScopeNotProvider
 		}
 		query = db.FromContext(ctx).Model(&User{})
 	}
@@ -362,7 +362,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 	}
 
 	if requireMembership {
-		return nil, ErrTenantIDNotProvided
+		return nil, ErrScopeNotProvider
 	}
 
 	var users []User

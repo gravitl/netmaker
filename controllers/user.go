@@ -1085,7 +1085,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		UserGroups:   map[schema.UserGroupID]schema.UserGroup{},
 	}
 	for gId := range user.UserGroups {
-		grp, err := logic.GetUserGroup(gId)
+		grp, err := logic.GetUserGroup(r.Context(), gId)
 		if err == nil {
 			resp.UserGroups[gId] = grp
 		}
@@ -1709,8 +1709,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(&oldUser),
-			New: logic.ToUserEventLog(&userchange),
+			Old: logic.ToUserEventLog(r.Context(), &oldUser),
+			New: logic.ToUserEventLog(r.Context(), &userchange),
 		},
 		Origin: schema.Dashboard,
 	}
@@ -1741,7 +1741,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if !logic.UserHasNetworkGroupAccess(user, extclient.Network) {
+			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
 				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
@@ -1863,7 +1863,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(user),
+			Old: logic.ToUserEventLog(r.Context(), user),
 			New: nil,
 		},
 	})
@@ -2007,7 +2007,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 					Type: schema.UserSub,
 				},
 				Origin: schema.Dashboard,
-				Diff:   models.Diff{Old: logic.ToUserEventLog(user), New: nil},
+				Diff:   models.Diff{Old: logic.ToUserEventLog(r.Context(), user), New: nil},
 			})
 			logger.Log(1, username, "was deleted")
 			deleted++
@@ -2151,8 +2151,8 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 					Type: schema.UserSub,
 				},
 				Diff: models.Diff{
-					Old: logic.ToUserEventLog(&oldUser),
-					New: logic.ToUserEventLog(user),
+					Old: logic.ToUserEventLog(ctx, &oldUser),
+					New: logic.ToUserEventLog(ctx, user),
 				},
 				Origin: schema.Dashboard,
 			})

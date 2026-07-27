@@ -139,9 +139,9 @@ func UpsertUser(_user schema.User) error {
 // preserveExternalUserGroups copies IdP-managed group membership from the existing
 // user onto the update payload so external groups are not dropped when the UI
 // omits them (e.g. role-only updates).
-func preserveExternalUserGroups(existing, change *schema.User) {
+func preserveExternalUserGroups(ctx context.Context, existing, change *schema.User) {
 	for groupID := range existing.UserGroups.Data() {
-		group, err := GetUserGroup(groupID)
+		group, err := GetUserGroup(ctx, groupID)
 		if err != nil || group.ExternalIdentityProviderID == "" {
 			continue
 		}
@@ -188,7 +188,7 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 
 	validUserGroups := make(map[schema.UserGroupID]struct{})
 	for userGroupID := range userchange.UserGroups.Data() {
-		_, err := GetUserGroup(userGroupID)
+		_, err := GetUserGroup(ctx, userGroupID)
 		if err == nil {
 			validUserGroups[userGroupID] = struct{}{}
 		}
@@ -202,7 +202,7 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		newRole = oldRole
 	}
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
-	preserveExternalUserGroups(_user, userchange)
+	preserveExternalUserGroups(ctx, _user, userchange)
 	if oldRole != newRole {
 		for groupID := range _user.UserGroups.Data() {
 			userchange.UserGroups.Data()[groupID] = struct{}{}
@@ -233,7 +233,7 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 	for groupID := range userchange.UserGroups.Data() {
 		_, ok := _user.UserGroups.Data()[groupID]
 		if !ok {
-			group, err := GetUserGroup(groupID)
+			group, err := GetUserGroup(ctx, groupID)
 			if err != nil {
 				return userchange, err
 			}
@@ -250,7 +250,7 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 			if newRole == schema.Auditor {
 				continue
 			}
-			group, err := GetUserGroup(groupID)
+			group, err := GetUserGroup(ctx, groupID)
 			if err != nil {
 				return userchange, err
 			}
