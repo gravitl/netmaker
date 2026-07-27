@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -506,6 +507,23 @@ func setTenantID(ctx context.Context) error {
 	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
+	}
+
+	tenantScopedKeyTables := []string{
+		(&schema.AclRecord{}).TableName(),
+		(&schema.TagRecord{}).TableName(),
+		(&schema.DNSRecord{}).TableName(),
+		(&schema.ExtClientRecord{}).TableName(),
+	}
+	prefix := schema.TenantScopedKey(defaultTenant.ID, "")
+	for _, table := range tenantScopedKeyTables {
+		err := db.FromContext(ctx).Exec(
+			fmt.Sprintf("UPDATE %s SET key = ? || key, tenant_id = ? WHERE tenant_id = ?", table),
+			prefix, defaultTenant.ID, "",
+		).Error
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, model := range tenantScopedModels() {

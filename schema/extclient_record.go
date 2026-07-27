@@ -71,8 +71,8 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 }
 
 type ExtClientRecord struct {
-	Key       string `gorm:"primaryKey;uniqueIndex:idx_extclient_key_tenant"`
-	TenantID  string `gorm:"uniqueIndex:idx_extclient_key_tenant;default:''"`
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
 	NetworkID string
 	Value     datatypes.JSONType[ExtClient]
 }
@@ -82,19 +82,29 @@ const extClientRecordsTable = "extclients"
 func (*ExtClientRecord) TableName() string { return extClientRecordsTable }
 
 func (r *ExtClientRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", extClientRecordsTable), r.Key, scope.ID(ctx)).First(r).Error
+	tenantID := scope.ID(ctx)
+	logicalKey := r.Key
+	err := db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, logicalKey)).First(r).Error
+	if err != nil {
+		return err
+	}
+	r.Key = logicalKey
+	return nil
 }
 
 func (r *ExtClientRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
+	rec := *r
+	rec.Key = TenantScopedKey(r.TenantID, r.Key)
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}, {Name: "tenant_id"}},
+		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
-	}).Create(r).Error
+	}).Create(&rec).Error
 }
 
 func (r *ExtClientRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", extClientRecordsTable), r.Key, scope.ID(ctx)).Delete(r).Error
+	tenantID := scope.ID(ctx)
+	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&ExtClientRecord{}).Error
 }
 
 func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
@@ -104,6 +114,9 @@ func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientRecordsTable), tenantID)(query)
 	}
 	err := query.Find(&records).Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
 	return records, err
 }
 
