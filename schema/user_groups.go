@@ -69,8 +69,9 @@ func (u *UserGroup) Create(ctx context.Context) error {
 func (u *UserGroup) Get(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
-	err := db.FromContext(ctx).Model(&UserGroup{}).
-		Where(fmt.Sprintf("id = ? AND %s.tenant_id = ?", userGroupsTable), ScopeUserGroupID(tenantID, logicalID), tenantID).
+	u.ID = ScopeUserGroupID(tenantID, logicalID)
+	err := db.FromContext(ctx).Model(&UserGroup{}).Debug().
+		Where(fmt.Sprintf("id = ? AND %s.tenant_id = ?", userGroupsTable), u.ID, tenantID).
 		First(u).
 		Error
 	if err != nil {
@@ -154,6 +155,6 @@ func (u *UserGroup) Delete(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	return db.FromContext(ctx).Model(&UserGroup{}).
 		Where(fmt.Sprintf("id = ? AND %s.tenant_id = ?", userGroupsTable), ScopeUserGroupID(tenantID, u.ID), tenantID).
-		Delete(u).
+		Delete(&UserGroup{}).
 		Error
 }

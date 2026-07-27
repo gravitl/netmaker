@@ -84,8 +84,10 @@ func (*ExtClientRecord) TableName() string { return extClientRecordsTable }
 func (r *ExtClientRecord) Get(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalKey := r.Key
-	err := db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, logicalKey)).First(r).Error
+	r.Key = TenantScopedKey(tenantID, logicalKey)
+	err := db.FromContext(ctx).Where("key = ?", r.Key).First(r).Error
 	if err != nil {
+		r.Key = logicalKey
 		return err
 	}
 	r.Key = logicalKey
