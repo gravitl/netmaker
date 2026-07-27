@@ -73,6 +73,8 @@ type Node struct {
 	IsInternetGateway                  bool                `json:"isinternetgateway"`
 	InetNodeReq                        InetNodeReq         `json:"inet_node_req"`
 	InternetGwID                       string              `json:"internetgw_node_id"`
+	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
+	SelectedInternetEgressID           string              `json:"selected_internet_egress_id"`
 	AdditionalRagIps                   []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
 	Tags                               map[TagID]struct{}  `json:"tags"`
 	IsStatic                           bool                `json:"is_static"`
@@ -292,6 +294,7 @@ type NodeWithHost struct {
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              schema.Severity                       `json:"posture_check_severity"`
@@ -322,6 +325,7 @@ func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.RelayedIGWClients = _node.RelayedIGWClients
 	n.RelayedByNodeID = _node.RelayedByNodeID
 	n.IsIGWClient = _node.IsIGWClient
+	n.SelectedInternetEgressID = _node.SelectedInternetEgressID
 	n.AutoRelayedPeers = _node.AutoRelayedPeers
 	n.Tags = _node.Tags
 	n.PostureCheckSeverity = _node.PostureCheckSeverity

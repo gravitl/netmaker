@@ -36,6 +36,7 @@ func Run() {
 	updateNodes()
 	updateNewAcls()
 	migrateEgressDomains()
+	migrateInternetEgress()
 	logic.CleanupGwsMigration()
 	updateNetworks()
 	deleteOldExtclients()

@@ -43,7 +43,18 @@ const (
 	saasNMUIHostProduction = "https://app.netmaker.io"
 )
 
+func isDeviceAPIRequest(r *http.Request) bool {
+	// Exact prefix match so paths like /api/v1/devices/... are not treated as device APIs.
+	return strings.HasPrefix(r.URL.Path, "/api/v1/device/")
+}
+
 func NetworkPermissionsCheck(username string, r *http.Request) error {
+	// Device APIs skip TARGET_RSRC middleware checks (desktop clients do not send
+	// dashboard resource headers). Mutating device ops enforce write scopes in
+	// UserHasDeviceNetworkWriteAccess instead.
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	// at this point global checks should be completed
 	user := &schema.User{Username: username}
 	err := user.Get(r.Context())
@@ -154,6 +165,10 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 }
 
 func GlobalPermissionsCheck(username string, r *http.Request) error {
+	// Same rationale as NetworkPermissionsCheck: device handlers enforce their own RBAC.
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	route, err := mux.CurrentRoute(r).GetPathTemplate()
 	if err != nil {
 		return err
@@ -253,6 +268,105 @@ func checkPermissionScopeWithReqMethod(scope schema.RsrcPermissionScope, reqmeth
 		return nil
 	}
 	return errors.New("operation not permitted")
+}
+
+// UserHasDeviceNetworkWriteAccess reports whether the user may mutate device network
+// membership/state (join, leave, exit-node selection). Read-only network roles that
+// only grant Read are denied; Network Users (VPNaccess / extclient create) and roles
+// with host write scopes are allowed.
+func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, network string) bool {
+	if user == nil || user.Username == "" || network == "" {
+		return false
+	}
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	ctx = db.WithContext(ctx)
+
+	if !logic.UserHasAccessToNetwork(ctx, user, network) {
+		return false
+	}
+
+	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := platformRole.Get(ctx); err != nil {
+		return false
+	}
+	if platformRole.ID == schema.Auditor {
+		return false
+	}
+	if platformRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+		return true
+	}
+
+	networkName := network
+	net := &schema.Network{ID: network, Name: network}
+	if err := net.Get(ctx); err == nil && net.Name != "" {
+		networkName = net.Name
+	}
+	netID := schema.NetworkID(networkName)
+
+	for groupID := range user.UserGroups.Data() {
+		userG, err := GetUserGroup(groupID)
+		if err != nil {
+			continue
+		}
+		roles := userG.NetworkRoles.Data()
+		if netRoles, ok := roles[schema.AllNetworks]; ok {
+			for netRoleID := range netRoles {
+				if networkRoleGrantsDeviceWrite(ctx, netRoleID) {
+					return true
+				}
+			}
+		}
+		if netRoles, ok := roles[netID]; ok {
+			for netRoleID := range netRoles {
+				if networkRoleGrantsDeviceWrite(ctx, netRoleID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func networkRoleGrantsDeviceWrite(ctx context.Context, netRoleID schema.UserRoleID) bool {
+	role := &schema.UserRole{ID: netRoleID}
+	if err := role.Get(ctx); err != nil {
+		return false
+	}
+	return roleGrantsDeviceWrite(role)
+}
+
+func roleGrantsDeviceWrite(role *schema.UserRole) bool {
+	if role == nil {
+		return false
+	}
+	if role.FullAccess {
+		return true
+	}
+	access := role.NetworkLevelAccess.Data()
+	if hostScopes, ok := access[schema.HostRsrc]; ok {
+		for _, s := range hostScopes {
+			if s.Create || s.Update || s.Delete {
+				return true
+			}
+		}
+	}
+	if ragScopes, ok := access[schema.RemoteAccessGwRsrc]; ok {
+		for _, s := range ragScopes {
+			if s.VPNaccess {
+				return true
+			}
+		}
+	}
+	if ecScopes, ok := access[schema.ExtClientsRsrc]; ok {
+		for _, s := range ecScopes {
+			if s.Create || s.Update || s.Delete {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func GetAccountsHost() string {

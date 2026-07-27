@@ -14,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/auth"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -579,6 +578,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		if owner := r.Header.Get("user"); owner != "" {
+			newHost.OwnerUsername = owner
+		}
 		_ = logic.CheckHostPorts(&newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -618,7 +620,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	go auth.CheckNetRegAndHostUpdate(key, host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.

@@ -105,9 +105,20 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = proLogic.CreateAutoRelay(node)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		switch err.Error() {
+		case "node is using an exit node; auto-relay is not allowed",
+			"relayed node cannot be set as autoRelay",
+			"only linux nodes are allowed to be set as autoRelay":
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 	go mq.PublishPeerUpdate(false)
@@ -252,6 +263,18 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if peerNode.IsAutoRelay {
 		logic.ReturnErrorResponse(
 			w,
@@ -297,19 +320,18 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("node using a internet gw by the peer node"),
-				"badrequest",
-			),
-		)
-		return
+	if logic.IsInternetGw(autoRelayNode) {
+		if exitID := logic.InternetExitRoutingNodeID(&node); exitID != "" && exitID != autoRelayNode.ID.String() {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
+			return
+		}
+		if exitID := logic.InternetExitRoutingNodeID(&peerNode); exitID != "" && exitID != autoRelayNode.ID.String() {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
+			return
+		}
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -320,7 +342,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
+	if logic.InternetExitRoutingNodeID(&node) == peerNode.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -377,6 +399,14 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksGatewayOps(&node); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -463,6 +493,9 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	// Exit-node gateways are valid auto-relay / auto-assign targets. Only exit
+	// clients and exit routing nodes are blocked from being auto-relayed
+	// (checked on node/peerNode above and in SetAutoRelayCtx).
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
 			if node.RelayedBy != "" {
@@ -490,6 +523,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(errors.New("peer not found"), "badrequest"),
 		)
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if len(node.AutoRelayedPeers) == 0 {
@@ -584,6 +621,18 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
+	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if peerNode.IsAutoRelay {
 		logic.ReturnErrorResponse(
 			w,
@@ -624,19 +673,18 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if (node.InternetGwID != "" && autoRelayNode.IsInternetGateway && node.InternetGwID != autoRelayNode.ID.String()) ||
-		(peerNode.InternetGwID != "" && autoRelayNode.IsInternetGateway && peerNode.InternetGwID != autoRelayNode.ID.String()) {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("node using a internet gw by the peer node"),
-				"badrequest",
-			),
-		)
-		return
+	if logic.IsInternetGw(autoRelayNode) {
+		if exitID := logic.InternetExitRoutingNodeID(&node); exitID != "" && exitID != autoRelayNode.ID.String() {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
+			return
+		}
+		if exitID := logic.InternetExitRoutingNodeID(&peerNode); exitID != "" && exitID != autoRelayNode.ID.String() {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
+			return
+		}
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -647,7 +695,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
+	if logic.InternetExitRoutingNodeID(&node) == peerNode.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,

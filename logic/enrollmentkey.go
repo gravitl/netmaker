@@ -253,6 +253,67 @@ func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.A
 	return key, nil
 }
 
+// ModelsEnrollmentKeyFromSchema converts a schema enrollment key to the models type.
+func ModelsEnrollmentKeyFromSchema(key schema.EnrollmentKey) models.EnrollmentKey {
+	keyType := models.KeyType(key.Type)
+	var relay uuid.UUID
+	if key.GatewayID != nil {
+		relay, _ = uuid.Parse(*key.GatewayID)
+	}
+	groups := make([]models.TagID, 0, len(key.Tags))
+	for _, tag := range key.Tags {
+		groups = append(groups, models.TagID(tag))
+	}
+	tags := make([]string, 0)
+	if key.Name != "" {
+		tags = append(tags, key.Name)
+	}
+	return models.EnrollmentKey{
+		Expiration:        key.Expiration,
+		UsesRemaining:     key.UsesRemaining,
+		Value:             key.Value,
+		Networks:          append([]string(nil), key.Networks...),
+		Unlimited:         key.Unlimited,
+		Tags:              tags,
+		Token:             key.Token,
+		Type:              keyType,
+		Relay:             relay,
+		Groups:            groups,
+		Default:           key.Default,
+		AutoEgress:        key.AutoEgress,
+		AutoAssignGateway: key.AutoAssignGateway,
+	}
+}
+
+// SchemaEnrollmentKeyFromModels converts a models enrollment key to the schema type.
+func SchemaEnrollmentKeyFromModels(key models.EnrollmentKey) *schema.EnrollmentKey {
+	sk := &schema.EnrollmentKey{
+		Value:             key.Value,
+		Networks:          append(datatypes.JSONSlice[string](nil), key.Networks...),
+		Unlimited:         key.Unlimited,
+		UsesRemaining:     key.UsesRemaining,
+		Expiration:        key.Expiration,
+		AutoEgress:        key.AutoEgress,
+		AutoAssignGateway: key.AutoAssignGateway,
+		Default:           key.Default,
+		Token:             key.Token,
+		Type:              schema.EnrollmentKeyType(key.Type),
+	}
+	if key.Relay != uuid.Nil {
+		s := key.Relay.String()
+		sk.GatewayID = &s
+	}
+	tags := make(datatypes.JSONSlice[string], 0, len(key.Groups))
+	for _, g := range key.Groups {
+		tags = append(tags, g.String())
+	}
+	sk.Tags = tags
+	if len(key.Tags) > 0 {
+		sk.Name = key.Tags[0]
+	}
+	return sk
+}
+
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
 func GetAllEnrollmentKeys(ctx context.Context) ([]schema.EnrollmentKey, error) {
 	return (&schema.EnrollmentKey{}).ListAll(ctx)

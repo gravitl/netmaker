@@ -171,11 +171,36 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture the internet exit-node clients (peers using this node as their
+	// internet exit node) before tearing down gateway/relay state. Removing the
+	// gateway role must not stop this node from acting as an internet exit node,
+	// so these clients must keep being relayed by it in the background.
+	exitClientSet := map[string]struct{}{}
+	preNode := &schema.Node{ID: nodeid}
+	if err := preNode.Get(r.Context()); err == nil {
+		for clientID := range preNode.RelayedIGWClients {
+			exitClientSet[clientID] = struct{}{}
+		}
+	}
+
 	updateNodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	// Don't push a "no longer relayed" node update to internet exit-node clients;
+	// they remain relayed by this node for their internet egress traffic.
+	if len(exitClientSet) > 0 {
+		keptUpdateNodes := make([]models.Node, 0, len(updateNodes))
+		for _, un := range updateNodes {
+			if _, ok := exitClientSet[un.ID.String()]; ok {
+				continue
+			}
+			keptUpdateNodes = append(keptUpdateNodes, un)
+		}
+		updateNodes = keptUpdateNodes
 	}
 	node, err = logic.GetNodeByID(node.ID.String())
 	if err != nil {
@@ -192,6 +217,9 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.UnsetInternetGw(&node)
+	// NOTE: intentionally do NOT delete internet egresses routed by this node.
+	// Removing the gateway role should keep the internet exit-node (egress)
+	// configuration intact so the node continues to serve as an exit node.
 	node.IsGw = false
 	if node.IsAutoRelay {
 		logic.ResetAutoRelay(&node)
@@ -212,6 +240,28 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		_node.RelayedIGWClients = make(datatypes.JSONMap)
 		_node.AdditionalGatewayEndpoints = make(datatypes.JSONSlice[string], 0)
 		_ = _node.ResetGateway(r.Context())
+	}
+
+	// Re-establish the internet exit-node client relationships that the gateway
+	// teardown above cleared. These clients keep using this node as their
+	// internet exit node and must continue to be relayed by it in the background.
+	if len(exitClientSet) > 0 {
+		routingID := node.ID.String()
+		for clientID := range exitClientSet {
+			clientNode := &schema.Node{ID: clientID}
+			if err := clientNode.Get(r.Context()); err != nil {
+				continue
+			}
+			clientNode.RelayedByNodeID = &routingID
+			clientNode.IsIGWClient = true
+			if err := clientNode.AssignGateway(r.Context()); err != nil {
+				logger.Log(0, "failed to preserve internet exit-node client",
+					clientID, "for exit node", routingID, ":", err.Error())
+			}
+		}
+		if reloaded, err := logic.GetNodeByID(routingID); err == nil {
+			node = reloaded
+		}
 	}
 
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
@@ -338,6 +388,11 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 
 	if !servercfg.IsPro {
 		autoAssignGw = false
+	}
+
+	if err = logic.ErrExitNodeBlocksGatewayOps(logic.ConvertSchemaNodeToModelsNode(node)); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
 	}
 
 	if autoAssignGw {
@@ -490,6 +545,15 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 	if node.Network.Name != networkName {
 		err = fmt.Errorf("network url param does not match node network")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	// Exit clients cannot unrelay; RelayedBy is cleared only when the exit is cleared.
+	if node.SelectedInternetEgressID != "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("node is using an exit node; gateway assignment is managed by the exit node"),
+			logic.BadReq,
+		))
 		return
 	}
 
