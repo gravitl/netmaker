@@ -212,7 +212,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	callerUserName := r.Header.Get("user")
 	if r.Header.Get("ismaster") != "yes" {
 		caller := &schema.User{Username: callerUserName}
-		err = caller.Get(r.Context())
+		err = caller.GetWithMembership(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 			return
@@ -276,7 +276,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		inviteeCheck := &schema.User{Username: inviteeEmail}
-		err = inviteeCheck.Get(r.Context())
+		err = inviteeCheck.GetWithMembership(r.Context())
 		if err == nil {
 			// user exists already, so ignore
 			continue
@@ -598,15 +598,20 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	for _, userID := range userGroupReq.Members {
 		user := &schema.User{Username: userID}
-		err = user.Get(r.Context())
+		err = user.GetWithMembership(r.Context())
 		if err != nil {
 			continue
 		}
-		if len(user.UserGroups.Data()) == 0 {
-			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+		tm := &schema.TenantMembership{
+			TenantID: scope.ID(r.Context()),
+			UserID:   user.ID,
+			Groups:   user.UserGroups,
 		}
-		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
-		_ = logic.UpsertUser(*user)
+		if len(tm.Groups.Data()) == 0 {
+			tm.Groups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+		}
+		tm.Groups.Data()[userGroupReq.Group.ID] = struct{}{}
+		_ = tm.UpdateGroups(r.Context())
 	}
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
@@ -838,7 +843,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -907,7 +912,7 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -1254,7 +1259,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		slog.Error("failed to fetch user: ", "username", username, "error", err.Error())
 		logic.ReturnErrorResponse(
@@ -1339,7 +1344,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(
@@ -1395,7 +1400,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1429,7 +1434,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1476,7 +1481,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1706,7 +1711,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -2003,7 +2008,7 @@ func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			user := &schema.User{Username: extclient.OwnerID}
-			err = user.Get(r.Context())
+			err = user.GetWithMembership(r.Context())
 			if err != nil {
 				continue
 			}

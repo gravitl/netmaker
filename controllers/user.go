@@ -538,7 +538,7 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -820,7 +820,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	_user := &schema.User{
 		Username: username,
 	}
-	err := _user.Get(r.Context())
+	err := _user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
