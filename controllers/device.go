@@ -73,7 +73,8 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errType := logic.Internal
 		switch {
-		case err.Error() == "host does not belong to user":
+		case err.Error() == "host does not belong to user",
+			err.Error() == "host already registered to another user":
 			errType = logic.Forbidden
 		case err.Error() == "invalid host id", err.Error() == "missing traffic key":
 			errType = logic.BadReq
@@ -139,6 +140,7 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		errType := logic.Internal
 		switch err.Error() {
 		case "user does not have access to network",
+			"operation not permitted",
 			"JIT access required: please request access from network admin",
 			"access blocked: this device doesn't meet security requirements":
 			errType = logic.Forbidden
@@ -171,7 +173,12 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := logic.LeaveDeviceNetwork(db.WithContext(r.Context()), user, host, network); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		switch err.Error() {
+		case "user does not have access to network", "operation not permitted":
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 	go mq.PublishPeerUpdate(false)
@@ -193,7 +200,7 @@ func cancelDeviceNetworkJoin(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == "no pending join request for network" {
 			errType = logic.BadReq
 		}
-		if err.Error() == "user does not have access to network" {
+		if err.Error() == "user does not have access to network" || err.Error() == "operation not permitted" {
 			errType = logic.Forbidden
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
@@ -283,7 +290,8 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
-		case "user does not have access to network", "user does not have access to this exit node":
+		case "user does not have access to network", "user does not have access to this exit node",
+			"operation not permitted":
 			errType = logic.Forbidden
 		case "device is not joined to network", "network is required", "exit node not found",
 			"egress is not an active internet exit node in this network",

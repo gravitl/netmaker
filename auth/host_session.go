@@ -332,12 +332,21 @@ func joinHostToNetworks(key models.EnrollmentKey, host *schema.Host, username st
 				NetworkID: schema.NetworkID(netID),
 				Origin:    schema.Dashboard,
 			})
-		} else if len(key.Tags) > 0 {
+		} else if len(key.Tags) > 0 || len(key.Groups) > 0 {
+			sourceName := ""
+			if len(key.Groups) > 0 {
+				sourceName = key.Groups[0].String()
+			} else if len(key.Tags) > 0 {
+				sourceName = key.Tags[0]
+			}
+			if sourceName == "" {
+				sourceName = schemaKey.Name
+			}
 			logic.LogEvent(&models.Event{
 				Action: schema.JoinHostToNet,
 				Source: models.Subject{
 					ID:   key.Value,
-					Name: key.Tags[0],
+					Name: sourceName,
 					Type: schema.EnrollmentKeySub,
 				},
 				TriggeredBy: username,

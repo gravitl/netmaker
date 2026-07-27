@@ -47,6 +47,7 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 }
 
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
+// RegisterDevice does not call this; any API that exposes transfer must enforce admin authorization.
 func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
 	if host == nil || newOwner == "" {
 		return errors.New("host and new owner are required")
@@ -96,13 +97,29 @@ func logDeviceOwnershipTransfer(newOwner string, host *schema.Host, previousOwne
 	})
 }
 
-// EnsureHostOwner sets OwnerUsername on the host when unset.
+// EnsureHostOwner sets OwnerUsername on the host when it is currently empty in the database.
+// Uses a conditional update so concurrent callers cannot overwrite an existing owner.
 func EnsureHostOwner(host *schema.Host, username string) {
-	if host == nil || username == "" || host.OwnerUsername != "" {
+	if host == nil || username == "" || host.ID == uuid.Nil {
 		return
 	}
-	host.OwnerUsername = username
-	_ = UpsertHost(host)
+	if host.OwnerUsername != "" {
+		return
+	}
+	ctx := db.WithContext(context.TODO())
+	res := db.FromContext(ctx).Model(&schema.Host{}).
+		Where("id = ? AND (owner_username = '' OR owner_username IS NULL)", host.ID).
+		Update("owner_username", username)
+	if res.Error != nil {
+		slog.Warn("failed to ensure host owner", "host", host.ID.String(), "error", res.Error)
+		return
+	}
+	if res.RowsAffected > 0 {
+		host.OwnerUsername = username
+		return
+	}
+	// Ownership was already claimed (or host missing); refresh in-memory state.
+	_ = host.Get(ctx)
 }
 
 // VerifyDeviceHostAccess ensures the user may operate on the given host ID.
@@ -123,7 +140,6 @@ func VerifyDeviceHostAccess(ctx context.Context, username, hostIDStr string) (*s
 	}
 	if host.OwnerUsername == "" {
 		EnsureHostOwner(host, username)
-		return host, nil
 	}
 	if host.OwnerUsername != username {
 		return nil, errors.New("host does not belong to user")
@@ -254,6 +270,9 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return empty, errors.New("user does not have access to network")
 	}
+	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
+		return empty, errors.New("operation not permitted")
+	}
 	hasAccess, _, err := CheckJITAccess(networkID, user.Username)
 	if err != nil {
 		return empty, err
@@ -315,6 +334,9 @@ func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Hos
 	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return errors.New("user does not have access to network")
 	}
+	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
+		return errors.New("operation not permitted")
+	}
 	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
 		return pending.Delete(ctx)
 	}
@@ -336,6 +358,9 @@ func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Hos
 func CancelDeviceNetworkJoin(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
 	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return errors.New("user does not have access to network")
+	}
+	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
+		return errors.New("operation not permitted")
 	}
 	pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID)
 	if err != nil {
@@ -390,15 +415,11 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 		if err := existing.Get(db.WithContext(ctx)); err != nil {
 			return empty, err
 		}
-		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
-				return empty, err
-			}
-			if err := existing.Get(db.WithContext(ctx)); err != nil {
-				return empty, err
-			}
-		} else if existing.OwnerUsername == "" {
+		if existing.OwnerUsername == "" {
 			EnsureHostOwner(existing, user.Username)
+		}
+		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
+			return empty, errors.New("host already registered to another user")
 		}
 		endpointChanged, _ := UpdateHostFromClient(newHost, existing)
 		if endpointChanged {

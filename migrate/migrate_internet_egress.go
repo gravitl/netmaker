@@ -89,8 +89,8 @@ func migrateInternetEgress() {
 		}
 	}
 
-	// Clear obsolete central rosters before re-applying per-client RelayedBy/IsIGWClient via AssignGateway.
-	clearLegacyInetNodeClientLists(ctx, nodes)
+	// Clear obsolete central rosters only on routing nodes that mapped to an internet egress.
+	clearLegacyInetNodeClientLists(ctx, nodes, routingToEgress)
 	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress, legacyClientsByRoutingNode)
 	// Ext-client migration still uses in-memory IsInternetGateway; clear the DB flag after.
 	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
@@ -178,11 +178,12 @@ func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []model
 }
 
 // clearLegacyInetNodeClientLists clears RelayedIGWClients (source of InetNodeReq.InetNodeClientIDs)
-// on legacy internet gateway routing nodes. Per-client RelayedBy/IsIGWClient are preserved and
-// re-applied afterwards via SetNodeSelectedInternetEgress → AssignGateway.
-func clearLegacyInetNodeClientLists(ctx context.Context, nodes []models.Node) {
+// on routing nodes that successfully mapped to an internet egress (keys of routingToEgress).
+// Per-client RelayedBy/IsIGWClient are preserved and re-applied afterwards via
+// SetNodeSelectedInternetEgress → AssignGateway.
+func clearLegacyInetNodeClientLists(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
 	for _, node := range nodes {
-		if !node.IsInternetGateway {
+		if _, ok := routingToEgress[node.ID.String()]; !ok {
 			continue
 		}
 		_node := &schema.Node{ID: node.ID.String()}

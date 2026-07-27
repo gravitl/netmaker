@@ -160,6 +160,7 @@ func InitPro() {
 	logic.UserHasNetworkGroupAccess = proLogic.UserHasNetworkGroupAccess
 	logic.IsNetworkAdmin = proLogic.IsNetworkAdmin
 	logic.CanUserCreateNetwork = proLogic.CanUserCreateNetwork
+	logic.UserHasDeviceNetworkWriteAccess = proLogic.UserHasDeviceNetworkWriteAccess
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus

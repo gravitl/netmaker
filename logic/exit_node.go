@@ -173,6 +173,9 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return nil, errors.New("user does not have access to network")
 	}
+	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
+		return nil, errors.New("operation not permitted")
+	}
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
 	if err != nil {
 		return nil, errors.New("device is not joined to network")

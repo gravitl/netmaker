@@ -68,3 +68,12 @@ func UserHasAccessToNetwork(ctx context.Context, user *schema.User, network stri
 	}
 	return false
 }
+
+// UserHasDeviceNetworkWriteAccess reports whether the user may mutate device
+// network membership/state (join, leave, exit-node selection). CE defaults to
+// network access; Pro overrides with scope checks that deny read-only roles.
+var UserHasDeviceNetworkWriteAccess = defaultUserHasDeviceNetworkWriteAccess
+
+func defaultUserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, network string) bool {
+	return UserHasAccessToNetwork(ctx, user, network)
+}

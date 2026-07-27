@@ -14,9 +14,22 @@ import (
 )
 
 func TestEnsureHostOwner(t *testing.T) {
-	host := &schema.Host{ID: uuid.New(), OwnerUsername: ""}
+	ctx := db.WithContext(context.TODO())
+	host := &schema.Host{ID: uuid.New(), Name: "ensure-owner-host", OwnerUsername: ""}
+	require.NoError(t, host.Create(ctx))
+	t.Cleanup(func() { _ = host.Delete(ctx) })
+
 	EnsureHostOwner(host, "alice")
 	assert.Equal(t, "alice", host.OwnerUsername)
+
+	reloaded := &schema.Host{ID: host.ID}
+	require.NoError(t, reloaded.Get(ctx))
+	assert.Equal(t, "alice", reloaded.OwnerUsername)
+
+	// Stale in-memory view must not overwrite an owner already set in DB.
+	stale := &schema.Host{ID: host.ID, OwnerUsername: ""}
+	EnsureHostOwner(stale, "carol")
+	assert.Equal(t, "alice", stale.OwnerUsername)
 
 	host.OwnerUsername = "bob"
 	EnsureHostOwner(host, "alice")
@@ -98,15 +111,15 @@ func TestRegisterDevice(t *testing.T) {
 	t.Cleanup(func() { _ = otherUser.Delete(ctx) })
 
 	dup := &schema.Host{ID: hostID, Name: "device-reg-host", OS: "linux", Version: "dev", TrafficKeyPublic: []byte{1, 2, 3}}
-	handoffResp, err := RegisterDevice(ctx, otherUser, dup)
-	require.NoError(t, err)
-	assert.Equal(t, other, handoffResp.RequestedHost.OwnerUsername)
+	_, err = RegisterDevice(ctx, otherUser, dup)
+	require.Error(t, err)
+	assert.Equal(t, "host already registered to another user", err.Error())
 
-	got, err := VerifyDeviceHostAccess(ctx, other, hostID.String())
+	got, err := VerifyDeviceHostAccess(ctx, owner, hostID.String())
 	require.NoError(t, err)
-	assert.Equal(t, other, got.OwnerUsername)
+	assert.Equal(t, owner, got.OwnerUsername)
 
-	_, err = VerifyDeviceHostAccess(ctx, owner, hostID.String())
+	_, err = VerifyDeviceHostAccess(ctx, other, hostID.String())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not belong")
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
@@ -151,18 +164,10 @@ func TestTransferDeviceHostOwnership_logsAuditEvent(t *testing.T) {
 	assert.Equal(t, newOwner, newDiff["owner_username"])
 }
 
-func TestRegisterDeviceHostHandoffCleansPending(t *testing.T) {
+func TestTransferDeviceHostOwnershipCleansPending(t *testing.T) {
 	ctx := db.WithContext(context.TODO())
 	prevOwner := "handoff-prev-" + uuid.NewString()[:8]
 	newOwner := "handoff-new-" + uuid.NewString()[:8]
-
-	prevUser := &schema.User{Username: prevOwner, PlatformRoleID: schema.AdminRole}
-	require.NoError(t, prevUser.Create(ctx))
-	t.Cleanup(func() { _ = prevUser.Delete(ctx) })
-
-	newUser := &schema.User{Username: newOwner, PlatformRoleID: schema.AdminRole}
-	require.NoError(t, newUser.Create(ctx))
-	t.Cleanup(func() { _ = newUser.Delete(ctx) })
 
 	hostID := uuid.New()
 	host := &schema.Host{
@@ -191,10 +196,8 @@ func TestRegisterDeviceHostHandoffCleansPending(t *testing.T) {
 	}
 	require.NoError(t, pending.Create(ctx))
 
-	dup := &schema.Host{ID: hostID, Name: "handoff-host", OS: "linux", Version: "dev", TrafficKeyPublic: []byte{1, 2, 3}}
-	resp, err := RegisterDevice(ctx, newUser, dup)
-	require.NoError(t, err)
-	assert.Equal(t, newOwner, resp.RequestedHost.OwnerUsername)
+	require.NoError(t, TransferDeviceHostOwnership(ctx, host, newOwner))
+	assert.Equal(t, newOwner, host.OwnerUsername)
 
 	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
 	require.Error(t, check.CheckIfPendingHostExists(ctx))
@@ -498,4 +501,48 @@ func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
 	err := CancelDeviceNetworkJoin(ctx, user, host, netName)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no pending join request")
+}
+
+func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
+	ctx := db.WithContext(context.TODO())
+	netName := "write-denied-" + uuid.NewString()[:8]
+	username := "write-denied-user-" + uuid.NewString()[:8]
+
+	require.NoError(t, CreateNetwork(&schema.Network{
+		Name:         netName,
+		AddressRange: "10.94.0.0/24",
+	}))
+	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
+
+	user := &schema.User{Username: username, PlatformRoleID: schema.PlatformUser}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "write-denied-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		OwnerUsername:    username,
+	}
+	require.NoError(t, host.Create(ctx))
+	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
+
+	origFilter := FilterNetworksByRole
+	origWrite := UserHasDeviceNetworkWriteAccess
+	t.Cleanup(func() {
+		FilterNetworksByRole = origFilter
+		UserHasDeviceNetworkWriteAccess = origWrite
+	})
+	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+		return []schema.Network{{Name: netName}}
+	}
+	UserHasDeviceNetworkWriteAccess = func(_ context.Context, _ *schema.User, _ string) bool { return false }
+
+	_, err := JoinDeviceNetwork(ctx, user, host, netName)
+	require.Error(t, err)
+	assert.Equal(t, "operation not permitted", err.Error())
 }

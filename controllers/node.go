@@ -1103,8 +1103,25 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// On disconnect, clear exit selection and push peer updates first so clients
-		// drop full-tunnel routes before Connected is flipped off.
+		// Flip Connected first; only clear exit selection after a successful status update.
+		nodeUpdate := &schema.Node{
+			Connected: req.Connected,
+		}
+		if req.Connected {
+			nodeUpdate.LastCheckIn = time.Now().UTC()
+			nodeUpdate.Status = schema.OnlineSt
+		} else {
+			nodeUpdate.Status = schema.Disconnected
+		}
+		err := nodeUpdate.UpdateConnectedStatus(
+			db.WithContext(context.TODO()),
+			dbtypes.WithFilter("id", nodeIDs...),
+		)
+		if err != nil {
+			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
+			return
+		}
+
 		if !req.Connected {
 			exitClients := make([]models.Node, 0)
 			for i := range nodeIDs {
@@ -1126,24 +1143,6 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
 				time.Sleep(1 * time.Second)
 			}
-		}
-
-		nodeUpdate := &schema.Node{
-			Connected: req.Connected,
-		}
-		if req.Connected {
-			nodeUpdate.LastCheckIn = time.Now().UTC()
-			nodeUpdate.Status = schema.OnlineSt
-		} else {
-			nodeUpdate.Status = schema.Disconnected
-		}
-		err := nodeUpdate.UpdateConnectedStatus(
-			db.WithContext(context.TODO()),
-			dbtypes.WithFilter("id", nodeIDs...),
-		)
-		if err != nil {
-			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
-			return
 		}
 
 		for i := range nodeIDs {
