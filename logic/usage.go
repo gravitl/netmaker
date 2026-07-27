@@ -57,7 +57,7 @@ func GetCurrentServerUsage() (limits models.Usage) {
 			limits.Relays++
 			netUsage.Relays++
 		}
-		if node.IsInternetGateway {
+		if node.IsInternetGateway || NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
 			limits.InternetGateways++
 			netUsage.InternetGateways++
 		}

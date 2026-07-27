@@ -407,6 +407,7 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 	}
 	for _, hostNode := range hostNodes {
 		node := ConvertSchemaNodeToModelsNode(&hostNode)
+		FailOpenAndDetachExitRoutingNode(context.TODO(), node)
 		cleanupNodeReferences(node)
 		err = DeleteNodeByID(node)
 		if err != nil {
@@ -513,6 +514,7 @@ func DisassociateAllNodesFromHost(hostIDStr string) error {
 			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
+		FailOpenAndDetachExitRoutingNode(context.TODO(), &node)
 		cleanupNodeReferences(&node)
 		if err := DeleteNodeByID(&node); err != nil {
 			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)

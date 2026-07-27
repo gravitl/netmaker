@@ -342,7 +342,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) {
+	if logic.ExtClientUsesInternetEgress(client, gwnode) {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
@@ -508,10 +508,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userName string
-	if r.Header.Get("ismaster") == "yes" {
+	var caller *schema.User
+	isMaster := r.Header.Get("ismaster") == "yes"
+	if isMaster {
 		userName = logic.MasterUser
 	} else {
-		caller := &schema.User{Username: r.Header.Get("user")}
+		caller = &schema.User{Username: r.Header.Get("user")}
 		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -525,17 +527,20 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		// JIT enforcement: Check if user has access (only for desktop app users)
-		hasAccess, jitGrant, err := logic.CheckJITAccess(gateway.NetID, userName)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-		if !hasAccess {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("JIT access required: please request access from network admin"),
-				"forbidden"))
-			return
+		var jitGrant *schema.JITGrant
+		if extClientCreateRequiresJIT(isMaster, caller, gateway.NetID, customExtClient) {
+			hasAccess, grant, err := logic.CheckJITAccess(gateway.NetID, userName)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			if !hasAccess {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					errors.New("JIT access required: please request access from network admin"),
+					"forbidden"))
+				return
+			}
+			jitGrant = grant
 		}
 		// if device id is sent, we don't want to create another extclient for the same user
 		// and gw, with the same device id.
@@ -615,21 +620,22 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	extclient.Location = customExtClient.Location
-	// JIT enforcement: Check if user has access (only for desktop app users)
-	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if !hasAccess {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(
-			errors.New("JIT access required: please request access from network admin"),
-			"forbidden"))
-		return
-	}
-	// Set JIT expiry time if grant exists (nil when JIT not enabled or user is outside JIT scope)
-	if grant != nil {
-		extclient.JITExpiresAt = &grant.ExpiresAt
+	if extClientCreateRequiresJIT(isMaster, caller, extclient.Network, customExtClient) {
+		hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
+		// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+		if grant != nil {
+			extclient.JITExpiresAt = &grant.ExpiresAt
+		}
 	}
 
 	if extclient.DeviceID != "" {
@@ -748,6 +754,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extclient.LastModified = time.Now().Unix()
+	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &extclient, nodeid, &customExtClient); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	err = logic.SaveExtClient(&extclient)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -904,6 +914,10 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		replacePeers = true
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
+	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &newclient, newclient.IngressGatewayID, &update); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
 		staticNode := models.ConvertToStaticNode(newclient)
@@ -1287,4 +1301,18 @@ func bulkUpdateExtClientStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		slog.Info("bulk extclient status completed", "action", eventAction, "updated", updated, "total", len(req.IDs))
 	}()
+}
+
+// extClientCreateRequiresJIT reports whether create must verify JIT access.
+// Only client-app requests (device_id / remote_access_client_id) are enforced.
+// Dashboard config-file creates skip JIT. Master key skips. When JIT groups are set,
+// users outside that allowlist are not subject.
+func extClientCreateRequiresJIT(isMaster bool, caller *schema.User, networkID string, custom models.CustomExtClient) bool {
+	if custom.DeviceID == "" && custom.RemoteAccessClientID == "" {
+		return false
+	}
+	if isMaster {
+		return false
+	}
+	return logic.UserSubjectToNetworkJIT(networkID, caller)
 }
