@@ -24,8 +24,9 @@ func (t TokenType) String() string {
 }
 
 var (
-	UserIDTokenType TokenType = "user_id_token"
-	AccessTokenType TokenType = "access_token"
+	UserIDTokenType  TokenType = "user_id_token"
+	AccessTokenType  TokenType = "access_token"
+	PreAuthTokenType TokenType = "pre_auth_token"
 )
 
 // Pre-Defined User Roles

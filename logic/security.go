@@ -96,8 +96,8 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 		username, err := GetUserNameFromToken(r.Context(), authHeader)
 		if err != nil {
 			// if no, then check the user has a pre-auth token.
-			var claims jwt.RegisteredClaims
-			token, err := jwt.ParseWithClaims(authToken, &claims, func(token *jwt.Token) (interface{}, error) {
+			claims := &models.UserClaims{}
+			token, err := jwt.ParseWithClaims(authToken, claims, func(token *jwt.Token) (interface{}, error) {
 				return jwtSecretKey, nil
 			})
 			if err != nil {
@@ -119,7 +119,24 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 						return
 					}
 
-					r.Header.Set("user", claims.Subject)
+					username := claims.UserName
+					if username == "" && claims.Scope == scope.GlobalScope && claims.ScopeID == "" {
+						// token predates scope-aware claims; fall back to the
+						// plain-username subject and assume it was issued for
+						// the sole tenant that existed before multi-tenancy.
+						username = claims.Subject
+
+						soleTenant, err := SoleTenant(r.Context())
+						if err != nil || soleTenant.ID != scope.ID(r.Context()) {
+							ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+							return
+						}
+					} else if claims.Scope != scope.Level(r.Context()) || claims.ScopeID != scope.ID(r.Context()) {
+						ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+						return
+					}
+
+					r.Header.Set("user", username)
 					next.ServeHTTP(w, r)
 					return
 				} else {

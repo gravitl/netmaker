@@ -119,16 +119,25 @@ func CreateUserJWT(ctx context.Context, username string, appName string) (respon
 
 // CreatePreAuthToken generate a jwt token to be used as intermediate
 // token after primary-factor authentication but before secondary-factor
-// authentication.
-func CreatePreAuthToken(username string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer:    "Netmaker",
-		Subject:   username,
-		Audience:  []string{"auth:mfa"},
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-	})
+// authentication. It carries the same scope as the eventual auth token so
+// that PreAuthCheck can confirm the token was issued for the scope it's
+// being redeemed in.
+func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
+	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
+		UserName:  username,
+		TokenType: models.PreAuthTokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("user|%s", username),
+			Audience:  []string{"auth:mfa"},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		},
+	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecretKey)
 }
 
