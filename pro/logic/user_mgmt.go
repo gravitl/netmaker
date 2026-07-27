@@ -767,7 +767,7 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 
 func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err := platformRole.Get(db.WithContext(context.TODO()))
+	err := platformRole.Get(ctx)
 	if err != nil {
 		return []schema.Network{}
 	}
