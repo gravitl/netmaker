@@ -319,6 +319,17 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			return Unauthorized_Err
 		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) {
 			return nil
+		} else if claims.Scope == scope.GlobalScope && claims.ScopeID == "" {
+			// token predates scope-aware claims; assume it was issued for
+			// the sole tenant that existed before multi-tenancy.
+			soleTenant, err := SoleTenant(ctx)
+			if err != nil {
+				return Unauthorized_Err
+			}
+
+			if soleTenant.ID == scope.ID(ctx) {
+				return nil
+			}
 		}
 	}
 
