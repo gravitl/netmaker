@@ -481,12 +481,15 @@ func migrateEgressDomains() {
 		if len(eg.Domains) > 0 {
 			continue
 		}
-		var legacyDomain string
-		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Pluck("domain", &legacyDomain).Error; err != nil {
+		var legacyDomainPtr *string
+		if err := gormDB.Table(eg.Table()).Where("id = ?", eg.ID).Select("domain").Scan(&legacyDomainPtr).Error; err != nil {
 			logger.Log(0, "migration: failed to read legacy egress domain:", eg.ID, err.Error())
 			continue
 		}
-		legacyDomain = strings.TrimSpace(legacyDomain)
+		if legacyDomainPtr == nil {
+			continue
+		}
+		legacyDomain := strings.TrimSpace(*legacyDomainPtr)
 		if legacyDomain == "" {
 			continue
 		}

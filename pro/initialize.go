@@ -200,6 +200,7 @@ func InitPro() {
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
 	proLogic.RegisterDeviceHooks()
+	logic.UserSubjectToNetworkJIT = proLogic.UserSubjectToNetworkJIT
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull
 }
