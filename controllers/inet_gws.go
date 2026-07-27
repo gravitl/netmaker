@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
@@ -13,9 +14,10 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
+// Deprecated: internet gateway management is handled via /api/v1/egress with type=internet.
+// These handlers remain as thin wrappers that create/update/delete internet-type egress resources.
 func internetGatewayHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createInternetGw)))).
 		Methods(http.MethodPost)
@@ -35,7 +37,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if node.IsInternetGateway {
+	if logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
 		logic.ReturnSuccessResponse(w, r, "node is already acting as internet gateway")
 		return
 	}
@@ -45,23 +47,14 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
+	host := &schema.Host{ID: node.HostID}
 	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if host.OS != models.OS_Types.Linux {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("only linux nodes can be made internet gws"),
-				"badrequest",
-			),
-		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only linux nodes can be made internet gws"), "badrequest"))
 		return
 	}
 	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, false)
@@ -69,14 +62,23 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.SetInternetGw(&node, request)
-	if servercfg.IsPro {
-		go func() {
-			logic.ResetAutoRelayedPeer(&node)
-			mq.PublishPeerUpdate(false)
-		}()
-
+	e, err := logic.CreateInternetEgressForNode(r.Context(), &node, "", r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
+	if e.TenantID == "" {
+		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+		_ = e.Update(db.WithContext(r.Context()))
+	}
+	for _, clientNodeID := range request.InetNodeClientIDs {
+		clientNode, err := logic.GetNodeByID(clientNodeID)
+		if err != nil {
+			continue
+		}
+		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID)
+	}
+	node.IsInternetGateway = true
 	if node.IsGw && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"
 	}
@@ -86,16 +88,9 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiNode := node.ConvertToAPINode()
-	logger.Log(
-		1,
-		r.Header.Get("user"),
-		"created ingress gateway on node",
-		nodeid,
-		"on network",
-		netid,
-	)
+	logger.Log(1, r.Header.Get("user"), "created internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
+	_ = json.NewEncoder(w).Encode(apiNode)
 	go mq.PublishPeerUpdate(false)
 }
 
@@ -115,41 +110,42 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !node.IsInternetGateway {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("node is not a internet gw"), "badrequest"),
-		)
-		return
+	e, err := logic.FindInternetEgressByRoutingNode(r.Context(), netid, nodeid)
+	if err != nil {
+		if !node.IsInternetGateway {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not a internet gw"), "badrequest"))
+			return
+		}
+		e, err = logic.CreateInternetEgressForNode(r.Context(), &node, "", r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
-	logic.SetInternetGw(&node, request)
+	logic.ClearNodesSelectedInternetEgress(r.Context(), e.ID, netid)
+	for _, clientNodeID := range request.InetNodeClientIDs {
+		clientNode, err := logic.GetNodeByID(clientNodeID)
+		if err != nil {
+			continue
+		}
+		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID)
+	}
+	node.IsInternetGateway = true
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	apiNode := node.ConvertToAPINode()
-	logger.Log(
-		1,
-		r.Header.Get("user"),
-		"created ingress gateway on node",
-		nodeid,
-		"on network",
-		netid,
-	)
+	logger.Log(1, r.Header.Get("user"), "updated internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		_ = logic.ResetAutoRelayedPeer(&node)
-		_ = mq.PublishPeerUpdate(false)
-	}()
+	go mq.PublishPeerUpdate(false)
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +159,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logic.DeleteInternetEgressesForRoutingNode(r.Context(), netid, nodeid)
 	logic.UnsetInternetGw(&node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
@@ -170,15 +167,8 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apiNode := node.ConvertToAPINode()
-	logger.Log(
-		1,
-		r.Header.Get("user"),
-		"created ingress gateway on node",
-		nodeid,
-		"on network",
-		netid,
-	)
+	logger.Log(1, r.Header.Get("user"), "deleted internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
+	_ = json.NewEncoder(w).Encode(apiNode)
 	go mq.PublishPeerUpdate(false)
 }

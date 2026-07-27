@@ -2,8 +2,10 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -144,6 +146,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			"total_networks", len(allNetworks),
 		)
 	}
+	featureFlags := GetFeatureFlags()
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
@@ -152,15 +155,56 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			Status:       models.DeviceNetworkStatusAvailable,
 			HasJITAccess: true,
 		}
+		applyDeviceNetworkApprovalPolicy(network, user, featureFlags, &dn)
 		if host != nil {
-			applyDeviceNetworkHostState(ctx, host, network, &dn)
+			applyDeviceNetworkHostState(ctx, host, network, user, featureFlags, &dn)
 		}
 		result = append(result, dn)
 	}
 	return EnrichDeviceNetworksWithJIT(user, accessible, result), nil
 }
 
-func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network schema.Network, dn *models.DeviceNetwork) {
+// deviceJoinRequiresApproval reports whether a user-owned device join should enter
+// pending-host approval instead of joining immediately.
+func deviceJoinRequiresApproval(network schema.Network, user *schema.User) bool {
+	featureFlags := GetFeatureFlags()
+	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
+		return false
+	}
+	if user != nil && IsNetworkAdmin(user, network.Name) {
+		return false
+	}
+	// When JIT gates this user, admin approval happens via the JIT grant flow.
+	if network.JITEnabled && UserSubjectToNetworkJIT(network.Name, user) {
+		return false
+	}
+	return true
+}
+
+func applyDeviceNetworkApprovalPolicy(network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
+	if !deviceJoinRequiresApproval(network, user) {
+		return
+	}
+	dn.ApprovalRequired = true
+	if dn.Status == models.DeviceNetworkStatusAvailable {
+		dn.Status = models.DeviceNetworkStatusApprovalRequired
+	}
+}
+
+func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
+	if pending, _ := getPendingHostOnNetwork(ctx, host.ID.String(), network.Name); pending != nil {
+		// Stale pending from before JIT/admin skip should not block the client UI.
+		if !deviceJoinRequiresApproval(network, user) {
+			_ = pending.Delete(ctx)
+		} else {
+			dn.Pending = true
+			dn.Status = models.DeviceNetworkStatusPending
+			ts := pending.RequestedAt.Unix()
+			dn.ApprovalRequestedAt = &ts
+			return
+		}
+	}
+
 	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
 		dn.Joined = true
 		dn.Connected = node.Connected
@@ -175,7 +219,10 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network
 	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
 		dn.Status = models.DeviceNetworkStatusBlocked
+		return
 	}
+
+	applyDeviceNetworkApprovalPolicy(network, user, featureFlags, dn)
 }
 
 func getPendingHostOnNetwork(ctx context.Context, hostID, network string) (*schema.PendingHost, error) {
@@ -204,7 +251,7 @@ func getHostNodeOnNetwork(ctx context.Context, host *schema.Host, network string
 // JoinDeviceNetwork adds the host to a network on behalf of the user.
 func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) (models.DeviceJoinResult, error) {
 	var empty models.DeviceJoinResult
-	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return empty, errors.New("user does not have access to network")
 	}
 	hasAccess, _, err := CheckJITAccess(networkID, user.Username)
@@ -228,6 +275,30 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}
 
+	if deviceJoinRequiresApproval(*network, user) {
+		p := &schema.PendingHost{HostID: host.ID.String(), Network: networkID}
+		if err := p.CheckIfPendingHostExists(ctx); err == nil {
+			return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
+		}
+		keyB, _ := json.Marshal(models.EnrollmentKey{Networks: []string{networkID}})
+		pending := schema.PendingHost{
+			ID:            uuid.NewString(),
+			HostID:        host.ID.String(),
+			Hostname:      host.Name,
+			Network:       networkID,
+			PublicKey:     host.PublicKey.String(),
+			OS:            host.OS,
+			Location:      host.Location,
+			Version:       host.Version,
+			EnrollmentKey: keyB,
+			RequestedAt:   time.Now().UTC(),
+		}
+		if err := pending.Create(ctx); err != nil {
+			return empty, err
+		}
+		return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
+	}
+
 	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
 		_ = pending.Delete(ctx)
 	}
@@ -241,7 +312,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 
 // LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.
 func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
-	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return errors.New("user does not have access to network")
 	}
 	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
@@ -263,7 +334,7 @@ func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Hos
 
 // CancelDeviceNetworkJoin removes a pending join approval request without leaving a joined network.
 func CancelDeviceNetworkJoin(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
-	if !IsUserAllowedToJoinNetwork(user.Username, networkID) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
 		return errors.New("user does not have access to network")
 	}
 	pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID)

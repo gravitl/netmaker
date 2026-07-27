@@ -190,8 +190,8 @@ func cleanupNodeReferences(node *models.Node) {
 	if node.IsRelay {
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	if node.InternetGwID != "" {
-		inetNode, err := GetNodeByID(node.InternetGwID)
+	if routingID := InternetExitRoutingNodeID(node); routingID != "" {
+		inetNode, err := GetNodeByID(routingID)
 		if err == nil {
 			clientNodeIDs := []string{}
 			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
@@ -254,6 +254,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
+
+	// Before removing an exit routing node: fail-open its clients and detach from
+	// internet egress maps so sticky selections are not left pointing at a dead relay.
+	FailOpenAndDetachExitRoutingNode(context.TODO(), node)
+
 	cleanupNodeReferences(node)
 	host := &schema.Host{
 		ID: node.HostID,
@@ -708,6 +713,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		IsAutoRelay:                        _node.IsAutoRelay == "yes",
 		AutoRelayedPeers:                   _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                  _node.IsInternetGateway,
+		SelectedInternetEgressID:           _node.SelectedInternetEgressID,
 		Tags:                               make(map[models.TagID]struct{}),
 		Status:                             _node.Status,
 		PostureChecksViolations:            violations,
@@ -735,12 +741,36 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			// Keep RelayedNodes complete for AllowedIPs: exit clients must be
+			// advertised even if RelayedClients and RelayedIGWClients diverge.
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
+			}
 		}
 
 		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
 			endpointIP := net.ParseIP(additionalEndpoint)
 			if endpointIP != nil {
 				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
+			}
+		}
+	} else if len(_node.RelayedClients) > 0 {
+		// A non-gateway node can still relay clients when it acts as an internet
+		// exit node: the peers using it as their exit node are relayed through it
+		// for overlay stability. Surface those relationships (previously only
+		// populated for gateways) so peer AllowedIPs and ACL/firewall rules
+		// account for them, and so a model->schema round-trip doesn't wipe them.
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
 			}
 		}
 	}
@@ -842,6 +872,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayedByNodeID:                   relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+		SelectedInternetEgressID:          node.SelectedInternetEgressID,
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
 		PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,

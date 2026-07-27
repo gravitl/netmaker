@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -14,6 +15,19 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/matryer/is"
 )
+
+func ensureTestMqKeys(ctx context.Context) {
+	pub := &schema.Internal{Key: schema.InternalKey_MqPublicKey}
+	if err := pub.Get(ctx); err != nil {
+		pub.Value = base64.StdEncoding.EncodeToString([]byte("test-mq-public-key-for-logic-tests"))
+		_ = pub.Set(ctx)
+	}
+	priv := &schema.Internal{Key: schema.InternalKey_MqPrivateKey}
+	if err := priv.Get(ctx); err != nil {
+		priv.Value = base64.StdEncoding.EncodeToString([]byte("test-mq-private-key-for-logic-tests"))
+		_ = priv.Set(ctx)
+	}
+}
 
 func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
@@ -28,13 +42,15 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	ctx := db.WithContext(context.TODO())
 	defaultOrg := schema.Organization{}
-	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+	_ = defaultOrg.CreateDefault(ctx)
 
 	defaultTenant := schema.Tenant{
 		OrganizationID: defaultOrg.ID,
 	}
-	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+	_ = defaultTenant.CreateDefault(ctx)
+	ensureTestMqKeys(ctx)
 
 	os.Exit(m.Run())
 }

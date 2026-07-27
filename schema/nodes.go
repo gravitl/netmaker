@@ -57,6 +57,8 @@ type Node struct {
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
+	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              Severity                              `json:"posture_check_severity"`
@@ -495,8 +497,11 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		return err
 	}
 
+	// Only unassign clients relayed by THIS gateway. Clearing the whole network
+	// would drop RelayedBy / IsIGWClient for exit clients of other exit nodes.
 	err = db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
+		Where("relayed_by_node_id = ?", n.ID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": nil,
 			"is_igw_client":      false,

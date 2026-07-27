@@ -641,7 +641,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return
 	}
-	if IsInternetGw(gwnode) {
+	if ExtClientUsesInternetEgress(client, gwnode) {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
