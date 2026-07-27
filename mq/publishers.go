@@ -241,7 +241,7 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
-	fmt.Println("[peer-update] publishing peer update to host:", host.Name, "id:", host.ID.String(), "owner:", host.OwnerUsername, "peers:", len(peerUpdate.Peers))
+	slog.Debug("publishing peer update to host", "name", host.Name, "id", host.ID.String(), "owner", host.OwnerUsername, "peers", len(peerUpdate.Peers))
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
