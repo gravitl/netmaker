@@ -433,14 +433,22 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
 				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isAutoRelayPeer {
-				// if node is relayed and peer is not the relay, set remove to true
-				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+				// Never remove the peer that is this node's internet exit. Exit
+				// clients need that WireGuard peer (with 0.0.0.0/0) even when
+				// RelayedBy is temporarily empty/stale after gateway teardown;
+				// otherwise netclient IGW monitor fails with "peer not found".
+				if usesPeerAsInternetExit(&node, &peer) {
+					// fall through to normal peer config
+				} else {
+					// if node is relayed and peer is not the relay, set remove to true
+					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+						continue
+					}
+					peerConfig.Remove = true
+					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
-				peerConfig.Remove = true
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				continue
 			}
 
 			uselocal := false

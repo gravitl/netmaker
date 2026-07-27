@@ -497,8 +497,11 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		return err
 	}
 
+	// Only unassign clients relayed by THIS gateway. Clearing the whole network
+	// would drop RelayedBy / IsIGWClient for exit clients of other exit nodes.
 	err = db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
+		Where("relayed_by_node_id = ?", n.ID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": nil,
 			"is_igw_client":      false,
