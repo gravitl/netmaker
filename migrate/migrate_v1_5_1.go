@@ -148,6 +148,8 @@ func migrateUsers(ctx context.Context) error {
 				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 				Password:                   user.Password,
 				AccountDisabled:            user.AccountDisabled,
+				IsMFAEnabled:               user.IsMFAEnabled,
+				TOTPSecret:                 user.TOTPSecret,
 			}
 			err = om.Create(ctx)
 			if err != nil {

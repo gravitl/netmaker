@@ -476,10 +476,13 @@ func createMemberships(ctx context.Context) error {
 
 		if u.PlatformRoleID == schema.SuperAdminRole {
 			om := &schema.OrgMembership{
-				OrganizationID:  defaultOrg.ID,
-				UserID:          u.ID,
-				RoleID:          schema.OrgOwner,
+				OrganizationID: defaultOrg.ID,
+				UserID:         u.ID,
+				RoleID:         schema.OrgOwner,
+				// todo(nm-341): external idp id, auth type migration.
 				AccountDisabled: u.AccountDisabled,
+				IsMFAEnabled:    u.IsMFAEnabled,
+				TOTPSecret:      u.TOTPSecret,
 			}
 			err = db.FromContext(ctx).
 				Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
