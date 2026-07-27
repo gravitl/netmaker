@@ -66,10 +66,10 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	var user *schema.User
 	if p.Name() == azure_ad_provider_name {
-		user, err = GetMatchingUser(userClaims)
+		user, err = GetMatchingUser(r.Context(), userClaims)
 	} else {
 		user = &schema.User{Username: userClaims.getUserName()}
-		err = user.Get(r.Context())
+		err = user.GetWithMembership(r.Context())
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
