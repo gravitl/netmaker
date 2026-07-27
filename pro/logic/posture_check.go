@@ -680,14 +680,14 @@ func compareVersions(a, b string) int {
 }
 
 // PopulatePostureCheckGroupNames sets group name as the value for each user group key
-func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
+func PopulatePostureCheckGroupNames(ctx context.Context, pcs []schema.PostureCheck) {
 	for i := range pcs {
 		for groupID := range pcs[i].UserGroups {
 			if groupID == "*" {
 				pcs[i].UserGroups[groupID] = "*"
 				continue
 			}
-			grp, err := logic.GetUserGroup(schema.UserGroupID(groupID))
+			grp, err := logic.GetUserGroup(ctx, schema.UserGroupID(groupID))
 			if err == nil {
 				pcs[i].UserGroups[groupID] = grp.Name
 			} else {
@@ -843,7 +843,7 @@ func ValidatePostureCheck(ctx context.Context, pc *schema.PostureCheck) error {
 			if userGrpID == "*" {
 				continue
 			}
-			_, err := GetUserGroup(schema.UserGroupID(userGrpID))
+			_, err := GetUserGroup(ctx, schema.UserGroupID(userGrpID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}

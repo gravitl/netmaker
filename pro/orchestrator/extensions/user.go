@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gravitl/netmaker/logic"
@@ -41,10 +42,10 @@ func (p *ProUserExtensions) ConfigureGlobalAdminGroup(membership *schema.TenantM
 	}
 }
 
-func (p *ProUserExtensions) ConfigureGroups(membership *schema.TenantMembership, groups datatypes.JSONType[map[schema.UserGroupID]struct{}]) {
+func (p *ProUserExtensions) ConfigureGroups(ctx context.Context, membership *schema.TenantMembership, groups datatypes.JSONType[map[schema.UserGroupID]struct{}]) {
 	membership.Groups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 	for groupID := range groups.Data() {
-		_, err := proLogic.GetUserGroup(groupID)
+		_, err := proLogic.GetUserGroup(ctx, groupID)
 		if err == nil {
 			membership.Groups.Data()[groupID] = struct{}{}
 		}

@@ -178,7 +178,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 	}
 
 	if requireMembership {
-		return ErrTenantIDNotProvided
+		return ErrScopeNotProvider
 	}
 
 	return db.FromContext(ctx).Model(&User{}).
@@ -188,16 +188,38 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 }
 
 func (u *User) GetByExternalID(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	if tenantID == "" {
-		return ErrTenantIDNotProvided
+	if scope.ID(ctx) == "" {
+		return ErrScopeNotProvider
 	}
 
 	if u.ExternalIdentityProviderID == "" {
 		return ErrUserIdentifiersNotProvided
 	}
 
+	if scope.Level(ctx) == scope.OrgScope {
+		var row userWithOrgMembership
+		orgID := scope.ID(ctx)
+		err := db.FromContext(ctx).
+			Table("users_v1").
+			Select("users_v1.*, om.role_id AS member_role_id, om.auth_type AS member_auth_type, om.external_identity_provider_id AS member_external_identity_provider_id, om.password AS member_password, om.account_disabled AS member_account_disabled").
+			Joins("LEFT JOIN org_memberships_v1 om ON om.user_id = users_v1.id AND om.organization_id = ?", orgID).
+			Where("om.external_identity_provider_id = ?", u.ExternalIdentityProviderID).
+			First(&row).
+			Error
+		if err != nil {
+			return err
+		}
+		*u = row.User
+		u.PlatformRoleID = row.MemberRoleID
+		u.AuthType = row.MemberAuthType
+		u.ExternalIdentityProviderID = row.MemberExternalIdentityProviderID
+		u.Password = row.MemberPassword
+		u.AccountDisabled = row.MemberAccountDisabled
+		return nil
+	}
+
 	var row userWithMembership
+	tenantID := scope.ID(ctx)
 	err := db.FromContext(ctx).
 		Table("users_v1").
 		Select("users_v1.*, tm.role_id AS member_role_id, tm.groups AS member_groups, tm.auth_type AS member_auth_type, tm.external_identity_provider_id AS member_external_identity_provider_id, tm.password AS member_password, tm.account_disabled AS member_account_disabled, tm.is_mfa_enabled AS member_is_mfa_enabled, tm.totp_secret AS member_totp_secret").
@@ -279,7 +301,7 @@ func (u *User) count(ctx context.Context, requireMembership bool, options ...dbt
 			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 	default:
 		if requireMembership {
-			return 0, ErrTenantIDNotProvided
+			return 0, ErrScopeNotProvider
 		}
 		query = db.FromContext(ctx).Model(&User{})
 	}
@@ -368,7 +390,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 	}
 
 	if requireMembership {
-		return nil, ErrTenantIDNotProvided
+		return nil, ErrScopeNotProvider
 	}
 
 	var users []User

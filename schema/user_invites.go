@@ -13,9 +13,9 @@ import (
 
 type UserInvite struct {
 	ID             string                                       `gorm:"primaryKey" json:"id"`
-	Scope          scope.Scope                                  `gorm:"default:0;uniqueIndex:udx_user_invite_scope_invite_code" json:"scope"`
-	ScopeID        string                                       `gorm:"default:'';uniqueIndex:udx_user_invite_scope_invite_code" json:"scope_id"`
-	InviteCode     string                                       `gorm:"uniqueIndex:udx_user_invite_scope_invite_code" json:"invite_code"`
+	Scope          scope.Scope                                  `gorm:"default:2" json:"scope"`
+	ScopeID        string                                       `gorm:"default:''" json:"scope_id"`
+	InviteCode     string                                       `gorm:"uniqueIndex" json:"invite_code"`
 	InviteURL      string                                       `json:"invite_url"`
 	Email          string                                       `json:"email"`
 	PlatformRoleID string                                       `json:"platform_role_id"`
@@ -34,6 +34,12 @@ func (u *UserInvite) Create(ctx context.Context) error {
 	}
 
 	return db.FromContext(ctx).Model(&UserInvite{}).Create(u).Error
+}
+
+func (u *UserInvite) Get(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&UserInvite{}).
+		Where("invite_code = ?", u.InviteCode).
+		Find(u).Error
 }
 
 func (u *UserInvite) GetByEmail(ctx context.Context) error {

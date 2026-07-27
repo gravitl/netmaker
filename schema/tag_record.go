@@ -36,7 +36,6 @@ func (t Tag) GetIDFromName() string {
 	return fmt.Sprintf("%s.%s", t.Network, t.TagName)
 }
 
-// todo(nm-341): composite primary key
 type TagRecord struct {
 	Key       string `gorm:"primaryKey"`
 	TenantID  string `gorm:"default:'';index"`
@@ -49,19 +48,29 @@ const tagRecordsTable = "tags"
 func (*TagRecord) TableName() string { return tagRecordsTable }
 
 func (r *TagRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", tagRecordsTable), r.Key, scope.ID(ctx)).First(r).Error
+	tenantID := scope.ID(ctx)
+	logicalKey := r.Key
+	err := db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, logicalKey)).First(r).Error
+	if err != nil {
+		return err
+	}
+	r.Key = logicalKey
+	return nil
 }
 
 func (r *TagRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
+	rec := *r
+	rec.Key = TenantScopedKey(r.TenantID, r.Key)
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
-	}).Create(r).Error
+	}).Create(&rec).Error
 }
 
 func (r *TagRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", tagRecordsTable), r.Key, scope.ID(ctx)).Delete(r).Error
+	tenantID := scope.ID(ctx)
+	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&TagRecord{}).Error
 }
 
 func (*TagRecord) List(ctx context.Context) ([]TagRecord, error) {
@@ -71,6 +80,9 @@ func (*TagRecord) List(ctx context.Context) ([]TagRecord, error) {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", tagRecordsTable), tenantID)(query)
 	}
 	err := query.Find(&records).Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
 	return records, err
 }
 

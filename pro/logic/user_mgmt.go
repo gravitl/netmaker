@@ -523,7 +523,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	}
 	for _, user := range users {
 		for userG := range user.UserGroups.Data() {
-			ug, err := GetUserGroup(userG)
+			ug, err := GetUserGroup(ctx, userG)
 			if err == nil {
 				if role.NetworkID != "" {
 					for netID, networkRoles := range ug.NetworkRoles.Data() {
@@ -634,11 +634,11 @@ func CreateUserGroup(ctx context.Context, g *schema.UserGroup) error {
 }
 
 // GetUserGroup - fetches user group
-func GetUserGroup(gid schema.UserGroupID) (schema.UserGroup, error) {
+func GetUserGroup(ctx context.Context, gid schema.UserGroupID) (schema.UserGroup, error) {
 	group := schema.UserGroup{
 		ID: gid,
 	}
-	err := group.Get(db.WithContext(context.TODO()))
+	err := group.Get(ctx)
 	return group, err
 }
 
@@ -751,7 +751,7 @@ func GetUserRAGNodes(ctx context.Context, user *schema.User) (gws map[string]mod
 		if !node.IsGw {
 			continue
 		}
-		if !UserHasNetworkGroupAccess(user, node.Network) {
+		if !UserHasNetworkGroupAccess(ctx, user, node.Network) {
 			continue
 		}
 		if ok, _ := IsUserAllowedToCommunicate(ctx, user.Username, node); ok {
@@ -765,7 +765,7 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 	return nodes
 }
 
-func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []schema.Network {
+func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
 	err := platformRole.Get(db.WithContext(context.TODO()))
 	if err != nil {
@@ -781,7 +781,7 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 			}
 		}
 		for userGID := range user.UserGroups.Data() {
-			userG, err := GetUserGroup(userGID)
+			userG, err := GetUserGroup(ctx, userGID)
 			if err == nil {
 				if len(userG.NetworkRoles.Data()) > 0 {
 					for netID := range userG.NetworkRoles.Data() {
@@ -804,10 +804,10 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 	return allnetworks
 }
 
-func IsGroupsValid(groups map[schema.UserGroupID]struct{}) error {
+func IsGroupsValid(ctx context.Context, groups map[schema.UserGroupID]struct{}) error {
 
 	for groupID := range groups {
-		_, err := GetUserGroup(groupID)
+		_, err := GetUserGroup(ctx, groupID)
 		if err != nil {
 			return fmt.Errorf("user group `%s` not found", groupID)
 		}
@@ -815,9 +815,9 @@ func IsGroupsValid(groups map[schema.UserGroupID]struct{}) error {
 	return nil
 }
 
-func IsGroupValid(groupID schema.UserGroupID) error {
+func IsGroupValid(ctx context.Context, groupID schema.UserGroupID) error {
 
-	_, err := GetUserGroup(groupID)
+	_, err := GetUserGroup(ctx, groupID)
 	if err != nil {
 		return fmt.Errorf("user group `%s` not found", groupID)
 	}
@@ -973,7 +973,7 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 			_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
 			_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
 			if userInGroup && (networkRemoved || allNetworkAccessRemoved) &&
-				!UserHasNetworkGroupAccess(&user, extclient.Network) {
+				!UserHasNetworkGroupAccess(ctx, &user, extclient.Network) {
 				shouldDelete = true
 			}
 		}
@@ -1002,7 +1002,7 @@ func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.Use
 		if _, ok := changeUser.UserGroups.Data()[gID]; ok {
 			continue
 		}
-		userG, err := GetUserGroup(gID)
+		userG, err := GetUserGroup(ctx, gID)
 		if err == nil {
 			for netID, networkUserRoles := range userG.NetworkRoles.Data() {
 				for netRoleID := range networkUserRoles {
@@ -1375,8 +1375,8 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 	}
 }
 
-func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
-	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func GetUserGroupsInNetwork(ctx context.Context, netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
+	groups, _ := (&schema.UserGroup{}).ListAll(ctx)
 	networkGrps = make(map[schema.UserGroupID]schema.UserGroup)
 	for _, grp := range groups {
 		if _, ok := grp.NetworkRoles.Data()[schema.AllNetworks]; ok {
@@ -1452,16 +1452,16 @@ func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
 
 // UserHasNetworkGroupAccess reports whether the user has any network role on the
 // network (or all-networks scope) through group membership.
-func UserHasNetworkGroupAccess(user *schema.User, networkID string) bool {
+func UserHasNetworkGroupAccess(ctx context.Context, user *schema.User, networkID string) bool {
 	if user == nil {
 		return false
 	}
-	if IsNetworkAdmin(user, networkID) {
+	if IsNetworkAdmin(ctx, user, networkID) {
 		return true
 	}
 	netID := schema.NetworkID(networkID)
 	for groupID := range user.UserGroups.Data() {
-		userG, err := GetUserGroup(groupID)
+		userG, err := GetUserGroup(ctx, groupID)
 		if err != nil {
 			continue
 		}
@@ -1528,13 +1528,13 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.
-func IsNetworkAdmin(user *schema.User, networkID string) bool {
+func IsNetworkAdmin(ctx context.Context, user *schema.User, networkID string) bool {
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {
-		group, err := logic.GetUserGroup(groupID)
+		group, err := logic.GetUserGroup(ctx, groupID)
 		if err != nil {
 			continue
 		}

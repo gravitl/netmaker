@@ -64,8 +64,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
 
 	// User Invite Handlers
-	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(http.HandlerFunc(userInviteVerify))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite-signup", middleware.InferScope(http.HandlerFunc(userInviteSignUp))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
@@ -134,14 +134,15 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		user.PlatformRoleID = proLogic.DefaultRoleForScope(in.Scope)
 	}
 
-	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(r.Context(), &user)
+	ctx := scope.WithContext(r.Context(), in.Scope, in.ScopeID)
+	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(ctx, &user)
 	if err != nil {
 		logger.Log(0, user.Username, "error validating user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -169,12 +170,23 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	err := logic.ValidateAndApproveUserInvite(r.Context(), email, code)
+
+	invite := &schema.UserInvite{
+		InviteCode: code,
+	}
+	err := invite.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	if invite.Email != email {
+		err = fmt.Errorf("invalid invite")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	logic.ReturnSuccessResponse(w, r, "invite is valid")
 }
 
@@ -241,7 +253,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	//validate Req
 	if !orgScoped {
-		err = proLogic.IsGroupsValid(inviteReq.UserGroups)
+		err = proLogic.IsGroupsValid(r.Context(), inviteReq.UserGroups)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -549,7 +561,7 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	group, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
+	group, err := proLogic.GetUserGroup(r.Context(), schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -653,7 +665,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// fetch curr group
-	currUserG, err := proLogic.GetUserGroup(userGroup.ID)
+	currUserG, err := proLogic.GetUserGroup(r.Context(), userGroup.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -773,7 +785,7 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	var networkUsers []models.ReturnUser
 	for _, _user := range _users {
-		if logic.UserHasNetworkGroupAccess(&_user, network) {
+		if logic.UserHasNetworkGroupAccess(r.Context(), &_user, network) {
 			networkUsers = append(networkUsers, logic.ToReturnUser(&_user))
 		}
 	}
@@ -805,7 +817,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		skipUser := false
 		for userGID := range _user.UserGroups.Data() {
-			userG, err := proLogic.GetUserGroup(userGID)
+			userG, err := proLogic.GetUserGroup(r.Context(), userGID)
 			if err != nil {
 				continue
 			}
@@ -882,8 +894,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(&oldUser),
-			New: logic.ToUserEventLog(user),
+			Old: logic.ToUserEventLog(r.Context(), &oldUser),
+			New: logic.ToUserEventLog(r.Context(), user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -950,8 +962,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(&oldUser),
-			New: logic.ToUserEventLog(user),
+			Old: logic.ToUserEventLog(r.Context(), &oldUser),
+			New: logic.ToUserEventLog(r.Context(), user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -975,7 +987,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	userG, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
+	userG, err := proLogic.GetUserGroup(r.Context(), schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
@@ -1293,7 +1305,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if logic.UserHasNetworkGroupAccess(user, node.Network) {
+	if logic.UserHasNetworkGroupAccess(r.Context(), user, node.Network) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already has access to this network's gateways"), "badrequest"))
 		return
 	}

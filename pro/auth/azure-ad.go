@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -95,7 +94,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err := GetMatchingUser(content)
+	user, err := GetMatchingUser(r.Context(), content)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
@@ -158,7 +157,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	user, err = GetMatchingUser(content)
+	user, err = GetMatchingUser(r.Context(), content)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -259,9 +258,9 @@ func (p *AzureADProvider) GetUserInfo(state string, code string) (*OAuthUser, er
 }
 
 // GetMatchingUser looks up an Azure AD user by UPN or external provider ID.
-func GetMatchingUser(oauthUser *OAuthUser) (*schema.User, error) {
+func GetMatchingUser(ctx context.Context, oauthUser *OAuthUser) (*schema.User, error) {
 	user := &schema.User{Username: oauthUser.UserPrincipalName}
-	err := user.Get(db.WithContext(context.TODO()))
+	err := user.GetWithMembership(ctx)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -271,7 +270,7 @@ func GetMatchingUser(oauthUser *OAuthUser) (*schema.User, error) {
 	}
 
 	user = &schema.User{ExternalIdentityProviderID: string(oauthUser.ID)}
-	err = user.GetByExternalID(db.WithContext(context.TODO()))
+	err = user.GetByExternalID(ctx)
 	if err != nil {
 		return nil, err
 	}

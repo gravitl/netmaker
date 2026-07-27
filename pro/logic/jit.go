@@ -776,16 +776,16 @@ func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schem
 }
 
 // GetNetworkAdmins - gets all network admins for a network
-func GetNetworkAdmins(networkID string) ([]schema.User, error) {
+func GetNetworkAdmins(ctx context.Context, networkID string) ([]schema.User, error) {
 	var admins []schema.User
 
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return admins, fmt.Errorf("failed to get users: %w", err)
 	}
 
 	for _, user := range users {
-		if IsNetworkAdmin(&user, networkID) {
+		if IsNetworkAdmin(ctx, &user, networkID) {
 			admins = append(admins, user)
 		}
 	}

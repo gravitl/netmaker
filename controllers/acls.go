@@ -226,7 +226,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SortAclEntrys(acls[:])
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
@@ -246,7 +246,7 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 	}
 	e := schema.Egress{ID: eID}
 	// check if network exists
-	err := e.Get(db.WithContext(r.Context()))
+	err := e.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -258,7 +258,7 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.SortAclEntrys(acls[:])
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched acls for egress"+e.Name)
 }
 
@@ -340,7 +340,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, true)
 	acls := []models.Acl{acl}
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "created acl successfully")
 }
 
@@ -426,7 +426,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acls := []models.Acl{updatedAcl}
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "updated acl "+acl.Name)
 }
 

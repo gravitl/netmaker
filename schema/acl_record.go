@@ -90,19 +90,29 @@ const aclRecordsTable = "acls"
 func (*AclRecord) TableName() string { return aclRecordsTable }
 
 func (r *AclRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", aclRecordsTable), r.Key, scope.ID(ctx)).First(r).Error
+	tenantID := scope.ID(ctx)
+	logicalKey := r.Key
+	err := db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, logicalKey)).First(r).Error
+	if err != nil {
+		return err
+	}
+	r.Key = logicalKey
+	return nil
 }
 
 func (r *AclRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
+	rec := *r
+	rec.Key = TenantScopedKey(r.TenantID, r.Key)
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
-	}).Create(r).Error
+	}).Create(&rec).Error
 }
 
 func (r *AclRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Where(fmt.Sprintf("key = ? AND %s.tenant_id = ?", aclRecordsTable), r.Key, scope.ID(ctx)).Delete(r).Error
+	tenantID := scope.ID(ctx)
+	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&AclRecord{}).Error
 }
 
 func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
@@ -112,6 +122,9 @@ func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", aclRecordsTable), tenantID)(query)
 	}
 	err := query.Find(&records).Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
 	return records, err
 }
 

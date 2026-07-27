@@ -617,7 +617,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}(ctx, nodeID)
 	case models.EgressUpdate:
 		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
-		err = e.Get(db.WithContext(r.Context()))
+		err = e.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
@@ -629,7 +629,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logic.SetEgressDomainAnsForDomains(&e, logic.ConfiguredDomainsForEgress(e), hostUpdate.Node.EgressGatewayRanges)
 			}
-			e.Update(db.WithContext(r.Context()))
+			e.Update(r.Context())
 		}
 		sendPeerUpdate = true
 	case models.SignalHost:
@@ -767,7 +767,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	// delete if any pending reqs
 	(&schema.PendingHost{
 		HostID: currHost.ID.String(),
-	}).DeleteAllPendingHosts(db.WithContext(r.Context()))
+	}).DeleteAllPendingHosts(r.Context())
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
@@ -1787,7 +1787,7 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 	}
 	pendingHosts, err := (&schema.PendingHost{
 		Network: netID,
-	}).List(db.WithContext(r.Context()))
+	}).List(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,
@@ -1810,7 +1810,7 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	p := &schema.PendingHost{ID: id}
-	err := p.Get(db.WithContext(r.Context()))
+	err := p.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,
@@ -1886,7 +1886,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.Delete(db.WithContext(r.Context()))
+	p.Delete(r.Context())
 	logic.ReturnSuccessResponseWithJson(w, r, logic.ConvertSchemaNodeToApiNode(newNode), "added pending host to "+p.Network)
 }
 
@@ -1901,7 +1901,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	p := &schema.PendingHost{ID: id}
-	err := p.Get(db.WithContext(r.Context()))
+	err := p.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,
@@ -1909,7 +1909,7 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err = p.Delete(db.WithContext(r.Context()))
+	err = p.Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,

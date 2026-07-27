@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -2844,11 +2845,10 @@ func GetDefaultPolicy(ctx context.Context, netID schema.NetworkID, ruleType mode
 	return acl, nil
 }
 
-// ListAcls - lists all acl policies
+// ListAclsByNetwork lists all acl policies in network
 func ListAclsByNetwork(ctx context.Context, netID schema.NetworkID) ([]models.Acl, error) {
-
 	allAcls := ListAcls(ctx)
-	netAcls := []models.Acl{}
+	var netAcls []models.Acl
 	for _, acl := range allAcls {
 		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
 			continue
@@ -2860,27 +2860,31 @@ func ListAclsByNetwork(ctx context.Context, netID schema.NetworkID) ([]models.Ac
 	return netAcls, nil
 }
 
-// ListEgressAcls - list egress acl policies
-func ListEgressAcls(ctx context.Context, eID string) ([]models.Acl, error) {
-	allAcls := ListAcls(ctx)
-	egressAcls := []models.Acl{}
-	for _, acl := range allAcls {
-		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
+func ListEgressAcls(ctx context.Context, egressID string) ([]models.Acl, error) {
+	acls, err := (&schema.AclRecord{}).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var egressAcls []models.Acl
+	for _, acl := range acls {
+		if !servercfg.IsPro && acl.Value.Data().RuleType == models.UserPolicy {
 			continue
 		}
-		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID && dst.Value == eID {
-				egressAcls = append(egressAcls, acl)
+		for _, dst := range acl.Value.Data().Dst {
+			if dst.ID == models.EgressID && dst.Value == egressID {
+				egressAcls = append(egressAcls, acl.Value.Data())
 			}
 		}
 	}
+
 	return egressAcls, nil
 }
 
 // ListDevicePolicies - lists all device policies in a network
 func ListDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
-	deviceAcls := []models.Acl{}
+	var deviceAcls []models.Acl
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.DevicePolicy {
 			deviceAcls = append(deviceAcls, acl)
@@ -2892,7 +2896,7 @@ func ListDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Ac
 // ListUserPolicies - lists all user policies in a network
 func ListUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
-	userAcls := []models.Acl{}
+	var userAcls []models.Acl
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
 			userAcls = append(userAcls, acl)
@@ -3055,14 +3059,14 @@ func SortAclEntrys(acls []models.Acl) {
 }
 
 // PopulateAclPolicyTagNames resolves human-readable names for ACL policy tags
-func PopulateAclPolicyTagNames(acls []models.Acl) {
+func PopulateAclPolicyTagNames(ctx context.Context, acls []models.Acl) {
 	for i := range acls {
-		populateTagNames(acls[i].Src)
-		populateTagNames(acls[i].Dst)
+		populateTagNames(ctx, acls[i].Src)
+		populateTagNames(ctx, acls[i].Dst)
 	}
 }
 
-func populateTagNames(tags []models.AclPolicyTag) {
+func populateTagNames(ctx context.Context, tags []models.AclPolicyTag) {
 	for i := range tags {
 		tag := &tags[i]
 		if tag.Value == "" || tag.Value == "*" {
@@ -3073,7 +3077,7 @@ func populateTagNames(tags []models.AclPolicyTag) {
 		case models.UserAclID:
 			tag.Name = tag.Value
 		case models.UserGroupAclID:
-			grp, err := GetUserGroup(schema.UserGroupID(tag.Value))
+			grp, err := GetUserGroup(ctx, schema.UserGroupID(tag.Value))
 			if err == nil {
 				tag.Name = grp.Name
 			} else {
@@ -3082,23 +3086,24 @@ func populateTagNames(tags []models.AclPolicyTag) {
 		case models.NodeTagID:
 			tag.Name = tag.Value
 		case models.NodeID:
-			node, err := GetNodeByID(tag.Value)
-			if err == nil {
-				host := &schema.Host{ID: node.HostID}
-				if err := host.Get(db.WithContext(context.TODO())); err == nil {
-					tag.Name = host.Name
-				} else {
-					tag.Name = tag.Value
-				}
-			} else {
+			node := &schema.Node{
+				ID: tag.Value,
+			}
+			err := node.Get(ctx, dbtypes.WithPreloads("Host"))
+			if err != nil {
 				tag.Name = tag.Value
+			} else if node.Host != nil {
+				tag.Name = node.Host.Name
 			}
 		case models.EgressID:
-			egress := schema.Egress{ID: tag.Value}
-			if err := egress.Get(db.WithContext(context.TODO())); err == nil {
-				tag.Name = egress.Name
-			} else {
+			egress := schema.Egress{
+				ID: tag.Value,
+			}
+			err := egress.Get(ctx)
+			if err != nil {
 				tag.Name = tag.Value
+			} else {
+				tag.Name = egress.Name
 			}
 		case models.EgressRange:
 			tag.Name = tag.Value
@@ -3121,7 +3126,7 @@ func ValidateCreateAclReq(ctx context.Context, req models.Acl) error {
 	// }
 	for _, src := range req.Src {
 		if src.ID == models.UserGroupAclID {
-			userGroup, err := GetUserGroup(schema.UserGroupID(src.Value))
+			userGroup, err := GetUserGroup(ctx, schema.UserGroupID(src.Value))
 			if err != nil {
 				return err
 			}

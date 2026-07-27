@@ -43,13 +43,13 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 }
 
 // ToUserEventLog - converts a user to an event log entry with resolved group/role names
-func ToUserEventLog(user *schema.User) models.UserEventLog {
+func ToUserEventLog(ctx context.Context, user *schema.User) models.UserEventLog {
 	log := models.UserEventLog{
 		ReturnUser:          ToReturnUser(user),
 		UserGroupsWithNames: make(map[string]string),
 	}
 	for gID := range user.UserGroups.Data() {
-		grp, err := GetUserGroup(gID)
+		grp, err := GetUserGroup(ctx, gID)
 		if err == nil {
 			log.UserGroupsWithNames[string(gID)] = grp.Name
 		} else {
