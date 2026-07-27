@@ -366,8 +366,7 @@ func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
 	}
 }
 
-func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
-	ctx := db.WithContext(context.TODO())
+func UnlinkNetworkAndTagsFromEnrollmentKeys(ctx context.Context, network string, delete bool) error {
 	keys, err := GetAllEnrollmentKeys(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve keys: %w", err)
