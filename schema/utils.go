@@ -18,3 +18,16 @@ func generateSlug(name string) string {
 	}
 	return fmt.Sprintf("%s-%04d", base, rand.Intn(9000)+1000)
 }
+
+const tenantKeySeparator = "::"
+
+// TenantScopedKey composes the physical storage key for a tenant + logical key pair.
+func TenantScopedKey(tenantID, key string) string {
+	return tenantID + tenantKeySeparator + key
+}
+
+// StripTenantKey removes the tenant prefix added by TenantScopedKey, returning
+// the original logical key.
+func StripTenantKey(tenantID, storedKey string) string {
+	return strings.TrimPrefix(storedKey, tenantID+tenantKeySeparator)
+}
