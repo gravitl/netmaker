@@ -96,7 +96,7 @@ func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, a
 	}
 
 	if _user.IsMFAEnabled {
-		tokenString, err := CreatePreAuthToken(authRequest.UserName)
+		tokenString, err := CreatePreAuthToken(ctx, authRequest.UserName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
