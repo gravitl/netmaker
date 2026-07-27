@@ -427,6 +427,27 @@ func (u *User) UpdateMFA(ctx context.Context) error {
 		}).UpdateMFA(ctx)
 	}
 
+	tm := &TenantMembership{TenantID: scopeID, UserID: u.ID}
+	err := tm.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	if tm.AuthType == Inherited {
+		tenant := &Tenant{ID: scopeID}
+		err = tenant.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		return (&OrgMembership{
+			OrganizationID: tenant.OrganizationID,
+			UserID:         u.ID,
+			IsMFAEnabled:   u.IsMFAEnabled,
+			TOTPSecret:     u.TOTPSecret,
+		}).UpdateMFA(ctx)
+	}
+
 	return (&TenantMembership{
 		TenantID:     scopeID,
 		UserID:       u.ID,
