@@ -526,6 +526,25 @@ func setTenantID(ctx context.Context) error {
 		}
 	}
 
+	var userGroups []schema.UserGroup
+	if err := db.FromContext(ctx).Model(&schema.UserGroup{}).Where("tenant_id = ?", "").Find(&userGroups).Error; err != nil {
+		return err
+	}
+	for _, g := range userGroups {
+		scopedID := schema.ScopeUserGroupID(defaultTenant.ID, g.ID)
+		if scopedID == g.ID {
+			continue
+		}
+
+		err := db.FromContext(ctx).Model(&schema.UserGroup{}).
+			Where("id = ?", g.ID).
+			Update("id", scopedID).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, model := range tenantScopedModels() {
 		err := db.FromContext(ctx).Model(model).
 			Where("tenant_id = ?", "").
