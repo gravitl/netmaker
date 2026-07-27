@@ -54,6 +54,8 @@ func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 	user.AuthType = orgMembership.AuthType
 	user.Password = orgMembership.Password
 	user.ExternalIdentityProviderID = orgMembership.ExternalIdentityProviderID
+	user.IsMFAEnabled = orgMembership.IsMFAEnabled
+	user.TOTPSecret = orgMembership.TOTPSecret
 	return nil
 }
 
