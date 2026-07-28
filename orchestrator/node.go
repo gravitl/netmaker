@@ -250,7 +250,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			return fmt.Errorf("failed to create internet egress: %w", err)
 		}
 		if internetEgress.TenantID == "" {
-			internetEgress.TenantID = scope.ID(logic.DefaultScope(ctx))
+			internetEgress.TenantID = scope.ID(ctx)
 			_ = internetEgress.Update(ctx)
 		}
 

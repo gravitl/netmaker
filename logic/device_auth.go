@@ -5,7 +5,6 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/scope"
 )
 
 // IsUserAllowedToJoinNetwork reports whether username may join the given network.
@@ -18,15 +17,8 @@ func defaultIsUserAllowedToJoinNetwork(ctx context.Context, username, network st
 	if username == "" || network == "" {
 		return false
 	}
-	if ctx == nil {
-		ctx = context.TODO()
-	}
-	ctx = db.WithContext(ctx)
-	if scope.ID(ctx) == "" {
-		ctx = DefaultScope(ctx)
-	}
 	user := &schema.User{Username: username}
-	if err := user.Get(ctx); err != nil {
+	if err := user.GetWithMembership(ctx); err != nil {
 		return false
 	}
 	return UserHasAccessToNetwork(ctx, user, network)
