@@ -41,19 +41,19 @@ func HandleExporterIntegrationPull(_ mqtt.Client, _ mqtt.Message) {
 			configMap := make(map[string]interface{})
 			err = json.Unmarshal(integrations[0].Config, &configMap)
 			if err != nil {
-				logger.Log(0, fmt.Sprintf("error unmarshalling integration %s config: %v", integrations[0].ID, err))
+				logger.Log(0, fmt.Sprintf("error unmarshalling integration %s config: %v", integrations[0].Provider, err))
 				return
 			}
 
 			configStruct, err := structpb.NewStruct(configMap)
 			if err != nil {
-				logger.Log(0, fmt.Sprintf("error converting integration %s config: %v", integrations[0].ID, err))
+				logger.Log(0, fmt.Sprintf("error converting integration %s config: %v", integrations[0].Provider, err))
 				return
 			}
 
-			err = siem.Client().Init(context.Background(), integrations[0].ID, configStruct)
+			err = siem.Client().Init(context.Background(), integrations[0].Provider, configStruct)
 			if err != nil {
-				logger.Log(0, fmt.Sprintf("error initializing integration %s on exporter: %v", integrations[0].ID, err))
+				logger.Log(0, fmt.Sprintf("error initializing integration %s on exporter: %v", integrations[0].Provider, err))
 			}
 		}
 	} else {

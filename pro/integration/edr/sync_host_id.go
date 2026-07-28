@@ -27,10 +27,10 @@ func SyncHostEDRState(ctx context.Context, hostID string) error {
 	if err := h.Get(db.WithContext(ctx)); err != nil {
 		return err
 	}
-	if !hostEligibleForEDR(intg.ID, *h) {
+	if !hostEligibleForEDR(intg.Provider, *h) {
 		return nil
 	}
-	state := &schema.DeviceEDRState{HostID: hostID, Provider: intg.ID}
+	state := &schema.DeviceEDRState{HostID: hostID, Provider: intg.Provider}
 	if err := state.Get(db.WithContext(ctx)); err == nil &&
 		time.Since(state.LastSyncedAt) < 5*time.Minute {
 		return nil

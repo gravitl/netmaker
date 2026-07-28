@@ -37,15 +37,15 @@ func IntegrationHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/integrations/edr/device_state", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEDRDeviceState)))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/v1/integrations/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
 }
 
 func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (integration.Type, integration.ProviderID, bool) {
 	vars := mux.Vars(r)
 	intType := integration.Type(vars["type"])
-	id := integration.ProviderID(vars["id"])
+	id := integration.ProviderID(vars["provider"])
 
 	_, err := integration.Lookup(intType, id)
 	if err != nil {
@@ -100,13 +100,13 @@ func getIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Upsert an integration
-// @Router      /api/v1/integrations/{type}/{id} [put]
+// @Router      /api/v1/integrations/{type}/{provider} [put]
 // @Tags        Integrations
 // @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       type            path  string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path  string true "Provider ID (e.g. splunk, intune)"
+// @Param       provider        path  string true "Provider ID (e.g. splunk, intune)"
 // @Param       body            body  object true "Integration config"
 // @Success     200 {object} schema.Integration
 // @Failure     400 {object} models.ErrorResponse
@@ -128,7 +128,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		var isUpsert bool
 		if len(integrations) == 1 {
 			existing := integrations[0]
-			if existing.ID == string(id) && existing.Type == string(intType) {
+			if existing.Provider == string(id) && existing.Type == string(intType) {
 				isUpsert = true
 			}
 		}
@@ -169,7 +169,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	intg = &schema.Integration{
-		ID:       string(id),
+		Provider: string(id),
 		TenantID: scope.ID(r.Context()),
 		Type:     string(intType),
 		Config:   datatypes.JSON(config),
@@ -220,12 +220,12 @@ func initSIEMExporter(id string, configBytes json.RawMessage) {
 }
 
 // @Summary     Delete an integration
-// @Router      /api/v1/integrations/{type}/{id} [delete]
+// @Router      /api/v1/integrations/{type}/{provider} [delete]
 // @Tags        Integrations
 // @Security    oauth
 // @Produce     json
 // @Param       type            path string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path string true "Provider ID"
+// @Param       provider        path string true "Provider ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
@@ -236,7 +236,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intg := &schema.Integration{ID: string(id)}
+	intg := &schema.Integration{Provider: string(id)}
 	err := intg.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -272,13 +272,13 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Test an integration config
-// @Router      /api/v1/integrations/{type}/{id}/test [post]
+// @Router      /api/v1/integrations/{type}/{provider}/test [post]
 // @Tags        Integrations
 // @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       type            path  string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path  string true "Provider ID"
+// @Param       provider        path  string true "Provider ID"
 // @Param       body            body  object true "Provider config to test (not saved)"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -297,7 +297,7 @@ func testIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeMDM || intType == integration.TypeEDR {
-		existing := &schema.Integration{ID: string(id)}
+		existing := &schema.Integration{Provider: string(id)}
 		hasExisting := existing.Get(r.Context()) == nil && existing.Type == string(intType)
 		if intType == integration.TypeMDM {
 			config, err = mergeMDMConfig(r.Context(), string(id), config, hasExisting)
@@ -385,13 +385,13 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Target: models.Subject{
-			ID:   active.ID,
-			Name: active.ID,
+			ID:   active.Provider,
+			Name: active.Provider,
 			Type: schema.MDMSub,
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			New: map[string]interface{}{"status": "queued", "provider": active.ID},
+			New: map[string]interface{}{"status": "queued", "provider": active.Provider},
 		},
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "mdm sync queued")
@@ -539,7 +539,7 @@ func mergeEDRSecretField(
 	if !isMaskedSecret(secretStr) || !hasExisting {
 		return patch, false, nil
 	}
-	existing := &schema.Integration{ID: providerID}
+	existing := &schema.Integration{Provider: providerID}
 	if err := existing.Get(ctx); err != nil {
 		return patch, false, nil
 	}
@@ -557,7 +557,7 @@ func mergeEDRSecretField(
 
 func redactConfig(intg *schema.Integration) error {
 	if intg.Type == string(integration.TypeMDM) {
-		redacted, err := mdmpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
+		redacted, err := mdmpkg.RedactConfig(intg.Provider, json.RawMessage(intg.Config))
 		if err != nil {
 			return err
 		}
@@ -565,7 +565,7 @@ func redactConfig(intg *schema.Integration) error {
 		return nil
 	}
 	if intg.Type == string(integration.TypeEDR) {
-		redacted, err := edrpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
+		redacted, err := edrpkg.RedactConfig(intg.Provider, json.RawMessage(intg.Config))
 		if err != nil {
 			return err
 		}
@@ -573,7 +573,7 @@ func redactConfig(intg *schema.Integration) error {
 		return nil
 	}
 
-	switch integration.ProviderID(intg.ID) {
+	switch integration.ProviderID(intg.Provider) {
 	case integration.ProviderDatadog:
 		var config siempkg.DatadogConfig
 		if err := json.Unmarshal(intg.Config, &config); err != nil {
@@ -668,7 +668,7 @@ func mergeMDMSecretField(
 		return patch, false, nil
 	}
 
-	existing := &schema.Integration{ID: providerID}
+	existing := &schema.Integration{Provider: providerID}
 	if err := existing.Get(ctx); err != nil {
 		return patch, false, nil
 	}

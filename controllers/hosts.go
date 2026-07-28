@@ -1687,7 +1687,7 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 	// a sync row exists for the host.
 	mdmIntg := &schema.Integration{Type: "mdm"}
 	if mdmIntegrations, err := mdmIntg.ListByType(r.Context()); err == nil && len(mdmIntegrations) > 0 {
-		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: mdmIntegrations[0].ID}
+		state := &schema.DeviceMDMState{HostID: hostIDStr, Provider: mdmIntegrations[0].Provider}
 		if err := state.Get(r.Context()); err == nil {
 			resp.MDM = &models.HostMDMStatus{
 				Provider:     state.Provider,
@@ -1713,7 +1713,7 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 
 	edrIntg := &schema.Integration{Type: "edr"}
 	if edrIntegrations, err := edrIntg.ListByType(r.Context()); err == nil && len(edrIntegrations) > 0 {
-		state := &schema.DeviceEDRState{HostID: hostIDStr, Provider: edrIntegrations[0].ID}
+		state := &schema.DeviceEDRState{HostID: hostIDStr, Provider: edrIntegrations[0].Provider}
 		err = state.Get(r.Context())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			_ = logic.SyncHostEDRState(r.Context(), hostIDStr)

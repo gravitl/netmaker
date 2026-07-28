@@ -32,7 +32,7 @@ func SyncHostMDMState(ctx context.Context, hostID string) error {
 	if intg == nil {
 		return nil
 	}
-	p, err := Build(intg.ID, json.RawMessage(intg.Config))
+	p, err := Build(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func SyncHostMDMState(ctx context.Context, hostID string) error {
 		return err
 	}
 	if strings.TrimSpace(h.EntraDeviceID) != "" {
-		return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, *h)
+		return upsertHostMDMFromEntraLookup(ctx, intg.Provider, lookup, *h)
 	}
 	if strings.TrimSpace(h.SerialNumber) == "" {
 		return nil
@@ -58,7 +58,7 @@ func SyncHostMDMState(ctx context.Context, hostID string) error {
 	if err != nil {
 		return err
 	}
-	_, err = syncHostMDMBySerial(ctx, intg.ID, *h, devices)
+	_, err = syncHostMDMBySerial(ctx, intg.Provider, *h, devices)
 	return err
 }
 
