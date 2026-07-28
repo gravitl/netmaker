@@ -357,7 +357,6 @@ func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *sch
 			})
 		}
 	}
-	// todo(nm-341): merge diffs
 	_ = logic.PublishHostRegistrationUpdates(host)
 	if servercfg.IsMessageQueueBackend() {
 		mq.HostUpdate(&models.HostUpdate{
