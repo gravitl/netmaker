@@ -15,11 +15,11 @@ import (
 )
 
 type Integration struct {
-	ID        string         `gorm:"primaryKey;column:id" json:"id"`
+	ID        string         `gorm:"primaryKey" json:"id"`
 	Provider  string         `gorm:"default:'';uniqueIndex:idx_integrations_provider_tenant" json:"provider"`
 	TenantID  string         `gorm:"default:'';uniqueIndex:idx_integrations_provider_tenant" json:"tenant_id"`
-	Type      string         `gorm:"not null;column:type"              json:"type"`
-	Config    datatypes.JSON `gorm:"not null;column:config"            json:"config"`
+	Type      string         `gorm:"not null" json:"type"`
+	Config    datatypes.JSON `gorm:"not null" json:"config"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
