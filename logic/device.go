@@ -153,7 +153,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 	if err != nil {
 		return nil, err
 	}
-	accessible := FilterNetworksByRole(allNetworks, user)
+	accessible := FilterNetworksByRole(ctx, allNetworks, user)
 	if len(accessible) == 0 && user != nil && len(user.UserGroups.Data()) > 0 {
 		slog.Warn("device networks empty for user with groups",
 			"username", user.Username,
@@ -162,7 +162,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			"total_networks", len(allNetworks),
 		)
 	}
-	featureFlags := GetFeatureFlags()
+	featureFlags := GetFeatureFlags(ctx)
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
@@ -183,11 +183,11 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 // deviceJoinRequiresApproval reports whether a user-owned device join should enter
 // pending-host approval instead of joining immediately.
 func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, user *schema.User) bool {
-	featureFlags := GetFeatureFlags()
+	featureFlags := GetFeatureFlags(ctx)
 	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
 		return false
 	}
-	if user != nil && IsNetworkAdmin(user, network.Name) {
+	if user != nil && IsNetworkAdmin(ctx, user, network.Name) {
 		return false
 	}
 	// When JIT gates this user, admin approval happens via the JIT grant flow.

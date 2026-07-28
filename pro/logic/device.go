@@ -20,7 +20,7 @@ func enrichDeviceNetworksWithJIT(ctx context.Context, user *schema.User, accessi
 	if len(networks) == 0 {
 		return networks
 	}
-	featureFlags := GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(ctx)
 	if !featureFlags.EnableJIT {
 		return networks
 	}

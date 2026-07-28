@@ -318,7 +318,7 @@ func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, net
 	netID := schema.NetworkID(networkName)
 
 	for groupID := range user.UserGroups.Data() {
-		userG, err := GetUserGroup(groupID)
+		userG, err := GetUserGroup(ctx, groupID)
 		if err != nil {
 			continue
 		}

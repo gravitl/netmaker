@@ -52,7 +52,7 @@ func UserHasAccessToNetwork(ctx context.Context, user *schema.User, network stri
 	}
 
 	// Network admins and any group network role use the canonical name.
-	if UserHasNetworkGroupAccess(user, networkName) {
+	if UserHasNetworkGroupAccess(ctx, user, networkName) {
 		return true
 	}
 
@@ -60,7 +60,7 @@ func UserHasAccessToNetwork(ctx context.Context, user *schema.User, network stri
 	if err != nil {
 		return false
 	}
-	filtered := FilterNetworksByRole(allNetworks, user)
+	filtered := FilterNetworksByRole(ctx, allNetworks, user)
 	for _, n := range filtered {
 		if n.Name == networkName || n.Name == network || n.ID == network {
 			return true
