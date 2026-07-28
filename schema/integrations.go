@@ -2,18 +2,22 @@ package schema
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type Integration struct {
 	ID        string         `gorm:"primaryKey;column:id" json:"id"`
-	TenantID  string         `gorm:"primaryKey;default:''" json:"tenant_id"`
+	Provider  string         `gorm:"default:'';uniqueIndex:idx_integrations_provider_tenant" json:"provider"`
+	TenantID  string         `gorm:"default:'';uniqueIndex:idx_integrations_provider_tenant" json:"tenant_id"`
 	Type      string         `gorm:"not null;column:type"              json:"type"`
 	Config    datatypes.JSON `gorm:"not null;column:config"            json:"config"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -27,15 +31,29 @@ func (i *Integration) TableName() string {
 }
 
 func (i *Integration) Upsert(ctx context.Context) error {
+	if i.ID == "" {
+		var existing Integration
+		err := db.FromContext(ctx).
+			Where("provider = ? AND tenant_id = ?", i.Provider, i.TenantID).
+			First(&existing).Error
+		switch {
+		case err == nil:
+			i.ID = existing.ID
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			i.ID = uuid.NewString()
+		default:
+			return err
+		}
+	}
 	return db.FromContext(ctx).Save(i).Error
 }
 
 func (i *Integration) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Where("id = ? AND tenant_id = ?", i.ID, scope.ID(ctx)).First(i).Error
+	return db.FromContext(ctx).Where("provider = ? AND tenant_id = ?", i.Provider, scope.ID(ctx)).First(i).Error
 }
 
 func (i *Integration) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Where("id = ? AND tenant_id = ?", i.ID, scope.ID(ctx)).Delete(i).Error
+	return db.FromContext(ctx).Where("provider = ? AND tenant_id = ?", i.Provider, scope.ID(ctx)).Delete(i).Error
 }
 
 func (i *Integration) ListByType(ctx context.Context) ([]Integration, error) {
