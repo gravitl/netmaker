@@ -32,12 +32,15 @@ jobs:
     steps:
       - name: Determine branches
         id: determine_branches
+        env:
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "NETMAKER_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
-            echo "NETCLIENT_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+            echo "NETMAKER_BRANCH=$INPUT_BRANCH" >> $GITHUB_ENV
+            echo "NETCLIENT_BRANCH=$INPUT_BRANCH" >> $GITHUB_ENV
           else
-            echo "NETMAKER_BRANCH=${{ github.head_ref }}" >> $GITHUB_ENV
+            echo "NETMAKER_BRANCH=$HEAD_REF" >> $GITHUB_ENV
             echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
           fi
       - name: Checkout netclient repository
