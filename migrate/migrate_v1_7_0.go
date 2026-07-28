@@ -68,7 +68,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return setNetworkID(ctx)
+	err = setNetworkID(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateIntegrationIDs(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -644,6 +649,37 @@ func setNetworkID(ctx context.Context) error {
 		err := db.FromContext(ctx).Model(&record).
 			Update("network_id", record.Value.Data().Network).
 			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateIntegrationIDs(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable((&schema.Integration{}).TableName()) {
+		return nil
+	}
+
+	var integrations []schema.Integration
+	err := db.FromContext(ctx).Find(&integrations).Error
+	if err != nil {
+		return err
+	}
+
+	for _, intg := range integrations {
+		_, err = uuid.Parse(intg.ID)
+		if err == nil {
+			continue
+		}
+
+		err = db.FromContext(ctx).Model(&schema.Integration{}).
+			Where("id = ? AND tenant_id = ?", intg.ID, intg.TenantID).
+			Updates(map[string]any{
+				"id":       uuid.NewString(),
+				"provider": intg.ID,
+			}).Error
 		if err != nil {
 			return err
 		}
