@@ -63,23 +63,10 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// todo(nm-341): merge diffs
 	e, err := logic.CreateInternetEgressForNode(r.Context(), &node, "", r.Header.Get("user"))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
-	logic.SetInternetGw(&node, request)
-	if servercfg.IsPro {
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		go func(ctx context.Context) {
-			logic.ResetAutoRelayedPeer(ctx, &node)
-			mq.PublishPeerUpdate(ctx, false)
-		}(ctx)
-
-	}
-	if e.TenantID == "" {
-		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-		_ = e.Update(db.WithContext(r.Context()))
 	}
 	for _, clientNodeID := range request.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)

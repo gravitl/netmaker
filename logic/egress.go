@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
@@ -410,7 +411,7 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 	}
 	if name == "" {
 		host := &schema.Host{ID: node.HostID}
-		_ = host.Get(db.WithContext(ctx))
+		_ = host.Get(ctx)
 		if host.Name != "" {
 			name = host.Name + "-internet"
 		} else {
@@ -419,6 +420,7 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 	}
 	e := &schema.Egress{
 		ID:        uuid.New().String(),
+		TenantID:  scope.ID(ctx),
 		Name:      name,
 		Network:   node.Network,
 		Type:      schema.EgressTypeInternet,
@@ -432,13 +434,13 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
-	if err := ValidateEgressReq(e); err != nil {
+	if err := ValidateEgressReq(ctx, e); err != nil {
 		return nil, err
 	}
 	if e.TenantID == "" {
 		// tenant may be set by caller/middleware; leave empty if unset
 	}
-	if err := e.Create(db.WithContext(ctx)); err != nil {
+	if err := e.Create(ctx); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -647,7 +649,7 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 	if egressID == "" || network == "" {
 		return
 	}
-	nodes, err := GetNetworkNodes(network)
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return
 	}
@@ -660,11 +662,11 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 }
 
 // ListNodesBySelectedInternetEgress returns network nodes that have selected the given egress.
-func ListNodesBySelectedInternetEgress(network, egressID string) []models.Node {
+func ListNodesBySelectedInternetEgress(ctx context.Context, network, egressID string) []models.Node {
 	if network == "" || egressID == "" {
 		return nil
 	}
-	nodes, err := GetNetworkNodes(network)
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return nil
 	}
@@ -709,7 +711,7 @@ func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID s
 	}
 
 	if e, err := FindInternetEgressByRoutingNode(ctx, network, routingNodeID); err == nil && e != nil {
-		for _, n := range ListNodesBySelectedInternetEgress(network, e.ID) {
+		for _, n := range ListNodesBySelectedInternetEgress(ctx, network, e.ID) {
 			if _, ok := seen[n.ID.String()]; ok {
 				continue
 			}
@@ -806,20 +808,19 @@ func DetachExitRoutingNode(ctx context.Context, node *models.Node) []models.Node
 		}
 	}
 	if node.IsInternetGateway {
-		UnsetInternetGw(node)
+		UnsetInternetGw(ctx, node)
 	}
 	return clients
 }
 
 // RebindInternetEgressClients re-applies exit selection for clients of an internet
 // egress after its routing node set changes (e.g. reassignment to a new node).
-func RebindInternetEgressClients(e schema.Egress) {
+func RebindInternetEgressClients(ctx context.Context, e schema.Egress) {
 	if !IsEgressInternetGateway(e) {
 		return
 	}
-	clients := ListNodesBySelectedInternetEgress(e.Network, e.ID)
+	clients := ListNodesBySelectedInternetEgress(ctx, e.Network, e.ID)
 	routingID := FirstInternetEgressRoutingNodeID(e)
-	ctx := context.TODO()
 	for i := range clients {
 		c := clients[i]
 		// Drop RelayedBy to a removed/old routing node first; otherwise

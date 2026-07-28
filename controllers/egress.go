@@ -484,7 +484,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 		if internetRoutingChanged {
 			go func(eg schema.Egress) {
-				logic.RebindInternetEgressClients(eg)
+				logic.RebindInternetEgressClients(r.Context(), eg)
 				_ = mq.PublishPeerUpdate(false)
 			}(e)
 		}
@@ -522,7 +522,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Internet egress disabled: keep sticky selection, but push exit clients first so
 	// they fail open (drop full tunnel) before the global peer update.
 	if oldStatus && !e.Status && logic.IsEgressInternetGateway(e) {
-		clients := logic.ListNodesBySelectedInternetEgress(e.Network, e.ID)
+		clients := logic.ListNodesBySelectedInternetEgress(r.Context(), e.Network, e.ID)
 		go func(clients []models.Node) {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(clients)
 		}(clients)
