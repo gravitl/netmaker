@@ -1041,7 +1041,9 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 	if platform == "true" {
 		roles, err = (&schema.UserRole{}).ListPlatformRoles(r.Context())
 	} else {
-		roles, err = (&schema.UserRole{}).ListNetworkRoles(r.Context())
+		tenantID := r.Header.Get(scope.HeaderTenantID)
+		ctx := scope.WithContext(r.Context(), scope.TenantScope, tenantID)
+		roles, err = (&schema.UserRole{}).ListNetworkRoles(ctx)
 	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
