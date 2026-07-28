@@ -70,7 +70,7 @@ func (u *UserGroup) Get(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
 	u.ID = ScopeUserGroupID(tenantID, logicalID)
-	err := db.FromContext(ctx).Model(&UserGroup{}).Debug().
+	err := db.FromContext(ctx).Model(&UserGroup{}).
 		Where(fmt.Sprintf("id = ? AND %s.tenant_id = ?", userGroupsTable), u.ID, tenantID).
 		First(u).
 		Error
