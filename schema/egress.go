@@ -21,12 +21,23 @@ const (
 	DirectNAT   EgressNATMode = "direct_nat"
 )
 
+// EgressType classifies an egress resource's routing purpose.
+type EgressType string
+
+const (
+	EgressTypeCIDR     EgressType = "cidr"
+	EgressTypeDomain   EgressType = "domain"
+	EgressTypeApp      EgressType = "app"
+	EgressTypeInternet EgressType = "internet"
+)
+
 type Egress struct {
 	ID           string            `gorm:"primaryKey" json:"id"`
 	TenantID     string            `gorm:"default:'';index" json:"tenant_id"`
 	Name         string            `gorm:"name" json:"name"`
 	Network      string            `gorm:"network" json:"network"`
 	Description  string            `gorm:"description" json:"description"`
+	Type         EgressType        `gorm:"column:egress_type;default:cidr;index" json:"type"`
 	Nodes        datatypes.JSONMap `gorm:"nodes" json:"nodes"`
 	Tags         datatypes.JSONMap `gorm:"tags" json:"tags"`
 	Range        string            `gorm:"range" json:"range"`
@@ -37,7 +48,6 @@ type Egress struct {
 	// DomainAnsByDomain maps each configured domain to its resolved CIDRs.
 	DomainAnsByDomain datatypes.JSONMap `gorm:"domain_ans_by_domain" json:"domain_ans_by_domain"`
 	Nat               bool              `gorm:"nat" json:"nat"`
-	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID  string    `gorm:"preset_id" json:"preset_id"`
 	Status    bool      `gorm:"status" json:"status"`

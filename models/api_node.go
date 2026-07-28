@@ -65,6 +65,7 @@ type ApiNode struct {
 	IsInternetGateway                 bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
 	InetNodeReq                       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID                      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
+	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" yaml:"selected_internet_egress_id"`
 	AdditionalRagIps                  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
 	Tags                              map[TagID]struct{}  `json:"tags" yaml:"tags"`
 	IsStatic                          bool                `json:"is_static"`
@@ -107,6 +108,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.InternetGwID = currentNode.InternetGwID
+	convertedNode.SelectedInternetEgressID = currentNode.SelectedInternetEgressID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.OwnerID = currentNode.OwnerID
@@ -235,6 +237,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
+	apiNode.SelectedInternetEgressID = nm.SelectedInternetEgressID
 	apiNode.InetNodeReq = nm.InetNodeReq
 	apiNode.IsFailOver = false
 	apiNode.FailOverPeers = nm.FailOverPeers

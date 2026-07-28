@@ -2059,7 +2059,7 @@ func nodeMatchesAclSrc(n models.Node, srcTags map[string]struct{}, srcAll bool) 
 
 func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
-	if targetnode.IsInternetGateway {
+	if targetnode.IsInternetGateway || NodeIsInternetEgressRouter(targetnode.ID.String(), targetnode.Network) {
 		aclRule := models.AclRule{
 			ID:              fmt.Sprintf("%s-inet-gw-internal-rule", targetnode.ID.String()),
 			AllowedProtocol: models.ALL,

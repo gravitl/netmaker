@@ -175,6 +175,7 @@ func InitPro() {
 	logic.UserHasNetworkGroupAccess = proLogic.UserHasNetworkGroupAccess
 	logic.IsNetworkAdmin = proLogic.IsNetworkAdmin
 	logic.CanUserCreateNetwork = proLogic.CanUserCreateNetwork
+	logic.UserHasDeviceNetworkWriteAccess = proLogic.UserHasDeviceNetworkWriteAccess
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
@@ -215,6 +216,7 @@ func InitPro() {
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
+	proLogic.RegisterDeviceHooks()
 	logic.UserSubjectToNetworkJIT = proLogic.UserSubjectToNetworkJIT
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 	mq.HandleExporterIntegrationPull = proLogic.HandleExporterIntegrationPull

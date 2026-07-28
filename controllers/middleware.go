@@ -101,6 +101,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "jit_user") {
 			r.Header.Set("TARGET_RSRC", schema.JitUserRsrc.String())
 		}
+		if strings.Contains(route, "device") {
+			r.Header.Set("TARGET_RSRC", schema.NetworkRsrc.String())
+		}
 		if strings.Contains(route, "metrics") {
 			r.Header.Set("TARGET_RSRC", schema.MetricRsrc.String())
 		}

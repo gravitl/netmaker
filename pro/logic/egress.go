@@ -23,13 +23,29 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
+	logic.NormalizeEgressType(e)
 	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}
 	if err := logic.ValidateEgressAppNATMode(*e); err != nil {
 		return err
 	}
-	if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
+	if logic.IsEgressInternetGateway(*e) {
+		e.Type = schema.EgressTypeInternet
+		e.Range = "*"
+		e.Domains = nil
+		e.PresetID = ""
+		e.VirtualRange = ""
+		if e.Nat {
+			if e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT {
+				e.Mode = schema.DirectNAT
+			}
+			// Internet egress uses direct NAT; virtual NAT is not supported.
+			e.Mode = schema.DirectNAT
+		} else {
+			e.Mode = schema.DisabledNAT
+		}
+	} else if e.Nat && (e.Mode != schema.DirectNAT && e.Mode != schema.VirtualNAT) {
 		return fmt.Errorf("invalid NAT type: must be %s or %s", string(schema.DirectNAT), string(schema.VirtualNAT))
 	}
 	if !e.Nat {
@@ -51,9 +67,14 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 
 	if len(e.Nodes) > 0 {
 		for k := range e.Nodes {
-			_, err := logic.GetNodeByID(k)
+			node, err := logic.GetNodeByID(k)
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
+			}
+			if logic.IsEgressInternetGateway(*e) {
+				if err := logic.ValidateInternetEgressRoutingNode(&node); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -64,6 +85,9 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
 			}
+		}
+		if logic.IsEgressInternetGateway(*e) {
+			return errors.New("internet egress must use explicit routing nodes, not tags")
 		}
 	}
 	return nil

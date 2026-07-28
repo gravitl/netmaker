@@ -797,6 +797,12 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 		for _, networkI := range allnetworks {
 			if _, ok := allNetworkRoles[schema.NetworkID(networkI.Name)]; ok {
 				filteredNetworks = append(filteredNetworks, networkI)
+				continue
+			}
+			if networkI.ID != "" {
+				if _, ok := allNetworkRoles[schema.NetworkID(networkI.ID)]; ok {
+					filteredNetworks = append(filteredNetworks, networkI)
+				}
 			}
 		}
 		allnetworks = filteredNetworks
@@ -1445,9 +1451,14 @@ func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
 
 // UserHasNetworkGroupAccess reports whether the user has any network role on the
 // network (or all-networks scope) through group membership.
+// networkID may be the network name (netid) or UUID.
 func UserHasNetworkGroupAccess(user *schema.User, networkID string) bool {
-	if user == nil {
+	if user == nil || networkID == "" {
 		return false
+	}
+	net := &schema.Network{ID: networkID, Name: networkID}
+	if err := net.Get(db.WithContext(context.TODO())); err == nil && net.Name != "" {
+		networkID = net.Name
 	}
 	if IsNetworkAdmin(user, networkID) {
 		return true
@@ -1521,18 +1532,22 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.
+// networkID may be the network name (netid) or UUID.
 func IsNetworkAdmin(user *schema.User, networkID string) bool {
+	if user == nil || networkID == "" {
+		return false
+	}
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {
+		if groupID == globalNetworksAdminGroupID {
+			return true
+		}
 		group, err := logic.GetUserGroup(groupID)
 		if err != nil {
 			continue
-		}
-		if groupID == globalNetworksAdminGroupID {
-			return true
 		}
 		// Check if group has network admin role for this network
 		if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {

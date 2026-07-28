@@ -27,6 +27,8 @@ type CustomExtClient struct {
 	ClientVersion              string              `json:"client_version"`
 	Country                    string              `json:"country"`
 	Location                   string              `json:"location"` //format: lat,long
+	UseInternetEgress          *bool               `json:"use_internet_egress,omitempty"`
+	SelectedInternetEgressID   string              `json:"selected_internet_egress_id,omitempty"`
 }
 
 func ConvertToStaticNode(ext ExtClient) Node {

@@ -322,13 +322,14 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		GetNodeEgressInfo(&node, eli, acls)
+		ResolveInternetExitRoutingNode(&node)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
-			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
+			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
@@ -446,17 +447,22 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
 				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isAutoRelayPeer {
-				// if node is relayed and peer is not the relay, set remove to true
-				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+				// Never remove the peer that is this node's internet exit. Exit
+				// clients need that WireGuard peer (with 0.0.0.0/0) even when
+				// RelayedBy is temporarily empty/stale after gateway teardown;
+				// otherwise netclient IGW monitor fails with "peer not found".
+				if usesPeerAsInternetExit(&node, &peer) {
+					// fall through to normal peer config
+				} else {
+					// if node is relayed and peer is not the relay, set remove to true
+					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+						continue
+					}
+					peerConfig.Remove = true
+					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
-				peerConfig.Remove = true
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				continue
-			}
-			if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-				hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
 			}
 
 			uselocal := false
@@ -493,7 +499,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
-			if node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "" && !peer.IsStatic {
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && InternetExitRoutingNodeID(&peer) == "" && !peer.IsStatic {
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}
@@ -661,10 +667,59 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 
 		}
 
-		if IsInternetGw(node) {
+		// Publish internet egress firewall config keyed by real egress IDs when present;
+		// fall back to legacy synthetic {nodeID}-inet for node-level IGW flags.
+		inetEgressesPublished := false
+		for _, e := range eli {
+			if !e.Status || !IsEgressInternetGateway(e) {
+				continue
+			}
+			if _, ok := e.Nodes[node.ID.String()]; !ok {
+				continue
+			}
+			inetEgressesPublished = true
+			hostPeerUpdate.FwUpdate.IsEgressGw = true
+			egressrange := ExpandEgressRouteRanges(e, exitHostHasEndpointIPv6(&node))
+			rangeWithMetric := []models.EgressRangeMetric{}
+			for _, rangeI := range egressrange {
+				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
+					EgressID:    e.ID,
+					EgressName:  e.Name,
+					Network:     rangeI,
+					RouteMetric: 256,
+					Nat:         e.Nat,
+					Mode:        e.Mode,
+				})
+			}
+			inetEgressInfo := models.EgressInfo{
+				EgressID: e.ID,
+				Network:  node.PrimaryAddressIPNet(),
+				EgressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				Network6: node.NetworkRange6,
+				EgressGwAddr6: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
+				},
+				EgressGWCfg: models.EgressGatewayRequest{
+					NodeID:           node.ID.String(),
+					NetID:            node.Network,
+					NatEnabled:       "yes",
+					Ranges:           egressrange,
+					RangesWithMetric: rangeWithMetric,
+				},
+			}
+			if !networkAllowAll {
+				inetEgressInfo.EgressFwRules = GetAclRuleForInetGw(node)
+			}
+			hostPeerUpdate.FwUpdate.EgressInfo[e.ID] = inetEgressInfo
+		}
+		if !inetEgressesPublished && IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
-			if node.Address6.IP != nil {
+			if exitHostHasEndpointIPv6(&node) {
 				egressrange = append(egressrange, "::/0")
 			}
 			rangeWithMetric := []models.EgressRangeMetric{}
@@ -767,6 +822,9 @@ func GetPeerListenPort(host *schema.Host) int {
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {
 	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRanges)
+	if !usesPeerAsInternetExit(&node, &peer) {
+		egressIPs = withoutDefaultRouteStrings(egressIPs)
+	}
 	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
@@ -785,6 +843,16 @@ func filterConflictingEgressRoutes(node, peer models.Node) []string {
 
 func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
 	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRequest.RangesWithMetric)
+	if !usesPeerAsInternetExit(&node, &peer) {
+		filtered := make([]models.EgressRangeMetric, 0, len(egressIPs))
+		for _, r := range egressIPs {
+			if r.Network == IPv4Network || r.Network == IPv6Network {
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+		egressIPs = filtered
+	}
 	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
@@ -806,19 +874,50 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 	return egressIPs
 }
 
+// withoutDefaultRouteStrings strips full-tunnel CIDR strings from egress range lists.
+func withoutDefaultRouteStrings(ranges []string) []string {
+	if len(ranges) == 0 {
+		return ranges
+	}
+	out := make([]string, 0, len(ranges))
+	for _, r := range ranges {
+		if r == IPv4Network || r == IPv6Network {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(ctx, peer, node)
-	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+	if usesPeerAsInternetExit(node, peer) {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
+		// Exit clients still need explicit overlay routes through the exit node for
+		// mesh peers (including peers auto-relayed by this exit). 0.0.0.0/0 alone is
+		// not sufficient when auto-relayed peers must accept return traffic / when
+		// default-route handling is separate from overlay.
+		if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
+		}
+		// handle ingress gateway peers
+		if peer.IsIngressGateway {
+			extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+			if err != nil {
+				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
+			}
+			for _, extPeer := range extPeers {
+				allowedips = append(allowedips, withoutDefaultRoutes(extPeer.AllowedIPs)...)
+			}
+		}
 		return allowedips
 	}
+	// Non-exit clients must never inherit default routes from egress/relay aggregation.
+	allowedips = withoutDefaultRoutes(allowedips)
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpsForRelayed(ctx, node, peer)...)
-		if peer.InternetGwID != "" {
-			return allowedips
-		}
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
 	}
 
 	// handle ingress gateway peers
@@ -828,21 +927,55 @@ func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
 		for _, extPeer := range extPeers {
-
-			allowedips = append(allowedips, extPeer.AllowedIPs...)
+			allowedips = append(allowedips, withoutDefaultRoutes(extPeer.AllowedIPs)...)
 		}
 	}
 
 	return allowedips
 }
 
-func GetEgressIPs(peer *models.Node) []net.IPNet {
-	peerHost := &schema.Host{
-		ID: peer.HostID,
+// usesPeerAsInternetExit reports whether node should route full internet through peer
+// via selected internet egress or legacy InternetGwID assignment.
+func usesPeerAsInternetExit(node, peer *models.Node) bool {
+	if node == nil || peer == nil {
+		return false
 	}
-	err := peerHost.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
+	routingNodeID := InternetExitRoutingNodeID(node)
+	return routingNodeID != "" && routingNodeID == peer.ID.String()
+}
+
+// isDefaultRoute reports whether ipnet is a full-tunnel default route.
+func isDefaultRoute(ipnet net.IPNet) bool {
+	s := ipnet.String()
+	return s == IPv4Network || s == IPv6Network
+}
+
+// withoutDefaultRoutes strips 0.0.0.0/0 and ::/0. Full-tunnel routes must only be
+// added via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient.
+func withoutDefaultRoutes(ips []net.IPNet) []net.IPNet {
+	if len(ips) == 0 {
+		return ips
+	}
+	out := make([]net.IPNet, 0, len(ips))
+	for _, ip := range ips {
+		if isDefaultRoute(ip) {
+			continue
+		}
+		out = append(out, ip)
+	}
+	return out
+}
+
+func GetEgressIPs(peer *models.Node) []net.IPNet {
+	peerHost := &schema.Host{}
+	// Skip DB lookup when HostID is unset (e.g. unit tests); EndpointIP overlap
+	// checks below simply no-op when peerHost is empty.
+	if peer.HostID != uuid.Nil {
+		peerHost.ID = peer.HostID
+		err := peerHost.Get(db.WithContext(context.TODO()))
+		if err != nil {
+			logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
+		}
 	}
 
 	// check for internet gateway
@@ -908,13 +1041,36 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 				}
 			}
 		}
+		// Default routes are opt-in via exit selection only (see GetAllowedIPs).
+		if !usesPeerAsInternetExit(node, peer) {
+			egressIPs = withoutDefaultRoutes(egressIPs)
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
+	// A relay advertises its relayed clients' overlay IPs (and non-default egress
+	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
+	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
 	if peer.IsRelay {
-		allowedips = append(allowedips, RelayedAllowedIPs(ctx, peer, node)...)
+		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(peer, node))...)
+		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
+		// appear only under InetNodeClientIDs / RelayedIGWClients.
+		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
+	} else if !usesPeerAsInternetExit(node, peer) {
+		// A non-gateway internet exit node also relays the overlay traffic of the
+		// peers using it as an exit node (they are kept in RelayedNodes for
+		// stability). Advertise ONLY those clients' overlay addresses to other
+		// peers so they remain reachable through the exit node.
+		//
+		// Deliberately do not use RelayedAllowedIPs here: it additionally appends
+		// each relayed client's egress ranges (which may be broad, e.g. 0.0.0.0/0),
+		// which can cover the exit node's public endpoint and create a WireGuard
+		// routing loop, causing the exit node's endpoint to flap to an overlay
+		// address. Only third-party peers need these routes; the exit node's own
+		// clients already receive a default route to it.
+		allowedips = append(allowedips, ExitClientOverlayIPs(ctx, peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
-		allowedips = append(allowedips, GetAutoRelayPeerIps(ctx, peer, node)...)
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)
 	}
 	return allowedips
 }

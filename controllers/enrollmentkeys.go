@@ -12,18 +12,18 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
+
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/exp/slog"
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
@@ -611,6 +611,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		if owner := r.Header.Get("user"); owner != "" {
+			newHost.OwnerUsername = owner
+		}
 		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -652,7 +655,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
-	go auth.CheckNetRegAndHostUpdate(ctx, key, host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(logic.ModelsEnrollmentKeyFromSchema(ctx, key), host, r.Header.Get("user"))
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.
