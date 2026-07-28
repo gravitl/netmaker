@@ -166,7 +166,7 @@ func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRol
 
 func OrgPermissionsCheck(username string, r *http.Request) error {
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func TenantPermissionsCheck(username string, r *http.Request) error {
 		return err
 	}
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		return err
 	}
