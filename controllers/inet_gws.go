@@ -125,7 +125,6 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// todo(nm-341): merge diffs
 	logic.ClearNodesSelectedInternetEgress(r.Context(), e.ID, netid)
 	for _, clientNodeID := range request.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
@@ -135,8 +134,6 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID)
 	}
 	node.IsInternetGateway = true
-	logic.UnsetInternetGw(r.Context(), &node)
-	logic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -147,10 +144,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		_ = logic.ResetAutoRelayedPeer(ctx, &node)
-		_ = mq.PublishPeerUpdate(ctx, false)
-	}(ctx)
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
