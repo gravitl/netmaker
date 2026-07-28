@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -305,7 +306,7 @@ func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, net
 	if platformRole.ID == schema.Auditor {
 		return false
 	}
-	if platformRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if platformRole.TenantGlobalAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		return true
 	}
 
@@ -352,7 +353,7 @@ func roleGrantsDeviceWrite(role *schema.UserRole) bool {
 	if role == nil {
 		return false
 	}
-	if role.FullAccess {
+	if role.TenantGlobalAccess {
 		return true
 	}
 	access := role.NetworkLevelAccess.Data()

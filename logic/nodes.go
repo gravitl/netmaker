@@ -249,7 +249,7 @@ func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 
 	// Before removing an exit routing node: fail-open its clients and detach from
 	// internet egress maps so sticky selections are not left pointing at a dead relay.
-	FailOpenAndDetachExitRoutingNode(context.TODO(), node)
+	FailOpenAndDetachExitRoutingNode(ctx, node)
 
 	cleanupNodeReferences(ctx, node)
 	host := &schema.Host{

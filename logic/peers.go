@@ -900,11 +900,11 @@ func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models
 		// not sufficient when auto-relayed peers must accept return traffic / when
 		// default-route handling is separate from overlay.
 		if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
+			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
 		}
 		// handle ingress gateway peers
 		if peer.IsIngressGateway {
-			extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+			extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
 			if err != nil {
 				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 			}
@@ -1051,7 +1051,7 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
 	if peer.IsRelay {
-		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(peer, node))...)
+		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(ctx, peer, node))...)
 		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
 		// appear only under InetNodeClientIDs / RelayedIGWClients.
 		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
@@ -1067,7 +1067,7 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 		// routing loop, causing the exit node's endpoint to flap to an overlay
 		// address. Only third-party peers need these routes; the exit node's own
 		// clients already receive a default route to it.
-		allowedips = append(allowedips, ExitClientOverlayIPs(ctx, peer, node.ID.String())...)
+		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)

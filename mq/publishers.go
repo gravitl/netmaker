@@ -263,11 +263,11 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 // PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
 // the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
 // routes before a routing node is removed.
-func PublishPeerUpdatesToExitClientHosts(clientNodes []models.Node) error {
+func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -282,11 +282,11 @@ func PublishPeerUpdatesToExitClientHosts(clientNodes []models.Node) error {
 		}
 		seenHosts[hostID] = struct{}{}
 		host := &schema.Host{ID: clientNodes[i].HostID}
-		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		if err := host.Get(ctx); err != nil {
 			slog.Error("exit-client peer update: failed to get host", "host", hostID, "error", err)
 			continue
 		}
-		if err := PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil); err != nil {
+		if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
 			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
 		}
 	}
@@ -297,12 +297,12 @@ func PublishPeerUpdatesToExitClientHosts(clientNodes []models.Node) error {
 // exit-node clients synchronously, then queues a global peer update. Call this when an
 // exit becomes unavailable (routing node disconnect or internet egress disabled) so
 // clients drop full-tunnel routes before the rest of the mesh updates.
-func PublishPeerUpdatesForExitClientsFirst(clientNodes []models.Node) error {
-	if err := PublishPeerUpdatesToExitClientHosts(clientNodes); err != nil {
-		_ = PublishPeerUpdate(false)
+func PublishPeerUpdatesForExitClientsFirst(ctx context.Context, clientNodes []models.Node) error {
+	if err := PublishPeerUpdatesToExitClientHosts(ctx, clientNodes); err != nil {
+		_ = PublishPeerUpdate(ctx, false)
 		return err
 	}
-	return PublishPeerUpdate(false)
+	return PublishPeerUpdate(ctx, false)
 }
 
 // NodeUpdate -- publishes a node update

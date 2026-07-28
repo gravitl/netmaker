@@ -4,6 +4,8 @@
 package logic
 
 import (
+	"context"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -14,7 +16,7 @@ func RegisterDeviceHooks() {
 	logic.EnrichDeviceNetworksWithJIT = enrichDeviceNetworksWithJIT
 }
 
-func enrichDeviceNetworksWithJIT(user *schema.User, accessibleNets []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
+func enrichDeviceNetworksWithJIT(ctx context.Context, user *schema.User, accessibleNets []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
 	if len(networks) == 0 {
 		return networks
 	}
@@ -28,7 +30,7 @@ func enrichDeviceNetworksWithJIT(user *schema.User, accessibleNets []schema.Netw
 		netIndex[dn.NetworkID] = i
 	}
 
-	jitStatuses, err := GetUserJITNetworksStatus(accessibleNets, user)
+	jitStatuses, err := GetUserJITNetworksStatus(ctx, accessibleNets, user)
 	if err != nil {
 		return networks
 	}

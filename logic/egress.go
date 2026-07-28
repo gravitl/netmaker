@@ -471,7 +471,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if node == nil {
 		return errors.New("node is required")
 	}
-	ctx := db.WithContext(context.TODO())
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
 	schemaNode := &schema.Node{ID: node.ID.String()}
 	if err := schemaNode.Get(ctx); err != nil {
 		return err
@@ -529,7 +529,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 		if err := schemaNode.AssignGateway(ctx); err != nil {
 			return err
 		}
-		PublishPeerUpdateAfterExitNodeChange()
+		PublishPeerUpdateAfterExitNodeChange(ctx)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -704,7 +704,7 @@ func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID s
 	}
 
 	routing := &schema.Node{ID: routingNodeID}
-	if err := routing.Get(db.WithContext(ctx)); err == nil {
+	if err := routing.Get(ctx); err == nil {
 		for clientID := range routing.RelayedIGWClients {
 			addClient(clientID)
 		}
@@ -724,7 +724,7 @@ func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID s
 
 // DeleteInternetEgressesForRoutingNode removes internet egress resources where nodeID is a routing node.
 func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID string) {
-	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(ctx)
 	if err != nil {
 		return
 	}
@@ -736,13 +736,13 @@ func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID s
 			continue
 		}
 		ClearNodesSelectedInternetEgress(ctx, e.ID, network)
-		_ = e.Delete(db.WithContext(ctx))
+		_ = e.Delete(ctx)
 	}
 }
 
 // PublishExitClientsFailOpen is wired from mq to push fail-open peer updates to
 // exit clients before their routing node is removed from the mesh.
-var PublishExitClientsFailOpen = func(clients []models.Node) {}
+var PublishExitClientsFailOpen = func(ctx context.Context, clients []models.Node) {}
 
 // FailOpenAndDetachExitRoutingNode detaches exit routing state for a node about to
 // be removed, then pushes ordered fail-open peer updates to affected clients.
@@ -751,7 +751,7 @@ func FailOpenAndDetachExitRoutingNode(ctx context.Context, node *models.Node) {
 	if len(clients) == 0 {
 		return
 	}
-	PublishExitClientsFailOpen(clients)
+	PublishExitClientsFailOpen(ctx, clients)
 	// Give clients a moment to apply fail-open before the peer disappears.
 	time.Sleep(1 * time.Second)
 }

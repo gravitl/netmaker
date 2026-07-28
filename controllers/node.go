@@ -697,9 +697,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ResetAutoRelay(r.Context(), newNode)
 	}
 
-	// todo(nm-341): merge diffs
-	if (!currentNode.IsInternetGateway && newNode.IsInternetGateway) || len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
-		err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(newNode), newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 	// Disconnecting while using an exit node: clear exit first so a peer update can
 	// remove full-tunnel routes locally before Connected is flipped off.
 	preDisconnectExitClear := false
@@ -741,6 +738,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		updatingInetGwClients := newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0
 		if enablingInetGw || updatingInetGwClients {
 			err = logic.ValidateInetGwReq(
+				r.Context(),
 				logic.ConvertModelsNodeToSchemaNode(newNode),
 				newNode.InetNodeReq,
 				currentNode.IsInternetGateway && newNode.IsInternetGateway,
@@ -758,11 +756,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if !connectionToggle {
 		relayUpdate = logic.RelayUpdates(&currentNode, newNode)
 		if relayUpdate && newNode.IsRelay {
-			err = logic.ValidateRelay(r.Context(), models.RelayRequest{
-				NodeID:       newNode.ID.String(),
-				NetID:        newNode.Network,
-				RelayedNodes: newNode.RelayedNodes,
-			}, true)
+			err = logic.ValidateRelay(
+				r.Context(),
+				models.RelayRequest{
+					NodeID:       newNode.ID.String(),
+					NetID:        newNode.Network,
+					RelayedNodes: newNode.RelayedNodes,
+				}, true)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
@@ -792,10 +792,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// Push peer update while still connected so the client drops exit/default routes
 	// before the disconnect NodeUpdate is applied.
 	if preDisconnectExitClear {
-		allNodes, peerErr := logic.GetAllNodes()
+		allNodes, peerErr := logic.GetAllNodes(r.Context())
 		if peerErr != nil {
 			slog.Error("pre-disconnect exit clear: failed to list nodes", "error", peerErr)
-		} else if pubErr := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
 			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -894,7 +894,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(relayupdate bool, newNode *models.Node, ctx context.Context) {
+	go func(ctx context.Context, relayupdate bool, newNode *models.Node, connToggle bool) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -937,14 +937,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
-			exitClients := logic.ListExitClientsForRoutingNode(context.TODO(), newNode.Network, newNode.ID.String())
+			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
 			if len(exitClients) > 0 {
-				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
 			}
 		}
 		mq.PublishPeerUpdate(ctx, false)
-	}(relayUpdate, newNode, ctx)
+	}(ctx, relayUpdate, newNode, connectionToggle)
 }
 
 // @Summary     Delete an individual node
@@ -1146,7 +1146,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if len(exitClients) > 0 {
-				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				time.Sleep(1 * time.Second)
 			}
 		}
@@ -1201,7 +1201,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			for _, c := range logic.ListExitClientsForRoutingNode(context.TODO(), node.Network, node.ID.String()) {
+			for _, c := range logic.ListExitClientsForRoutingNode(ctx, node.Network, node.ID.String()) {
 				if _, ok := seenClient[c.ID.String()]; ok {
 					continue
 				}
@@ -1210,7 +1210,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(exitClients) > 0 {
-			_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 			slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
 			return
 		}

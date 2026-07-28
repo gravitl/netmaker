@@ -655,7 +655,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
-	go logic.JoinHostToNetworks(logic.ModelsEnrollmentKeyFromSchema(ctx, key), host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.

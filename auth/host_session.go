@@ -357,7 +357,7 @@ func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *sch
 			})
 		}
 	}
-	_ = logic.PublishHostRegistrationUpdates(host)
+	_ = logic.PublishHostRegistrationUpdates(ctx, host)
 	if servercfg.IsMessageQueueBackend() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.RequestAck,
