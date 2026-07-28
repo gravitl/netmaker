@@ -537,9 +537,9 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Disconnect user's ext clients from the network
-	if err := proLogic.DisconnectUserExtClientsFromNetwork(r.Context(), networkID, grant.UserID); err != nil {
-		logger.Log(0, "failed to disconnect ext clients when revoking grant:", err.Error())
+	// Remove user's ext clients and host nodes from the network.
+	if err := proLogic.RemoveUserJITNetworkAccess(r.Context(), networkID, grant.UserID); err != nil {
+		logger.Log(0, "failed to remove network access when revoking grant:", err.Error())
 	}
 
 	logic.LogEvent(r.Context(), &models.Event{

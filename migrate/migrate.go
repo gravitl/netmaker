@@ -50,6 +50,7 @@ func Run() {
 	updateEnrollmentKeys()
 	syncUsers()
 	migrateEgressDomains()
+	migrateInternetEgress()
 	updateNetworks()
 	migrateNameservers()
 	migrateEgressNatMode()

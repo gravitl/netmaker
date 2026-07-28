@@ -10,6 +10,7 @@ import (
 
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -30,9 +31,12 @@ var IngressLimitExceeded = func(ctx context.Context) bool {
 	return false
 }
 
-// IsInternetGw - checks if node is acting as internet gw
+// IsInternetGw - checks if node is acting as internet gw (legacy flag or internet egress router)
 func IsInternetGw(node models.Node) bool {
-	return node.IsInternetGateway
+	if node.IsInternetGateway {
+		return true
+	}
+	return NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 }
 
 // CreateEgressGateway - creates an egress gateway
@@ -230,10 +234,11 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 }
 
 func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNodeReq, update bool) error {
+	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
 	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
-	if node.IsIGWClient {
+	if node.IsIGWClient || node.SelectedInternetEgressID != "" {
 		return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
 	}
 	if node.RelayedByNodeID != nil {
@@ -261,14 +266,10 @@ func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNo
 		if clientNode.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
-		if update {
-			if clientNode.InternetGwID != "" && clientNode.InternetGwID != node.ID {
-				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
-			}
-		} else {
-			if clientNode.InternetGwID != "" {
-				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
-			}
+		// Allow clients already using THIS node as their exit (SelectedInternetEgressID /
+		// legacy InternetGwID). Only reject when they are assigned to a different exit.
+		if exitID := InternetExitRoutingNodeID(&clientNode); exitID != "" && exitID != node.ID {
+			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 		}
 		if len(clientNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(ctx, &clientNode)
@@ -334,59 +335,97 @@ func UnsetInternetGw(ctx context.Context, node *models.Node) {
 
 }
 
-func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if relay.InternetGwID != "" {
-		relayedHost := &schema.Host{
-			ID: relayed.HostID,
-		}
-		err := relayedHost.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			return peerUpdate
-		}
-		peerUpdate.ChangeDefaultGw = true
-		peerUpdate.DefaultGwIp = relay.Address.IP
-		if peerUpdate.DefaultGwIp == nil || relayedHost.EndpointIP == nil {
-			peerUpdate.DefaultGwIp = relay.Address6.IP
-		}
-
-	}
-	return peerUpdate
-}
-
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if node.InternetGwID != "" {
+	inetNodeID := InternetExitRoutingNodeID(&node)
+	if inetNodeID == "" {
+		return peerUpdate
+	}
 
-		inetNode, err := GetNodeByID(node.InternetGwID)
-		if err != nil {
-			return peerUpdate
-		}
-		host := &schema.Host{
-			ID: node.HostID,
-		}
-		err = host.Get(db.WithContext(context.TODO()))
-		if err != nil {
-			return peerUpdate
-		}
+	inetNode, err := GetNodeByID(inetNodeID)
+	if err != nil {
+		return peerUpdate
+	}
+	// Fail open when the exit routing node is disconnected: do not keep pointing the
+	// client's OS default route at a dead overlay next-hop.
+	if !inetNode.Connected {
+		return peerUpdate
+	}
 
-		peerUpdate.ChangeDefaultGw = true
-		peerUpdate.DefaultGwIp = inetNode.Address.IP
-		if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
-			peerUpdate.DefaultGwIp = inetNode.Address6.IP
-		}
+	gw4, gw6 := internetEgressGwIPs(&inetNode)
+	if gw4 == nil && gw6 == nil {
+		return peerUpdate
+	}
+
+	peerUpdate.ChangeDefaultGw = true
+	peerUpdate.DefaultGwIp6 = gw6
+	peerUpdate.DefaultGwIp = gw4
+	// Legacy DefaultGwIp field: IPv4 preferred, else IPv6.
+	if peerUpdate.DefaultGwIp == nil {
+		peerUpdate.DefaultGwIp = peerUpdate.DefaultGwIp6
 	}
 	return peerUpdate
 }
 
-// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw
+// internetEgressGwIPs returns overlay nexthops for a client using inetNode as exit,
+// gated on the exit host's public endpoints (dual-stack = both EndpointIP and EndpointIPv6 present).
+func internetEgressGwIPs(inetNode *models.Node) (gw4, gw6 net.IP) {
+	if inetNode == nil {
+		return nil, nil
+	}
+	host, ok := getExitHostSafe(inetNode.HostID)
+	if !ok {
+		// Safe fallback: use overlay addresses when host lookup fails.
+		return inetNode.Address.IP, inetNode.Address6.IP
+	}
+	if len(host.EndpointIP) > 0 {
+		gw4 = inetNode.Address.IP
+	}
+	if len(host.EndpointIPv6) > 0 {
+		gw6 = inetNode.Address6.IP
+	}
+	return gw4, gw6
+}
+
+// exitHostHasEndpointIPv6 reports whether the exit node's host has a public IPv6 endpoint.
+// Used to decide whether internet egress should expand ::/0.
+func exitHostHasEndpointIPv6(node *models.Node) bool {
+	if node == nil {
+		return false
+	}
+	host, ok := getExitHostSafe(node.HostID)
+	if !ok {
+		return node.Address6.IP != nil
+	}
+	return len(host.EndpointIPv6) > 0
+}
+
+// getExitHostSafe loads a host without panicking when the DB is uninitialized (unit tests).
+func getExitHostSafe(hostID uuid.UUID) (host *schema.Host, ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+			host = nil
+		}
+	}()
+	h := &schema.Host{ID: hostID}
+	if err := h.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, false
+	}
+	return h, true
+}
+
+// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw.
+// Dual-stack is decided from the exit peer host's public endpoints.
 func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
+	gw4, gw6 := internetEgressGwIPs(peer)
 
-	if peer.Address.IP != nil {
+	if len(gw4) > 0 {
 		_, ipnet, _ := net.ParseCIDR(IPv4Network)
 		allowedips = append(allowedips, *ipnet)
 	}
 
-	if peer.Address6.IP != nil {
+	if len(gw6) > 0 {
 		_, ipnet, _ := net.ParseCIDR(IPv6Network)
 		allowedips = append(allowedips, *ipnet)
 	}

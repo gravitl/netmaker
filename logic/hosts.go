@@ -411,6 +411,7 @@ func RemoveHost(ctx context.Context, h *schema.Host, forceDelete bool) error {
 	}
 	for _, hostNode := range hostNodes {
 		node := ConvertSchemaNodeToModelsNode(&hostNode)
+		FailOpenAndDetachExitRoutingNode(ctx, node)
 		cleanupNodeReferences(ctx, node)
 		err = DeleteNodeByID(ctx, node)
 		if err != nil {
@@ -418,11 +419,11 @@ func RemoveHost(ctx context.Context, h *schema.Host, forceDelete bool) error {
 		}
 	}
 	mdmState := &schema.DeviceMDMState{HostID: h.ID.String()}
-	if err := mdmState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+	if err := mdmState.DeleteByHostID(ctx); err != nil {
 		slog.Error("failed to delete mdm state for host", "host", h.ID, "error", err)
 	}
 	edrState := &schema.DeviceEDRState{HostID: h.ID.String()}
-	if err := edrState.DeleteByHostID(db.WithContext(context.TODO())); err != nil {
+	if err := edrState.DeleteByHostID(ctx); err != nil {
 		slog.Error("failed to delete edr state for host", "host", h.ID, "error", err)
 	}
 	return h.Delete(ctx)
@@ -517,6 +518,7 @@ func DisassociateAllNodesFromHost(ctx context.Context, hostIDStr string) error {
 			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
+		FailOpenAndDetachExitRoutingNode(ctx, &node)
 		cleanupNodeReferences(ctx, &node)
 		if err := DeleteNodeByID(ctx, &node); err != nil {
 			slog.Error("failed to delete node record", "node", node.ID, "host", hostIDStr, "error", err)

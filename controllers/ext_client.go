@@ -342,7 +342,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) {
+	if logic.ExtClientUsesInternetEgress(client, gwnode) {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
@@ -759,6 +759,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extclient.LastModified = time.Now().Unix()
+	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &extclient, nodeid, &customExtClient); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	err = logic.SaveExtClient(r.Context(), &extclient)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -916,6 +920,10 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		replacePeers = true
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
+	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &newclient, newclient.IngressGatewayID, &update); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
 		staticNode := models.ConvertToStaticNode(newclient)

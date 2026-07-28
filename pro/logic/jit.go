@@ -312,10 +312,9 @@ func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schem
 		return true, nil, nil
 	}
 
+	var subjectUser *schema.User
 	user := &schema.User{Username: userID}
 	userGetErr := user.GetWithMembership(ctx)
-
-	var subjectUser *schema.User
 	if userGetErr == nil {
 		subjectUser = user
 	}
@@ -331,14 +330,13 @@ func CheckJITAccess(ctx context.Context, networkID, userID string) (bool, *schem
 
 	activeGrant, err := grant.GetActiveByUserAndNetwork(ctx)
 	if err != nil {
-		// No active grant found
-		return false, nil, nil
-	}
-
-	// Check if grant is expired
-	if time.Now().UTC().After(activeGrant.ExpiresAt) {
-		// Grant expired, delete it
-		_ = activeGrant.Delete(ctx)
+		// Grant missing or past expires_at (GetActive filters expires_at > now).
+		if userMustSatisfyJIT(network, subjectUser) {
+			if removeErr := removeUserJITNetworkAccess(ctx, networkID, userID); removeErr != nil {
+				slog.Warn("failed to remove network access without active JIT grant",
+					"network", networkID, "user", userID, "error", removeErr)
+			}
+		}
 		return false, nil, nil
 	}
 
@@ -601,9 +599,9 @@ func ExpireJITGrants() error {
 			}
 		}
 
-		// Disconnect user's ext clients from the network
-		if err := disconnectUserExtClients(ctx, expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
-			slog.Error("failed to disconnect ext clients for expired grant",
+		// Remove user's ext clients and host nodes from the network.
+		if err := removeUserJITNetworkAccess(ctx, expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
+			slog.Error("failed to remove network access for expired grant",
 				"grant_id", expiredGrant.ID, "user_id", expiredGrant.UserID, "error", err)
 		}
 
@@ -822,9 +820,42 @@ func DeactivateUserGrantsOnNetwork(ctx context.Context, networkID, userID string
 	return nil
 }
 
+// RemoveUserJITNetworkAccess deletes a user's host nodes and ext clients from a network after JIT ends.
+func RemoveUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
+	return removeUserJITNetworkAccess(ctx, networkID, userID)
+}
+
 // DisconnectUserExtClientsFromNetwork - disconnects a specific user's ext clients from a network
 func DisconnectUserExtClientsFromNetwork(ctx context.Context, networkID, userID string) error {
 	return disconnectUserExtClients(ctx, networkID, userID)
+}
+
+// DisconnectUserHostNodesFromNetwork removes full-mesh host nodes for a user on a network.
+func DisconnectUserHostNodesFromNetwork(ctx context.Context, networkID, userID string) error {
+	return disconnectUserHostNodes(ctx, networkID, userID)
+}
+
+func removeUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
+	var firstErr error
+	if err := disconnectUserExtClients(ctx, networkID, userID); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := disconnectUserHostNodes(ctx, networkID, userID); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return firstErr
+}
+
+func lookupHostByNodeHostID(hostByID map[string]schema.Host, hostID string) (schema.Host, bool) {
+	if h, ok := hostByID[hostID]; ok {
+		return h, true
+	}
+	parsed, err := uuid.Parse(hostID)
+	if err != nil {
+		return schema.Host{}, false
+	}
+	h, ok := hostByID[parsed.String()]
+	return h, ok
 }
 
 func disconnectUserExtClients(ctx context.Context, networkID, userID string) error {
@@ -837,33 +868,89 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
 		if client.OwnerID == userID {
-			// Store original client for MQ notification
 			clientCopy := client
-
-			// Disable the ext client instead of deleting it
-			// This preserves the client record so desktop apps can see the expiry status
-			disabledClient, err := logic.ToggleExtClientConnectivity(ctx, &client, false)
-			if err != nil {
-				slog.Warn("failed to disable ext client", "client_id", client.ClientID, "error", err)
+			if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
+				slog.Warn("failed to delete ext client after JIT ended",
+					"client_id", client.ClientID, "error", err)
 				continue
 			}
-
-			// Set JIT expiry to now to indicate revocation/expiry
-			// This allows desktop apps to see the revocation when they poll the API
-			now := time.Now().UTC()
-			disabledClient.JITExpiresAt = &now
-			if err := logic.SaveExtClient(ctx, &disabledClient); err != nil {
-				slog.Warn("failed to update ext client expiry", "client_id", client.ClientID, "error", err)
-				// Continue even if update fails
-			}
-
-			// Publish MQ peer update to notify ingress gateway nodes
-			// This ensures nodes immediately remove the peer from WireGuard config
 			if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
 				slog.Warn("failed to publish deleted client peer update",
 					"client_id", client.ClientID, "error", err)
-				// Don't fail the operation, just log
 			}
+		}
+	}
+
+	return nil
+}
+
+func disconnectUserHostNodes(ctx context.Context, networkID, userID string) error {
+	network := &schema.Network{Name: networkID}
+	if err := network.Get(ctx); err != nil {
+		return fmt.Errorf("failed to get network %s: %w", networkID, err)
+	}
+
+	var hosts []schema.Host
+	if err := db.FromContext(ctx).Where("owner_username = ?", userID).Find(&hosts).Error; err != nil {
+		return err
+	}
+	if len(hosts) == 0 {
+		return nil
+	}
+
+	hostByID := make(map[string]schema.Host, len(hosts))
+	hostIDs := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		id := h.ID.String()
+		hostIDs = append(hostIDs, id)
+		hostByID[id] = h
+	}
+
+	var schemaNodes []schema.Node
+	if err := db.FromContext(ctx).
+		Where("network_id = ? AND host_id IN ?", network.ID, hostIDs).
+		Find(&schemaNodes).Error; err != nil {
+		return err
+	}
+	if len(schemaNodes) == 0 {
+		return nil
+	}
+
+	pullRequested := make(map[string]struct{})
+	for _, schemaNode := range schemaNodes {
+		host, ok := lookupHostByNodeHostID(hostByID, schemaNode.HostID)
+		if !ok {
+			slog.Warn("skipping JIT host node removal: host not found for node",
+				"node_id", schemaNode.ID, "host_id", schemaNode.HostID, "user_id", userID)
+			continue
+		}
+
+		nodePtr := logic.ConvertSchemaNodeToModelsNode(&schemaNode)
+		if nodePtr == nil || nodePtr.ID == uuid.Nil {
+			slog.Warn("skipping JIT host node removal: invalid node model",
+				"node_id", schemaNode.ID, "user_id", userID, "network", networkID)
+			continue
+		}
+		node := *nodePtr
+
+		if err := logic.DeleteNode(ctx, &node, true); err != nil {
+			slog.Warn("failed to remove host node for JIT revoke",
+				"node_id", node.ID.String(), "user_id", userID, "network", networkID, "error", err)
+			continue
+		}
+
+		hostCopy := host
+		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+		go mq.PublishMqUpdatesForDeletedNode(detachedCtx, &hostCopy, node, true)
+		if _, ok := pullRequested[host.ID.String()]; !ok {
+			if err := mq.HostUpdate(&models.HostUpdate{
+				Action: models.RequestPull,
+				Host:   hostCopy,
+			}); err != nil {
+				slog.Warn("failed to request host pull after JIT host removal",
+					"host_id", host.ID.String(), "error", err)
+			}
+			pullRequested[host.ID.String()] = struct{}{}
 		}
 	}
 

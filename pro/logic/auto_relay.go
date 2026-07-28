@@ -40,6 +40,15 @@ func SetAutoRelay(node *models.Node) {
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.RLock()
 	defer autoRelayCtxMutex.RUnlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		return nil
 	}
@@ -68,6 +77,15 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.Lock()
 	defer autoRelayCtxMutex.Unlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		peerNode.AutoRelayedPeers = make(map[string]string)
 	}
@@ -242,9 +260,19 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 			if autoRelayedpeer.EgressDetails.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
 			}
+			// Advertise clients relayed by this auto-relayed peer (including exit-node
+			// clients on a non-gateway exit). Overlay only unless the peer is a relay,
+			// matching getNodeAllowedIPs — avoid attaching broad egress ranges that can
+			// loop the auto-relay endpoint onto an overlay address.
 			if autoRelayedpeer.IsRelay {
 				for _, id := range autoRelayedpeer.RelayedNodes {
-					rNode, _ := logic.GetNodeByID(id)
+					if id == node.ID.String() {
+						continue
+					}
+					rNode, err := logic.GetNodeByID(id)
+					if err != nil {
+						continue
+					}
 					logic.GetNodeEgressInfo(&rNode, eli, acls)
 					if rNode.Address.IP != nil {
 						allowed := net.IPNet{
@@ -264,6 +292,9 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
 				}
+				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
+			} else if len(autoRelayedpeer.RelayedNodes) > 0 || len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
+				allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node.ID.String())...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
@@ -293,6 +324,9 @@ func CreateAutoRelay(node models.Node) error {
 	}
 	if node.IsRelayed {
 		return errors.New("relayed node cannot be set as autoRelay")
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
+		return err
 	}
 	node.IsAutoRelay = true
 	err = logic.UpsertNode(&node)

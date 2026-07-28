@@ -99,19 +99,27 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var egressRange string
-	if !inetGw {
-		if len(normDomains) > 0 {
-			egressRange = ""
-		} else if req.Range != "" {
-			egressRange, err = logic.NormalizeCIDR(req.Range)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	} else {
+	egressType := logic.InferEgressType(&req)
+	if inetGw {
+		egressType = schema.EgressTypeInternet
 		egressRange = "*"
 		req.Domains = nil
+		req.PresetID = ""
+	} else if len(normDomains) > 0 {
+		egressRange = ""
+		if egressType == "" || egressType == schema.EgressTypeCIDR {
+			if req.PresetID != "" {
+				egressType = schema.EgressTypeApp
+			} else {
+				egressType = schema.EgressTypeDomain
+			}
+		}
+	} else if req.Range != "" {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	network := &schema.Network{Name: req.Network}
 	err = network.Get(r.Context())
@@ -125,6 +133,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Name:        req.Name,
 		Network:     req.Network,
 		Description: req.Description,
+		Type:        egressType,
 		Range:       egressRange,
 		Nat:         req.Nat,
 		Mode:        req.Mode,
@@ -311,19 +320,27 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var egressRange string
-	if !inetGw {
-		if len(normDomains) > 0 {
-			egressRange = ""
-		} else if req.Range != "" {
-			egressRange, err = logic.NormalizeCIDR(req.Range)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
-			}
-		}
-	} else {
+	egressType := logic.InferEgressType(&req)
+	if inetGw {
+		egressType = schema.EgressTypeInternet
 		egressRange = "*"
 		req.Domains = nil
+		req.PresetID = ""
+	} else if len(normDomains) > 0 {
+		egressRange = ""
+		if egressType == "" || egressType == schema.EgressTypeCIDR {
+			if req.PresetID != "" {
+				egressType = schema.EgressTypeApp
+			} else {
+				egressType = schema.EgressTypeDomain
+			}
+		}
+	} else if req.Range != "" {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -335,8 +352,14 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
+	oldStatus := e.Status
+	oldRoutingNodes := make(map[string]struct{}, len(e.Nodes))
+	for nodeID := range e.Nodes {
+		oldRoutingNodes[nodeID] = struct{}{}
+	}
 
 	e.Range = egressRange
+	e.Type = egressType
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -421,6 +444,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	updateMap := map[string]any{
 		"name":                 e.Name,
 		"description":          e.Description,
+		"egress_type":          e.Type,
 		"range":                e.Range,
 		"domains":              e.Domains,
 		"nat":                  e.Nat,
@@ -446,6 +470,30 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(r.Context(), event)
+
+	internetRoutingChanged := false
+	if logic.IsEgressInternetGateway(e) {
+		newRoutingNodes := make(map[string]struct{}, len(e.Nodes))
+		for nodeID := range e.Nodes {
+			newRoutingNodes[nodeID] = struct{}{}
+		}
+		internetRoutingChanged = len(oldRoutingNodes) != len(newRoutingNodes)
+		if !internetRoutingChanged {
+			for id := range oldRoutingNodes {
+				if _, ok := newRoutingNodes[id]; !ok {
+					internetRoutingChanged = true
+					break
+				}
+			}
+		}
+		if internetRoutingChanged {
+			go func(eg schema.Egress) {
+				logic.RebindInternetEgressClients(r.Context(), eg)
+				ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+				_ = mq.PublishPeerUpdate(ctx, false)
+			}(e)
+		}
+	}
 	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
@@ -476,8 +524,17 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Internet egress disabled: keep sticky selection, but push exit clients first so
+	// they fail open (drop full tunnel) before the global peer update.
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	if oldStatus && !e.Status && logic.IsEgressInternetGateway(e) {
+		clients := logic.ListNodesBySelectedInternetEgress(r.Context(), e.Network, e.ID)
+		go func(clients []models.Node) {
+			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, clients)
+		}(clients)
+	} else if !internetRoutingChanged {
+		go mq.PublishPeerUpdate(ctx, false)
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
 
@@ -508,6 +565,9 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
+	}
+	if logic.IsEgressInternetGateway(e) {
+		logic.ClearNodesSelectedInternetEgress(r.Context(), e.ID, e.Network)
 	}
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,

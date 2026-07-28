@@ -170,7 +170,7 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
 				if len(result.User) > 0 {
-					if !isUserAllowed(result.User, newNet) {
+					if !logic.IsUserAllowedToJoinNetwork(db.WithContext(context.TODO()), result.User, newNet) {
 						err = fmt.Errorf("user %s does not have access to network %s", result.User, newNet)
 						logger.Log(0, err.Error())
 						handleHostRegErr(conn, err)
@@ -184,6 +184,9 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 		// add the host, if not exists, handle like enrollment registration
 		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
 			result.Host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+			if len(result.User) > 0 {
+				result.Host.OwnerUsername = result.User
+			}
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
 					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
@@ -195,6 +198,8 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 				handleHostRegErr(conn, errors.New("host creation failed"))
 				return
 			}
+		} else if len(result.User) > 0 {
+			logic.EnsureHostOwner(&result.Host, result.User)
 		}
 		key, keyErr := logic.RetrievePublicTrafficKey()
 		if keyErr != nil {
@@ -217,9 +222,9 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, responseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-
 		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-		go CheckNetRegAndHostUpdate(detachedCtx, schema.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
+		go logic.JoinHostToNetworks(detachedCtx, models.EnrollmentKey{Networks: netsToAdd}, &host, result.User)
+
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -232,107 +237,127 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	}
 }
 
-// CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(ctx context.Context, key schema.EnrollmentKey, host *schema.Host, username string) {
-	// publish host update through MQ
+func init() {
+	logic.JoinHostToNetworks = joinHostToNetworks
+}
+
+func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *schema.Host, username string) {
 	featureFlags := logic.GetFeatureFlags(ctx)
 	keyTags := make(map[models.TagID]struct{})
-	for _, tagI := range key.Tags {
-		keyTags[models.TagID(tagI)] = struct{}{}
-	}
-	for _, netID := range key.Networks {
-		network := &schema.Network{Name: netID}
-		if err := network.Get(ctx); err == nil {
-			if logic.DoesHostExistInTheNetworkAlready(host, network) {
-				continue
-			}
-
-			violations, _ := logic.CheckPostureViolationsForHost(
-				host,
-				keyTags,
-				schema.NetworkID(network.Name),
-				true,
-			)
-			if len(violations) > 0 {
-				logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
-				continue
-			}
-
-			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
-				if err := (&schema.PendingHost{
-					HostID:  host.ID.String(),
-					Network: netID,
-				}).CheckIfPendingHostExists(ctx); err == nil {
-					continue
-				}
-				keyB, _ := json.Marshal(key)
-				// add host to pending host table
-				p := schema.PendingHost{
-					ID:            uuid.NewString(),
-					TenantID:      scope.ID(ctx),
-					HostID:        host.ID.String(),
-					Hostname:      host.Name,
-					Network:       netID,
-					PublicKey:     host.PublicKey.String(),
-					OS:            host.OS,
-					Location:      host.Location,
-					Version:       host.Version,
-					EnrollmentKey: keyB,
-					RequestedAt:   time.Now().UTC(),
-				}
-				_ = p.Create(db.WithContext(context.TODO()))
-				continue
-			}
-
-			_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
-				ctx,
-				host,
-				network,
-				orchestrator.UseKey(&key),
-				orchestrator.SkipHostUpdate(),
-				orchestrator.SkipPublishPeerUpdate(),
-			)
-			if err != nil {
-				logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
-			} else {
-				if len(username) > 0 {
-					logic.LogEvent(ctx, &models.Event{
-						Action: schema.JoinHostToNet,
-						Source: models.Subject{
-							ID:   username,
-							Name: username,
-							Type: schema.UserSub,
-						},
-						TriggeredBy: username,
-						Target: models.Subject{
-							ID:   host.ID.String(),
-							Name: host.Name,
-							Type: schema.DeviceSub,
-						},
-						NetworkID: schema.NetworkID(netID),
-						Origin:    schema.Dashboard,
-					})
-				} else {
-					logic.LogEvent(ctx, &models.Event{
-						Action: schema.JoinHostToNet,
-						Source: models.Subject{
-							ID:   key.Value,
-							Name: key.Name,
-							Type: schema.EnrollmentKeySub,
-						},
-						TriggeredBy: username,
-						Target: models.Subject{
-							ID:   host.ID.String(),
-							Name: host.Name,
-							Type: schema.DeviceSub,
-						},
-						NetworkID: schema.NetworkID(netID),
-						Origin:    schema.Dashboard,
-					})
-				}
-			}
+	if len(key.Groups) > 0 {
+		for _, tagI := range key.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	} else {
+		for _, tagI := range key.Tags {
+			keyTags[models.TagID(tagI)] = struct{}{}
 		}
 	}
+	schemaKey := logic.SchemaEnrollmentKeyFromModels(key)
+	for _, netID := range key.Networks {
+		network := &schema.Network{Name: netID}
+		if err := network.Get(ctx); err != nil {
+			continue
+		}
+		if logic.DoesHostExistInTheNetworkAlready(host, network) {
+			continue
+		}
+
+		violations, _ := logic.CheckPostureViolationsForHost(
+			host,
+			keyTags,
+			schema.NetworkID(network.Name),
+			true,
+		)
+		if len(violations) > 0 {
+			logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
+			continue
+		}
+
+		if featureFlags.EnableDeviceApproval && !network.AutoJoin && !key.SkipDeviceApproval {
+			if err := (&schema.PendingHost{
+				HostID:  host.ID.String(),
+				Network: netID,
+			}).CheckIfPendingHostExists(ctx); err == nil {
+				continue
+			}
+			keyB, _ := json.Marshal(key)
+			p := schema.PendingHost{
+				ID:            uuid.NewString(),
+				TenantID:      scope.ID(ctx),
+				HostID:        host.ID.String(),
+				Hostname:      host.Name,
+				Network:       netID,
+				PublicKey:     host.PublicKey.String(),
+				OS:            host.OS,
+				Location:      host.Location,
+				Version:       host.Version,
+				EnrollmentKey: keyB,
+				RequestedAt:   time.Now().UTC(),
+			}
+			_ = p.Create(ctx)
+			continue
+		}
+
+		_, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(
+			ctx,
+			host,
+			network,
+			orchestrator.UseKey(schemaKey),
+			orchestrator.SkipHostUpdate(),
+			orchestrator.SkipPublishPeerUpdate(),
+		)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("failed to add host (%s, %s) to network (%s): %v", host.ID.String(), host.Name, netID, err.Error()))
+			continue
+		}
+
+		if len(username) > 0 {
+			logic.LogEvent(ctx, &models.Event{
+				Action: schema.JoinHostToNet,
+				Source: models.Subject{
+					ID:   username,
+					Name: username,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: username,
+				Target: models.Subject{
+					ID:   host.ID.String(),
+					Name: host.Name,
+					Type: schema.DeviceSub,
+				},
+				NetworkID: schema.NetworkID(netID),
+				Origin:    schema.Dashboard,
+			})
+		} else if len(key.Tags) > 0 || len(key.Groups) > 0 {
+			sourceName := ""
+			if len(key.Groups) > 0 {
+				sourceName = key.Groups[0].String()
+			} else if len(key.Tags) > 0 {
+				sourceName = key.Tags[0]
+			}
+			if sourceName == "" {
+				sourceName = schemaKey.Name
+			}
+			logic.LogEvent(ctx, &models.Event{
+				Action: schema.JoinHostToNet,
+				Source: models.Subject{
+					ID:   key.Value,
+					Name: sourceName,
+					Type: schema.EnrollmentKeySub,
+				},
+				TriggeredBy: username,
+				Target: models.Subject{
+					ID:   host.ID.String(),
+					Name: host.Name,
+					Type: schema.DeviceSub,
+				},
+				NetworkID: schema.NetworkID(netID),
+				Origin:    schema.Dashboard,
+			})
+		}
+	}
+	_ = logic.PublishHostRegistrationUpdates(ctx, host)
 	if servercfg.IsMessageQueueBackend() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.RequestAck,

@@ -29,6 +29,7 @@ var HttpMiddlewares = []mux.MiddlewareFunc{
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
 	nodeHandlers,
+	nodeExitNodeHandlers,
 	gwHandlers,
 	userHandlers,
 	networkHandlers,
@@ -41,6 +42,7 @@ var HttpHandlers = []interface{}{
 	hostHandlers,
 	enrollmentKeyHandlers,
 	aclHandlers,
+	deviceHandlers,
 	egressHandlers,
 	internetGatewayHandlers,
 	orgHandlers,
@@ -60,6 +62,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"authorization",
 			"From-Ui",
 			"X-Application-Name",
+			"X-Host-ID",
 			scope.HeaderOrgID,
 			scope.HeaderTenantID,
 		},

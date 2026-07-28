@@ -36,6 +36,8 @@ type ExtClient struct {
 	AllowedIPs                        []string            `json:"allowed_ips"`
 	IngressGatewayID                  string              `json:"ingressgatewayid" bson:"ingressgatewayid"`
 	IngressGatewayEndpoint            string              `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
+	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
 	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
 	Enabled                           bool                `json:"enabled" bson:"enabled"`
 	OwnerID                           string              `json:"ownerid" bson:"ownerid"`
