@@ -46,6 +46,7 @@ type User struct {
 	Password                   string     `gorm:"-" json:"password"`
 	IsMFAEnabled               bool       `gorm:"-" json:"is_mfa_enabled"`
 	TOTPSecret                 string     `gorm:"-" json:"totp_secret"`
+	EmailValidated             bool       `json:"email_validated"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
 	LastLoginAt time.Time `json:"last_login_time"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.

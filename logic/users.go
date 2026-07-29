@@ -24,6 +24,7 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 		UserName:                   user.Username,
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 		IsMFAEnabled:               user.IsMFAEnabled,
+		EmailValidated:             user.EmailValidated,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
 		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,

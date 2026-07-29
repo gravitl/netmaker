@@ -58,6 +58,7 @@ type ReturnUser struct {
 	UserName                   string                                              `json:"username"`
 	ExternalIdentityProviderID string                                              `json:"external_identity_provider_id"`
 	IsMFAEnabled               bool                                                `json:"is_mfa_enabled"`
+	EmailValidated             bool                                                `json:"email_validated"`
 	DisplayName                string                                              `json:"display_name"`
 	AccountDisabled            bool                                                `json:"account_disabled"`
 	IsAdmin                    bool                                                `json:"isadmin"`
