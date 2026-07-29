@@ -648,7 +648,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		host = currHost
 	}
 
-	server := logic.GetServerInfo(r.Context())
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+	server := logic.GetServerInfo(ctx)
 	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,
@@ -658,7 +659,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
 }
 
