@@ -861,8 +861,9 @@ func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
 		return schema.User{}, fetchErr
 	}
 	user := schema.User{
-		Username: in.Email,
-		Password: newPass,
+		Username:       in.Email,
+		Password:       newPass,
+		EmailValidated: true,
 	}
 	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)

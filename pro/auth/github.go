@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -110,7 +109,8 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			user.Username = content.Email
 			user.ExternalIdentityProviderID = content.Login
-			_ = user.Update(db.WithContext(context.TODO()))
+			user.EmailValidated = true
+			_ = user.Update(r.Context())
 		}
 	}
 

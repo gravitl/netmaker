@@ -232,6 +232,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				Password:                   password,
 				AuthType:                   schema.OAuth,
 				PlatformRoleID:             schema.ServiceUser,
+				EmailValidated:             true,
 			})
 			if createErr != nil {
 				if errors.Is(createErr, logic.ErrUserLimitExceeded) {
