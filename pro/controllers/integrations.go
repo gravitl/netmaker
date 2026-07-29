@@ -181,7 +181,8 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeSIEM {
-		go initSIEMExporter(string(id), config)
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		go initSIEMExporter(ctx, string(id), config)
 	}
 
 	err = redactConfig(intg)
@@ -194,7 +195,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration saved")
 }
 
-func initSIEMExporter(id string, configBytes json.RawMessage) {
+func initSIEMExporter(ctx context.Context, id string, configBytes json.RawMessage) {
 	config := make(map[string]interface{})
 	err := json.Unmarshal(configBytes, &config)
 	if err != nil {
@@ -208,7 +209,7 @@ func initSIEMExporter(id string, configBytes json.RawMessage) {
 		return
 	}
 
-	err = grpcs.Client().Init(context.Background(), id, configStruct)
+	err = grpcs.Client().Init(ctx, id, configStruct)
 	if err != nil {
 		logger.Log(0, fmt.Sprintf("error upserting siem integration %s on exporter: %v", id, err))
 
@@ -254,8 +255,9 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeSIEM {
-		go func() {
-			err := grpcs.Client().Terminate(context.Background())
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			err := grpcs.Client().Terminate(ctx)
 			if err != nil {
 				logger.Log(0, fmt.Sprintf("error terminating siem integration %s on exporter: %v", id, err))
 
@@ -264,7 +266,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 					logger.Log(0, fmt.Sprintf("error publishing siem integration delete event %s on exporter: %v", id, err))
 				}
 			}
-		}()
+		}(ctx)
 	}
 
 	logic2.SkipPushToSiem()
