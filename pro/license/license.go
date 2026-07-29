@@ -319,8 +319,6 @@ func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 
 	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
-	// todo(nm-341): per-tenant feature flags.
-	go mq.PublishExporterFeatureFlags(ctx)
 	go func() {
 		ctx := db.WithContext(context.Background())
 		tenants, err := (&schema.Tenant{}).List(ctx)

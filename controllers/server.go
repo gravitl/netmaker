@@ -327,10 +327,6 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 		logic.NotifyMetricExportIntervalChanged(ctx)
 	}
 
-	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		go mq.PublishExporterFeatureFlags(ctx)
-	}
-
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
 	// On force FlowLogs enable, enable FlowLogs for all hosts.
 	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
