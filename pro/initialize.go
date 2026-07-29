@@ -204,6 +204,7 @@ func InitPro() {
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
+	logic.IsMSP = license.IsMSP
 	logic.EnforceLimits = license.EnforceLimits
 	logic.HostLimitExceeded = license.HostLimitExceeded
 	logic.NetworkLimitExceeded = license.NetworkLimitExceeded

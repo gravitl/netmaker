@@ -145,6 +145,15 @@ func EnforceLimits(ctx context.Context) bool {
 	return false
 }
 
+func IsMSP(ctx context.Context) bool {
+	response, err := getCachedResponse(ctx)
+	if err != nil {
+		return false
+	}
+
+	return response.Organization.ID != ""
+}
+
 func ErrLicenseValidation(ctx context.Context) error {
 	invalidErr := licenseInvalidErr.Load()
 	if invalidErr != nil {

@@ -16,6 +16,10 @@ var GetDeploymentMode = func() string {
 	// All CE deployments are self-hosted.
 	return "self-hosted"
 }
+
+var IsMSP = func(ctx context.Context) bool {
+	return false
+}
 var StartFlowCleanupLoop = func(ctx context.Context) {}
 var StopFlowCleanupLoop = func(ctx context.Context) {}
 var EnforceLimits = func(ctx context.Context) bool {

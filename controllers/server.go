@@ -128,7 +128,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currentServerStatus := status{
-		IsMSP:            false, // todo(nm-341): get is_msp from license validation cache.
+		IsMSP:            logic.IsMSP(r.Context()),
 		DB:               isDBConnected,
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
