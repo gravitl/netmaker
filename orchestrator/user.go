@@ -173,11 +173,11 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 					UserID:   existing.ID,
 				}
 				err = membership.Get(ctx)
-				if err != nil {
+				if err == nil {
+					validationErr = errors.Join(validationErr, fmt.Errorf("user %s already exists in tenant %s", user.Username, tenant.ID))
+				} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 					return err
 				}
-
-				validationErr = errors.Join(validationErr, fmt.Errorf("user %s already exists in tenant %s", user.Username, tenant.ID))
 			}
 		}
 	} else if scope.Level(ctx) == scope.OrgScope {
@@ -203,11 +203,11 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 					UserID:         existing.ID,
 				}
 				err = membership.Get(ctx)
-				if err != nil {
+				if err == nil {
+					validationErr = errors.Join(validationErr, fmt.Errorf("user %s already exists in organization %s", user.Username, org.ID))
+				} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 					return err
 				}
-
-				validationErr = errors.Join(validationErr, fmt.Errorf("user %s already exists in organization %s", user.Username, org.ID))
 			}
 		}
 	}
