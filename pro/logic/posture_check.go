@@ -79,6 +79,7 @@ func RunPostureChecks() error {
 
 		wg.Add(1)
 		go func(ctx context.Context) {
+			defer wg.Done()
 			// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
 			_ = mdmpkg.RunMDMSync(ctx)
 			_ = edrpkg.RunEDRSyncForPosture(ctx)
@@ -162,7 +163,7 @@ func RunPostureChecks() error {
 		}(ctx)
 	}
 
-	wg.Done()
+	wg.Wait()
 
 	return nil
 }
