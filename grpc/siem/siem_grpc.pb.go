@@ -8,11 +8,9 @@ package siem
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -36,7 +34,7 @@ type SIEMServiceClient interface {
 	// Instruct the exporter to start forwarding events to the given SIEM provider.
 	InitSIEM(ctx context.Context, in *InitSIEMRequest, opts ...grpc.CallOption) (*SIEMResponse, error)
 	// Instruct the exporter to stop all SIEM forwarding.
-	TerminateSIEM(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SIEMResponse, error)
+	TerminateSIEM(ctx context.Context, in *TerminateSIEMRequest, opts ...grpc.CallOption) (*SIEMResponse, error)
 }
 
 type sIEMServiceClient struct {
@@ -57,7 +55,7 @@ func (c *sIEMServiceClient) InitSIEM(ctx context.Context, in *InitSIEMRequest, o
 	return out, nil
 }
 
-func (c *sIEMServiceClient) TerminateSIEM(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SIEMResponse, error) {
+func (c *sIEMServiceClient) TerminateSIEM(ctx context.Context, in *TerminateSIEMRequest, opts ...grpc.CallOption) (*SIEMResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SIEMResponse)
 	err := c.cc.Invoke(ctx, SIEMService_TerminateSIEM_FullMethodName, in, out, cOpts...)
@@ -78,7 +76,7 @@ type SIEMServiceServer interface {
 	// Instruct the exporter to start forwarding events to the given SIEM provider.
 	InitSIEM(context.Context, *InitSIEMRequest) (*SIEMResponse, error)
 	// Instruct the exporter to stop all SIEM forwarding.
-	TerminateSIEM(context.Context, *emptypb.Empty) (*SIEMResponse, error)
+	TerminateSIEM(context.Context, *TerminateSIEMRequest) (*SIEMResponse, error)
 	mustEmbedUnimplementedSIEMServiceServer()
 }
 
@@ -92,7 +90,7 @@ type UnimplementedSIEMServiceServer struct{}
 func (UnimplementedSIEMServiceServer) InitSIEM(context.Context, *InitSIEMRequest) (*SIEMResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method InitSIEM not implemented")
 }
-func (UnimplementedSIEMServiceServer) TerminateSIEM(context.Context, *emptypb.Empty) (*SIEMResponse, error) {
+func (UnimplementedSIEMServiceServer) TerminateSIEM(context.Context, *TerminateSIEMRequest) (*SIEMResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TerminateSIEM not implemented")
 }
 func (UnimplementedSIEMServiceServer) mustEmbedUnimplementedSIEMServiceServer() {}
@@ -135,7 +133,7 @@ func _SIEMService_InitSIEM_Handler(srv interface{}, ctx context.Context, dec fun
 }
 
 func _SIEMService_TerminateSIEM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(TerminateSIEMRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -147,7 +145,7 @@ func _SIEMService_TerminateSIEM_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: SIEMService_TerminateSIEM_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SIEMServiceServer).TerminateSIEM(ctx, req.(*emptypb.Empty))
+		return srv.(SIEMServiceServer).TerminateSIEM(ctx, req.(*TerminateSIEMRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
