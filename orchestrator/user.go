@@ -141,7 +141,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 	}
 
 	var validationErr error
-	err = u.validateUsername(user.Username)
+	err = u.validateUsername(ctx, user.Username)
 	if err != nil {
 		validationErr = errors.Join(validationErr, err)
 	}
@@ -215,7 +215,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 	return validationErr
 }
 
-func (u *UserOrchestrator) validateUsername(username string) error {
+func (u *UserOrchestrator) validateUsername(ctx context.Context, username string) error {
 	var validationErr error
 
 	if len(username) == 0 {
@@ -228,6 +228,13 @@ func (u *UserOrchestrator) validateUsername(username string) error {
 	_, err := mail.ParseAddress(username)
 	if err == nil {
 		isValidEmail = true
+	}
+
+	if logic.IsMSP(ctx) {
+		if !isValidEmail {
+			validationErr = errors.Join(validationErr, errors.New("username must be a valid email address"))
+		}
+		return validationErr
 	}
 
 	if !isValidEmail {
