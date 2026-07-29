@@ -293,6 +293,13 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			// user exists already, so ignore
 			continue
 		}
+
+		_, err = logic.GetUserInvite(r.Context(), inviteeEmail)
+		if err == nil {
+			// invite already exists, so ignore.
+			continue
+		}
+
 		invite := &schema.UserInvite{
 			Scope:          scope.Level(r.Context()),
 			ScopeID:        scope.ID(r.Context()),
