@@ -58,29 +58,37 @@ func (p *ProUserExtensions) ConfigureGroups(ctx context.Context, membership *sch
 }
 
 func (p *ProUserExtensions) SendEmailValidation(ctx context.Context, user *schema.User) error {
-	inviteCode := logic.RandomString(8)
-	validateURL := fmt.Sprintf(
-		"https://api.%s/api/v1/users/validate-email?invite_code=%s&email=%s",
-		servercfg.GetNmBaseDomain(),
-		url.QueryEscape(inviteCode),
-		url.QueryEscape(user.Username),
-	)
-
-	invite := &schema.UserInvite{
-		Scope:      scope.GlobalScope,
-		InviteCode: inviteCode,
-		InviteURL:  validateURL,
-		Email:      user.Username,
-		Type:       schema.ValidationInvite,
-	}
-	err := invite.Create(ctx)
+	invite := &schema.UserInvite{Email: user.Username}
+	err := invite.GetPendingValidationInvite(ctx)
 	if err != nil {
-		return err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		inviteCode := logic.RandomString(8)
+		validateURL := fmt.Sprintf(
+			"https://api.%s/api/v1/users/validate-email?invite_code=%s&email=%s",
+			servercfg.GetNmBaseDomain(),
+			url.QueryEscape(inviteCode),
+			url.QueryEscape(user.Username),
+		)
+
+		invite = &schema.UserInvite{
+			Scope:      scope.GlobalScope,
+			InviteCode: inviteCode,
+			InviteURL:  validateURL,
+			Email:      user.Username,
+			Type:       schema.ValidationInvite,
+		}
+		err = invite.Create(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	e := email.EmailValidationMail{
 		BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-		ValidateURL: validateURL,
+		ValidateURL: invite.InviteURL,
 	}
 	n := email.Notification{RecipientMail: user.Username}
 	return email.GetClient().SendEmail(ctx, n, e)
