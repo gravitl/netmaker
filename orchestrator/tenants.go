@@ -51,7 +51,7 @@ func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenantID
 func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *schema.Tenant) error {
 	defaultSettings := logic.GetDefaultTenantSettings()
 
-	if !t.isMSPTenant(ctx, tenant.OrganizationID) {
+	if t.isMSPTenant(ctx, tenant) {
 		defaultSettings.Telemetry = "off"
 	}
 
@@ -59,14 +59,14 @@ func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *sch
 	return logic.UpsertServerSettings(tenantCtx, defaultSettings)
 }
 
-func (t *TenantOrchestrator) isMSPTenant(ctx context.Context, orgID string) bool {
+func (t *TenantOrchestrator) isMSPTenant(ctx context.Context, tenant *schema.Tenant) bool {
 	defaultOrg := &schema.Organization{}
 	err := defaultOrg.GetDefault(ctx)
 	if err != nil {
-		return false
+		return true
 	}
 
-	return defaultOrg.ID == orgID
+	return defaultOrg.ID != tenant.OrganizationID
 }
 
 func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
