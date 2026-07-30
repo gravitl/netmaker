@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	chdriver "github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -113,6 +115,10 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		}
 	}
 
+	if err := t.deleteTenantFlowLogs(tenantCtx, tenantID); err != nil {
+		slog.Warn("failed to delete clickhouse flow logs", "tenant_id", tenantID, "error", err)
+	}
+
 	memberships, err := (&schema.TenantMembership{TenantID: tenantID}).ListByTenantID(ctx)
 	if err != nil {
 		return fmt.Errorf("tenant %s: failed to list memberships: %w", tenantID, err)
@@ -132,6 +138,23 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 	slog.Warn("tenant teardown complete", "tenant_id", tenantID, "memberships_removed", len(memberships))
 
 	return nil
+}
+
+func (t *TenantOrchestrator) deleteTenantFlowLogs(ctx context.Context, tenantID string) error {
+	if !clickhouse.IsConnected() {
+		return nil
+	}
+
+	conn, err := clickhouse.FromContext(clickhouse.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("clickhouse connection not available: %w", err)
+	}
+
+	return conn.Exec(ctx,
+		"ALTER TABLE {database:Identifier}.flows DELETE WHERE tenant_id = {tenantID:String}",
+		chdriver.Named("database", servercfg.GetClickHouseDB()),
+		chdriver.Named("tenantID", tenantID),
+	)
 }
 
 func (t *TenantOrchestrator) notifyHostsOfDeletion(tenantID string, hosts []schema.Host) {
