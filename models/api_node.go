@@ -39,6 +39,9 @@ type ApiNode struct {
 	IsAutoRelay        bool              `json:"is_auto_relay"`
 	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
 	AutoAssignGateway  bool              `json:"auto_assign_gw"`
+	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
+	UseTcpUplink       bool              `json:"use_tcp_uplink"`
 	//AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
@@ -166,6 +169,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsIngressGateway = true
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
+	convertedNode.TcpProxyEnabled = a.TcpProxyEnabled
+	convertedNode.TcpProxyListenPort = a.TcpProxyListenPort
+	convertedNode.UseTcpUplink = a.UseTcpUplink
 	convertedNode.Status = currentNode.Status
 	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
 	return &convertedNode
@@ -223,6 +229,9 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	//apiNode.AutoRelayedBy = nm.AutoRelayedBy
 	apiNode.AutoRelayedPeers = nm.AutoRelayedPeers
 	apiNode.AutoAssignGateway = nm.AutoAssignGateway
+	apiNode.TcpProxyEnabled = nm.TcpProxyEnabled
+	apiNode.TcpProxyListenPort = nm.TcpProxyListenPort
+	apiNode.UseTcpUplink = nm.UseTcpUplink
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive

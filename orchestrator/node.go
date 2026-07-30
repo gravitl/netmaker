@@ -218,6 +218,14 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	node.IsGateway = true
 
+	if ops.setTcpProxy && ops.tcpProxyEnabled {
+		node.TcpProxyEnabled = true
+		node.TcpProxyListenPort = ops.tcpProxyListenPort
+		if node.TcpProxyListenPort <= 0 {
+			node.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
+		}
+	}
+
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
