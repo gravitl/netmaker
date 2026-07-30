@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
@@ -42,6 +43,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		Username: user.Username,
 	}
 	err := existing.Get(ctx)
+	var emailValidated bool
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -55,8 +57,10 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		if err != nil {
 			return err
 		}
+		emailValidated = user.EmailValidated
 	} else {
 		user.ID = existing.ID
+		emailValidated = existing.EmailValidated
 	}
 
 	if user.UserGroups.Data() == nil {
@@ -118,6 +122,13 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		err = membership.Create(ctx)
 		if err != nil {
 			return err
+		}
+	}
+
+	if logic.IsMSP(ctx) && !emailValidated {
+		err = u.userExt.SendEmailValidation(ctx, user)
+		if err != nil {
+			logger.Log(0, "failed to send email validation for user", user.Username, ":", err.Error())
 		}
 	}
 
