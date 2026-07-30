@@ -116,6 +116,11 @@ var userAccountDisabled = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account has be
 
 var userLimitExceeded = fmt.Sprintf(htmlBaseTemplate, `<h2>User limit reached for this tenant. Please contact your administrator to upgrade your license.</h2>`)
 
+var emailValidated = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email has been validated.</h2>
+<button class="back-to-login-btn" onclick="redirect()">Go to Dashboard</button>`)
+
+var invalidValidationLink = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid or expired validation link.</h2>`)
+
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusNotFound)
@@ -180,4 +185,16 @@ func handleUserLimitExceeded(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusForbidden)
 	response.Write([]byte(userLimitExceeded))
+}
+
+func handleEmailValidated(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusOK)
+	response.Write([]byte(emailValidated))
+}
+
+func handleInvalidValidationLink(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusBadRequest)
+	response.Write([]byte(invalidValidationLink))
 }
