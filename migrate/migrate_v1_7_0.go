@@ -73,7 +73,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateIntegrationIDs(ctx)
+	err = migrateIntegrationIDs(ctx)
+	if err != nil {
+		return err
+	}
+
+	return setUserInviteType(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -686,4 +691,10 @@ func migrateIntegrationIDs(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func setUserInviteType(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&schema.UserInvite{}).
+		Where("type = ?", "").
+		Update("type", schema.MembershipInvite).Error
 }
