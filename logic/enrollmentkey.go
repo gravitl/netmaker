@@ -377,8 +377,9 @@ func Tokenize(ctx context.Context, k *schema.EnrollmentKey, serverAddr string) e
 		return EnrollmentErrors.FailedToTokenize
 	}
 	newToken := models.EnrollmentToken{
-		Server: serverAddr,
-		Value:  k.Value,
+		Server:   serverAddr,
+		TenantID: k.TenantID,
+		Value:    k.Value,
 	}
 	data, err := json.Marshal(&newToken)
 	if err != nil {
