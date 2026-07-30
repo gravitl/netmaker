@@ -23,6 +23,7 @@ const (
 type DeviceMDMState struct {
 	HostID       string    `gorm:"primaryKey;column:host_id" json:"host_id"`
 	Provider     string    `gorm:"primaryKey;column:provider" json:"provider"`
+	TenantID     string    `gorm:"default:'';index" json:"tenant_id"`
 	MDMDeviceID  string    `gorm:"column:mdm_device_id" json:"mdm_device_id"`
 	Enrolled     bool      `gorm:"column:enrolled" json:"enrolled"`
 	Compliant    bool      `gorm:"column:compliant" json:"compliant"`

@@ -51,6 +51,7 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		}
 		state := schema.DeviceMDMState{
 			HostID:       h.ID.String(),
+			TenantID:     h.TenantID,
 			Provider:     intg.Provider,
 			MDMDeviceID:  d.ProviderDeviceID,
 			Enrolled:     d.Enrolled,
@@ -61,5 +62,5 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		}
 		return state.Upsert(db.WithContext(ctx))
 	}
-	return upsertUnmatchedHostMDMState(ctx, intg.Provider, h.ID.String(), schema.MDMMatchSerialNumber)
+	return upsertUnmatchedHostMDMState(ctx, intg.Provider, h, schema.MDMMatchSerialNumber)
 }

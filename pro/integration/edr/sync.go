@@ -141,7 +141,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			break
 		}
 		if !found {
-			if err := upsertUnmatchedHostEDRState(ctx, intg.Provider, hosts[i].ID.String()); err != nil {
+			if err := upsertUnmatchedHostEDRState(ctx, intg.Provider, hosts[i]); err != nil {
 				logger.Log(0, "edr sync: unmatched state for host", hosts[i].ID.String(), ":", err.Error())
 			}
 		}
@@ -200,9 +200,10 @@ func normalizeGUID(id string) string {
 	return id
 }
 
-func upsertUnmatchedHostEDRState(ctx context.Context, providerID, hostID string) error {
+func upsertUnmatchedHostEDRState(ctx context.Context, providerID string, h schema.Host) error {
 	state := schema.DeviceEDRState{
-		HostID:         hostID,
+		HostID:         h.ID.String(),
+		TenantID:       h.TenantID,
 		Provider:       providerID,
 		AgentInstalled: false,
 		AgentHealthy:   false,

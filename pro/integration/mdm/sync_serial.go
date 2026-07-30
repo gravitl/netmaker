@@ -20,6 +20,7 @@ func syncHostMDMBySerial(
 		}
 		state := schema.DeviceMDMState{
 			HostID:       h.ID.String(),
+			TenantID:     h.TenantID,
 			Provider:     providerID,
 			MDMDeviceID:  d.ProviderDeviceID,
 			Enrolled:     d.Enrolled,
@@ -33,7 +34,7 @@ func syncHostMDMBySerial(
 		}
 		return true, nil
 	}
-	if err := upsertUnmatchedHostMDMState(ctx, providerID, h.ID.String(), schema.MDMMatchSerialNumber); err != nil {
+	if err := upsertUnmatchedHostMDMState(ctx, providerID, h, schema.MDMMatchSerialNumber); err != nil {
 		return false, err
 	}
 	return false, nil

@@ -140,6 +140,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			}
 			state := schema.DeviceMDMState{
 				HostID:       hosts[i].ID.String(),
+				TenantID:     hosts[i].TenantID,
 				Provider:     intg.Provider,
 				MDMDeviceID:  d.ProviderDeviceID,
 				Enrolled:     d.Enrolled,
@@ -157,7 +158,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			break
 		}
 		if !found {
-			if err := upsertUnmatchedHostMDMState(ctx, intg.Provider, hosts[i].ID.String(), schema.MDMMatchSerialNumber); err != nil {
+			if err := upsertUnmatchedHostMDMState(ctx, intg.Provider, hosts[i], schema.MDMMatchSerialNumber); err != nil {
 				logger.Log(0, "mdm sync: clear state for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
@@ -169,9 +170,10 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 	return nil
 }
 
-func upsertUnmatchedHostMDMState(ctx context.Context, providerID, hostID, matchedBy string) error {
+func upsertUnmatchedHostMDMState(ctx context.Context, providerID string, h schema.Host, matchedBy string) error {
 	state := schema.DeviceMDMState{
-		HostID:       hostID,
+		HostID:       h.ID.String(),
+		TenantID:     h.TenantID,
 		Provider:     providerID,
 		Enrolled:     false,
 		Compliant:    false,

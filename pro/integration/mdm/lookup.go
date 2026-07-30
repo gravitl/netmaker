@@ -72,6 +72,7 @@ func upsertHostMDMFromEntraLookup(
 	now := time.Now().UTC()
 	state := schema.DeviceMDMState{
 		HostID:       h.ID.String(),
+		TenantID:     h.TenantID,
 		Provider:     providerID,
 		MatchedBy:    schema.MDMMatchEntraDeviceID,
 		LastSyncedAt: now,

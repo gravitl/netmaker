@@ -31,6 +31,7 @@ func upsertHostEDRFromHostLookup(
 	ep, matchedBy, err := lookup.LookupForHost(ctx, h)
 	state := schema.DeviceEDRState{
 		HostID:       h.ID.String(),
+		TenantID:     h.TenantID,
 		Provider:     providerID,
 		MatchedBy:    matchedBy,
 		LastSyncedAt: time.Now().UTC(),
@@ -72,6 +73,7 @@ func upsertHostEDRFromSerialLookup(
 	ep, err := lookup.LookupBySerial(ctx, h.SerialNumber)
 	state := schema.DeviceEDRState{
 		HostID:       h.ID.String(),
+		TenantID:     h.TenantID,
 		Provider:     providerID,
 		MatchedBy:    schema.EDRMatchSerialNumber,
 		LastSyncedAt: time.Now().UTC(),
@@ -117,6 +119,7 @@ func upsertHostEDRFromEndpoint(
 	}
 	state := schema.DeviceEDRState{
 		HostID:         h.ID.String(),
+		TenantID:       h.TenantID,
 		Provider:       providerID,
 		EDRDeviceID:    ep.ProviderDeviceID,
 		MatchedBy:      matchedBy,
@@ -151,5 +154,5 @@ func refreshHostEDRByListing(
 		}
 		return upsertHostEDRFromEndpoint(ctx, providerID, h, ep, matchedBy)
 	}
-	return upsertUnmatchedHostEDRState(ctx, providerID, h.ID.String())
+	return upsertUnmatchedHostEDRState(ctx, providerID, h)
 }
