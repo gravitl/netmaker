@@ -66,6 +66,7 @@ func UserHandlers(r *mux.Router) {
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/validate-email", proAuth.ValidateEmail).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
@@ -305,6 +306,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			ScopeID:        scope.ID(r.Context()),
 			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
+			Type:           schema.MembershipInvite,
 			PlatformRoleID: inviteReq.PlatformRoleID,
 			UserGroups:     datatypes.NewJSONType(inviteReq.UserGroups),
 		}
