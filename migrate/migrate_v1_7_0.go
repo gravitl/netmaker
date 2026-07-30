@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate/types"
@@ -78,7 +79,12 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return setUserInviteType(ctx)
+	err = setUserInviteType(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateClickHouseTenantID(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -697,4 +703,41 @@ func setUserInviteType(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&schema.UserInvite{}).
 		Where("type = ?", "").
 		Update("type", schema.MembershipInvite).Error
+}
+
+func migrateClickHouseTenantID(ctx context.Context) error {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
+	err = ch.Initialize()
+	if err != nil {
+		return nil
+	}
+
+	if !ch.IsConnected() {
+		return nil
+	}
+
+	defaultTenant, err := logic.SoleTenant(ctx)
+	if err != nil {
+		return err
+	}
+
+	chConn, err := ch.FromContext(ch.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+
+	err = chConn.Exec(ctx, "ALTER TABLE flows ADD COLUMN IF NOT EXISTS tenant_id String")
+	if err != nil {
+		return err
+	}
+
+	return chConn.Exec(ctx, "ALTER TABLE flows UPDATE tenant_id = ? WHERE tenant_id = ''", defaultTenant.ID)
 }

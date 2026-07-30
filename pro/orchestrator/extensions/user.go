@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
@@ -91,5 +92,10 @@ func (p *ProUserExtensions) SendEmailValidation(ctx context.Context, user *schem
 		ValidateURL: invite.InviteURL,
 	}
 	n := email.Notification{RecipientMail: user.Username}
-	return email.GetClient().SendEmail(ctx, n, e)
+	err = email.GetClient().SendEmail(ctx, n, e)
+	if err != nil {
+		logger.Log(2, "failed to send email validation email:", err.Error())
+	}
+
+	return nil
 }
