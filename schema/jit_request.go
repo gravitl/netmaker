@@ -88,6 +88,13 @@ func (r *JITRequest) ListByStatusAndNetwork(ctx context.Context, status string) 
 	return requests, err
 }
 
+func (r *JITRequest) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Table(r.Table()).Where(fmt.Sprintf("%s.tenant_id = ?", jitRequestTable), tenantID).Delete(&JITRequest{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", jitRequestTable)).Error
+}
+
 func (r *JITRequest) CountByNetwork(ctx context.Context) (int64, error) {
 	var count int64
 	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Count(&count).Error

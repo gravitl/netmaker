@@ -73,6 +73,13 @@ func (*MetricsRecord) List(ctx context.Context) ([]MetricsRecord, error) {
 	return records, err
 }
 
+func (*MetricsRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", metricsRecordsTable), tenantID).Delete(&MetricsRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", metricsRecordsTable)).Error
+}
+
 func (*MetricsRecord) Count(ctx context.Context) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&MetricsRecord{})

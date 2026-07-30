@@ -130,6 +130,13 @@ func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
 	return records, err
 }
 
+func (*AclRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", aclRecordsTable), tenantID).Delete(&AclRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", aclRecordsTable)).Error
+}
+
 func (*AclRecord) Count(ctx context.Context) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&AclRecord{})

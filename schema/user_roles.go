@@ -192,3 +192,13 @@ func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {
 		Delete(u).
 		Error
 }
+
+func (u *UserRole) DeleteAllForNetworks(ctx context.Context, networkIDs []string) error {
+	if len(networkIDs) == 0 {
+		return nil
+	}
+	return db.FromContext(ctx).Model(&UserRole{}).
+		Where("network_id IN ?", networkIDs).
+		Delete(&UserRole{}).
+		Error
+}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -83,4 +84,11 @@ func (s *DeviceEDRState) ListAll(ctx context.Context) ([]DeviceEDRState, error) 
 	var out []DeviceEDRState
 	err := db.FromContext(ctx).Model(&DeviceEDRState{}).Find(&out).Error
 	return out, err
+}
+
+func (s *DeviceEDRState) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where("tenant_id = ?", tenantID).Delete(&DeviceEDRState{}).Error
+	}
+	return db.FromContext(ctx).Exec("DELETE FROM " + deviceEDRStateTable).Error
 }

@@ -84,6 +84,13 @@ func (e *EnrollmentKey) ListAll(ctx context.Context, options ...dbtypes.Option) 
 	return keys, err
 }
 
+func (e *EnrollmentKey) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", enrollmentKeysTable), tenantID).Delete(&EnrollmentKey{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", enrollmentKeysTable)).Error
+}
+
 func (e *EnrollmentKey) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&EnrollmentKey{})

@@ -56,6 +56,13 @@ func (i *Integration) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Where("provider = ? AND tenant_id = ?", i.Provider, scope.ID(ctx)).Delete(i).Error
 }
 
+func (i *Integration) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", integrationsTable), tenantID).Delete(&Integration{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", integrationsTable)).Error
+}
+
 func (i *Integration) ListByType(ctx context.Context) ([]Integration, error) {
 	var integrations []Integration
 	query := db.FromContext(ctx).Model(&Integration{}).

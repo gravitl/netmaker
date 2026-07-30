@@ -101,3 +101,7 @@ func (t *TenantMembership) ListByTenantID(ctx context.Context) ([]TenantMembersh
 		Error
 	return memberships, err
 }
+
+func (t *TenantMembership) DeleteAllByTenantID(ctx context.Context) error {
+	return db.FromContext(ctx).Where("tenant_id = ?", t.TenantID).Delete(&TenantMembership{}).Error
+}

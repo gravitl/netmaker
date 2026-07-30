@@ -62,3 +62,10 @@ func (p *PendingHost) DeleteAllPendingHosts(ctx context.Context) error {
 	}
 	return query.Delete(&p).Error
 }
+
+func (p *PendingHost) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", pendingHostsTable), tenantID).Delete(&PendingHost{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", pendingHostsTable)).Error
+}

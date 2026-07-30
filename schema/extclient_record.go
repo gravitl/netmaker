@@ -25,17 +25,17 @@ type Violation struct {
 
 // ExtClient - struct for external clients
 type ExtClient struct {
-	ClientID                          string              `json:"clientid" bson:"clientid"`
-	PrivateKey                        string              `json:"privatekey" bson:"privatekey"`
-	PublicKey                         string              `json:"publickey" bson:"publickey"`
-	Network                           string              `json:"network" bson:"network"`
-	DNS                               string              `json:"dns" bson:"dns"`
-	Address                           string              `json:"address" bson:"address"`
-	Address6                          string              `json:"address6" bson:"address6"`
-	ExtraAllowedIPs                   []string            `json:"extraallowedips" bson:"extraallowedips"`
-	AllowedIPs                        []string            `json:"allowed_ips"`
-	IngressGatewayID                  string              `json:"ingressgatewayid" bson:"ingressgatewayid"`
-	IngressGatewayEndpoint            string              `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	ClientID               string   `json:"clientid" bson:"clientid"`
+	PrivateKey             string   `json:"privatekey" bson:"privatekey"`
+	PublicKey              string   `json:"publickey" bson:"publickey"`
+	Network                string   `json:"network" bson:"network"`
+	DNS                    string   `json:"dns" bson:"dns"`
+	Address                string   `json:"address" bson:"address"`
+	Address6               string   `json:"address6" bson:"address6"`
+	ExtraAllowedIPs        []string `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs             []string `json:"allowed_ips"`
+	IngressGatewayID       string   `json:"ingressgatewayid" bson:"ingressgatewayid"`
+	IngressGatewayEndpoint string   `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
 	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
 	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
@@ -122,6 +122,13 @@ func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
 		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
 	}
 	return records, err
+}
+
+func (*ExtClientRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extClientRecordsTable), tenantID).Delete(&ExtClientRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extClientRecordsTable)).Error
 }
 
 func (*ExtClientRecord) Count(ctx context.Context) (int, error) {

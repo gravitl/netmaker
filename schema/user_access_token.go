@@ -82,3 +82,10 @@ func (a *UserAccessToken) DeleteAllUserTokens(ctx context.Context) error {
 	}
 	return query.Delete(&a).Error
 }
+
+func (a *UserAccessToken) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", userAccessTokensTable), tenantID).Delete(&UserAccessToken{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", userAccessTokensTable)).Error
+}

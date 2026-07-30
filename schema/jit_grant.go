@@ -83,6 +83,13 @@ func (g *JITGrant) ListByUserAndNetwork(ctx context.Context) ([]JITGrant, error)
 	return grants, err
 }
 
+func (g *JITGrant) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Table(g.Table()).Where(fmt.Sprintf("%s.tenant_id = ?", jitGrantTable), tenantID).Delete(&JITGrant{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", jitGrantTable)).Error
+}
+
 func (g *JITGrant) GetByRequestID(ctx context.Context) (*JITGrant, error) {
 	var grant JITGrant
 	err := db.FromContext(ctx).Table(g.Table()).

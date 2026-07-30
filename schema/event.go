@@ -191,6 +191,13 @@ func (a *Event) List(ctx context.Context, from, to time.Time) (ats []Event, err 
 	return
 }
 
+func (a *Event) DeleteAllForTenant(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", eventsTable), tenantID).Delete(&Event{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", eventsTable)).Error
+}
+
 func (a *Event) DeleteOldEvents(ctx context.Context, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 	query := db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff)

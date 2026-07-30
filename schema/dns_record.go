@@ -79,6 +79,13 @@ func (*DNSRecord) List(ctx context.Context) ([]DNSRecord, error) {
 	return records, err
 }
 
+func (*DNSRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", dnsRecordsTable), tenantID).Delete(&DNSRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", dnsRecordsTable)).Error
+}
+
 func (*DNSRecord) Count(ctx context.Context) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&DNSRecord{})

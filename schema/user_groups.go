@@ -158,3 +158,10 @@ func (u *UserGroup) Delete(ctx context.Context) error {
 		Delete(&UserGroup{}).
 		Error
 }
+
+func (u *UserGroup) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", userGroupsTable), tenantID).Delete(&UserGroup{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", userGroupsTable)).Error
+}
