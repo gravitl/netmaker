@@ -39,7 +39,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/register/{token}", handleHostRegister).
+	r.HandleFunc("/api/v1/host/register/{token}", middleware.Scope(scope.TenantScope, http.HandlerFunc(handleHostRegister))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEnrollmentKey)))).
 		Methods(http.MethodPut)
