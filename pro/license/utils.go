@@ -189,6 +189,8 @@ func tenantStatusError(status TenantStatusMessage) error {
 		return errors.New("no payment method on file")
 	case TenantStatusLicenseExpired:
 		return errors.New("license has expired")
+	case TenantStatusDeleted:
+		return errors.New("tenant has been deleted")
 	default:
 		return fmt.Errorf("tenant status: %s", status)
 	}

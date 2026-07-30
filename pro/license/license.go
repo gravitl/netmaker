@@ -69,6 +69,12 @@ func upsertOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) 
 	}
 
 	for _, licenseTenant := range licenseResponse.Tenants {
+		if licenseTenant.Status == TenantStatusDeleted {
+			if err := teardownDeletedTenant(ctx, licenseTenant.ID); err != nil {
+				return fmt.Errorf("failed to tear down deleted tenant %q: %w", licenseTenant.ID, err)
+			}
+			continue
+		}
 		if err := upsertTenant(ctx, licenseTenant, orgID); err != nil {
 			return fmt.Errorf("failed to sync tenant %q: %w", licenseTenant.ID, err)
 		}
@@ -124,6 +130,19 @@ func upsertTenant(ctx context.Context, licenseTenant LicenseTenant, orgID string
 	}
 
 	return nil
+}
+
+func teardownDeletedTenant(ctx context.Context, tenantID string) error {
+	tenant := &schema.Tenant{ID: tenantID}
+	if err := tenant.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	slog.Warn("tenant marked deleted by license validation -- tearing down local tenant data", "tenant_id", tenantID)
+	return orchestrator.GetRepository().TenantOrchestrator().TeardownTenant(ctx, tenantID)
 }
 
 func reconcileOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) error {
@@ -183,18 +202,29 @@ func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID
 		return err
 	}
 
+	activeTenants := make([]LicenseTenant, 0, len(licenseTenants))
+	for _, licenseTenant := range licenseTenants {
+		if licenseTenant.Status == TenantStatusDeleted {
+			if err := teardownDeletedTenant(ctx, licenseTenant.ID); err != nil {
+				return fmt.Errorf("failed to tear down deleted tenant %q: %w", licenseTenant.ID, err)
+			}
+			continue
+		}
+		activeTenants = append(activeTenants, licenseTenant)
+	}
+
 	switch len(existing) {
 	case 0:
 		// nothing pre-existing locally -- nothing to rekey.
 	case 1:
-		if len(licenseTenants) != 1 {
+		if len(activeTenants) != 1 {
 			return fmt.Errorf(
-				"local tenant %q exists but license returned %d tenants (expected 1); manual resolution required",
-				existing[0].ID, len(licenseTenants),
+				"local tenant %q exists but license returned %d active tenants (expected 1); manual resolution required",
+				existing[0].ID, len(activeTenants),
 			)
 		}
-		if existing[0].ID != licenseTenants[0].ID {
-			if err := migrate.RekeyTenant(ctx, existing[0].ID, licenseTenants[0].ID); err != nil {
+		if existing[0].ID != activeTenants[0].ID {
+			if err := migrate.RekeyTenant(ctx, existing[0].ID, activeTenants[0].ID); err != nil {
 				return err
 			}
 		}
@@ -202,7 +232,7 @@ func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID
 		return fmt.Errorf("cannot reconcile license tenants: %d local tenants already exist", len(existing))
 	}
 
-	for _, licenseTenant := range licenseTenants {
+	for _, licenseTenant := range activeTenants {
 		if err := upsertTenant(ctx, licenseTenant, orgID); err != nil {
 			return err
 		}

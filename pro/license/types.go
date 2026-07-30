@@ -67,6 +67,8 @@ const (
 	TenantStatusPaymentMissing TenantStatusMessage = "payment_missing"
 	// TenantStatusLicenseExpired indicates that the tenant's license has expired
 	TenantStatusLicenseExpired TenantStatusMessage = "license_expired"
+	// TenantStatusDeleted indicates the tenant has been deleted
+	TenantStatusDeleted TenantStatusMessage = "deleted"
 )
 
 type Limits struct {
