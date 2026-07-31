@@ -53,6 +53,13 @@ func (o *OrgMembership) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(o).Error
 }
 
+func (o *OrgMembership) UpdateRoleID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Update("role_id", o.RoleID).
+		Error
+}
+
 func (o *OrgMembership) UpdateAccountStatus(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&OrgMembership{}).
 		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
