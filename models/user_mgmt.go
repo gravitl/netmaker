@@ -92,6 +92,11 @@ type UserIdentityValidationRequest struct {
 	Password string `json:"password"`
 }
 
+// TransferOrgOwnerRequest - request struct for transferring org ownership
+type TransferOrgOwnerRequest struct {
+	Username string `json:"username"`
+}
+
 // UserIdentityValidationResponse - user identity validation response struct
 type UserIdentityValidationResponse struct {
 	IdentityValidated bool `json:"identity_validated"`

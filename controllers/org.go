@@ -23,6 +23,7 @@ import (
 func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(getOrgSettings)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(upsertOrgSettings)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/org/owner/transfer", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(transferOrgOwner)))).Methods(http.MethodPut)
 
 	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(listOrgs))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
@@ -362,6 +363,95 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, response, "created organization owner")
+}
+
+// @Summary     Transfer organization ownership
+// @Router      /api/v1/org/owner/transfer [put]
+// @Tags        Organizations
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.TransferOrgOwnerRequest true "Username of the org admin to transfer ownership to"
+// @Success     200 {object} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
+	var req models.TransferOrgOwnerRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if req.Username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
+		return
+	}
+
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err = caller.GetWithMembership(dbctx)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if caller.PlatformRoleID != schema.OrgOwner {
+		err = errors.New("only the organization owner can transfer ownership")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
+
+	newOwner := &schema.User{Username: req.Username}
+	err = newOwner.GetWithMembership(dbctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not found"), logic.NotFound))
+			return
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if newOwner.PlatformRoleID != schema.OrgAdmin {
+		err = errors.New("only an organization admin can be promoted to organization owner")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	newOwner.PlatformRoleID = schema.OrgOwner
+	err = (&schema.OrgMembership{
+		OrganizationID: scope.ID(r.Context()),
+		UserID:         newOwner.ID,
+		RoleID:         schema.OrgAdmin,
+	}).UpdateRoleID(dbctx)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	caller.PlatformRoleID = schema.OrgAdmin
+	err = (&schema.OrgMembership{
+		OrganizationID: scope.ID(r.Context()),
+		UserID:         newOwner.ID,
+		RoleID:         schema.OrgAdmin,
+	}).UpdateRoleID(dbctx)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	commit = true
+
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(newOwner), "transferred organization ownership")
 }
 
 // @Summary     Delete an organization
