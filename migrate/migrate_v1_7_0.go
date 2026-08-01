@@ -363,7 +363,7 @@ func migrateServerSettings(ctx context.Context) error {
 				return err
 			}
 
-			err = migrateTenantEmailSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(value))
+			err = migrateTenantSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(value))
 			if err != nil {
 				return err
 			}
@@ -406,36 +406,43 @@ func migrateServerSettings(ctx context.Context) error {
 	return nil
 }
 
-func migrateTenantEmailSettingsToOrg(ctx context.Context, orgID string, rawSettings []byte) error {
+func migrateTenantSettingsToOrg(ctx context.Context, orgID string, rawSettings []byte) error {
 	var legacy map[string]any
 	if err := json.Unmarshal(rawSettings, &legacy); err != nil {
 		return nil
 	}
 
 	smtpHost, _ := legacy["smtp_host"].(string)
-	if smtpHost == "" {
+	retentionDays, hasRetention := legacy["audit_logs_retention_period"].(int)
+	if smtpHost == "" && !hasRetention {
 		return nil
 	}
 
-	data := schema.OrganizationSettingsData{SmtpHost: smtpHost}
-	if v, ok := legacy["smtp_port"].(int); ok {
-		data.SmtpPort = v
+	var data schema.OrganizationSettingsData
+	if smtpHost != "" {
+		data.SmtpHost = smtpHost
+		if v, ok := legacy["smtp_port"].(int); ok {
+			data.SmtpPort = v
+		}
+		if v, ok := legacy["email_sender_addr"].(string); ok {
+			data.EmailSenderAddr = v
+		}
+		if v, ok := legacy["email_sender_user"].(string); ok {
+			data.EmailSenderUser = v
+		}
+		if v, ok := legacy["email_sender_password"].(string); ok {
+			data.EmailSenderPassword = v
+		}
+		if v, ok := legacy["smtp_skip_tls_verify"].(bool); ok {
+			data.SmtpSkipTlsVerify = v
+		} else {
+			// older deployments never had this key: preserve the legacy
+			// skip-verify default from before it was configurable.
+			data.SmtpSkipTlsVerify = true
+		}
 	}
-	if v, ok := legacy["email_sender_addr"].(string); ok {
-		data.EmailSenderAddr = v
-	}
-	if v, ok := legacy["email_sender_user"].(string); ok {
-		data.EmailSenderUser = v
-	}
-	if v, ok := legacy["email_sender_password"].(string); ok {
-		data.EmailSenderPassword = v
-	}
-	if v, ok := legacy["smtp_skip_tls_verify"].(bool); ok {
-		data.SmtpSkipTlsVerify = v
-	} else {
-		// older deployments never had this key: preserve the legacy
-		// skip-verify default from before it was configurable.
-		data.SmtpSkipTlsVerify = true
+	if hasRetention && retentionDays > 0 {
+		data.AuditLogsRetentionPeriodInDays = retentionDays
 	}
 
 	orgSettings := &schema.OrganizationSettings{
