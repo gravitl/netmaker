@@ -187,31 +187,30 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 
 func GetDefaultTenantSettings() models.ServerSettings {
 	return models.ServerSettings{
-		NetclientAutoUpdate:            true,
-		Verbosity:                      0,
-		AuthProvider:                   "",
-		OIDCIssuer:                     "",
-		ClientID:                       "",
-		ClientSecret:                   "",
-		AzureTenant:                    "",
-		Telemetry:                      "on",
-		BasicAuth:                      true,
-		JwtValidityDuration:            720,
-		JwtValidityDurationClients:     720,
-		RacRestrictToSingleNetwork:     false,
-		EndpointDetection:              true,
-		AllowedEmailDomains:            "*",
-		MetricInterval:                 "15",
-		MetricsPort:                    51821,
-		ManageDNS:                      true,
-		DefaultDomain:                  servercfg.GetDefaultDomain(),
-		Stun:                           true,
-		StunServers:                    "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302",
-		PeerConnectionCheckInterval:    "15",
-		PostureCheckInterval:           "30",
-		CleanUpInterval:                10,
-		IPDetectionInterval:            15,
-		AuditLogsRetentionPeriodInDays: 7,
+		NetclientAutoUpdate:         true,
+		Verbosity:                   0,
+		AuthProvider:                "",
+		OIDCIssuer:                  "",
+		ClientID:                    "",
+		ClientSecret:                "",
+		AzureTenant:                 "",
+		Telemetry:                   "on",
+		BasicAuth:                   true,
+		JwtValidityDuration:         720,
+		JwtValidityDurationClients:  720,
+		RacRestrictToSingleNetwork:  false,
+		EndpointDetection:           true,
+		AllowedEmailDomains:         "*",
+		MetricInterval:              "15",
+		MetricsPort:                 51821,
+		ManageDNS:                   true,
+		DefaultDomain:               servercfg.GetDefaultDomain(),
+		Stun:                        true,
+		StunServers:                 "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302",
+		PeerConnectionCheckInterval: "15",
+		PostureCheckInterval:        "30",
+		CleanUpInterval:             10,
+		IPDetectionInterval:         15,
 	}
 }
 
@@ -390,6 +389,10 @@ func GetSenderUser(ctx context.Context) string {
 
 func GetEmaiSenderPassword(ctx context.Context) string {
 	return GetOrgSettings(ctx).EmailSenderPassword
+}
+
+func GetAuditLogsRetentionPeriodInDays(ctx context.Context) int {
+	return GetOrgSettings(ctx).AuditLogsRetentionPeriodInDays
 }
 
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
