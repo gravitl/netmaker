@@ -96,6 +96,7 @@ func InitPro() {
 			if err != nil {
 				logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
 			} else {
+				flowLogsEnabled := false
 				for _, tenant := range tenants {
 					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
 					auth.StartIDPSyncHookForTenant(scopedCtx)
@@ -103,15 +104,19 @@ func InitPro() {
 					logic.GetMetricsMonitor(scopedCtx).Start()
 
 					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
-						proLogic.StartFlowCleanupLoop(scopedCtx)
-
-						wg.Add(1)
-						go func(ctx context.Context, wg *sync.WaitGroup) {
-							<-ctx.Done()
-							proLogic.StopFlowCleanupLoop(scopedCtx)
-							wg.Done()
-						}(ctx, wg)
+						flowLogsEnabled = true
 					}
+				}
+
+				if flowLogsEnabled {
+					proLogic.StartFlowCleanupLoop()
+
+					wg.Add(1)
+					go func(ctx context.Context, wg *sync.WaitGroup) {
+						<-ctx.Done()
+						proLogic.StopFlowCleanupLoop()
+						wg.Done()
+					}(ctx, wg)
 				}
 			}
 

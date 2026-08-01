@@ -274,9 +274,9 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 				return
 			}
-			logic.StartFlowCleanupLoop(r.Context())
+			logic.StartFlowCleanupLoop()
 		} else {
-			logic.StopFlowCleanupLoop(r.Context())
+			logic.StopFlowCleanupLoop()
 			ch.Close()
 		}
 	}
@@ -284,7 +284,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	err := logic.UpsertServerSettings(r.Context(), req)
 	if err != nil {
 		if req.EnableFlowLogs {
-			logic.StopFlowCleanupLoop(r.Context())
+			logic.StopFlowCleanupLoop()
 			ch.Close()
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
@@ -409,8 +409,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 
 	if old.Verbosity != new.Verbosity ||
 		old.MetricsPort != new.MetricsPort ||
-		old.MetricInterval != new.MetricInterval ||
-		old.AuditLogsRetentionPeriodInDays != new.AuditLogsRetentionPeriodInDays {
+		old.MetricInterval != new.MetricInterval {
 		return schema.UpdateMonitoringAndDebuggingSettings
 	}
 

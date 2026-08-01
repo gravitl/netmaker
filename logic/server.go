@@ -20,8 +20,8 @@ var GetDeploymentMode = func() string {
 var IsMSP = func(ctx context.Context) bool {
 	return false
 }
-var StartFlowCleanupLoop = func(ctx context.Context) {}
-var StopFlowCleanupLoop = func(ctx context.Context) {}
+var StartFlowCleanupLoop = func() {}
+var StopFlowCleanupLoop = func() {}
 var EnforceLimits = func(ctx context.Context) bool {
 	return false
 }

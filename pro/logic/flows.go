@@ -16,37 +16,34 @@ import (
 )
 
 const (
+	flowsCleanupHookID       = "flows-cleanup-loop"
 	flowsCleanupHookInterval = 24 * time.Hour
 )
 
-func getFlowCleanupLoopID(ctx context.Context) string {
-	return fmt.Sprintf("flows-cleanup-loop-%s", scope.ID(ctx))
-}
-
-func StartFlowCleanupLoop(ctx context.Context) {
+func StartFlowCleanupLoop() {
 	logic.HookManagerCh <- models.HookDetails{
-		ID:       getFlowCleanupLoopID(ctx),
-		Hook:     CleanupFlows,
-		Params:   []any{scope.ID(ctx)},
+		ID:       flowsCleanupHookID,
+		Hook:     logic.WrapHook(CleanupFlows),
 		Interval: flowsCleanupHookInterval,
 	}
 }
 
-func StopFlowCleanupLoop(ctx context.Context) {
-	logic.StopHook(getFlowCleanupLoopID(ctx))
+func StopFlowCleanupLoop() {
+	logic.StopHook(flowsCleanupHookID)
 }
 
-func CleanupFlows(params ...any) error {
-	if len(params) != 1 {
-		return errors.New("invalid number of params")
-	}
+func CleanupFlows() error {
+	ctx := ch.WithContext(context.Background())
 
-	tenantID, _ := params[0].(string)
-	if len(tenantID) == 0 {
-		return errors.New("invalid tenant id")
+	org, err := logic.SoleOrganization(db.WithContext(context.Background()))
+	if err != nil {
+		return fmt.Errorf("failed to get organization: %w", err)
 	}
-
-	ctx := scope.WithContext(db.WithContext(ch.WithContext(context.Background())), scope.TenantScope, tenantID)
+	orgCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, org.ID)
+	retentionPeriod := logic.GetOrgSettings(orgCtx).AuditLogsRetentionPeriodInDays
+	if retentionPeriod <= 0 {
+		retentionPeriod = 7
+	}
 
 	conn, err := ch.FromContext(ctx)
 	if err != nil {
@@ -63,7 +60,7 @@ ORDER BY parts.partition ASC
 	}
 	defer rows.Close()
 
-	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings(ctx).AuditLogsRetentionPeriodInDays)
+	cutoff := time.Now().AddDate(0, 0, -1*retentionPeriod)
 
 	var cleanErr error
 	for rows.Next() {
