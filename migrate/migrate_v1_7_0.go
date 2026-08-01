@@ -413,7 +413,7 @@ func migrateTenantSettingsToOrg(ctx context.Context, orgID string, rawSettings [
 	}
 
 	smtpHost, _ := legacy["smtp_host"].(string)
-	retentionDays, hasRetention := legacy["audit_logs_retention_period"].(int)
+	retentionDays, hasRetention := legacy["audit_logs_retention_period"].(float64)
 	if smtpHost == "" && !hasRetention {
 		return nil
 	}
@@ -421,8 +421,8 @@ func migrateTenantSettingsToOrg(ctx context.Context, orgID string, rawSettings [
 	var data schema.OrganizationSettingsData
 	if smtpHost != "" {
 		data.SmtpHost = smtpHost
-		if v, ok := legacy["smtp_port"].(int); ok {
-			data.SmtpPort = v
+		if v, ok := legacy["smtp_port"].(float64); ok {
+			data.SmtpPort = int(v)
 		}
 		if v, ok := legacy["email_sender_addr"].(string); ok {
 			data.EmailSenderAddr = v
@@ -442,7 +442,7 @@ func migrateTenantSettingsToOrg(ctx context.Context, orgID string, rawSettings [
 		}
 	}
 	if hasRetention && retentionDays > 0 {
-		data.AuditLogsRetentionPeriodInDays = retentionDays
+		data.AuditLogsRetentionPeriodInDays = int(retentionDays)
 	}
 
 	orgSettings := &schema.OrganizationSettings{
