@@ -37,20 +37,25 @@ func LogEvent(ctx context.Context, a *models.Event) {
 }
 
 func EventRetentionHook() error {
+	org, err := logic.SoleOrganization(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	orgCtx := scope.WithContext(db.WithContext(context.TODO()), scope.OrgScope, org.ID)
+	retentionPeriod := logic.GetOrgSettings(orgCtx).AuditLogsRetentionPeriodInDays
+	if retentionPeriod <= 0 {
+		retentionPeriod = 30
+	}
+
 	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
 	for _, tenant := range tenants {
-		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
-		settings := logic.GetServerSettings(ctx)
-		retentionPeriod := settings.AuditLogsRetentionPeriodInDays
-		if retentionPeriod <= 0 {
-			retentionPeriod = 30
-		}
-		err = (&schema.Event{}).DeleteOldEvents(ctx, retentionPeriod)
-		if err != nil {
+		tenantCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		if err := (&schema.Event{}).DeleteOldEvents(tenantCtx, retentionPeriod); err != nil {
 			slog.Warn("failed to delete old events past retention period", "error", err)
 		}
 	}
