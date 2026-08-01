@@ -42,6 +42,17 @@ type TenantSettings struct {
 	PostureCheckInterval        string   `json:"posture_check_interval"`
 	CleanUpInterval             int      `json:"clean_up_interval_in_mins"`
 	EnableFlowLogs              bool     `json:"enable_flow_logs"`
+	// AuditLogsRetentionPeriodInDays and the Smtp/EmailSender fields below are
+	// not persisted here: they live on OrganizationSettings and are
+	// populated/written through logic.GetServerSettings and
+	// logic.UpsertServerSettings for API backward compatibility.
+	AuditLogsRetentionPeriodInDays int    `json:"audit_logs_retention_period"`
+	EmailSenderAddr                string `json:"email_sender_addr"`
+	EmailSenderUser                string `json:"email_sender_user"`
+	EmailSenderPassword            string `json:"email_sender_password"`
+	SmtpHost                       string `json:"smtp_host"`
+	SmtpPort                       int    `json:"smtp_port"`
+	SmtpSkipTlsVerify              bool   `json:"smtp_skip_tls_verify"`
 }
 
 type TenantSettingsRecord struct {
