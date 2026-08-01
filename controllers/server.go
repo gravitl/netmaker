@@ -222,6 +222,9 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
 	}
+	if scfg.EmailSenderPassword != "" {
+		scfg.EmailSenderPassword = logic.Mask()
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
@@ -409,7 +412,8 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 
 	if old.Verbosity != new.Verbosity ||
 		old.MetricsPort != new.MetricsPort ||
-		old.MetricInterval != new.MetricInterval {
+		old.MetricInterval != new.MetricInterval ||
+		old.AuditLogsRetentionPeriodInDays != new.AuditLogsRetentionPeriodInDays {
 		return schema.UpdateMonitoringAndDebuggingSettings
 	}
 
