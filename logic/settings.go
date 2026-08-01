@@ -40,14 +40,28 @@ func GetServerSettings(ctx context.Context) (s models.ServerSettings) {
 	tenantID := scope.ID(ctx)
 	if cached, ok := serverSettingsCache.Load(tenantID); ok {
 		if cachedSettings, ok := cached.(*models.ServerSettings); ok && cachedSettings != nil {
-			return *cachedSettings
+			s = *cachedSettings
+			overlayOrgBackedSettings(ctx, &s)
+			return s
 		}
 	}
 	s, err := getServerSettingsFromDB(ctx)
 	if err == nil {
 		serverSettingsCache.Store(tenantID, &s)
 	}
+	overlayOrgBackedSettings(ctx, &s)
 	return
+}
+
+func overlayOrgBackedSettings(ctx context.Context, s *models.ServerSettings) {
+	org := resolveOrgSettings(ctx)
+	s.AuditLogsRetentionPeriodInDays = org.AuditLogsRetentionPeriodInDays
+	s.SmtpHost = org.SmtpHost
+	s.SmtpPort = org.SmtpPort
+	s.SmtpSkipTlsVerify = org.SmtpSkipTlsVerify
+	s.EmailSenderAddr = org.EmailSenderAddr
+	s.EmailSenderUser = org.EmailSenderUser
+	s.EmailSenderPassword = org.EmailSenderPassword
 }
 
 // InvalidateServerSettingsCache clears the in-memory settings cache for the tenant
