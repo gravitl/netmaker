@@ -523,9 +523,6 @@ func migrateSettings(ctx context.Context) {
 	if settings.IPDetectionInterval == 0 {
 		settings.IPDetectionInterval = 15
 	}
-	if settings.AuditLogsRetentionPeriodInDays == 0 {
-		settings.AuditLogsRetentionPeriodInDays = 7
-	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
