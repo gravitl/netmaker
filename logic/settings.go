@@ -82,6 +82,7 @@ func getServerSettingsFromDB(ctx context.Context) (models.ServerSettings, error)
 func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	// get curr settings from DB directly (not cache) for accurate comparison
 	currSettings, _ := getServerSettingsFromDB(ctx)
+	overlayOrgBackedSettings(ctx, &currSettings)
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
@@ -111,8 +112,13 @@ func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	}
 	s.GroupFilters = groupFilters
 
+	err := upsertOverlayedOrgSettings(ctx, &s, currSettings)
+	if err != nil {
+		return err
+	}
+
 	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx), Value: datatypes.NewJSONType(s)}
-	err := settingsRecord.Upsert(ctx)
+	err = settingsRecord.Upsert(ctx)
 	if err != nil {
 		return err
 	}
@@ -120,6 +126,55 @@ func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	if PublishServerSync != nil {
 		PublishServerSync(ctx, SyncTypeSettings)
 	}
+	return nil
+}
+
+func upsertOverlayedOrgSettings(ctx context.Context, s *models.ServerSettings, currSettings models.ServerSettings) error {
+	if s.EmailSenderPassword == Mask() {
+		s.EmailSenderPassword = currSettings.EmailSenderPassword
+	}
+
+	if !IsMSP(ctx) {
+		org, err := SoleOrganization(ctx)
+		if err != nil {
+			return err
+		}
+		orgCtx := scope.WithContext(ctx, scope.OrgScope, org.ID)
+
+		orgSettings := &schema.OrganizationSettings{ID: org.ID}
+		_ = orgSettings.Get(orgCtx)
+		data := orgSettings.Settings.Data()
+
+		// a zero/empty value is treated as "unset" rather than clobbering
+		// the org's configured value (e.g. when seeding default settings
+		// for a new tenant).
+		if s.AuditLogsRetentionPeriodInDays > 0 {
+			data.AuditLogsRetentionPeriodInDays = s.AuditLogsRetentionPeriodInDays
+		}
+		if s.SmtpHost != "" {
+			data.SmtpHost = s.SmtpHost
+			data.SmtpPort = s.SmtpPort
+			data.SmtpSkipTlsVerify = s.SmtpSkipTlsVerify
+			data.EmailSenderAddr = s.EmailSenderAddr
+			data.EmailSenderUser = s.EmailSenderUser
+			if s.EmailSenderPassword != "" {
+				data.EmailSenderPassword = s.EmailSenderPassword
+			}
+		}
+
+		orgSettings.Settings = datatypes.NewJSONType(data)
+		if err := orgSettings.Upsert(orgCtx); err != nil {
+			return err
+		}
+	}
+
+	s.AuditLogsRetentionPeriodInDays = 0
+	s.SmtpHost = ""
+	s.SmtpPort = 0
+	s.SmtpSkipTlsVerify = false
+	s.EmailSenderAddr = ""
+	s.EmailSenderUser = ""
+	s.EmailSenderPassword = ""
 	return nil
 }
 
@@ -414,7 +469,7 @@ func GetEmaiSenderPassword(ctx context.Context) string {
 }
 
 func GetAuditLogsRetentionPeriodInDays(ctx context.Context) int {
-	return GetOrgSettings(ctx).AuditLogsRetentionPeriodInDays
+	return resolveOrgSettings(ctx).AuditLogsRetentionPeriodInDays
 }
 
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
