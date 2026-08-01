@@ -37,13 +37,7 @@ func LogEvent(ctx context.Context, a *models.Event) {
 }
 
 func EventRetentionHook() error {
-	org, err := logic.SoleOrganization(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	orgCtx := scope.WithContext(db.WithContext(context.TODO()), scope.OrgScope, org.ID)
-	retentionPeriod := logic.GetOrgSettings(orgCtx).AuditLogsRetentionPeriodInDays
+	retentionPeriod := logic.GetAuditLogsRetentionPeriodInDays(db.WithContext(context.TODO()))
 	if retentionPeriod <= 0 {
 		retentionPeriod = 30
 	}

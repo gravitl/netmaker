@@ -367,28 +367,36 @@ func GetOrgSettings(ctx context.Context) schema.OrganizationSettingsData {
 	return orgSettings.Settings.Data()
 }
 
+func resolveOrgSettings(ctx context.Context) schema.OrganizationSettingsData {
+	org, err := SoleOrganization(ctx)
+	if err != nil {
+		return schema.OrganizationSettingsData{}
+	}
+	return GetOrgSettings(scope.WithContext(ctx, scope.OrgScope, org.ID))
+}
+
 func GetSmtpHost(ctx context.Context) string {
-	return GetOrgSettings(ctx).SmtpHost
+	return resolveOrgSettings(ctx).SmtpHost
 }
 
 func GetSmtpPort(ctx context.Context) int {
-	return GetOrgSettings(ctx).SmtpPort
+	return resolveOrgSettings(ctx).SmtpPort
 }
 
 func SmtpSkipTlsVerify(ctx context.Context) bool {
-	return GetOrgSettings(ctx).SmtpSkipTlsVerify
+	return resolveOrgSettings(ctx).SmtpSkipTlsVerify
 }
 
 func GetSenderEmail(ctx context.Context) string {
-	return GetOrgSettings(ctx).EmailSenderAddr
+	return resolveOrgSettings(ctx).EmailSenderAddr
 }
 
 func GetSenderUser(ctx context.Context) string {
-	return GetOrgSettings(ctx).EmailSenderUser
+	return resolveOrgSettings(ctx).EmailSenderUser
 }
 
 func GetEmaiSenderPassword(ctx context.Context) string {
-	return GetOrgSettings(ctx).EmailSenderPassword
+	return resolveOrgSettings(ctx).EmailSenderPassword
 }
 
 func GetAuditLogsRetentionPeriodInDays(ctx context.Context) int {

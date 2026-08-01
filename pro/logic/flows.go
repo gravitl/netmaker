@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -35,12 +34,7 @@ func StopFlowCleanupLoop() {
 func CleanupFlows() error {
 	ctx := ch.WithContext(context.Background())
 
-	org, err := logic.SoleOrganization(db.WithContext(context.Background()))
-	if err != nil {
-		return fmt.Errorf("failed to get organization: %w", err)
-	}
-	orgCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, org.ID)
-	retentionPeriod := logic.GetOrgSettings(orgCtx).AuditLogsRetentionPeriodInDays
+	retentionPeriod := logic.GetAuditLogsRetentionPeriodInDays(db.WithContext(context.Background()))
 	if retentionPeriod <= 0 {
 		retentionPeriod = 7
 	}
