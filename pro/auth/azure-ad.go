@@ -28,14 +28,14 @@ type AzureADProvider struct {
 }
 
 // NewAzureADProvider constructs an AzureADProvider for the given OAuth2 credentials.
-func NewAzureADProvider(ctx context.Context, redirectURL, clientID, clientSecret string) *AzureADProvider {
+func NewAzureADProvider(redirectURL, clientID, clientSecret, azureTenantID string) *AzureADProvider {
 	return &AzureADProvider{
 		cfg: &oauth2.Config{
 			RedirectURL:  redirectURL,
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"User.Read", "email", "profile", "openid"},
-			Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant(ctx)),
+			Endpoint:     microsoft.AzureADEndpoint(azureTenantID),
 		},
 	}
 }

@@ -19,6 +19,7 @@ type OrganizationSettingsData struct {
 	ClientID                       string `json:"client_id"`
 	ClientSecret                   string `json:"client_secret"`
 	OIDCIssuer                     string `json:"oidc_issuer"`
+	AzureTenant                    string `json:"azure_tenant"`
 	EmailSenderAddr                string `json:"email_sender_addr"`
 	EmailSenderUser                string `json:"email_sender_user"`
 	EmailSenderPassword            string `json:"email_sender_password"`
