@@ -546,7 +546,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 					Name:             peerHost.Name,
 					Network:          peer.Network,
 					ListenPort:       peerHost.ListenPort,
-					TcpProxyEndpoint: tcpProxyEndpointForPeer(&peer, peerHost),
+					TcpProxyEndpoint: tcpProxyEndpointForPeer(&peer, peerHost, host),
 				}
 				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyEndpoint == "" && prev.TcpProxyEndpoint != "" {
 					ida.TcpProxyEndpoint = prev.TcpProxyEndpoint
@@ -826,8 +826,8 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 	return info
 }
 
-func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host) string {
-	if peer == nil || peerHost == nil || !peer.IsGw || !peer.TcpProxyEnabled {
+func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHost *schema.Host) string {
+	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw || !peer.TcpProxyEnabled {
 		return ""
 	}
 	port := peer.TcpProxyListenPort
@@ -835,9 +835,9 @@ func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host) string {
 		port = schema.DefaultTcpProxyListenPort
 	}
 	var ip net.IP
-	if peerHost.EndpointIP != nil && !peerHost.EndpointIP.IsUnspecified() {
+	if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
 		ip = peerHost.EndpointIP
-	} else if peerHost.EndpointIPv6 != nil && !peerHost.EndpointIPv6.IsUnspecified() {
+	} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
 		ip = peerHost.EndpointIPv6
 	}
 	if ip == nil {

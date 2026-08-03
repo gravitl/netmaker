@@ -406,6 +406,11 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		node.TcpProxyListenPort = 0
+		if err := db.FromContext(r.Context()).Model(&schema.Node{}).
+			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
+			Update("use_tcp_uplink", false).Error; err != nil {
+			slog.Error("failed to clear use_tcp_uplink on relayed clients after disabling TCP proxy", "gateway", node.ID, "error", err)
+		}
 	}
 
 	if err := node.SetTcpProxy(r.Context()); err != nil {
