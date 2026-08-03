@@ -71,7 +71,7 @@ func (o *Organization) Get(ctx context.Context) error {
 func (o *Organization) GetDefault(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("slug = ?", defaultOrgSlug).
-		Find(o).
+		First(o).
 		Error
 }
 
