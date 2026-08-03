@@ -52,6 +52,9 @@ type Notification struct {
 }
 
 func GetClient() (e EmailSender) {
+	if client == nil {
+		return &noOpSender{}
+	}
 	return client
 }
 
