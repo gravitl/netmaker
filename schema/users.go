@@ -32,7 +32,7 @@ const (
 var (
 	ErrUserIdentifiersNotProvided = errors.New("user identifiers not provided")
 	ErrTenantIDNotProvided        = errors.New("tenant ID not provided")
-	ErrScopeNotProvider           = errors.New("scope not provider")
+	ErrScopeNotProvided           = errors.New("scope not provided")
 )
 
 type User struct {
@@ -179,7 +179,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 	}
 
 	if requireMembership {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	return db.FromContext(ctx).Model(&User{}).
@@ -190,7 +190,7 @@ func (u *User) get(ctx context.Context, requireMembership bool) error {
 
 func (u *User) GetByExternalID(ctx context.Context) error {
 	if scope.ID(ctx) == "" {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	if u.ExternalIdentityProviderID == "" {
@@ -302,7 +302,7 @@ func (u *User) count(ctx context.Context, requireMembership bool, options ...dbt
 			Joins(joinType+" JOIN tenant_memberships_v1 tm ON tm.user_id = users_v1.id AND tm.tenant_id = ?", tenantID)
 	default:
 		if requireMembership {
-			return 0, ErrScopeNotProvider
+			return 0, ErrScopeNotProvided
 		}
 		query = db.FromContext(ctx).Model(&User{})
 	}
@@ -391,7 +391,7 @@ func (u *User) listAll(ctx context.Context, requireMembership bool, options ...d
 	}
 
 	if requireMembership {
-		return nil, ErrScopeNotProvider
+		return nil, ErrScopeNotProvided
 	}
 
 	var users []User
@@ -417,7 +417,7 @@ func (u *User) Update(ctx context.Context) error {
 func (u *User) UpdateAccountStatus(ctx context.Context) error {
 	scopeID := scope.ID(ctx)
 	if scopeID == "" {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	if scope.Level(ctx) == scope.OrgScope {
@@ -438,7 +438,7 @@ func (u *User) UpdateAccountStatus(ctx context.Context) error {
 func (u *User) UpdateMFA(ctx context.Context) error {
 	scopeID := scope.ID(ctx)
 	if scopeID == "" {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	if scope.Level(ctx) == scope.OrgScope {
@@ -508,7 +508,7 @@ func (u *User) Delete(ctx context.Context) error {
 func (u *User) UpsertMembership(ctx context.Context) error {
 	scopeID := scope.ID(ctx)
 	if scopeID == "" {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	if scope.Level(ctx) == scope.OrgScope {
@@ -542,7 +542,7 @@ func (u *User) UpsertMembership(ctx context.Context) error {
 func (u *User) DeleteMembership(ctx context.Context) error {
 	scopeID := scope.ID(ctx)
 	if scopeID == "" {
-		return ErrScopeNotProvider
+		return ErrScopeNotProvided
 	}
 
 	if scope.Level(ctx) == scope.OrgScope {
