@@ -1803,35 +1803,69 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if userRole.ID == schema.SuperAdminRole {
-		slog.Error(
-			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(fmt.Errorf("superadmin cannot be deleted"), "internal"),
-		)
-		return
-	}
-	if callerUserRole.ID != schema.SuperAdminRole {
-		if callerUserRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
+	switch scope.Level(r.Context()) {
+	case scope.TenantScope:
+		if userRole.ID == schema.SuperAdminRole {
+			slog.Error(
+				"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
+			logic.ReturnErrorResponse(
+				w,
+				r,
+				logic.FormatError(fmt.Errorf("superadmin cannot be deleted"), "internal"),
+			)
+			return
+		}
+		if callerUserRole.ID != schema.SuperAdminRole {
+			if callerUserRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
+				slog.Error(
+					"failed to delete user: ",
+					"user",
+					username,
+					"error",
+					"admin cannot delete another admin user, including oneself",
+				)
+				logic.ReturnErrorResponse(
+					w,
+					r,
+					logic.FormatError(
+						fmt.Errorf("admin cannot delete another admin user, including oneself"),
+						"internal",
+					),
+				)
+				return
+			}
+		}
+	case scope.OrgScope:
+		if userRole.ID == schema.OrgOwner {
+			slog.Error(
+				"failed to delete user: ", "user", username, "error", "org-owner cannot be deleted")
+			logic.ReturnErrorResponse(
+				w,
+				r,
+				logic.FormatError(fmt.Errorf("org-owner cannot be deleted"), "internal"),
+			)
+			return
+		}
+		if userRole.ID == schema.OrgAdmin && callerUserRole.ID != schema.OrgOwner {
 			slog.Error(
 				"failed to delete user: ",
 				"user",
 				username,
 				"error",
-				"admin cannot delete another admin user, including oneself",
+				"only the org-owner can delete an org-admin",
 			)
 			logic.ReturnErrorResponse(
 				w,
 				r,
 				logic.FormatError(
-					fmt.Errorf("admin cannot delete another admin user, including oneself"),
+					fmt.Errorf("only the org-owner can delete an org-admin"),
 					"internal",
 				),
 			)
 			return
 		}
+	default:
+		break
 	}
 
 	if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
