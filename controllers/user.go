@@ -51,7 +51,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/auth/init-totp", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup))))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/complete-totp", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup))))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/verify-totp", middleware.InferScope(logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP))))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUser)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
