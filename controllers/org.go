@@ -431,7 +431,7 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 	err = (&schema.OrgMembership{
 		OrganizationID: scope.ID(r.Context()),
 		UserID:         newOwner.ID,
-		RoleID:         schema.OrgAdmin,
+		RoleID:         newOwner.PlatformRoleID,
 	}).UpdateRoleID(dbctx)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -441,8 +441,8 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 	caller.PlatformRoleID = schema.OrgAdmin
 	err = (&schema.OrgMembership{
 		OrganizationID: scope.ID(r.Context()),
-		UserID:         newOwner.ID,
-		RoleID:         schema.OrgAdmin,
+		UserID:         caller.ID,
+		RoleID:         caller.PlatformRoleID,
 	}).UpdateRoleID(dbctx)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
