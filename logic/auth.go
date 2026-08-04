@@ -378,6 +378,10 @@ func DeleteUser(ctx context.Context, user *schema.User) error {
 	}
 
 	RemoveUserFromAclPolicy(ctx, user.Username)
+
+	if scope.Level(ctx) != scope.TenantScope {
+		return nil
+	}
 	return (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx)
 }
 
