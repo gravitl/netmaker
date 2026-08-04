@@ -1779,6 +1779,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
 	go func(ctx context.Context) {
+		if scope.Level(ctx) != scope.TenantScope {
+			return
+		}
+
 		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
