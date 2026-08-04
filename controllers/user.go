@@ -53,7 +53,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/auth/verify-totp", middleware.InferScope(logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP))))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUser)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUser)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/enable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
