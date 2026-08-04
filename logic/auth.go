@@ -263,23 +263,12 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		}
 	}
 
-	var updateMFA bool
-	if _user.IsMFAEnabled != userchange.IsMFAEnabled {
-		updateMFA = true
-	}
-
-	_user.IsMFAEnabled = userchange.IsMFAEnabled
-
-	var updateAccountStatus bool
-	if _user.AccountDisabled != userchange.AccountDisabled {
-		updateAccountStatus = true
-	}
-
 	_user.IsMFAEnabled = userchange.IsMFAEnabled
 	if !_user.IsMFAEnabled {
 		_user.TOTPSecret = ""
 	}
 
+	_user.AccountDisabled = userchange.AccountDisabled
 	_user.UserGroups = userchange.UserGroups
 	err := ValidateUser(_user)
 	if err != nil {
@@ -300,18 +289,9 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		return &schema.User{}, err
 	}
 
-	if updateAccountStatus {
-		err = _user.UpdateAccountStatus(ctx)
-		if err != nil {
-			return &schema.User{}, err
-		}
-	}
-
-	if updateMFA {
-		err = _user.UpdateMFA(ctx)
-		if err != nil {
-			return &schema.User{}, err
-		}
+	err = _user.UpsertMembership(ctx)
+	if err != nil {
+		return &schema.User{}, err
 	}
 
 	return _user, nil
