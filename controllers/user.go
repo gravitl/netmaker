@@ -1597,6 +1597,20 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+	if user.PlatformRoleID != userchange.PlatformRoleID && userchange.PlatformRoleID == schema.OrgOwner {
+		err = errors.New("org-owner role cannot be assigned via this method, use the transfer ownership API instead")
+		slog.Error(
+			"failed to update user",
+			"caller",
+			caller.Username,
+			"attempted to assign org-owner role to user",
+			username,
+			"error",
+			err,
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
 	selfUpdate := false
 	if !ismaster && caller.Username == user.Username {
 		selfUpdate = true
