@@ -1617,36 +1617,70 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ismaster && !selfUpdate {
-		if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.SuperAdminRole {
-			slog.Error("non-superadmin user", "caller", caller.Username, "attempted to update superadmin user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
-			return
+		switch scope.Level(r.Context()) {
+		case scope.OrgScope:
+			if caller.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID == schema.OrgOwner {
+				slog.Error("non-org-owner user", "caller", caller.Username, "attempted to update org-owner user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update org-owner user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID != schema.OrgAdmin && caller.PlatformRoleID != schema.OrgOwner {
+				slog.Error("operation not allowed", "caller", caller.Username, "attempted to update user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update org-owner user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID == schema.OrgAdmin {
+				slog.Error("an org-admin user does not have permissions to update another org-admin user", "caller", caller.Username, "attempted to update org-admin user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an org-admin user does not have permissions to update another org-admin user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID == schema.OrgAdmin && userchange.PlatformRoleID == schema.OrgAdmin {
+				err = errors.New("an org-admin user does not have permissions to assign the org-admin role to another user")
+				slog.Error(
+					"failed to update user",
+					"caller",
+					caller.Username,
+					"attempted to update user",
+					username,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case scope.TenantScope:
+			if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.SuperAdminRole {
+				slog.Error("non-superadmin user", "caller", caller.Username, "attempted to update superadmin user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID != schema.AdminRole && caller.PlatformRoleID != schema.SuperAdminRole {
+				slog.Error("operation not allowed", "caller", caller.Username, "attempted to update user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
+				slog.Error("an admin user does not have permissions to update another admin user", "caller", caller.Username, "attempted to update admin user", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an admin user does not have permissions to update another admin user"), "forbidden"))
+				return
+			}
+			if caller.PlatformRoleID == schema.AdminRole && userchange.PlatformRoleID == schema.AdminRole {
+				err = errors.New("an admin user does not have permissions to assign the admin role to another user")
+				slog.Error(
+					"failed to update user",
+					"caller",
+					caller.Username,
+					"attempted to update user",
+					username,
+					"error",
+					err,
+				)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		default:
+			break
 		}
-		if caller.PlatformRoleID != schema.AdminRole && caller.PlatformRoleID != schema.SuperAdminRole {
-			slog.Error("operation not allowed", "caller", caller.Username, "attempted to update user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
-			return
-		}
-		if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
-			slog.Error("an admin user does not have permissions to update another admin user", "caller", caller.Username, "attempted to update admin user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an admin user does not have permissions to update another admin user"), "forbidden"))
-			return
-		}
-		if caller.PlatformRoleID == schema.AdminRole && userchange.PlatformRoleID == schema.AdminRole {
-			err = errors.New("an admin user does not have permissions to assign the admin role to another user")
-			slog.Error(
-				"failed to update user",
-				"caller",
-				caller.Username,
-				"attempted to update user",
-				username,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-
 	}
 	if !ismaster && selfUpdate {
 		if user.PlatformRoleID != userchange.PlatformRoleID {
