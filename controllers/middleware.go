@@ -116,12 +116,14 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if nodeID, ok := params["nodeid"]; ok && r.Header.Get("TARGET_RSRC") != schema.ExtClientsRsrc.String() {
 			r.Header.Set("TARGET_RSRC_ID", nodeID)
 		}
-		if strings.Contains(route, "failover") {
+		if strings.Contains(route, "failover") || strings.Contains(route, "auto_relay") {
 			r.Header.Set("TARGET_RSRC", schema.FailOverRsrc.String())
 			nodeID := r.Header.Get("TARGET_RSRC_ID")
-			node, _ := logic.GetNodeByID(nodeID)
-			r.Header.Set("NET_ID", node.Network)
-
+			if nodeID != "" {
+				if node, err := logic.GetNodeByID(nodeID); err == nil {
+					r.Header.Set("NET_ID", node.Network)
+				}
+			}
 		}
 		if hostID, ok := params["hostid"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", hostID)

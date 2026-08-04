@@ -38,6 +38,8 @@ func AutoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers/{peerid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unrelayAutoRelayedPeer)))).
+		Methods(http.MethodDelete)
 }
 
 // @Summary     Get auto relay nodes
@@ -195,6 +197,58 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 	}()
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted autorelay successfully")
+}
+
+// @Summary     Unrelay a particular auto-relay peer connection
+// @Router      /api/v1/node/{nodeid}/auto_relayed_peers/{peerid} [delete]
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
+// @Param       peerid path string true "Peer Node ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func unrelayAutoRelayedPeer(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	nodeID := params["nodeid"]
+	peerID := params["peerid"]
+
+	node, err := logic.GetNodeByID(nodeID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	peerNode, err := logic.GetNodeByID(peerID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
+		return
+	}
+	if node.Network != peerNode.Network {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("nodes are not in the same network"), "badrequest"))
+		return
+	}
+
+	if err = proLogic.UnsetAutoRelayCtx(&node, &peerNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	allNodes, err := logic.GetAllNodes()
+	if err == nil {
+		host := &schema.Host{ID: node.HostID}
+		if herr := host.Get(r.Context()); herr == nil {
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
+		}
+		peerHost := &schema.Host{ID: peerNode.HostID}
+		if herr := peerHost.Get(r.Context()); herr == nil {
+			mq.PublishSingleHostPeerUpdate(peerHost, allNodes, nil, nil, nil, false, nil)
+		}
+	}
+	go mq.PublishPeerUpdate(false)
+
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 }
 
 // @Summary     AutoRelay me
@@ -454,10 +508,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				)
 				return
 			}
-			delete(node.AutoRelayedPeers, peerNode.ID.String())
-			delete(peerNode.AutoRelayedPeers, node.ID.String())
-			logic.UpsertNode(&node)
-			logic.UpsertNode(&peerNode)
+			if err = proLogic.UnsetAutoRelayCtx(&node, &peerNode); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {

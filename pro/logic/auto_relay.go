@@ -132,6 +132,28 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	return nil
 }
 
+// UnsetAutoRelayCtx - clears the auto-relay peer-pair mapping on both nodes
+func UnsetAutoRelayCtx(node, peerNode *models.Node) error {
+	if node == nil || peerNode == nil {
+		return errors.New("node and peer are required")
+	}
+	if node.AutoRelayedPeers == nil {
+		node.AutoRelayedPeers = make(map[string]string)
+	}
+	if peerNode.AutoRelayedPeers == nil {
+		peerNode.AutoRelayedPeers = make(map[string]string)
+	}
+	delete(node.AutoRelayedPeers, peerNode.ID.String())
+	delete(peerNode.AutoRelayedPeers, node.ID.String())
+	if err := logic.UpsertNode(node); err != nil {
+		return err
+	}
+	if err := logic.UpsertNode(peerNode); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetAutoRelayNode - gets the host acting as autoRelay
 func GetAutoRelayNode(network string, allNodes []models.Node) (models.Node, error) {
 	nodes := logic.GetNetworkNodesMemory(allNodes, network)
