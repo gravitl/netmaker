@@ -11,6 +11,12 @@ import (
 
 const egressTable = "egresses"
 
+// Egress routing modes for domain/app egress.
+const (
+	EgressRoutingModeIP    = "ip"
+	EgressRoutingModeProxy = "proxy"
+)
+
 type EgressNATMode string
 
 const (
@@ -45,7 +51,10 @@ type Egress struct {
 	Domains datatypes.JSONSlice[string] `gorm:"domains" json:"domains"`
 	// DomainAnsByDomain maps each configured domain to its resolved CIDRs.
 	DomainAnsByDomain datatypes.JSONMap `gorm:"domain_ans_by_domain" json:"domain_ans_by_domain"`
-	Nat               bool              `gorm:"nat" json:"nat"`
+	// RoutingMode selects how app/domain egress is delivered: "ip" (resolve→routes) or "proxy" (HTTP CONNECT).
+	// Empty is treated as "ip".
+	RoutingMode string `gorm:"routing_mode;default:ip" json:"routing_mode"`
+	Nat         bool   `gorm:"nat" json:"nat"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID  string    `gorm:"preset_id" json:"preset_id"`
 	Status    bool      `gorm:"status" json:"status"`

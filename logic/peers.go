@@ -271,6 +271,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
+	proxyRoutesByNetwork := make(map[string]struct{})
 	for _, nodeID := range host.Nodes {
 		networkAllowAll := true
 		nodeID := nodeID
@@ -313,6 +314,10 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
+		}
+		if _, done := proxyRoutesByNetwork[node.Network]; !done {
+			hostPeerUpdate.EgressProxyRoutes = append(hostPeerUpdate.EgressProxyRoutes, ListEgressProxyRoutesForNetwork(eli)...)
+			proxyRoutesByNetwork[node.Network] = struct{}{}
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {

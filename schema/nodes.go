@@ -56,6 +56,8 @@ type Node struct {
 	TcpProxyEnabled bool `json:"tcp_proxy_enabled"`
 	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
 	TcpProxyListenPort int `json:"tcp_proxy_listen_port"`
+	// EgressProxyListenPort: HTTP CONNECT (L7) listen port for proxy-mode app egress (default 3128).
+	EgressProxyListenPort int `json:"egress_proxy_listen_port"`
 	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
@@ -408,6 +410,9 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 
 // DefaultTcpProxyListenPort is used when TcpProxyEnabled is set with listen port <= 0.
 const DefaultTcpProxyListenPort = 443
+
+// DefaultEgressProxyListenPort is used for L7 CONNECT when EgressProxyListenPort <= 0.
+const DefaultEgressProxyListenPort = 3128
 
 func (n *Node) AssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {

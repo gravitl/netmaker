@@ -276,6 +276,7 @@ type HostPull struct {
 	EndpointDetection  bool                        `json:"endpoint_detection"`
 	NameServers        []string                    `json:"name_servers"`
 	EgressWithDomains  []EgressDomain              `json:"egress_with_domains"`
+	EgressProxyRoutes  []EgressProxyRoute          `json:"egress_proxy_routes"`
 	DnsNameservers     []Nameserver                `json:"dns_nameservers"`
 	AutoRelayNodes     map[schema.NetworkID][]Node `json:"auto_relay_nodes"`
 	GwNodes            map[schema.NetworkID][]Node `json:"gw_nodes"`

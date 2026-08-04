@@ -48,6 +48,7 @@ type HostPeerUpdate struct {
 	NameServers        []string                    `json:"name_servers"`
 	DnsNameservers     []Nameserver                `json:"dns_nameservers"`
 	EgressWithDomains  []EgressDomain              `json:"egress_with_domains"`
+	EgressProxyRoutes  []EgressProxyRoute          `json:"egress_proxy_routes"`
 	AutoRelayNodes     map[schema.NetworkID][]Node `json:"auto_relay_nodes"`
 	GwNodes            map[schema.NetworkID][]Node `json:"gw_nodes"`
 	AddressIdentityMap map[string]PeerIdentity     `json:"address_identity_map"`
@@ -61,6 +62,14 @@ type EgressDomain struct {
 	Host        schema.Host `json:"host"`
 	Domain      string      `json:"domain"`
 	ResolvedIPs []string    `json:"resolved_ips,omitempty"`
+}
+
+// EgressProxyRoute is app/domain egress delivered via HTTP CONNECT (no domain IP routes).
+type EgressProxyRoute struct {
+	EgressID  string   `json:"egress_id"`
+	Domains   []string `json:"domains"`
+	NodeID    string   `json:"node_id"`
+	ProxyAddr string   `json:"proxy_addr"` // mesh host:port of l7.Server on the egress GW
 }
 type Nameserver struct {
 	IPs            []string `json:"ips"`

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,9 @@ func validateEgressReq(e *schema.Egress) error {
 		return errors.New("network id is empty")
 	}
 	NormalizeEgressType(e)
+	if err := ValidateEgressRoutingMode(e); err != nil {
+		return err
+	}
 	if err := ValidateEgressAppNATMode(*e); err != nil {
 		return err
 	}
@@ -133,6 +138,37 @@ func IsDomainBasedEgress(e schema.Egress) bool {
 	return len(ConfiguredDomainsForEgress(e)) > 0
 }
 
+// NormalizeRoutingMode returns schema.EgressRoutingModeIP or Proxy; empty → ip.
+func NormalizeRoutingMode(mode string) string {
+	if strings.TrimSpace(strings.ToLower(mode)) == schema.EgressRoutingModeProxy {
+		return schema.EgressRoutingModeProxy
+	}
+	return schema.EgressRoutingModeIP
+}
+
+// IsProxyRoutingEgress is true when app/domain traffic should use HTTP CONNECT (no IP routes).
+func IsProxyRoutingEgress(e schema.Egress) bool {
+	return NormalizeRoutingMode(e.RoutingMode) == schema.EgressRoutingModeProxy
+}
+
+// ValidateEgressRoutingMode ensures proxy mode is only used with domain/app egress.
+func ValidateEgressRoutingMode(e *schema.Egress) error {
+	if e == nil {
+		return nil
+	}
+	e.RoutingMode = NormalizeRoutingMode(e.RoutingMode)
+	if e.RoutingMode != schema.EgressRoutingModeProxy {
+		return nil
+	}
+	if !IsDomainBasedEgress(*e) {
+		return errors.New("routing_mode=proxy requires configured domains")
+	}
+	if IsEgressInternetGateway(*e) || (e.Range != "" && e.Range != "*") {
+		return errors.New("routing_mode=proxy is not valid for CIDR or internet egress")
+	}
+	return nil
+}
+
 // IsEgressInternetGateway is true when type is internet or range is "*" (full internet egress).
 func IsEgressInternetGateway(e schema.Egress) bool {
 	if e.Type == schema.EgressTypeInternet {
@@ -218,6 +254,9 @@ func ExpandEgressRouteRanges(e schema.Egress, includeIPv6 bool) []string {
 			egressRange = e.VirtualRange
 		}
 		return []string{egressRange}
+	}
+	if IsProxyRoutingEgress(e) {
+		return nil
 	}
 	return AllDomainAnsFromEgress(e)
 }
@@ -1020,7 +1059,7 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 			RouteMetric:    metric,
 		})
 	}
-	if IsDomainBasedEgress(e) && HasEgressDomainAns(e) {
+	if IsDomainBasedEgress(e) && HasEgressDomainAns(e) && !IsProxyRoutingEgress(e) {
 		req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
 		for _, domainAnsI := range AllDomainAnsFromEgress(e) {
 			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
@@ -1033,7 +1072,7 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 				RouteMetric:    metric,
 			})
 		}
-	} else if e.Range == "" {
+	} else if e.Range == "" && !IsProxyRoutingEgress(e) {
 		req.Ranges = append(req.Ranges, AllDomainAnsFromEgress(e)...)
 	}
 }
@@ -1313,7 +1352,7 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 		return
 	}
 	for _, egI := range egs {
-		if !egI.Status || !IsDomainBasedEgress(egI) {
+		if !egI.Status || !IsDomainBasedEgress(egI) || IsProxyRoutingEgress(egI) {
 			continue
 		}
 		if _, ok := egI.Nodes[nodeID]; ok {
@@ -1330,6 +1369,55 @@ func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithD
 		}
 	}
 	return
+}
+
+// ListEgressProxyRoutesForNetwork builds CONNECT-based egress routes for peer updates.
+func ListEgressProxyRoutesForNetwork(egs []schema.Egress) []models.EgressProxyRoute {
+	var out []models.EgressProxyRoute
+	for _, egI := range egs {
+		if !egI.Status || !IsDomainBasedEgress(egI) || !IsProxyRoutingEgress(egI) {
+			continue
+		}
+		domains := ConfiguredDomainsForEgress(egI)
+		if len(domains) == 0 {
+			continue
+		}
+		for nodeID := range egI.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			addr := EgressProxyListenAddr(&node)
+			if addr == "" {
+				continue
+			}
+			out = append(out, models.EgressProxyRoute{
+				EgressID:  egI.ID,
+				Domains:   append([]string(nil), domains...),
+				NodeID:    nodeID,
+				ProxyAddr: addr,
+			})
+		}
+	}
+	return out
+}
+
+// EgressProxyListenAddr returns meshIP:port for the node's L7 CONNECT listener.
+func EgressProxyListenAddr(node *models.Node) string {
+	if node == nil {
+		return ""
+	}
+	port := node.EgressProxyListenPort
+	if port <= 0 {
+		port = schema.DefaultEgressProxyListenPort
+	}
+	if node.Address.IP != nil {
+		return net.JoinHostPort(node.Address.IP.String(), strconv.Itoa(port))
+	}
+	if node.Address6.IP != nil {
+		return net.JoinHostPort(node.Address6.IP.String(), strconv.Itoa(port))
+	}
+	return ""
 }
 
 func normalizeEgressDomain(domain string) string {

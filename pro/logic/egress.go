@@ -24,6 +24,9 @@ func ValidateEgressReq(e *schema.Egress) error {
 		return errors.New("network id is empty")
 	}
 	logic.NormalizeEgressType(e)
+	if err := logic.ValidateEgressRoutingMode(e); err != nil {
+		return err
+	}
 	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == schema.VirtualNAT {
 		return errors.New("virtual NAT not supported on your plan")
 	}

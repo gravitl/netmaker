@@ -135,6 +135,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Range:       egressRange,
 		Nat:         req.Nat,
 		Mode:        req.Mode,
+		RoutingMode: logic.NormalizeRoutingMode(req.RoutingMode),
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
 		PresetID:    req.PresetID,
@@ -143,7 +144,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
-	if len(resolvedCIDRs) > 0 {
+	if logic.IsProxyRoutingEgress(e) {
+		logic.ClearEgressDomainAns(&e)
+		resolvedCIDRs = nil
+	} else if len(resolvedCIDRs) > 0 {
 		logic.SetEgressDomainAnsForDomains(&e, normDomains, resolvedCIDRs)
 	}
 	if len(req.Tags) > 0 {
@@ -202,7 +206,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
-	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
+	if len(normDomains) > 0 && !logic.IsProxyRoutingEgress(e) && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
@@ -393,6 +397,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Description = req.Description
 	e.Name = req.Name
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
+	e.RoutingMode = logic.NormalizeRoutingMode(req.RoutingMode)
+	if logic.IsProxyRoutingEgress(e) {
+		logic.ClearEgressDomainAns(&e)
+	}
 	e.Status = req.Status
 	if req.PresetID != "" {
 		e.PresetID = req.PresetID
@@ -411,7 +419,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	presetChanged := req.PresetID != "" && req.PresetID != oldPresetID
 	domainsChanged := !logic.EgressDomainsEqual(oldConfigured, normDomains)
-	if req.PresetID != "" && (presetChanged || domainsChanged) {
+	if !logic.IsProxyRoutingEgress(e) && req.PresetID != "" && (presetChanged || domainsChanged) {
 		if p, ok := logic.GetEgressPresetByID(req.PresetID); ok && logic.PresetYieldsAWSIPRanges(p) {
 			if c, err := logic.ResolveAWSEgressPresetCIDRs(http.DefaultClient, p); err == nil && len(c) > 0 {
 				logic.SetEgressDomainAnsForDomains(&e, normDomains, c)
@@ -443,6 +451,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		"egress_type":          e.Type,
 		"range":                e.Range,
 		"domains":              e.Domains,
+		"routing_mode":         e.RoutingMode,
 		"nat":                  e.Nat,
 		"mode":                 e.Mode,
 		"status":               e.Status,
@@ -490,7 +499,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(normDomains) > 0 && !logic.HasEgressDomainAns(e) {
+	if len(normDomains) > 0 && !logic.IsProxyRoutingEgress(e) && !logic.HasEgressDomainAns(e) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)

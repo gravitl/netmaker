@@ -49,6 +49,9 @@ func FlattenDomainAnsMap(m map[string][]string) []string {
 
 // AllDomainAnsFromEgress returns the flattened union of per-domain answers (ACL/routing).
 func AllDomainAnsFromEgress(e schema.Egress) []string {
+	if IsProxyRoutingEgress(e) {
+		return nil
+	}
 	return FlattenDomainAnsMap(DomainAnsMapFromEgress(e))
 }
 

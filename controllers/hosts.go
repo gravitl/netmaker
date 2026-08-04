@@ -363,6 +363,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		IsInternetGw:       hPU.IsInternetGw,
 		NameServers:        hPU.NameServers,
 		EgressWithDomains:  hPU.EgressWithDomains,
+		EgressProxyRoutes:  hPU.EgressProxyRoutes,
 		EndpointDetection:  logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:     hPU.DnsNameservers,
 		ReplacePeers:       hPU.ReplacePeers,
