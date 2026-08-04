@@ -1870,27 +1870,29 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// check and delete extclient with this ownerID
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		delete := r.URL.Query().Get("force_delete_configs") == "true"
-		extclients, err := logic.GetAllExtClients(ctx)
-		if err != nil {
-			slog.Error("failed to get extclients", "error", err)
-			return
-		}
-		for _, extclient := range extclients {
-			if extclient.OwnerID == user.Username {
-				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
-					if !delete {
-						// only delete wireguard configs on force
-						continue
+		if scope.Level(ctx) == scope.TenantScope {
+			delete := r.URL.Query().Get("force_delete_configs") == "true"
+			extclients, err := logic.GetAllExtClients(ctx)
+			if err != nil {
+				slog.Error("failed to get extclients", "error", err)
+				return
+			}
+			for _, extclient := range extclients {
+				if extclient.OwnerID == user.Username {
+					if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
+						if !delete {
+							// only delete wireguard configs on force
+							continue
+						}
 					}
-				}
-				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
+					err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+					if err != nil {
+						slog.Error("failed to delete extclient",
+							"id", extclient.ClientID, "owner", username, "error", err)
+					} else {
+						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+							slog.Error("error setting ext peers: " + err.Error())
+						}
 					}
 				}
 			}
