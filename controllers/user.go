@@ -1720,7 +1720,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data()) {
+	if scope.Level(r.Context()) == scope.TenantScope &&
+		(userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data())) {
 		(&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}
 	oldUser := *user
