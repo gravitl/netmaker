@@ -586,9 +586,13 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 }
 
 func InitNetworkHooks() {
+	interval := 10
+	if GetServerSettings().CleanUpInterval > 0 {
+		interval = GetServerSettings().CleanUpInterval
+	}
 	HookManagerCh <- models.HookDetails{
 		ID:       "network-hook",
 		Hook:     NetworkHook,
-		Interval: time.Duration(GetServerSettings().CleanUpInterval) * time.Minute,
+		Interval: time.Duration(interval) * time.Minute,
 	}
 }
