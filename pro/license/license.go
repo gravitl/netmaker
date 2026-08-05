@@ -515,8 +515,7 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 				licenseInvalidErr.Store(&invalidErr)
 			}
 		}
-		return nil, fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
-			resp.StatusCode, string(body))
+		return nil, fmt.Errorf("could not validate license with validation backend (status={%d})", resp.StatusCode)
 	}
 
 	licenseInvalidErr.Store(nil)
