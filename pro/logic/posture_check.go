@@ -113,7 +113,7 @@ func RunPostureChecks() error {
 					if noChecks {
 						postureCheckVolationSeverityLevel = schema.SeverityUnknown
 					} else {
-						postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, deviceInfo)
+						postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(ctx, pcLi, deviceInfo)
 					}
 					if nodeI.IsUserNode {
 						extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
@@ -172,11 +172,11 @@ func CheckPostureViolations(ctx context.Context, d models.PostureCheckDeviceInfo
 	if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
 		return []models.Violation{}, schema.SeverityUnknown
 	}
-	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(db.WithContext(ctx))
+	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(ctx)
 	if err != nil || len(pcLi) == 0 {
 		return []models.Violation{}, schema.SeverityUnknown
 	}
-	violations, level := GetPostureCheckViolations(pcLi, d)
+	violations, level := GetPostureCheckViolations(ctx, pcLi, d)
 	return violations, level
 }
 
@@ -241,9 +241,8 @@ func attachIntegrationStates(ctx context.Context, hostID string, d *models.Postu
 		}
 	}
 }
-func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
-	// todo(nm-341): pass tenant-scoped context.
-	if !logic.GetFeatureFlags(context.Background()).EnablePostureChecks {
+func GetPostureCheckViolations(ctx context.Context, checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
+	if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
 		return []models.Violation{}, schema.SeverityUnknown
 	}
 	var violations []models.Violation
