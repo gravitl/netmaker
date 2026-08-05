@@ -1465,7 +1465,7 @@ func UserHasNetworkGroupAccess(ctx context.Context, user *schema.User, networkID
 		return false
 	}
 	net := &schema.Network{ID: networkID, Name: networkID}
-	if err := net.Get(db.WithContext(context.TODO())); err == nil && net.Name != "" {
+	if err := net.Get(ctx); err == nil && net.Name != "" {
 		networkID = net.Name
 	}
 	if IsNetworkAdmin(ctx, user, networkID) {
