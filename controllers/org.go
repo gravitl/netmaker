@@ -38,6 +38,19 @@ func orgHandlers(r *mux.Router) {
 	//r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
 }
 
+var errOrgNotFound = errors.New("organization not found")
+
+func resolveSoleOrg(ctx context.Context, orgID string) (*schema.Organization, error) {
+	o, err := logic.SoleOrganization(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if orgID != "sole" && orgID != o.ID && orgID != o.Slug {
+		return nil, errOrgNotFound
+	}
+	return o, nil
+}
+
 // @Summary     Get organization SSO settings
 // @Router      /api/v1/org/settings [get]
 // @Tags        Organizations
@@ -273,10 +286,9 @@ func getOrg(w http.ResponseWriter, r *http.Request) {
 func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID, Slug: orgID}
-	err := o.Get(r.Context())
+	o, err := resolveSoleOrg(r.Context(), orgID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, errOrgNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
 			return
 		}
@@ -321,10 +333,9 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID, Slug: orgID}
-	err := o.Get(r.Context())
+	o, err := resolveSoleOrg(r.Context(), orgID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, errOrgNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
 			return
 		}
