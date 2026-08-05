@@ -2861,19 +2861,15 @@ func ListAclsByNetwork(ctx context.Context, netID schema.NetworkID) ([]models.Ac
 }
 
 func ListEgressAcls(ctx context.Context, egressID string) ([]models.Acl, error) {
-	acls, err := (&schema.AclRecord{}).List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+	acls := ListAcls(ctx)
 	var egressAcls []models.Acl
 	for _, acl := range acls {
-		if !servercfg.IsPro && acl.Value.Data().RuleType == models.UserPolicy {
+		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
 			continue
 		}
-		for _, dst := range acl.Value.Data().Dst {
+		for _, dst := range acl.Dst {
 			if dst.ID == models.EgressID && dst.Value == egressID {
-				egressAcls = append(egressAcls, acl.Value.Data())
+				egressAcls = append(egressAcls, acl)
 			}
 		}
 	}
