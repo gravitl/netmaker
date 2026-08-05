@@ -43,7 +43,7 @@ func getCachedResponse(ctx context.Context) (ValidatedLicense, error) {
 			return ValidatedLicense{}, errNoCachedResponse
 		}
 
-		cachedResponse.Store(response)
+		cachedResponse.Store(&validationResponse)
 		return validationResponse, nil
 	}
 
