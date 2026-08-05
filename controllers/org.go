@@ -333,7 +333,17 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o, err := resolveSoleOrg(r.Context(), orgID)
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	o, err := resolveSoleOrg(dbctx, orgID)
 	if err != nil {
 		if errors.Is(err, errOrgNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
@@ -344,7 +354,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	existingOwner := &schema.OrgMembership{OrganizationID: o.ID}
-	err = existingOwner.GetOwner(r.Context())
+	err = existingOwner.GetOwner(dbctx)
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization owner already exists"), logic.BadReq))
 		return
@@ -367,7 +377,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 
 	user.PlatformRoleID = schema.OrgOwner
 
-	ctx := scope.WithContext(r.Context(), scope.OrgScope, o.ID)
+	ctx := scope.WithContext(dbctx, scope.OrgScope, o.ID)
 
 	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(ctx, &user)
 	if err != nil {
@@ -381,14 +391,14 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", o.ID))
+	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
 	for _, tenant := range tenants {
-		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(r.Context(), tenant.ID, &user)
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(dbctx, tenant.ID, &user)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
@@ -400,6 +410,8 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	commit = true
 
 	type userWithToken struct {
 		models.ReturnUser
