@@ -355,6 +355,7 @@ func GetServerInfo(ctx context.Context) models.ServerConfig {
 	serverSettings := GetServerSettings(ctx)
 	cfg.TenantID = scope.ID(ctx)
 	cfg.Server = servercfg.GetServer()
+	cfg.APIHost = servercfg.GetAPIHost()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		cfg.MQUserName = "HOST_ID"
 		cfg.MQPassword = "HOST_PASS"
