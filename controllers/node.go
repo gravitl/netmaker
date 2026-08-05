@@ -165,7 +165,7 @@ func AuthorizeHost(
 			authToken = tokenSplit[1]
 		}
 
-		hostID, _, _, err := logic.VerifyHostToken(authToken)
+		hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
@@ -346,14 +346,14 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	networkName := params["network"]
-	nodes, err := logic.GetNetworkNodes(networkName)
+	nodes, err := logic.GetNetworkNodes(r.Context(), networkName)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching nodes on network %s: %v", networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -374,7 +374,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var nodes []models.Node
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -392,12 +392,12 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		if !userPlatformRole.FullAccess {
+		if !userPlatformRole.TenantGlobalAccess {
 			nodes = logic.GetFilteredNodesByUserAccess(user, nodes)
 		}
 
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -427,13 +427,13 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var nodes []models.Node
-	nodes, err = logic.GetNetworkNodes(netID)
+	nodes, err = logic.GetNetworkNodes(r.Context(), netID)
 	if err != nil {
 		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
 	// return all the nodes in JSON/API format
 	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -471,7 +471,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -485,7 +485,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(r.Context(), node.Network, host, allNodes, nil, nil, nil)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(
 			0,
@@ -499,7 +499,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	server := logic.GetServerInfo()
+	server := logic.GetServerInfo(r.Context())
 	response := models.NodeGet{
 		Node:         node,
 		Host:         *host,
@@ -543,7 +543,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["nodeid"]
-	err = logic.ValidateEgressRange(gateway.NetID, gateway.Ranges)
+	err = logic.ValidateEgressRange(r.Context(), gateway.NetID, gateway.Ranges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -569,12 +569,13 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 // @Summary     Delete an egress gateway
@@ -617,12 +618,13 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 }
 
 // @Summary     Update an individual node
@@ -658,7 +660,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	network := &schema.Network{Name: currentNode.Network}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -692,7 +694,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
-		logic.ResetAutoRelay(newNode)
+		logic.ResetAutoRelay(r.Context(), newNode)
 	}
 
 	// Disconnecting while using an exit node: clear exit first so a peer update can
@@ -736,6 +738,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		updatingInetGwClients := newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0
 		if enablingInetGw || updatingInetGwClients {
 			err = logic.ValidateInetGwReq(
+				r.Context(),
 				logic.ConvertModelsNodeToSchemaNode(newNode),
 				newNode.InetNodeReq,
 				currentNode.IsInternetGateway && newNode.IsInternetGateway,
@@ -753,11 +756,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if !connectionToggle {
 		relayUpdate = logic.RelayUpdates(&currentNode, newNode)
 		if relayUpdate && newNode.IsRelay {
-			err = logic.ValidateRelay(models.RelayRequest{
-				NodeID:       newNode.ID.String(),
-				NetID:        newNode.Network,
-				RelayedNodes: newNode.RelayedNodes,
-			}, true)
+			err = logic.ValidateRelay(
+				r.Context(),
+				models.RelayRequest{
+					NodeID:       newNode.ID.String(),
+					NetID:        newNode.Network,
+					RelayedNodes: newNode.RelayedNodes,
+				}, true)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
@@ -780,17 +785,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if newNode.IsInternetGateway {
 		if host.DNS != "yes" {
 			host.DNS = "yes"
-			logic.UpsertHost(host)
+			_ = host.Upsert(r.Context())
 		}
 	}
 
 	// Push peer update while still connected so the client drops exit/default routes
 	// before the disconnect NodeUpdate is applied.
 	if preDisconnectExitClear {
-		allNodes, peerErr := logic.GetAllNodes()
+		allNodes, peerErr := logic.GetAllNodes(r.Context())
 		if peerErr != nil {
 			slog.Error("pre-disconnect exit clear: failed to list nodes", "error", peerErr)
-		} else if pubErr := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
 			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -805,7 +810,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayUpdate {
-		logic.UpdateRelayed(&currentNode, newNode)
+		logic.UpdateRelayed(r.Context(), &currentNode, newNode)
 	}
 	// Do not churn internet-gateway client assignment on a connect/disconnect toggle.
 	if !connectionToggle {
@@ -816,11 +821,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			// logic.UnsetInternetGw resets newNode.InetNodeReq.
 			// So, keeping a copy to pass into logic.SetInternetGw.
 			req := newNode.InetNodeReq
-			logic.UnsetInternetGw(newNode)
+			logic.UnsetInternetGw(r.Context(), newNode)
 			logic.SetInternetGw(newNode, req)
 		}
 		if !newNode.IsInternetGateway {
-			logic.UnsetInternetGw(newNode)
+			logic.UnsetInternetGw(r.Context(), newNode)
 		}
 	}
 	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
@@ -847,12 +852,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.RelayedBy = ""
 		}
 		if len(currentNode.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&currentNode)
+			logic.ResetAutoRelayedPeer(r.Context(), &currentNode)
 		}
 	}
 	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
 		if len(currentNode.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&currentNode)
+			logic.ResetAutoRelayedPeer(r.Context(), &currentNode)
 		}
 	}
 
@@ -865,7 +870,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		"on network",
 		currentNode.Network,
 	)
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -888,7 +893,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		currentNode.Address6.String() != newNode.Address6.String()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func(relayupdate bool, newNode *models.Node, connToggle bool) {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, relayupdate bool, newNode *models.Node, connToggle bool) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
@@ -897,15 +903,15 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
 			}
 		}
-		allNodes, err := logic.GetAllNodes()
+		allNodes, err := logic.GetAllNodes(ctx)
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
 		if !newNode.Connected {
-			metrics, err := logic.GetMetrics(newNode.ID.String())
+			metrics, err := logic.GetMetrics(ctx, newNode.ID.String())
 			if err == nil {
 				for peer, connectivity := range metrics.Connectivity {
 					connectivity.Connected = false
@@ -913,14 +919,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 					metrics.Connectivity[peer] = connectivity
 				}
 
-				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
+				_ = logic.UpdateMetrics(ctx, newNode.ID.String(), metrics)
 			}
-			go logic.SetPeerMetricsDisconnected(newNode.ID.String())
+			go logic.SetPeerMetricsDisconnected(ctx, newNode.ID.String())
 			if servercfg.IsPro {
 				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
 				for _, dNode := range displacedNodes {
 					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
+					if err := dHost.Get(ctx); err != nil {
 						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
 						continue
 					}
@@ -931,14 +937,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
-			exitClients := logic.ListExitClientsForRoutingNode(context.TODO(), newNode.Network, newNode.ID.String())
+			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
 			if len(exitClients) > 0 {
-				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
 			}
 		}
-		mq.PublishPeerUpdate(false)
-	}(relayUpdate, newNode, connectionToggle)
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx, relayUpdate, newNode, connectionToggle)
 }
 
 // @Summary     Delete an individual node
@@ -966,7 +972,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
 	purge := forceDelete || fromNode
-	if err := logic.DeleteNode(&node, purge); err != nil {
+	if err := logic.DeleteNode(r.Context(), &node, purge); err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -977,7 +983,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go mq.PublishMqUpdatesForDeletedNode(nil, node, !fromNode)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishMqUpdatesForDeletedNode(ctx, nil, node, !fromNode)
 }
 
 // @Summary     Bulk delete nodes
@@ -1008,12 +1015,13 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d node(s) accepted", len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		deleted := 0
 		var deletedNodes []models.Node
 		for _, nodeID := range req.IDs {
 			_node := &schema.Node{ID: nodeID}
-			err := _node.Get(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
+			err := _node.Get(ctx, dbtypes.WithAllPreloads())
 			if err != nil {
 				slog.Error("bulk node delete: node not found", "id", nodeID, "error", err)
 				continue
@@ -1022,11 +1030,11 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			node := logic.ConvertSchemaNodeToModelsNode(_node)
-			if err := logic.DeleteNode(node, true); err != nil {
+			if err := logic.DeleteNode(ctx, node, true); err != nil {
 				slog.Error("bulk node delete: failed to delete node", "id", nodeID, "error", err)
 				continue
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(ctx, &models.Event{
 				Action: schema.RemoveHostFromNet,
 				Source: models.Subject{
 					ID:   r.Header.Get("user"),
@@ -1047,10 +1055,10 @@ func bulkDeleteNodes(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		for _, node := range deletedNodes {
-			mq.PublishMqUpdatesForDeletedNode(nil, node, true)
+			mq.PublishMqUpdatesForDeletedNode(ctx, nil, node, true)
 		}
 		slog.Info("bulk node delete completed", "deleted", deleted, "total", len(req.IDs))
-	}()
+	}(ctx)
 }
 
 // @Summary     Bulk update node connected status
@@ -1086,14 +1094,15 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk %s of %d node(s) accepted", eventAction, len(req.IDs)))
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		var nodeIDs []interface{}
 		// filter out invalid node IDs.
 		for _, nodeID := range req.IDs {
 			node := &schema.Node{
 				ID: nodeID,
 			}
-			exists, err := node.Exists(db.WithContext(context.TODO()))
+			exists, err := node.Exists(ctx)
 			if err == nil && exists {
 				nodeIDs = append(nodeIDs, nodeID)
 			}
@@ -1113,10 +1122,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		} else {
 			nodeUpdate.Status = schema.Disconnected
 		}
-		err := nodeUpdate.UpdateConnectedStatus(
-			db.WithContext(context.TODO()),
-			dbtypes.WithFilter("id", nodeIDs...),
-		)
+		err := nodeUpdate.UpdateConnectedStatus(ctx, dbtypes.WithFilter("id", nodeIDs...))
 		if err != nil {
 			slog.Error("bulk node status: failed to update nodes connected status", "error", err)
 			return
@@ -1140,7 +1146,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if len(exitClients) > 0 {
-				_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				time.Sleep(1 * time.Second)
 			}
 		}
@@ -1148,18 +1154,18 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		for i := range nodeIDs {
 			nodeID := nodeIDs[i].(string)
 			if !req.Connected {
-				metrics, err := logic.GetMetrics(nodeID)
+				metrics, err := logic.GetMetrics(ctx, nodeID)
 				if err == nil {
 					for peer, connectivity := range metrics.Connectivity {
 						connectivity.Connected = false
 						connectivity.Latency = 999
 						metrics.Connectivity[peer] = connectivity
 					}
-					_ = logic.UpdateMetrics(nodeID, metrics)
+					_ = logic.UpdateMetrics(ctx, nodeID, metrics)
 				}
-				go logic.SetPeerMetricsDisconnected(nodeID)
+				go logic.SetPeerMetricsDisconnected(ctx, nodeID)
 			}
-			logic.LogEvent(&models.Event{
+			logic.LogEvent(r.Context(), &models.Event{
 				Action: eventAction,
 				Source: models.Subject{
 					ID:   user,
@@ -1195,7 +1201,7 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			for _, c := range logic.ListExitClientsForRoutingNode(context.TODO(), node.Network, node.ID.String()) {
+			for _, c := range logic.ListExitClientsForRoutingNode(ctx, node.Network, node.ID.String()) {
 				if _, ok := seenClient[c.ID.String()]; ok {
 					continue
 				}
@@ -1204,12 +1210,12 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(exitClients) > 0 {
-			_ = mq.PublishPeerUpdatesForExitClientsFirst(exitClients)
+			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 			slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
 			return
 		}
 
-		mq.PublishPeerUpdate(false)
+		mq.PublishPeerUpdate(ctx, false)
 		slog.Info("bulk node status completed", "action", eventAction, "total", len(req.IDs))
-	}()
+	}(ctx)
 }

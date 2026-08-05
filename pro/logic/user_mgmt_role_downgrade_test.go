@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/gravitl/netmaker/schema"
@@ -66,7 +67,7 @@ func TestAddGlobalNetRolesToAdmins_onlyWhenEmpty(t *testing.T) {
 
 func TestIsNetworkAdmin_requiresGroupForElevatedPlatformRole(t *testing.T) {
 	adminNoGroups := &schema.User{PlatformRoleID: schema.AdminRole, UserGroups: datatypes.NewJSONType(map[schema.UserGroupID]struct{}{})}
-	if IsNetworkAdmin(adminNoGroups, "net-a") {
+	if IsNetworkAdmin(context.Background(), adminNoGroups, "net-a") {
 		t.Fatal("admin without groups should not be network admin")
 	}
 
@@ -74,7 +75,7 @@ func TestIsNetworkAdmin_requiresGroupForElevatedPlatformRole(t *testing.T) {
 		PlatformRoleID: schema.SuperAdminRole,
 		UserGroups:     datatypes.NewJSONType(map[schema.UserGroupID]struct{}{globalNetworksAdminGroupID: {}}),
 	}
-	if !IsNetworkAdmin(adminWithGlobal, "net-a") {
+	if !IsNetworkAdmin(context.Background(), adminWithGlobal, "net-a") {
 		t.Fatal("expected network admin via global admin group")
 	}
 }

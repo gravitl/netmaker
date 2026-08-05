@@ -2,10 +2,12 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -112,23 +114,38 @@ func (e *Egress) Create(ctx context.Context) error {
 }
 
 func (e *Egress) ListAll(ctx context.Context) (egs []Egress, err error) {
-	err = db.FromContext(ctx).Table(e.Table()).Find(&egs).Error
+	query := db.FromContext(ctx).Table(e.Table())
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", egressTable), tenantID)(query)
+	}
+	err = query.Find(&egs).Error
 	return
 }
 
 func (e *Egress) ListByNetwork(ctx context.Context) (egs []Egress, err error) {
-	err = db.FromContext(ctx).Table(e.Table()).Where("network = ?", e.Network).Find(&egs).Error
+	query := db.FromContext(ctx).Table(e.Table()).Where("network = ?", e.Network)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", egressTable), tenantID)(query)
+	}
+	err = query.Find(&egs).Error
 	return
 }
 
 func (e *Egress) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&Egress{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&Egress{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", egressTable), tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }
 
 func (e *Egress) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Egress{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", egressTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

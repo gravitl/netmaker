@@ -28,7 +28,7 @@ func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
-  r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
 }
@@ -68,13 +68,14 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := proLogic.ValidatePostureCheck(&req); err != nil {
+	if err := proLogic.ValidatePostureCheck(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	pc := schema.PostureCheck{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
@@ -88,11 +89,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-
-	if pc.TenantID == "" {
-		pc.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-	}
-	err = pc.Create(db.WithContext(r.Context()))
+	err = pc.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -101,7 +98,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -118,9 +115,10 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		Origin:    schema.Dashboard,
 	})
 
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
-	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
+	proLogic.PopulatePostureCheckGroupNames(r.Context(), []schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "created posture check")
 }
 
@@ -150,7 +148,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	if id != "" {
 		pc := schema.PostureCheck{ID: id}
-		err := pc.Get(db.WithContext(r.Context()))
+		err := pc.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(
 				w,
@@ -159,12 +157,12 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
+		proLogic.PopulatePostureCheckGroupNames(r.Context(), []schema.PostureCheck{pc})
 		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
 	pc := schema.PostureCheck{NetworkID: schema.NetworkID(network)}
-	list, err := pc.ListByNetwork(db.WithContext(r.Context()))
+	list, err := pc.ListByNetwork(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -173,7 +171,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	proLogic.PopulatePostureCheckGroupNames(list)
+	proLogic.PopulatePostureCheckGroupNames(r.Context(), list)
 	logic.ReturnSuccessResponseWithJson(w, r, list, "fetched posture checks")
 }
 
@@ -199,15 +197,20 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := proLogic.ValidatePostureCheck(r.Context(), &updatePc); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	pc := schema.PostureCheck{ID: updatePc.ID}
-	err = pc.Get(db.WithContext(r.Context()))
+	err = pc.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
 	proLogic.MergePostureCheckUpdate(&pc, &updatePc)
-	if err := proLogic.ValidatePostureCheck(&updatePc); err != nil {
+	if err := proLogic.ValidatePostureCheck(r.Context(), &updatePc); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -232,7 +235,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 			Old: pc,
 			New: updatePc,
 		},
-		NetworkID: schema.NetworkID(pc.NetworkID),
+		NetworkID: pc.NetworkID,
 		Origin:    schema.Dashboard,
 	}
 	pc.Tags = updatePc.Tags
@@ -246,7 +249,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	pc.Status = updatePc.Status
 	pc.UpdatedAt = time.Now().UTC()
 
-	err = pc.Update(db.WithContext(context.TODO()))
+	err = pc.Update(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -256,12 +259,13 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if updateStatus {
-		pc.UpdateStatus(db.WithContext(context.TODO()))
+		pc.UpdateStatus(r.Context())
 	}
-	logic.LogEvent(event)
-	go mq.PublishPeerUpdate(false)
+	logic.LogEvent(r.Context(), event)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
-	proLogic.PopulatePostureCheckGroupNames([]schema.PostureCheck{pc})
+	proLogic.PopulatePostureCheckGroupNames(r.Context(), []schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "updated posture check")
 }
 
@@ -283,17 +287,17 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pc := schema.PostureCheck{ID: id}
-	err := pc.Get(db.WithContext(r.Context()))
+	err := pc.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	err = pc.Delete(db.WithContext(r.Context()))
+	err = pc.Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -314,7 +318,8 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	go proLogic.RunPostureChecks()
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
 }
@@ -328,19 +333,19 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnablePostureChecks {
+	if !logic.GetFeatureFlags(r.Context()).EnablePostureChecks {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture checks are not enabled on your plan"), logic.BadReq))
 		return
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		if err := proLogic.RunPostureChecks(); err != nil {
 			logger.Log(0, "posture check: manual run failed:", err.Error())
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context())))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action:      schema.Sync,
 		TriggeredBy: r.Header.Get("user"),
 		Source: models.Subject{
@@ -382,7 +387,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 	listViolatedusers := r.URL.Query().Get("users") == "true"
 	violatedNodes := []models.Node{}
 	if listViolatedusers {
-		extclients, err := logic.GetNetworkExtClients(networkName)
+		extclients, err := logic.GetNetworkExtClients(r.Context(), networkName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return

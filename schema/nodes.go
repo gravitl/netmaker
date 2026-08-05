@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -136,12 +137,18 @@ func (n *Node) Delete(ctx context.Context) error {
 }
 
 func (n *Node) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM nodes_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM nodes_v1").Error
 }
 
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -156,6 +163,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 		return nil, nil
 	}
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -167,6 +177,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -198,22 +211,29 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
-	err := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID).
-		Find(&violations).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	err := query.Find(&violations).Error
 	return violations, err
 }
 
 func (n *Node) DeleteViolations(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ?", n.ID).
-		Delete(&PostureCheckViolation{}).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	return query.Delete(&PostureCheckViolation{}).Error
 }
 
 func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

@@ -14,7 +14,6 @@ type FeatureFlags struct {
 	EnableNetworkActivity         bool `json:"enable_network_activity"`
 	EnableOAuth                   bool `json:"enable_oauth"`
 	EnableIDPIntegration          bool `json:"enable_idp_integration"`
-	AllowMultiServerLicense       bool `json:"allow_multi_server_license"`
 	EnableGwsHA                   bool `json:"enable_gws_ha"`
 	EnableDeviceApproval          bool `json:"enable_device_approval"`
 	EnableFlowLogs                bool `json:"enable_flow_logs"`
@@ -22,7 +21,6 @@ type FeatureFlags struct {
 	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 	EnableSIEMIntegration         bool `json:"enable_siem_integration"`
-	AllowMultipleTenants          bool `json:"allow_multiple_tenants"`
 }
 
 // AuthParams - struct for auth params
@@ -303,6 +301,7 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
+	TenantID                    string `yaml:"tenant_id"`
 	CoreDNSAddr                 string `yaml:"corednsaddr"`
 	API                         string `yaml:"api"`
 	APIHost                     string `yaml:"apihost"`

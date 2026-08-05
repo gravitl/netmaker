@@ -16,8 +16,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/integration"
-	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	siempkg "github.com/gravitl/netmaker/pro/integration/siem"
 	logic2 "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -37,15 +37,15 @@ func IntegrationHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/integrations/edr/device_state", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEDRDeviceState)))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/v1/integrations/{type}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIntegration)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/integrations/{type}/{id}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(upsertIntegration)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/integrations/{type}/{provider}/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIntegration)))).Methods(http.MethodPost)
 }
 
 func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (integration.Type, integration.ProviderID, bool) {
 	vars := mux.Vars(r)
 	intType := integration.Type(vars["type"])
-	id := integration.ProviderID(vars["id"])
+	id := integration.ProviderID(vars["provider"])
 
 	_, err := integration.Lookup(intType, id)
 	if err != nil {
@@ -100,13 +100,13 @@ func getIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Upsert an integration
-// @Router      /api/v1/integrations/{type}/{id} [put]
+// @Router      /api/v1/integrations/{type}/{provider} [put]
 // @Tags        Integrations
 // @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       type            path  string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path  string true "Provider ID (e.g. splunk, intune)"
+// @Param       provider        path  string true "Provider ID (e.g. splunk, intune)"
 // @Param       body            body  object true "Integration config"
 // @Success     200 {object} schema.Integration
 // @Failure     400 {object} models.ErrorResponse
@@ -128,7 +128,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 		var isUpsert bool
 		if len(integrations) == 1 {
 			existing := integrations[0]
-			if existing.ID == string(id) && existing.Type == string(intType) {
+			if existing.Provider == string(id) && existing.Type == string(intType) {
 				isUpsert = true
 			}
 		}
@@ -169,13 +169,10 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	intg = &schema.Integration{
-		ID:     string(id),
-		Type:   string(intType),
-		Config: datatypes.JSON(config),
-	}
-
-	if intg.TenantID == "" {
-		intg.TenantID = scope.ID(logic.DefaultScope(r.Context()))
+		Provider: string(id),
+		TenantID: scope.ID(r.Context()),
+		Type:     string(intType),
+		Config:   datatypes.JSON(config),
 	}
 	err = intg.Upsert(r.Context())
 	if err != nil {
@@ -184,7 +181,8 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeSIEM {
-		go initSIEMExporter(string(id), config)
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		go initSIEMExporter(ctx, string(id), config)
 	}
 
 	err = redactConfig(intg)
@@ -197,7 +195,7 @@ func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, intg, "integration saved")
 }
 
-func initSIEMExporter(id string, configBytes json.RawMessage) {
+func initSIEMExporter(ctx context.Context, id string, configBytes json.RawMessage) {
 	config := make(map[string]interface{})
 	err := json.Unmarshal(configBytes, &config)
 	if err != nil {
@@ -211,7 +209,7 @@ func initSIEMExporter(id string, configBytes json.RawMessage) {
 		return
 	}
 
-	err = grpcs.Client().Init(context.Background(), id, configStruct)
+	err = grpcs.Client().Init(ctx, id, configStruct)
 	if err != nil {
 		logger.Log(0, fmt.Sprintf("error upserting siem integration %s on exporter: %v", id, err))
 
@@ -223,12 +221,12 @@ func initSIEMExporter(id string, configBytes json.RawMessage) {
 }
 
 // @Summary     Delete an integration
-// @Router      /api/v1/integrations/{type}/{id} [delete]
+// @Router      /api/v1/integrations/{type}/{provider} [delete]
 // @Tags        Integrations
 // @Security    oauth
 // @Produce     json
 // @Param       type            path string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path string true "Provider ID"
+// @Param       provider        path string true "Provider ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
@@ -239,7 +237,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intg := &schema.Integration{ID: string(id)}
+	intg := &schema.Integration{Provider: string(id)}
 	err := intg.Get(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -257,8 +255,9 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeSIEM {
-		go func() {
-			err := grpcs.Client().Terminate(context.Background())
+		ctx := scope.WithContext(context.Background(), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			err := grpcs.Client().Terminate(ctx)
 			if err != nil {
 				logger.Log(0, fmt.Sprintf("error terminating siem integration %s on exporter: %v", id, err))
 
@@ -267,7 +266,7 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 					logger.Log(0, fmt.Sprintf("error publishing siem integration delete event %s on exporter: %v", id, err))
 				}
 			}
-		}()
+		}(ctx)
 	}
 
 	logic2.SkipPushToSiem()
@@ -275,13 +274,13 @@ func deleteIntegration(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Test an integration config
-// @Router      /api/v1/integrations/{type}/{id}/test [post]
+// @Router      /api/v1/integrations/{type}/{provider}/test [post]
 // @Tags        Integrations
 // @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       type            path  string true "Integration type (e.g. siem, mdm)"
-// @Param       id              path  string true "Provider ID"
+// @Param       provider        path  string true "Provider ID"
 // @Param       body            body  object true "Provider config to test (not saved)"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -300,7 +299,7 @@ func testIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intType == integration.TypeMDM || intType == integration.TypeEDR {
-		existing := &schema.Integration{ID: string(id)}
+		existing := &schema.Integration{Provider: string(id)}
 		hasExisting := existing.Get(r.Context()) == nil && existing.Type == string(intType)
 		if intType == integration.TypeMDM {
 			config, err = mergeMDMConfig(r.Context(), string(id), config, hasExisting)
@@ -372,14 +371,14 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	syncCtx := db.WithContext(context.Background())
-	go func() {
-		if err := mdmpkg.RunMDMSyncForce(syncCtx); err != nil {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := mdmpkg.RunMDMSyncForce(ctx); err != nil {
 			logger.Log(0, "mdm: manual sync failed:", err.Error())
 		}
-	}()
+	}(ctx)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action:      schema.MDMSync,
 		TriggeredBy: r.Header.Get("user"),
 		Source: models.Subject{
@@ -388,13 +387,13 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Target: models.Subject{
-			ID:   active.ID,
-			Name: active.ID,
+			ID:   active.Provider,
+			Name: active.Provider,
 			Type: schema.MDMSub,
 		},
 		Origin: schema.Dashboard,
 		Diff: models.Diff{
-			New: map[string]interface{}{"status": "queued", "provider": active.ID},
+			New: map[string]interface{}{"status": "queued", "provider": active.Provider},
 		},
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "mdm sync queued")
@@ -455,12 +454,13 @@ func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no EDR integration configured"), logic.BadReq))
 		return
 	}
-	syncCtx := db.WithContext(context.Background())
-	go func() {
-		if err := edrpkg.RunEDRSyncForce(syncCtx); err != nil {
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := edrpkg.RunEDRSyncForce(ctx); err != nil {
 			logger.Log(0, "edr: manual sync failed:", err.Error())
 		}
-	}()
+	}(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "edr sync queued")
 }
 
@@ -541,7 +541,7 @@ func mergeEDRSecretField(
 	if !isMaskedSecret(secretStr) || !hasExisting {
 		return patch, false, nil
 	}
-	existing := &schema.Integration{ID: providerID}
+	existing := &schema.Integration{Provider: providerID}
 	if err := existing.Get(ctx); err != nil {
 		return patch, false, nil
 	}
@@ -559,7 +559,7 @@ func mergeEDRSecretField(
 
 func redactConfig(intg *schema.Integration) error {
 	if intg.Type == string(integration.TypeMDM) {
-		redacted, err := mdmpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
+		redacted, err := mdmpkg.RedactConfig(intg.Provider, json.RawMessage(intg.Config))
 		if err != nil {
 			return err
 		}
@@ -567,7 +567,7 @@ func redactConfig(intg *schema.Integration) error {
 		return nil
 	}
 	if intg.Type == string(integration.TypeEDR) {
-		redacted, err := edrpkg.RedactConfig(intg.ID, json.RawMessage(intg.Config))
+		redacted, err := edrpkg.RedactConfig(intg.Provider, json.RawMessage(intg.Config))
 		if err != nil {
 			return err
 		}
@@ -575,7 +575,7 @@ func redactConfig(intg *schema.Integration) error {
 		return nil
 	}
 
-	switch integration.ProviderID(intg.ID) {
+	switch integration.ProviderID(intg.Provider) {
 	case integration.ProviderDatadog:
 		var config siempkg.DatadogConfig
 		if err := json.Unmarshal(intg.Config, &config); err != nil {
@@ -670,7 +670,7 @@ func mergeMDMSecretField(
 		return patch, false, nil
 	}
 
-	existing := &schema.Integration{ID: providerID}
+	existing := &schema.Integration{Provider: providerID}
 	if err := existing.Get(ctx); err != nil {
 		return patch, false, nil
 	}
@@ -696,7 +696,7 @@ func logMDMVerifyEvent(r *http.Request, providerID string, ok bool, errMsg strin
 	if !ok {
 		diff = map[string]interface{}{"status": "failed", "error": errMsg}
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action:      schema.MDMVerify,
 		TriggeredBy: r.Header.Get("user"),
 		Source: models.Subject{

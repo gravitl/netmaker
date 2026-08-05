@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -69,7 +70,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("host id mismatch"), "badrequest"))
 		return
 	}
-	resp, err := logic.RegisterDevice(db.WithContext(r.Context()), user, &newHost)
+	resp, err := logic.RegisterDevice(r.Context(), user, &newHost)
 	if err != nil {
 		errType := logic.Internal
 		switch {
@@ -135,7 +136,7 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	result, err := logic.JoinDeviceNetwork(db.WithContext(r.Context()), user, host, network)
+	result, err := logic.JoinDeviceNetwork(r.Context(), user, host, network)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -158,7 +159,8 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(httpResponse)
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, result, "joined network")
 }
 
@@ -172,7 +174,7 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	if err := logic.LeaveDeviceNetwork(db.WithContext(r.Context()), user, host, network); err != nil {
+	if err := logic.LeaveDeviceNetwork(r.Context(), user, host, network); err != nil {
 		errType := logic.Internal
 		switch err.Error() {
 		case "user does not have access to network", "operation not permitted":
@@ -181,7 +183,8 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponse(w, r, "left network")
 }
 
@@ -195,7 +198,7 @@ func cancelDeviceNetworkJoin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	if err := logic.CancelDeviceNetworkJoin(db.WithContext(r.Context()), user, host, network); err != nil {
+	if err := logic.CancelDeviceNetworkJoin(r.Context(), user, host, network); err != nil {
 		errType := logic.Internal
 		if err.Error() == "no pending join request for network" {
 			errType = logic.BadReq
@@ -231,7 +234,7 @@ func listDeviceExitNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	nodes, err := logic.ListDeviceExitNodes(db.WithContext(r.Context()), user, host, network)
+	nodes, err := logic.ListDeviceExitNodes(r.Context(), user, host, network)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -256,7 +259,7 @@ func getDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	selected, err := logic.GetDeviceSelectedExitNode(db.WithContext(r.Context()), user, host, network)
+	selected, err := logic.GetDeviceSelectedExitNode(r.Context(), user, host, network)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -286,7 +289,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	selected, err := logic.SelectDeviceExitNode(db.WithContext(r.Context()), user, host, network, req.EgressID)
+	selected, err := logic.SelectDeviceExitNode(r.Context(), user, host, network, req.EgressID)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -309,6 +312,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 	if req.EgressID == "" {
 		msg = "exit node cleared"
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, selected, msg)
 }

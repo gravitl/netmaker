@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -23,6 +24,12 @@ var (
 	IPv4Network = "0.0.0.0/0"
 	IPv6Network = "::/0"
 )
+
+var ErrIngressLimitExceeded = errors.New("gateway limit reached for this tenant, please upgrade your license")
+
+var IngressLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
 
 // IsInternetGw - checks if node is acting as internet gw (legacy flag or internet egress router)
 func IsInternetGw(node models.Node) bool {
@@ -140,31 +147,32 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 
 // GetIngressGwUsers - lists the users having to access to ingressGW
 func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
-
 	gwUsers := models.IngressGwUsers{
 		NodeID:  node.ID.String(),
 		Network: node.Network,
 	}
-	users, err := GetUsers()
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+	_users, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return gwUsers, err
 	}
-	for _, user := range users {
-		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
-			gwUsers.Users = append(gwUsers.Users, user)
+	for _, _user := range _users {
+		if _user.PlatformRoleID != schema.SuperAdminRole && _user.PlatformRoleID != schema.AdminRole {
+			gwUsers.Users = append(gwUsers.Users, ToReturnUser(&_user))
 		}
 	}
 	return gwUsers, nil
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error) {
+func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	clients, err := GetExtClientsByID(nodeid, node.Network)
+	clients, err := GetExtClientsByID(ctx, nodeid, node.Network)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.Node{}, removedClients, err
 	}
@@ -172,7 +180,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+	if err = DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
@@ -185,13 +193,13 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	err = SetNetworkNodesLastModified(node.Network)
+	err = SetNetworkNodesLastModified(ctx, node.Network)
 	return node, removedClients, err
 }
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
-func DeleteGatewayExtClients(gatewayID string, networkName string) error {
-	currentExtClients, err := GetNetworkExtClients(networkName)
+func DeleteGatewayExtClients(ctx context.Context, gatewayID string, networkName string) error {
+	currentExtClients, err := GetNetworkExtClients(ctx, networkName)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
@@ -200,7 +208,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	}
 	for _, extClient := range currentExtClients {
 		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(networkName, extClient.ClientID, false); err != nil {
+			if err = DeleteExtClient(ctx, networkName, extClient.ClientID, false); err != nil {
 				logger.Log(1, "failed to remove ext client", extClient.ClientID)
 				continue
 			}
@@ -225,7 +233,7 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	return true
 }
 
-func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) error {
+func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNodeReq, update bool) error {
 	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
 	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
@@ -248,7 +256,7 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 		clientHost := &schema.Host{
 			ID: clientNode.HostID,
 		}
-		err = clientHost.Get(db.WithContext(context.TODO()))
+		err = clientHost.Get(ctx)
 		if err != nil {
 			return err
 		}
@@ -264,7 +272,7 @@ func ValidateInetGwReq(node *schema.Node, req models.InetNodeReq, update bool) e
 			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 		}
 		if len(clientNode.AutoRelayedPeers) > 0 {
-			ResetAutoRelayedPeer(&clientNode)
+			ResetAutoRelayedPeer(ctx, &clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != node.ID {
@@ -309,8 +317,8 @@ func SetInternetGw(node *models.Node, req models.InetNodeReq) {
 	}
 }
 
-func UnsetInternetGw(node *models.Node) {
-	nodes, err := GetNetworkNodes(node.Network)
+func UnsetInternetGw(ctx context.Context, node *models.Node) {
+	nodes, err := GetNetworkNodes(ctx, node.Network)
 	if err != nil {
 		slog.Error("failed to get network nodes", "network", node.Network, "error", err)
 		return

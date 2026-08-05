@@ -8,47 +8,51 @@ import (
 )
 
 type TenantSettings struct {
-	NetclientAutoUpdate            bool     `json:"netclientautoupdate"`
-	Verbosity                      int32    `json:"verbosity"`
-	AuthProvider                   string   `json:"authprovider"`
-	OIDCIssuer                     string   `json:"oidcissuer"`
-	ClientID                       string   `json:"client_id"`
-	ClientSecret                   string   `json:"client_secret"`
-	SyncEnabled                    bool     `json:"sync_enabled"`
-	GoogleAdminEmail               string   `json:"google_admin_email"`
-	GoogleSACredsJson              string   `json:"google_sa_creds_json"`
-	AzureTenant                    string   `json:"azure_tenant"`
-	OktaOrgURL                     string   `json:"okta_org_url"`
-	OktaAPIToken                   string   `json:"okta_api_token"`
-	UserFilters                    []string `json:"user_filters"`
-	GroupFilters                   []string `json:"group_filters"`
-	IDPSyncInterval                string   `json:"idp_sync_interval"`
-	Telemetry                      string   `json:"telemetry"`
-	BasicAuth                      bool     `json:"basic_auth"`
-	JwtValidityDuration            int      `json:"jwt_validity_duration"`
-	JwtValidityDurationClients     int      `json:"jwt_validity_duration_clients"`
-	MFAEnforced                    bool     `json:"mfa_enforced"`
-	RacRestrictToSingleNetwork     bool     `json:"rac_restrict_to_single_network"`
-	EndpointDetection              bool     `json:"endpoint_detection"`
-	AllowedEmailDomains            string   `json:"allowed_email_domains"`
-	EmailSenderAddr                string   `json:"email_sender_addr"`
-	EmailSenderUser                string   `json:"email_sender_user"`
-	EmailSenderPassword            string   `json:"email_sender_password"`
-	SmtpHost                       string   `json:"smtp_host"`
-	SmtpPort                       int      `json:"smtp_port"`
-	SmtpSkipTlsVerify              bool     `json:"smtp_skip_tls_verify"`
-	MetricInterval                 string   `json:"metric_interval"`
-	MetricsPort                    int      `json:"metrics_port"`
-	IPDetectionInterval            int      `json:"ip_detection_interval"`
-	ManageDNS                      bool     `json:"manage_dns"`
-	DefaultDomain                  string   `json:"default_domain"`
-	Stun                           bool     `json:"stun"`
-	StunServers                    string   `json:"stun_servers"`
-	AuditLogsRetentionPeriodInDays int      `json:"audit_logs_retention_period"`
-	PeerConnectionCheckInterval    string   `json:"peer_connection_check_interval"`
-	PostureCheckInterval           string   `json:"posture_check_interval"`
-	CleanUpInterval                int      `json:"clean_up_interval_in_mins"`
-	EnableFlowLogs                 bool     `json:"enable_flow_logs"`
+	NetclientAutoUpdate         bool     `json:"netclientautoupdate"`
+	Verbosity                   int32    `json:"verbosity"`
+	AuthProvider                string   `json:"authprovider"`
+	OIDCIssuer                  string   `json:"oidcissuer"`
+	ClientID                    string   `json:"client_id"`
+	ClientSecret                string   `json:"client_secret"`
+	SyncEnabled                 bool     `json:"sync_enabled"`
+	GoogleAdminEmail            string   `json:"google_admin_email"`
+	GoogleSACredsJson           string   `json:"google_sa_creds_json"`
+	AzureTenant                 string   `json:"azure_tenant"`
+	OktaOrgURL                  string   `json:"okta_org_url"`
+	OktaAPIToken                string   `json:"okta_api_token"`
+	UserFilters                 []string `json:"user_filters"`
+	GroupFilters                []string `json:"group_filters"`
+	IDPSyncInterval             string   `json:"idp_sync_interval"`
+	Telemetry                   string   `json:"telemetry"`
+	BasicAuth                   bool     `json:"basic_auth"`
+	JwtValidityDuration         int      `json:"jwt_validity_duration"`
+	JwtValidityDurationClients  int      `json:"jwt_validity_duration_clients"`
+	MFAEnforced                 bool     `json:"mfa_enforced"`
+	RacRestrictToSingleNetwork  bool     `json:"rac_restrict_to_single_network"`
+	EndpointDetection           bool     `json:"endpoint_detection"`
+	AllowedEmailDomains         string   `json:"allowed_email_domains"`
+	MetricInterval              string   `json:"metric_interval"`
+	MetricsPort                 int      `json:"metrics_port"`
+	IPDetectionInterval         int      `json:"ip_detection_interval"`
+	ManageDNS                   bool     `json:"manage_dns"`
+	DefaultDomain               string   `json:"default_domain"`
+	Stun                        bool     `json:"stun"`
+	StunServers                 string   `json:"stun_servers"`
+	PeerConnectionCheckInterval string   `json:"peer_connection_check_interval"`
+	PostureCheckInterval        string   `json:"posture_check_interval"`
+	CleanUpInterval             int      `json:"clean_up_interval_in_mins"`
+	EnableFlowLogs              bool     `json:"enable_flow_logs"`
+	// AuditLogsRetentionPeriodInDays and the Smtp/EmailSender fields below are
+	// not persisted here: they live on OrganizationSettings and are
+	// populated/written through logic.GetServerSettings and
+	// logic.UpsertServerSettings for API backward compatibility.
+	AuditLogsRetentionPeriodInDays int    `json:"audit_logs_retention_period"`
+	EmailSenderAddr                string `json:"email_sender_addr"`
+	EmailSenderUser                string `json:"email_sender_user"`
+	EmailSenderPassword            string `json:"email_sender_password"`
+	SmtpHost                       string `json:"smtp_host"`
+	SmtpPort                       int    `json:"smtp_port"`
+	SmtpSkipTlsVerify              bool   `json:"smtp_skip_tls_verify"`
 }
 
 type TenantSettingsRecord struct {

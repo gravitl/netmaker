@@ -7,15 +7,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 )
 
-const defaultTenantSlug = "default"
+const DefaultTenantSlug = "default"
 
 type Tenant struct {
 	ID             string    `gorm:"primaryKey"           json:"id"`
 	Name           string    `gorm:"not null"             json:"name"`
 	Slug           string    `gorm:"uniqueIndex;not null" json:"slug"`
 	OrganizationID string    `gorm:"not null;index"       json:"organization_id"`
+	Metadata       string    `json:"metadata"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -26,8 +28,9 @@ func (t *Tenant) TableName() string {
 
 func (t *Tenant) CreateDefault(ctx context.Context) error {
 	t.ID = uuid.NewString()
-	t.Name = defaultTenantSlug
-	t.Slug = defaultTenantSlug
+	t.Name = DefaultTenantSlug
+	t.Slug = DefaultTenantSlug
+	t.Metadata = "Default Tenant"
 	return db.FromContext(ctx).Model(&Tenant{}).Create(&t).Error
 }
 
@@ -53,31 +56,33 @@ func (t *Tenant) Create(ctx context.Context) error {
 }
 
 func (t *Tenant) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Tenant{}).
+	var result Tenant
+	err := db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ? OR slug = ?", t.ID, t.Slug).
-		First(t).
+		First(&result).
 		Error
+	if err != nil {
+		return err
+	}
+
+	*t = result
+	return nil
 }
 
 func (t *Tenant) GetDefault(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
-		Where("slug = ?", defaultTenantSlug).
+		Where("slug = ?", DefaultTenantSlug).
 		First(t).
 		Error
 }
 
-func (t *Tenant) ListAll(ctx context.Context) ([]Tenant, error) {
+func (t *Tenant) List(ctx context.Context, options ...dbtypes.Option) ([]Tenant, error) {
 	var tenants []Tenant
-	err := db.FromContext(ctx).Model(&Tenant{}).Find(&tenants).Error
-	return tenants, err
-}
-
-func (t *Tenant) ListByOrg(ctx context.Context, orgID string) ([]Tenant, error) {
-	var tenants []Tenant
-	err := db.FromContext(ctx).Model(&Tenant{}).
-		Where("organization_id = ?", orgID).
-		Find(&tenants).
-		Error
+	query := db.FromContext(ctx).Model(&Tenant{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	err := query.Find(&tenants).Error
 	return tenants, err
 }
 
@@ -90,7 +95,17 @@ func (t *Tenant) Update(ctx context.Context) error {
 
 func (t *Tenant) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
-		Where("id = ?", t.ID).
-		Delete(t).
+		Where("id = ? OR slug = ?", t.ID, t.Slug).
+		Delete(&Tenant{}).
 		Error
+}
+
+func (t *Tenant) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
+	var count int64
+	query := db.FromContext(ctx).Model(&Tenant{})
+	for _, opt := range options {
+		query = opt(query)
+	}
+	err := query.Count(&count).Error
+	return int(count), err
 }

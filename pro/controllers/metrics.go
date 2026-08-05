@@ -42,7 +42,7 @@ func getNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	nodeID := params["nodeid"]
 
 	logger.Log(1, r.Header.Get("user"), "requested fetching metrics for node", nodeID, "on network", params["network"])
-	metrics, err := logic.GetMetrics(nodeID)
+	metrics, err := logic.GetMetrics(r.Context(), nodeID)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of node", nodeID, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -70,7 +70,7 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 
 	logger.Log(1, r.Header.Get("user"), "requested fetching network node metrics on network", network)
-	networkNodes, err := logic.GetNetworkNodes(network)
+	networkNodes, err := logic.GetNetworkNodes(r.Context(), network)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of all nodes in network", network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -82,7 +82,7 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range networkNodes {
 		id := networkNodes[i].ID
-		metrics, err := proLogic.GetMetrics(id.String())
+		metrics, err := proLogic.GetMetrics(r.Context(), id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during network metrics fetch", err.Error())
 			continue
@@ -111,14 +111,14 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 
 	logger.Log(1, r.Header.Get("user"), "requested fetching external client metrics on network", network)
-	ingresses, err := proLogic.GetNetworkIngresses(network) // grab all the ingress gateways
+	ingresses, err := proLogic.GetNetworkIngresses(r.Context(), network) // grab all the ingress gateways
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of ext clients in network", network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	clients, err := logic.GetNetworkExtClients(network) // grab all the network ext clients
+	clients, err := logic.GetNetworkExtClients(r.Context(), network) // grab all the network ext clients
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			var metrics struct{}
@@ -136,7 +136,7 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range ingresses {
 		id := ingresses[i].ID
-		ingressMetrics, err := proLogic.GetMetrics(id.String())
+		ingressMetrics, err := proLogic.GetMetrics(r.Context(), id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append external client metrics from ingress node", id.String(), err.Error())
 			continue
@@ -172,7 +172,7 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	logger.Log(1, r.Header.Get("user"), "requested fetching all metrics")
 
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of all nodes on server", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -184,7 +184,7 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range allNodes {
 		id := allNodes[i].ID
-		metrics, err := proLogic.GetMetrics(id.String())
+		metrics, err := proLogic.GetMetrics(r.Context(), id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during all nodes metrics fetch", err.Error())
 			continue

@@ -16,6 +16,7 @@ type Organization struct {
 	ID        string    `gorm:"primaryKey"         json:"id"`
 	Name      string    `gorm:"not null"           json:"name"`
 	Slug      string    `gorm:"uniqueIndex;not null" json:"slug"`
+	Metadata  string    `json:"metadata"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -28,6 +29,7 @@ func (o *Organization) CreateDefault(ctx context.Context) error {
 	o.ID = uuid.NewString()
 	o.Name = defaultOrgSlug
 	o.Slug = defaultOrgSlug
+	o.Metadata = "Default Org"
 	return db.FromContext(ctx).Model(&Organization{}).Create(o).Error
 }
 
@@ -53,16 +55,23 @@ func (o *Organization) Create(ctx context.Context) error {
 }
 
 func (o *Organization) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Organization{}).
+	var result Organization
+	err := db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ? OR slug = ?", o.ID, o.Slug).
-		First(o).
+		First(&result).
 		Error
+	if err != nil {
+		return err
+	}
+
+	*o = result
+	return nil
 }
 
 func (o *Organization) GetDefault(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("slug = ?", defaultOrgSlug).
-		Find(o).
+		First(o).
 		Error
 }
 
@@ -81,8 +90,8 @@ func (o *Organization) Update(ctx context.Context) error {
 
 func (o *Organization) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
-		Where("id = ?", o.ID).
-		Delete(o).
+		Where("id = ? OR slug = ?", o.ID, o.Slug).
+		Delete(&Organization{}).
 		Error
 }
 

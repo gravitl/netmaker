@@ -39,10 +39,10 @@ import (
 
 func UserHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/oauth/login", proAuth.HandleAuthLogin).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/login", middleware.InferScope(http.HandlerFunc(proAuth.HandleAuthLogin))).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/callback", proAuth.HandleAuthCallback).Methods(http.MethodGet)
-	r.HandleFunc("/api/oauth/headless", proAuth.HandleHeadlessSSO)
-	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/headless", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.HandleHeadlessSSO)))
+	r.HandleFunc("/api/oauth/register/{regKey}", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.RegisterHostSSO))).Methods(http.MethodGet)
 
 	// User Role Handlers
 	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getRole)))).Methods(http.MethodGet)
@@ -66,15 +66,16 @@ func UserHandlers(r *mux.Router) {
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/invite", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/invites", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/validate-email", proAuth.ValidateEmail).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(inviteUsers)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUserInvites)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invites", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites)))).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users_pending", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users_pending", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users_pending", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser)))).Methods(http.MethodPost)
 
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW)))).Methods(http.MethodDelete)
@@ -101,7 +102,7 @@ func UserHandlers(r *mux.Router) {
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	in, err := logic.GetUserInvite(emailID)
+	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -109,13 +110,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	if code != in.InviteCode {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid invite code"), "badrequest"))
-		return
-	}
-	// check if user already exists
-	userCheck := &schema.User{Username: emailID}
-	err = userCheck.Get(r.Context())
-	if err == nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
 		return
 	}
 	var user schema.User
@@ -138,20 +132,30 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
-		user.PlatformRoleID = schema.ServiceUser
+		user.PlatformRoleID = proLogic.DefaultRoleForScope(in.Scope)
 	}
-	err = logic.CreateUser(&user)
+
+	ctx := scope.WithContext(r.Context(), in.Scope, in.ScopeID)
+	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(ctx, &user)
+	if err != nil {
+		logger.Log(0, user.Username, "error validating user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = user.UpsertMembership(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// delete invite
-	logic.DeleteUserInvite(emailID)
-	logic.DeletePendingUser(emailID)
+
+	_ = (&schema.UserInvite{
+		Email: emailID,
+	}).DeleteByEmail(r.Context())
+
+	_ = (&schema.PendingUser{
+		Username: emailID,
+	}).Delete(r.Context())
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	logic.ReturnSuccessResponse(w, r, "created user successfully "+emailID)
 }
@@ -167,12 +171,23 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
-	err := logic.ValidateAndApproveUserInvite(email, code)
+
+	invite := &schema.UserInvite{
+		InviteCode: code,
+	}
+	err := invite.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	if invite.Email != email {
+		err = fmt.Errorf("invalid invite")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	logic.ReturnSuccessResponse(w, r, "invite is valid")
 }
 
@@ -194,39 +209,61 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	orgScoped := scope.Level(r.Context()) == scope.OrgScope
+
+	if orgScoped {
+		if len(inviteReq.UserGroups) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user groups are not supported for organization scope"), "badrequest"))
+			return
+		}
+		if len(inviteReq.NetworkRoles) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network roles are not supported for organization scope"), "badrequest"))
+			return
+		}
+	}
+
 	callerUserName := r.Header.Get("user")
 	if r.Header.Get("ismaster") != "yes" {
 		caller := &schema.User{Username: callerUserName}
-		err = caller.Get(r.Context())
+		err = caller.GetWithMembership(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
-			return
-		}
-		if inviteReq.PlatformRoleID == schema.SuperAdminRole.String() {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
 			return
 		}
 		if inviteReq.PlatformRoleID == "" {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
 			return
 		}
-		if (inviteReq.PlatformRoleID == schema.AdminRole.String() ||
-			inviteReq.PlatformRoleID == schema.SuperAdminRole.String()) && caller.PlatformRoleID != schema.SuperAdminRole {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
-			return
+		if orgScoped {
+			if inviteReq.PlatformRoleID == schema.OrgOwner.String() {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("org owner cannot be invited"), "badrequest"))
+				return
+			}
+		} else {
+			if inviteReq.PlatformRoleID == schema.SuperAdminRole.String() {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
+				return
+			}
+			if (inviteReq.PlatformRoleID == schema.AdminRole.String() ||
+				inviteReq.PlatformRoleID == schema.SuperAdminRole.String()) && caller.PlatformRoleID != schema.SuperAdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
+				return
+			}
 		}
 	}
 
 	//validate Req
-	err = proLogic.IsGroupsValid(inviteReq.UserGroups)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	if !orgScoped {
+		err = proLogic.IsGroupsValid(r.Context(), inviteReq.UserGroups)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	// check platform role
@@ -234,6 +271,14 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	err = roleCheck.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	validRoles := orchestrator.ValidTenantRoles
+	if orgScoped {
+		validRoles = orchestrator.ValidOrgRoles
+	}
+	if !validRoles[roleCheck.ID] {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
 		return
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
@@ -244,14 +289,24 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		inviteeCheck := &schema.User{Username: inviteeEmail}
-		err = inviteeCheck.Get(r.Context())
+		err = inviteeCheck.GetWithMembership(r.Context())
 		if err == nil {
 			// user exists already, so ignore
 			continue
 		}
+
+		_, err = logic.GetUserInvite(r.Context(), inviteeEmail)
+		if err == nil {
+			// invite already exists, so ignore.
+			continue
+		}
+
 		invite := &schema.UserInvite{
+			Scope:          scope.Level(r.Context()),
+			ScopeID:        scope.ID(r.Context()),
 			InviteCode:     logic.RandomString(8),
 			Email:          inviteeEmail,
+			Type:           schema.MembershipInvite,
 			PlatformRoleID: inviteReq.PlatformRoleID,
 			UserGroups:     datatypes.NewJSONType(inviteReq.UserGroups),
 		}
@@ -274,14 +329,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		invite.InviteURL = u.String()
-		if invite.TenantID == "" {
-			invite.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-		}
 		err = invite.Create(r.Context())
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(r.Context(), &models.Event{
 			Action: schema.Create,
 			Source: models.Subject{
 				ID:   callerUserName,
@@ -346,13 +398,15 @@ func listUserInvites(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("invitee_email")
-	err := logic.DeleteUserInvite(email)
+	err := (&schema.UserInvite{
+		Email: email,
+	}).DeleteByEmail(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to delete user invite: ", email, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -389,7 +443,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -516,7 +570,7 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	group, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
+	group, err := proLogic.GetUserGroup(r.Context(), schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -556,7 +610,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateUserGroup(&userGroupReq.Group)
+
+	err = proLogic.CreateUserGroup(r.Context(), &userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -564,17 +619,22 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	for _, userID := range userGroupReq.Members {
 		user := &schema.User{Username: userID}
-		err = user.Get(r.Context())
+		err = user.GetWithMembership(r.Context())
 		if err != nil {
 			continue
 		}
-		if len(user.UserGroups.Data()) == 0 {
-			user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+		tm := &schema.TenantMembership{
+			TenantID: scope.ID(r.Context()),
+			UserID:   user.ID,
+			Groups:   user.UserGroups,
 		}
-		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
-		_ = logic.UpsertUser(*user)
+		if len(tm.Groups.Data()) == 0 {
+			tm.Groups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
+		}
+		tm.Groups.Data()[userGroupReq.Group.ID] = struct{}{}
+		_ = tm.UpdateGroups(r.Context())
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -589,7 +649,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -613,7 +674,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// fetch curr group
-	currUserG, err := proLogic.GetUserGroup(userGroup.ID)
+	currUserG, err := proLogic.GetUserGroup(r.Context(), userGroup.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -635,7 +696,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -656,10 +717,11 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 
-	go proLogic.EnsureDefaultUserGroupNetworkPolicies(&currUserG, &userGroup)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
-	go mq.PublishPeerUpdate(replacePeers)
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -724,20 +786,16 @@ func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
 		return
 	}
-	allUsers, err := logic.GetUsers()
+
+	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 	var networkUsers []models.ReturnUser
-	for _, user := range allUsers {
-		schemaUser := &schema.User{
-			Username:       user.UserName,
-			PlatformRoleID: user.PlatformRoleID,
-			UserGroups:     datatypes.NewJSONType(user.UserGroups),
-		}
-		if logic.UserHasNetworkGroupAccess(schemaUser, network) {
-			networkUsers = append(networkUsers, user)
+	for _, _user := range _users {
+		if logic.UserHasNetworkGroupAccess(r.Context(), &_user, network) {
+			networkUsers = append(networkUsers, logic.ToReturnUser(&_user))
 		}
 	}
 	if networkUsers == nil {
@@ -761,14 +819,14 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var unassignedUsers []models.ReturnUser
-	users, _ := logic.GetUsers()
-	for _, user := range users {
-		if user.PlatformRoleID != schema.ServiceUser {
+	_users, _ := (&schema.User{}).ListAllWithMembership(r.Context())
+	for _, _user := range _users {
+		if _user.PlatformRoleID != schema.ServiceUser {
 			continue
 		}
 		skipUser := false
-		for userGID := range user.UserGroups {
-			userG, err := proLogic.GetUserGroup(userGID)
+		for userGID := range _user.UserGroups.Data() {
+			userG, err := proLogic.GetUserGroup(r.Context(), userGID)
 			if err != nil {
 				continue
 			}
@@ -780,7 +838,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 		if skipUser {
 			continue
 		}
-		unassignedUsers = append(unassignedUsers, user)
+		unassignedUsers = append(unassignedUsers, logic.ToReturnUser(&_user))
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, unassignedUsers, "returned unassigned network service users")
 }
@@ -806,19 +864,32 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != schema.ServiceUser {
+
+	tm := &schema.TenantMembership{
+		TenantID: scope.ID(r.Context()),
+		UserID:   user.ID,
+	}
+	err = tm.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if tm.RoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
+
 	oldUser := *user
-	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
-	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	tm.Groups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
+	user.UserGroups = tm.Groups
+	_ = tm.Upsert(r.Context())
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -832,8 +903,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(&oldUser),
-			New: logic.ToUserEventLog(user),
+			Old: logic.ToUserEventLog(r.Context(), &oldUser),
+			New: logic.ToUserEventLog(r.Context(), user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -862,19 +933,31 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if user.PlatformRoleID != schema.ServiceUser {
+
+	tm := &schema.TenantMembership{
+		TenantID: scope.ID(r.Context()),
+		UserID:   user.ID,
+	}
+	err = tm.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if tm.RoleID != schema.ServiceUser {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
 		return
 	}
 	oldUser := *user
+	delete(tm.Groups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
 	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
-	logic.UpsertUser(*user)
-	logic.LogEvent(&models.Event{
+	_ = tm.Upsert(r.Context())
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -888,8 +971,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: schema.UserSub,
 		},
 		Diff: models.Diff{
-			Old: logic.ToUserEventLog(&oldUser),
-			New: logic.ToUserEventLog(user),
+			Old: logic.ToUserEventLog(r.Context(), &oldUser),
+			New: logic.ToUserEventLog(r.Context(), user),
 		},
 		Origin: schema.Dashboard,
 	})
@@ -913,7 +996,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
-	userG, err := proLogic.GetUserGroup(schema.UserGroupID(gid))
+	userG, err := proLogic.GetUserGroup(r.Context(), schema.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
@@ -929,7 +1012,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -967,7 +1050,9 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 	if platform == "true" {
 		roles, err = (&schema.UserRole{}).ListPlatformRoles(r.Context())
 	} else {
-		roles, err = (&schema.UserRole{}).ListNetworkRoles(r.Context())
+		tenantID := r.Header.Get(scope.HeaderTenantID)
+		ctx := scope.WithContext(r.Context(), scope.TenantScope, tenantID)
+		roles, err = (&schema.UserRole{}).ListNetworkRoles(ctx)
 	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
@@ -1037,7 +1122,7 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1091,7 +1176,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1111,7 +1196,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
@@ -1137,12 +1223,12 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteRole(schema.UserRoleID(rid), false)
+	err = proLogic.DeleteRole(r.Context(), schema.UserRoleID(rid), false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -1161,7 +1247,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -1195,7 +1282,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		slog.Error("failed to fetch user: ", "username", username, "error", err.Error())
 		logic.ReturnErrorResponse(
@@ -1229,7 +1316,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if logic.UserHasNetworkGroupAccess(user, node.Network) {
+	if logic.UserHasNetworkGroupAccess(r.Context(), user, node.Network) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already has access to this network's gateways"), "badrequest"))
 		return
 	}
@@ -1280,7 +1367,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(
@@ -1293,26 +1380,27 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	go func(user *schema.User, remoteGwID string) {
-		extclients, err := logic.GetAllExtClients()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, user *schema.User, remoteGwID string) {
+		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
 			}
 		}
-	}(user, remoteGwID)
+	}(ctx, user, remoteGwID)
 
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -1335,7 +1423,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1344,7 +1432,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	var networks []schema.Network
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		network := &schema.Network{Name: node.Network}
 		err := network.Get(r.Context())
@@ -1369,7 +1457,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1382,7 +1470,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -1416,7 +1504,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1435,7 +1523,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1459,7 +1547,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get node network", "error", err)
 	}
 	var userConf models.ExtClient
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1470,7 +1558,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 			userConf = extClient
-			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extClient)
 		}
 	}
 	if userConf.ClientID == "" {
@@ -1516,7 +1604,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if userConf.ClientID == "" {
-			userConf.ClientID, err = logic.GenerateNodeName(userConf.Network)
+			userConf.ClientID, err = logic.GenerateNodeName(r.Context(), userConf.Network)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -1581,7 +1669,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userConf.LastModified = time.Now().Unix()
-		err = logic.SaveExtClient(&userConf)
+		err = logic.SaveExtClient(r.Context(), &userConf)
 		// Reservations are freed regardless of outcome: on success the DB is authoritative,
 		// on failure the IPs must be available for reallocation.
 		if reservedIPv4 != "" {
@@ -1646,7 +1734,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1672,12 +1760,12 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		req.RemoteAccessClientID = remoteAccessClientID
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
-	allextClients, err := logic.GetAllExtClients()
+	allextClients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(user)
+	userGwNodes := proLogic.GetUserRAGNodes(r.Context(), user)
 
 	userExtClients := make(map[string][]models.ExtClient)
 
@@ -1763,7 +1851,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				host.EndpointIPv6,
 				logic.GetPeerListenPort(host),
 			)
-			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), gwClient)
 		}
 
 		gw := models.UserRemoteGws{
@@ -1783,7 +1871,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		hNs := logic.GetNameserversForNode(&node)
+		hNs := logic.GetNameserversForNode(r.Context(), &node)
 		for _, nsI := range hNs {
 			if nsI.IsFallback {
 				// skip fallback nameservers for user remote access gws.
@@ -1795,7 +1883,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
@@ -1841,7 +1929,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		hNs := logic.GetNameserversForNode(&node)
+		hNs := logic.GetNameserversForNode(r.Context(), &node)
 		for _, nsI := range hNs {
 			if nsI.IsFallback {
 				// skip fallback nameservers for user remote access gws.
@@ -1853,7 +1941,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
-		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, schema.NetworkID(node.Network))...)
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(r.Context(), user, schema.NetworkID(node.Network))...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
@@ -1922,7 +2010,7 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(r.Context())
 	if err != nil {
 		slog.Error(
 			"failed to get users on ingress gateway",
@@ -1943,7 +2031,7 @@ func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			user := &schema.User{Username: extclient.OwnerID}
-			err = user.Get(r.Context())
+			err = user.GetWithMembership(r.Context())
 			if err != nil {
 				continue
 			}
@@ -2041,22 +2129,31 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 		return
 	}
-	if err = logic.CreateUser(&schema.User{
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &schema.User{
 		Username:                   pendingUser.Username,
 		ExternalIdentityProviderID: pendingUser.ExternalIdentityProviderID,
 		Password:                   newPass,
 		AuthType:                   schema.OAuth,
-		PlatformRoleID:             schema.ServiceUser,
-	}); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
+		PlatformRoleID:             proLogic.DefaultRoleForScope(scope.Level(r.Context())),
+	})
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %w", err), errType))
 		return
 	}
-	err = logic.DeletePendingUser(username)
+
+	err = (&schema.PendingUser{
+		Username: username,
+	}).Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2111,7 +2208,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2149,7 +2246,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.DeleteAll,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -2175,16 +2272,17 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsMasterPod() {
-		go func() {
-			err := proAuth.SyncFromIDP()
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}()
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
-		logic.PublishServerSync(logic.SyncTypeIDPSync)
+		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
@@ -2220,7 +2318,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 	case "azure-ad":
 		secret := req.ClientSecret
 		if secret == logic.Mask() {
-			secret = logic.GetServerSettings().ClientSecret
+			secret = logic.GetServerSettings(r.Context()).ClientSecret
 		}
 		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
@@ -2251,7 +2349,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.IDPSyncStatus
 func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
+	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(r.Context()), "idp sync status retrieved")
 }
 
 // @Summary     Remove IDP integration
@@ -2263,7 +2361,7 @@ func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
-	superAdmin, err := logic.GetSuperAdmin()
+	superAdmin, err := logic.GetSuperAdmin(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -2281,7 +2379,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(r.Context())
 	settings.AuthProvider = ""
 	settings.OIDCIssuer = ""
 	settings.ClientID = ""
@@ -2296,7 +2394,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	settings.GroupFilters = nil
 	settings.IDPSyncInterval = ""
 
-	err = logic.UpsertServerSettings(settings)
+	err = logic.UpsertServerSettings(r.Context(), settings)
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -2306,20 +2404,21 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proAuth.ResetAuthProvider()
-	proAuth.ResetIDPSyncHook()
+	proAuth.ResetAuthProvider(r.Context())
+	proAuth.ResetIDPSyncHook(r.Context())
 
 	if servercfg.IsMasterPod() {
-		go func() {
-			err := proAuth.SyncFromIDP()
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			err := proAuth.SyncFromIDP(ctx)
 			if err != nil {
 				logger.Log(0, "failed to sync from idp: ", err.Error())
 			} else {
 				logger.Log(0, "sync from idp complete")
 			}
-		}()
+		}(ctx)
 	} else if servercfg.IsHA() && logic.PublishServerSync != nil {
-		logic.PublishServerSync(logic.SyncTypeIDPSync)
+		logic.PublishServerSync(r.Context(), logic.SyncTypeIDPSync)
 	}
 
 	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -38,26 +37,6 @@ func serverHandlers(r *mux.Router) {
 			resp.Write([]byte("Server is up and running!!"))
 		},
 	).Methods(http.MethodGet)
-	r.HandleFunc(
-		"/api/server/shutdown", logic.SecurityCheck(true,
-			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("ismaster") != "yes" {
-					caller := &schema.User{
-						Username: r.Header.Get("user"),
-					}
-					err := caller.Get(r.Context())
-					if err != nil || caller.PlatformRoleID != schema.SuperAdminRole {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only a super-admin can shut down the server"), "forbidden"))
-						return
-					}
-				}
-				msg := "received api call to shutdown server, sending interruption..."
-				slog.Warn(msg)
-				_, _ = w.Write([]byte(msg))
-				w.WriteHeader(http.StatusOK)
-				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-			})),
-	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
@@ -73,7 +52,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(memProfile)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/feature_flags", middleware.Scope(scope.TenantScope, http.HandlerFunc(getFeatureFlags))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/onboarding", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getOnboarding)))).Methods(http.MethodGet)
 }
 
@@ -94,11 +73,11 @@ func memProfile(w http.ResponseWriter, r *http.Request) {
 	logic.StartMemProfiling()
 }
 
-func getUsage(w http.ResponseWriter, _ *http.Request) {
+func getUsage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
-		Response: logic.GetCurrentServerUsage(),
+		Response: logic.GetCurrentServerUsage(r.Context()),
 	})
 }
 
@@ -109,6 +88,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 // @Success     200 {object} object "Server status"
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
+		IsMSP            bool      `json:"is_msp"`
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
 		IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
@@ -121,8 +101,9 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	licenseErr := ""
-	if servercfg.ErrLicenseValidation != nil {
-		licenseErr = servercfg.ErrLicenseValidation.Error()
+	// todo(nm-341): get status is public/global api. r.Context() doesn't have a tenant.
+	if err := servercfg.ErrLicenseValidation(r.Context()); err != nil {
+		licenseErr = err.Error()
 	}
 	//var trialEndDate time.Time
 	//var err error
@@ -147,6 +128,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currentServerStatus := status{
+		IsMSP:            logic.IsMSP(r.Context()),
 		DB:               isDBConnected,
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
@@ -177,7 +159,7 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 		} else {
 			authToken = tokenSplit[1]
 		}
-		user, _, _, err := logic.VerifyUserToken(authToken)
+		user, _, _, err := logic.VerifyUserToken(r.Context(), authToken)
 		if err != nil || user == "" {
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
@@ -198,7 +180,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	json.NewEncoder(w).Encode(logic.GetServerInfo())
+	json.NewEncoder(w).Encode(logic.GetServerInfo(r.Context()))
 	// w.WriteHeader(http.StatusOK)
 }
 
@@ -214,7 +196,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := logic.GetServerConfig()
+	scfg := logic.GetServerConfig(r.Context())
 	scfg.IsPro = "no"
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"
@@ -233,15 +215,15 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
-	scfg := logic.GetServerSettings()
+	scfg := logic.GetServerSettings(r.Context())
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
 	}
-	if scfg.EmailSenderPassword != "" {
-		scfg.EmailSenderPassword = logic.Mask()
-	}
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
+	}
+	if scfg.EmailSenderPassword != "" {
+		scfg.EmailSenderPassword = logic.Mask()
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
@@ -264,14 +246,14 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNewSettings(req); err != nil {
+	if err := logic.ValidateNewSettings(r.Context(), req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
-	currSettings := logic.GetServerSettings()
+	currSettings := logic.GetServerSettings(r.Context())
 
 	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
-		superAdmin, err := logic.GetSuperAdmin()
+		superAdmin, err := logic.GetSuperAdmin(r.Context())
 		if err != nil {
 			err = fmt.Errorf("failed to get super admin: %v", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -302,7 +284,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := logic.UpsertServerSettings(req)
+	err := logic.UpsertServerSettings(r.Context(), req)
 	if err != nil {
 		if req.EnableFlowLogs {
 			logic.StopFlowCleanupLoop()
@@ -311,7 +293,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: identifySettingsUpdateAction(currSettings, req),
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -330,25 +312,22 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	go reInit(currSettings, req, force == "true")
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go reInit(ctx, currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
 
-func reInit(curr, new models.ServerSettings, force bool) {
+func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
-	logic.ResetAuthProvider()
-	logic.EmailInit()
-	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
-	logic.ResetIDPSyncHook()
+	logic.ResetAuthProvider(ctx)
+	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
+	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
-		logic.GetMetricsMonitor().Stop()
-		logic.GetMetricsMonitor().Start()
-		logic.NotifyMetricExportIntervalChanged()
-	}
-
-	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		go mq.PublishExporterFeatureFlags()
+		logic.GetMetricsMonitor(ctx).Stop()
+		logic.GetMetricsMonitor(ctx).Start()
+		logic.NotifyMetricExportIntervalChanged(ctx)
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
@@ -358,7 +337,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
-			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+			hosts, _ := (&schema.Host{}).ListAll(ctx)
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
 					host.AutoUpdate = new.NetclientAutoUpdate
@@ -366,8 +345,8 @@ func reInit(curr, new models.ServerSettings, force bool) {
 				if curr.EnableFlowLogs != new.EnableFlowLogs {
 					host.EnableFlowLogs = new.EnableFlowLogs
 				}
-				logic.UpsertHost(&host)
-				mq.HostUpdate(&models.HostUpdate{
+				_ = host.Upsert(ctx)
+				_ = mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
 					Host:   host,
 				})
@@ -375,9 +354,9 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		}
 	}
 	if new.CleanUpInterval != curr.CleanUpInterval {
-		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
+		logic.RestartHook(logic.GetTenantNetworkHookID(ctx), time.Duration(new.CleanUpInterval)*time.Minute)
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action {
@@ -438,14 +417,6 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 		return schema.UpdateMonitoringAndDebuggingSettings
 	}
 
-	if old.EmailSenderAddr != new.EmailSenderAddr ||
-		old.EmailSenderUser != new.EmailSenderUser ||
-		old.EmailSenderPassword != new.EmailSenderPassword ||
-		old.SmtpHost != new.SmtpHost ||
-		old.SmtpPort != new.SmtpPort {
-		return schema.UpdateSMTPSettings
-	}
-
 	if old.AuthProvider != new.AuthProvider ||
 		old.OIDCIssuer != new.OIDCIssuer ||
 		old.ClientID != new.ClientID ||
@@ -469,7 +440,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 // @Produce     json
 // @Success     200 {object} models.FeatureFlags
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(r.Context()), "")
 }
 
 // @Summary     Get onboarding status for the UI
@@ -483,7 +454,7 @@ func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 func getOnboarding(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	username, err := logic.GetUserNameFromToken(r.Header.Get("Authorization"))
+	username, err := logic.GetUserNameFromToken(r.Context(), r.Header.Get("Authorization"))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return

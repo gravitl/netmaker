@@ -108,6 +108,7 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host {
 	h := schema.Host{}
 	h.ID = currentHost.ID
+	h.TenantID = currentHost.TenantID
 	h.HostPass = currentHost.HostPass
 	h.DaemonInstalled = currentHost.DaemonInstalled
 	if len(a.EndpointIP) == 0 || strings.Contains(a.EndpointIP, "nil") {

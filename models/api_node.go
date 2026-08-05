@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
@@ -21,6 +22,7 @@ type ApiNodeStatus struct {
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
 	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	TenantID           string            `json:"tenant_id"`
 	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
 	Address            string            `json:"address" validate:"omitempty,cidrv4"`
 	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
@@ -88,6 +90,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Action = currentNode.Action
 	convertedNode.Connected = a.Connected
 	convertedNode.ID, _ = uuid.Parse(a.ID)
+	convertedNode.TenantID = currentNode.TenantID
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	//convertedNode.IsRelay = a.IsRelay
 	if a.RelayedBy != "" && !a.IsRelayed {
@@ -112,10 +115,11 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.OwnerID = currentNode.OwnerID
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 	network := &schema.Network{
 		Name: a.Network,
 	}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err == nil {
 		_, networkRange, err := net.ParseCIDR(network.AddressRange)
 		if err == nil {
@@ -194,6 +198,7 @@ func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
 func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode := ApiNode{}
 	apiNode.ID = nm.ID.String()
+	apiNode.TenantID = nm.TenantID
 	apiNode.HostID = nm.HostID.String()
 	apiNode.Address = nm.Address.String()
 	if isEmptyAddr(apiNode.Address) {

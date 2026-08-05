@@ -71,11 +71,11 @@ func TestCheckPorts(t *testing.T) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	RemoveHost(&h, true)
-	CreateHost(&h)
+	RemoveHost(db.WithContext(context.TODO()), &h, true)
+	CreateHost(db.WithContext(context.TODO()), &h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
-		CheckHostPorts(&testHost)
+		CheckHostPorts(db.WithContext(context.TODO()), &testHost)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51830)
@@ -83,7 +83,7 @@ func TestCheckPorts(t *testing.T) {
 	t.Run("same listen port", func(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = 51821
-		CheckHostPorts(&testHost)
+		CheckHostPorts(db.WithContext(context.TODO()), &testHost)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51822)

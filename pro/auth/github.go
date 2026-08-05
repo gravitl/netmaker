@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/orchestrator"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -22,48 +22,50 @@ import (
 	"gorm.io/gorm"
 )
 
-var github_functions = map[string]interface{}{
-	init_provider:   initGithub,
-	get_user_info:   getGithubUserInfo,
-	handle_callback: handleGithubCallback,
-	handle_login:    handleGithubLogin,
-	verify_user:     verifyGithubUser,
+// GitHubProvider implements Provider for GitHub OAuth2.
+type GitHubProvider struct {
+	cfg *oauth2.Config
 }
 
-// == handle github authentication here ==
-
-func initGithub(redirectURL string, clientID string, clientSecret string) {
-	auth_provider = &oauth2.Config{
-		RedirectURL:  redirectURL,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Scopes:       []string{"read:user", "user:email"},
-		Endpoint:     github.Endpoint,
+// NewGitHubProvider constructs a GitHubProvider for the given OAuth2 credentials.
+func NewGitHubProvider(redirectURL, clientID, clientSecret string) *GitHubProvider {
+	return &GitHubProvider{
+		cfg: &oauth2.Config{
+			RedirectURL:  redirectURL,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Scopes:       []string{"read:user", "user:email"},
+			Endpoint:     github.Endpoint,
+		},
 	}
 }
 
-func handleGithubLogin(w http.ResponseWriter, r *http.Request) {
+func (p *GitHubProvider) Name() string {
+	return github_provider_name
+}
+
+func (p *GitHubProvider) Config() *oauth2.Config {
+	return p.cfg
+}
+
+func (p *GitHubProvider) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	appName := r.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
 	}
 
-	var oauth_state_string = logic.RandomString(user_signin_length)
-	if auth_provider == nil {
-		handleOauthNotConfigured(w)
+	oauthState := logic.RandomString(user_signin_length)
+	err := logic.SetState(scope.Level(r.Context()), scope.ID(r.Context()), appName, oauthState)
+	if err != nil {
+		handleSomethingWentWrong(w)
 		return
 	}
 
-	if err := logic.SetState(appName, oauth_state_string); err != nil {
-		handleOauthNotConfigured(w)
-		return
-	}
-
-	var url = auth_provider.AuthCodeURL(oauth_state_string)
+	url := p.cfg.AuthCodeURL(oauthState)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
+func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	var rState, rCode = getStateAndCode(r)
 
 	state, err := logic.GetState(rState)
@@ -72,7 +74,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := getGithubUserInfo(rState, rCode)
+	content, err := p.GetUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from github:", err.Error())
 		if strings.Contains(err.Error(), "invalid oauth state") || strings.Contains(err.Error(), "failed to fetch user email from SSO state") {
@@ -82,67 +84,73 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+
 	var inviteExists bool
-	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.Email)
+	in, err := logic.GetUserInvite(r.Context(), content.Email)
 	if err == nil {
 		inviteExists = true
 	}
-	// check if user approval is already pending
-	if !inviteExists && logic.IsPendingUser(content.Email) {
+	if !inviteExists && logic.IsPendingUser(r.Context(), content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	// if user exists with provider ID, convert them into email ID
+
+	// if user exists with provider login ID, migrate them to email-based username
 	user := &schema.User{Username: content.Login}
 	err = user.Get(r.Context())
 	if err == nil {
-		// if user exists, then ensure user's auth type is
-		// oauth before proceeding.
 		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
 			handleAuthTypeMismatch(w)
 			return
 		}
-
-		// checks if user exists with email
 		emailCheck := &schema.User{Username: content.Email}
 		err = emailCheck.Get(r.Context())
 		if err != nil {
 			user.Username = content.Email
 			user.ExternalIdentityProviderID = content.Login
-			_ = user.Update(db.WithContext(context.TODO()))
+			user.EmailValidated = true
+			_ = user.Update(r.Context())
 		}
 	}
+
 	emailCheck := &schema.User{Username: content.Email}
 	err = emailCheck.Get(r.Context())
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
-				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
 				if err != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
 				user.ExternalIdentityProviderID = string(content.ID)
-				if err = logic.CreateUser(&user); err != nil {
+				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+				if err != nil {
+					if errors.Is(err, logic.ErrUserLimitExceeded) {
+						handleUserLimitExceeded(w)
+						return
+					}
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(content.Email)
-				logic.DeletePendingUser(content.Email)
+				_ = (&schema.UserInvite{
+					Email: content.Email,
+				}).DeleteByEmail(r.Context())
+
+				_ = (&schema.PendingUser{
+					Username: content.Email,
+				}).Delete(r.Context())
 			} else {
-				if !isEmailAllowed(content.Email) {
+				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				pendingUser := &schema.PendingUser{
+					Scope:                      scope.Level(r.Context()),
+					ScopeID:                    scope.ID(r.Context()),
 					Username:                   content.Email,
 					ExternalIdentityProviderID: string(content.ID),
-				}
-				if pendingUser.TenantID == "" {
-					pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 				}
 				err = pendingUser.Create(r.Context())
 				if err != nil {
@@ -157,6 +165,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	user = &schema.User{Username: content.Email}
 	err = user.Get(r.Context())
 	if err != nil {
@@ -179,22 +188,22 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = logic.FetchOAuthSecret()
+
+	newPass, fetchErr := logic.FetchOAuthSecret()
 	if fetchErr != nil {
 		return
 	}
-	// send a netmaker jwt token
-	var authRequest = models.UserAuthParams{
+	authRequest := models.UserAuthParams{
 		UserName: content.Email,
 		Password: newPass,
 	}
-
-	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest, state.AppName)
+	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
-	logic.LogEvent(&models.Event{
+
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -210,34 +219,32 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	logger.Log(1, "completed github OAuth sigin in for", content.Email)
+	logger.Log(1, "completed github OAuth signin for", content.Email)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
-func getGithubUserInfo(state, code string) (*OAuthUser, error) {
+func (p *GitHubProvider) GetUserInfo(state, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	var token, err = auth_provider.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
+	token, err := p.cfg.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
 	if !token.Valid() {
 		return nil, fmt.Errorf("GitHub code exchange yielded invalid token")
 	}
-	var data []byte
-	data, err = json.Marshal(token)
+	data, err := json.Marshal(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	var httpClient = &http.Client{}
-	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user", nil)
+	httpReq, reqErr := http.NewRequest("GET", "https://api.github.com/user", nil)
 	if reqErr != nil {
 		return nil, fmt.Errorf("failed to create request to GitHub")
 	}
 	httpReq.Header.Set("Authorization", "token "+token.AccessToken)
-	response, err := httpClient.Do(httpReq)
+	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -246,13 +253,12 @@ func getGithubUserInfo(state, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	var userInfo = &OAuthUser{}
+	userInfo := &OAuthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
 	userInfo.AccessToken = string(data)
 	if userInfo.Email == "" {
-		// if user's email is not made public, get the info from the github emails api
 		logger.Log(2, "fetching user email from github api")
 		userInfo.Email, err = getGithubEmailsInfo(token.AccessToken)
 		if err != nil {
@@ -260,26 +266,19 @@ func getGithubUserInfo(state, code string) (*OAuthUser, error) {
 		}
 	}
 	if userInfo.Email == "" {
-		err = errors.New("failed to fetch user email from SSO state")
-		return userInfo, err
+		return userInfo, errors.New("failed to fetch user email from SSO state")
 	}
 	return userInfo, nil
 }
 
-func verifyGithubUser(token *oauth2.Token) bool {
-	return token.Valid()
-}
-
 func getGithubEmailsInfo(accessToken string) (string, error) {
-
-	var httpClient = &http.Client{}
-	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user/emails", nil)
+	httpReq, reqErr := http.NewRequest("GET", "https://api.github.com/user/emails", nil)
 	if reqErr != nil {
 		return "", fmt.Errorf("failed to create request to GitHub")
 	}
 	httpReq.Header.Add("Accept", "application/vnd.github.v3+json")
 	httpReq.Header.Set("Authorization", "token "+accessToken)
-	response, err := httpClient.Do(httpReq)
+	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -288,10 +287,8 @@ func getGithubEmailsInfo(accessToken string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-
-	emailsInfo := []interface{}{}
-	err = json.Unmarshal(contents, &emailsInfo)
-	if err != nil {
+	var emailsInfo []interface{}
+	if err = json.Unmarshal(contents, &emailsInfo); err != nil {
 		return "", err
 	}
 	for _, info := range emailsInfo {
@@ -299,7 +296,6 @@ func getGithubEmailsInfo(accessToken string) (string, error) {
 		if emailInfoMap["primary"].(bool) {
 			return emailInfoMap["email"].(string), nil
 		}
-
 	}
 	return "", errors.New("email not found")
 }

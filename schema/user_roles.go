@@ -17,8 +17,8 @@ const (
 	Auditor        UserRoleID = "auditor"
 	NetworkAdmin   UserRoleID = "network-admin"
 	NetworkUser    UserRoleID = "network-user"
-	OrgOwner       UserRoleID = "org_owner"
-	OrgAdmin       UserRoleID = "org_admin"
+	OrgOwner       UserRoleID = "org-owner"
+	OrgAdmin       UserRoleID = "org-admin"
 )
 
 func (r UserRoleID) String() string {
@@ -119,7 +119,8 @@ type UserRole struct {
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`
 	DenyDashboardAccess bool                               `json:"deny_dashboard_access"`
-	FullAccess          bool                               `json:"full_access"`
+	OrgGlobalAccess     bool                               `json:"org_global_access"`
+	TenantGlobalAccess  bool                               `json:"tenant_global_access"`
 	NetworkID           NetworkID                          `json:"network_id"`
 	NetworkLevelAccess  datatypes.JSONType[ResourceAccess] `json:"network_level_access"`
 	GlobalLevelAccess   datatypes.JSONType[ResourceAccess] `json:"global_level_access"`
@@ -189,5 +190,15 @@ func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserRole{}).
 		Where("network_id <> '' AND network_id = ?", u.NetworkID).
 		Delete(u).
+		Error
+}
+
+func (u *UserRole) DeleteAllForNetworks(ctx context.Context, networkIDs []string) error {
+	if len(networkIDs) == 0 {
+		return nil
+	}
+	return db.FromContext(ctx).Model(&UserRole{}).
+		Where("network_id IN ?", networkIDs).
+		Delete(&UserRole{}).
 		Error
 }

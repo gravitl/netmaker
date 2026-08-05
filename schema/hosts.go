@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
 )
@@ -173,8 +174,10 @@ type Host struct {
 	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
+const hostsTable = "hosts_v1"
+
 func (h *Host) TableName() string {
-	return "hosts_v1"
+	return hostsTable
 }
 
 func (h *Host) Create(ctx context.Context) error {
@@ -192,6 +195,10 @@ func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	var count int64
 	query := db.FromContext(ctx).Model(&Host{})
 
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
+	}
+
 	for _, option := range options {
 		query = option(query)
 	}
@@ -203,6 +210,10 @@ func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, error) {
 	var hosts []Host
 	query := db.FromContext(ctx).Model(&Host{})
+
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
+	}
 
 	for _, option := range options {
 		query = option(query)
@@ -224,5 +235,8 @@ func (h *Host) Delete(ctx context.Context) error {
 }
 
 func (h *Host) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM hosts_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM hosts_v1").Error
 }

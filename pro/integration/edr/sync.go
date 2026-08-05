@@ -26,7 +26,7 @@ func RunEDRSync(ctx context.Context) error {
 	if intg == nil {
 		return nil
 	}
-	sync, err := ParseSyncSettings(intg.ID, json.RawMessage(intg.Config))
+	sync, err := ParseSyncSettings(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 	syncMu.Lock()
 	defer syncMu.Unlock()
 
-	sync, err := ParseSyncSettings(intg.ID, json.RawMessage(intg.Config))
+	sync, err := ParseSyncSettings(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 		return nil
 	}
 
-	p, err := Build(intg.ID, json.RawMessage(intg.Config))
+	p, err := Build(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		logger.Log(0, "edr sync: build provider:", err.Error())
 		return err
@@ -90,14 +90,14 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 
 	matched := 0
 	for i := range hosts {
-		if !hostEligibleForEDR(intg.ID, hosts[i]) {
-			if err := clearHostEDRState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+		if !hostEligibleForEDR(intg.Provider, hosts[i]) {
+			if err := clearHostEDRState(ctx, intg.Provider, hosts[i].ID.String()); err != nil {
 				logger.Log(0, "edr sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
 			}
 			continue
 		}
 		if hasHostLookup {
-			ok, err := upsertHostEDRFromHostLookup(ctx, intg.ID, hostLookup, hosts[i])
+			ok, err := upsertHostEDRFromHostLookup(ctx, intg.Provider, hostLookup, hosts[i])
 			if err != nil {
 				logger.Log(0, "edr sync: host lookup for host", hosts[i].ID.String(), ":", err.Error())
 				continue
@@ -108,7 +108,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			continue
 		}
 		if hasSerialLookup && strings.TrimSpace(hosts[i].SerialNumber) != "" {
-			ok, err := upsertHostEDRFromSerialLookup(ctx, intg.ID, serialLookup, hosts[i])
+			ok, err := upsertHostEDRFromSerialLookup(ctx, intg.Provider, serialLookup, hosts[i])
 			if err != nil {
 				logger.Log(0, "edr sync: serial lookup for host", hosts[i].ID.String(), ":", err.Error())
 				continue
@@ -128,11 +128,11 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 		}
 		found := false
 		for _, ep := range endpoints {
-			matchedBy, ok := MatchHostToEndpoint(intg.ID, hosts[i], ep)
+			matchedBy, ok := MatchHostToEndpoint(intg.Provider, hosts[i], ep)
 			if !ok {
 				continue
 			}
-			if err := upsertHostEDRFromEndpoint(ctx, intg.ID, hosts[i], ep, matchedBy); err != nil {
+			if err := upsertHostEDRFromEndpoint(ctx, intg.Provider, hosts[i], ep, matchedBy); err != nil {
 				logger.Log(0, "edr sync: upsert state for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
@@ -141,7 +141,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			break
 		}
 		if !found {
-			if err := upsertUnmatchedHostEDRState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+			if err := upsertUnmatchedHostEDRState(ctx, intg.Provider, hosts[i]); err != nil {
 				logger.Log(0, "edr sync: unmatched state for host", hosts[i].ID.String(), ":", err.Error())
 			}
 		}
@@ -200,10 +200,11 @@ func normalizeGUID(id string) string {
 	return id
 }
 
-func upsertUnmatchedHostEDRState(ctx context.Context, providerID, hostID string) error {
+func upsertUnmatchedHostEDRState(ctx context.Context, providerID string, h schema.Host) error {
 	state := schema.DeviceEDRState{
-		HostID:       hostID,
-		Provider:     providerID,
+		HostID:         h.ID.String(),
+		TenantID:       h.TenantID,
+		Provider:       providerID,
 		AgentInstalled: false,
 		AgentHealthy:   false,
 		RiskLevel:      string(RiskCritical),

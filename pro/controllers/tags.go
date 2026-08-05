@@ -55,7 +55,7 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	tags, err := proLogic.ListTagsWithNodes(schema.NetworkID(netID))
+	tags, err := proLogic.ListTagsWithNodes(r.Context(), schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -107,7 +107,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		ColorCode: req.ColorCode,
 		CreatedAt: time.Now().UTC(),
 	}
-	_, err = proLogic.GetTag(tag.ID)
+	_, err = proLogic.GetTag(r.Context(), tag.ID)
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("tag with id %s exists already", tag.TagName), "badrequest"))
 		return
@@ -118,22 +118,23 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.InsertTag(tag)
+	err = proLogic.InsertTag(r.Context(), tag)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		nodeIDs := make([]interface{}, 0)
 		for _, node := range req.TaggedNodes {
 			if node.IsStatic {
-				extclient, err := logic.GetExtClient(node.StaticNode.ClientID, node.StaticNode.Network)
+				extclient, err := logic.GetExtClient(ctx, node.StaticNode.ClientID, node.StaticNode.Network)
 				if err == nil && extclient.RemoteAccessClientID == "" {
 					if extclient.Tags == nil {
 						extclient.Tags = make(map[models.TagID]struct{})
 					}
 					extclient.Tags[tag.ID] = struct{}{}
-					logic.SaveExtClient(&extclient)
+					logic.SaveExtClient(ctx, &extclient)
 				}
 				continue
 			}
@@ -146,7 +147,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 
 		if len(nodeIDs) > 0 {
 			err = (&schema.Node{}).AssignTag(
-				db.WithContext(context.TODO()),
+				ctx,
 				tag.ID.String(),
 				dbtypes.WithFilter("network_id", network.ID),
 				dbtypes.WithFilter("id", nodeIDs...),
@@ -155,8 +156,8 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, fmt.Sprintf("failed to assign tag %s to nodes: %v", tag.TagName, err.Error()))
 			}
 		}
-	}()
-	logic.LogEvent(&models.Event{
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -172,7 +173,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		NetworkID: tag.Network,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(ctx, false)
 
 	var res models.TagListRespNodes = models.TagListRespNodes{
 		Tag:         tag,
@@ -202,7 +203,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := proLogic.GetTag(updateTag.ID)
+	tag, err := proLogic.GetTag(r.Context(), updateTag.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -238,31 +239,32 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
 		tag.ID = newID
 		tag.TagName = updateTag.NewName
-		err = proLogic.InsertTag(tag)
+		err = proLogic.InsertTag(r.Context(), tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 		// delete old Tag entry
-		proLogic.DeleteTag(updateTag.ID, false)
+		proLogic.DeleteTag(r.Context(), updateTag.ID, false)
 	}
 	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
 		tag.ColorCode = updateTag.ColorCode
-		err = proLogic.UpsertTag(tag)
+		err = proLogic.UpsertTag(r.Context(), tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	}
-	go func() {
-		proLogic.UpdateTag(updateTag, newID)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		proLogic.UpdateTag(ctx, updateTag, newID)
 		if updateTag.NewName != "" {
-			proLogic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+			proLogic.UpdateDeviceTag(ctx, updateTag.ID, newID, tag.Network)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 	e.Diff.New = updateTag
-	logic.LogEvent(e)
+	logic.LogEvent(r.Context(), e)
 	var res models.TagListRespNodes = models.TagListRespNodes{
 		Tag:         tag,
 		UsedByCnt:   len(updateTag.TaggedNodes),
@@ -286,30 +288,31 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	tag, err := proLogic.GetTag(models.TagID(tagID))
+	tag, err := proLogic.GetTag(r.Context(), models.TagID(tagID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	// check if active policy is using the tag
-	if proLogic.CheckIfTagAsActivePolicy(tag.ID, tag.Network) {
+	if proLogic.CheckIfTagAsActivePolicy(r.Context(), tag.ID, tag.Network) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tag is currently in use by an active policy"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteTag(models.TagID(tagID), true)
+	err = proLogic.DeleteTag(r.Context(), models.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	go func() {
-		proLogic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		proLogic.RemoveDeviceTagFromAclPolicies(ctx, tag.ID, tag.Network)
 		proLogic.RemoveTagFromPostureChecks(tag.ID, tag.Network)
 		proLogic.RemoveTagFromNameservers(tag.ID, tag.Network)
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
-		mq.PublishPeerUpdate(false)
-	}()
-	logic.LogEvent(&models.Event{
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),

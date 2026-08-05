@@ -31,7 +31,7 @@ func RunMDMSync(ctx context.Context) error {
 	if intg == nil {
 		return nil
 	}
-	sync, err := ParseSyncSettings(intg.ID, json.RawMessage(intg.Config))
+	sync, err := ParseSyncSettings(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 	syncMu.Lock()
 	defer syncMu.Unlock()
 
-	sync, err := ParseSyncSettings(intg.ID, json.RawMessage(intg.Config))
+	sync, err := ParseSyncSettings(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 		return nil
 	}
 
-	p, err := Build(intg.ID, json.RawMessage(intg.Config))
+	p, err := Build(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		logger.Log(0, "mdm sync: build provider:", err.Error())
 		return err
@@ -85,7 +85,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 		devicesLoaded := false
 		for i := range hosts {
 			if strings.TrimSpace(hosts[i].EntraDeviceID) != "" {
-				if err := upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, hosts[i]); err != nil {
+				if err := upsertHostMDMFromEntraLookup(ctx, intg.Provider, lookup, hosts[i]); err != nil {
 					logger.Log(0, "mdm sync: entra lookup for host", hosts[i].ID.String(), ":", err.Error())
 					continue
 				}
@@ -93,7 +93,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 				continue
 			}
 			if strings.TrimSpace(hosts[i].SerialNumber) == "" {
-				if err := clearHostMDMState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+				if err := clearHostMDMState(ctx, intg.Provider, hosts[i].ID.String()); err != nil {
 					logger.Log(0, "mdm sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
 				}
 				continue
@@ -107,7 +107,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 				}
 				devicesLoaded = true
 			}
-			ok, err := syncHostMDMBySerial(ctx, intg.ID, hosts[i], devices)
+			ok, err := syncHostMDMBySerial(ctx, intg.Provider, hosts[i], devices)
 			if err != nil {
 				logger.Log(0, "mdm sync: serial match for host", hosts[i].ID.String(), ":", err.Error())
 				continue
@@ -128,7 +128,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 	}
 	for i := range hosts {
 		if strings.TrimSpace(hosts[i].SerialNumber) == "" {
-			if err := clearHostMDMState(ctx, intg.ID, hosts[i].ID.String()); err != nil {
+			if err := clearHostMDMState(ctx, intg.Provider, hosts[i].ID.String()); err != nil {
 				logger.Log(0, "mdm sync: clear stale state for host", hosts[i].ID.String(), ":", err.Error())
 			}
 			continue
@@ -140,7 +140,8 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			}
 			state := schema.DeviceMDMState{
 				HostID:       hosts[i].ID.String(),
-				Provider:     intg.ID,
+				TenantID:     hosts[i].TenantID,
+				Provider:     intg.Provider,
 				MDMDeviceID:  d.ProviderDeviceID,
 				Enrolled:     d.Enrolled,
 				Compliant:    d.Compliant,
@@ -157,7 +158,7 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 			break
 		}
 		if !found {
-			if err := upsertUnmatchedHostMDMState(ctx, intg.ID, hosts[i].ID.String(), schema.MDMMatchSerialNumber); err != nil {
+			if err := upsertUnmatchedHostMDMState(ctx, intg.Provider, hosts[i], schema.MDMMatchSerialNumber); err != nil {
 				logger.Log(0, "mdm sync: clear state for host", hosts[i].ID.String(), ":", err.Error())
 				continue
 			}
@@ -169,9 +170,10 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 	return nil
 }
 
-func upsertUnmatchedHostMDMState(ctx context.Context, providerID, hostID, matchedBy string) error {
+func upsertUnmatchedHostMDMState(ctx context.Context, providerID string, h schema.Host, matchedBy string) error {
 	state := schema.DeviceMDMState{
-		HostID:       hostID,
+		HostID:       h.ID.String(),
+		TenantID:     h.TenantID,
 		Provider:     providerID,
 		Enrolled:     false,
 		Compliant:    false,

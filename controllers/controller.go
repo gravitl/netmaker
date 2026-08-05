@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/handlers"
@@ -44,6 +45,7 @@ var HttpHandlers = []interface{}{
 	deviceHandlers,
 	egressHandlers,
 	internetGatewayHandlers,
+	orgHandlers,
 }
 
 func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
@@ -61,6 +63,8 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"From-Ui",
 			"X-Application-Name",
 			"X-Host-ID",
+			scope.HeaderOrgID,
+			scope.HeaderTenantID,
 		},
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))

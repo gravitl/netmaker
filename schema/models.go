@@ -31,6 +31,7 @@ func ListModels() []interface{} {
 		&OrgMembership{},
 		&TenantMembership{},
 		&OrganizationSettings{},
+		&TenantSettingsRecord{},
 		&AclRecord{},
 		&CacheRecord{},
 		&DNSRecord{},

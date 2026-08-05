@@ -6,7 +6,10 @@ import (
 	"testing"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 
 	"github.com/gravitl/netmaker/logger"
@@ -21,23 +24,11 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
+var defaultTenantID string
+
 func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
-
-	logic.CreateSuperAdmin(&schema.User{
-		Username:       "admin",
-		Password:       "password",
-		PlatformRoleID: schema.SuperAdminRole,
-	})
-	peerUpdate := make(chan *models.Node)
-	go logic.ManageZombies(context.Background())
-	go func() {
-		for update := range peerUpdate {
-			//do nothing
-			logger.Log(3, "received node update", update.Action)
-		}
-	}()
 
 	defaultOrg := schema.Organization{}
 	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
@@ -46,6 +37,25 @@ func TestMain(m *testing.M) {
 		OrganizationID: defaultOrg.ID,
 	}
 	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+
+	orchestrator.InitializeRepository(extensions.NewProFactory())
+
+	defaultTenantID = defaultTenant.ID
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenant.ID)
+	_ = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &schema.User{
+		Username:       "admin",
+		Password:       "password",
+		PlatformRoleID: schema.SuperAdminRole,
+	})
+
+	peerUpdate := make(chan *models.Node)
+	go logic.ManageZombies(context.Background())
+	go func() {
+		for update := range peerUpdate {
+			//do nothing
+			logger.Log(3, "received node update", update.Action)
+		}
+	}()
 
 	os.Exit(m.Run())
 
@@ -60,21 +70,24 @@ func TestCreateNetwork(t *testing.T) {
 	// if tests break - check here (removed displayname)
 	//network.DisplayName = "mynetwork"
 
-	err := logic.CreateNetwork(&network)
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
+	err := logic.CreateNetwork(ctx, &network)
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
 	createNet()
 
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
+
 	t.Run("GetExistingNetwork", func(t *testing.T) {
 		network := &schema.Network{Name: "skynet"}
-		err := network.Get(db.WithContext(context.TODO()))
+		err := network.Get(ctx)
 		assert.Nil(t, err)
 		assert.Equal(t, "skynet", network.Name)
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network := &schema.Network{Name: "doesnotexist"}
-		err := network.Get(db.WithContext(context.TODO()))
+		err := network.Get(ctx)
 		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 		assert.Equal(t, "", network.ID)
 	})
@@ -87,37 +100,19 @@ func TestDeleteNetwork(t *testing.T) {
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("skynet", false, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistentNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("skynet", false, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	createNetv1("test")
 	t.Run("ForceDeleteNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork("test", true, doneCh)
+		err := logic.DeleteNetwork(context.Background(), "test", true, doneCh)
 		assert.Nil(t, err)
-	})
-}
-
-func TestSecurityCheck(t *testing.T) {
-	//these seem to work but not sure it the tests are really testing the functionality
-
-	os.Setenv("MASTER_KEY", "secretkey")
-	t.Run("NoNetwork", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer secretkey")
-		assert.Nil(t, err)
-		t.Log(username)
-	})
-
-	t.Run("BadToken", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "Bearer badkey")
-		assert.NotNil(t, err)
-		t.Log(err)
-		t.Log(username)
 	})
 }
 
@@ -170,11 +165,13 @@ func TestValidateNetwork(t *testing.T) {
 			errMessage: "default keep alive must be less than 1000",
 		},
 	}
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
 	for _, tc := range cases {
 		t.Run(tc.testname, func(t *testing.T) {
 			t.Log(tc.testname)
 			network := tc.network
-			err := logic.ValidateNetwork(&network, false)
+			err := logic.ValidateNetwork(ctx, &network, false)
 
 			assert.NotNil(t, err)
 			assert.Contains(t, err.Error(), tc.errMessage) // test passes if err.Error() contains the expected errMessage.
@@ -184,27 +181,33 @@ func TestValidateNetwork(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	_networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
+	_networks, _ := (&schema.Network{}).ListAll(ctx)
 	for _, _network := range _networks {
-		_ = _network.Delete(db.WithContext(context.TODO()))
+		_ = _network.Delete(ctx)
 	}
 }
 
 func createNet() {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
+
 	var network schema.Network
 	network.Name = "skynet"
 	network.AddressRange = "10.0.0.1/24"
-	err := (&schema.Network{Name: "skynet"}).Get(db.WithContext(context.TODO()))
+	network.TenantID = defaultTenantID
+	err := (&schema.Network{Name: "skynet"}).Get(ctx)
 	if err != nil {
-		logic.CreateNetwork(&network)
+		logic.CreateNetwork(ctx, &network)
 	}
 }
 func createNetv1(netId string) {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, defaultTenantID)
+
 	var network schema.Network
 	network.Name = netId
 	network.AddressRange = "100.0.0.1/24"
-	err := (&schema.Network{Name: netId}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: netId}).Get(ctx)
 	if err != nil {
-		logic.CreateNetwork(&network)
+		logic.CreateNetwork(ctx, &network)
 	}
 }

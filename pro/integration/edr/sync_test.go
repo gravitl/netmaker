@@ -34,7 +34,7 @@ func TestMatchHostToEndpoint_DefenderEntra(t *testing.T) {
 	host := schema.Host{
 		ID:            uuid.New(),
 		EntraDeviceID: "32f5f9ec-cd23-41e0-94e8-6b372232ff40",
-		Name:            "editable-hostname",
+		Name:          "editable-hostname",
 	}
 	ep := ManagedEndpoint{
 		EntraDeviceID: "32f5f9ec-cd23-41e0-94e8-6b372232ff40",

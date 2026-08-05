@@ -28,12 +28,12 @@ func getNetworkGraph(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	network := params["network"]
-	networkNodes, err := logic.GetNetworkNodes(network)
+	networkNodes, err := logic.GetNetworkNodes(r.Context(), network)
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to get network nodes", err.Error())
 		return
 	}
-	networkNodes = logic.AddStaticNodestoList(networkNodes)
+	networkNodes = logic.AddStaticNodestoList(r.Context(), networkNodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPIWithLocation(networkNodes[:])
 	logic.SortApiNodes(apiNodes[:])

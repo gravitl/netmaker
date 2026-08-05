@@ -10,7 +10,7 @@ import (
 )
 
 // PublishPeerUpdateAfterExitNodeChange notifies peers after exit-node selection changes (wired from mq).
-var PublishPeerUpdateAfterExitNodeChange = func() {}
+var PublishPeerUpdateAfterExitNodeChange = func(ctx context.Context) {}
 
 func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool) models.DeviceExitNode {
 	routingNodeID := FirstInternetEgressRoutingNodeID(e)
@@ -98,7 +98,7 @@ func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string) (
 	if err := SetNodeSelectedInternetEgress(&node, egressID); err != nil {
 		return nil, err
 	}
-	PublishPeerUpdateAfterExitNodeChange()
+	PublishPeerUpdateAfterExitNodeChange(ctx)
 	if egressID == "" {
 		return nil, nil
 	}
@@ -123,14 +123,14 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	}
 	node := ConvertSchemaNodeToModelsNode(nodeSchema)
 
-	eli, err := (&schema.Egress{Network: networkID}).ListByNetwork(db.WithContext(ctx))
+	eli, err := (&schema.Egress{Network: networkID}).ListByNetwork(ctx)
 	if err != nil {
 		return nil, err
 	}
-	acls := ListDevicePolicies(schema.NetworkID(networkID))
-	userAcls := ListUserPolicies(schema.NetworkID(networkID))
-	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(networkID), models.DevicePolicy)
-	defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(networkID), models.UserPolicy)
+	acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
+	userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
+	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 	allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled
 
 	out := make([]models.DeviceExitNode, 0)
@@ -184,16 +184,16 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 
 	if egressID != "" {
 		e := &schema.Egress{ID: egressID}
-		if err := e.Get(db.WithContext(ctx)); err != nil {
+		if err := e.Get(ctx); err != nil {
 			return nil, errors.New("exit node not found")
 		}
 		if !e.Status || e.Network != networkID || !IsEgressInternetGateway(*e) {
 			return nil, errors.New("egress is not an active internet exit node in this network")
 		}
-		acls := ListDevicePolicies(schema.NetworkID(networkID))
-		userAcls := ListUserPolicies(schema.NetworkID(networkID))
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(networkID), models.DevicePolicy)
-		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(networkID), models.UserPolicy)
+		acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
+		userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 		allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled
 		if !allowAll && !DoesNodeHaveAccessToEgress(node, e, acls) && !DoesUserHaveAccessToEgress(user, e, userAcls) {
 			return nil, errors.New("user does not have access to this exit node")
@@ -207,7 +207,7 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 	if err := SetNodeSelectedInternetEgress(node, egressID); err != nil {
 		return nil, err
 	}
-	PublishPeerUpdateAfterExitNodeChange()
+	PublishPeerUpdateAfterExitNodeChange(ctx)
 
 	if egressID == "" {
 		return nil, nil

@@ -226,15 +226,15 @@ type managedDevicesPage struct {
 }
 
 type managedDevice struct {
-	ID                      string              `json:"id"`
-	AzureADDeviceID         string              `json:"azureADDeviceId"`
-	SerialNumber            string              `json:"serialNumber"`
-	DeviceName              string              `json:"deviceName"`
-	UserPrincipalName       string              `json:"userPrincipalName"`
-	ManagementState         string              `json:"managementState"`
-	DeviceRegistrationState string              `json:"deviceRegistrationState"`
-	EnrolledDateTime        string              `json:"enrolledDateTime"`
-	ComplianceState         string              `json:"complianceState"`
+	ID                      string `json:"id"`
+	AzureADDeviceID         string `json:"azureADDeviceId"`
+	SerialNumber            string `json:"serialNumber"`
+	DeviceName              string `json:"deviceName"`
+	UserPrincipalName       string `json:"userPrincipalName"`
+	ManagementState         string `json:"managementState"`
+	DeviceRegistrationState string `json:"deviceRegistrationState"`
+	EnrolledDateTime        string `json:"enrolledDateTime"`
+	ComplianceState         string `json:"complianceState"`
 	LastSyncDateTime        string `json:"lastSyncDateTime"`
 }
 

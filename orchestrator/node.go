@@ -30,6 +30,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	node := &schema.Node{
 		ID:                 uuid.NewString(),
+		TenantID:           scope.ID(ctx),
 		HostID:             host.ID.String(),
 		Host:               host,
 		NetworkID:          network.ID,
@@ -49,7 +50,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
 		for _, tag := range ops.key.Tags {
-			n.nodeExt.ConfigureTag(node, models.TagID(tag))
+			n.nodeExt.ConfigureTag(ctx, node, models.TagID(tag))
 		}
 	}
 
@@ -90,9 +91,6 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		node.Address6 = cidr.String()
 	}
 
-	if node.TenantID == "" {
-		node.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	err := node.Create(ctx)
 	// Reservations are freed regardless of outcome: on success the DB is authoritative,
 	// on failure the IPs must be available for reallocation.
@@ -107,22 +105,19 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	host.Nodes = append(host.Nodes, node.ID)
-	if host.TenantID == "" {
-		host.TenantID = scope.ID(logic.DefaultScope(ctx))
-	}
 	err = host.Upsert(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	go logic.CheckZombies(node)
+	go logic.CheckZombies(ctx, node)
 
-	go func() {
-		err := logic.UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
+	go func(ctx context.Context) {
+		err := logic.UpdateMetrics(ctx, node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to initialize metrics for node (%s): %v", node.ID, err))
 		}
-	}()
+	}(ctx)
 
 	if host.IsDefault {
 		err = n.ValidateCreateGateway(ctx, node, SkipPublishPeerUpdate())
@@ -170,6 +165,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		for _, violation := range modelsNode.PostureChecksViolations {
 			_violations = append(_violations, schema.PostureCheckViolation{
 				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
+				TenantID:          node.TenantID,
 				CheckID:           violation.CheckID,
 				NodeID:            node.ID,
 				Name:              violation.Name,
@@ -201,7 +197,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 
 		if !ops.skipPublishPeerUpdate {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
@@ -216,6 +212,10 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
+	if logic.IngressLimitExceeded(ctx) {
+		return logic.ErrIngressLimitExceeded
+	}
+
 	node.IsGateway = true
 
 	if ops.setTcpProxy && ops.tcpProxyEnabled {
@@ -229,9 +229,6 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
 		node.Host.IsStaticPort = true
-		if node.Host.TenantID == "" {
-			node.Host.TenantID = scope.ID(logic.DefaultScope(ctx))
-		}
 		err := node.Host.Upsert(ctx)
 		if err != nil {
 			return err
@@ -261,7 +258,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			return fmt.Errorf("failed to create internet egress: %w", err)
 		}
 		if internetEgress.TenantID == "" {
-			internetEgress.TenantID = scope.ID(logic.DefaultScope(ctx))
+			internetEgress.TenantID = scope.ID(ctx)
 			_ = internetEgress.Update(ctx)
 		}
 
@@ -335,7 +332,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	if !ops.skipPublishPeerUpdate {
 		go func() {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}

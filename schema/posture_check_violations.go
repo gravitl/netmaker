@@ -1,7 +1,12 @@
 package schema
 
 import (
+	"context"
+	"fmt"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const postureCheckViolationsTable = "posture_check_violations_v1"
@@ -20,4 +25,11 @@ type PostureCheckViolation struct {
 
 func (v *PostureCheckViolation) TableName() string {
 	return postureCheckViolationsTable
+}
+
+func (v *PostureCheckViolation) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", postureCheckViolationsTable), tenantID).Delete(&PostureCheckViolation{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", postureCheckViolationsTable)).Error
 }

@@ -4,12 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/require"
 )
 
-func DeleteNode(t *testing.T, node *schema.Node) {
-	err := node.Delete(db.WithContext(context.TODO()))
+func DeleteNode(t *testing.T, ctx context.Context, node *schema.Node) {
+	err := node.Delete(ctx)
 	require.NoError(t, err)
 }
