@@ -593,7 +593,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 
 	var joinNetworks []string
 	for _, netI := range enrollmentKey.Networks {
-		violations, _ := logic.CheckPostureViolationsForHost(&newHost, keyTags, schema.NetworkID(netI), true)
+		violations, _ := logic.CheckPostureViolationsForHost(r.Context(), &newHost, keyTags, schema.NetworkID(netI), true)
 		if len(violations) == 0 {
 			joinNetworks = append(joinNetworks, netI)
 		}

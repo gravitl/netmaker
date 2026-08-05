@@ -264,6 +264,7 @@ func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *sch
 		}
 
 		violations, _ := logic.CheckPostureViolationsForHost(
+			ctx,
 			host,
 			keyTags,
 			schema.NetworkID(network.Name),
