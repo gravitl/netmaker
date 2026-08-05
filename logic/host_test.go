@@ -33,6 +33,24 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
+	ctx := db.WithContext(context.TODO())
+	defaultOrg := schema.Organization{}
+	if err := defaultOrg.CreateDefault(ctx); err != nil {
+		// CreateDefault sets ID before the failed insert; GetDefault must run
+		// on a fresh struct or gorm.First will AND in the stale ID and never match.
+		defaultOrg = schema.Organization{}
+		_ = defaultOrg.GetDefault(ctx)
+	}
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	if err := defaultTenant.CreateDefault(ctx); err != nil {
+		defaultTenant = schema.Tenant{}
+		_ = defaultTenant.GetDefault(ctx)
+	}
+	ensureTestMqKeys(ctx)
+
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background())
 	go func() {
@@ -41,16 +59,6 @@ func TestMain(m *testing.M) {
 			//do nothing
 		}
 	}()
-
-	ctx := db.WithContext(context.TODO())
-	defaultOrg := schema.Organization{}
-	_ = defaultOrg.CreateDefault(ctx)
-
-	defaultTenant := schema.Tenant{
-		OrganizationID: defaultOrg.ID,
-	}
-	_ = defaultTenant.CreateDefault(ctx)
-	ensureTestMqKeys(ctx)
 
 	os.Exit(m.Run())
 }
