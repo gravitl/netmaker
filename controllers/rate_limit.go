@@ -119,7 +119,8 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 				return
 			}
 
-			if r.Method == http.MethodPost && route == "/api/users/adm/authenticate" {
+			if (r.Method == http.MethodPost && route == "/api/users/adm/authenticate") ||
+				(r.Method == http.MethodPost && route == "/api/v1/auth/discover") {
 				ip := clientIP(r)
 
 				ok, retryAfter := rl.allowAuthenticate(ip)
