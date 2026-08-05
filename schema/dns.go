@@ -45,7 +45,7 @@ func (ns *Nameserver) TableName() string {
 }
 
 func (ns *Nameserver) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Nameserver{}).First(&ns).Where("id = ?", ns.ID).Error
+	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).First(&ns).Error
 }
 
 func (ns *Nameserver) Update(ctx context.Context) error {
