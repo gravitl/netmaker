@@ -25,9 +25,9 @@ func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(upsertOrgSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/org/owner/transfer", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(transferOrgOwner)))).Methods(http.MethodPut)
 
-	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(listOrgs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, logic.SecurityCheck(true, http.HandlerFunc(listOrgs)))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrg))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, logic.SecurityCheck(true, http.HandlerFunc(getOrg)))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(deleteOrg))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrgOwner))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrgOwner))).Methods(http.MethodPut)
@@ -152,7 +152,25 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func listOrgs(w http.ResponseWriter, r *http.Request) {
 	o := &schema.Organization{}
-	orgs, err := o.ListAll(r.Context())
+
+	if r.Header.Get("ismaster") == "yes" {
+		orgs, err := o.ListAll(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		logic.ReturnSuccessResponseWithJson(w, r, orgs, "fetched organizations")
+		return
+	}
+
+	u := &schema.User{Username: r.Header.Get("user")}
+	err := u.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	orgs, err := o.ListOrgsByUserID(r.Context(), u.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -218,6 +236,26 @@ func getOrg(w http.ResponseWriter, r *http.Request) {
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
+	}
+
+	if r.Header.Get("ismaster") != "yes" {
+		u := &schema.User{Username: r.Header.Get("user")}
+		err = u.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+
+		m := &schema.OrgMembership{OrganizationID: o.ID, UserID: u.ID}
+		err = m.Get(r.Context())
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a member of this organization"), logic.Forbidden))
+				return
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, o, "fetched organization")
