@@ -43,3 +43,9 @@ func (s *SmtpSender) SendEmail(ctx context.Context, n Notification, e Mail) erro
 
 	return nil
 }
+
+type noOpSender struct{}
+
+func (s *noOpSender) SendEmail(ctx context.Context, n Notification, e Mail) error {
+	return nil
+}

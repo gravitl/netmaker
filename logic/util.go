@@ -19,7 +19,6 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -56,12 +55,12 @@ func IsAddressInCIDR(address net.IP, cidr string) bool {
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
-func SetNetworkNodesLastModified(networkName string) error {
+func SetNetworkNodesLastModified(ctx context.Context, networkName string) error {
 	_network := &schema.Network{
 		Name:           networkName,
 		NodesUpdatedAt: time.Now(),
 	}
-	return _network.UpdateNodesUpdatedAt(db.WithContext(context.TODO()))
+	return _network.UpdateNodesUpdatedAt(ctx)
 }
 
 // RandomString - returns a random string in a charset

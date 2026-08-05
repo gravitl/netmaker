@@ -20,26 +20,26 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 	if intg == nil {
 		return nil
 	}
-	p, err := Build(intg.ID, json.RawMessage(intg.Config))
+	p, err := Build(intg.Provider, json.RawMessage(intg.Config))
 	if err != nil {
 		return err
 	}
 	if lookup, ok := p.(EntraDeviceLookup); ok {
 		if strings.TrimSpace(h.EntraDeviceID) != "" {
-			return upsertHostMDMFromEntraLookup(ctx, intg.ID, lookup, h)
+			return upsertHostMDMFromEntraLookup(ctx, intg.Provider, lookup, h)
 		}
 		if strings.TrimSpace(h.SerialNumber) == "" {
-			return clearHostMDMState(ctx, intg.ID, h.ID.String())
+			return clearHostMDMState(ctx, intg.Provider, h.ID.String())
 		}
 		devices, err := p.ListManagedDevices(ctx)
 		if err != nil {
 			return err
 		}
-		_, err = syncHostMDMBySerial(ctx, intg.ID, h, devices)
+		_, err = syncHostMDMBySerial(ctx, intg.Provider, h, devices)
 		return err
 	}
 	if strings.TrimSpace(h.SerialNumber) == "" {
-		return clearHostMDMState(ctx, intg.ID, h.ID.String())
+		return clearHostMDMState(ctx, intg.Provider, h.ID.String())
 	}
 	devices, err := p.ListManagedDevices(ctx)
 	if err != nil {
@@ -51,7 +51,8 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		}
 		state := schema.DeviceMDMState{
 			HostID:       h.ID.String(),
-			Provider:     intg.ID,
+			TenantID:     h.TenantID,
+			Provider:     intg.Provider,
 			MDMDeviceID:  d.ProviderDeviceID,
 			Enrolled:     d.Enrolled,
 			Compliant:    d.Compliant,
@@ -61,5 +62,5 @@ func RefreshHostMDMState(ctx context.Context, h schema.Host) error {
 		}
 		return state.Upsert(db.WithContext(ctx))
 	}
-	return upsertUnmatchedHostMDMState(ctx, intg.ID, h.ID.String(), schema.MDMMatchSerialNumber)
+	return upsertUnmatchedHostMDMState(ctx, intg.Provider, h, schema.MDMMatchSerialNumber)
 }

@@ -11,6 +11,7 @@ type Options struct {
 	relayedClients        []string
 	isInternetGateway     bool
 	igwClients            []string
+	inheritedAuth         bool
 }
 
 type Option func(options *Options) *Options
@@ -63,6 +64,13 @@ func WithInternetGateway(igwClients []string) Option {
 	return func(o *Options) *Options {
 		o.isInternetGateway = true
 		o.igwClients = igwClients
+		return o
+	}
+}
+
+func WithInheritedAuth() Option {
+	return func(o *Options) *Options {
+		o.inheritedAuth = true
 		return o
 	}
 }

@@ -35,8 +35,9 @@ func (k KeyType) String() string {
 // EnrollmentToken - the tokenized version of an enrollmentkey;
 // to be used for host registration
 type EnrollmentToken struct {
-	Server string `json:"server"`
-	Value  string `json:"value"`
+	Server   string `json:"server"`
+	TenantID string `json:"tenant_id"`
+	Value    string `json:"value"`
 }
 
 // EnrollmentKeyLength - the length of an enrollment key - 62^16 unique possibilities

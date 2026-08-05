@@ -65,7 +65,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		allnetworks = logic.FilterNetworksByRole(allnetworks, user)
+		allnetworks = logic.FilterNetworksByRole(r.Context(), allnetworks, user)
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
@@ -93,14 +93,14 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
-		err = user.Get(r.Context())
+		err = user.GetWithMembership(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		allnetworks = logic.FilterNetworksByRole(allnetworks, user)
+		allnetworks = logic.FilterNetworksByRole(r.Context(), allnetworks, user)
 	}
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -175,7 +175,7 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodeEgressRoutes, _, err := logic.GetEgressRanges(schema.NetworkID(netname))
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(r.Context(), schema.NetworkID(netname))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -215,14 +215,14 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	network := params["networkname"]
 	doneCh := make(chan struct{}, 1)
-	networkNodes, err := logic.GetNetworkNodes(network)
+	networkNodes, err := logic.GetNetworkNodes(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get network nodes [%s]: %v", network, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	err = logic.DeleteNetwork(network, force, doneCh)
+	err = logic.DeleteNetwork(r.Context(), network, force, doneCh)
 	if err != nil {
 		errtype := logic.BadReq
 		if strings.Contains(err.Error(), "Node check failed") {
@@ -233,13 +233,14 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
-	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
-	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteAllNetworkTags(schema.NetworkID(network))
-	go logic.DeleteNetworkPolicies(schema.NetworkID(network))
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(ctx, network, true)
+	go logic.DeleteNetworkRoles(ctx, network)
+	go logic.DeleteAllNetworkTags(ctx, schema.NetworkID(network))
+	go logic.DeleteNetworkPolicies(ctx, schema.NetworkID(network))
+	go func(ctx context.Context) {
 		<-doneCh
-		mq.PublishPeerUpdate(true)
+		mq.PublishPeerUpdate(ctx, true)
 		// send node update to clean up locally
 		for _, node := range networkNodes {
 			node := node
@@ -264,8 +265,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("error deleting network posture checks", "network", network, "error", err)
 		}
-	}()
-	logic.LogEvent(&models.Event{
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -311,7 +312,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	featureFlags := logic.GetFeatureFlags()
+	featureFlags := logic.GetFeatureFlags(r.Context())
 	if !featureFlags.EnableDeviceApproval {
 		network.AutoJoin = true
 	}
@@ -377,30 +378,36 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if network.AutoRemoveTags == nil {
 		network.AutoRemoveTags = []string{}
 	}
-	err = logic.CreateNetwork(&network)
+	network.TenantID = scope.ID(r.Context())
+	err = logic.CreateNetwork(r.Context(), &network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		errType := logic.BadReq
+		if errors.Is(err, logic.ErrNetworkLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	logic.CreateDefaultNetworkEnrollmentKey(network.Name)
-	logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(network.Name))
-	logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
-	logic.CreateDefaultTags(schema.NetworkID(network.Name))
-	logic.CreateFallbackNameserver(network.Name)
+	logic.CreateDefaultNetworkEnrollmentKey(r.Context(), network.Name)
+	logic.CreateDefaultNetworkRolesAndGroups(r.Context(), schema.NetworkID(network.Name), r.Header.Get("user"))
+	logic.CreateDefaultAclNetworkPolicies(r.Context(), schema.NetworkID(network.Name))
+	logic.CreateDefaultTags(r.Context(), schema.NetworkID(network.Name))
+	logic.CreateFallbackNameserver(&network)
 	if featureFlags.EnableOverlappingEgressRanges {
-		if err := logic.AllocateUniqueVNATPool(&network); err != nil {
+		if err := logic.AllocateUniqueVNATPool(r.Context(), &network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to allocate unique virtual NAT pool:", err.Error())
-		} else if err := logic.UpsertNetwork(&network); err != nil {
+		} else if err := network.Update(r.Context()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
 		}
 	}
-	go func() {
-		defaultHosts := logic.GetDefaultHosts()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		defaultHosts := logic.GetDefaultHosts(ctx)
 		for i := range defaultHosts {
 			host := &defaultHosts[i]
-			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(db.WithContext(context.TODO()), host, &network)
+			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network)
 			if err != nil {
 				logger.Log(
 					0,
@@ -415,8 +422,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 			logger.Log(1, "added new node", newNode.ID, "to host", host.Name)
 		}
-	}()
-	logic.LogEvent(&models.Event{
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -467,13 +474,14 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateNetwork(currNet, &payload)
+	err = logic.UpdateNetwork(r.Context(), currNet, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	slog.Info("updated network", "network", payload.Name, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(currNet)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const deviceMDMStateTable = "device_mdm_state_v1"
@@ -23,6 +24,7 @@ const (
 type DeviceMDMState struct {
 	HostID       string    `gorm:"primaryKey;column:host_id" json:"host_id"`
 	Provider     string    `gorm:"primaryKey;column:provider" json:"provider"`
+	TenantID     string    `gorm:"default:'';index" json:"tenant_id"`
 	MDMDeviceID  string    `gorm:"column:mdm_device_id" json:"mdm_device_id"`
 	Enrolled     bool      `gorm:"column:enrolled" json:"enrolled"`
 	Compliant    bool      `gorm:"column:compliant" json:"compliant"`
@@ -86,4 +88,12 @@ func (s *DeviceMDMState) ListAll(ctx context.Context) ([]DeviceMDMState, error) 
 	var out []DeviceMDMState
 	err := db.FromContext(ctx).Model(&DeviceMDMState{}).Find(&out).Error
 	return out, err
+}
+
+// DeleteAll removes every MDM state row for the tenant in scope (or all rows if unscoped).
+func (s *DeviceMDMState) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where("tenant_id = ?", tenantID).Delete(&DeviceMDMState{}).Error
+	}
+	return db.FromContext(ctx).Exec("DELETE FROM " + deviceMDMStateTable).Error
 }

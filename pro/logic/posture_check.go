@@ -16,16 +16,17 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
+	mdmpkg "github.com/gravitl/netmaker/pro/integration/mdm"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
 var postureCheckMutex = &sync.Mutex{}
 
-func AddPostureCheckHook() {
-	settings := logic.GetServerSettings()
+func AddPostureCheckHook(ctx context.Context) {
+	settings := logic.GetServerSettings(ctx)
 	interval := time.Hour
 	i, err := strconv.Atoi(settings.PostureCheckInterval)
 	if err == nil {
@@ -61,98 +62,115 @@ func RemoveUserGroupFromPostureChecks(grpID schema.UserGroupID, netID schema.Net
 	}
 }
 func RunPostureChecks() error {
-	if !GetFeatureFlags().EnablePostureChecks {
-		return nil
-	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
-	// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
-	_ = mdmpkg.RunMDMSync(db.WithContext(context.TODO()))
-	_ = edrpkg.RunEDRSyncForPosture(db.WithContext(context.TODO()))
-	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	nodes, err := logic.GetAllNodes()
-	if err != nil {
-		return err
-	}
-	for _, netI := range nets {
-		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
-		if len(networkNodes) == 0 {
-			continue
-		}
-		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
-		if err != nil {
-			continue
-		}
-		noChecks := len(pcLi) == 0
 
-		for _, nodeI := range networkNodes {
-			if nodeI.IsStatic && !nodeI.IsUserNode {
-				continue
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	for _, tenant := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
+			continue
+		}
+
+		wg.Add(1)
+		go func(ctx context.Context) {
+			defer wg.Done()
+			// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
+			_ = mdmpkg.RunMDMSync(ctx)
+			_ = edrpkg.RunEDRSyncForPosture(ctx)
+			nets, err := (&schema.Network{}).ListAll(ctx)
+			if err != nil {
+				return
 			}
-			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
-			var postureChecksViolations []models.Violation
-			var postureCheckVolationSeverityLevel schema.Severity
-			if noChecks {
-				postureCheckVolationSeverityLevel = schema.SeverityUnknown
-			} else {
-				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, deviceInfo)
+			nodes, err := logic.GetAllNodes(ctx)
+			if err != nil {
+				return
 			}
-			if nodeI.IsUserNode {
-				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
-				if err == nil {
-					if noChecks && len(extclient.PostureChecksViolations) == 0 {
-						continue
-					}
-					emitNewMDMViolationEvents(extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-					emitNewEDRViolationEvents(extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-					extclient.PostureChecksViolations = postureChecksViolations
-					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
-					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(&extclient)
-				}
-			} else {
-				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
+			for _, netI := range nets {
+				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
+				if len(networkNodes) == 0 {
 					continue
 				}
-				emitNewMDMViolationEvents(nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-				emitNewEDRViolationEvents(nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-
-				_node := &schema.Node{
-					ID:                                nodeI.ID.String(),
-					PostureCheckSeverity:              postureCheckVolationSeverityLevel,
-					PostureCheckLastEvaluationCycleID: uuid.NewString(),
-					PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+				networkNodes = logic.AddStaticNodestoList(ctx, networkNodes)
+				pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(ctx)
+				if err != nil {
+					continue
 				}
+				noChecks := len(pcLi) == 0
 
-				_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
-				for _, violation := range postureChecksViolations {
-					_violations = append(_violations, schema.PostureCheckViolation{
-						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
-						CheckID:           violation.CheckID,
-						NodeID:            _node.ID,
-						Name:              violation.Name,
-						Attribute:         violation.Attribute,
-						Message:           violation.Message,
-						Severity:          violation.Severity,
-						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
-					})
+				for _, nodeI := range networkNodes {
+					if nodeI.IsStatic && !nodeI.IsUserNode {
+						continue
+					}
+					deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
+					var postureChecksViolations []models.Violation
+					var postureCheckVolationSeverityLevel schema.Severity
+					if noChecks {
+						postureCheckVolationSeverityLevel = schema.SeverityUnknown
+					} else {
+						postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(pcLi, deviceInfo)
+					}
+					if nodeI.IsUserNode {
+						extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
+						if err == nil {
+							if noChecks && len(extclient.PostureChecksViolations) == 0 {
+								continue
+							}
+							emitNewMDMViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+							emitNewEDRViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+							extclient.PostureChecksViolations = postureChecksViolations
+							extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
+							extclient.LastEvaluatedAt = time.Now().UTC()
+							logic.SaveExtClient(ctx, &extclient)
+						}
+					} else {
+						if noChecks && len(nodeI.PostureChecksViolations) == 0 {
+							continue
+						}
+						emitNewMDMViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+						emitNewEDRViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+
+						_node := &schema.Node{
+							ID:                                nodeI.ID.String(),
+							PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+							PostureCheckLastEvaluationCycleID: uuid.NewString(),
+							PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+						}
+
+						_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+						for _, violation := range postureChecksViolations {
+							_violations = append(_violations, schema.PostureCheckViolation{
+								EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+								TenantID:          nodeI.TenantID,
+								CheckID:           violation.CheckID,
+								NodeID:            _node.ID,
+								Name:              violation.Name,
+								Attribute:         violation.Attribute,
+								Message:           violation.Message,
+								Severity:          violation.Severity,
+								EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
+							})
+						}
+						_ = _node.UpsertViolations(ctx, _violations)
+					}
 				}
-				_ = _node.UpsertViolations(db.WithContext(context.TODO()), _violations)
 			}
-
-		}
-
+		}(ctx)
 	}
+
+	wg.Wait()
 
 	return nil
 }
 
 func CheckPostureViolations(d models.PostureCheckDeviceInfo, network schema.NetworkID) ([]models.Violation, schema.Severity) {
-	if !GetFeatureFlags().EnablePostureChecks {
+	// todo(nm-341): pass tenant scoped context.
+	if !logic.GetFeatureFlags(context.Background()).EnablePostureChecks {
 		return []models.Violation{}, schema.SeverityUnknown
 	}
 	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(db.WithContext(context.TODO()))
@@ -224,7 +242,8 @@ func attachIntegrationStates(ctx context.Context, hostID string, d *models.Postu
 	}
 }
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, schema.Severity) {
-	if !GetFeatureFlags().EnablePostureChecks {
+	// todo(nm-341): pass tenant-scoped context.
+	if !logic.GetFeatureFlags(context.Background()).EnablePostureChecks {
 		return []models.Violation{}, schema.SeverityUnknown
 	}
 	var violations []models.Violation
@@ -662,14 +681,14 @@ func compareVersions(a, b string) int {
 }
 
 // PopulatePostureCheckGroupNames sets group name as the value for each user group key
-func PopulatePostureCheckGroupNames(pcs []schema.PostureCheck) {
+func PopulatePostureCheckGroupNames(ctx context.Context, pcs []schema.PostureCheck) {
 	for i := range pcs {
 		for groupID := range pcs[i].UserGroups {
 			if groupID == "*" {
 				pcs[i].UserGroups[groupID] = "*"
 				continue
 			}
-			grp, err := logic.GetUserGroup(schema.UserGroupID(groupID))
+			grp, err := logic.GetUserGroup(ctx, schema.UserGroupID(groupID))
 			if err == nil {
 				pcs[i].UserGroups[groupID] = grp.Name
 			} else {
@@ -733,11 +752,11 @@ func mergePostureCheckConfig(existing, update *schema.PostureCheck) {
 	update.Config = merged
 }
 
-func ValidatePostureCheck(pc *schema.PostureCheck) error {
+func ValidatePostureCheck(ctx context.Context, pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(db.WithContext(context.TODO()))
+	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(ctx)
 	if err != nil {
 		return errors.New("invalid network")
 	}
@@ -812,7 +831,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if tagID == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagID))
+			_, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}
@@ -825,7 +844,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 			if userGrpID == "*" {
 				continue
 			}
-			_, err := GetUserGroup(schema.UserGroupID(userGrpID))
+			_, err := GetUserGroup(ctx, schema.UserGroupID(userGrpID))
 			if err != nil {
 				return errors.New("unknown tag")
 			}
@@ -905,7 +924,7 @@ func asInt(v interface{}) int {
 // emitNewMDMViolationEvents emits a posture_check_failed audit event for every
 // MDM compliance violation that is newly present (not in oldVi) in newVi.
 // Old violations don't re-fire; cleared violations are also ignored here.
-func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+func emitNewMDMViolationEvents(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
 	if len(newVi) == 0 {
 		return
 	}
@@ -913,7 +932,7 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 	for _, v := range oldVi {
 		prev[v.CheckID+"|"+v.Message] = struct{}{}
 	}
-	providerID, _ := mdmpkg.ActiveProviderID(db.WithContext(context.TODO()))
+	providerID, _ := mdmpkg.ActiveProviderID(ctx)
 	for _, v := range newVi {
 		if v.Attribute != string(schema.MDMCompliance) {
 			continue
@@ -936,7 +955,7 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 				"compliant": mdmStateCompliant(d.MDMState),
 			},
 		}
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(ctx, &models.Event{
 			Action: schema.PostureCheckFailed,
 			Source: models.Subject{
 				ID:   d.HostID,
@@ -959,7 +978,7 @@ func emitNewMDMViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 // emitNewEDRViolationEvents emits a posture_check_failed audit event for every
 // EDR compliance violation that is newly present (not in oldVi) in newVi.
 // Old violations don't re-fire; cleared violations are also ignored here.
-func emitNewEDRViolationEvents(oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+func emitNewEDRViolationEvents(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
 	if len(newVi) == 0 {
 		return
 	}
@@ -967,7 +986,7 @@ func emitNewEDRViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 	for _, v := range oldVi {
 		prev[v.CheckID+"|"+v.Message] = struct{}{}
 	}
-	providerID, _ := edrpkg.ActiveProviderID(db.WithContext(context.TODO()))
+	providerID, _ := edrpkg.ActiveProviderID(ctx)
 	for _, v := range newVi {
 		if v.Attribute != string(schema.EDRCompliance) {
 			continue
@@ -978,20 +997,20 @@ func emitNewEDRViolationEvents(oldVi, newVi []models.Violation, d models.Posture
 		diff := models.Diff{
 			Old: nil,
 			New: map[string]interface{}{
-				"event":            "posture_check_failed",
-				"type":             string(schema.EDRCompliance),
-				"host_id":          d.HostID,
-				"check_id":         v.CheckID,
-				"check":            v.Name,
-				"reason":           v.Message,
-				"severity":         v.Severity,
-				"provider":         providerID,
-				"agent_installed":  edrStateAgentInstalled(d.EDRState),
-				"agent_healthy":    edrStateAgentHealthy(d.EDRState),
-				"risk_level":       edrStateRiskLevel(d.EDRState),
+				"event":           "posture_check_failed",
+				"type":            string(schema.EDRCompliance),
+				"host_id":         d.HostID,
+				"check_id":        v.CheckID,
+				"check":           v.Name,
+				"reason":          v.Message,
+				"severity":        v.Severity,
+				"provider":        providerID,
+				"agent_installed": edrStateAgentInstalled(d.EDRState),
+				"agent_healthy":   edrStateAgentHealthy(d.EDRState),
+				"risk_level":      edrStateRiskLevel(d.EDRState),
 			},
 		}
-		logic.LogEvent(&models.Event{
+		logic.LogEvent(ctx, &models.Event{
 			Action: schema.PostureCheckFailed,
 			Source: models.Subject{
 				ID:   d.HostID,

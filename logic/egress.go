@@ -14,17 +14,24 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
 )
 
 var ValidateEgressReq = validateEgressReq
 
+var ErrEgressLimitExceeded = errors.New("egress limit reached for this tenant, please upgrade your license")
+
+var EgressLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) error {
 	return nil
 }
 
-func validateEgressReq(e *schema.Egress) error {
+func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
@@ -53,7 +60,7 @@ func validateEgressReq(e *schema.Egress) error {
 		e.VirtualRange = ""
 	}
 	network := &schema.Network{Name: e.Network}
-	if err := network.Get(db.WithContext(context.TODO())); err != nil {
+	if err := network.Get(ctx); err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
 	if e.Range != "" {
@@ -61,7 +68,7 @@ func validateEgressReq(e *schema.Egress) error {
 			return err
 		}
 	}
-	if !GetFeatureFlags().EnableEgressHA && len(e.Nodes) > 1 {
+	if !GetFeatureFlags(ctx).EnableEgressHA && len(e.Nodes) > 1 {
 		return errors.New("can only set one routing node on CE")
 	}
 
@@ -410,7 +417,7 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 	}
 	if name == "" {
 		host := &schema.Host{ID: node.HostID}
-		_ = host.Get(db.WithContext(ctx))
+		_ = host.Get(ctx)
 		if host.Name != "" {
 			name = host.Name + "-internet"
 		} else {
@@ -419,6 +426,7 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 	}
 	e := &schema.Egress{
 		ID:        uuid.New().String(),
+		TenantID:  scope.ID(ctx),
 		Name:      name,
 		Network:   node.Network,
 		Type:      schema.EgressTypeInternet,
@@ -432,13 +440,13 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
-	if err := ValidateEgressReq(e); err != nil {
+	if err := ValidateEgressReq(ctx, e); err != nil {
 		return nil, err
 	}
 	if e.TenantID == "" {
 		// tenant may be set by caller/middleware; leave empty if unset
 	}
-	if err := e.Create(db.WithContext(ctx)); err != nil {
+	if err := e.Create(ctx); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -469,7 +477,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	if node == nil {
 		return errors.New("node is required")
 	}
-	ctx := db.WithContext(context.TODO())
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
 	schemaNode := &schema.Node{ID: node.ID.String()}
 	if err := schemaNode.Get(ctx); err != nil {
 		return err
@@ -527,7 +535,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 		if err := schemaNode.AssignGateway(ctx); err != nil {
 			return err
 		}
-		PublishPeerUpdateAfterExitNodeChange()
+		PublishPeerUpdateAfterExitNodeChange(ctx)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -647,7 +655,7 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 	if egressID == "" || network == "" {
 		return
 	}
-	nodes, err := GetNetworkNodes(network)
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return
 	}
@@ -660,11 +668,11 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 }
 
 // ListNodesBySelectedInternetEgress returns network nodes that have selected the given egress.
-func ListNodesBySelectedInternetEgress(network, egressID string) []models.Node {
+func ListNodesBySelectedInternetEgress(ctx context.Context, network, egressID string) []models.Node {
 	if network == "" || egressID == "" {
 		return nil
 	}
-	nodes, err := GetNetworkNodes(network)
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return nil
 	}
@@ -702,14 +710,14 @@ func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID s
 	}
 
 	routing := &schema.Node{ID: routingNodeID}
-	if err := routing.Get(db.WithContext(ctx)); err == nil {
+	if err := routing.Get(ctx); err == nil {
 		for clientID := range routing.RelayedIGWClients {
 			addClient(clientID)
 		}
 	}
 
 	if e, err := FindInternetEgressByRoutingNode(ctx, network, routingNodeID); err == nil && e != nil {
-		for _, n := range ListNodesBySelectedInternetEgress(network, e.ID) {
+		for _, n := range ListNodesBySelectedInternetEgress(ctx, network, e.ID) {
 			if _, ok := seen[n.ID.String()]; ok {
 				continue
 			}
@@ -722,7 +730,7 @@ func ListExitClientsForRoutingNode(ctx context.Context, network, routingNodeID s
 
 // DeleteInternetEgressesForRoutingNode removes internet egress resources where nodeID is a routing node.
 func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID string) {
-	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(ctx)
 	if err != nil {
 		return
 	}
@@ -734,13 +742,13 @@ func DeleteInternetEgressesForRoutingNode(ctx context.Context, network, nodeID s
 			continue
 		}
 		ClearNodesSelectedInternetEgress(ctx, e.ID, network)
-		_ = e.Delete(db.WithContext(ctx))
+		_ = e.Delete(ctx)
 	}
 }
 
 // PublishExitClientsFailOpen is wired from mq to push fail-open peer updates to
 // exit clients before their routing node is removed from the mesh.
-var PublishExitClientsFailOpen = func(clients []models.Node) {}
+var PublishExitClientsFailOpen = func(ctx context.Context, clients []models.Node) {}
 
 // FailOpenAndDetachExitRoutingNode detaches exit routing state for a node about to
 // be removed, then pushes ordered fail-open peer updates to affected clients.
@@ -749,7 +757,7 @@ func FailOpenAndDetachExitRoutingNode(ctx context.Context, node *models.Node) {
 	if len(clients) == 0 {
 		return
 	}
-	PublishExitClientsFailOpen(clients)
+	PublishExitClientsFailOpen(ctx, clients)
 	// Give clients a moment to apply fail-open before the peer disappears.
 	time.Sleep(1 * time.Second)
 }
@@ -806,20 +814,19 @@ func DetachExitRoutingNode(ctx context.Context, node *models.Node) []models.Node
 		}
 	}
 	if node.IsInternetGateway {
-		UnsetInternetGw(node)
+		UnsetInternetGw(ctx, node)
 	}
 	return clients
 }
 
 // RebindInternetEgressClients re-applies exit selection for clients of an internet
 // egress after its routing node set changes (e.g. reassignment to a new node).
-func RebindInternetEgressClients(e schema.Egress) {
+func RebindInternetEgressClients(ctx context.Context, e schema.Egress) {
 	if !IsEgressInternetGateway(e) {
 		return
 	}
-	clients := ListNodesBySelectedInternetEgress(e.Network, e.ID)
+	clients := ListNodesBySelectedInternetEgress(ctx, e.Network, e.ID)
 	routingID := FirstInternetEgressRoutingNodeID(e)
-	ctx := context.TODO()
 	for i := range clients {
 		c := clients[i]
 		// Drop RelayedBy to a removed/old routing node first; otherwise
@@ -1105,10 +1112,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID) (domains []string) {
-	acls := ListUserPolicies(network)
-	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
+func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
+	acls := ListUserPolicies(ctx, network)
+	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	seen := make(map[string]struct{})
 	for _, e := range eli {
@@ -1138,10 +1145,10 @@ func GetEgressDomainsByAccessForUser(user *schema.User, network schema.NetworkID
 	return
 }
 
-func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(schema.NetworkID(node.Network))
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
+	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
@@ -1267,11 +1274,11 @@ func RemoveNodeFromEnrollmentKeys(node *models.Node) {
 	_ = _node.ClearGatewayIDFromEnrollmentKeys(db.WithContext(context.TODO()))
 }
 
-func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
+func GetEgressRanges(ctx context.Context, netID schema.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
 	resultMap := make(map[string]struct{})
 	nodeEgressMap := make(map[string][]string)
-	networkNodes, err := GetNetworkNodes(netID.String())
+	networkNodes, err := GetNetworkNodes(ctx, netID.String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1288,7 +1295,7 @@ func GetEgressRanges(netID schema.NetworkID) (map[string][]string, map[string]st
 			}
 		}
 	}
-	extclients, _ := GetNetworkExtClients(netID.String())
+	extclients, _ := GetNetworkExtClients(ctx, netID.String())
 	for _, extclient := range extclients {
 		if len(extclient.ExtraAllowedIPs) > 0 {
 			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs

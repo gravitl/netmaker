@@ -23,7 +23,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 				params["network"] = node.Network
 			}
 		}
-		r.Header.Set("IS_GLOBAL_ACCESS", "no")
+		r.Header.Set("IS_NETWORK_ACCESS", "yes")
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
 		r.Header.Set("TARGET_RSRC_ID", "")
@@ -150,7 +150,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == schema.ActivityRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == schema.HostRsrc.String()) {
-			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
+			r.Header.Set("IS_NETWORK_ACCESS", "no")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))
 		handler.ServeHTTP(w, r)

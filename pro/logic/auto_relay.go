@@ -22,7 +22,7 @@ var autoRelayCache = make(map[schema.NetworkID][]string)
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(db.WithContext(context.Background()))
 	if err != nil {
 		return
 	}
@@ -156,11 +156,11 @@ func SetAutoRelayInCache(node models.Node) {
 }
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
-func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
+func DoesAutoRelayExist(ctx context.Context, network string) (autoRelayNodes []models.Node) {
 	autoRelayCacheMutex.RLock()
 	defer autoRelayCacheMutex.RUnlock()
 	if !servercfg.CacheEnabled() {
-		nodes, _ := logic.GetNetworkNodes(network)
+		nodes, _ := logic.GetNetworkNodes(ctx, network)
 		for _, node := range nodes {
 			if node.IsAutoRelay {
 				autoRelayNodes = append(autoRelayNodes, node)
@@ -180,11 +180,11 @@ func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
 }
 
 // ResetAutoRelayedPeer - removes auto relayed over node from network peers
-func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
+func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) error {
 	if len(autoRelayedNode.AutoRelayedPeers) == 0 {
 		return nil
 	}
-	nodes, err := logic.GetNetworkNodes(autoRelayedNode.Network)
+	nodes, err := logic.GetNetworkNodes(ctx, autoRelayedNode.Network)
 	if err != nil {
 		return err
 	}
@@ -208,9 +208,9 @@ func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
 }
 
 // ResetAutoRelay - reset autorelayed peers
-func ResetAutoRelay(autoRelayNode *models.Node) error {
+func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 	// Unset autorelayed peers
-	nodes, err := logic.GetNetworkNodes(autoRelayNode.Network)
+	nodes, err := logic.GetNetworkNodes(ctx, autoRelayNode.Network)
 	if err != nil {
 		return err
 	}
@@ -232,10 +232,10 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
-func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
+func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	acls, _ := logic.ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
@@ -298,7 +298,7 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(&autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}

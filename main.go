@@ -70,7 +70,7 @@ func main() {
 	// TODO: although this doesn't cause any problem, it's not the best way to do this.
 	defer ch.Close()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	ctx, stop := signal.NotifyContext(db.WithContext(context.Background()), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
@@ -139,7 +139,17 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error setting server id: ", err.Error())
 		}
 
+		err = setServerVersion()
+		if err != nil {
+			logger.Log(0, "error setting server version: ", err.Error())
+		}
+
 		logic.SetJWTSecret()
+
+		err = logic.SetOAuthSecret(logic.RandomString(64))
+		if err != nil {
+			logger.Log(0, "error setting oauth secret: ", err.Error())
+		}
 
 		err = setMqKeys()
 		if err != nil {
@@ -149,10 +159,22 @@ func initialize() { // Client Mode Prereq Check
 	}
 
 	//initialize cache
-	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
+	initCache()
 	_ = logic.CleanExpiredSSOStates()
 
+}
+
+func initCache() {
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+	for _, t := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, t.ID)
+		_ = logic.ListAcls(ctx)
+		_, _ = logic.GetAllExtClients(ctx)
+		_ = logic.LoadMetricsIntoCache(ctx)
+	}
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
@@ -193,7 +215,16 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	// Only run network cleanup hooks on master pod
 	if servercfg.IsMasterPod() {
-		logic.InitNetworkHooks()
+		tenants, err := (&schema.Tenant{}).List(db.WithContext(ctx))
+		if err != nil {
+			logger.Log(0, "error listing tenants when starting network hooks: ", err.Error())
+		} else {
+			for _, tenant := range tenants {
+				ctx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
+				logic.InitNetworkHooks(ctx)
+			}
+		}
+
 	}
 	logic.AddSSOStateCleanupHook()
 }
@@ -227,7 +258,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			if err := logic.DeleteNode(node, true); err != nil {
+			if err := logic.DeleteNode(ctx, node, true); err != nil {
 				slog.Error(
 					"error deleting expired node",
 					"nodeid",
@@ -236,7 +267,12 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			go mq.PublishDeletedNodePeerUpdate(nil, node)
+			host := &schema.Host{ID: node.HostID}
+			ctx := db.WithContext(context.Background())
+			if err := host.Get(ctx); err == nil {
+				ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+				go mq.PublishDeletedNodePeerUpdate(ctx, nil, node)
+			}
 		}
 	}()
 	<-ctx.Done()
@@ -293,11 +329,15 @@ func setServerID() error {
 	}
 
 	serverID.Value = uuid.NewString()
-	ctx := db.WithContext(context.TODO())
-	if serverID.TenantID == "" {
-		serverID.TenantID = scope.ID(logic.DefaultScope(ctx))
+	return serverID.Set(db.WithContext(context.TODO()))
+}
+
+func setServerVersion() error {
+	serverVersion := &schema.Internal{
+		Key:   schema.InternalKey_ServerVersion,
+		Value: servercfg.GetVersion(),
 	}
-	return serverID.Set(ctx)
+	return serverVersion.Set(db.WithContext(context.TODO()))
 }
 
 func setMqKeys() error {
@@ -340,16 +380,6 @@ func setMqKeys() error {
 	mqPublicKey.Value = base64.StdEncoding.EncodeToString(publicKeyBytes)
 
 	ctx := db.WithContext(context.TODO())
-	if mqPrivateKey.TenantID == "" || mqPublicKey.TenantID == "" {
-		ctx := logic.DefaultScope(ctx)
-		if mqPrivateKey.TenantID == "" {
-			mqPrivateKey.TenantID = scope.ID(ctx)
-		}
-		if mqPublicKey.TenantID == "" {
-			mqPublicKey.TenantID = scope.ID(ctx)
-		}
-	}
-
 	err = mqPrivateKey.Set(ctx)
 	if err != nil {
 		return err

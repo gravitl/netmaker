@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -57,7 +58,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only linux nodes can be made internet gws"), "badrequest"))
 		return
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, false)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -66,10 +67,6 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
-	}
-	if e.TenantID == "" {
-		e.TenantID = scope.ID(logic.DefaultScope(r.Context()))
-		_ = e.Update(db.WithContext(r.Context()))
 	}
 	for _, clientNodeID := range request.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
@@ -91,7 +88,8 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func updateInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +120,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = logic.ValidateInetGwReq(logic.ConvertModelsNodeToSchemaNode(&node), request, true)
+	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -145,7 +143,8 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }
 
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +159,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.DeleteInternetEgressesForRoutingNode(r.Context(), netid, nodeid)
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -170,5 +169,6 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted internet egress on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(apiNode)
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 }

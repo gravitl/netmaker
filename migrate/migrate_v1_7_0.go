@@ -5,13 +5,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -65,7 +69,22 @@ func migrateV1_7_0(ctx context.Context) error {
 		return err
 	}
 
-	return setNetworkID(ctx)
+	err = setNetworkID(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateIntegrationIDs(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = setUserInviteType(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateClickHouseTenantID(ctx)
 }
 
 func migrateServerConf(ctx context.Context) error {
@@ -313,7 +332,12 @@ func migrateEnrollmentKeys(ctx context.Context) error {
 }
 
 func migrateServerSettings(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable(TableName_ServerSettings) {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
 		return nil
 	}
 
@@ -322,8 +346,7 @@ func migrateServerSettings(ctx context.Context) error {
 		return err
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
+	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
 	}
@@ -336,6 +359,11 @@ func migrateServerSettings(ctx context.Context) error {
 			}
 
 			err = kvDelete(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
+			if err != nil {
+				return err
+			}
+
+			err = migrateTenantSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(value))
 			if err != nil {
 				return err
 			}
@@ -378,15 +406,68 @@ func migrateServerSettings(ctx context.Context) error {
 	return nil
 }
 
+func migrateTenantSettingsToOrg(ctx context.Context, orgID string, rawSettings []byte) error {
+	var legacy map[string]any
+	if err := json.Unmarshal(rawSettings, &legacy); err != nil {
+		return nil
+	}
+
+	smtpHost, _ := legacy["smtp_host"].(string)
+	retentionDays, hasRetention := legacy["audit_logs_retention_period"].(float64)
+	if smtpHost == "" && !hasRetention {
+		return nil
+	}
+
+	var data schema.OrganizationSettingsData
+	if smtpHost != "" {
+		data.SmtpHost = smtpHost
+		if v, ok := legacy["smtp_port"].(float64); ok {
+			data.SmtpPort = int(v)
+		}
+		if v, ok := legacy["email_sender_addr"].(string); ok {
+			data.EmailSenderAddr = v
+		}
+		if v, ok := legacy["email_sender_user"].(string); ok {
+			data.EmailSenderUser = v
+		}
+		if v, ok := legacy["email_sender_password"].(string); ok {
+			data.EmailSenderPassword = v
+		}
+		if v, ok := legacy["smtp_skip_tls_verify"].(bool); ok {
+			data.SmtpSkipTlsVerify = v
+		} else {
+			// older deployments never had this key: preserve the legacy
+			// skip-verify default from before it was configurable.
+			data.SmtpSkipTlsVerify = true
+		}
+	}
+	if hasRetention && retentionDays > 0 {
+		data.AuditLogsRetentionPeriodInDays = int(retentionDays)
+	}
+
+	orgSettings := &schema.OrganizationSettings{
+		ID:       orgID,
+		Settings: datatypes.NewJSONType(data),
+	}
+	return orgSettings.Upsert(ctx)
+}
+
 func createMemberships(ctx context.Context) error {
-	defaultOrg := &schema.Organization{}
-	err := defaultOrg.GetDefault(ctx)
+	skip, err := isNewDeployment(ctx)
 	if err != nil {
 		return err
 	}
 
-	defaultTenant := &schema.Tenant{}
-	err = defaultTenant.GetDefault(ctx)
+	if skip {
+		return nil
+	}
+
+	defaultOrg, err := logic.SoleOrganization(ctx)
+	if err != nil {
+		return err
+	}
+
+	defaultTenant, err := logic.SoleTenant(ctx)
 	if err != nil {
 		return err
 	}
@@ -406,6 +487,9 @@ func createMemberships(ctx context.Context) error {
 			AuthType:                   u.AuthType,
 			ExternalIdentityProviderID: u.ExternalIdentityProviderID,
 			Password:                   u.Password,
+			AccountDisabled:            u.AccountDisabled,
+			IsMFAEnabled:               u.IsMFAEnabled,
+			TOTPSecret:                 u.TOTPSecret,
 		}
 		err = db.FromContext(ctx).
 			Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
@@ -419,6 +503,10 @@ func createMemberships(ctx context.Context) error {
 				OrganizationID: defaultOrg.ID,
 				UserID:         u.ID,
 				RoleID:         schema.OrgOwner,
+				// todo(nm-341): external idp id, auth type migration.
+				AccountDisabled: u.AccountDisabled,
+				IsMFAEnabled:    u.IsMFAEnabled,
+				TOTPSecret:      u.TOTPSecret,
 			}
 			err = db.FromContext(ctx).
 				Clauses(clause.OnConflict{DoNothing: true}). // conflicts can happen if migrating from version < v1.5.1
@@ -433,26 +521,73 @@ func createMemberships(ctx context.Context) error {
 }
 
 func setTenantID(ctx context.Context) error {
-	defaultTenant := &schema.Tenant{}
-	err := defaultTenant.GetDefault(ctx)
+	skip, err := isNewDeployment(ctx)
 	if err != nil {
 		return err
 	}
 
-	tenantModels := []any{
-		&schema.AclRecord{}, &schema.CacheRecord{}, &schema.DNSRecord{}, &schema.Nameserver{},
-		&schema.Egress{}, &schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
-		&schema.Host{}, &schema.Integration{}, &schema.Internal{}, &schema.JITGrant{}, &schema.JITRequest{},
-		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{}, &schema.PendingUser{},
-		&schema.PostureCheck{}, &schema.PostureCheckViolation{}, &schema.SsoStateRecord{},
-		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{}, &schema.UserInvite{},
+	if skip {
+		return nil
 	}
 
-	for _, model := range tenantModels {
+	defaultTenant, err := logic.SoleTenant(ctx)
+	if err != nil {
+		return err
+	}
+
+	tenantScopedKeyTables := []string{
+		(&schema.AclRecord{}).TableName(),
+		(&schema.TagRecord{}).TableName(),
+		(&schema.DNSRecord{}).TableName(),
+		(&schema.ExtClientRecord{}).TableName(),
+	}
+	prefix := schema.TenantScopedKey(defaultTenant.ID, "")
+	for _, table := range tenantScopedKeyTables {
+		err := db.FromContext(ctx).Exec(
+			fmt.Sprintf("UPDATE %s SET key = ? || key, tenant_id = ? WHERE tenant_id = ?", table),
+			prefix, defaultTenant.ID, "",
+		).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	var userGroups []schema.UserGroup
+	if err := db.FromContext(ctx).Model(&schema.UserGroup{}).Where("tenant_id = ?", "").Find(&userGroups).Error; err != nil {
+		return err
+	}
+	for _, g := range userGroups {
+		scopedID := schema.ScopeUserGroupID(defaultTenant.ID, g.ID)
+		if scopedID == g.ID {
+			continue
+		}
+
+		err := db.FromContext(ctx).Model(&schema.UserGroup{}).
+			Where("id = ?", g.ID).
+			Update("id", scopedID).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, model := range tenantScopedModels() {
 		err := db.FromContext(ctx).Model(model).
 			Where("tenant_id = ?", "").
 			Update("tenant_id", defaultTenant.ID).
 			Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, model := range scopedModels() {
+		err := db.FromContext(ctx).Model(model).
+			Where("scope_id = ?", "").
+			Updates(map[string]any{
+				"scope":    scope.TenantScope,
+				"scope_id": defaultTenant.ID,
+			}).Error
 		if err != nil {
 			return err
 		}
@@ -538,4 +673,78 @@ func setNetworkID(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func migrateIntegrationIDs(ctx context.Context) error {
+	if !db.FromContext(ctx).Migrator().HasTable((&schema.Integration{}).TableName()) {
+		return nil
+	}
+
+	var integrations []schema.Integration
+	err := db.FromContext(ctx).Find(&integrations).Error
+	if err != nil {
+		return err
+	}
+
+	for _, intg := range integrations {
+		_, err = uuid.Parse(intg.ID)
+		if err == nil {
+			continue
+		}
+
+		err = db.FromContext(ctx).Model(&schema.Integration{}).
+			Where("id = ? AND tenant_id = ?", intg.ID, intg.TenantID).
+			Updates(map[string]any{
+				"id":       uuid.NewString(),
+				"provider": intg.ID,
+			}).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func setUserInviteType(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&schema.UserInvite{}).
+		Where("type = ?", "").
+		Update("type", schema.MembershipInvite).Error
+}
+
+func migrateClickHouseTenantID(ctx context.Context) error {
+	skip, err := isNewDeployment(ctx)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
+	err = ch.Initialize()
+	if err != nil {
+		return nil
+	}
+
+	if !ch.IsConnected() {
+		return nil
+	}
+
+	defaultTenant, err := logic.SoleTenant(ctx)
+	if err != nil {
+		return err
+	}
+
+	chConn, err := ch.FromContext(ch.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+
+	err = chConn.Exec(ctx, "ALTER TABLE flows ADD COLUMN IF NOT EXISTS tenant_id String")
+	if err != nil {
+		return err
+	}
+
+	return chConn.Exec(ctx, "ALTER TABLE flows UPDATE tenant_id = ? WHERE tenant_id = ''", defaultTenant.ID)
 }

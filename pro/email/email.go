@@ -16,15 +16,15 @@ const (
 	Resend EmailSenderType = "resend"
 )
 
-func Init() {
+func Init(ctx context.Context) {
 
 	smtpSender := &SmtpSender{
-		SmtpHost:    logic.GetSmtpHost(),
-		SmtpPort:    logic.GetSmtpPort(),
-		SenderEmail: logic.GetSenderEmail(),
-		SendUser:    logic.GetSenderUser(),
-		SenderPass:  logic.GetEmaiSenderPassword(),
-		SkipVerify:  logic.SmtpSkipTlsVerify(),
+		SmtpHost:    logic.GetSmtpHost(ctx),
+		SmtpPort:    logic.GetSmtpPort(ctx),
+		SenderEmail: logic.GetSenderEmail(ctx),
+		SendUser:    logic.GetSenderUser(ctx),
+		SenderPass:  logic.GetEmaiSenderPassword(ctx),
+		SkipVerify:  logic.SmtpSkipTlsVerify(ctx),
 	}
 	if smtpSender.SendUser == "" {
 		smtpSender.SendUser = smtpSender.SenderEmail
@@ -52,6 +52,9 @@ type Notification struct {
 }
 
 func GetClient() (e EmailSender) {
+	if client == nil {
+		return &noOpSender{}
+	}
 	return client
 }
 

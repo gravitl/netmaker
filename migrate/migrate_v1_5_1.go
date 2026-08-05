@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -59,13 +60,17 @@ func migrateUsers(ctx context.Context) error {
 		return err
 	}
 
-	defaultOrg := &schema.Organization{}
-	if err = defaultOrg.GetDefault(ctx); err != nil {
+	if len(records) == 0 {
+		return nil
+	}
+
+	defaultOrg, err := logic.SoleOrganization(ctx)
+	if err != nil {
 		return err
 	}
 
-	defaultTenant := &schema.Tenant{}
-	if err = defaultTenant.GetDefault(ctx); err != nil {
+	defaultTenant, err := logic.SoleTenant(ctx)
+	if err != nil {
 		return err
 	}
 
@@ -124,6 +129,9 @@ func migrateUsers(ctx context.Context) error {
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
+			AccountDisabled:            user.AccountDisabled,
+			IsMFAEnabled:               user.IsMFAEnabled,
+			TOTPSecret:                 user.TOTPSecret,
 		}
 		err = tm.Create(ctx)
 		if err != nil {
@@ -131,10 +139,17 @@ func migrateUsers(ctx context.Context) error {
 		}
 
 		if platformRoleID == schema.SuperAdminRole {
+			// todo(nm-341): should auth type on tenant membership for superadmin be inherited?
 			om := &schema.OrgMembership{
-				OrganizationID: defaultOrg.ID,
-				UserID:         _user.ID,
-				RoleID:         schema.OrgOwner,
+				OrganizationID:             defaultOrg.ID,
+				UserID:                     _user.ID,
+				RoleID:                     schema.OrgOwner,
+				AuthType:                   user.AuthType,
+				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+				Password:                   user.Password,
+				AccountDisabled:            user.AccountDisabled,
+				IsMFAEnabled:               user.IsMFAEnabled,
+				TOTPSecret:                 user.TOTPSecret,
 			}
 			err = om.Create(ctx)
 			if err != nil {

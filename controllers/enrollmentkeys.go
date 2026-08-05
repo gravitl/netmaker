@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -67,8 +69,9 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]models.EnrollmentKey, 0, len(keys))
 	for _, key := range keys {
-		networks := make([]string, 0)
-		networks = append(networks, key.Networks...)
+		if len(key.Networks) == 0 {
+			key.Networks = make([]string, 0)
+		}
 
 		keyType := models.KeyType(key.Type)
 
@@ -85,7 +88,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 			Expiration:        key.Expiration,
 			UsesRemaining:     key.UsesRemaining,
 			Value:             key.Value,
-			Networks:          networks,
+			Networks:          key.Networks,
 			Unlimited:         key.Unlimited,
 			Tags:              []string{key.Name},
 			Token:             key.Token,
@@ -248,7 +251,7 @@ func regenerateEnrollmentKeyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -292,7 +295,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -407,7 +410,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -422,9 +425,39 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
+
+	if len(newKey.Networks) == 0 {
+		newKey.Networks = make([]string, 0)
+	}
+
+	keyType := models.KeyType(newKey.Type)
+
+	var relay uuid.UUID
+	if newKey.GatewayID != nil {
+		relay, _ = uuid.Parse(*newKey.GatewayID)
+	}
+
+	var groups []models.TagID
+	for _, tag := range newKey.Tags {
+		groups = append(groups, models.TagID(tag))
+	}
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newKey)
+	json.NewEncoder(w).Encode(models.EnrollmentKey{
+		Expiration:        newKey.Expiration,
+		UsesRemaining:     newKey.UsesRemaining,
+		Value:             newKey.Value,
+		Networks:          newKey.Networks,
+		Unlimited:         newKey.Unlimited,
+		Tags:              []string{newKey.Name},
+		Token:             newKey.Token,
+		Type:              keyType,
+		Relay:             relay,
+		Groups:            groups,
+		Default:           newKey.Default,
+		AutoEgress:        newKey.AutoEgress,
+		AutoAssignGateway: newKey.AutoAssignGateway,
+	})
 }
 
 // @Summary     Updates an EnrollmentKey
@@ -471,7 +504,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -581,15 +614,21 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		if owner := r.Header.Get("user"); owner != "" {
 			newHost.OwnerUsername = owner
 		}
-		_ = logic.CheckHostPorts(&newHost)
+		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
 				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
 		}
-		if err = logic.CreateHost(&newHost); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		newHost.TenantID = enrollmentKey.TenantID
+		if err = logic.CreateHost(r.Context(), &newHost); err != nil {
+			errType := logic.Internal
+			if errors.Is(err, logic.ErrHostLimitExceeded) {
+				errType = logic.Forbidden
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 			return
 		}
 		host = &newHost
@@ -599,18 +638,19 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		endpointChanged, _ := logic.UpdateHostFromClient(&newHost, currHost)
+		endpointChanged, _ := logic.UpdateHostFromClient(r.Context(), &newHost, currHost)
 		if endpointChanged {
-			logic.CheckHostPorts(currHost)
+			logic.CheckHostPorts(r.Context(), currHost)
 		}
-		if err = logic.UpsertHost(currHost); err != nil {
+		if err = currHost.Upsert(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		host = currHost
 	}
 
-	server := logic.GetServerInfo()
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
+	server := logic.GetServerInfo(ctx)
 	server.TrafficKey = trafficKey
 	response := models.RegisterResponse{
 		ServerConf:    server,
@@ -620,7 +660,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	go logic.JoinHostToNetworks(logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.

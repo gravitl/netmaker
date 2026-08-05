@@ -2,10 +2,15 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
+
+const userAccessTokensTable = "user_access_tokens"
 
 // UserAccessToken - token used to access netmaker
 type UserAccessToken struct {
@@ -19,8 +24,12 @@ type UserAccessToken struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+func (a *UserAccessToken) TableName() string {
+	return userAccessTokensTable
+}
+
 func (a *UserAccessToken) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserAccessToken{}).First(&a).Where("id = ?", a.ID).Error
+	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("id = ?", a.ID).First(&a).Error
 }
 
 func (a *UserAccessToken) Update(ctx context.Context) error {
@@ -32,12 +41,20 @@ func (a *UserAccessToken) Create(ctx context.Context) error {
 }
 
 func (a *UserAccessToken) List(ctx context.Context) (ats []UserAccessToken, err error) {
-	err = db.FromContext(ctx).Model(&UserAccessToken{}).Find(&ats).Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
+	}
+	err = query.Find(&ats).Error
 	return
 }
 
 func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken) {
-	db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName).Find(&ats)
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
+	}
+	query.Find(&ats)
 	if ats == nil {
 		ats = []UserAccessToken{}
 	}
@@ -46,10 +63,11 @@ func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken
 
 func (a *UserAccessToken) CountByUser(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&UserAccessToken{}).
-		Where("user_name = ?", a.UserName).
-		Count(&count).
-		Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }
 
@@ -58,5 +76,16 @@ func (a *UserAccessToken) Delete(ctx context.Context) error {
 }
 
 func (a *UserAccessToken) DeleteAllUserTokens(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName).Delete(&a).Error
+	query := db.FromContext(ctx).Model(&UserAccessToken{}).Where("user_name = ?", a.UserName)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", userAccessTokensTable), tenantID)(query)
+	}
+	return query.Delete(&a).Error
+}
+
+func (a *UserAccessToken) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", userAccessTokensTable), tenantID).Delete(&UserAccessToken{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", userAccessTokensTable)).Error
 }

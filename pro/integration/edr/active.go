@@ -33,7 +33,7 @@ func BuildActive(ctx context.Context) (Provider, error) {
 	if intg == nil {
 		return nil, nil
 	}
-	return Build(intg.ID, json.RawMessage(intg.Config))
+	return Build(intg.Provider, json.RawMessage(intg.Config))
 }
 
 func ActiveProviderID(ctx context.Context) (string, error) {
@@ -44,5 +44,5 @@ func ActiveProviderID(ctx context.Context) (string, error) {
 	if intg == nil {
 		return "", nil
 	}
-	return intg.ID, nil
+	return intg.Provider, nil
 }

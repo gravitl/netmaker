@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -19,12 +20,13 @@ const (
 
 // DeviceEDRState is the per-host snapshot of an EDR provider's view of an endpoint.
 type DeviceEDRState struct {
-	HostID       string         `gorm:"primaryKey;column:host_id" json:"host_id"`
-	Provider     string         `gorm:"primaryKey;column:provider" json:"provider"`
-	EDRDeviceID  string         `gorm:"column:edr_device_id" json:"edr_device_id"`
-	MatchedBy    string         `gorm:"column:matched_by" json:"matched_by"`
-	AgentInstalled bool         `gorm:"column:agent_installed" json:"agent_installed"`
-	AgentHealthy   bool         `gorm:"column:agent_healthy" json:"agent_healthy"`
+	HostID         string         `gorm:"primaryKey;column:host_id" json:"host_id"`
+	Provider       string         `gorm:"primaryKey;column:provider" json:"provider"`
+	TenantID       string         `gorm:"default:'';index" json:"tenant_id"`
+	EDRDeviceID    string         `gorm:"column:edr_device_id" json:"edr_device_id"`
+	MatchedBy      string         `gorm:"column:matched_by" json:"matched_by"`
+	AgentInstalled bool           `gorm:"column:agent_installed" json:"agent_installed"`
+	AgentHealthy   bool           `gorm:"column:agent_healthy" json:"agent_healthy"`
 	RiskLevel      string         `gorm:"column:risk_level" json:"risk_level"`
 	ThreatCount    int            `gorm:"column:threat_count" json:"threat_count"`
 	ActiveThreats  bool           `gorm:"column:active_threats" json:"active_threats"`
@@ -82,4 +84,11 @@ func (s *DeviceEDRState) ListAll(ctx context.Context) ([]DeviceEDRState, error) 
 	var out []DeviceEDRState
 	err := db.FromContext(ctx).Model(&DeviceEDRState{}).Find(&out).Error
 	return out, err
+}
+
+func (s *DeviceEDRState) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where("tenant_id = ?", tenantID).Delete(&DeviceEDRState{}).Error
+	}
+	return db.FromContext(ctx).Exec("DELETE FROM " + deviceEDRStateTable).Error
 }

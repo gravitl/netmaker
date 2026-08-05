@@ -19,15 +19,15 @@ const DeviceHostIDHeader = "X-Host-ID"
 
 var (
 	// EnrichDeviceNetworksWithJIT adds JIT fields to device network responses (Pro).
-	EnrichDeviceNetworksWithJIT = func(_ *schema.User, _ []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
+	EnrichDeviceNetworksWithJIT = func(ctx context.Context, _ *schema.User, _ []schema.Network, networks []models.DeviceNetwork) []models.DeviceNetwork {
 		return networks
 	}
 	// PublishHostRegistrationUpdates notifies peers after host network join (wired from mq).
-	PublishHostRegistrationUpdates = func(_ *schema.Host) error { return nil }
+	PublishHostRegistrationUpdates = func(ctx context.Context, _ *schema.Host) error { return nil }
 	// RequestHostPullUpdate asks a host to pull config (wired from mq).
 	RequestHostPullUpdate = func(_ *schema.Host) error { return nil }
 	// JoinHostToNetworks adds a host to networks (wired from auth).
-	JoinHostToNetworks = func(_ models.EnrollmentKey, _ *schema.Host, _ string) {}
+	JoinHostToNetworks = func(ctx context.Context, _ models.EnrollmentKey, _ *schema.Host, _ string) {}
 	// ProvisionDeviceHostMessaging creates broker credentials for a new device host (wired from mq).
 	ProvisionDeviceHostMessaging = func(_ *schema.Host) error { return nil }
 	// CleanupDeviceHostForOwnershipTransfer removes prior user network state before host re-bind (wired from mq).
@@ -43,7 +43,7 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 	if err := pending.DeleteAllPendingHosts(ctx); err != nil {
 		return err
 	}
-	return DisassociateAllNodesFromHost(host.ID.String())
+	return DisassociateAllNodesFromHost(ctx, host.ID.String())
 }
 
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
@@ -60,10 +60,10 @@ func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwne
 		return fmt.Errorf("failed to cleanup host for ownership transfer: %w", err)
 	}
 	host.OwnerUsername = newOwner
-	if err := UpsertHost(host); err != nil {
+	if err := host.Upsert(ctx); err != nil {
 		return err
 	}
-	logDeviceOwnershipTransfer(newOwner, host, previousOwner)
+	logDeviceOwnershipTransfer(ctx, newOwner, host, previousOwner)
 	slog.Info("transferred device host ownership",
 		"host", host.ID.String(),
 		"from", previousOwner,
@@ -72,11 +72,11 @@ func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwne
 	return nil
 }
 
-func logDeviceOwnershipTransfer(newOwner string, host *schema.Host, previousOwner string) {
+func logDeviceOwnershipTransfer(ctx context.Context, newOwner string, host *schema.Host, previousOwner string) {
 	if host == nil || newOwner == "" || previousOwner == "" || previousOwner == newOwner {
 		return
 	}
-	LogEvent(&models.Event{
+	LogEvent(ctx, &models.Event{
 		Action: schema.TransferDeviceOwnership,
 		Source: models.Subject{
 			ID:   newOwner,
@@ -153,7 +153,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 	if err != nil {
 		return nil, err
 	}
-	accessible := FilterNetworksByRole(allNetworks, user)
+	accessible := FilterNetworksByRole(ctx, allNetworks, user)
 	if len(accessible) == 0 && user != nil && len(user.UserGroups.Data()) > 0 {
 		slog.Warn("device networks empty for user with groups",
 			"username", user.Username,
@@ -162,7 +162,7 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			"total_networks", len(allNetworks),
 		)
 	}
-	featureFlags := GetFeatureFlags()
+	featureFlags := GetFeatureFlags(ctx)
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
@@ -171,34 +171,34 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 			Status:       models.DeviceNetworkStatusAvailable,
 			HasJITAccess: true,
 		}
-		applyDeviceNetworkApprovalPolicy(network, user, featureFlags, &dn)
+		applyDeviceNetworkApprovalPolicy(ctx, network, user, featureFlags, &dn)
 		if host != nil {
 			applyDeviceNetworkHostState(ctx, host, network, user, featureFlags, &dn)
 		}
 		result = append(result, dn)
 	}
-	return EnrichDeviceNetworksWithJIT(user, accessible, result), nil
+	return EnrichDeviceNetworksWithJIT(ctx, user, accessible, result), nil
 }
 
 // deviceJoinRequiresApproval reports whether a user-owned device join should enter
 // pending-host approval instead of joining immediately.
-func deviceJoinRequiresApproval(network schema.Network, user *schema.User) bool {
-	featureFlags := GetFeatureFlags()
+func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, user *schema.User) bool {
+	featureFlags := GetFeatureFlags(ctx)
 	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
 		return false
 	}
-	if user != nil && IsNetworkAdmin(user, network.Name) {
+	if user != nil && IsNetworkAdmin(ctx, user, network.Name) {
 		return false
 	}
 	// When JIT gates this user, admin approval happens via the JIT grant flow.
-	if network.JITEnabled && UserSubjectToNetworkJIT(network.Name, user) {
+	if network.JITEnabled && UserSubjectToNetworkJIT(ctx, network.Name, user) {
 		return false
 	}
 	return true
 }
 
-func applyDeviceNetworkApprovalPolicy(network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
-	if !deviceJoinRequiresApproval(network, user) {
+func applyDeviceNetworkApprovalPolicy(ctx context.Context, network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
+	if !deviceJoinRequiresApproval(ctx, network, user) {
 		return
 	}
 	dn.ApprovalRequired = true
@@ -210,7 +210,7 @@ func applyDeviceNetworkApprovalPolicy(network schema.Network, user *schema.User,
 func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network schema.Network, user *schema.User, featureFlags models.FeatureFlags, dn *models.DeviceNetwork) {
 	if pending, _ := getPendingHostOnNetwork(ctx, host.ID.String(), network.Name); pending != nil {
 		// Stale pending from before JIT/admin skip should not block the client UI.
-		if !deviceJoinRequiresApproval(network, user) {
+		if !deviceJoinRequiresApproval(ctx, network, user) {
 			_ = pending.Delete(ctx)
 		} else {
 			dn.Pending = true
@@ -238,7 +238,7 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network
 		return
 	}
 
-	applyDeviceNetworkApprovalPolicy(network, user, featureFlags, dn)
+	applyDeviceNetworkApprovalPolicy(ctx, network, user, featureFlags, dn)
 }
 
 func getPendingHostOnNetwork(ctx context.Context, hostID, network string) (*schema.PendingHost, error) {
@@ -273,7 +273,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
 		return empty, errors.New("operation not permitted")
 	}
-	hasAccess, _, err := CheckJITAccess(networkID, user.Username)
+	hasAccess, _, err := CheckJITAccess(ctx, networkID, user.Username)
 	if err != nil {
 		return empty, err
 	}
@@ -294,7 +294,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}
 
-	if deviceJoinRequiresApproval(*network, user) {
+	if deviceJoinRequiresApproval(ctx, *network, user) {
 		p := &schema.PendingHost{HostID: host.ID.String(), Network: networkID}
 		if err := p.CheckIfPendingHostExists(ctx); err == nil {
 			return models.DeviceJoinResult{Status: models.DeviceJoinStatusPending}, nil
@@ -322,7 +322,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		_ = pending.Delete(ctx)
 	}
 
-	JoinHostToNetworks(models.EnrollmentKey{
+	JoinHostToNetworks(ctx, models.EnrollmentKey{
 		Networks:           []string{networkID},
 		SkipDeviceApproval: true,
 	}, host, user.Username)
@@ -351,7 +351,7 @@ func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Hos
 	if err != nil {
 		return err
 	}
-	return DeleteNode(&node, true)
+	return DeleteNode(ctx, &node, true)
 }
 
 // CancelDeviceNetworkJoin removes a pending join approval request without leaving a joined network.
@@ -402,17 +402,17 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 	if !HostExists(newHost) {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		newHost.OwnerUsername = user.Username
-		_ = CheckHostPorts(newHost)
+		_ = CheckHostPorts(ctx, newHost)
 		if err := ProvisionDeviceHostMessaging(newHost); err != nil {
 			return empty, err
 		}
-		if err := CreateHost(newHost); err != nil {
+		if err := CreateHost(ctx, newHost); err != nil {
 			return empty, err
 		}
 		host = newHost
 	} else {
 		existing := &schema.Host{ID: newHost.ID}
-		if err := existing.Get(db.WithContext(ctx)); err != nil {
+		if err := existing.Get(ctx); err != nil {
 			return empty, err
 		}
 		if existing.OwnerUsername == "" {
@@ -421,17 +421,17 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
 			return empty, errors.New("host already registered to another user")
 		}
-		endpointChanged, _ := UpdateHostFromClient(newHost, existing)
+		endpointChanged, _ := UpdateHostFromClient(ctx, newHost, existing)
 		if endpointChanged {
-			CheckHostPorts(existing)
+			CheckHostPorts(ctx, existing)
 		}
-		if err := UpsertHost(existing); err != nil {
+		if err := existing.Upsert(ctx); err != nil {
 			return empty, err
 		}
 		host = existing
 	}
 
-	server := GetServerInfo()
+	server := GetServerInfo(ctx)
 	server.TrafficKey = trafficKey
 	responseHost := *host
 	responseHost.HostPass = ""

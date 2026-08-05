@@ -28,7 +28,7 @@ func migrateInternetEgress() {
 
 	backfillInternetEgressTypes(ctx)
 
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		logger.Log(0, "migration: failed to list nodes for internet egress migrate:", err.Error())
 		return
@@ -85,7 +85,7 @@ func migrateInternetEgress() {
 
 		// Preserve access for previously assigned clients with an allow ACL when default policies are off.
 		if len(clientIDs) > 0 {
-			createMigrationInternetEgressACL(node.Network, e, clientIDs)
+			createMigrationInternetEgressACL(ctx, node.Network, e, clientIDs)
 		}
 	}
 
@@ -152,7 +152,7 @@ func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []model
 		}
 	}
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		logger.Log(0, "migration: failed to list ext clients for internet egress migrate:", err.Error())
 		return
@@ -171,7 +171,7 @@ func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []model
 		}
 		c := client
 		c.SelectedInternetEgressID = egressID
-		if err := logic.SaveExtClient(&c); err != nil {
+		if err := logic.SaveExtClient(ctx, &c); err != nil {
 			logger.Log(0, "migration: failed to set selected internet egress on ext client", c.ClientID, err.Error())
 		}
 	}
@@ -292,9 +292,9 @@ func collectLegacyIGWClients(gw models.Node, all []models.Node) []string {
 	return out
 }
 
-func createMigrationInternetEgressACL(network string, e schema.Egress, clientNodeIDs []string) {
+func createMigrationInternetEgressACL(ctx context.Context, network string, e schema.Egress, clientNodeIDs []string) {
 	aclID := fmt.Sprintf("%s.inet-egress-%s", network, e.ID)
-	if _, err := logic.GetAcl(aclID); err == nil {
+	if _, err := logic.GetAcl(ctx, aclID); err == nil {
 		return
 	}
 	src := make([]models.AclPolicyTag, 0, len(clientNodeIDs))
@@ -313,7 +313,7 @@ func createMigrationInternetEgressACL(network string, e schema.Egress, clientNod
 		Proto:            models.ALL,
 		AllowedDirection: models.TrafficDirectionBi,
 	}
-	if err := logic.InsertAcl(acl); err != nil {
+	if err := logic.InsertAcl(ctx, acl); err != nil {
 		logger.Log(0, "migration: failed to create internet egress ACL:", e.ID, err.Error())
 	}
 }

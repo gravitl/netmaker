@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
@@ -22,15 +23,15 @@ import (
 
 var (
 	// ResetAutoRelay - function to reset autorelayed peers on this node
-	ResetAutoRelay = func(autoRelayNode *models.Node) error {
+	ResetAutoRelay = func(ctx context.Context, autoRelayNode *models.Node) error {
 		return nil
 	}
 	// ResetAutoRelayedPeer - removes relayed peers for node
-	ResetAutoRelayedPeer = func(failedOverNode *models.Node) error {
+	ResetAutoRelayedPeer = func(ctx context.Context, failedOverNode *models.Node) error {
 		return nil
 	}
 	// GetAutoRelayPeerIps - gets autorelay peerips
-	GetAutoRelayPeerIps = func(peer, node *models.Node) []net.IPNet {
+	GetAutoRelayPeerIps = func(ctx context.Context, peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
 	// SetAutoRelay - sets autorelay flag on the node
@@ -40,87 +41,100 @@ var (
 )
 
 var (
-	hostPeerInfoCache   map[string]models.HostPeerInfo
+	hostPeerInfoCache   map[string]map[string]models.HostPeerInfo
 	hostPeerInfoCacheMu sync.RWMutex
 )
 
 var (
-	hostPeerUpdateCache   map[string]models.HostPeerUpdate
+	hostPeerUpdateCache   map[string]map[string]models.HostPeerUpdate
 	hostPeerUpdateCacheMu sync.RWMutex
 )
 
 // InvalidateHostPeerCaches clears both hostPeerInfoCache and
 // hostPeerUpdateCache so they are rebuilt on next access or refresh.
-func InvalidateHostPeerCaches() {
+func InvalidateHostPeerCaches(ctx context.Context) {
+	tenantID := scope.ID(ctx)
+
 	hostPeerInfoCacheMu.Lock()
-	hostPeerInfoCache = nil
+	delete(hostPeerInfoCache, tenantID)
 	hostPeerInfoCacheMu.Unlock()
 
 	hostPeerUpdateCacheMu.Lock()
-	hostPeerUpdateCache = nil
+	delete(hostPeerUpdateCache, tenantID)
 	hostPeerUpdateCacheMu.Unlock()
 }
 
 // StoreHostPeerUpdate - caches a computed HostPeerUpdate for a host.
 // Called as a side-effect of PublishSingleHostPeerUpdate during broadcast.
-func StoreHostPeerUpdate(hostID string, peerUpdate models.HostPeerUpdate) {
+func StoreHostPeerUpdate(ctx context.Context, hostID string, peerUpdate models.HostPeerUpdate) {
+	tenantID := scope.ID(ctx)
 	hostPeerUpdateCacheMu.Lock()
 	if hostPeerUpdateCache == nil {
-		hostPeerUpdateCache = make(map[string]models.HostPeerUpdate)
+		hostPeerUpdateCache = make(map[string]map[string]models.HostPeerUpdate)
 	}
-	hostPeerUpdateCache[hostID] = peerUpdate
+	if hostPeerUpdateCache[tenantID] == nil {
+		hostPeerUpdateCache[tenantID] = make(map[string]models.HostPeerUpdate)
+	}
+	hostPeerUpdateCache[tenantID][hostID] = peerUpdate
 	hostPeerUpdateCacheMu.Unlock()
 }
 
 // GetCachedHostPeerUpdate - returns a cached HostPeerUpdate if available.
-func GetCachedHostPeerUpdate(hostID string) (models.HostPeerUpdate, bool) {
+func GetCachedHostPeerUpdate(ctx context.Context, hostID string) (models.HostPeerUpdate, bool) {
+	tenantID := scope.ID(ctx)
 	hostPeerUpdateCacheMu.RLock()
 	defer hostPeerUpdateCacheMu.RUnlock()
-	if hostPeerUpdateCache == nil {
+	tenantCache, ok := hostPeerUpdateCache[tenantID]
+	if !ok {
 		return models.HostPeerUpdate{}, false
 	}
-	hpu, ok := hostPeerUpdateCache[hostID]
+	hpu, ok := tenantCache[hostID]
 	return hpu, ok
 }
 
 // GetHostPeerInfo - returns cached peer info for a host.
 // Falls back to on-demand computation if the cache is not yet populated.
-func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
+func GetHostPeerInfo(ctx context.Context, host *schema.Host) (models.HostPeerInfo, error) {
+	tenantID := scope.ID(ctx)
 	hostID := host.ID.String()
 	hostPeerInfoCacheMu.RLock()
-	if hostPeerInfoCache != nil {
-		if info, ok := hostPeerInfoCache[hostID]; ok {
+	if tenantCache, ok := hostPeerInfoCache[tenantID]; ok {
+		if info, ok := tenantCache[hostID]; ok {
 			hostPeerInfoCacheMu.RUnlock()
 			return info, nil
 		}
 	}
 	hostPeerInfoCacheMu.RUnlock()
-	return computeHostPeerInfo(host, nil, models.ServerConfig{})
+	return computeHostPeerInfo(ctx, host, nil, models.ServerConfig{})
 }
 
 // RefreshHostPeerInfoCache - batch pre-computes peer info for all hosts
 // and stores the results in the cache. Returns the fetched hosts and
 // nodes so callers can reuse them without redundant DB queries.
-func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
-	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+func RefreshHostPeerInfoCache(ctx context.Context) ([]schema.Host, []models.Node) {
+	hosts, err := (&schema.Host{}).ListAll(ctx)
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
 	}
-	allNodes, err := GetAllNodes()
+	allNodes, err := GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to refresh host peer info cache", "error", err)
 		return nil, nil
 	}
-	serverInfo := GetServerInfo()
+	serverInfo := GetServerInfo(ctx)
 
-	newCache := make(map[string]models.HostPeerInfo, len(hosts))
+	newCache := make(map[string]map[string]models.HostPeerInfo)
 	for i := range hosts {
-		info, err := computeHostPeerInfo(&hosts[i], allNodes, serverInfo)
+		info, err := computeHostPeerInfo(ctx, &hosts[i], allNodes, serverInfo)
 		if err != nil {
 			continue
 		}
-		newCache[hosts[i].ID.String()] = info
+		tenantID := hosts[i].TenantID
+		if newCache[tenantID] == nil {
+			newCache[tenantID] = make(map[string]models.HostPeerInfo)
+		}
+		newCache[tenantID][hosts[i].ID.String()] = info
 	}
 
 	hostPeerInfoCacheMu.Lock()
@@ -131,19 +145,19 @@ func RefreshHostPeerInfoCache() ([]schema.Host, []models.Node) {
 
 // computeHostPeerInfo - computes peer info for a single host.
 // If allNodes is nil or serverInfo is zero-value, fetches them fresh.
-func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo models.ServerConfig) (models.HostPeerInfo, error) {
+func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []models.Node, serverInfo models.ServerConfig) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
 		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
 	}
 	var err error
 	if allNodes == nil {
-		allNodes, err = GetAllNodes()
+		allNodes, err = GetAllNodes(ctx)
 		if err != nil {
 			return peerInfo, err
 		}
 	}
 	if serverInfo.Server == "" {
-		serverInfo = GetServerInfo()
+		serverInfo = GetServerInfo(ctx)
 	}
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
@@ -156,7 +170,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -168,7 +182,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			peerHost := &schema.Host{
 				ID: peer.HostID,
 			}
-			err := peerHost.Get(db.WithContext(context.TODO()))
+			err := peerHost.Get(ctx)
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -178,7 +192,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 			if defaultDevicePolicy.Enabled {
 				allowedToComm = true
 			} else {
-				allowedToComm = IsPeerAllowed(node, peer, false)
+				allowedToComm = IsPeerAllowed(ctx, node, peer, false)
 			}
 			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
@@ -199,7 +213,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 		}
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node, make(map[string]models.PeerIdentity))
+			_, extPeerIDAndAddrs, _, err = GetExtPeers(ctx, &node, &node, make(map[string]models.PeerIdentity))
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
@@ -213,7 +227,7 @@ func computeHostPeerInfo(host *schema.Host, allNodes []models.Node, serverInfo m
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -235,8 +249,8 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		Peers:              []wgtypes.PeerConfig{},
 		NodePeers:          []wgtypes.PeerConfig{},
 		HostNetworkInfo:    models.HostInfoMap{},
-		ServerConfig:       GetServerInfo(),
-		DnsNameservers:     GetNameserversForHost(host),
+		ServerConfig:       GetServerInfo(ctx),
+		DnsNameservers:     GetNameserversForHost(ctx, host),
 		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
 		GwNodes:            make(map[schema.NetworkID][]models.Node),
 		AddressIdentityMap: make(map[string]models.PeerIdentity),
@@ -248,7 +262,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		hostPeerUpdate.ManageDNS = false
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		host.EnableFlowLogs = false
 	}
 
@@ -305,8 +319,8 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		}
 
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
-		acls, _ := ListAclsByNetwork(schema.NetworkID(node.Network))
-		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
@@ -317,9 +331,9 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 		}
-		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
@@ -339,7 +353,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		} else {
 			networkAllowAll = false
 			hostPeerUpdate.FwUpdate.AllowAll = false
-			rules := GetAclRulesForNode(&node)
+			rules := GetAclRulesForNode(ctx, &node)
 			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
 				hostPeerUpdate.FwUpdate.AclRules = rules
 			} else {
@@ -358,7 +372,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			peerHost := &schema.Host{
 				ID: peer.HostID,
 			}
-			err := peerHost.Get(db.WithContext(context.TODO()))
+			err := peerHost.Get(ctx)
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -390,7 +404,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						relayHost := &schema.Host{
 							ID: autoRelayNode.HostID,
 						}
-						err = relayHost.Get(db.WithContext(context.TODO()))
+						err = relayHost.Get(ctx)
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -403,7 +417,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 						relayHost := &schema.Host{
 							ID: relayNode.HostID,
 						}
-						err := relayHost.Get(db.WithContext(context.TODO()))
+						err := relayHost.Get(ctx)
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -422,13 +436,13 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
 			}
 			var allowedToComm bool
 			if defaultDevicePolicy.Enabled {
 				allowedToComm = true
 			} else {
-				allowedToComm = IsPeerAllowed(node, peer, false)
+				allowedToComm = IsPeerAllowed(ctx, node, peer, false)
 			}
 
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
@@ -507,7 +521,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				peer.Connected &&
 				(allowedToComm) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
-				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
+				peerConfig.AllowedIPs = GetAllowedIPs(ctx, &node, &peer, nil) // only append allowed IPs if valid connection
 				if peer.IsAutoRelay {
 					hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)],
 						peer)
@@ -577,17 +591,17 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node, hostPeerUpdate.AddressIdentityMap)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, &node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,
 						Network6:      node.NetworkRange6,
-						StaticNodeIps: GetStaticNodeIps(node),
-						Rules:         GetFwRulesOnIngressGateway(node),
+						StaticNodeIps: GetStaticNodeIps(ctx, node),
+						Rules:         GetFwRulesOnIngressGateway(ctx, node),
 					}
-					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(node)
+					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
@@ -638,7 +652,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				if egressInfo.EgressFwRules == nil {
 					egressInfo.EgressFwRules = make(map[string]models.AclRule)
 				}
-				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
+				egressInfo.EgressFwRules = GetEgressRulesForNode(ctx, node)
 				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
 			} else if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
 				if r, ok := GetEgressDefaultAllowAllFwRule(node); ok {
@@ -759,7 +773,7 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 			deletedNodeHost = &schema.Host{
 				ID: deletedNode.HostID,
 			}
-			err = deletedNodeHost.Get(db.WithContext(context.TODO()))
+			err = deletedNodeHost.Get(ctx)
 		} else {
 			deletedNodeHost = deletedHost
 		}
@@ -876,9 +890,9 @@ func withoutDefaultRouteStrings(ranges []string) []string {
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
+func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
-	allowedips = getNodeAllowedIPs(peer, node)
+	allowedips = getNodeAllowedIPs(ctx, peer, node)
 	if usesPeerAsInternetExit(node, peer) {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		// Exit clients still need explicit overlay routes through the exit node for
@@ -886,11 +900,11 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		// not sufficient when auto-relayed peers must accept return traffic / when
 		// default-route handling is separate from overlay.
 		if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
+			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
 		}
 		// handle ingress gateway peers
 		if peer.IsIngressGateway {
-			extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+			extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
 			if err != nil {
 				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 			}
@@ -903,12 +917,12 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	// Non-exit clients must never inherit default routes from egress/relay aggregation.
 	allowedips = withoutDefaultRoutes(allowedips)
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(node, peer))...)
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
 	}
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
+		extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
@@ -991,7 +1005,7 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 	return allowedips
 }
 
-func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
+func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
 	if peer.Address.IP != nil {
 		allowed := net.IPNet{
@@ -1037,7 +1051,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
 	if peer.IsRelay {
-		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(peer, node))...)
+		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(ctx, peer, node))...)
 		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
 		// appear only under InetNodeClientIDs / RelayedIGWClients.
 		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
@@ -1056,7 +1070,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
-		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(peer, node))...)
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)
 	}
 	return allowedips
 }

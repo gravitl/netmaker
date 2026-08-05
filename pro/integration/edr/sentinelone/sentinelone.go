@@ -134,13 +134,13 @@ func normalizeAgent(a s1Agent) edrpkg.ManagedEndpoint {
 	installed := a.ID != ""
 	healthy := a.IsActive && !a.Infected && !networkQuarantine
 	signals := edrpkg.VendorSignals{
-		AgentInstalled:   installed,
-		AgentHealthy:     healthy,
-		ActiveMalware:    a.Infected,
-		ActiveThreats:    a.ActiveThreats > 0,
-		ThreatCount:      a.ActiveThreats,
-		Isolated:         networkQuarantine,
-		VendorRiskLevel:  edrpkg.SentinelOneRiskFromAgent(a.Infected, networkQuarantine, a.ActiveThreats),
+		AgentInstalled:  installed,
+		AgentHealthy:    healthy,
+		ActiveMalware:   a.Infected,
+		ActiveThreats:   a.ActiveThreats > 0,
+		ThreatCount:     a.ActiveThreats,
+		Isolated:        networkQuarantine,
+		VendorRiskLevel: edrpkg.SentinelOneRiskFromAgent(a.Infected, networkQuarantine, a.ActiveThreats),
 	}
 	raw, _ := json.Marshal(a)
 	return edrpkg.ManagedEndpoint{

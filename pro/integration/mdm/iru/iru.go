@@ -16,12 +16,12 @@ import (
 )
 
 const (
-	providerName         = mdmpkg.ProviderIru
-	providerDisplay      = "Iru"
-	devicesListPath      = "/api/v1/devices"
-	deviceStatusPathFmt  = "/api/v1/devices/%s/status"
-	defaultPageSize      = 300
-	maxStatusFetches     = 8
+	providerName        = mdmpkg.ProviderIru
+	providerDisplay     = "Iru"
+	devicesListPath     = "/api/v1/devices"
+	deviceStatusPathFmt = "/api/v1/devices/%s/status"
+	defaultPageSize     = 300
+	maxStatusFetches    = 8
 )
 
 func init() {
@@ -234,11 +234,11 @@ type devicesListResponse struct {
 }
 
 type iruDevice struct {
-	DeviceID     string      `json:"device_id"`
-	DeviceName   string      `json:"device_name"`
-	SerialNumber string      `json:"serial_number"`
-	LastCheckIn  string      `json:"last_check_in"`
-	UserEmail    string      `json:"user_email"`
+	DeviceID     string       `json:"device_id"`
+	DeviceName   string       `json:"device_name"`
+	SerialNumber string       `json:"serial_number"`
+	LastCheckIn  string       `json:"last_check_in"`
+	UserEmail    string       `json:"user_email"`
 	User         iruUserField `json:"user"`
 }
 

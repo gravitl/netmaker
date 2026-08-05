@@ -2,12 +2,16 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
+
+const postureChecksTable = "posture_checks"
 
 type Attribute string
 type Values string
@@ -145,6 +149,10 @@ type PostureCheck struct {
 	UpdatedAt  time.Time         `gorm:"updated_at" json:"updated_at"`
 }
 
+func (p *PostureCheck) TableName() string {
+	return postureChecksTable
+}
+
 func (p *PostureCheck) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&PostureCheck{}).First(&p).Where("id = ?", p.ID).Error
 }
@@ -159,17 +167,28 @@ func (p *PostureCheck) Create(ctx context.Context) error {
 
 func (p *PostureCheck) ListAll(ctx context.Context) ([]PostureCheck, error) {
 	var postureChecks []PostureCheck
-	err := db.FromContext(ctx).Model(&PostureCheck{}).Find(&postureChecks).Error
+	query := db.FromContext(ctx).Model(&PostureCheck{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureChecksTable), tenantID)(query)
+	}
+	err := query.Find(&postureChecks).Error
 	return postureChecks, err
 }
 
 func (p *PostureCheck) ListByNetwork(ctx context.Context) (pcli []PostureCheck, err error) {
-	err = db.FromContext(ctx).Model(&PostureCheck{}).Where("network_id = ?", p.NetworkID).Find(&pcli).Error
+	query := db.FromContext(ctx).Model(&PostureCheck{}).Where("network_id = ?", p.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureChecksTable), tenantID)(query)
+	}
+	err = query.Find(&pcli).Error
 	return
 }
 
 func (p *PostureCheck) Delete(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&PostureCheck{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureChecksTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}

@@ -11,45 +11,54 @@ import (
 )
 
 // Pre-Define Permission Templates for default Roles
+
+var OrgOwnerPermissionTemplate = schema.UserRole{
+	ID:              schema.OrgOwner,
+	Default:         true,
+	OrgGlobalAccess: true,
+}
+
+var OrgAdminPermissionTemplate = schema.UserRole{
+	ID:              schema.OrgAdmin,
+	Default:         true,
+	OrgGlobalAccess: true,
+}
+
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:         schema.SuperAdminRole,
-	Default:    true,
-	FullAccess: true,
+	ID:                 schema.SuperAdminRole,
+	Default:            true,
+	TenantGlobalAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:         schema.AdminRole,
-	Default:    true,
-	FullAccess: true,
+	ID:                 schema.AdminRole,
+	Default:            true,
+	TenantGlobalAccess: true,
 }
 
 var GetFilteredNodesByUserAccess = func(user *schema.User, nodes []models.Node) (filteredNodes []models.Node) {
 	return
 }
 
-var DeleteRole = func(r schema.UserRoleID, force bool) error {
+var DeleteRole = func(ctx context.Context, r schema.UserRoleID, force bool) error {
 	return nil
 }
 
-var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User) []schema.Network {
+var FilterNetworksByRole = func(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	return allnetworks
 }
 
-var IsGroupsValid = func(groups map[schema.UserGroupID]struct{}) error {
-	return nil
-}
-
-var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
+var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *schema.User) {}
 
 var InitialiseRoles = userRolesInit
-var IntialiseGroups = func() {}
-var DeleteNetworkRoles = func(netID string) {}
-var CreateDefaultNetworkRolesAndGroups = func(netID schema.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
+var IntialiseGroups = func(ctx context.Context) {}
+var DeleteNetworkRoles = func(ctx context.Context, netID string) {}
+var CreateDefaultNetworkRolesAndGroups = func(ctx context.Context, netID schema.NetworkID, username string) {}
+var CreateDefaultUserPolicies = func(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !IsAclExists(ctx, fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
@@ -75,10 +84,12 @@ var CreateDefaultUserPolicies = func(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		InsertAcl(defaultUserAcl)
+		InsertAcl(ctx, defaultUserAcl)
 	}
 }
-var GetUserGroup = func(groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) { return }
+var GetUserGroup = func(ctx context.Context, groupId schema.UserGroupID) (userGrps schema.UserGroup, err error) {
+	return
+}
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var StripGroupsOnRoleDowngrade = func(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
@@ -86,10 +97,10 @@ var AddGlobalGroupOnRoleUpgrade = func(oldRole, newRole schema.UserRoleID, group
 }
 var PlatformRoleRequiresGroupEnforcement = func(role schema.UserRoleID) bool { return false }
 var UserHasGlobalNetworksAdminMembership = func(user *schema.User) bool { return false }
-var UserHasNetworkGroupAccess = func(user *schema.User, networkID string) bool { return false }
-var IsNetworkAdmin = func(user *schema.User, networkID string) bool { return false }
+var UserHasNetworkGroupAccess = func(ctx context.Context, user *schema.User, networkID string) bool { return false }
+var IsNetworkAdmin = func(ctx context.Context, user *schema.User, networkID string) bool { return false }
 var CanUserCreateNetwork = func(ctx context.Context, username string) bool { return true }
-var EmailInit = func() {}
+var EmailInit = func(ctx context.Context) {}
 
 func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	switch rsrc {
@@ -140,6 +151,8 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 }
 
 func userRolesInit() {
+	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }

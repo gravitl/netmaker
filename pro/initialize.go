@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
@@ -36,6 +37,7 @@ import (
 	_ "github.com/gravitl/netmaker/pro/integration/mdm/jumpcloud"
 	"github.com/gravitl/netmaker/pro/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -68,10 +70,11 @@ func InitPro() {
 		proControllers.IntegrationHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
+	migrate.SyncOrgAndTenants = license.SyncOrgAndTenants
+	servercfg.ErrLicenseValidation = license.ErrLicenseValidation
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
-		_ = license.ClearLicenseCache()
-		if err := license.ValidateLicense(); err != nil {
+		if err := license.ValidateLicense(ctx, true); err != nil {
 			slog.Error(err.Error())
 			return
 		}
@@ -82,13 +85,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		var authProvider = auth.InitializeAuthProvider()
-		if authProvider != "" {
-			slog.Info("OAuth provider,", authProvider+",", "initialized")
-		} else {
-			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
-		}
-		proLogic.LoadNodeMetricsToCache()
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
@@ -96,33 +92,58 @@ func InitPro() {
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
-			auth.ResetIDPSyncHook()
-			proLogic.AddPostureCheckHook()
-			// Register JIT expiry hook with email notifications
-			addJitExpiryHookWithEmail()
+			tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+			if err != nil {
+				logger.Log(0, "error fetching tenants while starting background tasks:", err.Error())
+			} else {
+				flowLogsEnabled := false
+				for _, tenant := range tenants {
+					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
+					auth.StartIDPSyncHookForTenant(scopedCtx)
+					proLogic.AddPostureCheckHook(scopedCtx)
+					logic.GetMetricsMonitor(scopedCtx).Start()
 
-			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
+						flowLogsEnabled = true
+					}
+				}
+
+				if flowLogsEnabled {
+					proLogic.StartFlowCleanupLoop()
+
+					wg.Add(1)
+					go func(ctx context.Context, wg *sync.WaitGroup) {
+						<-ctx.Done()
+						proLogic.StopFlowCleanupLoop()
+						wg.Done()
+					}(ctx, wg)
+				}
+			}
+
+			// Register JIT expiry hook with email notifications
+			addJitExpiryHookWithEmail(ctx)
+
+			if license.GetFeatureFlags(ctx).EnableFlowLogs {
 				err := ch.Initialize()
 				if err != nil {
 					logger.Log(0, "error connecting to clickhouse:", err.Error())
+				} else {
+					wg.Add(1)
+					go func(ctx context.Context, wg *sync.WaitGroup) {
+						<-ctx.Done()
+						ch.Close()
+						wg.Done()
+					}(ctx, wg)
 				}
-
-				proLogic.StartFlowCleanupLoop()
-
-				wg.Add(1)
-				go func(ctx context.Context, wg *sync.WaitGroup) {
-					<-ctx.Done()
-					proLogic.StopFlowCleanupLoop()
-					ch.Close()
-					wg.Done()
-				}(ctx, wg)
 			}
 		}
 
-		// These can run on all pods
-		email.Init()
+		defaultOrg := &schema.Organization{}
+		err := defaultOrg.Get(db.WithContext(context.TODO()))
+		if err == nil {
+			email.Init(scope.WithContext(db.WithContext(ctx), scope.OrgScope, defaultOrg.ID))
+		}
 		go proLogic.EventWatcher()
-		logic.GetMetricsMonitor().Start()
 	})
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
@@ -136,17 +157,18 @@ func InitPro() {
 	logic.DeleteNodeMetricsFromPeers = proLogic.DeleteNodeMetricsFromPeers
 	logic.SetPeerMetricsDisconnected = proLogic.SetPeerMetricsDisconnected
 	logic.TriggerCollectMetrics = proLogic.PublishCollectMetrics
+	logic.LoadMetricsIntoCache = proLogic.LoadNodeMetricsToCache
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
 
 	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
-	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
+	logic.TenantPermissionsCheck = proLogic.TenantPermissionsCheck
+	logic.OrgPermissionsCheck = proLogic.OrgPermissionsCheck
 	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
-	logic.IsGroupsValid = proLogic.IsGroupsValid
 
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
@@ -185,8 +207,16 @@ func InitPro() {
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
-	logic.GetFeatureFlags = proLogic.GetFeatureFlags
+	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
+	logic.IsMSP = license.IsMSP
+	logic.EnforceLimits = license.EnforceLimits
+	logic.HostLimitExceeded = license.HostLimitExceeded
+	logic.NetworkLimitExceeded = license.NetworkLimitExceeded
+	logic.ClientLimitExceeded = license.ClientLimitExceeded
+	logic.UserLimitExceeded = license.UserLimitExceeded
+	logic.IngressLimitExceeded = license.IngressLimitExceeded
+	logic.EgressLimitExceeded = license.EgressLimitExceeded
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
@@ -208,8 +238,8 @@ func InitPro() {
 }
 
 // addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications
-func addJitExpiryHookWithEmail() {
-	if !proLogic.GetFeatureFlags().EnableJIT {
+func addJitExpiryHookWithEmail(ctx context.Context) {
+	if !license.GetFeatureFlags(ctx).EnableJIT {
 		return
 	}
 	// Register JIT grant expiry hook with email notifications - runs every 5 minutes
@@ -246,8 +276,9 @@ func expireJITGrantsWithEmail() error {
 		if expiredGrant.ExpiresAt.After(fiveMinutesAgo) && expiredGrant.RequestID != "" {
 			request := schema.JITRequest{ID: expiredGrant.RequestID}
 			if err := request.Get(ctx); err == nil {
+				netCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, expiredGrant.TenantID)
 				network := &schema.Network{Name: expiredGrant.NetworkID}
-				err = network.Get(db.WithContext(context.TODO()))
+				err = network.Get(netCtx)
 				if err == nil {
 					grantsToEmail = append(grantsToEmail, struct {
 						Grant   *schema.JITGrant

@@ -2,12 +2,16 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm/clause"
 )
 
 // Violation - posture check violation data
@@ -21,17 +25,17 @@ type Violation struct {
 
 // ExtClient - struct for external clients
 type ExtClient struct {
-	ClientID                          string              `json:"clientid" bson:"clientid"`
-	PrivateKey                        string              `json:"privatekey" bson:"privatekey"`
-	PublicKey                         string              `json:"publickey" bson:"publickey"`
-	Network                           string              `json:"network" bson:"network"`
-	DNS                               string              `json:"dns" bson:"dns"`
-	Address                           string              `json:"address" bson:"address"`
-	Address6                          string              `json:"address6" bson:"address6"`
-	ExtraAllowedIPs                   []string            `json:"extraallowedips" bson:"extraallowedips"`
-	AllowedIPs                        []string            `json:"allowed_ips"`
-	IngressGatewayID                  string              `json:"ingressgatewayid" bson:"ingressgatewayid"`
-	IngressGatewayEndpoint            string              `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	ClientID               string   `json:"clientid" bson:"clientid"`
+	PrivateKey             string   `json:"privatekey" bson:"privatekey"`
+	PublicKey              string   `json:"publickey" bson:"publickey"`
+	Network                string   `json:"network" bson:"network"`
+	DNS                    string   `json:"dns" bson:"dns"`
+	Address                string   `json:"address" bson:"address"`
+	Address6               string   `json:"address6" bson:"address6"`
+	ExtraAllowedIPs        []string `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs             []string `json:"allowed_ips"`
+	IngressGatewayID       string   `json:"ingressgatewayid" bson:"ingressgatewayid"`
+	IngressGatewayEndpoint string   `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
 	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
 	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
@@ -70,33 +74,69 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 
 type ExtClientRecord struct {
 	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:'';index"`
+	TenantID  string `gorm:"default:''"`
 	NetworkID string
 	Value     datatypes.JSONType[ExtClient]
 }
 
-func (*ExtClientRecord) TableName() string { return "extclients" }
+const extClientRecordsTable = "extclients"
+
+func (*ExtClientRecord) TableName() string { return extClientRecordsTable }
 
 func (r *ExtClientRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(r).Error
+	tenantID := scope.ID(ctx)
+	logicalKey := r.Key
+	r.Key = TenantScopedKey(tenantID, logicalKey)
+	err := db.FromContext(ctx).Where("key = ?", r.Key).First(r).Error
+	if err != nil {
+		r.Key = logicalKey
+		return err
+	}
+	r.Key = logicalKey
+	return nil
 }
 
 func (r *ExtClientRecord) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(r).Error
+	r.TenantID = scope.ID(ctx)
+	rec := *r
+	rec.Key = TenantScopedKey(r.TenantID, r.Key)
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value"}),
+	}).Create(&rec).Error
 }
 
 func (r *ExtClientRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(r).Error
+	tenantID := scope.ID(ctx)
+	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&ExtClientRecord{}).Error
 }
 
 func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
 	var records []ExtClientRecord
-	err := db.FromContext(ctx).Find(&records).Error
+	query := db.FromContext(ctx).Model(&ExtClientRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientRecordsTable), tenantID)(query)
+	}
+	err := query.Find(&records).Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
 	return records, err
+}
+
+func (*ExtClientRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extClientRecordsTable), tenantID).Delete(&ExtClientRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extClientRecordsTable)).Error
 }
 
 func (*ExtClientRecord) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&ExtClientRecord{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&ExtClientRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientRecordsTable), tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }

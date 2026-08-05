@@ -33,6 +33,24 @@ func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
+	ctx := db.WithContext(context.TODO())
+	defaultOrg := schema.Organization{}
+	if err := defaultOrg.CreateDefault(ctx); err != nil {
+		// CreateDefault sets ID before the failed insert; GetDefault must run
+		// on a fresh struct or gorm.First will AND in the stale ID and never match.
+		defaultOrg = schema.Organization{}
+		_ = defaultOrg.GetDefault(ctx)
+	}
+
+	defaultTenant := schema.Tenant{
+		OrganizationID: defaultOrg.ID,
+	}
+	if err := defaultTenant.CreateDefault(ctx); err != nil {
+		defaultTenant = schema.Tenant{}
+		_ = defaultTenant.GetDefault(ctx)
+	}
+	ensureTestMqKeys(ctx)
+
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background())
 	go func() {
@@ -41,16 +59,6 @@ func TestMain(m *testing.M) {
 			//do nothing
 		}
 	}()
-
-	ctx := db.WithContext(context.TODO())
-	defaultOrg := schema.Organization{}
-	_ = defaultOrg.CreateDefault(ctx)
-
-	defaultTenant := schema.Tenant{
-		OrganizationID: defaultOrg.ID,
-	}
-	_ = defaultTenant.CreateDefault(ctx)
-	ensureTestMqKeys(ctx)
 
 	os.Exit(m.Run())
 }
@@ -71,11 +79,11 @@ func TestCheckPorts(t *testing.T) {
 	db.InitializeDB(schema.ListModels()...)
 	defer db.CloseDB()
 
-	RemoveHost(&h, true)
-	CreateHost(&h)
+	RemoveHost(db.WithContext(context.TODO()), &h, true)
+	CreateHost(db.WithContext(context.TODO()), &h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
-		CheckHostPorts(&testHost)
+		CheckHostPorts(db.WithContext(context.TODO()), &testHost)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51830)
@@ -83,7 +91,7 @@ func TestCheckPorts(t *testing.T) {
 	t.Run("same listen port", func(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = 51821
-		CheckHostPorts(&testHost)
+		CheckHostPorts(db.WithContext(context.TODO()), &testHost)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51822)

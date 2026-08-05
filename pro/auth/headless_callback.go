@@ -17,8 +17,8 @@ import (
 
 // HandleHeadlessSSOCallback - handle OAuth callback for headless logins such as Netmaker CLI
 func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
-	functions := getCurrentAuthFunctions()
-	if functions == nil {
+	p, ok := Registry().FromContext(r.Context())
+	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
 		logger.Log(0, "Missing Oauth config in HandleHeadlessSSOCallback")
@@ -26,7 +26,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	state, code := getStateAndCode(r)
 
-	userClaims, err := functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
+	userClaims, err := p.GetUserInfo(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
 		w.WriteHeader(http.StatusBadRequest)
@@ -54,31 +54,30 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isEmailAllowed(userClaims.Email) {
+	if !isEmailAllowed(r.Context(), userClaims.Email) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(userClaims.getUserName()) {
+	if logic.IsPendingUser(r.Context(), userClaims.getUserName()) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 
 	var user *schema.User
-	if logic.GetServerSettings().AuthProvider == azure_ad_provider_name {
-		user, err = GetMatchingUser(userClaims)
+	if p.Name() == azure_ad_provider_name {
+		user, err = GetMatchingUser(r.Context(), userClaims)
 	} else {
 		user = &schema.User{Username: userClaims.getUserName()}
-		err = user.Get(r.Context())
+		err = user.GetWithMembership(r.Context())
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			pendingUser := &schema.PendingUser{
+				Scope:                      scope.Level(r.Context()),
+				ScopeID:                    scope.ID(r.Context()),
 				Username:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),
-			}
-			if pendingUser.TenantID == "" {
-				pendingUser.TenantID = scope.ID(logic.DefaultScope(r.Context()))
 			}
 			err = pendingUser.Create(r.Context())
 			if err != nil {
@@ -100,7 +99,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	if fetchErr != nil {
 		return
 	}
-	jwt, jwtErr := logic.VerifyAuthRequest(models.UserAuthParams{
+	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), models.UserAuthParams{
 		UserName: user.Username,
 		Password: newPass,
 	}, logic.NetclientApp)

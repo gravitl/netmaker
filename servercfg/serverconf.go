@@ -1,6 +1,7 @@
 package servercfg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -21,12 +22,15 @@ const EmqxBrokerType = "emqx"
 type Emqxdeploy string
 
 var (
-	Version              = "dev"
-	IsPro                = false
-	ErrLicenseValidation error
-	EmqxCloudDeploy      Emqxdeploy = "cloud"
-	EmqxOnPremDeploy     Emqxdeploy = "on-prem"
+	Version                     = "dev"
+	IsPro                       = false
+	EmqxCloudDeploy  Emqxdeploy = "cloud"
+	EmqxOnPremDeploy Emqxdeploy = "on-prem"
 )
+
+// ErrLicenseValidation checks for errors during license validation
+// of tenant in ctx.
+var ErrLicenseValidation = func(ctx context.Context) error { return nil }
 
 // SetHost - sets the host ip
 func SetHost() error {

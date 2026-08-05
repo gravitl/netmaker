@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm/clause"
 )
 
 type TagID string
@@ -40,28 +43,64 @@ type TagRecord struct {
 	Value     datatypes.JSONType[Tag]
 }
 
-func (*TagRecord) TableName() string { return "tags" }
+const tagRecordsTable = "tags"
+
+func (*TagRecord) TableName() string { return tagRecordsTable }
 
 func (r *TagRecord) Get(ctx context.Context) error {
-	return db.FromContext(ctx).First(r).Error
+	tenantID := scope.ID(ctx)
+	logicalKey := r.Key
+	r.Key = TenantScopedKey(tenantID, logicalKey)
+	err := db.FromContext(ctx).Where("key = ?", r.Key).First(r).Error
+	if err != nil {
+		r.Key = logicalKey
+		return err
+	}
+	r.Key = logicalKey
+	return nil
 }
 
 func (r *TagRecord) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(r).Error
+	r.TenantID = scope.ID(ctx)
+	rec := *r
+	rec.Key = TenantScopedKey(r.TenantID, r.Key)
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value"}),
+	}).Create(&rec).Error
 }
 
 func (r *TagRecord) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Delete(r).Error
+	tenantID := scope.ID(ctx)
+	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&TagRecord{}).Error
 }
 
 func (*TagRecord) List(ctx context.Context) ([]TagRecord, error) {
 	var records []TagRecord
-	err := db.FromContext(ctx).Find(&records).Error
+	query := db.FromContext(ctx).Model(&TagRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", tagRecordsTable), tenantID)(query)
+	}
+	err := query.Find(&records).Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
 	return records, err
+}
+
+func (*TagRecord) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", tagRecordsTable), tenantID).Delete(&TagRecord{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", tagRecordsTable)).Error
 }
 
 func (*TagRecord) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Model(&TagRecord{}).Count(&count).Error
+	query := db.FromContext(ctx).Model(&TagRecord{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", tagRecordsTable), tenantID)(query)
+	}
+	err := query.Count(&count).Error
 	return int(count), err
 }

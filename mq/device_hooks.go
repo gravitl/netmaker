@@ -3,9 +3,11 @@ package mq
 import (
 	"context"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -14,11 +16,11 @@ func init() {
 	logic.RequestHostPullUpdate = requestHostPullUpdate
 	logic.ProvisionDeviceHostMessaging = provisionDeviceHostMessaging
 	logic.CleanupDeviceHostForOwnershipTransfer = cleanupDeviceHostForOwnershipTransfer
-	logic.PublishPeerUpdateAfterExitNodeChange = func() {
-		_ = PublishPeerUpdate(false)
+	logic.PublishPeerUpdateAfterExitNodeChange = func(ctx context.Context) {
+		_ = PublishPeerUpdate(ctx, false)
 	}
-	logic.PublishExitClientsFailOpen = func(clients []models.Node) {
-		_ = PublishPeerUpdatesToExitClientHosts(clients)
+	logic.PublishExitClientsFailOpen = func(ctx context.Context, clients []models.Node) {
+		_ = PublishPeerUpdatesToExitClientHosts(ctx, clients)
 	}
 }
 
@@ -29,7 +31,7 @@ func provisionDeviceHostMessaging(host *schema.Host) error {
 	return GetEmqxHandler().CreateEmqxUser(host.ID.String(), host.HostPass)
 }
 
-func publishHostRegistrationUpdates(host *schema.Host) error {
+func publishHostRegistrationUpdates(ctx context.Context, host *schema.Host) error {
 	if host == nil || !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -39,7 +41,7 @@ func publishHostRegistrationUpdates(host *schema.Host) error {
 	}); err != nil {
 		return err
 	}
-	return PublishPeerUpdate(false)
+	return PublishPeerUpdate(ctx, false)
 }
 
 func requestHostPullUpdate(host *schema.Host) error {
@@ -67,7 +69,8 @@ func cleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *schema.Hos
 		return err
 	}
 	for _, node := range nodes {
-		go PublishMqUpdatesForDeletedNode(host, node, false)
+		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+		go PublishMqUpdatesForDeletedNode(detachedCtx, host, node, false)
 	}
 	if servercfg.IsMessageQueueBackend() {
 		return HostUpdate(&models.HostUpdate{

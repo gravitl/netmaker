@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/require"
 )
 
-func CreateHost(t *testing.T, name string) *schema.Host {
+func CreateHost(t *testing.T, ctx context.Context, name string) *schema.Host {
 	endpointIP, err := RandomPublicIPv4()
 	require.NoError(t, err)
 
@@ -19,17 +19,18 @@ func CreateHost(t *testing.T, name string) *schema.Host {
 
 	host := &schema.Host{
 		ID:           uuid.New(),
+		TenantID:     scope.ID(ctx),
 		Name:         name,
 		EndpointIP:   endpointIP,
 		EndpointIPv6: endpointIPv6,
 	}
-	err = host.Create(db.WithContext(context.TODO()))
+	err = host.Create(ctx)
 	require.NoError(t, err)
 
 	return host
 }
 
-func DeleteHost(t *testing.T, host *schema.Host) {
-	err := host.Delete(db.WithContext(context.TODO()))
+func DeleteHost(t *testing.T, ctx context.Context, host *schema.Host) {
+	err := host.Delete(ctx)
 	require.NoError(t, err)
 }
