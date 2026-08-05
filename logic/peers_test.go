@@ -1,10 +1,12 @@
 package logic
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -135,7 +137,8 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 		},
 	}
 
-	allowed := GetAllowedIPs(&client, &gw, nil)
+	ctx := db.WithContext(context.TODO())
+	allowed := GetAllowedIPs(ctx, &client, &gw, nil)
 	hasLAN := false
 	for _, ip := range allowed {
 		assert.NotEqual(t, IPv4Network, ip.String(), "non-exit client must not get default v4 route")
@@ -149,7 +152,7 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	// Exit client via legacy InternetGwID assignment.
 	exitClient := client
 	exitClient.InternetGwID = gwID.String()
-	exitAllowed := GetAllowedIPs(&exitClient, &gw, nil)
+	exitAllowed := GetAllowedIPs(ctx, &exitClient, &gw, nil)
 	hasV4 := false
 	for _, ip := range exitAllowed {
 		if ip.String() == IPv4Network {
@@ -158,4 +161,3 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	}
 	assert.True(t, hasV4, "exit client should get 0.0.0.0/0")
 }
-

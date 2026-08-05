@@ -145,7 +145,7 @@ func TestTransferDeviceHostOwnership_logsAuditEvent(t *testing.T) {
 
 	var logged models.Event
 	origLogEvent := LogEvent
-	LogEvent = func(e *models.Event) {
+	LogEvent = func(ctx context.Context, e *models.Event) {
 		logged = *e
 	}
 	t.Cleanup(func() { LogEvent = origLogEvent })
@@ -183,7 +183,7 @@ func TestTransferDeviceHostOwnershipCleansPending(t *testing.T) {
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
 
 	netName := "handoff-net-" + uuid.NewString()[:8]
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.98.0.0/24",
 	}))
@@ -216,7 +216,7 @@ func TestIsUserAllowedToJoinNetworkUsesRoleFilter(t *testing.T) {
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
 
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(ctx context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: "allowed-net"}}
 	}
 
@@ -232,13 +232,13 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.99.0.0/24",
 		AutoJoin:     false,
@@ -264,13 +264,13 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(ctx context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
@@ -302,25 +302,25 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
 	origJITSubject := UserSubjectToNetworkJIT
 	t.Cleanup(func() { UserSubjectToNetworkJIT = origJITSubject })
-	UserSubjectToNetworkJIT = func(networkID string, _ *schema.User) bool {
+	UserSubjectToNetworkJIT = func(ctx context.Context, networkID string, _ *schema.User) bool {
 		return networkID == netName
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.98.0.0/24",
 		AutoJoin:     false,
@@ -347,7 +347,7 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
@@ -375,7 +375,7 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 
 	var joinKey models.EnrollmentKey
 	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(key models.EnrollmentKey, _ *schema.Host, _ string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
 		joinKey = key
 	}
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
@@ -396,19 +396,19 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
 	origIsAdmin := IsNetworkAdmin
 	t.Cleanup(func() { IsNetworkAdmin = origIsAdmin })
-	IsNetworkAdmin = func(_ *schema.User, networkID string) bool {
+	IsNetworkAdmin = func(_ context.Context, _ *schema.User, networkID string) bool {
 		return networkID == netName
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.97.0.0/24",
 		AutoJoin:     false,
@@ -434,19 +434,19 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
 	var joinKey models.EnrollmentKey
 	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(key models.EnrollmentKey, _ *schema.Host, _ string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
 		joinKey = key
 	}
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
@@ -462,7 +462,7 @@ func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
 	netName := "cancel-pending-" + uuid.NewString()[:8]
 	username := "cancel-pending-user-" + uuid.NewString()[:8]
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.95.0.0/24",
 	}))
@@ -508,7 +508,7 @@ func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
 	netName := "write-denied-" + uuid.NewString()[:8]
 	username := "write-denied-user-" + uuid.NewString()[:8]
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
 		Name:         netName,
 		AddressRange: "10.94.0.0/24",
 	}))
@@ -537,7 +537,7 @@ func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
 		FilterNetworksByRole = origFilter
 		UserHasDeviceNetworkWriteAccess = origWrite
 	})
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 	UserHasDeviceNetworkWriteAccess = func(_ context.Context, _ *schema.User, _ string) bool { return false }
