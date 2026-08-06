@@ -329,9 +329,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			if scope.Level(r.Context()) == scope.TenantScope {
-				u.Query().Set("tenant_id", scope.ID(r.Context()))
+				u, err = url.Parse(fmt.Sprintf("%s&tenant_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
 			} else if scope.Level(r.Context()) == scope.OrgScope {
-				u.Query().Set("org_id", scope.ID(r.Context()))
+				u, err = url.Parse(fmt.Sprintf("%s&org_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
 			}
 		}
 		invite.InviteURL = u.String()
