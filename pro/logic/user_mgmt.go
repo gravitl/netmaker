@@ -855,8 +855,8 @@ func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID
 }
 
 // PrepareOauthUserFromInvite - init oauth user before create
-func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
-	var newPass, fetchErr = logic.FetchOAuthSecret()
+func PrepareOauthUserFromInvite(ctx context.Context, in *schema.UserInvite) (schema.User, error) {
+	var newPass, fetchErr = logic.FetchOAuthSecret(ctx)
 	if fetchErr != nil {
 		return schema.User{}, fetchErr
 	}

@@ -60,8 +60,8 @@ func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 }
 
 // IsOauthUser - returns
-func IsOauthUser(user *schema.User) error {
-	var currentValue, err = FetchOAuthSecret()
+func IsOauthUser(ctx context.Context, user *schema.User) error {
+	var currentValue, err = FetchOAuthSecret(ctx)
 	if err != nil {
 		return err
 	}
@@ -383,11 +383,11 @@ func SetOAuthSecret(secret string) error {
 }
 
 // FetchOAuthSecret fetches secrets for oauth
-func FetchOAuthSecret() (string, error) {
+func FetchOAuthSecret(ctx context.Context) (string, error) {
 	oauthSecret := &schema.Internal{
 		Key: schema.InternalKey_OAuthSecret,
 	}
-	err := oauthSecret.Get(db.WithContext(context.TODO()))
+	err := oauthSecret.Get(ctx)
 	if err != nil {
 		return "", err
 	}

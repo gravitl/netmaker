@@ -324,7 +324,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if logic.IsOauthUser(user) == nil {
+	if logic.IsOauthUser(request.Context(), user) == nil {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
 	}
@@ -1725,7 +1725,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
+	if logic.IsOauthUser(r.Context(), user) == nil && userchange.Password != "" {
 		err := fmt.Errorf("cannot update password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return

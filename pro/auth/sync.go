@@ -184,7 +184,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 		return err
 	}
 
-	password, err := logic.FetchOAuthSecret()
+	password, err := logic.FetchOAuthSecret(ctx)
 	if err != nil {
 		return err
 	}

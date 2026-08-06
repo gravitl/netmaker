@@ -2124,7 +2124,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newPass, fetchErr = logic.FetchOAuthSecret()
+	var newPass, fetchErr = logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 		return
