@@ -42,7 +42,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/login", middleware.InferScope(http.HandlerFunc(proAuth.HandleAuthLogin))).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/callback", proAuth.HandleAuthCallback).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/headless", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.HandleHeadlessSSO)))
-	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/register/{regKey}", middleware.Scope(scope.TenantScope, http.HandlerFunc(proAuth.RegisterHostSSO))).Methods(http.MethodGet)
 
 	// User Role Handlers
 	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getRole)))).Methods(http.MethodGet)
