@@ -122,7 +122,7 @@ func (e *Event) TableName() string {
 }
 
 func (a *Event) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Event{}).First(&a).Where("id = ?", a.ID).Error
+	return db.FromContext(ctx).Model(&Event{}).Where("id = ?", a.ID).First(&a).Error
 }
 
 func (a *Event) Update(ctx context.Context) error {

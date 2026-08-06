@@ -29,7 +29,7 @@ func (a *UserAccessToken) TableName() string {
 }
 
 func (a *UserAccessToken) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserAccessToken{}).First(&a).Where("id = ?", a.ID).Error
+	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("id = ?", a.ID).First(&a).Error
 }
 
 func (a *UserAccessToken) Update(ctx context.Context) error {

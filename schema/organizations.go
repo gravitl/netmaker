@@ -81,6 +81,17 @@ func (o *Organization) ListAll(ctx context.Context) ([]Organization, error) {
 	return orgs, err
 }
 
+func (o *Organization) ListOrgsByUserID(ctx context.Context, userID string) ([]Organization, error) {
+	var orgs []Organization
+	err := db.FromContext(ctx).
+		Table("organizations_v1").
+		Joins("INNER JOIN org_memberships_v1 om ON om.organization_id = organizations_v1.id").
+		Where("om.user_id = ?", userID).
+		Find(&orgs).
+		Error
+	return orgs, err
+}
+
 func (o *Organization) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ?", o.ID).

@@ -32,7 +32,7 @@ func (p *PendingHost) TableName() string {
 }
 
 func (p *PendingHost) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PendingHost{}).First(&p).Where("id = ?", p.ID).Error
+	return db.FromContext(ctx).Model(&PendingHost{}).Where("id = ?", p.ID).First(&p).Error
 }
 
 func (p *PendingHost) Create(ctx context.Context) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -456,8 +457,8 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 	}
 	err = logic.DeleteAcl(r.Context(), acl)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r,
-			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
+		err = fmt.Errorf("failed to delete policy: %w", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.LogEvent(r.Context(), &models.Event{
