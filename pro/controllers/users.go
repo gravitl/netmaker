@@ -327,6 +327,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to parse to invite url", "error", err)
 				return
 			}
+		} else {
+			if scope.Level(r.Context()) == scope.TenantScope {
+				u.Query().Set("tenant_id", scope.ID(r.Context()))
+			} else if scope.Level(r.Context()) == scope.OrgScope {
+				u.Query().Set("org_id", scope.ID(r.Context()))
+			}
 		}
 		invite.InviteURL = u.String()
 		err = invite.Create(r.Context())
