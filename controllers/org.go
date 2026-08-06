@@ -45,10 +45,20 @@ func resolveSoleOrg(ctx context.Context, orgID string) (*schema.Organization, er
 	if err != nil {
 		return nil, err
 	}
-	if orgID != "sole" && orgID != o.ID && orgID != o.Slug {
-		return nil, errOrgNotFound
+
+	if orgID == "sole" {
+		return o, nil
 	}
-	return o, nil
+
+	if orgID == o.ID {
+		return o, nil
+	}
+
+	if orgID == o.Slug {
+		return o, nil
+	}
+
+	return nil, errOrgNotFound
 }
 
 // @Summary     Get organization SSO settings
