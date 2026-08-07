@@ -66,9 +66,10 @@ func createTestNode() *models.Node {
 func createNodeWithParams(network, address string) *models.Node {
 	_, ipnet, _ := net.ParseCIDR("10.0.0.1/32")
 	tmpCNode := models.CommonNode{
-		ID:      uuid.New(),
-		Network: "skynet",
-		Address: *ipnet,
+		ID:       uuid.New(),
+		TenantID: defaultTenantID,
+		Network:  "skynet",
+		Address:  *ipnet,
 	}
 	if len(network) > 0 {
 		tmpCNode.Network = network

@@ -25,9 +25,9 @@ func orgHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/org/settings", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(upsertOrgSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/org/owner/transfer", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(transferOrgOwner)))).Methods(http.MethodPut)
 
-	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(listOrgs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, logic.SecurityCheck(true, http.HandlerFunc(listOrgs)))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/orgs", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrg))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrg))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, logic.SecurityCheck(true, http.HandlerFunc(getOrg)))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/orgs/{org_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(deleteOrg))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getOrgOwner))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/orgs/{org_id}/owner", middleware.Scope(scope.GlobalScope, http.HandlerFunc(createOrgOwner))).Methods(http.MethodPut)
@@ -36,6 +36,19 @@ func orgHandlers(r *mux.Router) {
 	//r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
+}
+
+var errOrgNotFound = errors.New("organization not found")
+
+func resolveSoleOrg(ctx context.Context, orgID string) (*schema.Organization, error) {
+	o, err := logic.SoleOrganization(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if orgID != "sole" && orgID != o.ID && orgID != o.Slug {
+		return nil, errOrgNotFound
+	}
+	return o, nil
 }
 
 // @Summary     Get organization SSO settings
@@ -152,7 +165,25 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func listOrgs(w http.ResponseWriter, r *http.Request) {
 	o := &schema.Organization{}
-	orgs, err := o.ListAll(r.Context())
+
+	if r.Header.Get("ismaster") == "yes" {
+		orgs, err := o.ListAll(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		logic.ReturnSuccessResponseWithJson(w, r, orgs, "fetched organizations")
+		return
+	}
+
+	u := &schema.User{Username: r.Header.Get("user")}
+	err := u.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	orgs, err := o.ListOrgsByUserID(r.Context(), u.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -220,6 +251,26 @@ func getOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get("ismaster") != "yes" {
+		u := &schema.User{Username: r.Header.Get("user")}
+		err = u.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+
+		m := &schema.OrgMembership{OrganizationID: o.ID, UserID: u.ID}
+		err = m.Get(r.Context())
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a member of this organization"), logic.Forbidden))
+				return
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, o, "fetched organization")
 }
 
@@ -235,10 +286,9 @@ func getOrg(w http.ResponseWriter, r *http.Request) {
 func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID, Slug: orgID}
-	err := o.Get(r.Context())
+	o, err := resolveSoleOrg(r.Context(), orgID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, errOrgNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
 			return
 		}
@@ -283,10 +333,19 @@ func getOrgOwner(w http.ResponseWriter, r *http.Request) {
 func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	orgID := mux.Vars(r)["org_id"]
 
-	o := &schema.Organization{ID: orgID, Slug: orgID}
-	err := o.Get(r.Context())
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	o, err := resolveSoleOrg(dbctx, orgID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, errOrgNotFound) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization not found"), logic.NotFound))
 			return
 		}
@@ -295,7 +354,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	existingOwner := &schema.OrgMembership{OrganizationID: o.ID}
-	err = existingOwner.GetOwner(r.Context())
+	err = existingOwner.GetOwner(dbctx)
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization owner already exists"), logic.BadReq))
 		return
@@ -318,7 +377,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 
 	user.PlatformRoleID = schema.OrgOwner
 
-	ctx := scope.WithContext(r.Context(), scope.OrgScope, o.ID)
+	ctx := scope.WithContext(dbctx, scope.OrgScope, o.ID)
 
 	err = orchestrator.GetRepository().UserOrchestrator().ValidateCreateUser(ctx, &user)
 	if err != nil {
@@ -332,14 +391,14 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", o.ID))
+	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
 	for _, tenant := range tenants {
-		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(r.Context(), tenant.ID, &user)
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(dbctx, tenant.ID, &user)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
@@ -351,6 +410,8 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	commit = true
 
 	type userWithToken struct {
 		models.ReturnUser

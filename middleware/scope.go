@@ -16,7 +16,6 @@ var (
 	errTenantNotFound  = errors.New("tenant not found")
 	errMissingOrgID    = errors.New("X-Organization-ID header is required")
 	errOrgNotFound     = errors.New("organization not found")
-	errAmbiguousScope  = errors.New("only one of org or tenant scope header may be provided")
 )
 
 var defaultTenantID atomic.Value

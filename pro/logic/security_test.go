@@ -33,7 +33,7 @@ func TestIsDeviceAPIRequest(t *testing.T) {
 }
 
 func TestRoleGrantsDeviceWrite(t *testing.T) {
-	if !roleGrantsDeviceWrite(&schema.UserRole{FullAccess: true}) {
+	if !roleGrantsDeviceWrite(&schema.UserRole{TenantGlobalAccess: true}) {
 		t.Fatal("full access should grant write")
 	}
 

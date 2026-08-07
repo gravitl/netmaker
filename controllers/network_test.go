@@ -31,12 +31,20 @@ func TestMain(m *testing.M) {
 	defer db.CloseDB()
 
 	defaultOrg := schema.Organization{}
-	_ = defaultOrg.CreateDefault(db.WithContext(context.TODO()))
+	if err := defaultOrg.CreateDefault(db.WithContext(context.TODO())); err != nil {
+		// CreateDefault sets ID before the failed insert; GetDefault must run
+		// on a fresh struct or gorm.First will AND in the stale ID and never match.
+		defaultOrg = schema.Organization{}
+		_ = defaultOrg.GetDefault(db.WithContext(context.TODO()))
+	}
 
 	defaultTenant := schema.Tenant{
 		OrganizationID: defaultOrg.ID,
 	}
-	_ = defaultTenant.CreateDefault(db.WithContext(context.TODO()))
+	if err := defaultTenant.CreateDefault(db.WithContext(context.TODO())); err != nil {
+		defaultTenant = schema.Tenant{}
+		_ = defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	}
 
 	orchestrator.InitializeRepository(extensions.NewProFactory())
 
@@ -66,6 +74,7 @@ func TestCreateNetwork(t *testing.T) {
 
 	var network schema.Network
 	network.Name = "skynet1"
+	network.TenantID = defaultTenantID
 	network.AddressRange = "10.10.0.1/24"
 	// if tests break - check here (removed displayname)
 	//network.DisplayName = "mynetwork"
@@ -100,18 +109,18 @@ func TestDeleteNetwork(t *testing.T) {
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
+		err := logic.DeleteNetwork(scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, defaultTenantID), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistentNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork(context.Background(), "skynet", false, doneCh)
+		err := logic.DeleteNetwork(scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, defaultTenantID), "skynet", false, doneCh)
 		assert.Nil(t, err)
 	})
 	createNetv1("test")
 	t.Run("ForceDeleteNetwork", func(t *testing.T) {
 		doneCh := make(chan struct{}, 1)
-		err := logic.DeleteNetwork(context.Background(), "test", true, doneCh)
+		err := logic.DeleteNetwork(scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, defaultTenantID), "test", true, doneCh)
 		assert.Nil(t, err)
 	})
 }
@@ -205,6 +214,7 @@ func createNetv1(netId string) {
 
 	var network schema.Network
 	network.Name = netId
+	network.TenantID = defaultTenantID
 	network.AddressRange = "100.0.0.1/24"
 	err := (&schema.Network{Name: netId}).Get(ctx)
 	if err != nil {

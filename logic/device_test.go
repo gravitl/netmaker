@@ -9,12 +9,21 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEnsureHostOwner(t *testing.T) {
+// scopedTestContext returns a context scoped to the default tenant created in TestMain.
+func scopedTestContext(t *testing.T) context.Context {
 	ctx := db.WithContext(context.TODO())
+	defaultTenant := schema.Tenant{}
+	require.NoError(t, defaultTenant.GetDefault(ctx))
+	return scope.WithContext(ctx, scope.TenantScope, defaultTenant.ID)
+}
+
+func TestEnsureHostOwner(t *testing.T) {
+	ctx := scopedTestContext(t)
 	host := &schema.Host{ID: uuid.New(), Name: "ensure-owner-host", OwnerUsername: ""}
 	require.NoError(t, host.Create(ctx))
 	t.Cleanup(func() { _ = host.Delete(ctx) })
@@ -40,7 +49,7 @@ func TestEnsureHostOwner(t *testing.T) {
 }
 
 func TestVerifyDeviceHostAccess(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	owner := "device-user-" + uuid.NewString()[:8]
 	other := "other-user-" + uuid.NewString()[:8]
 
@@ -81,7 +90,7 @@ func TestVerifyDeviceHostAccess(t *testing.T) {
 }
 
 func TestRegisterDevice(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	owner := "reg-user-" + uuid.NewString()[:8]
 	other := "other-reg-" + uuid.NewString()[:8]
 
@@ -126,7 +135,7 @@ func TestRegisterDevice(t *testing.T) {
 }
 
 func TestTransferDeviceHostOwnership_logsAuditEvent(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	prevOwner := "audit-prev-" + uuid.NewString()[:8]
 	newOwner := "audit-new-" + uuid.NewString()[:8]
 
@@ -145,7 +154,7 @@ func TestTransferDeviceHostOwnership_logsAuditEvent(t *testing.T) {
 
 	var logged models.Event
 	origLogEvent := LogEvent
-	LogEvent = func(e *models.Event) {
+	LogEvent = func(ctx context.Context, e *models.Event) {
 		logged = *e
 	}
 	t.Cleanup(func() { LogEvent = origLogEvent })
@@ -165,7 +174,7 @@ func TestTransferDeviceHostOwnership_logsAuditEvent(t *testing.T) {
 }
 
 func TestTransferDeviceHostOwnershipCleansPending(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	prevOwner := "handoff-prev-" + uuid.NewString()[:8]
 	newOwner := "handoff-new-" + uuid.NewString()[:8]
 
@@ -183,16 +192,18 @@ func TestTransferDeviceHostOwnershipCleansPending(t *testing.T) {
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
 
 	netName := "handoff-net-" + uuid.NewString()[:8]
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.98.0.0/24",
 	}))
 	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
 
 	pending := schema.PendingHost{
-		ID:      uuid.NewString(),
-		HostID:  hostID.String(),
-		Network: netName,
+		ID:       uuid.NewString(),
+		TenantID: scope.ID(ctx),
+		HostID:   hostID.String(),
+		Network:  netName,
 	}
 	require.NoError(t, pending.Create(ctx))
 
@@ -204,7 +215,7 @@ func TestTransferDeviceHostOwnershipCleansPending(t *testing.T) {
 }
 
 func TestIsUserAllowedToJoinNetworkUsesRoleFilter(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	username := "join-test-" + uuid.NewString()[:8]
 	user := &schema.User{
 		Username:       username,
@@ -212,11 +223,12 @@ func TestIsUserAllowedToJoinNetworkUsesRoleFilter(t *testing.T) {
 	}
 	require.NoError(t, user.Create(ctx))
 	t.Cleanup(func() { _ = user.Delete(ctx) })
+	require.NoError(t, user.UpsertMembership(ctx))
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
 
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(ctx context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: "allowed-net"}}
 	}
 
@@ -226,19 +238,20 @@ func TestIsUserAllowedToJoinNetworkUsesRoleFilter(t *testing.T) {
 }
 
 func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	netName := "approval-net-" + uuid.NewString()[:8]
 	username := "approval-user-" + uuid.NewString()[:8]
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.99.0.0/24",
 		AutoJoin:     false,
@@ -264,13 +277,13 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(ctx context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
@@ -296,31 +309,32 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 }
 
 func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	netName := "jit-skip-approval-" + uuid.NewString()[:8]
 	username := "jit-skip-user-" + uuid.NewString()[:8]
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
 	origJITSubject := UserSubjectToNetworkJIT
 	t.Cleanup(func() { UserSubjectToNetworkJIT = origJITSubject })
-	UserSubjectToNetworkJIT = func(networkID string, _ *schema.User) bool {
+	UserSubjectToNetworkJIT = func(ctx context.Context, networkID string, _ *schema.User) bool {
 		return networkID == netName
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.98.0.0/24",
 		AutoJoin:     false,
@@ -347,12 +361,13 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
 	stalePending := schema.PendingHost{
 		ID:          uuid.NewString(),
+		TenantID:    scope.ID(ctx),
 		HostID:      hostID.String(),
 		Network:     netName,
 		RequestedAt: time.Now().UTC(),
@@ -375,7 +390,7 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 
 	var joinKey models.EnrollmentKey
 	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(key models.EnrollmentKey, _ *schema.Host, _ string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
 		joinKey = key
 	}
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
@@ -390,25 +405,26 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 }
 
 func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	netName := "admin-skip-approval-" + uuid.NewString()[:8]
 	username := "admin-skip-user-" + uuid.NewString()[:8]
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
-	GetFeatureFlags = func() models.FeatureFlags {
-		flags := origFlags()
+	GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
+		flags := origFlags(ctx)
 		flags.EnableDeviceApproval = true
 		return flags
 	}
 
 	origIsAdmin := IsNetworkAdmin
 	t.Cleanup(func() { IsNetworkAdmin = origIsAdmin })
-	IsNetworkAdmin = func(_ *schema.User, networkID string) bool {
+	IsNetworkAdmin = func(_ context.Context, _ *schema.User, networkID string) bool {
 		return networkID == netName
 	}
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.97.0.0/24",
 		AutoJoin:     false,
@@ -434,19 +450,19 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 
 	origFilter := FilterNetworksByRole
 	t.Cleanup(func() { FilterNetworksByRole = origFilter })
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 
 	origJITAccess := CheckJITAccess
 	t.Cleanup(func() { CheckJITAccess = origJITAccess })
-	CheckJITAccess = func(string, string) (bool, *schema.JITGrant, error) {
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
 		return true, nil, nil
 	}
 
 	var joinKey models.EnrollmentKey
 	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(key models.EnrollmentKey, _ *schema.Host, _ string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
 		joinKey = key
 	}
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
@@ -458,11 +474,12 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 }
 
 func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	netName := "cancel-pending-" + uuid.NewString()[:8]
 	username := "cancel-pending-user-" + uuid.NewString()[:8]
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.95.0.0/24",
 	}))
@@ -487,6 +504,7 @@ func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
 
 	pending := schema.PendingHost{
 		ID:          uuid.NewString(),
+		TenantID:    scope.ID(ctx),
 		HostID:      hostID.String(),
 		Network:     netName,
 		RequestedAt: time.Now().UTC(),
@@ -504,11 +522,12 @@ func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
 }
 
 func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
-	ctx := db.WithContext(context.TODO())
+	ctx := scopedTestContext(t)
 	netName := "write-denied-" + uuid.NewString()[:8]
 	username := "write-denied-user-" + uuid.NewString()[:8]
 
-	require.NoError(t, CreateNetwork(&schema.Network{
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
 		Name:         netName,
 		AddressRange: "10.94.0.0/24",
 	}))
@@ -537,7 +556,7 @@ func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
 		FilterNetworksByRole = origFilter
 		UserHasDeviceNetworkWriteAccess = origWrite
 	})
-	FilterNetworksByRole = func(_ []schema.Network, _ *schema.User) []schema.Network {
+	FilterNetworksByRole = func(_ context.Context, _ []schema.Network, _ *schema.User) []schema.Network {
 		return []schema.Network{{Name: netName}}
 	}
 	UserHasDeviceNetworkWriteAccess = func(_ context.Context, _ *schema.User, _ string) bool { return false }
