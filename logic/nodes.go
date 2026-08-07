@@ -699,9 +699,14 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			IsRelay:            _node.IsGateway,
 			IsGw:               _node.IsGateway,
 			AutoAssignGateway:  _node.AutoAssignGateway,
-			TcpProxyEnabled:    _node.TcpProxyEnabled,
-			TcpProxyListenPort: _node.TcpProxyListenPort,
-			UseTcpUplink:       _node.UseTcpUplink,
+			TcpProxyEnabled:    _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled,
+			TcpProxyListenPort: func() int {
+				if _node.Host.TcpProxyListenPort > 0 {
+					return _node.Host.TcpProxyListenPort
+				}
+				return _node.TcpProxyListenPort
+			}(),
+			UseTcpUplink: _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,

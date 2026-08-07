@@ -826,9 +826,14 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		IsStaticPort: peerHost.IsStaticPort,
 		IsStatic:     peerHost.IsStatic,
 	}
-	if peer.IsGw && peer.TcpProxyEnabled {
+	// Prefer host-level TCP proxy (listen is per host); fall back to node for older data.
+	tcpEnabled := peerHost.TcpProxyEnabled || (peer.IsGw && peer.TcpProxyEnabled)
+	if peer.IsGw && tcpEnabled {
 		info.TcpProxyEnabled = true
-		info.TcpProxyListenPort = peer.TcpProxyListenPort
+		info.TcpProxyListenPort = peerHost.TcpProxyListenPort
+		if info.TcpProxyListenPort <= 0 {
+			info.TcpProxyListenPort = peer.TcpProxyListenPort
+		}
 		if info.TcpProxyListenPort <= 0 {
 			info.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 		}
@@ -841,10 +846,17 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 }
 
 func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHost *schema.Host) string {
-	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw || !peer.TcpProxyEnabled {
+	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw {
 		return ""
 	}
-	port := peer.TcpProxyListenPort
+	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
+	if !tcpEnabled {
+		return ""
+	}
+	port := peerHost.TcpProxyListenPort
+	if port <= 0 {
+		port = peer.TcpProxyListenPort
+	}
 	if port <= 0 {
 		port = schema.DefaultTcpProxyListenPort
 	}

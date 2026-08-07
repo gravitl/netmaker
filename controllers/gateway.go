@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -251,6 +252,26 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		_node.TcpProxyEnabled = false
 		_node.TcpProxyListenPort = 0
 		_ = _node.ResetGateway(r.Context())
+		// Clear host-level TCP proxy only if no other gateway on this host still has it enabled.
+		if _node.HostID != "" {
+			if hostID, err := uuid.Parse(_node.HostID); err == nil {
+				other := &schema.Node{}
+				others, listErr := other.ListAll(r.Context(),
+					dbtypes.WithFilter("host_id", _node.HostID),
+					dbtypes.WithFilter("is_gateway", true),
+					dbtypes.WithFilter("tcp_proxy_enabled", true),
+				)
+				stillEnabled := listErr == nil && len(others) > 0
+				if !stillEnabled {
+					host := &schema.Host{ID: hostID}
+					if err := host.Get(r.Context()); err == nil {
+						host.TcpProxyEnabled = false
+						host.TcpProxyListenPort = 0
+						_ = host.SetTcpProxy(r.Context())
+					}
+				}
+			}
+		}
 	}
 
 	// Re-establish the internet exit-node client relationships that the gateway
@@ -418,6 +439,21 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Host is source of truth for listen; node fields stay synced for API/UI.
+	host := node.Host
+	if host == nil {
+		host = &schema.Host{ID: uuid.MustParse(node.HostID)}
+		if err := host.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+	host.TcpProxyEnabled = node.TcpProxyEnabled
+	host.TcpProxyListenPort = node.TcpProxyListenPort
+	if err := host.SetTcpProxy(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
 	if err := node.SetTcpProxy(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -425,9 +461,6 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 
 	modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 	go func() {
-		if err := mq.NodeUpdate(modelsNode); err != nil {
-			slog.Error("error publishing node update after tcp proxy change", "node", node.ID, "error", err)
-		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		_ = mq.PublishPeerUpdate(ctx, false)
 	}()
@@ -561,10 +594,19 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if useTcpUplink && !gateway.TcpProxyEnabled {
-		err = fmt.Errorf("gateway %s does not have TCP proxy enabled", gatewayID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
+	if useTcpUplink {
+		gwHost := &schema.Host{}
+		if gateway.HostID != "" {
+			if hostID, err := uuid.Parse(gateway.HostID); err == nil {
+				gwHost.ID = hostID
+				_ = gwHost.Get(r.Context())
+			}
+		}
+		if !gwHost.TcpProxyEnabled && !gateway.TcpProxyEnabled {
+			err = fmt.Errorf("gateway %s does not have TCP proxy enabled", gatewayID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
 	}
 
 	node.RelayedByNodeID = &gatewayID
