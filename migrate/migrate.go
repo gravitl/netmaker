@@ -426,7 +426,7 @@ func syncUsers() {
 		for _, user := range users {
 			user := user
 			user.AuthType = schema.BasicAuth
-			if logic.IsOauthUser(&user) == nil {
+			if logic.IsOauthUser(db.WithContext(context.TODO()), &user) == nil {
 				user.AuthType = schema.OAuth
 			}
 

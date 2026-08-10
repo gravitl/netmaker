@@ -647,7 +647,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			)
 			for _, _node := range _nodes {
 				node := logic.ConvertSchemaNodeToModelsNode(&_node)
-				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(node), schema.NetworkID(node.Network))
+				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(node), schema.NetworkID(node.Network))
 				_node.PostureCheckSeverity = node.PostureCheckViolationSeverityLevel
 				_node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 				_node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -977,7 +977,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	violations, _ := logic.CheckPostureViolationsForHost(host, nil, schema.NetworkID(networkID), true)
+	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
@@ -1871,7 +1871,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		keyTags[models.TagID(tagI)] = struct{}{}
 	}
 
-	violations, _ := logic.CheckPostureViolationsForHost(host, keyTags, schema.NetworkID(network.Name), true)
+	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, keyTags, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
 		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
 		logger.Log(0, err.Error())
@@ -1939,7 +1939,7 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 			continue
 		}
 
-		violations, _ := logic.CheckPostureViolationsForHost(host, make(map[models.TagID]struct{}), schema.NetworkID(network.Name), true)
+		violations, _ := logic.CheckPostureViolationsForHost(ctx, host, make(map[models.TagID]struct{}), schema.NetworkID(network.Name), true)
 		if len(violations) > 0 {
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
 			continue

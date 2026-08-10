@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 var (
@@ -138,19 +139,25 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 // Puts machine key in cache so the callback can retrieve it using the oidc state param
 // Listens in /oidc/register/:regKey.
 func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
-	p, ok := Registry().FromContext(r.Context())
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid login attempt"))
-		return
-	}
-	vars := mux.Vars(r)
-
-	// machineKeyStr this is not key but state
-	machineKeyStr := vars["regKey"]
+	machineKeyStr := mux.Vars(r)["regKey"]
 	if machineKeyStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid login attempt"))
+		_, _ = w.Write([]byte("invalid login attempt: no key"))
+		return
+	}
+
+	state, err := netcache.Get(machineKeyStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("invalid login attempt: no state"))
+		return
+	}
+
+	ctx := scope.WithContext(r.Context(), state.Scope, state.ScopeID)
+	p, ok := Registry().FromContext(ctx)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("invalid login attempt: no auth provider"))
 		return
 	}
 

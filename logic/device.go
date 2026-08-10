@@ -232,7 +232,7 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network
 		return
 	}
 
-	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(network.Name), true)
+	violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
 		dn.Status = models.DeviceNetworkStatusBlocked
 		return
@@ -289,7 +289,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
-	violations, _ := CheckPostureViolationsForHost(host, nil, schema.NetworkID(networkID), true)
+	violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
 		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}

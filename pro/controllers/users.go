@@ -327,6 +327,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to parse to invite url", "error", err)
 				return
 			}
+		} else {
+			if scope.Level(r.Context()) == scope.TenantScope {
+				u, err = url.Parse(fmt.Sprintf("%s&tenant_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
+			} else if scope.Level(r.Context()) == scope.OrgScope {
+				u, err = url.Parse(fmt.Sprintf("%s&org_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
+			}
 		}
 		invite.InviteURL = u.String()
 		err = invite.Create(r.Context())
@@ -605,7 +611,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.ValidateCreateGroupReq(userGroupReq.Group)
+	err = proLogic.ValidateCreateGroupReq(r.Context(), userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -683,7 +689,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default user group"), "badrequest"))
 		return
 	}
-	err = proLogic.ValidateUpdateGroupReq(userGroup)
+	err = proLogic.ValidateUpdateGroupReq(r.Context(), userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -691,7 +697,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	userGroup.ExternalIdentityProviderID = currUserG.ExternalIdentityProviderID
 
-	err = proLogic.UpdateUserGroup(userGroup)
+	err = proLogic.UpdateUserGroup(r.Context(), userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -2124,7 +2130,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newPass, fetchErr = logic.FetchOAuthSecret()
+	var newPass, fetchErr = logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 		return

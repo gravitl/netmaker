@@ -95,7 +95,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		handleUserAccountDisabled(w)
 		return
 	}
-	newPass, fetchErr := logic.FetchOAuthSecret()
+	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
 		return
 	}
