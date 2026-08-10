@@ -1929,7 +1929,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		break
 	}
 
-	if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
+	if logic.IsIDPUser(r.Context(), user) {
 		err = fmt.Errorf("cannot delete idp user %s", username)
 		logger.Log(0, username, "failed to delete user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

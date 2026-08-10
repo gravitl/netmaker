@@ -346,6 +346,16 @@ func ValidateUser(user *schema.User) error {
 	return validationErr
 }
 
+func IsIDPUser(ctx context.Context, user *schema.User) bool {
+	if scope.Level(ctx) == scope.TenantScope {
+		if user.AuthType == schema.OAuth && IsSyncEnabled(ctx) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // DeleteUser - deletes a given user
 func DeleteUser(ctx context.Context, user *schema.User) error {
 	err := user.DeleteMembership(ctx)
