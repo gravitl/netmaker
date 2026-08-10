@@ -1731,6 +1731,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var deleteAccessTokens bool
+	if scope.Level(r.Context()) == scope.TenantScope &&
+		(userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data())) {
+		deleteAccessTokens = true
+	}
+
 	oldUser := *user
 	if ismaster {
 		caller = &schema.User{
@@ -1778,8 +1784,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if scope.Level(r.Context()) == scope.TenantScope &&
-		(userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data())) {
+	if deleteAccessTokens {
 		_ = (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}
 
