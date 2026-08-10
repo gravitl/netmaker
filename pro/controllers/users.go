@@ -611,7 +611,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.ValidateCreateGroupReq(userGroupReq.Group)
+	err = proLogic.ValidateCreateGroupReq(r.Context(), userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -689,7 +689,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default user group"), "badrequest"))
 		return
 	}
-	err = proLogic.ValidateUpdateGroupReq(userGroup)
+	err = proLogic.ValidateUpdateGroupReq(r.Context(), userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -697,7 +697,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	userGroup.ExternalIdentityProviderID = currUserG.ExternalIdentityProviderID
 
-	err = proLogic.UpdateUserGroup(userGroup)
+	err = proLogic.UpdateUserGroup(r.Context(), userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

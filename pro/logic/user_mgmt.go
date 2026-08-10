@@ -366,7 +366,7 @@ func DeleteNetworkRoles(ctx context.Context, netID string) {
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles.Data()[schema.NetworkID(netID)]; ok {
 			delete(userGI.NetworkRoles.Data(), schema.NetworkID(netID))
-			UpdateUserGroup(userGI)
+			_ = UpdateUserGroup(ctx, userGI)
 		}
 	}
 
@@ -530,7 +530,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 						if _, ok := networkRoles[rid]; ok {
 							delete(networkRoles, rid)
 							ug.NetworkRoles.Data()[netID] = networkRoles
-							UpdateUserGroup(ug)
+							_ = UpdateUserGroup(ctx, ug)
 						}
 					}
 				}
@@ -548,13 +548,13 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	}).Delete(ctx)
 }
 
-func ValidateCreateGroupReq(g schema.UserGroup) error {
+func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
 
 	// check if network roles are valid
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
 			role := &schema.UserRole{ID: roleID}
-			err := role.Get(db.WithContext(context.TODO()))
+			err := role.Get(ctx)
 			if err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
 			}
@@ -565,7 +565,7 @@ func ValidateCreateGroupReq(g schema.UserGroup) error {
 	}
 	return nil
 }
-func ValidateUpdateGroupReq(new schema.UserGroup) error {
+func ValidateUpdateGroupReq(ctx context.Context, new schema.UserGroup) error {
 	var newHasAllNetworkRole, newHasSpecNetworkRole bool
 	for networkID := range new.NetworkRoles.Data() {
 		if networkID == schema.AllNetworks {
@@ -577,7 +577,7 @@ func ValidateUpdateGroupReq(new schema.UserGroup) error {
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
 			netRole := &schema.UserRole{ID: roleID}
-			err := netRole.Get(db.WithContext(context.TODO()))
+			err := netRole.Get(ctx)
 			if err != nil {
 				err = fmt.Errorf("invalid network role")
 				return err
@@ -679,12 +679,12 @@ func GetDefaultGroupAclName(groupName string) string {
 }
 
 // UpdateUserGroup - updates new user group
-func UpdateUserGroup(g schema.UserGroup) error {
+func UpdateUserGroup(ctx context.Context, g schema.UserGroup) error {
 	// check if the group exists
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
-	return g.Update(db.WithContext(context.TODO()))
+	return g.Update(ctx)
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
