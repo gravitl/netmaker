@@ -151,6 +151,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	if h.TenantID == "" {
 		h.TenantID = scope.ID(ctx)
 	}
+	h.Nodes = nil
 
 	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
 		return ErrHostLimitExceeded
