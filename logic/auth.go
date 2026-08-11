@@ -60,8 +60,8 @@ func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 }
 
 // IsOauthUser - returns
-func IsOauthUser(user *schema.User) error {
-	var currentValue, err = FetchOAuthSecret()
+func IsOauthUser(ctx context.Context, user *schema.User) error {
+	var currentValue, err = FetchOAuthSecret(ctx)
 	if err != nil {
 		return err
 	}
@@ -346,6 +346,16 @@ func ValidateUser(user *schema.User) error {
 	return validationErr
 }
 
+func IsIDPUser(ctx context.Context, user *schema.User) bool {
+	if scope.Level(ctx) == scope.TenantScope {
+		if user.AuthType == schema.OAuth && IsSyncEnabled(ctx) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // DeleteUser - deletes a given user
 func DeleteUser(ctx context.Context, user *schema.User) error {
 	err := user.DeleteMembership(ctx)
@@ -383,11 +393,11 @@ func SetOAuthSecret(secret string) error {
 }
 
 // FetchOAuthSecret fetches secrets for oauth
-func FetchOAuthSecret() (string, error) {
+func FetchOAuthSecret(ctx context.Context) (string, error) {
 	oauthSecret := &schema.Internal{
 		Key: schema.InternalKey_OAuthSecret,
 	}
-	err := oauthSecret.Get(db.WithContext(context.TODO()))
+	err := oauthSecret.Get(ctx)
 	if err != nil {
 		return "", err
 	}

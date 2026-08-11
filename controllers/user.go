@@ -324,7 +324,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if logic.IsOauthUser(user) == nil {
+	if logic.IsOauthUser(request.Context(), user) == nil {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
 	}
@@ -1682,48 +1682,61 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if !ismaster && selfUpdate {
-		if user.PlatformRoleID != userchange.PlatformRoleID {
-			slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-			return
 
-		}
+	if scope.Level(r.Context()) == scope.TenantScope {
+		if !ismaster && selfUpdate {
+			if user.PlatformRoleID != userchange.PlatformRoleID {
+				slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+				return
 
-		if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
-			err = errors.New("mfa is enforced, user cannot unset their own mfa")
-			slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
+			}
 
-		if servercfg.IsPro && caller.PlatformRoleID != schema.SuperAdminRole {
-			// users cannot update their own groups; superadmin is exempt
-			if len(user.UserGroups.Data()) != len(userchange.UserGroups.Data()) || !reflect.DeepEqual(user.UserGroups.Data(), userchange.UserGroups.Data()) {
-				err = errors.New("user cannot update self update their groups")
+			if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
+				err = errors.New("mfa is enforced, user cannot unset their own mfa")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
+
+			if servercfg.IsPro && caller.PlatformRoleID != schema.SuperAdminRole {
+				// users cannot update their own groups; superadmin is exempt
+				if len(user.UserGroups.Data()) != len(userchange.UserGroups.Data()) || !reflect.DeepEqual(user.UserGroups.Data(), userchange.UserGroups.Data()) {
+					err = errors.New("user cannot self update their groups")
+					slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+					return
+				}
+			}
 		}
-	}
-	if ismaster {
-		if user.PlatformRoleID != schema.SuperAdminRole && userchange.PlatformRoleID == schema.SuperAdminRole {
-			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
+
+		if ismaster {
+			if user.PlatformRoleID != schema.SuperAdminRole && userchange.PlatformRoleID == schema.SuperAdminRole {
+				slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
+				return
+			}
+		}
+
+		if user.AuthType == schema.Inherited && userchange.Password != "" {
+			err = fmt.Errorf("cannot update password for user with inherited auth")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
 		}
 	}
 
-	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
-		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
+	if logic.IsOauthUser(r.Context(), user) == nil && userchange.Password != "" {
+		err := fmt.Errorf("cannot update password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+
+	var deleteAccessTokens bool
 	if scope.Level(r.Context()) == scope.TenantScope &&
 		(userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups.Data(), userchange.UserGroups.Data())) {
-		(&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
+		deleteAccessTokens = true
 	}
+
 	oldUser := *user
 	if ismaster {
 		caller = &schema.User{
@@ -1770,6 +1783,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	if deleteAccessTokens {
+		_ = (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
+	}
+
 	logic.LogEvent(r.Context(), &e)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
@@ -1916,7 +1934,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		break
 	}
 
-	if user.AuthType == schema.OAuth || user.ExternalIdentityProviderID != "" {
+	if logic.IsIDPUser(r.Context(), user) {
 		err = fmt.Errorf("cannot delete idp user %s", username)
 		logger.Log(0, username, "failed to delete user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

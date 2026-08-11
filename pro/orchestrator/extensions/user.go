@@ -20,9 +20,9 @@ import (
 
 type ProUserExtensions struct{}
 
-func (p *ProUserExtensions) ConfigureAuthType(user *schema.User) error {
+func (p *ProUserExtensions) ConfigureAuthType(ctx context.Context, user *schema.User) error {
 	user.AuthType = schema.BasicAuth
-	oauthSecret, err := logic.FetchOAuthSecret()
+	oauthSecret, err := logic.FetchOAuthSecret(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil

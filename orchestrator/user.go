@@ -79,7 +79,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 
 		user.Password = string(passwordHash)
 
-		err = u.userExt.ConfigureAuthType(user)
+		err = u.userExt.ConfigureAuthType(ctx, user)
 		if err != nil {
 			return err
 		}
