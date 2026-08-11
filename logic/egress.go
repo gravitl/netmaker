@@ -322,6 +322,7 @@ func SyncClearedExitNodeFields(dst, src *models.Node) {
 	dst.InternetGwID = src.InternetGwID
 	dst.IsRelayed = src.IsRelayed
 	dst.RelayedBy = src.RelayedBy
+	dst.UseTcpUplink = src.UseTcpUplink
 }
 
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.

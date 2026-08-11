@@ -486,6 +486,7 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 }
 
 func (n *Node) UnassignGateway(ctx context.Context) error {
+	n.UseTcpUplink = false
 	err := db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Updates(map[string]interface{}{

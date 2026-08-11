@@ -24,6 +24,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 			node.RelayedBy = relay
 		} else {
 			node.RelayedBy = ""
+			node.UseTcpUplink = false
 		}
 		node.SetLastModified()
 		if err := UpsertNode(&node); err != nil {

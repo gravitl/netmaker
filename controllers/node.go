@@ -769,8 +769,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		// Preserve existing relay membership across connect/disconnect.
+		// Preserve existing relay membership and TCP uplink/proxy opts across
+		// connect/disconnect. UI payloads often omit these bool/int fields.
 		newNode.RelayedNodes = currentNode.RelayedNodes
+		newNode.UseTcpUplink = currentNode.UseTcpUplink
+		newNode.TcpProxyEnabled = currentNode.TcpProxyEnabled
+		newNode.TcpProxyListenPort = currentNode.TcpProxyListenPort
 	}
 	host := &schema.Host{
 		ID: newNode.HostID,

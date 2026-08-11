@@ -173,9 +173,12 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsIngressGateway = true
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
-	convertedNode.TcpProxyEnabled = a.TcpProxyEnabled
-	convertedNode.TcpProxyListenPort = a.TcpProxyListenPort
-	convertedNode.UseTcpUplink = a.UseTcpUplink
+	// TCP proxy / uplink are managed by dedicated gateway APIs. Preserve server
+	// state so connect/disconnect (and other partial UI node updates) cannot
+	// wipe these flags when the payload omits them (bool zero value is false).
+	convertedNode.TcpProxyEnabled = currentNode.TcpProxyEnabled
+	convertedNode.TcpProxyListenPort = currentNode.TcpProxyListenPort
+	convertedNode.UseTcpUplink = currentNode.UseTcpUplink
 	convertedNode.Status = currentNode.Status
 	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
 	return &convertedNode
