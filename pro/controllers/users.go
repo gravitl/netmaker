@@ -281,6 +281,18 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
 		return
 	}
+
+	var orgCtx context.Context
+	if scope.Level(r.Context()) == scope.TenantScope {
+		tenant := &schema.Tenant{ID: scope.ID(r.Context())}
+		err = tenant.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		orgCtx = scope.WithContext(r.Context(), scope.OrgScope, tenant.OrganizationID)
+	}
+
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		inviteeEmail = strings.ToLower(inviteeEmail)
 		// check if user with email exists, then ignore
@@ -292,6 +304,39 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		err = inviteeCheck.GetWithMembership(r.Context())
 		if err == nil {
 			// user exists already, so ignore
+			continue
+		}
+
+		if scope.Level(r.Context()) == scope.TenantScope {
+			orgUser := &schema.User{Username: inviteeEmail}
+			err = orgUser.GetWithMembership(orgCtx)
+			if err != nil {
+				slog.Error("failed to check org membership for invitee", "email", inviteeEmail, "error", err)
+				continue
+			}
+
+			orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
+			if err != nil {
+				slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
+				continue
+			}
+
+			logic.LogEvent(r.Context(), &models.Event{
+				Action: schema.Create,
+				Source: models.Subject{
+					ID:   callerUserName,
+					Name: callerUserName,
+					Type: schema.UserSub,
+				},
+				TriggeredBy: callerUserName,
+				Target: models.Subject{
+					ID:   inviteeEmail,
+					Name: inviteeEmail,
+					Type: schema.UserSub,
+				},
+				Origin: schema.Dashboard,
+			})
 			continue
 		}
 
@@ -332,6 +377,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				u, err = url.Parse(fmt.Sprintf("%s&tenant_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
 			} else if scope.Level(r.Context()) == scope.OrgScope {
 				u, err = url.Parse(fmt.Sprintf("%s&org_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
+			}
+			if err != nil {
+				slog.Error("failed to parse to invite url", "error", err)
+				return
 			}
 		}
 		invite.InviteURL = u.String()
