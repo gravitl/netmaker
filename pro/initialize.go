@@ -177,6 +177,7 @@ func InitPro() {
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.AddNetworkStatusToNodes = proLogic.AddNetworkStatusToNodes
 	logic.IsOAuthConfigured = auth.IsOAuthConfigured
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook

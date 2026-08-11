@@ -553,7 +553,13 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 	return nodes
 }
 
+// AddNetworkStatusToNodes bulk-computes node status; set by pro for the status API.
+var AddNetworkStatusToNodes func(nodes []models.Node) []models.Node
+
 func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
+	if statusCall && AddNetworkStatusToNodes != nil {
+		return AddNetworkStatusToNodes(nodes)
+	}
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
