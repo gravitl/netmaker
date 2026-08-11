@@ -138,10 +138,9 @@ func InitPro() {
 			}
 		}
 
-		defaultOrg := &schema.Organization{}
-		err := defaultOrg.Get(db.WithContext(context.TODO()))
+		org, err := logic.SoleOrganization(db.WithContext(context.TODO()))
 		if err == nil {
-			email.Init(scope.WithContext(db.WithContext(ctx), scope.OrgScope, defaultOrg.ID))
+			email.Init(scope.WithContext(db.WithContext(ctx), scope.OrgScope, org.ID))
 		}
 		go proLogic.EventWatcher()
 	})

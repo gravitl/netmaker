@@ -8,7 +8,7 @@ import (
 )
 
 type UserExtensions interface {
-	ConfigureAuthType(user *schema.User) error
+	ConfigureAuthType(ctx context.Context, user *schema.User) error
 	ConfigureGlobalAdminGroup(membership *schema.TenantMembership)
 	ConfigureGroups(ctx context.Context, membership *schema.TenantMembership, groups datatypes.JSONType[map[schema.UserGroupID]struct{}])
 	SendEmailValidation(ctx context.Context, user *schema.User) error
@@ -16,7 +16,7 @@ type UserExtensions interface {
 
 type CEUserExtensions struct{}
 
-func (c *CEUserExtensions) ConfigureAuthType(user *schema.User) error {
+func (c *CEUserExtensions) ConfigureAuthType(_ context.Context, user *schema.User) error {
 	user.AuthType = schema.BasicAuth
 	return nil
 }

@@ -102,7 +102,7 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
-				user, err := proLogic.PrepareOauthUserFromInvite(in)
+				user, err := proLogic.PrepareOauthUserFromInvite(r.Context(), in)
 				if err != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
@@ -180,7 +180,7 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newPass, fetchErr := logic.FetchOAuthSecret()
+	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
 		return
 	}

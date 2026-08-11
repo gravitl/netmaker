@@ -118,7 +118,7 @@ func getDeviceNetworks(w http.ResponseWriter, r *http.Request) {
 		}
 		// Ownership mismatch must not block the network list; host-scoped state is omitted without a verified host.
 	}
-	networks, err := logic.GetDeviceNetworks(db.WithContext(r.Context()), user, host)
+	networks, err := logic.GetDeviceNetworks(r.Context(), user, host)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

@@ -184,7 +184,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 		return err
 	}
 
-	password, err := logic.FetchOAuthSecret()
+	password, err := logic.FetchOAuthSecret(ctx)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 			}
 		} else {
 			dbGroup.Name = group.Name
-			err = proLogic.UpdateUserGroup(dbGroup)
+			err = proLogic.UpdateUserGroup(ctx, dbGroup)
 			if err != nil {
 				return err
 			}

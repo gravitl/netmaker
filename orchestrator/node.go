@@ -153,10 +153,10 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
 		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
 		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -175,7 +175,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 				EvaluatedAt:       node.PostureCheckLastEvaluatedAt,
 			})
 		}
-		err = node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+		err = node.UpsertViolations(ctx, _violations)
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to upsert node (%s) posture check violations: %v", modelsNode.ID, err))
 		}
@@ -204,7 +204,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			time.Sleep(time.Second * 30)
 			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
 		}
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return node, nil
 }
