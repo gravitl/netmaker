@@ -109,7 +109,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
@@ -167,7 +167,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user = &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return

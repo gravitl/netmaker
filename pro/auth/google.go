@@ -98,7 +98,7 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	user := &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
@@ -157,7 +157,7 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	user = &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
