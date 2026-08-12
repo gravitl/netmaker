@@ -73,7 +73,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID)
+		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID, clientNode.UseTcpUplink)
 	}
 	node.IsInternetGateway = true
 	if node.IsGw && node.IngressDNS == "" {
@@ -131,7 +131,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID)
+		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID, clientNode.UseTcpUplink)
 	}
 	node.IsInternetGateway = true
 	err = logic.UpsertNode(&node)
