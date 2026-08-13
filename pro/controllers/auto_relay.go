@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -20,7 +22,38 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"golang.org/x/time/rate"
 )
+
+var (
+	autoRelayMELimiterMu sync.Mutex
+	autoRelayMELimiters  = map[string]*rate.Limiter{}
+)
+
+func allowAutoRelayME(hostID string) bool {
+	autoRelayMELimiterMu.Lock()
+	defer autoRelayMELimiterMu.Unlock()
+	lim, ok := autoRelayMELimiters[hostID]
+	if !ok {
+		// 10 requests per minute per host, burst 10
+		lim = rate.NewLimiter(rate.Every(6*time.Second), 10)
+		autoRelayMELimiters[hostID] = lim
+	}
+	return lim.Allow()
+}
+
+func rejectAutoRelayMERateLimited(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("auto_relay_me rate limited"), logic.TooMany))
+}
+
+func publishAutoRelayPeerUpdates(r *http.Request, nodes ...models.Node) {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func() {
+		if err := mq.PublishPeerUpdatesToHosts(ctx, nodes); err != nil {
+			slog.Error("failed targeted auto-relay peer update", "error", err)
+		}
+	}()
+}
 
 // AutoRelayHandlers - handlers for AutoRelay
 func AutoRelayHandlers(r *mux.Router) {
@@ -229,6 +262,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !allowAutoRelayME(host.ID.String()) {
+		rejectAutoRelayMERateLimited(w, r)
+		return
+	}
 	var autoRelayReq models.AutoRelayMeReq
 	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
 	if err != nil {
@@ -250,7 +287,6 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sendPeerUpdate bool
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
@@ -358,6 +394,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	}
 	err = proLogic.SetAutoRelayCtx(autoRelayNode, node, peerNode)
 	if err != nil {
+		if errors.Is(err, proLogic.ErrAutoRelayCtxAlreadySet) {
+			logic.ReturnSuccessResponse(w, r, "relayed successfully")
+			return
+		}
 		slog.Debug("failed to create autorelay", "id", node.ID.String(),
 			"network", node.Network, "error", err)
 		logic.ReturnErrorResponse(
@@ -374,12 +414,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		"network",
 		node.Network,
 	)
-	sendPeerUpdate = true
-
-	if sendPeerUpdate {
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		go mq.PublishPeerUpdate(ctx, false)
-	}
+	publishAutoRelayPeerUpdates(r, node, peerNode, autoRelayNode)
 
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
@@ -422,6 +457,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !allowAutoRelayME(host.ID.String()) {
+		rejectAutoRelayMERateLimited(w, r)
+		return
+	}
 	var autoRelayReq models.AutoRelayMeReq
 	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
 	if err != nil {
@@ -458,14 +497,20 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				)
 				return
 			}
+			oldRelayID := node.AutoRelayedPeers[peerNode.ID.String()]
 			delete(node.AutoRelayedPeers, peerNode.ID.String())
 			delete(peerNode.AutoRelayedPeers, node.ID.String())
 			logic.UpsertNode(&node)
 			logic.UpsertNode(&peerNode)
-		}
-		allNodes, err := logic.GetAllNodes(r.Context())
-		if err == nil {
-			mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil)
+			targets := []models.Node{node, peerNode}
+			if oldRelayID != "" {
+				if oldRelay, err := logic.GetNodeByID(oldRelayID); err == nil {
+					targets = append(targets, oldRelay)
+				}
+			}
+			publishAutoRelayPeerUpdates(r, targets...)
+			logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
+			return
 		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go mq.PublishPeerUpdate(ctx, false)
@@ -548,9 +593,11 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("already using requested relay node"), "badrequest"))
 		return
 	}
+	oldRelayID := node.AutoRelayedPeers[peerNode.ID.String()]
 	node.AutoRelayedPeers[peerNode.ID.String()] = autoRelayReq.AutoRelayGwID
 	peerNode.AutoRelayedPeers[node.ID.String()] = autoRelayReq.AutoRelayGwID
 	logic.UpsertNode(&node)
+	logic.UpsertNode(&peerNode)
 	slog.Info(
 		"[auto-relay] created relay on node",
 		"node",
@@ -558,8 +605,13 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		"network",
 		node.Network,
 	)
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	targets := []models.Node{node, peerNode, autoRelayNode}
+	if oldRelayID != "" && oldRelayID != autoRelayNode.ID.String() {
+		if oldRelay, err := logic.GetNodeByID(oldRelayID); err == nil {
+			targets = append(targets, oldRelay)
+		}
+	}
+	publishAutoRelayPeerUpdates(r, targets...)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }

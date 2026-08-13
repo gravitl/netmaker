@@ -16,6 +16,7 @@ const (
 	NotFound     ApiErrorType = "notfound"
 	UnAuthorized ApiErrorType = "unauthorized"
 	Forbidden    ApiErrorType = "forbidden"
+	TooMany      ApiErrorType = "toomanyrequests"
 )
 
 // FormatError - takes ErrorResponse and uses correct code
@@ -33,6 +34,8 @@ func FormatError(err error, errType ApiErrorType) models.ErrorResponse {
 		status = http.StatusUnauthorized
 	case Forbidden:
 		status = http.StatusForbidden
+	case TooMany:
+		status = http.StatusTooManyRequests
 	default:
 		status = http.StatusInternalServerError
 	}

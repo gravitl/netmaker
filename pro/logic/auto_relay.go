@@ -15,9 +15,19 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var autoRelayCtxMutex = &sync.RWMutex{}
-var autoRelayCacheMutex = &sync.RWMutex{}
-var autoRelayCache = make(map[schema.NetworkID][]string)
+var (
+	autoRelayCtxMutexes sync.Map // network ID -> *sync.RWMutex
+	autoRelayCacheMutex = &sync.RWMutex{}
+	autoRelayCache      = make(map[schema.NetworkID][]string)
+)
+
+// ErrAutoRelayCtxAlreadySet is returned when both sides already share the same auto-relay GW.
+var ErrAutoRelayCtxAlreadySet = errors.New("auto relay ctx is already set")
+
+func autoRelayCtxMutexFor(network string) *sync.RWMutex {
+	v, _ := autoRelayCtxMutexes.LoadOrStore(network, &sync.RWMutex{})
+	return v.(*sync.RWMutex)
+}
 
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
@@ -38,8 +48,9 @@ func SetAutoRelay(node *models.Node) {
 }
 
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
-	autoRelayCtxMutex.RLock()
-	defer autoRelayCtxMutex.RUnlock()
+	mu := autoRelayCtxMutexFor(victimNode.Network)
+	mu.RLock()
+	defer mu.RUnlock()
 	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
 		return err
 	}
@@ -70,13 +81,14 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 		victimNode.Mutex.Unlock()
 	}
 	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
-		return errors.New("auto relay ctx is already set")
+		return ErrAutoRelayCtxAlreadySet
 	}
 	return nil
 }
 func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
-	autoRelayCtxMutex.Lock()
-	defer autoRelayCtxMutex.Unlock()
+	mu := autoRelayCtxMutexFor(victimNode.Network)
+	mu.Lock()
+	defer mu.Unlock()
 	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
 		return err
 	}
@@ -107,7 +119,7 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 		victimNode.Mutex.Unlock()
 	}
 	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
-		return errors.New("auto relay ctx is already set")
+		return ErrAutoRelayCtxAlreadySet
 	}
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Lock()
@@ -234,77 +246,105 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
 func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
+	peerIDs := make([]string, 0, len(node.AutoRelayedPeers))
+	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
+		if peer.ID.String() != autoRelayID {
+			continue
+		}
+		peerIDs = append(peerIDs, autoRelayedpeerID)
+	}
+	if len(peerIDs) == 0 {
+		return allowedips
+	}
+	nodesByID, err := logic.GetNodesByIDs(peerIDs)
+	if err != nil {
+		return allowedips
+	}
+	relayedIDs := make([]string, 0)
+	for _, autoRelayedpeer := range nodesByID {
+		if !autoRelayedpeer.IsRelay {
+			continue
+		}
+		for _, id := range autoRelayedpeer.RelayedNodes {
+			if id == node.ID.String() {
+				continue
+			}
+			relayedIDs = append(relayedIDs, id)
+		}
+	}
+	relayedByID, _ := logic.GetNodesByIDs(relayedIDs)
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls, _ := logic.ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
 		}
-		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
-		if err == nil {
-			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
-			if autoRelayedpeer.Address.IP != nil {
-				allowed := net.IPNet{
-					IP:   autoRelayedpeer.Address.IP,
-					Mask: net.CIDRMask(32, 32),
-				}
-				allowedips = append(allowedips, allowed)
+		autoRelayedpeer, ok := nodesByID[autoRelayedpeerID]
+		if !ok {
+			continue
+		}
+		logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
+		if autoRelayedpeer.Address.IP != nil {
+			allowed := net.IPNet{
+				IP:   autoRelayedpeer.Address.IP,
+				Mask: net.CIDRMask(32, 32),
 			}
-			if autoRelayedpeer.Address6.IP != nil {
-				allowed := net.IPNet{
-					IP:   autoRelayedpeer.Address6.IP,
-					Mask: net.CIDRMask(128, 128),
-				}
-				allowedips = append(allowedips, allowed)
+			allowedips = append(allowedips, allowed)
+		}
+		if autoRelayedpeer.Address6.IP != nil {
+			allowed := net.IPNet{
+				IP:   autoRelayedpeer.Address6.IP,
+				Mask: net.CIDRMask(128, 128),
 			}
-			if autoRelayedpeer.EgressDetails.IsEgressGateway {
-				allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
+			allowedips = append(allowedips, allowed)
+		}
+		if autoRelayedpeer.EgressDetails.IsEgressGateway {
+			allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
+		}
+		// Advertise clients relayed by this auto-relayed peer (including exit-node
+		// clients on a non-gateway exit). Overlay only unless the peer is a relay,
+		// matching getNodeAllowedIPs — avoid attaching broad egress ranges that can
+		// loop the auto-relay endpoint onto an overlay address.
+		if autoRelayedpeer.IsRelay {
+			for _, id := range autoRelayedpeer.RelayedNodes {
+				if id == node.ID.String() {
+					continue
+				}
+				rNode, ok := relayedByID[id]
+				if !ok {
+					continue
+				}
+				logic.GetNodeEgressInfo(&rNode, eli, acls)
+				if rNode.Address.IP != nil {
+					allowed := net.IPNet{
+						IP:   rNode.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					}
+					allowedips = append(allowedips, allowed)
+				}
+				if rNode.Address6.IP != nil {
+					allowed := net.IPNet{
+						IP:   rNode.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					}
+					allowedips = append(allowedips, allowed)
+				}
+				if rNode.EgressDetails.IsEgressGateway {
+					allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
+				}
 			}
-			// Advertise clients relayed by this auto-relayed peer (including exit-node
-			// clients on a non-gateway exit). Overlay only unless the peer is a relay,
-			// matching getNodeAllowedIPs — avoid attaching broad egress ranges that can
-			// loop the auto-relay endpoint onto an overlay address.
-			if autoRelayedpeer.IsRelay {
-				for _, id := range autoRelayedpeer.RelayedNodes {
-					if id == node.ID.String() {
-						continue
-					}
-					rNode, err := logic.GetNodeByID(id)
-					if err != nil {
-						continue
-					}
-					logic.GetNodeEgressInfo(&rNode, eli, acls)
-					if rNode.Address.IP != nil {
-						allowed := net.IPNet{
-							IP:   rNode.Address.IP,
-							Mask: net.CIDRMask(32, 32),
-						}
-						allowedips = append(allowedips, allowed)
-					}
-					if rNode.Address6.IP != nil {
-						allowed := net.IPNet{
-							IP:   rNode.Address6.IP,
-							Mask: net.CIDRMask(128, 128),
-						}
-						allowedips = append(allowedips, allowed)
-					}
-					if rNode.EgressDetails.IsEgressGateway {
-						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
-					}
-				}
-				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
-			} else if len(autoRelayedpeer.RelayedNodes) > 0 || len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
-				allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node.ID.String())...)
+			allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
+		} else if len(autoRelayedpeer.RelayedNodes) > 0 || len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
+			allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node.ID.String())...)
+		}
+		// handle ingress gateway peers
+		if autoRelayedpeer.IsIngressGateway {
+			extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+			if err != nil {
+				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 			}
-			// handle ingress gateway peers
-			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
-				if err != nil {
-					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
-				}
-				for _, extPeer := range extPeers {
-					allowedips = append(allowedips, extPeer.AllowedIPs...)
-				}
+			for _, extPeer := range extPeers {
+				allowedips = append(allowedips, extPeer.AllowedIPs...)
 			}
 		}
 	}

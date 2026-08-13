@@ -523,8 +523,8 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(ctx, &node, &peer, nil) // only append allowed IPs if valid connection
 				if peer.IsAutoRelay {
-					hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[schema.NetworkID(peer.Network)],
-						peer)
+					netID := schema.NetworkID(peer.Network)
+					hostPeerUpdate.AutoRelayNodes[netID] = appendUniqueNode(hostPeerUpdate.AutoRelayNodes[netID], peer)
 				}
 				if node.AutoAssignGateway && peer.IsGw {
 					hostPeerUpdate.GwNodes[schema.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[schema.NetworkID(peer.Network)],
@@ -1074,6 +1074,16 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	}
 	return allowedips
 }
+
+func appendUniqueNode(dst []models.Node, n models.Node) []models.Node {
+	for i := range dst {
+		if dst[i].ID == n.ID {
+			return dst
+		}
+	}
+	return append(dst, n)
+}
+
 func deduplicateEgressRoutes(routes []models.EgressNetworkRoutes) []models.EgressNetworkRoutes {
 	mergedByKey := make(map[string]int, len(routes))
 	result := make([]models.EgressNetworkRoutes, 0, len(routes))

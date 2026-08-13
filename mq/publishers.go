@@ -260,10 +260,10 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
-// PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
-// the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
-// routes before a routing node is removed.
-func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []models.Node) error {
+// PublishPeerUpdatesToHosts publishes a peer update only to the unique hosts of
+// the given nodes (no tenant-wide mesh broadcast). Used for auto-relay pair
+// mutations where allowed-IPs change only for the victim, peer, and relay GWs.
+func PublishPeerUpdatesToHosts(ctx context.Context, nodes []models.Node) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -272,8 +272,9 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 		return err
 	}
 	seenHosts := map[string]struct{}{}
-	for i := range clientNodes {
-		hostID := clientNodes[i].HostID.String()
+	var firstErr error
+	for i := range nodes {
+		hostID := nodes[i].HostID.String()
 		if hostID == "" || hostID == uuid.Nil.String() {
 			continue
 		}
@@ -281,16 +282,29 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 			continue
 		}
 		seenHosts[hostID] = struct{}{}
-		host := &schema.Host{ID: clientNodes[i].HostID}
+		host := &schema.Host{ID: nodes[i].HostID}
 		if err := host.Get(ctx); err != nil {
-			slog.Error("exit-client peer update: failed to get host", "host", hostID, "error", err)
+			slog.Error("targeted peer update: failed to get host", "host", hostID, "error", err)
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
 		if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
-			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
+			slog.Error("targeted peer update: publish failed", "host", host.Name, "error", err)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
-	return nil
+	return firstErr
+}
+
+// PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
+// the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
+// routes before a routing node is removed.
+func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []models.Node) error {
+	return PublishPeerUpdatesToHosts(ctx, clientNodes)
 }
 
 // PublishPeerUpdatesForExitClientsFirst pushes a peer update to each unique host among
