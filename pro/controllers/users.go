@@ -310,34 +310,31 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if scope.Level(r.Context()) == scope.TenantScope {
 			orgUser := &schema.User{Username: inviteeEmail}
 			err = orgUser.GetWithMembership(orgCtx)
-			if err != nil {
-				slog.Error("failed to check org membership for invitee", "email", inviteeEmail, "error", err)
+			if err == nil {
+				orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
+				if err != nil {
+					slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
+					continue
+				}
+
+				logic.LogEvent(r.Context(), &models.Event{
+					Action: schema.Create,
+					Source: models.Subject{
+						ID:   callerUserName,
+						Name: callerUserName,
+						Type: schema.UserSub,
+					},
+					TriggeredBy: callerUserName,
+					Target: models.Subject{
+						ID:   inviteeEmail,
+						Name: inviteeEmail,
+						Type: schema.UserSub,
+					},
+					Origin: schema.Dashboard,
+				})
 				continue
 			}
-
-			orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
-			err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
-			if err != nil {
-				slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
-				continue
-			}
-
-			logic.LogEvent(r.Context(), &models.Event{
-				Action: schema.Create,
-				Source: models.Subject{
-					ID:   callerUserName,
-					Name: callerUserName,
-					Type: schema.UserSub,
-				},
-				TriggeredBy: callerUserName,
-				Target: models.Subject{
-					ID:   inviteeEmail,
-					Name: inviteeEmail,
-					Type: schema.UserSub,
-				},
-				Origin: schema.Dashboard,
-			})
-			continue
 		}
 
 		_, err = logic.GetUserInvite(r.Context(), inviteeEmail)
