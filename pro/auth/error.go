@@ -109,6 +109,9 @@ var somethingwentwrong = fmt.Sprintf(htmlBaseTemplate, `<h2>Something went wrong
 
 var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not allowed. Please contact your administrator.</h2>`)
 
+var inviteNotFound = fmt.Sprintf(htmlBaseTemplate, `<h2>Invite Not Found.</h2>
+<p>No invite was found for you in this organization. Please contact your administrator to request an invite.</p>`)
+
 var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you already have an account with us using Basic Authentication.</h2>
 <p>To continue, please log in with your existing credentials or reset your password if needed.</p>`)
 
@@ -148,6 +151,12 @@ func handleOauthUserNotAllowedToSignUp(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusForbidden)
 	response.Write([]byte(notallowedtosignup))
+}
+
+func handleOauthInviteNotFound(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusNotFound)
+	response.Write([]byte(inviteNotFound))
 }
 
 // handleOauthNotConfigured - returns an appropriate html page when oauth is not configured on netmaker server but an oauth login was attempted

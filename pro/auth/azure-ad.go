@@ -127,6 +127,11 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 				}).Delete(r.Context())
 
 			} else {
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
+					return
+				}
+
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return

@@ -136,6 +136,11 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					Username: content.Email,
 				}).Delete(r.Context())
 			} else {
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
+					return
+				}
+
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
