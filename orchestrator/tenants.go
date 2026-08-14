@@ -30,6 +30,8 @@ func (t *TenantOrchestrator) CreateDefaultTenant(ctx context.Context, orgID stri
 		return nil, err
 	}
 
+	t.initTenantGroups(ctx, tenant)
+
 	if err := t.grantExistingOwnerAccess(ctx, tenant); err != nil {
 		return nil, err
 	}
@@ -46,7 +48,14 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 		return err
 	}
 
+	t.initTenantGroups(ctx, tenant)
+
 	return t.grantExistingOwnerAccess(ctx, tenant)
+}
+
+func (t *TenantOrchestrator) initTenantGroups(ctx context.Context, tenant *schema.Tenant) {
+	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+	logic.IntialiseGroups(tenantCtx)
 }
 
 func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string) error {
