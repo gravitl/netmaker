@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -130,24 +131,52 @@ func (u *UserRole) TableName() string {
 	return "user_roles_v1"
 }
 
+func ScopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
+	if tenantID == "" || id == "" {
+		return id
+	}
+	return UserRoleID(TenantScopedKey(tenantID, id.String()))
+}
+
+func UnscopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
+	if tenantID == "" || id == "" {
+		return id
+	}
+	return UserRoleID(StripTenantKey(tenantID, id.String()))
+}
+
 func (u *UserRole) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	if u.NetworkID != "" {
+		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	}
+	err := db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
+	u.ID = logicalID
+	return err
 }
 
-func (u *UserRole) Exists(ctx context.Context) (bool, error) {
-	var exists bool
-	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM user_roles_v1 WHERE name = ?)",
-		u.Name,
-	).Scan(&exists).Error
-	return exists, err
-}
-
-func (u *UserRole) Get(ctx context.Context) error {
+func (u *UserRole) GetPlatformRole(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ?", u.ID).
+		Where("id = ? AND network_id = ''", u.ID).
 		First(u).
 		Error
+}
+
+func (u *UserRole) GetNetworkRole(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	u.ID = ScopeUserRoleID(tenantID, logicalID)
+	err := db.FromContext(ctx).Model(&UserRole{}).
+		Where("id = ? AND network_id <> ''", u.ID).
+		First(u).
+		Error
+	if err != nil {
+		u.ID = logicalID
+		return err
+	}
+	u.ID = logicalID
+	return nil
 }
 
 func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
@@ -160,30 +189,40 @@ func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
 }
 
 func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
+	tenantID := scope.ID(ctx)
+	query := db.FromContext(ctx).Model(&UserRole{}).Where("network_id <> ''")
+	if tenantID != "" {
+		query = query.Where("id LIKE ?", TenantScopedKey(tenantID, "")+"%")
+	}
 	var userRoles []UserRole
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id <> ''").
-		Find(&userRoles).
-		Error
+	err := query.Find(&userRoles).Error
+	for i := range userRoles {
+		userRoles[i].ID = UnscopeUserRoleID(tenantID, userRoles[i].ID)
+	}
 	return userRoles, err
 }
 
 func (u *UserRole) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(u).Error
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	if u.NetworkID != "" {
+		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	}
+	err := db.FromContext(ctx).Save(u).Error
+	u.ID = logicalID
+	return err
 }
 
-func (u *UserRole) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ?", u.ID).
-		Updates(u).
-		Error
-}
-
-func (u *UserRole) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ?", u.ID).
+func (u *UserRole) DeleteNetworkRole(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	u.ID = ScopeUserRoleID(tenantID, logicalID)
+	err := db.FromContext(ctx).Model(&UserRole{}).
+		Where("id = ? AND network_id <> ''", u.ID).
 		Delete(u).
 		Error
+	u.ID = logicalID
+	return err
 }
 
 func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {

@@ -109,7 +109,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
@@ -136,6 +136,11 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 					Username: content.Email,
 				}).Delete(r.Context())
 			} else {
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
+					return
+				}
+
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
@@ -167,7 +172,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user = &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -179,7 +184,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return

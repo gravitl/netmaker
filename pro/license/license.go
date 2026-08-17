@@ -110,6 +110,14 @@ func upsertOrganization(ctx context.Context, licenseOrg LicenseOrg) (string, err
 		return org.ID, nil
 	}
 
+	if org.Name != licenseOrg.Name || org.Metadata != licenseOrg.Metadata {
+		org.Name = licenseOrg.Name
+		org.Metadata = licenseOrg.Metadata
+		if err := org.Update(ctx); err != nil {
+			return "", err
+		}
+	}
+
 	return org.ID, nil
 }
 
@@ -127,6 +135,12 @@ func upsertTenant(ctx context.Context, licenseTenant LicenseTenant, orgID string
 			OrganizationID: orgID,
 		}
 		return orchestrator.GetRepository().TenantOrchestrator().CreateTenant(ctx, tenant)
+	}
+
+	if tenant.Name != licenseTenant.Name || tenant.Metadata != licenseTenant.Metadata {
+		tenant.Name = licenseTenant.Name
+		tenant.Metadata = licenseTenant.Metadata
+		return tenant.Update(ctx)
 	}
 
 	return nil

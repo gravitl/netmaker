@@ -89,6 +89,7 @@ func (t *Tenant) List(ctx context.Context, options ...dbtypes.Option) ([]Tenant,
 func (t *Tenant) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tenant{}).
 		Where("id = ?", t.ID).
+		Select("Name", "Metadata").
 		Updates(t).
 		Error
 }

@@ -127,6 +127,11 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 				}).Delete(r.Context())
 
 			} else {
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
+					return
+				}
+
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
@@ -169,7 +174,7 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 	}
 
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return

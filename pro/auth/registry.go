@@ -34,16 +34,24 @@ func Registry() *ProviderRegistry {
 
 func (p *ProviderRegistry) getOrInit(scopeLevel scope.Scope, scopeID string) (Provider, bool) {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 	provider, ok := p.providers[scopeLevel][scopeID]
-	if !ok {
-		provider = p.initProvider(scopeLevel, scopeID)
-		if provider == nil {
-			return nil, false
-		}
-
-		p.providers[scopeLevel][scopeID] = provider
+	p.mu.RUnlock()
+	if ok {
+		return provider, true
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	provider, ok = p.providers[scopeLevel][scopeID]
+	if ok {
+		return provider, true
+	}
+
+	provider = p.initProvider(scopeLevel, scopeID)
+	if provider == nil {
+		return nil, false
+	}
+	p.providers[scopeLevel][scopeID] = provider
 
 	return provider, true
 }

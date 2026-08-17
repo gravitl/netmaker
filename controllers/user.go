@@ -349,7 +349,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
 		role := &schema.UserRole{ID: user.PlatformRoleID}
-		err = role.Get(request.Context())
+		err = role.GetPlatformRole(request.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
@@ -1067,7 +1067,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		UserName: user.UserName,
 	}).CountByUser(r.Context())
 	userRoleTemplate := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRoleTemplate.Get(r.Context())
+	err = userRoleTemplate.GetPlatformRole(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1446,7 +1446,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())
 		slog.Error("error creating new user: ", "user", user.Username, "error", err)
@@ -1847,7 +1847,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	callerUserRole := &schema.UserRole{ID: caller.PlatformRoleID}
-	err = callerUserRole.Get(r.Context())
+	err = callerUserRole.GetPlatformRole(r.Context())
 	if err != nil {
 		slog.Error("failed to get role ", "role", callerUserRole.ID, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1863,7 +1863,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		slog.Error("failed to get role ", "role", userRole.ID, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -2042,7 +2042,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		callerRole = &schema.UserRole{ID: caller.PlatformRoleID}
-		if err := callerRole.Get(r.Context()); err != nil {
+		if err := callerRole.GetPlatformRole(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}

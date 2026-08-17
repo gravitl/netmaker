@@ -97,7 +97,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 
 	// if user exists with provider login ID, migrate them to email-based username
 	user := &schema.User{Username: content.Login}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err == nil {
 		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
@@ -115,7 +115,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	emailCheck := &schema.User{Username: content.Email}
-	err = emailCheck.Get(r.Context())
+	err = emailCheck.GetWithMembership(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
@@ -142,6 +142,11 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 					Username: content.Email,
 				}).Delete(r.Context())
 			} else {
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
+					return
+				}
+
 				if !isEmailAllowed(r.Context(), content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
@@ -167,7 +172,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	user = &schema.User{Username: content.Email}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -179,7 +184,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return

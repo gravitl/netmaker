@@ -95,6 +95,7 @@ func (o *Organization) ListOrgsByUserID(ctx context.Context, userID string) ([]O
 func (o *Organization) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Organization{}).
 		Where("id = ?", o.ID).
+		Select("Name", "Metadata").
 		Updates(o).
 		Error
 }

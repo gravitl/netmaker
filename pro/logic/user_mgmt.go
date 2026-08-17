@@ -150,8 +150,13 @@ func UserRolesInit() {
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = PlatformUserUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AuditorUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkAdminAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+}
+
+func UserNetworkRolesInit(ctx context.Context) {
+	networkAdminAllRole := NetworkAdminAllPermissionTemplate
+	networkUserAllRole := NetworkUserAllPermissionTemplate
+	_ = networkAdminAllRole.Upsert(ctx)
+	_ = networkUserAllRole.Upsert(ctx)
 }
 
 func UserGroupsInit(ctx context.Context) {
@@ -280,8 +285,8 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		}),
 	}
 
-	_ = NetworkAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = NetworkAdminPermissionTemplate.Upsert(ctx)
+	_ = NetworkUserPermissionTemplate.Upsert(ctx)
 
 	// create default network groups
 	var NetworkAdminGroup = schema.UserGroup{
@@ -376,121 +381,16 @@ func DeleteNetworkRoles(ctx context.Context, netID string) {
 	_ = networkRoles.DeleteNetworkRoles(ctx)
 }
 
-func ValidateCreateRoleReq(userRole *schema.UserRole) error {
-	// check if role exists with this id
-	roleCheck := &schema.UserRole{ID: userRole.ID}
-	err := roleCheck.Get(db.WithContext(context.TODO()))
-	if err == nil {
-		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
+func GetAnyRole(ctx context.Context, id schema.UserRoleID) (*schema.UserRole, error) {
+	role := &schema.UserRole{ID: id}
+	if err := role.GetNetworkRole(ctx); err == nil {
+		return role, nil
 	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
+	role = &schema.UserRole{ID: id}
+	if err := role.GetPlatformRole(ctx); err != nil {
+		return nil, err
 	}
-	if userRole.NetworkID == "" {
-		return errors.New("only network roles are allowed to be created")
-	}
-	return nil
-}
-
-func ValidateUpdateRoleReq(userRole *schema.UserRole) error {
-	roleInDB := &schema.UserRole{ID: userRole.ID}
-	err := roleInDB.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if roleInDB.NetworkID != userRole.NetworkID {
-		return errors.New("network id mismatch")
-	}
-	if roleInDB.Default {
-		return errors.New("cannot update default role")
-	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
-	}
-	return nil
-}
-
-// CreateRole - inserts new role into DB
-func CreateRole(role *schema.UserRole) error {
-	// default roles are currently created directly in the db.
-	// this check is only to prevent future errors.
-	if role.Default && role.ID == "" {
-		return errors.New("role id cannot be empty for default role")
-	}
-
-	if !role.Default {
-		role.ID = schema.UserRoleID(uuid.NewString())
-	}
-
-	// check if the role already exists
-	if role.Name == "" {
-		return errors.New("role name cannot be empty")
-	}
-
-	exists, err := role.Exists(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return errors.New("role already exists")
-	}
-
-	return role.Create(db.WithContext(context.TODO()))
+	return role, nil
 }
 
 // DeleteRole - deletes user role
@@ -502,8 +402,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	if err != nil {
 		return err
 	}
-	role := &schema.UserRole{ID: rid}
-	err = role.Get(ctx)
+	role, err := GetAnyRole(ctx, rid)
 	if err != nil {
 		return err
 	}
@@ -545,7 +444,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	}
 	return (&schema.UserRole{
 		ID: rid,
-	}).Delete(ctx)
+	}).DeleteNetworkRole(ctx)
 }
 
 func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
@@ -554,12 +453,8 @@ func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
 			role := &schema.UserRole{ID: roleID}
-			err := role.Get(ctx)
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
-			}
-			if role.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
 			}
 		}
 	}
@@ -577,13 +472,8 @@ func ValidateUpdateGroupReq(ctx context.Context, new schema.UserGroup) error {
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
 			netRole := &schema.UserRole{ID: roleID}
-			err := netRole.Get(ctx)
-			if err != nil {
-				err = fmt.Errorf("invalid network role")
-				return err
-			}
-			if netRole.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
+			if err := netRole.GetNetworkRole(ctx); err != nil {
+				return fmt.Errorf("invalid network role")
 			}
 		}
 	}
@@ -767,7 +657,7 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 
 func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err := platformRole.Get(ctx)
+	err := platformRole.GetPlatformRole(ctx)
 	if err != nil {
 		return []schema.Network{}
 	}
@@ -831,23 +721,19 @@ func IsGroupValid(ctx context.Context, groupID schema.UserGroupID) error {
 	return nil
 }
 
-func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
+func IsNetworkRolesValid(ctx context.Context, networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
 
 		if netID != schema.AllNetworks {
-			err := (&schema.Network{Name: netID.String()}).Get(db.WithContext(context.TODO()))
+			err := (&schema.Network{Name: netID.String()}).Get(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
 			}
 		}
 		for netRoleID := range netRoles {
 			role := &schema.UserRole{ID: netRoleID}
-			err := role.Get(db.WithContext(context.TODO()))
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("failed to fetch role %s ", netRoleID)
-			}
-			if role.NetworkID == "" {
-				return fmt.Errorf("cannot use platform as network role %s", netRoleID)
 			}
 		}
 	}
@@ -1432,7 +1318,7 @@ func CanUserCreateNetwork(ctx context.Context, username string) bool {
 		return false
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	if err := userRole.Get(db.WithContext(ctx)); err != nil {
+	if err := userRole.GetPlatformRole(db.WithContext(ctx)); err != nil {
 		return false
 	}
 	if userRole.TenantGlobalAccess {

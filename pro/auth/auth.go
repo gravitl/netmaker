@@ -84,7 +84,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state, _ := getStateAndCode(r)
 
 	var isHeadlessLogin bool
-	_, err := netcache.Get(state)
+	cValue, err := netcache.Get(state)
 	if err != nil {
 		if errors.Is(err, netcache.ErrExpired) {
 			isHeadlessLogin = true
@@ -94,6 +94,16 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isHeadlessLogin {
+		if cValue != nil {
+			ctx := scope.WithContext(r.Context(), cValue.Scope, cValue.ScopeID)
+			_, ok := Registry().FromContext(ctx)
+			if !ok {
+				handleOauthNotConfigured(w)
+				return
+			}
+
+			r = r.WithContext(ctx)
+		}
 		switch len(state) {
 		case node_signin_length:
 			logger.Log(1, "proceeding with host SSO callback")

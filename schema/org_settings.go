@@ -39,6 +39,7 @@ func (o *OrganizationSettings) Upsert(ctx context.Context) error {
 
 func (o *OrganizationSettings) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&OrganizationSettings{}).
+		Where("id = ?", o.ID).
 		First(&o).
 		Error
 }

@@ -46,9 +46,6 @@ func UserHandlers(r *mux.Router) {
 
 	// User Role Handlers
 	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getRole)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createRole)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateRole)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/role", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteRole)))).Methods(http.MethodDelete)
 
 	// User Group Handlers
 	r.HandleFunc("/api/v1/users/groups", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserGroups)))).Methods(http.MethodGet)
@@ -259,7 +256,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
+		err = proLogic.IsNetworkRolesValid(r.Context(), inviteReq.NetworkRoles)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -268,7 +265,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	// check platform role
 	roleCheck := &schema.UserRole{ID: schema.UserRoleID(inviteReq.PlatformRoleID)}
-	err = roleCheck.Get(r.Context())
+	err = roleCheck.GetPlatformRole(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -281,6 +278,18 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
 		return
 	}
+
+	var orgCtx context.Context
+	if scope.Level(r.Context()) == scope.TenantScope {
+		tenant := &schema.Tenant{ID: scope.ID(r.Context())}
+		err = tenant.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		orgCtx = scope.WithContext(r.Context(), scope.OrgScope, tenant.OrganizationID)
+	}
+
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		inviteeEmail = strings.ToLower(inviteeEmail)
 		// check if user with email exists, then ignore
@@ -293,6 +302,36 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			// user exists already, so ignore
 			continue
+		}
+
+		if scope.Level(r.Context()) == scope.TenantScope {
+			orgUser := &schema.User{Username: inviteeEmail}
+			err = orgUser.GetWithMembership(orgCtx)
+			if err == nil {
+				orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
+				if err != nil {
+					slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
+					continue
+				}
+
+				logic.LogEvent(r.Context(), &models.Event{
+					Action: schema.Create,
+					Source: models.Subject{
+						ID:   callerUserName,
+						Name: callerUserName,
+						Type: schema.UserSub,
+					},
+					TriggeredBy: callerUserName,
+					Target: models.Subject{
+						ID:   inviteeEmail,
+						Name: inviteeEmail,
+						Type: schema.UserSub,
+					},
+					Origin: schema.Dashboard,
+				})
+				continue
+			}
 		}
 
 		_, err = logic.GetUserInvite(r.Context(), inviteeEmail)
@@ -332,6 +371,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				u, err = url.Parse(fmt.Sprintf("%s&tenant_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
 			} else if scope.Level(r.Context()) == scope.OrgScope {
 				u, err = url.Parse(fmt.Sprintf("%s&org_id=%s", u.String(), url.QueryEscape(scope.ID(r.Context()))))
+			}
+			if err != nil {
+				slog.Error("failed to parse to invite url", "error", err)
+				return
 			}
 		}
 		invite.InviteURL = u.String()
@@ -1085,8 +1128,7 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role := &schema.UserRole{ID: schema.UserRoleID(rid)}
-	err := role.Get(r.Context())
+	role, err := proLogic.GetAnyRole(r.Context(), schema.UserRoleID(rid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -1095,167 +1137,6 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, role, "successfully fetched user role permission templates")
-}
-
-// @Summary     Create user role permission template
-// @Router      /api/v1/users/role [post]
-// @Tags        Users
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       body body schema.UserRole true "User role template"
-// @Success     200 {object}  schema.UserRole
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func createRole(w http.ResponseWriter, r *http.Request) {
-	var userRole schema.UserRole
-	err := json.NewDecoder(r.Body).Decode(&userRole)
-	if err != nil {
-		slog.Error("error decoding request body", "error",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	err = proLogic.ValidateCreateRoleReq(&userRole)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	userRole.Default = false
-	userRole.GlobalLevelAccess = datatypes.NewJSONType(make(schema.ResourceAccess))
-	err = proLogic.CreateRole(&userRole)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logic.LogEvent(r.Context(), &models.Event{
-		Action: schema.Create,
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		TriggeredBy: r.Header.Get("user"),
-		Target: models.Subject{
-			ID:   userRole.ID.String(),
-			Name: userRole.Name,
-			Type: schema.UserRoleSub,
-		},
-		Origin: schema.ClientApp,
-	})
-	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
-}
-
-// @Summary     Update user role permission template
-// @Router      /api/v1/users/role [put]
-// @Tags        Users
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       body body schema.UserRole true "User role template"
-// @Success     200 {object} schema.UserRole
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func updateRole(w http.ResponseWriter, r *http.Request) {
-	var userRole schema.UserRole
-	err := json.NewDecoder(r.Body).Decode(&userRole)
-	if err != nil {
-		slog.Error("error decoding request body", "error",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	currRole := &schema.UserRole{ID: userRole.ID}
-	err = currRole.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	err = proLogic.ValidateUpdateRoleReq(&userRole)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	userRole.GlobalLevelAccess = datatypes.NewJSONType(make(schema.ResourceAccess))
-	err = userRole.Update(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logic.LogEvent(r.Context(), &models.Event{
-		Action: schema.Update,
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		TriggeredBy: r.Header.Get("user"),
-		Target: models.Subject{
-			ID:   userRole.ID.String(),
-			Name: userRole.Name,
-			Type: schema.UserRoleSub,
-		},
-		Diff: models.Diff{
-			Old: currRole,
-			New: userRole,
-		},
-		Origin: schema.Dashboard,
-	})
-	// reset configs for service user
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
-	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
-}
-
-// @Summary     Delete user role permission template
-// @Router      /api/v1/users/role [delete]
-// @Tags        Users
-// @Security    oauth
-// @Produce     json
-// @Param       role_id query string true "Role ID required to delete the role"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func deleteRole(w http.ResponseWriter, r *http.Request) {
-
-	rid := r.URL.Query().Get("role_id")
-	if rid == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
-		return
-	}
-	role := &schema.UserRole{ID: schema.UserRoleID(rid)}
-	err := role.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
-		return
-	}
-	err = proLogic.DeleteRole(r.Context(), schema.UserRoleID(rid), false)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logic.LogEvent(r.Context(), &models.Event{
-		Action: schema.Delete,
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		TriggeredBy: r.Header.Get("user"),
-		Target: models.Subject{
-			ID:   role.ID.String(),
-			Name: role.Name,
-			Type: schema.UserRoleSub,
-		},
-		Origin: schema.Dashboard,
-		Diff: models.Diff{
-			Old: role,
-			New: nil,
-		},
-	})
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(ctx, role.NetworkLevelAccess.Data(), make(map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope), role.NetworkID.String())
-	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
 // @Summary     Attach user to a remote access gateway

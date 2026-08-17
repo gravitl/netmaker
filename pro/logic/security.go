@@ -62,7 +62,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		return err
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}
@@ -124,12 +124,15 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 
 func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope := &schema.UserRole{ID: netRoleID}
-	err := networkPermissionScope.Get(ctx)
+	err := networkPermissionScope.GetNetworkRole(ctx)
 	if err != nil {
 		return err
 	}
 	if networkPermissionScope.TenantGlobalAccess {
 		return nil
+	}
+	if networkPermissionScope.NetworkID != schema.AllNetworks && networkPermissionScope.NetworkID.String() != netID {
+		return errors.New("access denied")
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
@@ -191,7 +194,7 @@ func TenantPermissionsCheck(username string, r *http.Request) error {
 		return err
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}
@@ -300,7 +303,7 @@ func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, net
 	}
 
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
-	if err := platformRole.Get(ctx); err != nil {
+	if err := platformRole.GetPlatformRole(ctx); err != nil {
 		return false
 	}
 	if platformRole.ID == schema.Auditor {
@@ -343,7 +346,7 @@ func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, net
 
 func networkRoleGrantsDeviceWrite(ctx context.Context, netRoleID schema.UserRoleID) bool {
 	role := &schema.UserRole{ID: netRoleID}
-	if err := role.Get(ctx); err != nil {
+	if err := role.GetNetworkRole(ctx); err != nil {
 		return false
 	}
 	return roleGrantsDeviceWrite(role)
@@ -430,7 +433,7 @@ func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
 		return err
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	if err := userRole.Get(r.Context()); err != nil {
+	if err := userRole.GetPlatformRole(r.Context()); err != nil {
 		return errors.New("access denied")
 	}
 	if userRole.TenantGlobalAccess || userRole.ID == schema.Auditor {

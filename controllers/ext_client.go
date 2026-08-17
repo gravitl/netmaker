@@ -98,7 +98,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 				userRole := &schema.UserRole{
 					ID: user.PlatformRoleID,
 				}
-				err := userRole.Get(r.Context())
+				err := userRole.GetPlatformRole(r.Context())
 				if err != nil || !userRole.TenantGlobalAccess {
 					if (user.PlatformRoleID == schema.PlatformUser && !logic.IsNetworkAdmin(r.Context(), user, network)) ||
 						user.PlatformRoleID != schema.PlatformUser {
