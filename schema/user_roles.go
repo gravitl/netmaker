@@ -134,9 +134,6 @@ func ScopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
 	if tenantID == "" || id == "" {
 		return id
 	}
-	if _, err := uuid.Parse(id.String()); err == nil {
-		return id
-	}
 	return UserRoleID(TenantScopedKey(tenantID, id.String()))
 }
 
