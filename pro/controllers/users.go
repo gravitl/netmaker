@@ -256,7 +256,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
+		err = proLogic.IsNetworkRolesValid(r.Context(), inviteReq.NetworkRoles)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return

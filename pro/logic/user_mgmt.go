@@ -453,12 +453,8 @@ func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
 			role := &schema.UserRole{ID: roleID}
-			err := role.Get(ctx)
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
-			}
-			if role.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
 			}
 		}
 	}
@@ -476,13 +472,8 @@ func ValidateUpdateGroupReq(ctx context.Context, new schema.UserGroup) error {
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
 			netRole := &schema.UserRole{ID: roleID}
-			err := netRole.Get(ctx)
-			if err != nil {
-				err = fmt.Errorf("invalid network role")
-				return err
-			}
-			if netRole.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
+			if err := netRole.GetNetworkRole(ctx); err != nil {
+				return fmt.Errorf("invalid network role")
 			}
 		}
 	}
@@ -666,7 +657,7 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 
 func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err := platformRole.Get(ctx)
+	err := platformRole.GetPlatformRole(ctx)
 	if err != nil {
 		return []schema.Network{}
 	}
@@ -730,23 +721,19 @@ func IsGroupValid(ctx context.Context, groupID schema.UserGroupID) error {
 	return nil
 }
 
-func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
+func IsNetworkRolesValid(ctx context.Context, networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
 
 		if netID != schema.AllNetworks {
-			err := (&schema.Network{Name: netID.String()}).Get(db.WithContext(context.TODO()))
+			err := (&schema.Network{Name: netID.String()}).Get(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
 			}
 		}
 		for netRoleID := range netRoles {
 			role := &schema.UserRole{ID: netRoleID}
-			err := role.Get(db.WithContext(context.TODO()))
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("failed to fetch role %s ", netRoleID)
-			}
-			if role.NetworkID == "" {
-				return fmt.Errorf("cannot use platform as network role %s", netRoleID)
 			}
 		}
 	}

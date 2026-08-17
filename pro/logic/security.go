@@ -124,7 +124,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 
 func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope := &schema.UserRole{ID: netRoleID}
-	err := networkPermissionScope.Get(ctx)
+	err := networkPermissionScope.GetNetworkRole(ctx)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, net
 
 func networkRoleGrantsDeviceWrite(ctx context.Context, netRoleID schema.UserRoleID) bool {
 	role := &schema.UserRole{ID: netRoleID}
-	if err := role.Get(ctx); err != nil {
+	if err := role.GetNetworkRole(ctx); err != nil {
 		return false
 	}
 	return roleGrantsDeviceWrite(role)
