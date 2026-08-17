@@ -571,6 +571,25 @@ func setTenantID(ctx context.Context) error {
 		}
 	}
 
+	var networkRoles []schema.UserRole
+	if err := db.FromContext(ctx).Model(&schema.UserRole{}).Where("network_id <> ''").Find(&networkRoles).Error; err != nil {
+		return err
+	}
+	for _, r := range networkRoles {
+		scopedID := schema.ScopeUserRoleID(defaultTenant.ID, r.ID)
+		if scopedID == r.ID {
+			continue
+		}
+
+		err := db.FromContext(ctx).Model(&schema.UserRole{}).
+			Where("id = ?", r.ID).
+			Update("id", scopedID).
+			Error
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, model := range tenantScopedModels() {
 		err := db.FromContext(ctx).Model(model).
 			Where("tenant_id = ?", "").
