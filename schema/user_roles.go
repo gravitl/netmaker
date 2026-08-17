@@ -169,7 +169,14 @@ func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
 }
 
 func (u *UserRole) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(u).Error
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	if u.NetworkID != "" {
+		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	}
+	err := db.FromContext(ctx).Save(u).Error
+	u.ID = logicalID
+	return err
 }
 
 func (u *UserRole) Update(ctx context.Context) error {
