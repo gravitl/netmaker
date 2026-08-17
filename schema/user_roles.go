@@ -130,6 +130,23 @@ func (u *UserRole) TableName() string {
 	return "user_roles_v1"
 }
 
+func ScopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
+	if tenantID == "" || id == "" {
+		return id
+	}
+	if _, err := uuid.Parse(id.String()); err == nil {
+		return id
+	}
+	return UserRoleID(TenantScopedKey(tenantID, id.String()))
+}
+
+func UnscopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
+	if tenantID == "" || id == "" {
+		return id
+	}
+	return UserRoleID(StripTenantKey(tenantID, id.String()))
+}
+
 func (u *UserRole) Create(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
