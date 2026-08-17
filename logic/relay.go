@@ -8,11 +8,14 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 // SetRelayedNodes- sets and saves node as relayed
 func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Node {
 	var returnnodes []models.Node
+	validRelayed := make([]string, 0, len(relayed))
 	for _, id := range relayed {
 		node, err := GetNodeByID(id)
 		if err != nil {
@@ -22,6 +25,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		node.IsRelayed = setRelayed
 		if setRelayed {
 			node.RelayedBy = relay
+			validRelayed = append(validRelayed, id)
 		} else {
 			node.RelayedBy = ""
 			node.UseTcpUplink = false
@@ -33,20 +37,21 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		}
 		returnnodes = append(returnnodes, node)
 	}
-	relayNode, _ := GetNodeByID(relay)
+	relayNode, err := GetNodeByID(relay)
+	if err != nil {
+		return returnnodes
+	}
 	if setRelayed {
-		relayNode.RelayedNodes = relayed
+		relayNode.RelayedNodes = validRelayed
 	} else {
 		relayNode.RelayedNodes = []string{}
 	}
-	UpsertNode(&relayNode)
+	_ = UpsertNode(&relayNode)
 	return returnnodes
 }
 
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) error {
-	var err error
-
 	node, err := GetNodeByID(relay.NodeID)
 	if err != nil {
 		return err
@@ -57,6 +62,12 @@ func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) 
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)
 		if err != nil {
+			// Stale RelayedClients keys (deleted/unassigned nodes) must not block
+			// gateway updates — skip and let PruneStaleRelayedClients clean them.
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				slog.Warn("ValidateRelay: skipping missing relayed node", "id", relayedNodeID, "relay", relay.NodeID)
+				continue
+			}
 			return err
 		}
 		if relayedNode.IsIngressGateway {
@@ -82,7 +93,111 @@ func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) 
 			ResetAutoRelayedPeer(ctx, &relayedNode)
 		}
 	}
-	return err
+	return nil
+}
+
+// isActiveRelayedClient reports whether client is still assigned to gatewayID.
+func isActiveRelayedClient(gatewayID string, client *models.Node) bool {
+	if client == nil || gatewayID == "" {
+		return false
+	}
+	if client.RelayedBy == gatewayID {
+		return true
+	}
+	// Exit clients may still be relayed via the exit routing node even when
+	// RelayedBy was briefly cleared; keep them if this gateway is their exit router.
+	return InternetExitRoutingNodeID(client) == gatewayID
+}
+
+// PruneStaleRelayedClients drops RelayedNodes / InetNodeReq entries that no longer
+// belong on this gateway (missing nodes, or nodes no longer RelayedBy it) and
+// persists when anything changed. Returns true if pruned.
+func PruneStaleRelayedClients(node *models.Node) bool {
+	if node == nil || (!node.IsGw && !node.IsRelay && len(node.RelayedNodes) == 0 && len(node.InetNodeReq.InetNodeClientIDs) == 0) {
+		return false
+	}
+	gatewayID := node.ID.String()
+	changed := false
+	alive := make([]string, 0, len(node.RelayedNodes))
+	for _, id := range node.RelayedNodes {
+		client, err := GetNodeByID(id)
+		if err != nil || !isActiveRelayedClient(gatewayID, &client) {
+			slog.Warn("pruning stale relayed_clients entry", "gateway", gatewayID, "stale", id)
+			changed = true
+			continue
+		}
+		alive = append(alive, id)
+	}
+	if changed {
+		node.RelayedNodes = alive
+	}
+
+	if len(node.InetNodeReq.InetNodeClientIDs) > 0 {
+		aliveIGW := make([]string, 0, len(node.InetNodeReq.InetNodeClientIDs))
+		for _, id := range node.InetNodeReq.InetNodeClientIDs {
+			client, err := GetNodeByID(id)
+			if err != nil || !isActiveRelayedClient(gatewayID, &client) {
+				slog.Warn("pruning stale relayed_igw_clients entry", "gateway", gatewayID, "stale", id)
+				changed = true
+				continue
+			}
+			aliveIGW = append(aliveIGW, id)
+		}
+		node.InetNodeReq.InetNodeClientIDs = aliveIGW
+	}
+
+	if !changed {
+		return false
+	}
+	if err := UpsertNode(node); err != nil {
+		slog.Error("failed to persist pruned relayed clients", "gateway", node.ID, "error", err)
+		return false
+	}
+	return true
+}
+
+// SanitizeRelayedNodesForUpdate drops missing / orphan RelayedNodes IDs from a
+// gateway update payload while still allowing genuinely new assignments
+// (node exists, RelayedBy empty, and ID was not already a stale map key).
+func SanitizeRelayedNodesForUpdate(gatewayID string, requested []string, priorMapKeys map[string]struct{}) []string {
+	out := make([]string, 0, len(requested))
+	for _, id := range requested {
+		client, err := GetNodeByID(id)
+		if err != nil {
+			slog.Warn("dropping missing relayed node from update", "gateway", gatewayID, "id", id)
+			continue
+		}
+		if client.RelayedBy == gatewayID || InternetExitRoutingNodeID(&client) == gatewayID {
+			out = append(out, id)
+			continue
+		}
+		if client.RelayedBy == "" {
+			if _, wasStaleKey := priorMapKeys[id]; wasStaleKey {
+				// Orphan map key: client was removed but RelayedClients still listed it.
+				continue
+			}
+			out = append(out, id)
+			continue
+		}
+		// Relayed by a different gateway — do not steal via this update.
+	}
+	return out
+}
+
+// RemoveNodeFromAllGatewayRelays removes nodeID from RelayedClients / RelayedIGWClients
+// on every node in the network. Used on delete so orphan map keys cannot linger.
+func RemoveNodeFromAllGatewayRelays(ctx context.Context, networkName, nodeID string) {
+	if networkName == "" || nodeID == "" {
+		return
+	}
+	nw := &schema.Network{Name: networkName}
+	if err := nw.Get(ctx); err != nil {
+		return
+	}
+	n := &schema.Node{ID: nodeID, NetworkID: nw.ID}
+	if err := n.UnassignGateway(ctx); err != nil {
+		slog.Error("failed to remove node from gateway relay maps", "node", nodeID, "error", err)
+	}
 }
 
 // UpdateRelayNodes - updates relay nodes

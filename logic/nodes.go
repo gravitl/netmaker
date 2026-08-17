@@ -175,6 +175,9 @@ func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 			UpsertNode(&relayNode)
 		}
 	}
+	// Always scrub this node ID from every gateway RelayedClients map in the
+	// network. RelayedBy may already be cleared while orphan map keys remain.
+	RemoveNodeFromAllGatewayRelays(ctx, node.Network, node.ID.String())
 	if len(node.AutoRelayedPeers) > 0 {
 		ResetAutoRelayedPeer(ctx, node)
 	}

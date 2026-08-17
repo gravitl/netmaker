@@ -754,6 +754,18 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	relayUpdate := false
 	if !connectionToggle {
+		// Gateway RelayedClients can retain deleted/unassigned node IDs; prune
+		// those before RelayUpdates/ValidateRelay so metadata updates do not
+		// fail with "record not found" or re-assign orphans.
+		if currentNode.IsGw || currentNode.IsRelay || len(currentNode.RelayedNodes) > 0 {
+			priorKeys := make(map[string]struct{}, len(currentNode.RelayedNodes))
+			for _, id := range currentNode.RelayedNodes {
+				priorKeys[id] = struct{}{}
+			}
+			_ = logic.PruneStaleRelayedClients(&currentNode)
+			newNode.RelayedNodes = logic.SanitizeRelayedNodesForUpdate(
+				currentNode.ID.String(), newNode.RelayedNodes, priorKeys)
+		}
 		relayUpdate = logic.RelayUpdates(&currentNode, newNode)
 		if relayUpdate && newNode.IsRelay {
 			err = logic.ValidateRelay(

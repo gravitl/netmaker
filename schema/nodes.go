@@ -487,6 +487,12 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 
 func (n *Node) UnassignGateway(ctx context.Context) error {
 	n.UseTcpUplink = false
+	if n.NetworkID == "" {
+		existing := &Node{ID: n.ID}
+		if err := existing.Get(ctx); err == nil {
+			n.NetworkID = existing.NetworkID
+		}
+	}
 	err := db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Updates(map[string]interface{}{
@@ -498,20 +504,23 @@ func (n *Node) UnassignGateway(ctx context.Context) error {
 		return err
 	}
 
-	err = db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_clients", n.ID)).
-		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
-		Error
+	// Prefer network-scoped remove; if NetworkID is still unknown, scrub the key
+	// from any node that still lists this client so orphans cannot linger.
+	relayedClientsQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_clients", n.ID))
+	relayedIGWQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_igw_clients", n.ID))
+	if n.NetworkID != "" {
+		relayedClientsQ = relayedClientsQ.Where("network_id = ?", n.NetworkID)
+		relayedIGWQ = relayedIGWQ.Where("network_id = ?", n.NetworkID)
+	}
+
+	err = relayedClientsQ.UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).Error
 	if err != nil {
 		return err
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
-		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
-		Error
+	return relayedIGWQ.UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).Error
 }
 
 func (n *Node) ResetGateway(ctx context.Context) error {
