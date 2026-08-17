@@ -211,24 +211,6 @@ func (u *UserRole) Upsert(ctx context.Context) error {
 	return err
 }
 
-func (u *UserRole) Update(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	candidates := []UserRoleID{logicalID}
-	if scopedID := ScopeUserRoleID(tenantID, logicalID); scopedID != logicalID {
-		candidates = append(candidates, scopedID)
-	}
-	// Omit "id" so this never rewrites a network role's tenant-scoped
-	// physical ID down to its bare logical ID.
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id IN ?", candidates).
-		Omit("id").
-		Updates(u).
-		Error
-	u.ID = logicalID
-	return err
-}
-
 func (u *UserRole) Delete(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
