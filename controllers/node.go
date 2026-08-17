@@ -388,7 +388,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userPlatformRole := &schema.UserRole{ID: user.PlatformRoleID}
-		err = userPlatformRole.Get(r.Context())
+		err = userPlatformRole.GetPlatformRole(r.Context())
 		if err != nil {
 			return
 		}

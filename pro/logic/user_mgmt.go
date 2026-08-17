@@ -1432,7 +1432,7 @@ func CanUserCreateNetwork(ctx context.Context, username string) bool {
 		return false
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	if err := userRole.Get(db.WithContext(ctx)); err != nil {
+	if err := userRole.GetPlatformRole(db.WithContext(ctx)); err != nil {
 		return false
 	}
 	if userRole.TenantGlobalAccess {

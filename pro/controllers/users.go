@@ -265,7 +265,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	// check platform role
 	roleCheck := &schema.UserRole{ID: schema.UserRoleID(inviteReq.PlatformRoleID)}
-	err = roleCheck.Get(r.Context())
+	err = roleCheck.GetPlatformRole(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

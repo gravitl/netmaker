@@ -184,7 +184,7 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return
