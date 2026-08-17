@@ -62,19 +62,6 @@ var userRoleCreateCmd = &cobra.Command{
 	},
 }
 
-var userRoleDeleteCmd = &cobra.Command{
-	Use:   "delete [roleID]",
-	Args:  cobra.ExactArgs(1),
-	Short: "delete user role",
-	Long:  `delete user role`,
-	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.DeleteUserRole(args[0])
-		if resp != nil {
-			fmt.Println(resp.Message)
-		}
-	},
-}
-
 var userRoleGetCmd = &cobra.Command{
 	Use:   "get [roleID]",
 	Args:  cobra.ExactArgs(1),
@@ -112,9 +99,6 @@ func init() {
 
 	// create roles cmd
 	userRoleCmd.AddCommand(userRoleCreateCmd)
-
-	// delete role cmd
-	userRoleCmd.AddCommand(userRoleDeleteCmd)
 
 	// Get Role
 	userRoleCmd.AddCommand(userRoleGetCmd)
