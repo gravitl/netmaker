@@ -32,6 +32,7 @@ func Run() {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
 		migrateSettings(ctx)
 		assignSuperAdmin(ctx)
+		logic.InitialiseNetworkRoles(ctx)
 		logic.IntialiseGroups(ctx)
 
 		networks, _ := (&schema.Network{}).ListAll(ctx)
