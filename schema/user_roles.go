@@ -143,11 +143,25 @@ func (u *UserRole) Exists(ctx context.Context) (bool, error) {
 	return exists, err
 }
 
-func (u *UserRole) Get(ctx context.Context) error {
+func (u *UserRole) GetPlatformRole(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ?", u.ID).
+		Where("id = ? AND network_id = ''", u.ID).
 		First(u).
 		Error
+}
+
+func (u *UserRole) GetNetworkRole(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	err := db.FromContext(ctx).Model(&UserRole{}).
+		Where("id = ? AND network_id <> ''", ScopeUserRoleID(tenantID, logicalID)).
+		First(u).
+		Error
+	if err != nil {
+		return err
+	}
+	u.ID = logicalID
+	return nil
 }
 
 func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
