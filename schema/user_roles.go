@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -186,11 +187,16 @@ func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
 }
 
 func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
+	tenantID := scope.ID(ctx)
+	query := db.FromContext(ctx).Model(&UserRole{}).Where("network_id <> ''")
+	if tenantID != "" {
+		query = query.Where("id LIKE ?", TenantScopedKey(tenantID, "")+"%")
+	}
 	var userRoles []UserRole
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id <> ''").
-		Find(&userRoles).
-		Error
+	err := query.Find(&userRoles).Error
+	for i := range userRoles {
+		userRoles[i].ID = UnscopeUserRoleID(tenantID, userRoles[i].ID)
+	}
 	return userRoles, err
 }
 
