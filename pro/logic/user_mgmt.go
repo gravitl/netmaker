@@ -285,8 +285,8 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		}),
 	}
 
-	_ = NetworkAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = NetworkAdminPermissionTemplate.Upsert(ctx)
+	_ = NetworkUserPermissionTemplate.Upsert(ctx)
 
 	// create default network groups
 	var NetworkAdminGroup = schema.UserGroup{
