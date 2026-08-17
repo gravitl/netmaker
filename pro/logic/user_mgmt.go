@@ -444,7 +444,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	}
 	return (&schema.UserRole{
 		ID: rid,
-	}).Delete(ctx)
+	}).DeleteNetworkRole(ctx)
 }
 
 func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {

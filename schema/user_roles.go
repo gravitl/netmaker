@@ -166,11 +166,13 @@ func (u *UserRole) GetPlatformRole(ctx context.Context) error {
 func (u *UserRole) GetNetworkRole(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
+	u.ID = ScopeUserRoleID(tenantID, logicalID)
 	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id <> ''", ScopeUserRoleID(tenantID, logicalID)).
+		Where("id = ? AND network_id <> ''", u.ID).
 		First(u).
 		Error
 	if err != nil {
+		u.ID = logicalID
 		return err
 	}
 	u.ID = logicalID
@@ -211,17 +213,16 @@ func (u *UserRole) Upsert(ctx context.Context) error {
 	return err
 }
 
-func (u *UserRole) Delete(ctx context.Context) error {
+func (u *UserRole) DeleteNetworkRole(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
 	logicalID := u.ID
-	candidates := []UserRoleID{logicalID}
-	if scopedID := ScopeUserRoleID(tenantID, logicalID); scopedID != logicalID {
-		candidates = append(candidates, scopedID)
-	}
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id IN ?", candidates).
+	u.ID = ScopeUserRoleID(tenantID, logicalID)
+	err := db.FromContext(ctx).Model(&UserRole{}).
+		Where("id = ? AND network_id <> ''", u.ID).
 		Delete(u).
 		Error
+	u.ID = logicalID
+	return err
 }
 
 func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {
