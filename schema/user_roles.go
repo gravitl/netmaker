@@ -180,8 +180,14 @@ func (u *UserRole) Update(ctx context.Context) error {
 }
 
 func (u *UserRole) Delete(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	candidates := []UserRoleID{logicalID}
+	if scopedID := ScopeUserRoleID(tenantID, logicalID); scopedID != logicalID {
+		candidates = append(candidates, scopedID)
+	}
 	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ?", u.ID).
+		Where("id IN ?", candidates).
 		Delete(u).
 		Error
 }
