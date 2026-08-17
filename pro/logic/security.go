@@ -131,7 +131,7 @@ func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRol
 	if networkPermissionScope.TenantGlobalAccess {
 		return nil
 	}
-	if networkPermissionScope.NetworkID.String() != netID {
+	if networkPermissionScope.NetworkID != schema.AllNetworks && networkPermissionScope.NetworkID.String() != netID {
 		return errors.New("access denied")
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
