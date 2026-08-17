@@ -150,8 +150,13 @@ func UserRolesInit() {
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = PlatformUserUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AuditorUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkAdminAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+}
+
+func UserNetworkRolesInit(ctx context.Context) {
+	networkAdminAllRole := NetworkAdminAllPermissionTemplate
+	networkUserAllRole := NetworkUserAllPermissionTemplate
+	_ = networkAdminAllRole.Upsert(ctx)
+	_ = networkUserAllRole.Upsert(ctx)
 }
 
 func UserGroupsInit(ctx context.Context) {
