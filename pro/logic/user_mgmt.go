@@ -381,121 +381,16 @@ func DeleteNetworkRoles(ctx context.Context, netID string) {
 	_ = networkRoles.DeleteNetworkRoles(ctx)
 }
 
-func ValidateCreateRoleReq(userRole *schema.UserRole) error {
-	// check if role exists with this id
-	roleCheck := &schema.UserRole{ID: userRole.ID}
-	err := roleCheck.Get(db.WithContext(context.TODO()))
-	if err == nil {
-		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
+func GetAnyRole(ctx context.Context, id schema.UserRoleID) (*schema.UserRole, error) {
+	role := &schema.UserRole{ID: id}
+	if err := role.GetNetworkRole(ctx); err == nil {
+		return role, nil
 	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
+	role = &schema.UserRole{ID: id}
+	if err := role.GetPlatformRole(ctx); err != nil {
+		return nil, err
 	}
-	if userRole.NetworkID == "" {
-		return errors.New("only network roles are allowed to be created")
-	}
-	return nil
-}
-
-func ValidateUpdateRoleReq(userRole *schema.UserRole) error {
-	roleInDB := &schema.UserRole{ID: userRole.ID}
-	err := roleInDB.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if roleInDB.NetworkID != userRole.NetworkID {
-		return errors.New("network id mismatch")
-	}
-	if roleInDB.Default {
-		return errors.New("cannot update default role")
-	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
-	}
-	return nil
-}
-
-// CreateRole - inserts new role into DB
-func CreateRole(role *schema.UserRole) error {
-	// default roles are currently created directly in the db.
-	// this check is only to prevent future errors.
-	if role.Default && role.ID == "" {
-		return errors.New("role id cannot be empty for default role")
-	}
-
-	if !role.Default {
-		role.ID = schema.UserRoleID(uuid.NewString())
-	}
-
-	// check if the role already exists
-	if role.Name == "" {
-		return errors.New("role name cannot be empty")
-	}
-
-	exists, err := role.Exists(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return errors.New("role already exists")
-	}
-
-	return role.Create(db.WithContext(context.TODO()))
+	return role, nil
 }
 
 // DeleteRole - deletes user role
@@ -507,8 +402,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	if err != nil {
 		return err
 	}
-	role := &schema.UserRole{ID: rid}
-	err = role.Get(ctx)
+	role, err := GetAnyRole(ctx, rid)
 	if err != nil {
 		return err
 	}

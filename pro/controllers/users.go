@@ -1128,8 +1128,7 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role := &schema.UserRole{ID: schema.UserRoleID(rid)}
-	err := role.Get(r.Context())
+	role, err := proLogic.GetAnyRole(r.Context(), schema.UserRoleID(rid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
