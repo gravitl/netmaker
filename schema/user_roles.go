@@ -131,16 +131,14 @@ func (u *UserRole) TableName() string {
 }
 
 func (u *UserRole) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
-}
-
-func (u *UserRole) Exists(ctx context.Context) (bool, error) {
-	var exists bool
-	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM user_roles_v1 WHERE name = ?)",
-		u.Name,
-	).Scan(&exists).Error
-	return exists, err
+	tenantID := scope.ID(ctx)
+	logicalID := u.ID
+	if u.NetworkID != "" {
+		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	}
+	err := db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
+	u.ID = logicalID
+	return err
 }
 
 func (u *UserRole) GetPlatformRole(ctx context.Context) error {
