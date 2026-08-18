@@ -1364,7 +1364,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !logic.IsBasicAuthEnabled(r.Context()) {
+	if !logic.IsBasicAuthEnabled(dbctx) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
