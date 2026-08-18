@@ -71,6 +71,9 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if node.Network != e.Network {
+				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
+			}
 			if logic.IsEgressInternetGateway(*e) {
 				if err := logic.ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
@@ -81,9 +84,12 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			_, err := GetTag(ctx, models.TagID(tagID))
+			tag, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
+			}
+			if tag.Network.String() != e.Network {
+				return fmt.Errorf("tag %s doesn't belong to egress network %s", tagID, e.Network)
 			}
 		}
 		if logic.IsEgressInternetGateway(*e) {
