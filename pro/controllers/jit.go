@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -330,14 +331,28 @@ func jitRequestToGroupIDs(ids []string) []schema.UserGroupID {
 
 // handleApproveRequest - approves a JIT request
 func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string, expiresAtEpoch int64) {
-	// Check if user is admin
-	if !proLogic.IsNetworkAdmin(r.Context(), user, networkID) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can approve requests"), "forbidden"))
+	if requestID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("request_id is required"), "badrequest"))
 		return
 	}
 
-	if requestID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("request_id is required"), "badrequest"))
+	// Get the request
+	request := &schema.JITRequest{ID: requestID}
+	err := request.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if request.NetworkID != networkID {
+		err = fmt.Errorf("jit request %s does not belong to network %s", requestID, networkID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
+	// Check if user is admin
+	if !proLogic.IsNetworkAdmin(r.Context(), user, networkID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can approve requests"), "forbidden"))
 		return
 	}
 
@@ -356,17 +371,18 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		return
 	}
 
-	grant, req, err := proLogic.ApproveJITRequest(r.Context(), requestID, expiresAt, user.Username)
+	grant, err := proLogic.ApproveJITRequest(r.Context(), request, expiresAt, user.Username)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	// Send approval email to user
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
 		network := &schema.Network{Name: networkID}
 		_ = network.Get(ctx)
-		if err := email.SendJITApprovalEmail(grant, req, network); err != nil {
+		if err := email.SendJITApprovalEmail(grant, request, network); err != nil {
 			slog.Error("failed to send approval notification", "error", err)
 		}
 	}(ctx)
@@ -392,18 +408,32 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 
 // handleDenyRequest - denies a JIT request
 func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string) {
+	if requestID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("request_id is required"), "badrequest"))
+		return
+	}
+
+	// Get the request
+	request := &schema.JITRequest{ID: requestID}
+	err := request.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if request.NetworkID != networkID {
+		err = fmt.Errorf("jit request %s does not belong to network %s", requestID, networkID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	// Check if user is admin
 	if !proLogic.IsNetworkAdmin(r.Context(), user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can deny requests"), "forbidden"))
 		return
 	}
 
-	if requestID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("request_id is required"), "badrequest"))
-		return
-	}
-
-	request, err := proLogic.DenyJITRequest(requestID, user.Username)
+	err = proLogic.DenyJITRequest(r.Context(), request, user.Username)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
