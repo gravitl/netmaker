@@ -1941,7 +1941,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteUser(r.Context(), user)
+	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	if scope.Level(r.Context()) == scope.OrgScope {
+		err = logic.DeleteOrgUser(r.Context(), user, forceDeleteConfigs, cleanupUserRefs)
+	} else {
+		err = logic.DeleteTenantUser(r.Context(), user, forceDeleteConfigs, cleanupUserRefs)
+	}
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user membership: ", err.Error())
@@ -1967,45 +1972,41 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	// check and delete extclient with this ownerID
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		if scope.Level(ctx) == scope.TenantScope {
-			delete := r.URL.Query().Get("force_delete_configs") == "true"
-			extclients, err := logic.GetAllExtClients(ctx)
-			if err != nil {
-				slog.Error("failed to get extclients", "error", err)
-				return
-			}
-			for _, extclient := range extclients {
-				if extclient.OwnerID == user.Username {
-					if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
-						if !delete {
-							// only delete wireguard configs on force
-							continue
-						}
-					}
-					err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
-					if err != nil {
-						slog.Error("failed to delete extclient",
-							"id", extclient.ClientID, "owner", username, "error", err)
-					} else {
-						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-							slog.Error("error setting ext peers: " + err.Error())
-						}
-					}
-				}
-			}
-		}
-
-		_ = (&schema.UserInvite{
-			Email: user.Username,
-		}).DeleteByEmail(ctx)
-
-		mq.PublishPeerUpdate(ctx, false)
-	}(ctx)
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bool) {
+	extclients, err := logic.GetAllExtClients(ctx)
+	if err != nil {
+		slog.Error("failed to get extclients", "error", err)
+	} else {
+		for _, extclient := range extclients {
+			if extclient.OwnerID != username {
+				continue
+			}
+			if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+				// only delete wireguard configs on force
+				continue
+			}
+			if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+				slog.Error("failed to delete extclient",
+					"id", extclient.ClientID, "owner", username, "error", err)
+				continue
+			}
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+				slog.Error("error setting ext peers: " + err.Error())
+			}
+		}
+	}
+
+	_ = (&schema.UserInvite{
+		Email: username,
+	}).DeleteByEmail(ctx)
+
+	if err := mq.PublishPeerUpdate(ctx, false); err != nil {
+		slog.Error("error publishing peer update", "error", err)
+	}
 }
 
 // @Summary     Bulk delete users
@@ -2052,16 +2053,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		ownerExtClients := make(map[string][]models.ExtClient)
-		extclients, err := logic.GetAllExtClients(ctx)
-		if err != nil {
-			slog.Error("bulk user delete: failed to get extclients", "error", err)
-		} else {
-			for _, ec := range extclients {
-				ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
-			}
-		}
-
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
@@ -2090,9 +2081,14 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			err = logic.DeleteUser(ctx, user)
-			if err != nil {
-				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
+			var deleteErr error
+			if scope.Level(ctx) == scope.OrgScope {
+				deleteErr = logic.DeleteOrgUser(ctx, user, forceDeleteConfigs, cleanupUserRefs)
+			} else {
+				deleteErr = logic.DeleteTenantUser(ctx, user, forceDeleteConfigs, cleanupUserRefs)
+			}
+			if deleteErr != nil {
+				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", deleteErr)
 				continue
 			}
 			logic.LogEvent(r.Context(), &models.Event{
@@ -2113,23 +2109,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			})
 			logger.Log(1, username, "was deleted")
 			deleted++
-
-			for _, extclient := range ownerExtClients[user.Username] {
-				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
-					continue
-				}
-				if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
-					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
-					}
-				}
-			}
-
-			_ = (&schema.UserInvite{
-				Email: user.Username,
-			}).DeleteByEmail(ctx)
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(ctx, false)

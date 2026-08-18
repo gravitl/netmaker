@@ -204,7 +204,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// delete the user if it has been archived.
 			user, ok := dbUsersMap[user.Username]
 			if ok {
-				_ = deleteAndCleanUpUser(ctx, user)
+				_ = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
 			}
 			continue
 		}
@@ -295,7 +295,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 
 				// delete the user if it has been deleted on idp
 				// or is filtered out.
-				err = deleteAndCleanUpUser(ctx, user)
+				err = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
 				if err != nil {
 					return err
 				}
@@ -509,36 +509,23 @@ func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Gro
 	return filteredGroups
 }
 
-// TODO: deduplicate
-// The cyclic import between the package logic and mq requires this
-// function to be duplicated in multiple places.
-func deleteAndCleanUpUser(ctx context.Context, user *schema.User) error {
-	err := logic.DeleteUser(ctx, user)
+func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bool) {
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
-		return err
+		return
 	}
-
-	// check and delete extclient with this ownerID
-	go func(ctx context.Context) {
-		extclients, err := logic.GetAllExtClients(ctx)
-		if err != nil {
-			return
-		}
-		for _, extclient := range extclients {
-			if extclient.OwnerID == user.Username {
-				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
-				if err == nil {
-					_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
-				}
+	for _, extclient := range extclients {
+		if extclient.OwnerID == username {
+			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+			if err == nil {
+				_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 			}
 		}
+	}
 
-		_ = (&schema.UserInvite{
-			Email: user.Username,
-		}).DeleteByEmail(ctx)
+	_ = (&schema.UserInvite{
+		Email: username,
+	}).DeleteByEmail(ctx)
 
-		go mq.PublishPeerUpdate(ctx, false)
-	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
-
-	return nil
+	_ = mq.PublishPeerUpdate(ctx, false)
 }
