@@ -36,7 +36,7 @@ require (
 )
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/biter777/countries v1.7.5
 	github.com/google/go-cmp v0.7.0
