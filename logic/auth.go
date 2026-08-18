@@ -31,6 +31,8 @@ var IsOAuthConfigured = func(context.Context) bool { return false }
 var ResetAuthProvider = func(context.Context) {}
 var ResetIDPSyncHook = func(context.Context) {}
 
+type CleanupUserRefsFunc func(ctx context.Context, username string, forceDeleteConfigs bool)
+
 func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
 		return nil
@@ -356,9 +358,8 @@ func IsIDPUser(ctx context.Context, user *schema.User) bool {
 	return false
 }
 
-// DeleteUser - deletes a given user
-func DeleteUser(ctx context.Context, user *schema.User) error {
-	err := user.DeleteMembership(ctx)
+func DeleteTenantUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.TenantMembership{TenantID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user does not exist")
@@ -369,10 +370,44 @@ func DeleteUser(ctx context.Context, user *schema.User) error {
 
 	RemoveUserFromAclPolicy(ctx, user.Username)
 
-	if scope.Level(ctx) != scope.TenantScope {
-		return nil
+	if err := (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx); err != nil {
+		return err
 	}
-	return (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx)
+
+	if cleanup != nil {
+		cleanupCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, scope.ID(ctx))
+		go cleanup(cleanupCtx, user.Username, forceDeleteConfigs)
+	}
+
+	return nil
+}
+
+func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.OrgMembership{OrganizationID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not exist")
+		}
+
+		return err
+	}
+
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, membership := range memberships {
+		if membership.AuthType != schema.Inherited {
+			continue
+		}
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, membership.TenantID)
+		if err := DeleteTenantUser(tenantCtx, user, forceDeleteConfigs, cleanup); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func SetOAuthSecret(secret string) error {
