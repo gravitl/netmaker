@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 	"sync"
 
 	"github.com/google/uuid"
@@ -536,12 +537,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces:   peerHost.Interfaces,
-					ListenPort:   peerHost.ListenPort,
-					IsStaticPort: peerHost.IsStaticPort,
-					IsStatic:     peerHost.IsStatic,
-				}
+				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = buildHostNetworkInfo(peerHost, &peer, nil)
 				nodePeer = peerConfig
 			} else {
 				peerAllowedIPs := hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs
@@ -549,24 +545,27 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Endpoint = peerConfig.Endpoint
-				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces:   peerHost.Interfaces,
-					ListenPort:   peerHost.ListenPort,
-					IsStaticPort: peerHost.IsStaticPort,
-					IsStatic:     peerHost.IsStatic,
-				}
+				prev := hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()]
+				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = buildHostNetworkInfo(peerHost, &peer, &prev)
 				nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 			}
 
-			if node.Network == network && !peerConfig.Remove && len(peerConfig.AllowedIPs) > 0 { // add to peers map for metrics
-				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
-					ID:         peer.ID.String(),
-					HostID:     peerHost.ID.String(),
-					Address:    peer.PrimaryAddress(),
-					Name:       peerHost.Name,
-					Network:    peer.Network,
-					ListenPort: peerHost.ListenPort,
+			// PeerIDs is used for metrics and tcp_proxy_endpoint. Host-level pulls/publishes
+			// pass network="" (all networks on the host); only then include every network's peers.
+			if (network == "" || node.Network == network) && !peerConfig.Remove && len(peerConfig.AllowedIPs) > 0 {
+				ida := models.IDandAddr{
+					ID:               peer.ID.String(),
+					HostID:           peerHost.ID.String(),
+					Address:          peer.PrimaryAddress(),
+					Name:             peerHost.Name,
+					Network:          peer.Network,
+					ListenPort:       peerHost.ListenPort,
+					TcpProxyEndpoint: tcpProxyEndpointForPeer(&peer, peerHost, host),
 				}
+				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyEndpoint == "" && prev.TcpProxyEndpoint != "" {
+					ida.TcpProxyEndpoint = prev.TcpProxyEndpoint
+				}
+				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = ida
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
 			if host.EnableFlowLogs {
@@ -818,6 +817,59 @@ func GetPeerListenPort(host *schema.Host) int {
 		peerPort = host.WgPublicListenPort
 	}
 	return peerPort
+}
+
+func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models.HostNetworkInfo) models.HostNetworkInfo {
+	info := models.HostNetworkInfo{
+		Interfaces:   peerHost.Interfaces,
+		ListenPort:   peerHost.ListenPort,
+		IsStaticPort: peerHost.IsStaticPort,
+		IsStatic:     peerHost.IsStatic,
+	}
+	// Prefer host-level TCP proxy (listen is per host); fall back to node for older data.
+	tcpEnabled := peerHost.TcpProxyEnabled || (peer.IsGw && peer.TcpProxyEnabled)
+	if peer.IsGw && tcpEnabled {
+		info.TcpProxyEnabled = true
+		info.TcpProxyListenPort = peerHost.TcpProxyListenPort
+		if info.TcpProxyListenPort <= 0 {
+			info.TcpProxyListenPort = peer.TcpProxyListenPort
+		}
+		if info.TcpProxyListenPort <= 0 {
+			info.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
+		}
+	} else if prev != nil && prev.TcpProxyEnabled {
+		// Preserve TCP settings from another network's gateway node on the same host.
+		info.TcpProxyEnabled = prev.TcpProxyEnabled
+		info.TcpProxyListenPort = prev.TcpProxyListenPort
+	}
+	return info
+}
+
+func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHost *schema.Host) string {
+	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw {
+		return ""
+	}
+	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
+	if !tcpEnabled {
+		return ""
+	}
+	port := peerHost.TcpProxyListenPort
+	if port <= 0 {
+		port = peer.TcpProxyListenPort
+	}
+	if port <= 0 {
+		port = schema.DefaultTcpProxyListenPort
+	}
+	var ip net.IP
+	if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
+		ip = peerHost.EndpointIP
+	} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
+		ip = peerHost.EndpointIPv6
+	}
+	if ip == nil {
+		return ""
+	}
+	return net.JoinHostPort(ip.String(), strconv.Itoa(port))
 }
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {

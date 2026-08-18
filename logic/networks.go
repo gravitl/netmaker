@@ -583,10 +583,14 @@ func GetTenantNetworkHookID(ctx context.Context) string {
 }
 
 func InitNetworkHooks(ctx context.Context) {
+	interval := 10
+	if GetServerSettings(ctx).CleanUpInterval > 0 {
+		interval = GetServerSettings(ctx).CleanUpInterval
+	}
 	HookManagerCh <- models.HookDetails{
 		ID:       GetTenantNetworkHookID(ctx),
 		Hook:     NetworkHook,
 		Params:   []any{scope.ID(ctx)},
-		Interval: time.Duration(GetServerSettings(ctx).CleanUpInterval) * time.Minute,
+		Interval: time.Duration(interval) * time.Minute,
 	}
 }

@@ -11,6 +11,9 @@ type Options struct {
 	relayedClients        []string
 	isInternetGateway     bool
 	igwClients            []string
+	tcpProxyEnabled       bool
+	tcpProxyListenPort    int
+	setTcpProxy           bool
 	inheritedAuth         bool
 }
 
@@ -64,6 +67,16 @@ func WithInternetGateway(igwClients []string) Option {
 	return func(o *Options) *Options {
 		o.isInternetGateway = true
 		o.igwClients = igwClients
+		return o
+	}
+}
+
+// WithTcpProxy enables TCP proxy listen settings when creating a gateway.
+func WithTcpProxy(enabled bool, listenPort int) Option {
+	return func(o *Options) *Options {
+		o.setTcpProxy = true
+		o.tcpProxyEnabled = enabled
+		o.tcpProxyListenPort = listenPort
 		return o
 	}
 }

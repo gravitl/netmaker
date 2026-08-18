@@ -175,6 +175,9 @@ func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 			UpsertNode(&relayNode)
 		}
 	}
+	// Always scrub this node ID from every gateway RelayedClients map in the
+	// network. RelayedBy may already be cleared while orphan map keys remain.
+	RemoveNodeFromAllGatewayRelays(ctx, node.Network, node.ID.String())
 	if len(node.AutoRelayedPeers) > 0 {
 		ResetAutoRelayedPeer(ctx, node)
 	}
@@ -695,10 +698,18 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			Address:           nodeAddr,
 			Address6:          nodeAddr6,
 			Action:            _node.Action,
-			IsIngressGateway:  _node.IsGateway,
-			IsRelay:           _node.IsGateway,
-			IsGw:              _node.IsGateway,
-			AutoAssignGateway: _node.AutoAssignGateway,
+			IsIngressGateway:   _node.IsGateway,
+			IsRelay:            _node.IsGateway,
+			IsGw:               _node.IsGateway,
+			AutoAssignGateway:  _node.AutoAssignGateway,
+			TcpProxyEnabled:    _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled,
+			TcpProxyListenPort: func() int {
+				if _node.Host.TcpProxyListenPort > 0 {
+					return _node.Host.TcpProxyListenPort
+				}
+				return _node.TcpProxyListenPort
+			}(),
+			UseTcpUplink: _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,
@@ -865,11 +876,14 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsGateway:                         node.IsGw,
 		IsAutoRelay:                       isAutoRelay,
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
+		TcpProxyEnabled:                   node.TcpProxyEnabled,
+		TcpProxyListenPort:                node.TcpProxyListenPort,
 		AdditionalGatewayEndpoints:        additionalEndpoints,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayedByNodeID:                   relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+		UseTcpUplink:                      node.UseTcpUplink,
 		SelectedInternetEgressID:          node.SelectedInternetEgressID,
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,

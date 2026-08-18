@@ -306,7 +306,7 @@ func ClearExitNodeForDisconnect(node *models.Node) (bool, error) {
 	if node == nil || node.SelectedInternetEgressID == "" {
 		return false, nil
 	}
-	if err := SetNodeSelectedInternetEgress(node, ""); err != nil {
+	if err := SetNodeSelectedInternetEgress(node, "", false); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -322,6 +322,7 @@ func SyncClearedExitNodeFields(dst, src *models.Node) {
 	dst.InternetGwID = src.InternetGwID
 	dst.IsRelayed = src.IsRelayed
 	dst.RelayedBy = src.RelayedBy
+	dst.UseTcpUplink = src.UseTcpUplink
 }
 
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
@@ -473,7 +474,8 @@ func FindInternetEgressByRoutingNode(ctx context.Context, network, nodeID string
 // SetNodeSelectedInternetEgress sets or clears the node's selected internet egress.
 // Selecting an exit also relays the node through that egress routing node (IsIGWClient),
 // so NAT'd full-tunnel clients remain reachable via the gateway. InternetGwID is not dual-written.
-func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
+// useTcpUplink opts the client into TCP uplink when the routing gateway has TCP proxy enabled.
+func SetNodeSelectedInternetEgress(node *models.Node, egressID string, useTcpUplink bool) error {
 	if node == nil {
 		return errors.New("node is required")
 	}
@@ -513,6 +515,12 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 		return err
 	}
 
+	if useTcpUplink {
+		if err := errTcpUplinkRequiresProxy(ctx, routingNodeID); err != nil {
+			return err
+		}
+	}
+
 	if schemaNode.AutoAssignGateway {
 		schemaNode.AutoAssignGateway = false
 		if err := schemaNode.ResetAutoAssignGateway(ctx); err != nil {
@@ -529,6 +537,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	// gateway before the exit (0.0.0.0/0) config is applied.
 	alreadyRelayedByRoutingNode := schemaNode.RelayedByNodeID != nil &&
 		*schemaNode.RelayedByNodeID == routingNodeID
+	schemaNode.UseTcpUplink = useTcpUplink
 	if !alreadyRelayedByRoutingNode {
 		schemaNode.IsIGWClient = false
 		schemaNode.RelayedByNodeID = &routingNodeID
@@ -544,6 +553,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	schemaNode.IsIGWClient = true
 	schemaNode.RelayedByNodeID = &routingNodeID
 	schemaNode.SelectedInternetEgressID = egressID
+	schemaNode.UseTcpUplink = useTcpUplink
 	if err := schemaNode.AssignGateway(ctx); err != nil {
 		return err
 	}
@@ -560,6 +570,22 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string) error {
 	updated.InternetGwID = ""
 	*node = *updated
 	return nil
+}
+
+// errTcpUplinkRequiresProxy returns an error when the routing gateway does not accept TCP uplinks.
+func errTcpUplinkRequiresProxy(ctx context.Context, routingNodeID string) error {
+	rn, err := GetNodeByID(routingNodeID)
+	if err != nil {
+		return errors.New("internet egress has no routing node")
+	}
+	if rn.TcpProxyEnabled {
+		return nil
+	}
+	rh := &schema.Host{ID: rn.HostID}
+	if err := rh.Get(ctx); err == nil && rh.TcpProxyEnabled {
+		return nil
+	}
+	return fmt.Errorf("exit routing gateway %s does not have TCP proxy enabled", routingNodeID)
 }
 
 func validateInternetEgressSelection(
@@ -662,7 +688,7 @@ func ClearNodesSelectedInternetEgress(ctx context.Context, egressID, network str
 	for _, node := range nodes {
 		if node.SelectedInternetEgressID == egressID {
 			n := node
-			_ = SetNodeSelectedInternetEgress(&n, "")
+			_ = SetNodeSelectedInternetEgress(&n, "", false)
 		}
 	}
 }
@@ -829,6 +855,7 @@ func RebindInternetEgressClients(ctx context.Context, e schema.Egress) {
 	routingID := FirstInternetEgressRoutingNodeID(e)
 	for i := range clients {
 		c := clients[i]
+		preserveTcpUplink := c.UseTcpUplink
 		// Drop RelayedBy to a removed/old routing node first; otherwise
 		// SetNodeSelectedInternetEgress rejects "relayed by a different gateway".
 		if err := failOpenExitClientKeepSelection(ctx, &c); err != nil {
@@ -838,7 +865,7 @@ func RebindInternetEgressClients(ctx context.Context, e schema.Egress) {
 		if routingID == "" || !e.Status {
 			continue
 		}
-		if err := SetNodeSelectedInternetEgress(&c, e.ID); err != nil {
+		if err := SetNodeSelectedInternetEgress(&c, e.ID, preserveTcpUplink); err != nil {
 			slog.Error("RebindInternetEgressClients: rebind failed", "node", c.ID, "egress", e.ID, "error", err)
 		}
 	}

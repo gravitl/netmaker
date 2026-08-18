@@ -25,9 +25,20 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 	}
 	if routingNodeID != "" {
 		if rn, err := GetNodeByID(routingNodeID); err == nil {
+			item.TcpProxyEnabled = rn.TcpProxyEnabled
+			item.TcpProxyListenPort = rn.TcpProxyListenPort
 			rh := &schema.Host{ID: rn.HostID}
 			if err := rh.Get(db.WithContext(ctx)); err == nil {
 				item.RoutingHostName = rh.Name
+				if rh.TcpProxyEnabled {
+					item.TcpProxyEnabled = true
+				}
+				if rh.TcpProxyListenPort > 0 {
+					item.TcpProxyListenPort = rh.TcpProxyListenPort
+				}
+			}
+			if item.TcpProxyEnabled && item.TcpProxyListenPort <= 0 {
+				item.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 			}
 		}
 	}
@@ -75,7 +86,9 @@ func GetNodeExitNode(ctx context.Context, network, nodeID string) (*models.Devic
 }
 
 // AssignNodeExitNode sets or clears the internet egress for a node (admin; no ACL checks).
-func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string) (*models.DeviceExitNode, error) {
+// useTcpUplink opts the client into TCP uplink to the exit routing gateway when that
+// gateway has TCP proxy enabled; ignored when clearing the exit.
+func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string, useTcpUplink bool) (*models.DeviceExitNode, error) {
 	if network == "" || nodeID == "" {
 		return nil, errors.New("network and node are required")
 	}
@@ -94,8 +107,10 @@ func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string) (
 		if !e.Status || e.Network != network || !IsEgressInternetGateway(*e) {
 			return nil, errors.New("egress is not an active internet exit node in this network")
 		}
+	} else {
+		useTcpUplink = false
 	}
-	if err := SetNodeSelectedInternetEgress(&node, egressID); err != nil {
+	if err := SetNodeSelectedInternetEgress(&node, egressID, useTcpUplink); err != nil {
 		return nil, err
 	}
 	PublishPeerUpdateAfterExitNodeChange(ctx)
@@ -163,7 +178,8 @@ func GetDeviceSelectedExitNode(ctx context.Context, user *schema.User, host *sch
 }
 
 // SelectDeviceExitNode sets or clears the selected internet egress for the device's node on the network.
-func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.Host, networkID, egressID string) (*models.DeviceExitNode, error) {
+// useTcpUplink opts into TCP uplink when the exit routing gateway has TCP proxy enabled.
+func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.Host, networkID, egressID string, useTcpUplink bool) (*models.DeviceExitNode, error) {
 	if user == nil || host == nil {
 		return nil, errors.New("user and host are required")
 	}
@@ -202,9 +218,11 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		if routingNodeID == node.ID.String() {
 			return nil, errors.New("routing node cannot select itself as exit node")
 		}
+	} else {
+		useTcpUplink = false
 	}
 
-	if err := SetNodeSelectedInternetEgress(node, egressID); err != nil {
+	if err := SetNodeSelectedInternetEgress(node, egressID, useTcpUplink); err != nil {
 		return nil, err
 	}
 	PublishPeerUpdateAfterExitNodeChange(ctx)

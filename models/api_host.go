@@ -24,6 +24,8 @@ type ApiHost struct {
 	IsStatic            bool       `json:"isstatic"`
 	ListenPort          int        `json:"listenport"`
 	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	TcpProxyEnabled     bool       `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort  int        `json:"tcp_proxy_listen_port"`
 	MTU                 int        `json:"mtu"                   yaml:"mtu"`
 	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
 	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
@@ -86,6 +88,8 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.KernelVersion = h.KernelVersion
 	a.Nodes = h.Nodes
 	a.WgPublicListenPort = h.WgPublicListenPort
+	a.TcpProxyEnabled = h.TcpProxyEnabled
+	a.TcpProxyListenPort = h.TcpProxyListenPort
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
@@ -150,6 +154,8 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
+	h.TcpProxyEnabled = currentHost.TcpProxyEnabled
+	h.TcpProxyListenPort = currentHost.TcpProxyListenPort
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
 	h.EntraDeviceID = currentHost.EntraDeviceID

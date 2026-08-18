@@ -42,22 +42,27 @@ const (
 
 // DeviceExitNode describes an internet egress exit node available to a desktop device.
 type DeviceExitNode struct {
-	EgressID         string `json:"egress_id"`
-	Name             string `json:"name"`
-	Description      string `json:"description,omitempty"`
-	Network          string `json:"network"`
-	RoutingNodeID    string `json:"routing_node_id,omitempty"`
-	RoutingHostName  string `json:"routing_host_name,omitempty"`
-	Selected         bool   `json:"selected"`
-	Status           bool   `json:"status"`
+	EgressID           string `json:"egress_id"`
+	Name               string `json:"name"`
+	Description        string `json:"description,omitempty"`
+	Network            string `json:"network"`
+	RoutingNodeID      string `json:"routing_node_id,omitempty"`
+	RoutingHostName    string `json:"routing_host_name,omitempty"`
+	// TcpProxyEnabled is true when the routing node (or its host) accepts TCP uplinks.
+	TcpProxyEnabled    bool `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort int  `json:"tcp_proxy_listen_port,omitempty"`
+	Selected           bool `json:"selected"`
+	Status             bool `json:"status"`
 }
 
 // DeviceExitNodeSelectionReq selects or clears the exit node for a device on a network.
 type DeviceExitNodeSelectionReq struct {
-	EgressID string `json:"egress_id"`
+	EgressID     string `json:"egress_id"`
+	UseTcpUplink bool   `json:"use_tcp_uplink"`
 }
 
 // NodeExitNodeSelectionReq selects or clears the exit node for a node (admin API).
 type NodeExitNodeSelectionReq struct {
-	EgressID string `json:"egress_id"`
+	EgressID     string `json:"egress_id"`
+	UseTcpUplink bool   `json:"use_tcp_uplink"`
 }

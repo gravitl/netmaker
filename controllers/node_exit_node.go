@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
@@ -93,7 +94,7 @@ func assignNodeExitNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	selected, err := logic.AssignNodeExitNode(db.WithContext(r.Context()), network, nodeID, req.EgressID)
+	selected, err := logic.AssignNodeExitNode(db.WithContext(r.Context()), network, nodeID, req.EgressID, req.UseTcpUplink)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, exitNodeErrType(err)))
 		return
@@ -130,6 +131,9 @@ func exitNodeErrType(err error) logic.ApiErrorType {
 		"node is relayed by a different gateway":
 		return logic.BadReq
 	default:
+		if strings.Contains(err.Error(), "does not have TCP proxy enabled") {
+			return logic.BadReq
+		}
 		return logic.Internal
 	}
 }
