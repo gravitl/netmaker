@@ -573,6 +573,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("missing traffic key"), "badrequest"))
 		return
 	}
+	if len(newHost.TrafficKeyPublic) != 32 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid public key"), "badrequest"))
+		return
+	}
 
 	trafficKey, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
