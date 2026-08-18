@@ -56,8 +56,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUserToNetwork)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromNetwork)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
 
 	// User Invite Handlers
@@ -901,7 +901,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 // @Param       network_id query string true "Network ID"
 // @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
-func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
+func addUserToNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
@@ -958,7 +958,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 
 // @Summary     Remove user from network
@@ -970,7 +970,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 // @Param       network_id query string true "Network ID"
 // @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
-func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
+func removeUserFromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
@@ -1026,7 +1026,7 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 
 // @Summary     Delete user group
