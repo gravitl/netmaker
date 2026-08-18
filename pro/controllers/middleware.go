@@ -15,6 +15,7 @@ var limitedApis = map[string]struct{}{
 	"/api/server/onboarding":      {},
 	"/api/emqx/hosts":             {},
 	"/api/users/adm/authenticate": {},
+	"/api/v1/auth/discover":       {},
 }
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
