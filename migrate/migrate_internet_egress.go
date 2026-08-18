@@ -109,7 +109,7 @@ func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Nod
 		if n.SelectedInternetEgressID != "" && n.SelectedInternetEgressID != egressID {
 			return
 		}
-		if err := logic.SetNodeSelectedInternetEgress(&n, egressID); err != nil {
+		if err := logic.SetNodeSelectedInternetEgress(&n, egressID, n.UseTcpUplink); err != nil {
 			logger.Log(0, "migration: failed to set selected internet egress on node", n.ID.String(), err.Error())
 		}
 	}

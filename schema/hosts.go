@@ -138,6 +138,10 @@ type Host struct {
 	Debug               bool                        `json:"debug" yaml:"debug"`
 	ListenPort          int                         `json:"listenport" yaml:"listenport"`
 	WgPublicListenPort  int                         `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	// TcpProxyEnabled: host accepts TCP/TLS framed WG uplinks (gateway listen is host-level).
+	TcpProxyEnabled bool `json:"tcp_proxy_enabled" yaml:"tcp_proxy_enabled"`
+	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
+	TcpProxyListenPort int `json:"tcp_proxy_listen_port" yaml:"tcp_proxy_listen_port"`
 	MTU                 int                         `json:"mtu" yaml:"mtu"`
 	PublicKey           WgKey                       `json:"publickey" yaml:"publickey"`
 	MacAddress          net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
@@ -225,6 +229,16 @@ func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, 
 
 func (h *Host) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(h).Error
+}
+
+// SetTcpProxy persists TCP proxy listen settings on the host (source of truth for gateway listen).
+func (h *Host) SetTcpProxy(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Host{}).
+		Where("id = ?", h.ID).
+		Updates(map[string]interface{}{
+			"tcp_proxy_enabled":     h.TcpProxyEnabled,
+			"tcp_proxy_listen_port": h.TcpProxyListenPort,
+		}).Error
 }
 
 func (h *Host) Delete(ctx context.Context) error {

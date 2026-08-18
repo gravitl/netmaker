@@ -53,11 +53,17 @@ type Node struct {
 	IsGateway                         bool                                  `json:"is_gateway"`
 	IsAutoRelay                       string                                `json:"is_auto_relay"`
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
+	// TcpProxyEnabled: gateway accepts TCP/TLS framed WG uplinks (control-plane flag; runtime is client-side).
+	TcpProxyEnabled bool `json:"tcp_proxy_enabled"`
+	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
+	TcpProxyListenPort int `json:"tcp_proxy_listen_port"`
 	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	// UseTcpUplink: assigned/relayed node opts into TCP uplink to its gateway (requires gateway TcpProxyEnabled).
+	UseTcpUplink bool `json:"use_tcp_uplink"`
 	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
 	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
@@ -420,6 +426,9 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 		Error
 }
 
+// DefaultTcpProxyListenPort is used when TcpProxyEnabled is set with listen port <= 0.
+const DefaultTcpProxyListenPort = 443
+
 func (n *Node) AssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")
@@ -430,6 +439,7 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": n.RelayedByNodeID,
 			"is_igw_client":      n.IsIGWClient,
+			"use_tcp_uplink":     n.UseTcpUplink,
 		}).Error
 	if err != nil {
 		return err
@@ -476,30 +486,41 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 }
 
 func (n *Node) UnassignGateway(ctx context.Context) error {
+	n.UseTcpUplink = false
+	if n.NetworkID == "" {
+		existing := &Node{ID: n.ID}
+		if err := existing.Get(ctx); err == nil {
+			n.NetworkID = existing.NetworkID
+		}
+	}
 	err := db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": n.RelayedByNodeID,
 			"is_igw_client":      n.IsIGWClient,
+			"use_tcp_uplink":     false,
 		}).Error
 	if err != nil {
 		return err
 	}
 
-	err = db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_clients", n.ID)).
-		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
-		Error
+	// Prefer network-scoped remove; if NetworkID is still unknown, scrub the key
+	// from any node that still lists this client so orphans cannot linger.
+	relayedClientsQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_clients", n.ID))
+	relayedIGWQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_igw_clients", n.ID))
+	if n.NetworkID != "" {
+		relayedClientsQ = relayedClientsQ.Where("network_id = ?", n.NetworkID)
+		relayedIGWQ = relayedIGWQ.Where("network_id = ?", n.NetworkID)
+	}
+
+	err = relayedClientsQ.UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).Error
 	if err != nil {
 		return err
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
-		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
-		Error
+	return relayedIGWQ.UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).Error
 }
 
 func (n *Node) ResetGateway(ctx context.Context) error {
@@ -512,6 +533,8 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 			"relayed_clients":              n.RelayedClients,
 			"relayed_igw_clients":          n.RelayedIGWClients,
 			"additional_gateway_endpoints": n.AdditionalGatewayEndpoints,
+			"tcp_proxy_enabled":            n.TcpProxyEnabled,
+			"tcp_proxy_listen_port":        n.TcpProxyListenPort,
 		}).Error
 	if err != nil {
 		return err
@@ -525,6 +548,7 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": nil,
 			"is_igw_client":      false,
+			"use_tcp_uplink":     false,
 		}).Error
 	if err != nil {
 		return err
@@ -535,6 +559,16 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		Where(expr.WhereHasValue("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", n.ID)).
 		Error
+}
+
+// SetTcpProxy persists TCP proxy listen settings for a gateway node.
+func (n *Node) SetTcpProxy(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"tcp_proxy_enabled":     n.TcpProxyEnabled,
+			"tcp_proxy_listen_port": n.TcpProxyListenPort,
+		}).Error
 }
 
 func (n *Node) ClearGatewayIDFromEnrollmentKeys(ctx context.Context) error {

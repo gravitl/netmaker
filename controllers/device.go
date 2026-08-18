@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -289,7 +290,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	selected, err := logic.SelectDeviceExitNode(r.Context(), user, host, network, req.EgressID)
+	selected, err := logic.SelectDeviceExitNode(r.Context(), user, host, network, req.EgressID, req.UseTcpUplink)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -304,6 +305,10 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 			"node is relayed by a different gateway",
 			"internet egress has no routing node":
 			errType = logic.BadReq
+		default:
+			if strings.Contains(err.Error(), "does not have TCP proxy enabled") {
+				errType = logic.BadReq
+			}
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return

@@ -21,7 +21,7 @@ func TestListNodeExitNodes_Validation(t *testing.T) {
 }
 
 func TestAssignNodeExitNode_Validation(t *testing.T) {
-	_, err := AssignNodeExitNode(context.Background(), "", "node-1", "eg-1")
+	_, err := AssignNodeExitNode(context.Background(), "", "node-1", "eg-1", false)
 	if err == nil || err.Error() != "network and node are required" {
 		t.Fatalf("expected validation error, got %v", err)
 	}
