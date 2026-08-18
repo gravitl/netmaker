@@ -292,6 +292,15 @@ func getGithubEmailsInfo(accessToken string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed reading response body: %s", err.Error())
 	}
+	if response.StatusCode != http.StatusOK {
+		var errInfo struct {
+			Message string `json:"message"`
+		}
+		if jsonErr := json.Unmarshal(contents, &errInfo); jsonErr == nil && errInfo.Message != "" {
+			return "", fmt.Errorf("failed getting user emails from GitHub: %s", errInfo.Message)
+		}
+		return "", fmt.Errorf("failed getting user emails from GitHub: status %d", response.StatusCode)
+	}
 	var emailsInfo []interface{}
 	if err = json.Unmarshal(contents, &emailsInfo); err != nil {
 		return "", err
