@@ -56,9 +56,15 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		e.Mode = schema.DirectNAT
 		e.VirtualRange = ""
 	}
-	err := (&schema.Network{Name: e.Network}).Get(ctx)
+	network := &schema.Network{Name: e.Network}
+	err := network.Get(ctx)
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
+	}
+	if e.Range != "" {
+		if err := logic.ValidateEgressCIDR(network, e.Range); err != nil {
+			return err
+		}
 	}
 
 	if !servercfg.IsPro && len(e.Nodes) > 1 {
