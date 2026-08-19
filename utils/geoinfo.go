@@ -27,11 +27,6 @@ func GetGeoInfo(ip ...net.IP) (*GeoInfo, error) {
 	return getGeoInfoFromIpInfo(ip...)
 }
 
-// IsEmpty reports whether the provider returned no useful geo fields.
-func (g *GeoInfo) IsEmpty() bool {
-	return g.IP == "" && g.CountryCode == "" && g.Location == ""
-}
-
 // HasUsableGeo reports whether payload contains meaningful geo data.
 func (g *GeoInfo) HasUsableGeo() bool {
 	if g == nil || g.IP == "" {
