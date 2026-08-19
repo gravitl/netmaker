@@ -270,9 +270,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	validRoles := orchestrator.ValidTenantRoles
+	validRoles := schema.ValidTenantRoles
 	if orgScoped {
-		validRoles = orchestrator.ValidOrgRoles
+		validRoles = schema.ValidOrgRoles
 	}
 	if !validRoles[roleCheck.ID] {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
