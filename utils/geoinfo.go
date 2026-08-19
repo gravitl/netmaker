@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,75 +48,204 @@ func (g *GeoInfo) HasUsableGeo() bool {
 }
 
 func getGeoInfoFromIPAPI(ip ...net.IP) (*GeoInfo, error) {
-	hosts := []string{"api.ipapi.is", "us.ipapi.is", "de.ipapi.is", "sg.ipapi.is"}
-	client := http.Client{Timeout: 5 * time.Second}
+	hosts := []string{
+		"us.ipapi.is",
+		"de.ipapi.is",
+		"sg.ipapi.is",
+	}
 
-	var lastErr error
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		5*time.Second,
+	)
+	defer cancel()
+
+	client := &http.Client{}
+
+	resultCh := make(chan *GeoInfo, 1)
+	errCh := make(chan error, len(hosts))
+	doneCh := make(chan struct{})
+
+	var wg sync.WaitGroup
+	wg.Add(len(hosts))
+
 	for _, host := range hosts {
-		url := fmt.Sprintf("https://%s", host)
-		if len(ip) > 0 {
-			url = fmt.Sprintf("https://%s/?q=%s", host, ip[0].String())
-		}
+		host := host
 
-		resp, err := client.Get(url)
-		if err != nil {
-			lastErr = err
-			continue
-		}
+		go func() {
+			defer wg.Done()
 
-		var geo *GeoInfo
-		func() {
+			url := fmt.Sprintf("https://%s/", host)
+
+			if len(ip) > 0 && ip[0] != nil {
+				url = fmt.Sprintf(
+					"https://%s/?q=%s",
+					host,
+					ip[0].String(),
+				)
+			}
+
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodGet,
+				url,
+				nil,
+			)
+			if err != nil {
+				errCh <- fmt.Errorf("%s: %w", host, err)
+				return
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+
+				errCh <- fmt.Errorf("%s: %w", host, err)
+				return
+			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != 200 {
-				lastErr = fmt.Errorf("status code %d", resp.StatusCode)
+			if resp.StatusCode != http.StatusOK {
+				errCh <- fmt.Errorf(
+					"%s returned status code %d",
+					host,
+					resp.StatusCode,
+				)
 				return
 			}
 
 			var data struct {
-				IP       string `json:"ip"`
+				IP string `json:"ip"`
+
 				Location struct {
-					CountryCode string  `json:"country_code"`
-					Latitude    float64 `json:"latitude"`
-					Longitude   float64 `json:"longitude"`
+					CountryCode string   `json:"country_code"`
+					Latitude    *float64 `json:"latitude"`
+					Longitude   *float64 `json:"longitude"`
 				} `json:"location"`
 
-				// us.ipapi.is (and some other regional endpoints) return flat fields:
-				//   cc (country code), lat, lon (coordinates), etc.
-				CC  string  `json:"cc"`
-				Lat float64 `json:"lat"`
-				Lon float64 `json:"lon"`
+				CC  string   `json:"cc"`
+				Lat *float64 `json:"lat"`
+				Lon *float64 `json:"lon"`
 			}
 
-			err = json.NewDecoder(resp.Body).Decode(&data)
-			if err != nil {
-				lastErr = err
+			if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+				errCh <- fmt.Errorf(
+					"%s: decode response: %w",
+					host,
+					err,
+				)
 				return
 			}
 
-			geo = &GeoInfo{
+			geo := &GeoInfo{
 				IP: data.IP,
 			}
 
-			// Prefer the nested format when present; otherwise fall back to flat keys.
-			if data.Location.CountryCode != "" || data.Location.Latitude != 0 || data.Location.Longitude != 0 {
+			if data.Location.Latitude != nil &&
+				data.Location.Longitude != nil {
+
 				geo.CountryCode = data.Location.CountryCode
-				geo.Location = fmt.Sprintf("%f,%f", data.Location.Latitude, data.Location.Longitude)
-			} else {
+				geo.Location = fmt.Sprintf(
+					"%f,%f",
+					*data.Location.Latitude,
+					*data.Location.Longitude,
+				)
+
+			} else if data.Lat != nil && data.Lon != nil {
+
 				geo.CountryCode = data.CC
-				geo.Location = fmt.Sprintf("%f,%f", data.Lat, data.Lon)
+				geo.Location = fmt.Sprintf(
+					"%f,%f",
+					*data.Lat,
+					*data.Lon,
+				)
+			}
+
+			if !geo.HasUsableGeo() {
+				errCh <- fmt.Errorf(
+					"%s returned no usable geo",
+					host,
+				)
+				return
+			}
+
+			select {
+			case resultCh <- geo:
+			default:
 			}
 		}()
+	}
 
-		if geo != nil {
+	go func() {
+		wg.Wait()
+		close(doneCh)
+	}()
+
+	select {
+	case geo := <-resultCh:
+		cancel()
+		wg.Wait()
+		return geo, nil
+
+	case <-doneCh:
+		cancel()
+
+		select {
+		case geo := <-resultCh:
 			return geo, nil
+		default:
+		}
+
+		var lastErr error
+
+		for {
+			select {
+			case err := <-errCh:
+				lastErr = err
+
+			default:
+				if lastErr == nil {
+					lastErr = fmt.Errorf(
+						"ipapi lookup failed: no usable geo",
+					)
+				}
+
+				return nil, lastErr
+			}
+		}
+
+	case <-ctx.Done():
+		// A result might have arrived at almost the same time as the timeout.
+		select {
+		case geo := <-resultCh:
+			wg.Wait()
+			return geo, nil
+		default:
+		}
+
+		var lastErr error
+
+		for {
+			select {
+			case err := <-errCh:
+				lastErr = err
+
+			default:
+				if lastErr != nil {
+					return nil, fmt.Errorf(
+						"ipapi lookup timed out: %w",
+						lastErr,
+					)
+				}
+
+				return nil, fmt.Errorf(
+					"ipapi lookup timed out",
+				)
+			}
 		}
 	}
-
-	if lastErr == nil {
-		lastErr = fmt.Errorf("ipapi lookup failed (no response)")
-	}
-	return nil, lastErr
 }
 
 func getGeoInfoFromIpInfo(ip ...net.IP) (*GeoInfo, error) {
