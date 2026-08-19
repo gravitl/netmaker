@@ -9,18 +9,28 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func routeDeclaresNetworkQuery(currentRoute *mux.Route) bool {
+func routeDeclaresQuery(currentRoute *mux.Route, keys ...string) bool {
 	templates, err := currentRoute.GetQueriesTemplates()
 	if err != nil {
 		return false
 	}
 	for _, t := range templates {
-		key := strings.SplitN(t, "=", 2)[0]
-		if key == "network" || key == "network_id" {
-			return true
+		declaredKey := strings.SplitN(t, "=", 2)[0]
+		for _, key := range keys {
+			if declaredKey == key {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func routeDeclaresNetworkQuery(currentRoute *mux.Route) bool {
+	return routeDeclaresQuery(currentRoute, "network", "network_id")
+}
+
+func routeDeclaresUsernameQuery(currentRoute *mux.Route) bool {
+	return routeDeclaresQuery(currentRoute, "username")
 }
 
 func userMiddleWare(handler http.Handler) http.Handler {
@@ -154,9 +164,8 @@ func userMiddleWare(handler http.Handler) http.Handler {
 
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
-		} else {
-			username := r.URL.Query().Get("username")
-			if username != "" {
+		} else if routeDeclaresUsernameQuery(currentRoute) {
+			if username := r.URL.Query().Get("username"); username != "" {
 				r.Header.Set("TARGET_RSRC_ID", username)
 			}
 		}
