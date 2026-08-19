@@ -555,11 +555,14 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		})
 	}
 
-	orgMemberships, err := (&schema.OrgMembership{
-		UserID: user.ID,
-	}).ListByUserID(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing org memberships: %w", err)
+	var orgMemberships []schema.OrgMembership
+	if IsMSP(ctx) {
+		orgMemberships, err = (&schema.OrgMembership{
+			UserID: user.ID,
+		}).ListByUserID(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error listing org memberships: %w", err)
+		}
 	}
 
 	for _, membership := range orgMemberships {
