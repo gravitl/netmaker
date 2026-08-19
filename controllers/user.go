@@ -1683,15 +1683,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+		slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+		return
+	}
+
 	if scope.Level(r.Context()) == scope.TenantScope {
 		if !ismaster && selfUpdate {
-			if user.PlatformRoleID != userchange.PlatformRoleID {
-				slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-				return
-
-			}
-
 			if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 				err = errors.New("mfa is enforced, user cannot unset their own mfa")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
