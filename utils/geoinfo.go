@@ -22,11 +22,6 @@ func GetGeoInfo(ip ...net.IP) (*GeoInfo, error) {
 		return geoInfo, nil
 	}
 
-	geoInfo, err = getGeoInfoFromCloudFlare(ip...)
-	if err == nil && geoInfo.HasUsableGeo() {
-		return geoInfo, nil
-	}
-
 	return getGeoInfoFromIpInfo(ip...)
 }
 
@@ -120,48 +115,6 @@ func getGeoInfoFromIPAPI(ip ...net.IP) (*GeoInfo, error) {
 		lastErr = fmt.Errorf("ipapi lookup failed (no response)")
 	}
 	return nil, lastErr
-}
-
-func getGeoInfoFromCloudFlare(ip ...net.IP) (*GeoInfo, error) {
-	var geoInfo GeoInfo
-	resp, err := http.Get("https://speed.cloudflare.com/meta")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	respMap := make(map[string]interface{})
-	err = json.NewDecoder(resp.Body).Decode(&respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	_, ok := respMap["clientIp"]
-	if ok {
-		geoInfo.IP = respMap["clientIp"].(string)
-	}
-
-	_, ok = respMap["country"]
-	if ok {
-		geoInfo.CountryCode = respMap["country"].(string)
-	}
-
-	var latitude, longitude string
-	_, ok = respMap["latitude"]
-	if ok {
-		latitude = respMap["latitude"].(string)
-	}
-
-	_, ok = respMap["longitude"]
-	if ok {
-		longitude = respMap["longitude"].(string)
-	}
-
-	if latitude != "" && longitude != "" {
-		geoInfo.Location = latitude + "," + longitude
-	}
-
-	return &geoInfo, nil
 }
 
 func getGeoInfoFromIpInfo(ip ...net.IP) (*GeoInfo, error) {
