@@ -24,16 +24,16 @@ import (
 
 func JITHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/jit", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true,
-		http.HandlerFunc(handleJIT)))).Methods(http.MethodPost, http.MethodGet)
+		http.HandlerFunc(handleJIT)))).Methods(http.MethodPost, http.MethodGet).Queries("network", "{network}")
 
 	r.HandleFunc("/api/v1/jit", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true,
-		http.HandlerFunc(deleteJITGrant)))).Methods(http.MethodDelete)
+		http.HandlerFunc(deleteJITGrant)))).Methods(http.MethodDelete).Queries("network", "{network}")
 
 	r.HandleFunc("/api/v1/jit_user/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false,
 		http.HandlerFunc(getUserJITNetworks)))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/v1/jit_user/request", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false,
-		http.HandlerFunc(requestJITAccess)))).Methods(http.MethodPost)
+		http.HandlerFunc(requestJITAccess)))).Methods(http.MethodPost).Queries("network", "{network}")
 }
 
 // @Summary     List JIT requests for a network

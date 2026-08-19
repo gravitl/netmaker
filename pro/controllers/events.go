@@ -15,7 +15,7 @@ import (
 )
 
 func EventHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/network/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/network/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity)))).Methods(http.MethodGet).Queries("network_id", "{network_id}")
 	r.HandleFunc("/api/v1/user/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(listUserActivity)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/activity", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listActivity)))).Methods(http.MethodGet)
 }

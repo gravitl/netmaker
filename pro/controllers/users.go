@@ -54,11 +54,11 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserGroup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUserToNetwork)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromNetwork)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUserToNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
+	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
+	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet).Queries("network_id", "{network_id}")
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
