@@ -731,6 +731,13 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	if !user.IsMFAEnabled {
 		err = fmt.Errorf("mfa is disabled for user(%s), cannot process totp verification", username)
 		logger.Log(0, err.Error())
