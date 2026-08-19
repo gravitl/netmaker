@@ -203,6 +203,18 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 	if newRole == "" {
 		newRole = oldRole
 	}
+	if newRole != oldRole {
+		switch scope.Level(ctx) {
+		case scope.TenantScope:
+			if !schema.ValidTenantRoles[newRole] {
+				return userchange, fmt.Errorf("invalid user role: %s", newRole)
+			}
+		case scope.OrgScope:
+			if !schema.ValidOrgRoles[newRole] {
+				return userchange, fmt.Errorf("invalid user role: %s", newRole)
+			}
+		}
+	}
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
 	preserveExternalUserGroups(ctx, _user, userchange)
 	if oldRole != newRole {
