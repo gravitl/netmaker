@@ -211,6 +211,8 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
+	newHost.WgPublicListenPort = currentHost.WgPublicListenPort
+
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
 	}
@@ -222,8 +224,9 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		newHost.EnableFlowLogs = false
 	}
-	if newHost.IsDefault {
+	if newHost.IsDefault && !currentHost.IsDefault {
 		newHost.IsStaticPort = true
+		newHost.IsStatic = true
 	}
 }
 
@@ -284,7 +287,9 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 	currHost.Debug = newHost.Debug
 	currHost.Verbosity = newHost.Verbosity
 	currHost.Version = newHost.Version
-	currHost.IsStaticPort = newHost.IsStaticPort
+	// IsStaticPort is admin-configured via the UI/API. Do not let a client
+	// check-in overwrite it — that races with dashboard toggles and makes
+	// enable/disable appear not to stick.
 	currHost.IsStatic = newHost.IsStatic
 	currHost.Interfaces = newHost.Interfaces
 	currHost.MTU = newHost.MTU
