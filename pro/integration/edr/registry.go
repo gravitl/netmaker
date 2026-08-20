@@ -16,6 +16,10 @@ type ManagedEndpoint struct {
 	SerialNumber     string
 	Hostname         string
 	EntraDeviceID    string
+	// EndpointIP is the IP reported by the EDR agent (Wazuh agent.ip).
+	EndpointIP string
+	// NetmakerHostID is populated when an EDR agent carries a netmaker.host_id label.
+	NetmakerHostID string
 
 	AgentInstalled bool
 	AgentHealthy   bool

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	edrpkg "github.com/gravitl/netmaker/pro/integration/edr"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -84,15 +85,8 @@ func (c *Client) ListManagedEndpoints(ctx context.Context) ([]edrpkg.ManagedEndp
 	if err != nil {
 		return nil, err
 	}
-	serialByAgent, err := c.listHardwareSerials(ctx)
-	if err != nil {
-		serialByAgent = map[string]string{}
-	}
 	out := make([]edrpkg.ManagedEndpoint, 0, len(agents))
 	for _, a := range agents {
-		if serial := serialByAgent[a.ID]; serial != "" {
-			a.SerialNumber = serial
-		}
 		out = append(out, normalizeAgent(a))
 	}
 	return out, nil
@@ -108,13 +102,61 @@ func (c *Client) LookupBySerial(ctx context.Context, serial string) (edrpkg.Mana
 	return ep, err
 }
 
-// LookupForHost resolves a Wazuh agent by serial_number only.
+// LookupForHost resolves a Wazuh agent by host UUID (agent name), then hostname plus endpoint IP.
 func (c *Client) LookupForHost(ctx context.Context, h schema.Host) (edrpkg.ManagedEndpoint, string, error) {
-	serial := strings.TrimSpace(h.SerialNumber)
-	if serial == "" {
-		return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+	if h.ID != uuid.Nil {
+		agent, ok, err := c.lookupAgentByName(ctx, h.ID.String())
+		if err != nil {
+			return edrpkg.ManagedEndpoint{}, "", err
+		}
+		if ok {
+			return normalizeAgent(agent), schema.EDRMatchHostID, nil
+		}
 	}
-	return c.lookupForSerial(ctx, serial)
+
+	hostName := strings.TrimSpace(h.Name)
+	if hostName != "" {
+		agent, ok, err := c.lookupAgentByName(ctx, hostName)
+		if err != nil {
+			return edrpkg.ManagedEndpoint{}, "", err
+		}
+		if ok && edrpkg.HostEndpointIPMatches(h, agent.IP) {
+			return normalizeAgent(agent), schema.EDRMatchHostname, nil
+		}
+	}
+
+	return edrpkg.ManagedEndpoint{}, "", edrpkg.ErrDeviceNotFoundInEDR
+}
+
+func (c *Client) lookupAgentByName(ctx context.Context, name string) (wazuhAgent, bool, error) {
+	agents, err := c.listAgentsByName(ctx, name)
+	if err != nil {
+		return wazuhAgent{}, false, err
+	}
+	want := strings.TrimSpace(name)
+	for _, a := range agents {
+		if strings.EqualFold(strings.TrimSpace(a.Name), want) {
+			return a, true, nil
+		}
+	}
+	return wazuhAgent{}, false, nil
+}
+
+func (c *Client) listAgentsByName(ctx context.Context, name string) ([]wazuhAgent, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, nil
+	}
+	tok, err := c.accessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	u := c.baseURL + agentsPath + "?name=" + url.QueryEscape(name) + "&limit=10"
+	var data listResponse[wazuhAgent]
+	if err := c.apiGet(ctx, tok, u, &data); err != nil {
+		return nil, err
+	}
+	return data.AffectedItems, nil
 }
 
 func (c *Client) lookupForSerial(ctx context.Context, serial string) (edrpkg.ManagedEndpoint, string, error) {
@@ -316,6 +358,7 @@ func normalizeAgent(a wazuhAgent) edrpkg.ManagedEndpoint {
 		ProviderDeviceID: a.ID,
 		SerialNumber:     a.SerialNumber,
 		Hostname:         a.Name,
+		EndpointIP:       strings.TrimSpace(a.IP),
 		AgentInstalled:   installed,
 		AgentHealthy:     healthy,
 		RiskLevel:        edrpkg.ComputeRiskLevel(signals),
