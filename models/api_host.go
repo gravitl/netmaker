@@ -136,6 +136,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.IsStaticPort = a.IsStaticPort
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
+	h.WgPublicListenPort = currentHost.WgPublicListenPort
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
