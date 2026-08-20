@@ -309,6 +309,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			err = orgUser.GetWithMembership(orgCtx)
 			if err == nil {
 				orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+				orgUser.UserGroups = datatypes.NewJSONType(inviteReq.UserGroups)
 				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
 				if err != nil {
 					slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
