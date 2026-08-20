@@ -205,7 +205,11 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.GetWithMembership(ctx)
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
 			return "", err
 		}
