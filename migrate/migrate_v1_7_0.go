@@ -500,10 +500,9 @@ func createMemberships(ctx context.Context) error {
 
 		if u.PlatformRoleID == schema.SuperAdminRole {
 			om := &schema.OrgMembership{
-				OrganizationID: defaultOrg.ID,
-				UserID:         u.ID,
-				RoleID:         schema.OrgOwner,
-				// todo(nm-341): external idp id, auth type migration.
+				OrganizationID:  defaultOrg.ID,
+				UserID:          u.ID,
+				RoleID:          schema.OrgOwner,
 				AccountDisabled: u.AccountDisabled,
 				IsMFAEnabled:    u.IsMFAEnabled,
 				TOTPSecret:      u.TOTPSecret,
