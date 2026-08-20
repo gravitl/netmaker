@@ -97,6 +97,24 @@ func TestHostEligibleForEDR_Wazuh(t *testing.T) {
 	}
 }
 
+func TestMatchHostToEndpoint_WazuhSerialFirst(t *testing.T) {
+	host := schema.Host{
+		ID:           uuid.New(),
+		SerialNumber: "SN-42",
+		Name:         "web-01",
+		EndpointIP:   net.ParseIP("10.0.0.5"),
+	}
+	ep := ManagedEndpoint{
+		SerialNumber: "sn-42",
+		Hostname:     "web-01",
+		EndpointIP:   "10.0.0.5",
+	}
+	matchedBy, ok := MatchHostToEndpoint(ProviderWazuh, host, ep)
+	if !ok || matchedBy != schema.EDRMatchSerialNumber {
+		t.Fatalf("expected serial match first, got %q ok=%v", matchedBy, ok)
+	}
+}
+
 func TestMatchHostToEndpoint_WazuhHostIDByName(t *testing.T) {
 	id := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	host := schema.Host{ID: id, Name: "web-01"}

@@ -85,8 +85,15 @@ func (c *Client) ListManagedEndpoints(ctx context.Context) ([]edrpkg.ManagedEndp
 	if err != nil {
 		return nil, err
 	}
+	serialByAgent, err := c.listHardwareSerials(ctx)
+	if err != nil {
+		serialByAgent = map[string]string{}
+	}
 	out := make([]edrpkg.ManagedEndpoint, 0, len(agents))
 	for _, a := range agents {
+		if serial := serialByAgent[a.ID]; serial != "" {
+			a.SerialNumber = serial
+		}
 		out = append(out, normalizeAgent(a))
 	}
 	return out, nil
@@ -102,8 +109,19 @@ func (c *Client) LookupBySerial(ctx context.Context, serial string) (edrpkg.Mana
 	return ep, err
 }
 
-// LookupForHost resolves a Wazuh agent by host UUID (agent name), then hostname plus endpoint IP.
+// LookupForHost resolves a Wazuh agent by serial_number first, then host UUID
+// (agent name), then hostname plus endpoint IP.
 func (c *Client) LookupForHost(ctx context.Context, h schema.Host) (edrpkg.ManagedEndpoint, string, error) {
+	if serial := strings.TrimSpace(h.SerialNumber); serial != "" {
+		ep, matchedBy, err := c.lookupForSerial(ctx, serial)
+		if err == nil {
+			return ep, matchedBy, nil
+		}
+		if !errors.Is(err, edrpkg.ErrDeviceNotFoundInEDR) {
+			return edrpkg.ManagedEndpoint{}, "", err
+		}
+	}
+
 	if h.ID != uuid.Nil {
 		agent, ok, err := c.lookupAgentByName(ctx, h.ID.String())
 		if err != nil {

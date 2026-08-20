@@ -200,6 +200,9 @@ func serialMatch(hostSerial, deviceSerial string) bool {
 }
 
 func matchWazuhHostToEndpoint(h schema.Host, ep ManagedEndpoint) (matchedBy string, ok bool) {
+	if serialMatch(h.SerialNumber, ep.SerialNumber) {
+		return schema.EDRMatchSerialNumber, true
+	}
 	if h.ID != uuid.Nil && strings.EqualFold(h.ID.String(), strings.TrimSpace(ep.Hostname)) {
 		return schema.EDRMatchHostID, true
 	}

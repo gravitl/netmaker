@@ -161,6 +161,64 @@ func TestLookupBySerial_NotFound(t *testing.T) {
 	}
 }
 
+func TestLookupForHost_BySerialFirst(t *testing.T) {
+	hostID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	nameLookupCalled := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == authPath:
+			_ = json.NewEncoder(w).Encode(apiEnvelope{
+				Data:  json.RawMessage(`{"token":"tok"}`),
+				Error: 0,
+			})
+		case r.URL.Path == hardwarePath:
+			if r.URL.Query().Get("board_serial") != "SN-42" {
+				t.Fatalf("board_serial = %q", r.URL.Query().Get("board_serial"))
+			}
+			_ = json.NewEncoder(w).Encode(apiEnvelope{
+				Data: json.RawMessage(`{
+					"affected_items":[{"agent_id":"001","board_serial":"SN-42"}],
+					"total_affected_items":1
+				}`),
+				Error: 0,
+			})
+		case r.URL.Path == agentsPath:
+			if r.URL.Query().Get("name") != "" {
+				nameLookupCalled = true
+			}
+			if r.URL.Query().Get("agents_list") != "001" {
+				t.Fatalf("agents_list = %q", r.URL.Query().Get("agents_list"))
+			}
+			_ = json.NewEncoder(w).Encode(apiEnvelope{
+				Data: json.RawMessage(`{
+					"affected_items":[{"id":"001","name":"other-name","status":"active","ip":"10.0.0.1"}],
+					"total_affected_items":1
+				}`),
+				Error: 0,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := &Client{baseURL: srv.URL, username: "wazuh", password: "wazuh", http: srv.Client()}
+	ep, matchedBy, err := c.LookupForHost(context.Background(), schema.Host{
+		ID:           hostID,
+		SerialNumber: "SN-42",
+		Name:         hostID.String(),
+	})
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if matchedBy != schema.EDRMatchSerialNumber || ep.ProviderDeviceID != "001" {
+		t.Fatalf("unexpected match: by=%q ep=%+v", matchedBy, ep)
+	}
+	if nameLookupCalled {
+		t.Fatal("expected serial lookup to succeed without name-based agent query")
+	}
+}
+
 func TestLookupForHost_ByHostUUIDName(t *testing.T) {
 	hostID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
