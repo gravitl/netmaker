@@ -245,22 +245,31 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		}
 	}
 
+	node.Host.IsStaticPort = true
+	node.Host.IsStatic = true
 	if ops.isInternetGateway {
 		node.Host.DNS = "yes"
-		node.Host.IsStaticPort = true
-		err := node.Host.Upsert(ctx)
-		if err != nil {
-			return err
-		}
-
 		node.IsInternetGateway = true
 	}
+	err := node.Host.Upsert(ctx)
+	if err != nil {
+		return err
+	}
+
+	go func(host schema.Host) {
+		if err := mq.HostUpdate(&models.HostUpdate{
+			Action: models.UpdateHost,
+			Host:   host,
+		}); err != nil {
+			logger.Log(1, "failed to send host update after gateway creation", host.ID.String(), err.Error())
+		}
+	}(*node.Host)
 
 	n.nodeExt.ConfigureAutoRelay(node)
 
 	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
 
-	err := node.Update(ctx)
+	err = node.Update(ctx)
 	if err != nil {
 		return err
 	}
