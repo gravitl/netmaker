@@ -253,7 +253,11 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.GetWithMembership(ctx)
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
 			return "", false, false, err
 		}
@@ -270,7 +274,9 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 }
 
 func checkUserAccess(ctx context.Context, userID string, claims *models.UserClaims) error {
-	if scope.Level(ctx) == scope.OrgScope {
+	if scope.Level(ctx) == scope.GlobalScope {
+		return nil
+	} else if scope.Level(ctx) == scope.OrgScope {
 		membership := &schema.OrgMembership{
 			OrganizationID: scope.ID(ctx),
 			UserID:         userID,
