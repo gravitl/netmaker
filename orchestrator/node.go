@@ -394,11 +394,16 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 	}
 
 	for _, relayedClientID := range ops.relayedClients {
-		err := (&schema.Node{
+		relayedClient := &schema.Node{
 			ID: relayedClientID,
-		}).Get(ctx)
+		}
+		err := relayedClient.Get(ctx)
 		if err != nil {
 			return err
+		}
+
+		if relayedClient.NetworkID != node.NetworkID {
+			return fmt.Errorf("relayed node %s does not belong to node %s's network %s", relayedClient.ID, node.ID, node.Network.Name)
 		}
 	}
 
@@ -422,6 +427,10 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 			err := igwClient.Get(ctx, dbtypes.WithPreloads("Host"))
 			if err != nil {
 				return err
+			}
+
+			if igwClient.NetworkID != node.NetworkID {
+				return fmt.Errorf("igw client node %s does not belong to node %s's network %s", igwClient.ID, node.ID, node.Network.Name)
 			}
 
 			if igwClient.Host.IsDefault {

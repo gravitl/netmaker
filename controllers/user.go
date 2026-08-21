@@ -59,16 +59,16 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/roles", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ListRoles)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost).Queries("username", "{username}")
 }
 
 // @Summary     Create a user API access token
@@ -1683,15 +1683,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+		slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+		return
+	}
+
 	if scope.Level(r.Context()) == scope.TenantScope {
 		if !ismaster && selfUpdate {
-			if user.PlatformRoleID != userchange.PlatformRoleID {
-				slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-				return
-
-			}
-
 			if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 				err = errors.New("mfa is enforced, user cannot unset their own mfa")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)

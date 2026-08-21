@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -572,6 +573,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("missing traffic key"), "badrequest"))
 		return
 	}
+	if len(newHost.TrafficKeyPublic) != 32 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid public key"), "badrequest"))
+		return
+	}
 
 	trafficKey, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
@@ -638,6 +643,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(currHost.HostPass), []byte(newHost.HostPass))
+		if err != nil {
+			err = fmt.Errorf("error verifying host's identity: %w", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
+			return
+		}
+
 		endpointChanged, _ := logic.UpdateHostFromClient(r.Context(), &newHost, currHost)
 		if endpointChanged {
 			logic.CheckHostPorts(r.Context(), currHost)

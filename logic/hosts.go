@@ -152,6 +152,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		h.TenantID = scope.ID(ctx)
 	}
 	h.Nodes = nil
+	h.Name = ToDNSLabel(h.Name)
 
 	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
 		return ErrHostLimitExceeded
@@ -201,6 +202,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 
 	if len(newHost.Name) == 0 {
 		newHost.Name = currentHost.Name
+	} else {
+		newHost.Name = ToDNSLabel(newHost.Name)
+		if len(newHost.Name) == 0 {
+			newHost.Name = currentHost.Name
+		}
 	}
 
 	if newHost.MTU == 0 {
@@ -330,7 +336,11 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 			}
 		}
 	}
-	currHost.Name = newHost.Name
+	if len(newHost.Name) > 0 {
+		if sanitized := ToDNSLabel(newHost.Name); len(sanitized) > 0 {
+			currHost.Name = sanitized
+		}
+	}
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
