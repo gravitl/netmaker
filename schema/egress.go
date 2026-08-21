@@ -48,6 +48,11 @@ type Egress struct {
 	// DomainAnsByDomain maps each configured domain to its resolved CIDRs.
 	DomainAnsByDomain datatypes.JSONMap `gorm:"domain_ans_by_domain" json:"domain_ans_by_domain"`
 	Nat               bool              `gorm:"nat" json:"nat"`
+	// BypassEgressRoutes (internet egress only): when true, authorized specific
+	// Netmaker Egress CIDRs are retained as direct peers and take precedence over
+	// this exit via longest-prefix match. When false, IGW clients stay fully
+	// relayed through the exit (legacy hairpin behavior).
+	BypassEgressRoutes bool `gorm:"bypass_egress_routes;default:true" json:"bypass_egress_routes"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID  string    `gorm:"preset_id" json:"preset_id"`
 	Status    bool      `gorm:"status" json:"status"`

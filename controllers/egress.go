@@ -128,21 +128,22 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{
-		ID:          uuid.New().String(),
-		TenantID:    scope.ID(r.Context()),
-		Name:        req.Name,
-		Network:     req.Network,
-		Description: req.Description,
-		Type:        egressType,
-		Range:       egressRange,
-		Nat:         req.Nat,
-		Mode:        req.Mode,
-		Nodes:       make(datatypes.JSONMap),
-		Tags:        make(datatypes.JSONMap),
-		PresetID:    req.PresetID,
-		Status:      true,
-		CreatedBy:   r.Header.Get("user"),
-		CreatedAt:   time.Now().UTC(),
+		ID:                 uuid.New().String(),
+		TenantID:           scope.ID(r.Context()),
+		Name:               req.Name,
+		Network:            req.Network,
+		Description:        req.Description,
+		Type:               egressType,
+		Range:              egressRange,
+		Nat:                req.Nat,
+		Mode:               req.Mode,
+		BypassEgressRoutes: logic.ResolveBypassEgressRoutesForCreate(&req, inetGw),
+		Nodes:              make(datatypes.JSONMap),
+		Tags:               make(datatypes.JSONMap),
+		PresetID:           req.PresetID,
+		Status:             true,
+		CreatedBy:          r.Header.Get("user"),
+		CreatedAt:          time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	if len(resolvedCIDRs) > 0 {
@@ -353,6 +354,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
 	oldStatus := e.Status
+	oldBypassEgressRoutes := e.BypassEgressRoutes
 	oldRoutingNodes := make(map[string]struct{}, len(e.Nodes))
 	for nodeID := range e.Nodes {
 		oldRoutingNodes[nodeID] = struct{}{}
@@ -360,6 +362,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 	e.Range = egressRange
 	e.Type = egressType
+	e.BypassEgressRoutes = logic.ResolveBypassEgressRoutesForUpdate(&req, inetGw, oldBypassEgressRoutes)
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -442,20 +445,21 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Build update map with all fields including zero values
 	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
 	updateMap := map[string]any{
-		"name":                 e.Name,
-		"description":          e.Description,
-		"egress_type":          e.Type,
-		"range":                e.Range,
-		"domains":              e.Domains,
-		"nat":                  e.Nat,
-		"mode":                 e.Mode,
-		"status":               e.Status,
-		"nodes":                e.Nodes,
-		"tags":                 e.Tags,
-		"domain_ans_by_domain": e.DomainAnsByDomain,
-		"virtual_range":        e.VirtualRange,
-		"preset_id":            e.PresetID,
-		"updated_at":           e.UpdatedAt,
+		"name":                   e.Name,
+		"description":            e.Description,
+		"egress_type":            e.Type,
+		"range":                  e.Range,
+		"domains":                e.Domains,
+		"nat":                    e.Nat,
+		"mode":                   e.Mode,
+		"bypass_egress_routes":   e.BypassEgressRoutes,
+		"status":                 e.Status,
+		"nodes":                  e.Nodes,
+		"tags":                   e.Tags,
+		"domain_ans_by_domain":   e.DomainAnsByDomain,
+		"virtual_range":          e.VirtualRange,
+		"preset_id":              e.PresetID,
+		"updated_at":             e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values

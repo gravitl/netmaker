@@ -236,6 +236,9 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls, _ := logic.ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	bypass := logic.SelectedInternetEgressBypasses(node)
+	viewerIsSpecificEgress := logic.PeerAdvertisesSpecificEgress(node)
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
@@ -243,6 +246,16 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
 		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
+			logic.AddEgressInfoToPeerByAccess(node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
+			// Bypass keeps specific-egress gateways as direct peers; duplicating their
+			// AllowedIPs on the auto-relay steals routes (WireGuard uniqueness).
+			if bypass && logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer) {
+				continue
+			}
+			// Reverse: specific-egress GWs keep bypass clients as direct peers.
+			if viewerIsSpecificEgress && logic.SelectedInternetEgressBypasses(&autoRelayedpeer) {
+				continue
+			}
 			if autoRelayedpeer.Address.IP != nil {
 				allowed := net.IPNet{
 					IP:   autoRelayedpeer.Address.IP,
@@ -273,6 +286,9 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 					if err != nil {
 						continue
 					}
+					if viewerIsSpecificEgress && logic.SelectedInternetEgressBypasses(&rNode) {
+						continue
+					}
 					logic.GetNodeEgressInfo(&rNode, eli, acls)
 					if rNode.Address.IP != nil {
 						allowed := net.IPNet{
@@ -292,9 +308,9 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
 				}
-				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
+				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node)...)
 			} else if len(autoRelayedpeer.RelayedNodes) > 0 || len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
-				allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node.ID.String())...)
+				allowedips = append(allowedips, logic.ExitClientOverlayIPs(&autoRelayedpeer, node)...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
