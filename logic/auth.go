@@ -270,6 +270,8 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		_user.TOTPSecret = ""
 	}
 
+	groupsChanged := !CompareMaps(_user.UserGroups.Data(), userchange.UserGroups.Data())
+
 	_user.AccountDisabled = userchange.AccountDisabled
 	_user.UserGroups = userchange.UserGroups
 	err := ValidateUser(_user)
@@ -294,6 +296,10 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 	err = _user.UpsertMembership(ctx)
 	if err != nil {
 		return &schema.User{}, err
+	}
+
+	if groupsChanged {
+		go RunPostureChecksForTenant(detachedCtx)
 	}
 
 	return _user, nil

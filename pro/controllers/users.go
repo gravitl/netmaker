@@ -701,6 +701,9 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
+	if len(userGroupReq.Members) > 0 {
+		go proLogic.RunPostureChecksForTenant(ctx)
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
