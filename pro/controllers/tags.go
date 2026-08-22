@@ -270,7 +270,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		UsedByCnt:   len(updateTag.TaggedNodes),
 		TaggedNodes: updateTag.TaggedNodes,
 	}
-	go proLogic.RunPostureChecks()
+	go proLogic.RunPostureChecksForTenant(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, res, "updated tags")
 }
 
