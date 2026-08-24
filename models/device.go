@@ -48,6 +48,10 @@ type DeviceExitNode struct {
 	Network            string `json:"network"`
 	RoutingNodeID      string `json:"routing_node_id,omitempty"`
 	RoutingHostName    string `json:"routing_host_name,omitempty"`
+	// CountryCode is the ISO 3166-1 alpha-2 code of the routing host (for flags).
+	CountryCode string `json:"country_code,omitempty"`
+	// Location is "lat,lon" of the routing host when known.
+	Location string `json:"location,omitempty"`
 	// TcpProxyEnabled is true when the routing node (or its host) accepts TCP uplinks.
 	TcpProxyEnabled    bool `json:"tcp_proxy_enabled"`
 	TcpProxyListenPort int  `json:"tcp_proxy_listen_port,omitempty"`

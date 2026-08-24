@@ -30,6 +30,8 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 			rh := &schema.Host{ID: rn.HostID}
 			if err := rh.Get(db.WithContext(ctx)); err == nil {
 				item.RoutingHostName = rh.Name
+				item.CountryCode = rh.CountryCode
+				item.Location = rh.Location
 				if rh.TcpProxyEnabled {
 					item.TcpProxyEnabled = true
 				}
