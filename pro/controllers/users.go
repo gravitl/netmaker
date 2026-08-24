@@ -102,6 +102,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	if !logic.IsBasicAuthEnabled(r.Context()) {
 		err := errors.New("basic auth is disabled")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
 	}
 	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
