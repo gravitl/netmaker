@@ -23,7 +23,21 @@ import (
 	"gorm.io/datatypes"
 )
 
-var postureCheckMutex = &sync.Mutex{}
+var (
+	postureCheckMutexesMtx sync.Mutex
+	postureCheckMutexes    = make(map[string]*sync.Mutex)
+)
+
+func postureCheckLock(tenantID string) *sync.Mutex {
+	postureCheckMutexesMtx.Lock()
+	defer postureCheckMutexesMtx.Unlock()
+	mtx, ok := postureCheckMutexes[tenantID]
+	if !ok {
+		mtx = &sync.Mutex{}
+		postureCheckMutexes[tenantID] = mtx
+	}
+	return mtx
+}
 
 func AddPostureCheckHook(ctx context.Context) {
 	settings := logic.GetServerSettings(ctx)
@@ -63,6 +77,10 @@ func RemoveUserGroupFromPostureChecks(grpID schema.UserGroupID, netID schema.Net
 }
 
 func RunPostureChecksForTenant(ctx context.Context) error {
+	mtx := postureCheckLock(scope.ID(ctx))
+	mtx.Lock()
+	defer mtx.Unlock()
+
 	if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
 		return nil
 	}
@@ -152,9 +170,6 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 }
 
 func RunPostureChecks() error {
-	postureCheckMutex.Lock()
-	defer postureCheckMutex.Unlock()
-
 	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
