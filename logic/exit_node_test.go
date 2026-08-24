@@ -2,12 +2,30 @@ package logic
 
 import (
 	"context"
+	"net"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
+
+func TestExitNodeAllowedEndpoints(t *testing.T) {
+	host := &schema.Host{
+		EndpointIP:   net.ParseIP("203.0.113.10"),
+		EndpointIPv6: net.ParseIP("2001:db8::1"),
+	}
+	got := exitNodeAllowedEndpoints(host)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 public endpoints, got %v", got)
+	}
+	if got[0] != "203.0.113.10" || got[1] != "2001:db8::1" {
+		t.Fatalf("unexpected endpoints %v", got)
+	}
+	if n := exitNodeAllowedEndpoints(nil); n != nil && len(n) != 0 {
+		t.Fatalf("expected no endpoints, got %v", n)
+	}
+}
 
 func TestListNodeExitNodes_Validation(t *testing.T) {
 	_, err := ListNodeExitNodes(context.Background(), "", "node-1")
