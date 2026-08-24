@@ -15,6 +15,7 @@ type Options struct {
 	tcpProxyListenPort    int
 	setTcpProxy           bool
 	inheritedAuth         bool
+	replicatedAuth        bool
 }
 
 type Option func(options *Options) *Options
@@ -84,6 +85,13 @@ func WithTcpProxy(enabled bool, listenPort int) Option {
 func WithInheritedAuth() Option {
 	return func(o *Options) *Options {
 		o.inheritedAuth = true
+		return o
+	}
+}
+
+func WithReplicatedAuth() Option {
+	return func(o *Options) *Options {
+		o.replicatedAuth = true
 		return o
 	}
 }

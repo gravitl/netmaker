@@ -558,7 +558,7 @@ func deleteOldExtclients(ctx context.Context) {
 	for _, userExtclients := range userExtclientMap {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {
-				_ = logic.DeleteExtClient(ctx, extclient.Network, extclient.Network, false)
+				_ = logic.DeleteExtClient(ctx, extclient.Network, extclient.ClientID, false)
 			}
 		}
 	}

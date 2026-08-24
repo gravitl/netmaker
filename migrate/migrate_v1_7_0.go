@@ -351,55 +351,59 @@ func migrateServerSettings(ctx context.Context) error {
 		return err
 	}
 
+	if legacyValue, ok := records[LegacyServerSettingsKey]; ok {
+		err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(legacyValue))
+		if err != nil {
+			return err
+		}
+
+		err = kvDelete(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
+		if err != nil {
+			return err
+		}
+
+		err = migrateTenantSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(legacyValue))
+		if err != nil {
+			return err
+		}
+	}
+
 	for key, value := range records {
-		if key == LegacyServerSettingsKey {
-			err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(value))
-			if err != nil {
-				return err
-			}
+		if key == LegacyServerSettingsKey || key == defaultTenant.ID {
+			continue
+		}
 
-			err = kvDelete(ctx, TableName_ServerSettings, LegacyServerSettingsKey)
-			if err != nil {
-				return err
-			}
+		var userSettings models.UserSettings
+		err = json.Unmarshal([]byte(value), &userSettings)
+		if err != nil {
+			return err
+		}
 
-			err = migrateTenantSettingsToOrg(ctx, defaultTenant.OrganizationID, []byte(value))
-			if err != nil {
-				return err
-			}
-		} else {
-			var userSettings models.UserSettings
-			err = json.Unmarshal([]byte(value), &userSettings)
-			if err != nil {
-				return err
-			}
-
-			user := schema.User{Username: key}
-			err = user.Get(ctx)
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					err = kvDelete(ctx, TableName_ServerSettings, key)
-					if err != nil {
-						return err
-					}
-					continue
-				} else {
+		user := schema.User{Username: key}
+		err = user.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				err = kvDelete(ctx, TableName_ServerSettings, key)
+				if err != nil {
 					return err
 				}
-			}
-
-			user.Theme = userSettings.Theme
-			user.TextSize = userSettings.TextSize
-			user.ReducedMotion = userSettings.ReducedMotion
-			err = user.UpdateUserSettings(ctx)
-			if err != nil {
+				continue
+			} else {
 				return err
 			}
+		}
 
-			err = kvDelete(ctx, TableName_ServerSettings, key)
-			if err != nil {
-				return err
-			}
+		user.Theme = userSettings.Theme
+		user.TextSize = userSettings.TextSize
+		user.ReducedMotion = userSettings.ReducedMotion
+		err = user.UpdateUserSettings(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = kvDelete(ctx, TableName_ServerSettings, key)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -500,10 +504,9 @@ func createMemberships(ctx context.Context) error {
 
 		if u.PlatformRoleID == schema.SuperAdminRole {
 			om := &schema.OrgMembership{
-				OrganizationID: defaultOrg.ID,
-				UserID:         u.ID,
-				RoleID:         schema.OrgOwner,
-				// todo(nm-341): external idp id, auth type migration.
+				OrganizationID:  defaultOrg.ID,
+				UserID:          u.ID,
+				RoleID:          schema.OrgOwner,
 				AccountDisabled: u.AccountDisabled,
 				IsMFAEnabled:    u.IsMFAEnabled,
 				TOTPSecret:      u.TOTPSecret,
@@ -562,7 +565,19 @@ func setTenantID(ctx context.Context) error {
 			continue
 		}
 
-		err := db.FromContext(ctx).Model(&schema.UserGroup{}).
+		var existing schema.UserGroup
+		err = db.FromContext(ctx).Model(&schema.UserGroup{}).Where("id = ?", scopedID).First(&existing).Error
+		if err == nil {
+			err = db.FromContext(ctx).Where("id = ?", g.ID).Delete(&schema.UserGroup{}).Error
+			if err != nil {
+				return err
+			}
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		err = db.FromContext(ctx).Model(&schema.UserGroup{}).
 			Where("id = ?", g.ID).
 			Update("id", scopedID).
 			Error
@@ -581,7 +596,18 @@ func setTenantID(ctx context.Context) error {
 			continue
 		}
 
-		err := db.FromContext(ctx).Model(&schema.UserRole{}).
+		var existing schema.UserRole
+		err := db.FromContext(ctx).Model(&schema.UserRole{}).Where("id = ?", scopedID).First(&existing).Error
+		if err == nil {
+			if err := db.FromContext(ctx).Where("id = ?", r.ID).Delete(&schema.UserRole{}).Error; err != nil {
+				return err
+			}
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		err = db.FromContext(ctx).Model(&schema.UserRole{}).
 			Where("id = ?", r.ID).
 			Update("id", scopedID).
 			Error

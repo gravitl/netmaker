@@ -139,7 +139,6 @@ func migrateUsers(ctx context.Context) error {
 		}
 
 		if platformRoleID == schema.SuperAdminRole {
-			// todo(nm-341): should auth type on tenant membership for superadmin be inherited?
 			om := &schema.OrgMembership{
 				OrganizationID:             defaultOrg.ID,
 				UserID:                     _user.ID,

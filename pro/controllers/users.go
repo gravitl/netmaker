@@ -99,6 +99,11 @@ func UserHandlers(r *mux.Router) {
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
+	if !logic.IsBasicAuthEnabled(r.Context()) {
+		err := errors.New("basic auth is disabled")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -309,6 +314,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			err = orgUser.GetWithMembership(orgCtx)
 			if err == nil {
 				orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+				orgUser.UserGroups = datatypes.NewJSONType(inviteReq.UserGroups)
 				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
 				if err != nil {
 					slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
@@ -700,6 +706,9 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
+	if len(userGroupReq.Members) > 0 {
+		go proLogic.RunPostureChecksForTenant(ctx)
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -957,7 +966,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.RunPostureChecksForTenant(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 
@@ -1025,7 +1035,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.RunPostureChecksForTenant(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 

@@ -23,7 +23,21 @@ import (
 	"gorm.io/datatypes"
 )
 
-var postureCheckMutex = &sync.Mutex{}
+var (
+	postureCheckMutexesMtx sync.Mutex
+	postureCheckMutexes    = make(map[string]*sync.Mutex)
+)
+
+func postureCheckLock(tenantID string) *sync.Mutex {
+	postureCheckMutexesMtx.Lock()
+	defer postureCheckMutexesMtx.Unlock()
+	mtx, ok := postureCheckMutexes[tenantID]
+	if !ok {
+		mtx = &sync.Mutex{}
+		postureCheckMutexes[tenantID] = mtx
+	}
+	return mtx
+}
 
 func AddPostureCheckHook(ctx context.Context) {
 	settings := logic.GetServerSettings(ctx)
@@ -61,10 +75,101 @@ func RemoveUserGroupFromPostureChecks(grpID schema.UserGroupID, netID schema.Net
 		}
 	}
 }
-func RunPostureChecks() error {
-	postureCheckMutex.Lock()
-	defer postureCheckMutex.Unlock()
 
+func RunPostureChecksForTenant(ctx context.Context) error {
+	mtx := postureCheckLock(scope.ID(ctx))
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
+		return nil
+	}
+
+	// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
+	_ = mdmpkg.RunMDMSync(ctx)
+	_ = edrpkg.RunEDRSyncForPosture(ctx)
+	nets, err := (&schema.Network{}).ListAll(ctx)
+	if err != nil {
+		return err
+	}
+	nodes, err := logic.GetAllNodes(ctx)
+	if err != nil {
+		return err
+	}
+	for _, netI := range nets {
+		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
+		if len(networkNodes) == 0 {
+			continue
+		}
+		networkNodes = logic.AddStaticNodestoList(ctx, networkNodes)
+		pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(ctx)
+		if err != nil {
+			continue
+		}
+		noChecks := len(pcLi) == 0
+
+		for _, nodeI := range networkNodes {
+			if nodeI.IsStatic && !nodeI.IsUserNode {
+				continue
+			}
+			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
+			var postureChecksViolations []models.Violation
+			var postureCheckVolationSeverityLevel schema.Severity
+			if noChecks {
+				postureCheckVolationSeverityLevel = schema.SeverityUnknown
+			} else {
+				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(ctx, pcLi, deviceInfo)
+			}
+			if nodeI.IsUserNode {
+				extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
+				if err == nil {
+					if noChecks && len(extclient.PostureChecksViolations) == 0 {
+						continue
+					}
+					emitNewMDMViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+					emitNewEDRViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+					extclient.PostureChecksViolations = postureChecksViolations
+					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
+					extclient.LastEvaluatedAt = time.Now().UTC()
+					logic.SaveExtClient(ctx, &extclient)
+				}
+			} else {
+				if noChecks && len(nodeI.PostureChecksViolations) == 0 {
+					continue
+				}
+				emitNewMDMViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+				emitNewEDRViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
+
+				_node := &schema.Node{
+					ID:                                nodeI.ID.String(),
+					PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+					PostureCheckLastEvaluationCycleID: uuid.NewString(),
+					PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+				}
+
+				_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+				for _, violation := range postureChecksViolations {
+					_violations = append(_violations, schema.PostureCheckViolation{
+						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
+						TenantID:          nodeI.TenantID,
+						CheckID:           violation.CheckID,
+						NodeID:            _node.ID,
+						Name:              violation.Name,
+						Attribute:         violation.Attribute,
+						Message:           violation.Message,
+						Severity:          violation.Severity,
+						EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
+					})
+				}
+				_ = _node.UpsertViolations(ctx, _violations)
+			}
+		}
+	}
+
+	return nil
+}
+
+func RunPostureChecks() error {
 	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
@@ -73,93 +178,11 @@ func RunPostureChecks() error {
 	var wg sync.WaitGroup
 	for _, tenant := range tenants {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
-		if !logic.GetFeatureFlags(ctx).EnablePostureChecks {
-			continue
-		}
 
 		wg.Add(1)
 		go func(ctx context.Context) {
 			defer wg.Done()
-			// Refresh MDM/EDR before evaluating; bypass sync_enabled for the posture cycle.
-			_ = mdmpkg.RunMDMSync(ctx)
-			_ = edrpkg.RunEDRSyncForPosture(ctx)
-			nets, err := (&schema.Network{}).ListAll(ctx)
-			if err != nil {
-				return
-			}
-			nodes, err := logic.GetAllNodes(ctx)
-			if err != nil {
-				return
-			}
-			for _, netI := range nets {
-				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
-				if len(networkNodes) == 0 {
-					continue
-				}
-				networkNodes = logic.AddStaticNodestoList(ctx, networkNodes)
-				pcLi, err := (&schema.PostureCheck{NetworkID: schema.NetworkID(netI.Name)}).ListByNetwork(ctx)
-				if err != nil {
-					continue
-				}
-				noChecks := len(pcLi) == 0
-
-				for _, nodeI := range networkNodes {
-					if nodeI.IsStatic && !nodeI.IsUserNode {
-						continue
-					}
-					deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
-					var postureChecksViolations []models.Violation
-					var postureCheckVolationSeverityLevel schema.Severity
-					if noChecks {
-						postureCheckVolationSeverityLevel = schema.SeverityUnknown
-					} else {
-						postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(ctx, pcLi, deviceInfo)
-					}
-					if nodeI.IsUserNode {
-						extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
-						if err == nil {
-							if noChecks && len(extclient.PostureChecksViolations) == 0 {
-								continue
-							}
-							emitNewMDMViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-							emitNewEDRViolationEvents(ctx, extclient.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-							extclient.PostureChecksViolations = postureChecksViolations
-							extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
-							extclient.LastEvaluatedAt = time.Now().UTC()
-							logic.SaveExtClient(ctx, &extclient)
-						}
-					} else {
-						if noChecks && len(nodeI.PostureChecksViolations) == 0 {
-							continue
-						}
-						emitNewMDMViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-						emitNewEDRViolationEvents(ctx, nodeI.PostureChecksViolations, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-
-						_node := &schema.Node{
-							ID:                                nodeI.ID.String(),
-							PostureCheckSeverity:              postureCheckVolationSeverityLevel,
-							PostureCheckLastEvaluationCycleID: uuid.NewString(),
-							PostureCheckLastEvaluatedAt:       time.Now().UTC(),
-						}
-
-						_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
-						for _, violation := range postureChecksViolations {
-							_violations = append(_violations, schema.PostureCheckViolation{
-								EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
-								TenantID:          nodeI.TenantID,
-								CheckID:           violation.CheckID,
-								NodeID:            _node.ID,
-								Name:              violation.Name,
-								Attribute:         violation.Attribute,
-								Message:           violation.Message,
-								Severity:          violation.Severity,
-								EvaluatedAt:       _node.PostureCheckLastEvaluatedAt,
-							})
-						}
-						_ = _node.UpsertViolations(ctx, _violations)
-					}
-				}
-			}
+			_ = RunPostureChecksForTenant(ctx)
 		}(ctx)
 	}
 

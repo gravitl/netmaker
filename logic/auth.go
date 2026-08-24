@@ -31,6 +31,8 @@ var IsOAuthConfigured = func(context.Context) bool { return false }
 var ResetAuthProvider = func(context.Context) {}
 var ResetIDPSyncHook = func(context.Context) {}
 
+type CleanupUserRefsFunc func(ctx context.Context, username string, forceDeleteConfigs bool)
+
 func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
 	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
 		return nil
@@ -268,6 +270,8 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 		_user.TOTPSecret = ""
 	}
 
+	groupsChanged := !CompareMaps(_user.UserGroups.Data(), userchange.UserGroups.Data())
+
 	_user.AccountDisabled = userchange.AccountDisabled
 	_user.UserGroups = userchange.UserGroups
 	err := ValidateUser(_user)
@@ -292,6 +296,10 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 	err = _user.UpsertMembership(ctx)
 	if err != nil {
 		return &schema.User{}, err
+	}
+
+	if groupsChanged {
+		go RunPostureChecksForTenant(detachedCtx)
 	}
 
 	return _user, nil
@@ -356,9 +364,8 @@ func IsIDPUser(ctx context.Context, user *schema.User) bool {
 	return false
 }
 
-// DeleteUser - deletes a given user
-func DeleteUser(ctx context.Context, user *schema.User) error {
-	err := user.DeleteMembership(ctx)
+func DeleteTenantUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.TenantMembership{TenantID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user does not exist")
@@ -369,10 +376,58 @@ func DeleteUser(ctx context.Context, user *schema.User) error {
 
 	RemoveUserFromAclPolicy(ctx, user.Username)
 
-	if scope.Level(ctx) != scope.TenantScope {
-		return nil
+	if err := (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx); err != nil {
+		return err
 	}
-	return (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx)
+
+	if cleanup != nil {
+		cleanupCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, scope.ID(ctx))
+		go cleanup(cleanupCtx, user.Username, forceDeleteConfigs)
+	}
+
+	return nil
+}
+
+func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.OrgMembership{OrganizationID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not exist")
+		}
+
+		return err
+	}
+
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, membership := range memberships {
+		if membership.AuthType != schema.Inherited {
+			continue
+		}
+
+		tenant := &schema.Tenant{
+			ID: membership.TenantID,
+		}
+		err = tenant.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		if tenant.OrganizationID != scope.ID(ctx) {
+			continue
+		}
+
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, membership.TenantID)
+		err = DeleteTenantUser(tenantCtx, user, forceDeleteConfigs, cleanup)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func SetOAuthSecret(secret string) error {
@@ -520,11 +575,14 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 		})
 	}
 
-	orgMemberships, err := (&schema.OrgMembership{
-		UserID: user.ID,
-	}).ListByUserID(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing org memberships: %w", err)
+	var orgMemberships []schema.OrgMembership
+	if IsMSP(ctx) {
+		orgMemberships, err = (&schema.OrgMembership{
+			UserID: user.ID,
+		}).ListByUserID(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error listing org memberships: %w", err)
+		}
 	}
 
 	for _, membership := range orgMemberships {

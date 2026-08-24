@@ -44,7 +44,6 @@ var CheckPostureViolations = func(ctx context.Context, d models.PostureCheckDevi
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
-// todo(nm-341): add ctx to func
 var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown
