@@ -171,6 +171,7 @@ func InitPro() {
 
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
+	logic.RunPostureChecksForTenant = proLogic.RunPostureChecksForTenant
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.InitialiseNetworkRoles = proLogic.UserNetworkRolesInit
 	logic.IntialiseGroups = proLogic.UserGroupsInit
