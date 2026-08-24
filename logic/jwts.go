@@ -236,6 +236,9 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
+	if err != nil {
+		return "", false, false, err
+	}
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {

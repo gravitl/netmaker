@@ -99,6 +99,10 @@ func UserHandlers(r *mux.Router) {
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
+	if !logic.IsBasicAuthEnabled(r.Context()) {
+		err := errors.New("basic auth is disabled")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+	}
 	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
