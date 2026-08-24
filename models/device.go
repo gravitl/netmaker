@@ -42,12 +42,14 @@ const (
 
 // DeviceExitNode describes an internet egress exit node available to a desktop device.
 type DeviceExitNode struct {
-	EgressID           string `json:"egress_id"`
-	Name               string `json:"name"`
-	Description        string `json:"description,omitempty"`
-	Network            string `json:"network"`
-	RoutingNodeID      string `json:"routing_node_id,omitempty"`
-	RoutingHostName    string `json:"routing_host_name,omitempty"`
+	EgressID        string `json:"egress_id"`
+	Name            string `json:"name"`
+	Description     string `json:"description,omitempty"`
+	Network         string `json:"network"`
+	RoutingNodeID   string `json:"routing_node_id,omitempty"`
+	RoutingHostName string `json:"routing_host_name,omitempty"`
+	// AllowedEndpoints are the routing host public IPs (EndpointIP, EndpointIPv6).
+	AllowedEndpoints []string `json:"allowed_endpoints,omitempty"`
 	// CountryCode is the ISO 3166-1 alpha-2 code of the routing host (for flags).
 	CountryCode string `json:"country_code,omitempty"`
 	// Location is "lat,lon" of the routing host when known.
@@ -57,6 +59,10 @@ type DeviceExitNode struct {
 	TcpProxyListenPort int  `json:"tcp_proxy_listen_port,omitempty"`
 	Selected           bool `json:"selected"`
 	Status             bool `json:"status"`
+	// LatencyMs is filled by netclient from public-endpoint probes; not set by the server.
+	LatencyMs int64 `json:"latency_ms,omitempty"`
+	// Nearest is filled by netclient for the closest exit; not set by the server.
+	Nearest bool `json:"nearest,omitempty"`
 }
 
 // DeviceExitNodeSelectionReq selects or clears the exit node for a device on a network.

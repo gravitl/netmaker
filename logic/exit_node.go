@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"net"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
@@ -32,6 +33,7 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 				item.RoutingHostName = rh.Name
 				item.CountryCode = rh.CountryCode
 				item.Location = rh.Location
+				item.AllowedEndpoints = exitNodeAllowedEndpoints(rh)
 				if rh.TcpProxyEnabled {
 					item.TcpProxyEnabled = true
 				}
@@ -233,4 +235,29 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		return nil, nil
 	}
 	return GetDeviceSelectedExitNode(ctx, user, host, networkID)
+}
+
+// exitNodeAllowedEndpoints returns the routing host public IPs (EndpointIP, EndpointIPv6).
+func exitNodeAllowedEndpoints(host *schema.Host) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(ip net.IP) {
+		if len(ip) == 0 || ip.IsUnspecified() || ip.IsLoopback() {
+			return
+		}
+		s := ip.String()
+		if s == "" || s == "<nil>" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	if host != nil {
+		add(host.EndpointIP)
+		add(host.EndpointIPv6)
+	}
+	return out
 }
