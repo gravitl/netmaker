@@ -407,8 +407,22 @@ func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bo
 		if membership.AuthType != schema.Inherited {
 			continue
 		}
+
+		tenant := &schema.Tenant{
+			ID: membership.TenantID,
+		}
+		err = tenant.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		if tenant.OrganizationID != scope.ID(ctx) {
+			continue
+		}
+
 		tenantCtx := scope.WithContext(ctx, scope.TenantScope, membership.TenantID)
-		if err := DeleteTenantUser(tenantCtx, user, forceDeleteConfigs, cleanup); err != nil {
+		err = DeleteTenantUser(tenantCtx, user, forceDeleteConfigs, cleanup)
+		if err != nil {
 			return err
 		}
 	}
