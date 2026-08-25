@@ -114,6 +114,56 @@ func TestNormalizeAndValidateAclEgressIPsAllowsInternetEgress(t *testing.T) {
 	}
 }
 
+func TestAppendEgressPolicyRangeExpandsInternet(t *testing.T) {
+	e := schema.Egress{Type: schema.EgressTypeInternet, Range: "*"}
+	var v4, v6 []net.IPNet
+	AppendEgressPolicyRange(e, "*", &v4, &v6)
+	if len(v4) != 1 || v4[0].String() != IPv4Network {
+		t.Fatalf("expected 0.0.0.0/0, got %v", v4)
+	}
+	if len(v6) != 1 || v6[0].String() != IPv6Network {
+		t.Fatalf("expected ::/0, got %v", v6)
+	}
+}
+
+func TestApplyInternetExitFromDeviceACL(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() { getEgressByID = originalGetEgressByID })
+
+	clientID := uuid.New()
+	exitID := uuid.New()
+	client := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      clientID,
+			Network: "netmaker",
+		},
+	}
+	eli := []schema.Egress{{
+		ID:      "inet-eg",
+		Network: "netmaker",
+		Status:  true,
+		Type:    schema.EgressTypeInternet,
+		Range:   "*",
+		Nodes:   datatypes.JSONMap{exitID.String(): json.Number("100")},
+	}}
+	acls := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+	}}
+	getEgressByID = func(id string) (schema.Egress, error) {
+		if id == "inet-eg" {
+			return eli[0], nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+
+	applyInternetExitFromDeviceACL(&client, eli, acls)
+	if client.InternetGwID != exitID.String() {
+		t.Fatalf("expected InternetGwID %s from internet ACL, got %q", exitID, client.InternetGwID)
+	}
+}
+
 func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork

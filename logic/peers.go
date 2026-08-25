@@ -322,8 +322,13 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
+		if !defaultDevicePolicy.Enabled {
+			applyInternetExitFromDeviceACL(&node, eli, acls)
+		}
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
@@ -333,8 +338,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
