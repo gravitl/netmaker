@@ -1102,24 +1102,18 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	// A relay advertises its relayed clients' overlay IPs (and non-default egress
 	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
-	if peer.IsRelay {
+	//
+	// Non-gateway internet exit nodes also relay the peers using them as an exit
+	// (kept in RelayedNodes). Those clients' egress ranges must be advertised the
+	// same way, or LAN routes never appear on other peers' WireGuard AllowedIPs.
+	// Default routes are still stripped so 0.0.0.0/0 cannot cover the exit node's
+	// public endpoint (WG routing loop / endpoint flap). Exit clients themselves
+	// already receive a default route and skip this via usesPeerAsInternetExit.
+	if peer.IsRelay || (!usesPeerAsInternetExit(node, peer) && peerRelaysExitClients(peer)) {
 		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(ctx, peer, node))...)
-		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
-		// appear only under InetNodeClientIDs / RelayedIGWClients.
+		// RelayedAllowedIPs walks RelayedNodes and InetNodeClientIDs; keep overlay
+		// IPs for inet-only clients as a safety net if the two lists diverge.
 		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
-	} else if !usesPeerAsInternetExit(node, peer) {
-		// A non-gateway internet exit node also relays the overlay traffic of the
-		// peers using it as an exit node (they are kept in RelayedNodes for
-		// stability). Advertise ONLY those clients' overlay addresses to other
-		// peers so they remain reachable through the exit node.
-		//
-		// Deliberately do not use RelayedAllowedIPs here: it additionally appends
-		// each relayed client's egress ranges (which may be broad, e.g. 0.0.0.0/0),
-		// which can cover the exit node's public endpoint and create a WireGuard
-		// routing loop, causing the exit node's endpoint to flap to an overlay
-		// address. Only third-party peers need these routes; the exit node's own
-		// clients already receive a default route to it.
-		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)
