@@ -36,7 +36,8 @@ func IsInternetGw(node models.Node) bool {
 	if node.IsInternetGateway {
 		return true
 	}
-	return NodeIsInternetEgressRouter(node.ID.String(), node.Network)
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+	return NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 }
 
 // CreateEgressGateway - creates an egress gateway
