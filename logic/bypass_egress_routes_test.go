@@ -105,7 +105,7 @@ func TestShouldRetainPeerDespiteRelay_ExitPeerAlways(t *testing.T) {
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false))
+	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false))
 }
 
 func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
@@ -131,7 +131,7 @@ func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
 		IsEgressGateway:     true,
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
 		"without selected internet egress, specific egress peers must not be retained via bypass")
 }
 
@@ -154,7 +154,7 @@ func TestShouldRetainPeerDespiteRelay_NonIGWRelayedStillRemoves(t *testing.T) {
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(meshPeer))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false))
+	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false))
 }
 
 func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing.T) {
@@ -185,8 +185,31 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
 	require.True(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false),
+	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false),
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
+}
+
+func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T) {
+	exitID := uuid.New()
+	client := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+	}
+	client.IsRelayed = true
+	client.RelayedBy = exitID.String()
+	client.InternetGwID = exitID.String()
+
+	site := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+	}
+	require.False(t, PeerAdvertisesSpecificEgress(site))
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
+		"unfiltered specific egress still requires BypassEgressRoutes on the selected internet egress")
 }
 
 func TestFilterConflictingEgressRoutesKeepsSpecificWhenNotExit(t *testing.T) {

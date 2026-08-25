@@ -52,7 +52,7 @@ type Egress struct {
 	// Netmaker Egress CIDRs are retained as direct peers and take precedence over
 	// this exit via longest-prefix match. When false, IGW clients stay fully
 	// relayed through the exit (legacy hairpin behavior).
-	BypassEgressRoutes bool `gorm:"bypass_egress_routes;default:true" json:"bypass_egress_routes"`
+	BypassEgressRoutes bool `gorm:"column:bypass_egress_routes;default:true" json:"bypass_egress_routes"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID  string    `gorm:"preset_id" json:"preset_id"`
 	Status    bool      `gorm:"status" json:"status"`
@@ -66,7 +66,7 @@ func (e *Egress) Table() string {
 }
 
 func (e *Egress) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Table(e.Table()).First(&e).Where("id = ?", e.ID).Error
+	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).First(e).Error
 }
 
 func (e *Egress) Update(ctx context.Context) error {

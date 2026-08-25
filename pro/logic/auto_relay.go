@@ -246,10 +246,11 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
 		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
+			unfilteredSpecific := logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)
 			logic.AddEgressInfoToPeerByAccess(node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
 			// Bypass keeps specific-egress gateways as direct peers; duplicating their
 			// AllowedIPs on the auto-relay steals routes (WireGuard uniqueness).
-			if bypass && logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer) {
+			if bypass && (unfilteredSpecific || logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)) {
 				continue
 			}
 			// Reverse: specific-egress GWs keep bypass clients as direct peers.

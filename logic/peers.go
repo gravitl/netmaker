@@ -384,8 +384,16 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				ReplaceAllowedIPs:           true,
 			}
 			GetNodeEgressInfo(&peer, eli, acls)
+			// Snapshot before access filtering: AddEgressInfoToPeerByAccess can
+			// clear EgressDetails (e.g. ACL miss) and would then fail bypass retain,
+			// leaving site CIDRs only matching the exit's 0.0.0.0/0.
+			unfilteredSpecificEgress := PeerAdvertisesSpecificEgress(&peer)
+			unfilteredEgressDetails := peer.EgressDetails
 			if peer.EgressDetails.IsEgressGateway {
 				AddEgressInfoToPeerByAccess(&node, &peer, eli, acls, defaultDevicePolicy.Enabled)
+			}
+			if SelectedInternetEgressBypasses(&node) && unfilteredSpecificEgress && !PeerAdvertisesSpecificEgress(&peer) {
+				peer.EgressDetails = unfilteredEgressDetails
 			}
 			if node.Mutex != nil {
 				node.Mutex.Lock()
@@ -398,7 +406,8 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
-				bypassDirect := SelectedInternetEgressBypasses(&node) && PeerAdvertisesSpecificEgress(&peer)
+				bypassDirect := SelectedInternetEgressBypasses(&node) &&
+					(PeerAdvertisesSpecificEgress(&peer) || unfilteredSpecificEgress)
 				if !bypassDirect && isAutoRelayPeer && peerAutoRelayID != node.ID.String() {
 					// get relay host
 					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
@@ -447,6 +456,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				allowedToComm = IsPeerAllowed(ctx, node, peer, false)
 			}
 
+			retainDespiteRelay := false
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
 				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isAutoRelayPeer {
 				// Never remove the peer that is this node's internet exit. Exit
@@ -459,7 +469,8 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// that carry those ranges) so site CIDRs do not hairpin through the exit.
 				// The reverse also applies: specific-egress gateways retain bypass
 				// clients as direct peers so return traffic is not forced via the exit.
-				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer) {
+				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress) {
+					retainDespiteRelay = true
 					// fall through to normal peer config
 				} else {
 					// if node is relayed and peer is not the relay, set remove to true
@@ -527,7 +538,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				(allowedToComm) &&
+				(allowedToComm || retainDespiteRelay) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(ctx, &node, &peer, nil) // only append allowed IPs if valid connection
 				if peer.IsAutoRelay {
@@ -1074,14 +1085,16 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 
 // shouldRetainPeerDespiteRelay decides whether a relayed IGW client (or its peer)
 // should keep a WireGuard peer that would otherwise be removed (mesh via exit only).
-func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool) bool {
+// unfilteredSpecific is true when peer advertised specific egress CIDRs before
+// access filtering (AddEgressInfoToPeerByAccess can clear EgressDetails).
+func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool) bool {
 	if usesPeerAsInternetExit(node, peer) {
 		return true
 	}
 	// Bypass is bidirectional: the client must keep the specific-egress gateway,
 	// and the gateway must keep the bypass client as a direct peer (otherwise the
 	// client's overlay /32 only appears under the exit peer and handshakes fail).
-	if SelectedInternetEgressBypasses(node) && PeerAdvertisesSpecificEgress(peer) {
+	if SelectedInternetEgressBypasses(node) && (PeerAdvertisesSpecificEgress(peer) || unfilteredSpecific) {
 		return true
 	}
 	if SelectedInternetEgressBypasses(peer) && PeerAdvertisesSpecificEgress(node) {

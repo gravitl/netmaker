@@ -267,11 +267,12 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			continue
 		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
+		unfilteredSpecific := PeerAdvertisesSpecificEgress(&relayedNode)
 		if bypass {
 			// Access-filter before deciding whether this relayed node is a
 			// specific-egress peer that should stay direct (not via this relay).
 			AddEgressInfoToPeerByAccess(node, &relayedNode, eli, acls, defaultPolicy.Enabled)
-			if PeerAdvertisesSpecificEgress(&relayedNode) {
+			if unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode) {
 				continue
 			}
 		}
@@ -311,12 +312,14 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		if !IsPeerAllowed(ctx, *relayed, peer, true) {
 			continue
 		}
+		GetNodeEgressInfo(&peer, eli, acls)
+		unfilteredSpecific := PeerAdvertisesSpecificEgress(&peer)
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
 		// When BypassEgressRoutes is on, specific-egress gateways are retained as
 		// direct WireGuard peers. Do not also advertise their AllowedIPs through the
 		// exit/relay — WireGuard AllowedIPs are unique across peers, so duplicating
 		// them on the exit steals routes from the direct peer (empty AllowedIPs).
-		if bypass && PeerAdvertisesSpecificEgress(&peer) {
+		if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&peer)) {
 			continue
 		}
 		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
