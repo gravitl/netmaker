@@ -101,9 +101,16 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 			continue
 		}
 
-		nodes := GetHostNodes(&host)
-		for _, node := range nodes {
-			getNodeCheckInStatus(&node, false)
+		for _, nodeID := range host.Nodes {
+			node := &schema.Node{
+				ID: nodeID,
+			}
+			err = node.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			GetNodeCheckInStatus(node)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break

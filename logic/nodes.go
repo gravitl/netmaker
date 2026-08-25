@@ -318,7 +318,7 @@ func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 	}
 
 	for _, _node := range _nodes {
-		node := ConvertSchemaNodeToModelsNode(&_node)
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_node)
 		ensureNodeMutex(node)
 		nodes = append(nodes, *node)
 	}
@@ -592,7 +592,10 @@ func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
 
 func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
+	return ConvertSchemaNodeToModelsNodeWithContext(ctx, _node)
+}
 
+func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema.Node) *models.Node {
 	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
 		return &models.Node{}
@@ -698,11 +701,11 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			Address:           nodeAddr,
 			Address6:          nodeAddr6,
 			Action:            _node.Action,
-			IsIngressGateway:   _node.IsGateway,
-			IsRelay:            _node.IsGateway,
-			IsGw:               _node.IsGateway,
-			AutoAssignGateway:  _node.AutoAssignGateway,
-			TcpProxyEnabled:    _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled,
+			IsIngressGateway:  _node.IsGateway,
+			IsRelay:           _node.IsGateway,
+			IsGw:              _node.IsGateway,
+			AutoAssignGateway: _node.AutoAssignGateway,
+			TcpProxyEnabled:   _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled,
 			TcpProxyListenPort: func() int {
 				if _node.Host.TcpProxyListenPort > 0 {
 					return _node.Host.TcpProxyListenPort
