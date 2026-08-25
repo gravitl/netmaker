@@ -76,6 +76,44 @@ func TestNormalizeAndValidateAclEgressIPsRequiresEgressReference(t *testing.T) {
 	}
 }
 
+func TestNormalizeAndValidateAclEgressIPsAllowsInternetEgress(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() {
+		getEgressByID = originalGetEgressByID
+	})
+
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		return schema.Egress{
+			ID:     egressID,
+			Type:   schema.EgressTypeInternet,
+			Range:  "*",
+			Status: true,
+		}, nil
+	}
+
+	acl := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+		},
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		t.Fatalf("internet egress ACL should be valid, got: %v", err)
+	}
+
+	aclWithIP := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+			{ID: models.NetmakerIPAclID, Value: "8.8.8.8"},
+		},
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&aclWithIP); err != nil {
+		t.Fatalf("selected IP on internet egress should be valid, got: %v", err)
+	}
+	if aclWithIP.Dst[1].Value != "8.8.8.8/32" {
+		t.Fatalf("expected normalized host CIDR, got %s", aclWithIP.Dst[1].Value)
+	}
+}
+
 func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork

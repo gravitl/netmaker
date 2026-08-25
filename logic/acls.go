@@ -2161,6 +2161,31 @@ func cidrContainsCIDR(parent, child *net.IPNet) bool {
 	return parent.Contains(last)
 }
 
+// aclPolicyEgressCIDRs returns CIDRs used to validate selected IPs on an ACL
+// that references this egress. Internet egress uses "*" (not a CIDR), so it is
+// expanded to 0.0.0.0/0 and ::/0. Domain/app egress with no range is skipped.
+func aclPolicyEgressCIDRs(e schema.Egress) ([]*net.IPNet, error) {
+	if IsEgressInternetGateway(e) {
+		cidrs := make([]*net.IPNet, 0, 2)
+		for _, r := range ExpandEgressRouteRanges(e, true) {
+			_, cidr, err := net.ParseCIDR(r)
+			if err != nil {
+				continue
+			}
+			cidrs = append(cidrs, cidr)
+		}
+		return cidrs, nil
+	}
+	if e.Range == "" {
+		return nil, nil
+	}
+	_, cidr, err := net.ParseCIDR(e.Range)
+	if err != nil {
+		return nil, errors.New("invalid egress range")
+	}
+	return []*net.IPNet{cidr}, nil
+}
+
 func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 	if acl == nil {
 		return nil
@@ -2174,14 +2199,11 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-		if e.Range == "" {
-			continue
-		}
-		_, cidr, err := net.ParseCIDR(e.Range)
+		cidrs, err := aclPolicyEgressCIDRs(e)
 		if err != nil {
-			return errors.New("invalid egress range")
+			return err
 		}
-		egressCIDRs = append(egressCIDRs, cidr)
+		egressCIDRs = append(egressCIDRs, cidrs...)
 	}
 	for i := range acl.Dst {
 		if acl.Dst[i].ID != models.NetmakerIPAclID {
@@ -2219,14 +2241,11 @@ func NormalizeAndValidateAclEgressIPs(acl *models.Acl) error {
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-		if e.Range == "" {
-			continue
-		}
-		_, cidr, err := net.ParseCIDR(e.Range)
+		cidrs, err := aclPolicyEgressCIDRs(e)
 		if err != nil {
-			return errors.New("invalid egress range")
+			return err
 		}
-		srcEgressCIDRs = append(srcEgressCIDRs, cidr)
+		srcEgressCIDRs = append(srcEgressCIDRs, cidrs...)
 	}
 	for i := range acl.Src {
 		if acl.Src[i].ID != models.NetmakerIPAclID {
