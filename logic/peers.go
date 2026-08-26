@@ -322,8 +322,13 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
+		if !defaultDevicePolicy.Enabled {
+			applyInternetExitFromDeviceACL(&node, eli, acls)
+		}
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
@@ -333,8 +338,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
@@ -1102,24 +1105,18 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	// A relay advertises its relayed clients' overlay IPs (and non-default egress
 	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
-	if peer.IsRelay {
+	//
+	// Non-gateway internet exit nodes also relay the peers using them as an exit
+	// (kept in RelayedNodes). Those clients' egress ranges must be advertised the
+	// same way, or LAN routes never appear on other peers' WireGuard AllowedIPs.
+	// Default routes are still stripped so 0.0.0.0/0 cannot cover the exit node's
+	// public endpoint (WG routing loop / endpoint flap). Exit clients themselves
+	// already receive a default route and skip this via usesPeerAsInternetExit.
+	if peer.IsRelay || (!usesPeerAsInternetExit(node, peer) && peerRelaysExitClients(peer)) {
 		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(ctx, peer, node))...)
-		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
-		// appear only under InetNodeClientIDs / RelayedIGWClients.
+		// RelayedAllowedIPs walks RelayedNodes and InetNodeClientIDs; keep overlay
+		// IPs for inet-only clients as a safety net if the two lists diverge.
 		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node.ID.String())...)
-	} else if !usesPeerAsInternetExit(node, peer) {
-		// A non-gateway internet exit node also relays the overlay traffic of the
-		// peers using it as an exit node (they are kept in RelayedNodes for
-		// stability). Advertise ONLY those clients' overlay addresses to other
-		// peers so they remain reachable through the exit node.
-		//
-		// Deliberately do not use RelayedAllowedIPs here: it additionally appends
-		// each relayed client's egress ranges (which may be broad, e.g. 0.0.0.0/0),
-		// which can cover the exit node's public endpoint and create a WireGuard
-		// routing loop, causing the exit node's endpoint to flap to an overlay
-		// address. Only third-party peers need these routes; the exit node's own
-		// clients already receive a default route to it.
-		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node.ID.String())...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)
