@@ -1845,8 +1845,21 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	key := schema.EnrollmentKey{}
-	json.Unmarshal(p.EnrollmentKey, &key)
+
+	modelsKey := models.EnrollmentKey{}
+	err = json.Unmarshal(p.EnrollmentKey, &modelsKey)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal enrollment key: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	key, err := logic.GetEnrollmentKey(r.Context(), modelsKey.Value)
+	if err != nil {
+		err = fmt.Errorf("failed to get enrollment key: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
 
 	network := &schema.Network{
 		Name: p.Network,
@@ -1879,7 +1892,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(&key))
+	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(key))
 	if err != nil {
 		err = fmt.Errorf("failed to approve pending host (%s): error creating node: %w", id, err)
 		logger.Log(0, err.Error())
