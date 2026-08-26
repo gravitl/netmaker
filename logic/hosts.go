@@ -62,7 +62,7 @@ var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host,
 	}, network)
 }
 
-var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+var GetPostureCheckDeviceInfoByNode = func(ctx context.Context, node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
 }
 

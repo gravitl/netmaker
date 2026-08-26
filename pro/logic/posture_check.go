@@ -112,7 +112,7 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 			if nodeI.IsStatic && !nodeI.IsUserNode {
 				continue
 			}
-			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(&nodeI)
+			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, &nodeI)
 			var postureChecksViolations []models.Violation
 			var postureCheckVolationSeverityLevel schema.Severity
 			if noChecks {
@@ -434,14 +434,14 @@ func GetPostureCheckViolations(ctx context.Context, checks []schema.PostureCheck
 }
 
 // GetPostureCheckDeviceInfoByNode retrieves PostureCheckDeviceInfo for a given node
-func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDeviceInfo {
+func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) models.PostureCheckDeviceInfo {
 	var deviceInfo models.PostureCheckDeviceInfo
 
 	if !node.IsStatic {
 		h := &schema.Host{
 			ID: node.HostID,
 		}
-		err := h.Get(db.WithContext(context.TODO()))
+		err := h.Get(ctx)
 		if err != nil {
 			return deviceInfo
 		}
@@ -456,7 +456,6 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			Tags:           node.Tags,
 			HostID:         h.ID.String(),
 		}
-		ctx := db.WithContext(context.TODO())
 		_ = mdmpkg.RefreshHostMDMState(ctx, *h)
 		_ = edrpkg.RefreshHostEDRState(ctx, *h)
 		attachIntegrationStates(ctx, h.ID.String(), &deviceInfo)
@@ -475,7 +474,7 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 		// get user groups
 		if node.StaticNode.OwnerID != "" {
 			user := &schema.User{Username: node.StaticNode.OwnerID}
-			err := user.Get(db.WithContext(context.TODO()))
+			err := user.GetWithMembership(ctx)
 			if err == nil && len(user.UserGroups.Data()) > 0 {
 				deviceInfo.UserGroups = user.UserGroups.Data()
 				if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
