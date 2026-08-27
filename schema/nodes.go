@@ -467,7 +467,6 @@ func NormaliseTcpProxyPublicHostname(raw string) (string, error) {
 	for _, pfx := range []string{"wss://", "ws://", "https://", "http://"} {
 		if strings.HasPrefix(lower, pfx) {
 			h = h[len(pfx):]
-			lower = strings.ToLower(h)
 			break
 		}
 	}
