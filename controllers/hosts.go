@@ -1854,12 +1854,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := logic.GetEnrollmentKey(r.Context(), modelsKey.Value)
-	if err != nil {
-		err = fmt.Errorf("failed to get enrollment key: %v", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
+	key := logic.SchemaEnrollmentKeyFromModels(modelsKey)
 
 	network := &schema.Network{
 		Name: p.Network,
