@@ -853,7 +853,11 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		}
 		info.TcpProxyListenAddr = peerHost.TcpProxyListenAddr
 		info.TcpProxyPublicHostname = peerHost.TcpProxyPublicHostname
-		info.TcpProxyCertFingerprint = peerHost.TcpProxyCertFingerprint
+		// External termination uses the reverse-proxy cert; do not publish a
+		// (possibly stale) self-signed fingerprint to clients.
+		if info.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = peerHost.TcpProxyCertFingerprint
+		}
 	} else if prev != nil && prev.TcpProxyEnabled {
 		// Preserve TCP settings from another network's gateway node on the same host.
 		info.TcpProxyEnabled = prev.TcpProxyEnabled
@@ -861,7 +865,9 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		info.TcpProxyTLSMode = prev.TcpProxyTLSMode
 		info.TcpProxyListenAddr = prev.TcpProxyListenAddr
 		info.TcpProxyPublicHostname = prev.TcpProxyPublicHostname
-		info.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
+		if prev.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
+		}
 	}
 	return info
 }

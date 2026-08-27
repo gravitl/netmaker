@@ -472,6 +472,8 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 				return
 			}
+			// Drop any fingerprint left over from a prior selfsigned config.
+			host.TcpProxyCertFingerprint = ""
 		}
 		host.TcpProxyPublicHostname = publicHostname
 	} else {
