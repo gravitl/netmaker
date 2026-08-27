@@ -43,7 +43,10 @@ type ApiNode struct {
 	AutoAssignGateway  bool              `json:"auto_assign_gw"`
 	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
 	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
-	UseTcpUplink       bool              `json:"use_tcp_uplink"`
+	TcpProxyTLSMode    string            `json:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr     string            `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string            `json:"tcp_proxy_public_hostname,omitempty"`
+	UseTcpUplink           bool              `json:"use_tcp_uplink"`
 	//AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
@@ -178,6 +181,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	// wipe these flags when the payload omits them (bool zero value is false).
 	convertedNode.TcpProxyEnabled = currentNode.TcpProxyEnabled
 	convertedNode.TcpProxyListenPort = currentNode.TcpProxyListenPort
+	convertedNode.TcpProxyTLSMode = currentNode.TcpProxyTLSMode
+	convertedNode.TcpProxyListenAddr = currentNode.TcpProxyListenAddr
+	convertedNode.TcpProxyPublicHostname = currentNode.TcpProxyPublicHostname
 	convertedNode.UseTcpUplink = currentNode.UseTcpUplink
 	convertedNode.Status = currentNode.Status
 	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
@@ -239,6 +245,9 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.AutoAssignGateway = nm.AutoAssignGateway
 	apiNode.TcpProxyEnabled = nm.TcpProxyEnabled
 	apiNode.TcpProxyListenPort = nm.TcpProxyListenPort
+	apiNode.TcpProxyTLSMode = nm.TcpProxyTLSMode
+	apiNode.TcpProxyListenAddr = nm.TcpProxyListenAddr
+	apiNode.TcpProxyPublicHostname = nm.TcpProxyPublicHostname
 	apiNode.UseTcpUplink = nm.UseTcpUplink
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.IngressDns = nm.IngressDNS

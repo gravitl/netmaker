@@ -3,6 +3,8 @@ package schema
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -53,10 +55,12 @@ type Node struct {
 	IsGateway                         bool                                  `json:"is_gateway"`
 	IsAutoRelay                       string                                `json:"is_auto_relay"`
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
-	// TcpProxyEnabled: gateway accepts TCP/TLS framed WG uplinks (control-plane flag; runtime is client-side).
+	// TcpProxyEnabled: gateway accepts TCP/WSS framed WG uplinks (control-plane flag; runtime is client-side).
 	TcpProxyEnabled bool `json:"tcp_proxy_enabled"`
-	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
+	// TcpProxyListenPort: listen port when TcpProxyEnabled (default 443 if enabled with port 0).
 	TcpProxyListenPort int `json:"tcp_proxy_listen_port"`
+	// TcpProxyTLSMode: selfsigned (default) or proxy. Empty means selfsigned.
+	TcpProxyTLSMode string `json:"tcp_proxy_tls_mode"`
 	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
@@ -429,6 +433,64 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 // DefaultTcpProxyListenPort is used when TcpProxyEnabled is set with listen port <= 0.
 const DefaultTcpProxyListenPort = 443
 
+// TcpProxyClientPortProxy is the default client-facing WSS port published when
+// TLS mode is proxy (external termination). Override at runtime with the
+// TCP_PROXY_PUBLIC_PORT server environment variable.
+const TcpProxyClientPortProxy = 443
+
+// TcpProxyTLSMode values (host/node). Empty defaults to selfsigned on clients.
+const (
+	TcpProxyTLSModeSelfSigned = "selfsigned"
+	TcpProxyTLSModeProxy      = "proxy"
+)
+
+// NormaliseTcpProxyTLSMode returns a valid mode; empty → selfsigned.
+func NormaliseTcpProxyTLSMode(mode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", TcpProxyTLSModeSelfSigned:
+		return TcpProxyTLSModeSelfSigned, nil
+	case TcpProxyTLSModeProxy:
+		return TcpProxyTLSModeProxy, nil
+	default:
+		return "", fmt.Errorf("unsupported uplink TLS mode: %s", mode)
+	}
+}
+
+// NormaliseTcpProxyPublicHostname cleans a public hostname for WSS publish.
+// Strips schemes/paths; rejects values that look like URLs with paths or empty hosts.
+func NormaliseTcpProxyPublicHostname(raw string) (string, error) {
+	h := strings.TrimSpace(raw)
+	if h == "" {
+		return "", nil
+	}
+	lower := strings.ToLower(h)
+	for _, pfx := range []string{"wss://", "ws://", "https://", "http://"} {
+		if strings.HasPrefix(lower, pfx) {
+			h = h[len(pfx):]
+			lower = strings.ToLower(h)
+			break
+		}
+	}
+	if i := strings.IndexAny(h, "/?"); i >= 0 {
+		h = h[:i]
+	}
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	// Drop accidental port; public port is published separately.
+	if host, _, err := net.SplitHostPort(h); err == nil {
+		h = host
+	} else if strings.HasPrefix(h, "[") && strings.Contains(h, "]") {
+		// leave bracketed IPv6 literals as-is without port
+	}
+	h = strings.TrimSpace(h)
+	if h == "" || strings.ContainsAny(h, " /\\") {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	return h, nil
+}
+
 func (n *Node) AssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")
@@ -568,6 +630,7 @@ func (n *Node) SetTcpProxy(ctx context.Context) error {
 		Updates(map[string]interface{}{
 			"tcp_proxy_enabled":     n.TcpProxyEnabled,
 			"tcp_proxy_listen_port": n.TcpProxyListenPort,
+			"tcp_proxy_tls_mode":    n.TcpProxyTLSMode,
 		}).Error
 }
 

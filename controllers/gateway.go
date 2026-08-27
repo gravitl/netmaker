@@ -98,7 +98,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.TcpProxyEnabled {
-		options = append(options, orchestrator.WithTcpProxy(true, req.TcpProxyListenPort))
+		options = append(options, orchestrator.WithTcpProxy(true, req.TcpProxyListenPort, req.TcpProxyTLSMode, req.TcpProxyListenAddr, req.TcpProxyPublicHostname))
 	}
 
 	err = orchestrator.GetRepository().NodeOrchestrator().ValidateCreateGateway(r.Context(), node, options...)
@@ -267,6 +267,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 					if err := host.Get(r.Context()); err == nil {
 						host.TcpProxyEnabled = false
 						host.TcpProxyListenPort = 0
+						host.TcpProxyTLSMode = ""
+						host.TcpProxyListenAddr = ""
+						host.TcpProxyPublicHostname = ""
+						host.TcpProxyCertFingerprint = ""
 						_ = host.SetTcpProxy(r.Context())
 					}
 				}
@@ -430,8 +434,15 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 		if node.TcpProxyListenPort <= 0 {
 			node.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 		}
+		mode, err := schema.NormaliseTcpProxyTLSMode(req.TLSMode)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		node.TcpProxyTLSMode = mode
 	} else {
 		node.TcpProxyListenPort = 0
+		node.TcpProxyTLSMode = ""
 		if err := db.FromContext(r.Context()).Model(&schema.Node{}).
 			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
 			Update("use_tcp_uplink", false).Error; err != nil {
@@ -450,6 +461,24 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	host.TcpProxyEnabled = node.TcpProxyEnabled
 	host.TcpProxyListenPort = node.TcpProxyListenPort
+	host.TcpProxyTLSMode = node.TcpProxyTLSMode
+	if req.Enabled {
+		host.TcpProxyListenAddr = req.ListenAddr
+		publicHostname := ""
+		if node.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
+			var err error
+			publicHostname, err = schema.NormaliseTcpProxyPublicHostname(req.PublicHostname)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+		}
+		host.TcpProxyPublicHostname = publicHostname
+	} else {
+		host.TcpProxyListenAddr = ""
+		host.TcpProxyPublicHostname = ""
+		host.TcpProxyCertFingerprint = ""
+	}
 	if err := host.SetTcpProxy(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
