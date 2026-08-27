@@ -43,3 +43,8 @@ broker.{$NM_DOMAIN} {
 		}
 	reverse_proxy @ws mq:8883   # For EMQX websockets use `reverse_proxy @ws mq:8083`
 }
+
+
+# default-gateway.{$NM_DOMAIN} {
+#     reverse_proxy /uplink/v1 host.docker.internal:6443
+# }
