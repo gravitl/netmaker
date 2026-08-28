@@ -833,21 +833,13 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		IsStaticPort: peerHost.IsStaticPort,
 		IsStatic:     peerHost.IsStatic,
 	}
-	// Prefer host-level TCP proxy (listen is per host); fall back to node for older data.
-	tcpEnabled := peerHost.TcpProxyEnabled || (peer.IsGw && peer.TcpProxyEnabled)
-	if peer.IsGw && tcpEnabled {
+	if peer.IsGw && peerHost.TcpProxyEnabled {
 		info.TcpProxyEnabled = true
 		info.TcpProxyListenPort = peerHost.TcpProxyListenPort
-		if info.TcpProxyListenPort <= 0 {
-			info.TcpProxyListenPort = peer.TcpProxyListenPort
-		}
 		if info.TcpProxyListenPort <= 0 {
 			info.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 		}
 		info.TcpProxyTLSMode = peerHost.TcpProxyTLSMode
-		if info.TcpProxyTLSMode == "" {
-			info.TcpProxyTLSMode = peer.TcpProxyTLSMode
-		}
 		if info.TcpProxyTLSMode == "" {
 			info.TcpProxyTLSMode = schema.TcpProxyTLSModeSelfSigned
 		}
@@ -873,18 +865,10 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 }
 
 func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHost *schema.Host) string {
-	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw {
+	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw || !peerHost.TcpProxyEnabled {
 		return ""
 	}
-	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
-	if !tcpEnabled {
-		return ""
-	}
-	tlsMode := peerHost.TcpProxyTLSMode
-	if tlsMode == "" {
-		tlsMode = peer.TcpProxyTLSMode
-	}
-	tlsMode, _ = schema.NormaliseTcpProxyTLSMode(tlsMode)
+	tlsMode, _ := schema.NormaliseTcpProxyTLSMode(peerHost.TcpProxyTLSMode)
 
 	// External termination: clients dial the public reverse-proxy port
 	// (default 443, overridable via TCP_PROXY_PUBLIC_PORT), not the backend
@@ -892,9 +876,6 @@ func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHos
 	port := servercfg.GetTcpProxyPublicPort()
 	if tlsMode != schema.TcpProxyTLSModeProxy {
 		port = peerHost.TcpProxyListenPort
-		if port <= 0 {
-			port = peer.TcpProxyListenPort
-		}
 		if port <= 0 {
 			port = schema.DefaultTcpProxyListenPort
 		}
@@ -922,18 +903,10 @@ func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHos
 }
 
 func tcpProxyCertFingerprintForPeer(peer *models.Node, peerHost *schema.Host) string {
-	if peer == nil || peerHost == nil || !peer.IsGw {
+	if peer == nil || peerHost == nil || !peer.IsGw || !peerHost.TcpProxyEnabled {
 		return ""
 	}
-	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
-	if !tcpEnabled {
-		return ""
-	}
-	tlsMode := peerHost.TcpProxyTLSMode
-	if tlsMode == "" {
-		tlsMode = peer.TcpProxyTLSMode
-	}
-	tlsMode, _ = schema.NormaliseTcpProxyTLSMode(tlsMode)
+	tlsMode, _ := schema.NormaliseTcpProxyTLSMode(peerHost.TcpProxyTLSMode)
 	// External termination uses the reverse-proxy's public cert; do not pin the
 	// gateway's (possibly stale) self-signed fingerprint.
 	if tlsMode == schema.TcpProxyTLSModeProxy {

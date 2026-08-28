@@ -249,20 +249,17 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		_node.RelayedClients = make(datatypes.JSONMap)
 		_node.RelayedIGWClients = make(datatypes.JSONMap)
 		_node.AdditionalGatewayEndpoints = make(datatypes.JSONSlice[string], 0)
-		_node.TcpProxyEnabled = false
-		_node.TcpProxyListenPort = 0
 		_ = _node.ResetGateway(r.Context())
-		// Clear host-level TCP proxy only if no other gateway on this host still has it enabled.
+		// Clear host-level TCP proxy only if this was the last gateway on the host.
 		if _node.HostID != "" {
 			if hostID, err := uuid.Parse(_node.HostID); err == nil {
 				other := &schema.Node{}
 				others, listErr := other.ListAll(r.Context(),
 					dbtypes.WithFilter("host_id", _node.HostID),
 					dbtypes.WithFilter("is_gateway", true),
-					dbtypes.WithFilter("tcp_proxy_enabled", true),
 				)
-				stillEnabled := listErr == nil && len(others) > 0
-				if !stillEnabled {
+				stillHasGateway := listErr == nil && len(others) > 0
+				if !stillHasGateway {
 					host := &schema.Host{ID: hostID}
 					if err := host.Get(r.Context()); err == nil {
 						host.TcpProxyEnabled = false
@@ -428,29 +425,6 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node.TcpProxyEnabled = req.Enabled
-	if req.Enabled {
-		node.TcpProxyListenPort = req.ListenPort
-		if node.TcpProxyListenPort <= 0 {
-			node.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
-		}
-		mode, err := schema.NormaliseTcpProxyTLSMode(req.TLSMode)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-			return
-		}
-		node.TcpProxyTLSMode = mode
-	} else {
-		node.TcpProxyListenPort = 0
-		node.TcpProxyTLSMode = ""
-		if err := db.FromContext(r.Context()).Model(&schema.Node{}).
-			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
-			Update("use_tcp_uplink", false).Error; err != nil {
-			slog.Error("failed to clear use_tcp_uplink on relayed clients after disabling TCP proxy", "gateway", node.ID, "error", err)
-		}
-	}
-
-	// Host is source of truth for listen; node fields stay synced for API/UI.
 	host := node.Host
 	if host == nil {
 		host = &schema.Host{ID: uuid.MustParse(node.HostID)}
@@ -459,14 +433,23 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	host.TcpProxyEnabled = node.TcpProxyEnabled
-	host.TcpProxyListenPort = node.TcpProxyListenPort
-	host.TcpProxyTLSMode = node.TcpProxyTLSMode
+
 	if req.Enabled {
+		listenPort := req.ListenPort
+		if listenPort <= 0 {
+			listenPort = schema.DefaultTcpProxyListenPort
+		}
+		mode, err := schema.NormaliseTcpProxyTLSMode(req.TLSMode)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		host.TcpProxyEnabled = true
+		host.TcpProxyListenPort = listenPort
+		host.TcpProxyTLSMode = mode
 		host.TcpProxyListenAddr = req.ListenAddr
 		publicHostname := ""
-		if node.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
-			var err error
+		if mode == schema.TcpProxyTLSModeProxy {
 			publicHostname, err = schema.NormaliseTcpProxyPublicHostname(req.PublicHostname)
 			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
@@ -477,18 +460,23 @@ func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
 		}
 		host.TcpProxyPublicHostname = publicHostname
 	} else {
+		host.TcpProxyEnabled = false
+		host.TcpProxyListenPort = 0
+		host.TcpProxyTLSMode = ""
 		host.TcpProxyListenAddr = ""
 		host.TcpProxyPublicHostname = ""
 		host.TcpProxyCertFingerprint = ""
+		if err := db.FromContext(r.Context()).Model(&schema.Node{}).
+			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
+			Update("use_tcp_uplink", false).Error; err != nil {
+			slog.Error("failed to clear use_tcp_uplink on relayed clients after disabling TCP proxy", "gateway", node.ID, "error", err)
+		}
 	}
 	if err := host.SetTcpProxy(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	if err := node.SetTcpProxy(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
+	node.Host = host
 
 	modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 	go func() {
@@ -633,7 +621,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 				_ = gwHost.Get(r.Context())
 			}
 		}
-		if !gwHost.TcpProxyEnabled && !gateway.TcpProxyEnabled {
+		if !gwHost.TcpProxyEnabled {
 			err = fmt.Errorf("gateway %s does not have TCP proxy enabled", gatewayID)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return
