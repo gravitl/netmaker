@@ -712,7 +712,21 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 				}
 				return _node.TcpProxyListenPort
 			}(),
-			UseTcpUplink: _node.UseTcpUplink,
+			TcpProxyTLSMode: func() string {
+				if _node.Host.TcpProxyTLSMode != "" {
+					return _node.Host.TcpProxyTLSMode
+				}
+				if _node.TcpProxyTLSMode != "" {
+					return _node.TcpProxyTLSMode
+				}
+				if _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled {
+					return schema.TcpProxyTLSModeSelfSigned
+				}
+				return ""
+			}(),
+			TcpProxyListenAddr:     _node.Host.TcpProxyListenAddr,
+			TcpProxyPublicHostname: _node.Host.TcpProxyPublicHostname,
+			UseTcpUplink:           _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,
@@ -881,6 +895,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
 		TcpProxyEnabled:                   node.TcpProxyEnabled,
 		TcpProxyListenPort:                node.TcpProxyListenPort,
+		TcpProxyTLSMode:                   node.TcpProxyTLSMode,
 		AdditionalGatewayEndpoints:        additionalEndpoints,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,

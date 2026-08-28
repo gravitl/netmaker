@@ -165,23 +165,18 @@ setup_netclient() {
 	fi
 }
 
+
+
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	# NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
-	# if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-	# 	echo "Error obtaining NODE_ID for the new network"
-	# 	exit 1
-	# fi
-	# echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
-		echo "Error obtaining HOST_ID for the new network"
-		exit 1
+		echo "Warning: could not obtain HOST_ID from netclient.json, skipping host/gateway configuration"
+		return
 	fi
-	echo "making host a default"
+	echo "making host a default and enabling TCP proxy"
 	echo "Host ID: $HOST_ID"
-	# set as a default host
 	set +e
 	GET_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 		-H "Authorization: Bearer ${MASTER_KEY}" \
@@ -189,25 +184,28 @@ configure_netclient() {
 	GET_HTTP_CODE=$(echo "$GET_RESPONSE" | tail -n1)
 	HOST_JSON=$(echo "$GET_RESPONSE" | head -n -1)
 	if [ "$GET_HTTP_CODE" != "200" ]; then
-		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping set default"
+		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping host/gateway configuration"
 	else
-		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq '.Response | .isdefault = true')
+		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq \
+			--arg host "default-gateway.${NETMAKER_BASE_DOMAIN}" \
+			'.Response
+			| .isdefault = true
+			| .tcp_proxy_enabled = true
+			| .tcp_proxy_listen_port = 6443
+			| .tcp_proxy_tls_mode = "proxy"
+			| .tcp_proxy_public_hostname = $host
+			| .tcp_proxy_cert_fingerprint = ""')
 		PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 			-H "Authorization: Bearer ${MASTER_KEY}" \
 			-H "Content-Type: application/json" \
 			-d "$UPDATED_HOST_JSON")
 		if [ "$PUT_HTTP_CODE" != "200" ]; then
-			echo "Warning: failed to set host as default (HTTP $PUT_HTTP_CODE), skipping"
+			echo "Warning: failed to update default host TCP proxy settings (HTTP $PUT_HTTP_CODE)"
+		else
+			echo "Default host and TCP proxy settings updated"
 		fi
 	fi
 	sleep 5
-	# nmctl node create_remote_access_gateway netmaker $NODE_ID
-	# sleep 2
-	# # set failover
-	# if [ "$INSTALL_TYPE" = "pro" ]; then
-	#     #setup failOver
-	# 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
-	# fi
 	set -e
 }
 
@@ -1209,11 +1207,11 @@ done
 
 	# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
 	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
-		echo "Skipping netclient setup and host configuration (reusing saved configuration)."
+		echo "Skipping netclient reinstall (reusing saved configuration)."
 	else
 		setup_netclient
-		configure_netclient
 	fi
+	configure_netclient
 
 	# 13. print success message
 	print_success

@@ -18,7 +18,8 @@ type IDandAddr struct {
 	ListenPort       int    `json:"listen_port" yaml:"listen_port"`
 	IsExtClient      bool   `json:"is_extclient"`
 	UserName         string `json:"username"`
-	TcpProxyEndpoint string `json:"tcp_proxy_endpoint,omitempty"` // host:port when peer is a TCP-enabled gateway
+	TcpProxyEndpoint string `json:"tcp_proxy_endpoint,omitempty"` // wss://host:port/uplink/v1 when peer is a TCP-enabled gateway
+	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty"`
 }
 
 // HostInfoMap - map of host public keys to host networking info
@@ -33,6 +34,10 @@ type HostNetworkInfo struct {
 	Version            string         `json:"version"`
 	TcpProxyEnabled    bool           `json:"tcp_proxy_enabled,omitempty"`
 	TcpProxyListenPort int            `json:"tcp_proxy_listen_port,omitempty"`
+	TcpProxyTLSMode    string         `json:"tcp_proxy_tls_mode,omitempty"`
+	TcpProxyListenAddr     string         `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string         `json:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string    `json:"tcp_proxy_cert_fingerprint,omitempty"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics

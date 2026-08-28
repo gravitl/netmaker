@@ -26,6 +26,10 @@ type ApiHost struct {
 	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
 	TcpProxyEnabled     bool       `json:"tcp_proxy_enabled"`
 	TcpProxyListenPort  int        `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode     string     `json:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr     string     `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string     `json:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty"`
 	MTU                 int        `json:"mtu"                   yaml:"mtu"`
 	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
 	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
@@ -90,6 +94,10 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.WgPublicListenPort = h.WgPublicListenPort
 	a.TcpProxyEnabled = h.TcpProxyEnabled
 	a.TcpProxyListenPort = h.TcpProxyListenPort
+	a.TcpProxyTLSMode = h.TcpProxyTLSMode
+	a.TcpProxyListenAddr = h.TcpProxyListenAddr
+	a.TcpProxyPublicHostname = h.TcpProxyPublicHostname
+	a.TcpProxyCertFingerprint = h.TcpProxyCertFingerprint
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
@@ -155,8 +163,24 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
-	h.TcpProxyEnabled = currentHost.TcpProxyEnabled
-	h.TcpProxyListenPort = currentHost.TcpProxyListenPort
+	h.TcpProxyEnabled = a.TcpProxyEnabled
+	h.TcpProxyListenPort = a.TcpProxyListenPort
+	if mode, err := schema.NormaliseTcpProxyTLSMode(a.TcpProxyTLSMode); err == nil {
+		h.TcpProxyTLSMode = mode
+	} else {
+		h.TcpProxyTLSMode = currentHost.TcpProxyTLSMode
+	}
+	h.TcpProxyListenAddr = a.TcpProxyListenAddr
+	if hn, err := schema.NormaliseTcpProxyPublicHostname(a.TcpProxyPublicHostname); err == nil {
+		h.TcpProxyPublicHostname = hn
+	} else {
+		h.TcpProxyPublicHostname = currentHost.TcpProxyPublicHostname
+	}
+	if h.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
+		h.TcpProxyCertFingerprint = ""
+	} else {
+		h.TcpProxyCertFingerprint = currentHost.TcpProxyCertFingerprint
+	}
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
 	h.EntraDeviceID = currentHost.EntraDeviceID

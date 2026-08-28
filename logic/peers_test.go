@@ -273,3 +273,52 @@ func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
 	assert.True(t, hasOverlay, "exit client's overlay IP should appear on peers' wg AllowedIPs")
 	assert.True(t, hasLAN, "exit client's egress range should appear on peers' wg AllowedIPs when exit is not a GW")
 }
+
+func TestTcpProxyEndpointForPeerProxyModeUsesPublic443(t *testing.T) {
+	gwIP := net.ParseIP("203.0.113.10")
+	clientIP := net.ParseIP("198.51.100.20")
+	peer := &models.Node{
+		CommonNode: models.CommonNode{
+			IsGw:               true,
+			TcpProxyEnabled:    true,
+			TcpProxyListenPort: 51822,
+			TcpProxyTLSMode:    schema.TcpProxyTLSModeProxy,
+		},
+	}
+	peerHost := &schema.Host{
+		TcpProxyEnabled:    true,
+		TcpProxyListenPort: 51822,
+		TcpProxyTLSMode:    schema.TcpProxyTLSModeProxy,
+		EndpointIP:         gwIP,
+	}
+	clientHost := &schema.Host{EndpointIP: clientIP}
+
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "")
+	got := tcpProxyEndpointForPeer(peer, peerHost, clientHost)
+	want := "wss://203.0.113.10:443/uplink/v1"
+	assert.Equal(t, want, got)
+
+	peerHost.TcpProxyPublicHostname = "gateway.example.com"
+	got = tcpProxyEndpointForPeer(peer, peerHost, clientHost)
+	want = "wss://gateway.example.com:443/uplink/v1"
+	assert.Equal(t, want, got)
+
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "8443")
+	got = tcpProxyEndpointForPeer(peer, peerHost, clientHost)
+	want = "wss://gateway.example.com:8443/uplink/v1"
+	assert.Equal(t, want, got)
+
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "")
+	peerHost.TcpProxyPublicHostname = ""
+	peerHost.TcpProxyTLSMode = schema.TcpProxyTLSModeSelfSigned
+	peer.TcpProxyTLSMode = schema.TcpProxyTLSModeSelfSigned
+	got = tcpProxyEndpointForPeer(peer, peerHost, clientHost)
+	want = "wss://203.0.113.10:51822/uplink/v1"
+	assert.Equal(t, want, got)
+
+	assert.Empty(t, tcpProxyCertFingerprintForPeer(peer, &schema.Host{
+		TcpProxyEnabled:         true,
+		TcpProxyTLSMode:         schema.TcpProxyTLSModeProxy,
+		TcpProxyCertFingerprint: "abc",
+	}))
+}
