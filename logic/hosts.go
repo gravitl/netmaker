@@ -217,7 +217,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
-	newHost.WgPublicListenPort = currentHost.WgPublicListenPort
+	// WgPublicListenPort is already resolved in ConvertAPIHostToNMHost (clear on
+	// listen-port change / dynamic flip, or track ListenPort when static).
+	if newHost.IsStaticPort {
+		newHost.WgPublicListenPort = newHost.ListenPort
+	}
 
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
