@@ -234,10 +234,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 				return err
 			}
 		}
-		node.TcpProxyEnabled = true
-		node.TcpProxyListenPort = listenPort
-		node.TcpProxyTLSMode = tlsMode
-		// Listen is host-level; keep node fields synced for API/UI.
+		// Listen is host-level only.
 		if node.Host != nil {
 			node.Host.TcpProxyEnabled = true
 			node.Host.TcpProxyListenPort = listenPort

@@ -705,28 +705,42 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 			IsRelay:           _node.IsGateway,
 			IsGw:              _node.IsGateway,
 			AutoAssignGateway: _node.AutoAssignGateway,
-			TcpProxyEnabled:   _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled,
+			// TCP proxy listen settings live on the host; surface on the node API for UI/clients.
+			TcpProxyEnabled: _node.Host != nil && _node.Host.TcpProxyEnabled,
 			TcpProxyListenPort: func() int {
+				if _node.Host == nil {
+					return 0
+				}
 				if _node.Host.TcpProxyListenPort > 0 {
 					return _node.Host.TcpProxyListenPort
 				}
-				return _node.TcpProxyListenPort
+				if _node.Host.TcpProxyEnabled {
+					return schema.DefaultTcpProxyListenPort
+				}
+				return 0
 			}(),
 			TcpProxyTLSMode: func() string {
+				if _node.Host == nil || !_node.Host.TcpProxyEnabled {
+					return ""
+				}
 				if _node.Host.TcpProxyTLSMode != "" {
 					return _node.Host.TcpProxyTLSMode
 				}
-				if _node.TcpProxyTLSMode != "" {
-					return _node.TcpProxyTLSMode
-				}
-				if _node.TcpProxyEnabled || _node.Host.TcpProxyEnabled {
-					return schema.TcpProxyTLSModeSelfSigned
+				return schema.TcpProxyTLSModeSelfSigned
+			}(),
+			TcpProxyListenAddr: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyListenAddr
 				}
 				return ""
 			}(),
-			TcpProxyListenAddr:     _node.Host.TcpProxyListenAddr,
-			TcpProxyPublicHostname: _node.Host.TcpProxyPublicHostname,
-			UseTcpUplink:           _node.UseTcpUplink,
+			TcpProxyPublicHostname: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyPublicHostname
+				}
+				return ""
+			}(),
+			UseTcpUplink: _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,
@@ -893,9 +907,6 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		IsGateway:                         node.IsGw,
 		IsAutoRelay:                       isAutoRelay,
 		IsInternetGateway:                 node.IsGw && node.IsInternetGateway,
-		TcpProxyEnabled:                   node.TcpProxyEnabled,
-		TcpProxyListenPort:                node.TcpProxyListenPort,
-		TcpProxyTLSMode:                   node.TcpProxyTLSMode,
 		AdditionalGatewayEndpoints:        additionalEndpoints,
 		RelayedClients:                    relayedClients,
 		RelayedIGWClients:                 relayedIGWClients,

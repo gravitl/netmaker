@@ -610,9 +610,6 @@ func errTcpUplinkRequiresProxy(ctx context.Context, routingNodeID string) error 
 	if err != nil {
 		return errors.New("internet egress has no routing node")
 	}
-	if rn.TcpProxyEnabled {
-		return nil
-	}
 	rh := &schema.Host{ID: rn.HostID}
 	if err := rh.Get(ctx); err == nil && rh.TcpProxyEnabled {
 		return nil
