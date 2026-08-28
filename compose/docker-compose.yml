@@ -2,7 +2,7 @@ services:
 
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:$SERVER_IMAGE_TAG
+    image: abhi9686/netmaker:NM-295
     env_file: ./netmaker.env
     restart: always
     volumes:
@@ -26,7 +26,7 @@ services:
 
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:$UI_IMAGE_TAG
+    image: gravitl/netmaker-ui:v1.6.0
     env_file: ./netmaker.env
     environment:
       # config-dependant vars
