@@ -36,14 +36,16 @@ unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
 INSTALL_MONITORING="${INSTALL_MONITORING:-off}"
+INSTALL_MSP="${INSTALL_MSP:-off}"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-c]"
+	echo "usage: ./nm-quick.sh [-c] [-p] [-m] [-s]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter); requires at least 2 GB RAM and 2 vCPUs"
 	echo "      with an existing install, -m alone only adds monitoring; use -p -m for a full Pro+monitoring re-install"
+	echo " -s  MSP / server-only install: skip nmctl setup, default mesh enrollment, and netclient on this host"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
@@ -105,6 +107,9 @@ set_buildinfo() {
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
 	echo "   Installer: v$NM_QUICK_VERSION"
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "   MSP mode:  server-only (no nmctl / netclient on this host)"
+	fi
 	echo "-----------------------------------------------------"
 
 }
@@ -881,6 +886,10 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network (skip when reusing saved config)
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP install: skipping netclient cleanup on this host."
+		return
+	fi
 	if [ "${REUSE_EXISTING_CONFIG:-0}" -eq 1 ]; then
 		echo "Keeping existing netclient registration (reusing saved configuration)."
 	else
@@ -1082,7 +1091,7 @@ main (){
 	OPTIND=1
 	HAS_P=0
 	HAS_M=0
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 		case "${flag}" in
 		p) HAS_P=1 ;;
 		m) HAS_M=1 ;;
@@ -1096,7 +1105,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -1118,6 +1127,10 @@ main (){
 		echo "installing pro version..."
 		INSTALL_TYPE="pro"
 		COLLECT_PRO_VARS="true"
+		;;
+	s)
+		echo "MSP server-only install: will skip nmctl, mesh enrollment, and netclient on this host."
+		INSTALL_MSP="on"
 		;;
 	m)
 		if [ -f "$INSTALL_DIR/$CONFIG_FILE" ] || [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
@@ -1197,21 +1210,27 @@ done
 	# 8. make sure Caddy certs are working
 	test_connection
 
-	# 9. install the netmaker CLI
-	setup_nmctl
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP server-only install: skipping nmctl, default mesh setup, and netclient."
+	else
+		# 9. install the netmaker CLI
+		setup_nmctl
 
-	# 10. create a default mesh network for netmaker
-	setup_mesh
+		# 10. create a default mesh network for netmaker
+		setup_mesh
+
+		set -e
+
+		# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
+		if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
+			echo "Skipping netclient reinstall (reusing saved configuration)."
+		else
+			setup_netclient
+		fi
+		configure_netclient
+	fi
 
 	set -e
-
-	# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
-	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
-		echo "Skipping netclient reinstall (reusing saved configuration)."
-	else
-		setup_netclient
-	fi
-	configure_netclient
 
 	# 13. print success message
 	print_success
