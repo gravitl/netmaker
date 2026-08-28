@@ -45,6 +45,6 @@ broker.{$NM_DOMAIN} {
 }
 
 
-# default-gateway.{$NM_DOMAIN} {
-#     reverse_proxy /uplink/v1 host.docker.internal:6443
-# }
+default-gateway.{$NM_DOMAIN} {
+    reverse_proxy /uplink/v1 host.docker.internal:6443
+}

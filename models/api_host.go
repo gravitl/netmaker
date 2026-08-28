@@ -163,12 +163,24 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
-	h.TcpProxyEnabled = currentHost.TcpProxyEnabled
-	h.TcpProxyListenPort = currentHost.TcpProxyListenPort
-	h.TcpProxyTLSMode = currentHost.TcpProxyTLSMode
-	h.TcpProxyListenAddr = currentHost.TcpProxyListenAddr
-	h.TcpProxyPublicHostname = currentHost.TcpProxyPublicHostname
-	h.TcpProxyCertFingerprint = currentHost.TcpProxyCertFingerprint
+	h.TcpProxyEnabled = a.TcpProxyEnabled
+	h.TcpProxyListenPort = a.TcpProxyListenPort
+	if mode, err := schema.NormaliseTcpProxyTLSMode(a.TcpProxyTLSMode); err == nil {
+		h.TcpProxyTLSMode = mode
+	} else {
+		h.TcpProxyTLSMode = currentHost.TcpProxyTLSMode
+	}
+	h.TcpProxyListenAddr = a.TcpProxyListenAddr
+	if hn, err := schema.NormaliseTcpProxyPublicHostname(a.TcpProxyPublicHostname); err == nil {
+		h.TcpProxyPublicHostname = hn
+	} else {
+		h.TcpProxyPublicHostname = currentHost.TcpProxyPublicHostname
+	}
+	if h.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
+		h.TcpProxyCertFingerprint = ""
+	} else {
+		h.TcpProxyCertFingerprint = currentHost.TcpProxyCertFingerprint
+	}
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
 	h.EntraDeviceID = currentHost.EntraDeviceID
