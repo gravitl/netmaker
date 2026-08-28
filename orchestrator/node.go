@@ -223,12 +223,27 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		if listenPort <= 0 {
 			listenPort = schema.DefaultTcpProxyListenPort
 		}
+		tlsMode, err := schema.NormaliseTcpProxyTLSMode(ops.tcpProxyTLSMode)
+		if err != nil {
+			return err
+		}
+		publicHostname := ""
+		if tlsMode == schema.TcpProxyTLSModeProxy {
+			publicHostname, err = schema.NormaliseTcpProxyPublicHostname(ops.tcpProxyPublicHostname)
+			if err != nil {
+				return err
+			}
+		}
 		node.TcpProxyEnabled = true
 		node.TcpProxyListenPort = listenPort
+		node.TcpProxyTLSMode = tlsMode
 		// Listen is host-level; keep node fields synced for API/UI.
 		if node.Host != nil {
 			node.Host.TcpProxyEnabled = true
 			node.Host.TcpProxyListenPort = listenPort
+			node.Host.TcpProxyTLSMode = tlsMode
+			node.Host.TcpProxyListenAddr = ops.tcpProxyListenAddr
+			node.Host.TcpProxyPublicHostname = publicHostname
 			if err := node.Host.SetTcpProxy(ctx); err != nil {
 				return err
 			}
@@ -239,6 +254,9 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 				if err := host.Get(ctx); err == nil {
 					host.TcpProxyEnabled = true
 					host.TcpProxyListenPort = listenPort
+					host.TcpProxyTLSMode = tlsMode
+					host.TcpProxyListenAddr = ops.tcpProxyListenAddr
+					host.TcpProxyPublicHostname = publicHostname
 					_ = host.SetTcpProxy(ctx)
 				}
 			}

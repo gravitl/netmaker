@@ -557,16 +557,20 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			// pass network="" (all networks on the host); only then include every network's peers.
 			if (network == "" || node.Network == network) && !peerConfig.Remove && len(peerConfig.AllowedIPs) > 0 {
 				ida := models.IDandAddr{
-					ID:               peer.ID.String(),
-					HostID:           peerHost.ID.String(),
-					Address:          peer.PrimaryAddress(),
-					Name:             peerHost.Name,
-					Network:          peer.Network,
-					ListenPort:       peerHost.ListenPort,
-					TcpProxyEndpoint: tcpProxyEndpointForPeer(&peer, peerHost, host),
+					ID:                      peer.ID.String(),
+					HostID:                  peerHost.ID.String(),
+					Address:                 peer.PrimaryAddress(),
+					Name:                    peerHost.Name,
+					Network:                 peer.Network,
+					ListenPort:              peerHost.ListenPort,
+					TcpProxyEndpoint:        tcpProxyEndpointForPeer(&peer, peerHost, host),
+					TcpProxyCertFingerprint: tcpProxyCertFingerprintForPeer(&peer, peerHost),
 				}
 				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyEndpoint == "" && prev.TcpProxyEndpoint != "" {
 					ida.TcpProxyEndpoint = prev.TcpProxyEndpoint
+				}
+				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyCertFingerprint == "" && prev.TcpProxyCertFingerprint != "" {
+					ida.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
 				}
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = ida
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
@@ -840,10 +844,30 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		if info.TcpProxyListenPort <= 0 {
 			info.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 		}
+		info.TcpProxyTLSMode = peerHost.TcpProxyTLSMode
+		if info.TcpProxyTLSMode == "" {
+			info.TcpProxyTLSMode = peer.TcpProxyTLSMode
+		}
+		if info.TcpProxyTLSMode == "" {
+			info.TcpProxyTLSMode = schema.TcpProxyTLSModeSelfSigned
+		}
+		info.TcpProxyListenAddr = peerHost.TcpProxyListenAddr
+		info.TcpProxyPublicHostname = peerHost.TcpProxyPublicHostname
+		// External termination uses the reverse-proxy cert; do not publish a
+		// (possibly stale) self-signed fingerprint to clients.
+		if info.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = peerHost.TcpProxyCertFingerprint
+		}
 	} else if prev != nil && prev.TcpProxyEnabled {
 		// Preserve TCP settings from another network's gateway node on the same host.
 		info.TcpProxyEnabled = prev.TcpProxyEnabled
 		info.TcpProxyListenPort = prev.TcpProxyListenPort
+		info.TcpProxyTLSMode = prev.TcpProxyTLSMode
+		info.TcpProxyListenAddr = prev.TcpProxyListenAddr
+		info.TcpProxyPublicHostname = prev.TcpProxyPublicHostname
+		if prev.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
+		}
 	}
 	return info
 }
@@ -856,23 +880,66 @@ func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHos
 	if !tcpEnabled {
 		return ""
 	}
-	port := peerHost.TcpProxyListenPort
-	if port <= 0 {
-		port = peer.TcpProxyListenPort
+	tlsMode := peerHost.TcpProxyTLSMode
+	if tlsMode == "" {
+		tlsMode = peer.TcpProxyTLSMode
 	}
-	if port <= 0 {
-		port = schema.DefaultTcpProxyListenPort
+	tlsMode, _ = schema.NormaliseTcpProxyTLSMode(tlsMode)
+
+	// External termination: clients dial the public reverse-proxy port
+	// (default 443, overridable via TCP_PROXY_PUBLIC_PORT), not the backend
+	// listen port behind Caddy/nginx/etc.
+	port := servercfg.GetTcpProxyPublicPort()
+	if tlsMode != schema.TcpProxyTLSModeProxy {
+		port = peerHost.TcpProxyListenPort
+		if port <= 0 {
+			port = peer.TcpProxyListenPort
+		}
+		if port <= 0 {
+			port = schema.DefaultTcpProxyListenPort
+		}
 	}
-	var ip net.IP
-	if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
-		ip = peerHost.EndpointIP
-	} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
-		ip = peerHost.EndpointIPv6
+
+	hostPart := ""
+	if tlsMode == schema.TcpProxyTLSModeProxy {
+		if hn, err := schema.NormaliseTcpProxyPublicHostname(peerHost.TcpProxyPublicHostname); err == nil && hn != "" {
+			hostPart = hn
+		}
 	}
-	if ip == nil {
+	if hostPart == "" {
+		var ip net.IP
+		if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
+			ip = peerHost.EndpointIP
+		} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
+			ip = peerHost.EndpointIPv6
+		}
+		if ip == nil {
+			return ""
+		}
+		hostPart = ip.String()
+	}
+	return fmt.Sprintf("wss://%s/uplink/v1", net.JoinHostPort(hostPart, strconv.Itoa(port)))
+}
+
+func tcpProxyCertFingerprintForPeer(peer *models.Node, peerHost *schema.Host) string {
+	if peer == nil || peerHost == nil || !peer.IsGw {
 		return ""
 	}
-	return net.JoinHostPort(ip.String(), strconv.Itoa(port))
+	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
+	if !tcpEnabled {
+		return ""
+	}
+	tlsMode := peerHost.TcpProxyTLSMode
+	if tlsMode == "" {
+		tlsMode = peer.TcpProxyTLSMode
+	}
+	tlsMode, _ = schema.NormaliseTcpProxyTLSMode(tlsMode)
+	// External termination uses the reverse-proxy's public cert; do not pin the
+	// gateway's (possibly stale) self-signed fingerprint.
+	if tlsMode == schema.TcpProxyTLSModeProxy {
+		return ""
+	}
+	return peerHost.TcpProxyCertFingerprint
 }
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {

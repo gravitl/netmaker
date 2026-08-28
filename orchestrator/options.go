@@ -13,6 +13,9 @@ type Options struct {
 	igwClients            []string
 	tcpProxyEnabled       bool
 	tcpProxyListenPort    int
+	tcpProxyTLSMode       string
+	tcpProxyListenAddr    string
+	tcpProxyPublicHostname string
 	setTcpProxy           bool
 	inheritedAuth         bool
 	replicatedAuth        bool
@@ -73,11 +76,16 @@ func WithInternetGateway(igwClients []string) Option {
 }
 
 // WithTcpProxy enables TCP proxy listen settings when creating a gateway.
-func WithTcpProxy(enabled bool, listenPort int) Option {
+// tlsMode may be empty (defaults to selfsigned). listenAddr is optional (e.g. 127.0.0.1).
+// publicHostname is used when tlsMode is proxy (clients dial this DNS name).
+func WithTcpProxy(enabled bool, listenPort int, tlsMode, listenAddr, publicHostname string) Option {
 	return func(o *Options) *Options {
 		o.setTcpProxy = true
 		o.tcpProxyEnabled = enabled
 		o.tcpProxyListenPort = listenPort
+		o.tcpProxyTLSMode = tlsMode
+		o.tcpProxyListenAddr = listenAddr
+		o.tcpProxyPublicHostname = publicHostname
 		return o
 	}
 }

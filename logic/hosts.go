@@ -335,6 +335,12 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 		sendPeerUpdate = true
 		peerUpdateReasons = append(peerUpdateReasons, "nat_type")
 	}
+	// Gateway reports self-signed uplink cert fingerprint after LoadOrCreateServerTLS.
+	if newHost.TcpProxyCertFingerprint != "" && newHost.TcpProxyCertFingerprint != currHost.TcpProxyCertFingerprint {
+		currHost.TcpProxyCertFingerprint = newHost.TcpProxyCertFingerprint
+		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "tcp_proxy_cert_fingerprint")
+	}
 
 	if sendPeerUpdate {
 		slog.Debug("UpdateHostFromClient: sendPeerUpdate",
