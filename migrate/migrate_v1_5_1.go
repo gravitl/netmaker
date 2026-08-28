@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -64,16 +63,6 @@ func migrateUsers(ctx context.Context) error {
 		return nil
 	}
 
-	defaultOrg, err := logic.SoleOrganization(ctx)
-	if err != nil {
-		return err
-	}
-
-	defaultTenant, err := logic.SoleTenant(ctx)
-	if err != nil {
-		return err
-	}
-
 	for _, record := range records {
 		var user models.User
 		err = json.Unmarshal([]byte(record), &user)
@@ -99,19 +88,13 @@ func migrateUsers(ctx context.Context) error {
 		groups := datatypes.NewJSONType(user.UserGroups)
 
 		_user := &schema.User{
-			ID:                         "",
-			Username:                   user.UserName,
-			DisplayName:                user.DisplayName,
-			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-			AccountDisabled:            user.AccountDisabled,
-			AuthType:                   user.AuthType,
-			Password:                   user.Password,
-			IsMFAEnabled:               user.IsMFAEnabled,
-			TOTPSecret:                 user.TOTPSecret,
-			LastLoginAt:                user.LastLoginTime,
-			CreatedBy:                  user.CreatedBy,
-			CreatedAt:                  user.CreatedAt,
-			UpdatedAt:                  user.UpdatedAt,
+			ID:          "",
+			Username:    user.UserName,
+			DisplayName: user.DisplayName,
+			LastLoginAt: user.LastLoginTime,
+			CreatedBy:   user.CreatedBy,
+			CreatedAt:   user.CreatedAt,
+			UpdatedAt:   user.UpdatedAt,
 		}
 
 		logger.Log(4, fmt.Sprintf("migrating user %s", _user.Username))
@@ -121,39 +104,10 @@ func migrateUsers(ctx context.Context) error {
 			return err
 		}
 
-		tm := &schema.TenantMembership{
-			TenantID:                   defaultTenant.ID,
-			UserID:                     _user.ID,
-			RoleID:                     platformRoleID,
-			Groups:                     groups,
-			AuthType:                   user.AuthType,
-			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-			Password:                   user.Password,
-			AccountDisabled:            user.AccountDisabled,
-			IsMFAEnabled:               user.IsMFAEnabled,
-			TOTPSecret:                 user.TOTPSecret,
-		}
-		err = tm.Create(ctx)
+		// Role/group/auth data stays on users_v1 until v1.7.0 createMemberships moves it.
+		err = upsertLegacyUserAuth(ctx, _user.ID, user, platformRoleID, groups)
 		if err != nil {
 			return err
-		}
-
-		if platformRoleID == schema.SuperAdminRole {
-			om := &schema.OrgMembership{
-				OrganizationID:             defaultOrg.ID,
-				UserID:                     _user.ID,
-				RoleID:                     schema.OrgOwner,
-				AuthType:                   user.AuthType,
-				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-				Password:                   user.Password,
-				AccountDisabled:            user.AccountDisabled,
-				IsMFAEnabled:               user.IsMFAEnabled,
-				TOTPSecret:                 user.TOTPSecret,
-			}
-			err = om.Create(ctx)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

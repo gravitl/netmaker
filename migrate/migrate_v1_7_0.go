@@ -34,6 +34,12 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
+	// Step 0: ensure default org + tenant exist (was migration-multitenancy).
+	// CreateLocalDefaults is idempotent — safe when migration-multitenancy already ran.
+	if err := CreateLocalDefaults(ctx); err != nil {
+		return err
+	}
+
 	err := migrateServerConf(ctx)
 	if err != nil {
 		return err

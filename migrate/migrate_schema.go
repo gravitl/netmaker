@@ -13,34 +13,31 @@ import (
 
 type migrationFunc func(ctx context.Context) error
 
-// ToSQLSchema migrates the data from key-value
-// db to sql db.
+// ToSQLSchema migrates the data from key-value db to sql db.
+//
+// Migration order:
+//   - v1.5.1: users, networks, roles, groups, hosts (pre-MT)
+//   - v1.6.0: pending users, invites, nodes (pre-MT)
+//   - v1.7.0: MT bootstrap (default org/tenant), server conf, memberships, tenant IDs, ...
+//
+// The legacy migration-multitenancy job is folded into v1.7.0 step 0. Existing
+// deployments that already completed migration-multitenancy keep that job row;
+// CreateLocalDefaults is a no-op when org/tenant already exist.
 func ToSQLSchema() error {
-	// multitenancy migration creates the default organization and tenant. this is
-	// done separately from v1.7.0 migration because user role and group info has
-	// been dropped from the users table in v1.7.0. if a tenant is migrated from v1.5.0
-	// to v1.7.0, this info won't be available.
-	err := ensureMigrationCompleted(context.TODO(), "migration-multitenancy", migrateMultiTenancy)
-	if err != nil {
-		return err
-	}
-
 	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	err = ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
+	err := ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
 	if err != nil {
 		return err
 	}
 
-	// v1.6.0 migration includes migrating the pending users and user invites tables.
+	// v1.6.0 migration includes migrating the pending users, user invites and nodes tables.
 	err = ensureMigrationCompleted(context.TODO(), "migration-v1.6.0", migrateV1_6_0)
 	if err != nil {
 		return err
 	}
 
-	// v1.7.0 migration includes migrating the server conf, generated, server uuid and
-	// enrollment key tables.
-	// this version also includes changes for multi-tenancy and so this job
-	// assigns the tenant id to all the existing records.
+	// v1.7.0 bootstraps multi-tenancy and migrates server conf, generated, server uuid,
+	// enrollment keys, memberships, and assigns tenant IDs to existing records.
 	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0", migrateV1_7_0)
 	if err != nil {
 		return err
