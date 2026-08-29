@@ -43,7 +43,7 @@ func getPublicIP(w http.ResponseWriter, r *http.Request) {
 
 func parseIP(r *http.Request) (string, error) {
 	// Get Public IP from header
-	ip := r.Header.Get("X-REAL-IP")
+	ip := strings.TrimSpace(r.Header.Get("X-REAL-IP"))
 	ipnet := net.ParseIP(ip)
 	if ipnet != nil && !ncutils.IpIsPrivate(ipnet) {
 		return ip, nil
@@ -53,6 +53,7 @@ func parseIP(r *http.Request) (string, error) {
 	forwardips := r.Header.Get("X-FORWARDED-FOR")
 	iplist := strings.Split(forwardips, ",")
 	for _, ip := range iplist {
+		ip = strings.TrimSpace(ip)
 		ipnet := net.ParseIP(ip)
 		if ipnet != nil && !ncutils.IpIsPrivate(ipnet) {
 			return ip, nil
