@@ -26,7 +26,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.14.0
+	github.com/posthog/posthog-go v1.23.1
 )
 
 require (
@@ -75,7 +75,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
 	github.com/googleapis/gax-go/v2 v2.18.0 // indirect
