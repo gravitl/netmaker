@@ -25,17 +25,11 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 	}
 	if routingNodeID != "" {
 		if rn, err := GetNodeByID(routingNodeID); err == nil {
-			item.TcpProxyEnabled = rn.TcpProxyEnabled
-			item.TcpProxyListenPort = rn.TcpProxyListenPort
 			rh := &schema.Host{ID: rn.HostID}
 			if err := rh.Get(db.WithContext(ctx)); err == nil {
 				item.RoutingHostName = rh.Name
-				if rh.TcpProxyEnabled {
-					item.TcpProxyEnabled = true
-				}
-				if rh.TcpProxyListenPort > 0 {
-					item.TcpProxyListenPort = rh.TcpProxyListenPort
-				}
+				item.TcpProxyEnabled = rh.TcpProxyEnabled
+				item.TcpProxyListenPort = rh.TcpProxyListenPort
 			}
 			if item.TcpProxyEnabled && item.TcpProxyListenPort <= 0 {
 				item.TcpProxyListenPort = schema.DefaultTcpProxyListenPort

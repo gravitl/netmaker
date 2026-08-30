@@ -74,7 +74,10 @@ func storeExtClientInCache(ctx context.Context, key string, extclient models.Ext
 	getTenantExtClientCache(scope.ID(ctx)).Store(key, extclient)
 }
 
-// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
+// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client.
+// Internet egress (0.0.0.0/0, ::/0) is excluded here: full-tunnel is opt-in via
+// SelectedInternetEgressID and is applied only by ExtClientUsesInternetEgress /
+// GetExtclientAllowedIPs (and the matching config-file path).
 func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]string, error) {
 
 	var result []string
@@ -87,16 +90,18 @@ func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]
 		if !eI.Status {
 			continue
 		}
-		if !IsDomainBasedEgress(eI) && eI.Range == "" && !IsEgressInternetGateway(eI) {
+		// Full-tunnel exit must not appear as a normal egress range in AllowedIPs.
+		if IsEgressInternetGateway(eI) {
+			continue
+		}
+		if !IsDomainBasedEgress(eI) && eI.Range == "" {
 			continue
 		}
 		if IsDomainBasedEgress(eI) && !HasEgressDomainAns(eI) {
 			continue
 		}
 		rangesToBeAdded := []string{}
-		if IsEgressInternetGateway(eI) {
-			rangesToBeAdded = append(rangesToBeAdded, ExpandEgressRouteRanges(eI, true)...)
-		} else if IsDomainBasedEgress(eI) {
+		if IsDomainBasedEgress(eI) {
 			rangesToBeAdded = append(rangesToBeAdded, AllDomainAnsFromEgress(eI)...)
 		} else {
 			// Use virtual NAT range if enabled, otherwise use original range

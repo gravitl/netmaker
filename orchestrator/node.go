@@ -156,7 +156,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	go func(ctx context.Context) {
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(ctx, modelsNode), schema.NetworkID(node.Network.Name))
 		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
 		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -234,10 +234,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 				return err
 			}
 		}
-		node.TcpProxyEnabled = true
-		node.TcpProxyListenPort = listenPort
-		node.TcpProxyTLSMode = tlsMode
-		// Listen is host-level; keep node fields synced for API/UI.
+		// Listen is host-level only.
 		if node.Host != nil {
 			node.Host.TcpProxyEnabled = true
 			node.Host.TcpProxyListenPort = listenPort

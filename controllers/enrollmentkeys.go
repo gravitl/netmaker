@@ -69,36 +69,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]models.EnrollmentKey, 0, len(keys))
 	for _, key := range keys {
-		if len(key.Networks) == 0 {
-			key.Networks = make([]string, 0)
-		}
-
-		keyType := models.KeyType(key.Type)
-
-		var relay uuid.UUID
-		if key.GatewayID != nil {
-			relay, _ = uuid.Parse(*key.GatewayID)
-		}
-
-		var groups []models.TagID
-		for _, tag := range key.Tags {
-			groups = append(groups, models.TagID(tag))
-		}
-		resp = append(resp, models.EnrollmentKey{
-			Expiration:        key.Expiration,
-			UsesRemaining:     key.UsesRemaining,
-			Value:             key.Value,
-			Networks:          key.Networks,
-			Unlimited:         key.Unlimited,
-			Tags:              []string{key.Name},
-			Token:             key.Token,
-			Type:              keyType,
-			Relay:             relay,
-			Groups:            groups,
-			Default:           key.Default,
-			AutoEgress:        key.AutoEgress,
-			AutoAssignGateway: key.AutoAssignGateway,
-		})
+		resp = append(resp, logic.ModelsEnrollmentKeyFromSchema(key))
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
@@ -212,7 +183,7 @@ func getDefaultEnrollmentKeyForNetwork(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(2, r.Header.Get("user"), "fetched default enrollment key for network", network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(key)
+	_ = json.NewEncoder(w).Encode(logic.ModelsEnrollmentKeyFromSchema(*key))
 }
 
 // @Summary     Regenerate an enrollment key token
@@ -273,7 +244,7 @@ func regenerateEnrollmentKeyToken(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(2, r.Header.Get("user"), "regenerated enrollment key token", keyID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newKey)
+	_ = json.NewEncoder(w).Encode(logic.ModelsEnrollmentKeyFromSchema(*newKey))
 }
 
 // @Summary     Deletes an EnrollmentKey from Netmaker server
@@ -426,38 +397,9 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	if len(newKey.Networks) == 0 {
-		newKey.Networks = make([]string, 0)
-	}
-
-	keyType := models.KeyType(newKey.Type)
-
-	var relay uuid.UUID
-	if newKey.GatewayID != nil {
-		relay, _ = uuid.Parse(*newKey.GatewayID)
-	}
-
-	var groups []models.TagID
-	for _, tag := range newKey.Tags {
-		groups = append(groups, models.TagID(tag))
-	}
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(models.EnrollmentKey{
-		Expiration:        newKey.Expiration,
-		UsesRemaining:     newKey.UsesRemaining,
-		Value:             newKey.Value,
-		Networks:          newKey.Networks,
-		Unlimited:         newKey.Unlimited,
-		Tags:              []string{newKey.Name},
-		Token:             newKey.Token,
-		Type:              keyType,
-		Relay:             relay,
-		Groups:            groups,
-		Default:           newKey.Default,
-		AutoEgress:        newKey.AutoEgress,
-		AutoAssignGateway: newKey.AutoAssignGateway,
-	})
+	_ = json.NewEncoder(w).Encode(logic.ModelsEnrollmentKeyFromSchema(*newKey))
 }
 
 // @Summary     Updates an EnrollmentKey
@@ -525,7 +467,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	})
 	slog.Info("updated enrollment key", "id", keyId)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newKey)
+	_ = json.NewEncoder(w).Encode(logic.ModelsEnrollmentKeyFromSchema(*newKey))
 }
 
 // @Summary     Handles a Netclient registration with server and add nodes accordingly

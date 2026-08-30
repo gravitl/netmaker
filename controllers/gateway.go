@@ -28,7 +28,6 @@ import (
 func gwHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/tcp_proxy", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateGatewayTcpProxy)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(assignGw)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unassignGw)))).Methods(http.MethodPost)
 	// old relay handlers
@@ -249,20 +248,17 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		_node.RelayedClients = make(datatypes.JSONMap)
 		_node.RelayedIGWClients = make(datatypes.JSONMap)
 		_node.AdditionalGatewayEndpoints = make(datatypes.JSONSlice[string], 0)
-		_node.TcpProxyEnabled = false
-		_node.TcpProxyListenPort = 0
 		_ = _node.ResetGateway(r.Context())
-		// Clear host-level TCP proxy only if no other gateway on this host still has it enabled.
+		// Clear host-level TCP proxy only if this was the last gateway on the host.
 		if _node.HostID != "" {
 			if hostID, err := uuid.Parse(_node.HostID); err == nil {
 				other := &schema.Node{}
 				others, listErr := other.ListAll(r.Context(),
 					dbtypes.WithFilter("host_id", _node.HostID),
 					dbtypes.WithFilter("is_gateway", true),
-					dbtypes.WithFilter("tcp_proxy_enabled", true),
 				)
-				stillEnabled := listErr == nil && len(others) > 0
-				if !stillEnabled {
+				stillHasGateway := listErr == nil && len(others) > 0
+				if !stillHasGateway {
 					host := &schema.Host{ID: hostID}
 					if err := host.Get(r.Context()); err == nil {
 						host.TcpProxyEnabled = false
@@ -387,116 +383,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-}
-
-// @Summary     Update TCP proxy settings on a gateway
-// @Router      /api/nodes/{network}/{nodeid}/gateway/tcp_proxy [put]
-// @Tags        Gateways
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       network path string true "Network ID"
-// @Param       nodeid path string true "Gateway node ID"
-// @Param       body body models.TcpProxyReq true "TCP proxy settings"
-// @Success     200 {object} models.ApiNode
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func updateGatewayTcpProxy(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	nodeID := params["nodeid"]
-	networkName := params["network"]
-
-	node := &schema.Node{ID: nodeID}
-	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if node.Network.Name != networkName {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network url param does not match node network"), logic.BadReq))
-		return
-	}
-	if !node.IsGateway {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeID), logic.BadReq))
-		return
-	}
-
-	var req models.TcpProxyReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-
-	node.TcpProxyEnabled = req.Enabled
-	if req.Enabled {
-		node.TcpProxyListenPort = req.ListenPort
-		if node.TcpProxyListenPort <= 0 {
-			node.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
-		}
-		mode, err := schema.NormaliseTcpProxyTLSMode(req.TLSMode)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-			return
-		}
-		node.TcpProxyTLSMode = mode
-	} else {
-		node.TcpProxyListenPort = 0
-		node.TcpProxyTLSMode = ""
-		if err := db.FromContext(r.Context()).Model(&schema.Node{}).
-			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
-			Update("use_tcp_uplink", false).Error; err != nil {
-			slog.Error("failed to clear use_tcp_uplink on relayed clients after disabling TCP proxy", "gateway", node.ID, "error", err)
-		}
-	}
-
-	// Host is source of truth for listen; node fields stay synced for API/UI.
-	host := node.Host
-	if host == nil {
-		host = &schema.Host{ID: uuid.MustParse(node.HostID)}
-		if err := host.Get(r.Context()); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-	}
-	host.TcpProxyEnabled = node.TcpProxyEnabled
-	host.TcpProxyListenPort = node.TcpProxyListenPort
-	host.TcpProxyTLSMode = node.TcpProxyTLSMode
-	if req.Enabled {
-		host.TcpProxyListenAddr = req.ListenAddr
-		publicHostname := ""
-		if node.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
-			var err error
-			publicHostname, err = schema.NormaliseTcpProxyPublicHostname(req.PublicHostname)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-				return
-			}
-			// Drop any fingerprint left over from a prior selfsigned config.
-			host.TcpProxyCertFingerprint = ""
-		}
-		host.TcpProxyPublicHostname = publicHostname
-	} else {
-		host.TcpProxyListenAddr = ""
-		host.TcpProxyPublicHostname = ""
-		host.TcpProxyCertFingerprint = ""
-	}
-	if err := host.SetTcpProxy(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if err := node.SetTcpProxy(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
-	go func() {
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		_ = mq.PublishPeerUpdate(ctx, false)
-	}()
-
-	logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "updated gateway tcp proxy")
 }
 
 // @Summary     Assign a node to a gateway
@@ -633,7 +519,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 				_ = gwHost.Get(r.Context())
 			}
 		}
-		if !gwHost.TcpProxyEnabled && !gateway.TcpProxyEnabled {
+		if !gwHost.TcpProxyEnabled {
 			err = fmt.Errorf("gateway %s does not have TCP proxy enabled", gatewayID)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return

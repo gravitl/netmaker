@@ -144,7 +144,18 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.IsStaticPort = a.IsStaticPort
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.WgPublicListenPort = currentHost.WgPublicListenPort
+	// Public listen port is client/STUN-owned. On admin updates:
+	// - static port → public port tracks ListenPort
+	// - listen port changed or just switched to dynamic → clear so peers fall
+	//   back to ListenPort until netclient reports a fresh STUN mapping
+	// - otherwise preserve the last known STUN port
+	if a.IsStaticPort {
+		h.WgPublicListenPort = a.ListenPort
+	} else if a.ListenPort != currentHost.ListenPort || currentHost.IsStaticPort {
+		h.WgPublicListenPort = 0
+	} else {
+		h.WgPublicListenPort = currentHost.WgPublicListenPort
+	}
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey

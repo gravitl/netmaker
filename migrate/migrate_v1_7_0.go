@@ -352,7 +352,14 @@ func migrateServerSettings(ctx context.Context) error {
 	}
 
 	if legacyValue, ok := records[LegacyServerSettingsKey]; ok {
-		err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(legacyValue))
+		var legacySettings models.ServerSettings
+		err = json.Unmarshal([]byte(legacyValue), &legacySettings)
+		if err != nil {
+			return err
+		}
+
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, defaultTenant.ID)
+		err = logic.UpsertServerSettings(tenantCtx, legacySettings)
 		if err != nil {
 			return err
 		}

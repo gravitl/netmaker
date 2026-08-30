@@ -262,7 +262,8 @@ func ErrExitNodeBlocksGatewayOps(node *models.Node) error {
 	if node.SelectedInternetEgressID != "" {
 		return errors.New("node is using an exit node; gateway assignment is managed by the exit node")
 	}
-	if NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+	if NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 		return errors.New("exit node cannot use gateway or auto-assign gateway options")
 	}
 	return nil
@@ -326,11 +327,11 @@ func SyncClearedExitNodeFields(dst, src *models.Node) {
 }
 
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
-func NodeIsInternetEgressRouter(nodeID, network string) bool {
+func NodeIsInternetEgressRouter(ctx context.Context, nodeID, network string) bool {
 	if nodeID == "" || network == "" {
 		return false
 	}
-	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(ctx)
 	if err != nil {
 		return false
 	}
@@ -541,7 +542,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string, useTcpUpl
 		node,
 		schemaNode,
 		routingNodeID,
-		NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+		NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network),
 	); err != nil {
 		return err
 	}
@@ -608,9 +609,6 @@ func errTcpUplinkRequiresProxy(ctx context.Context, routingNodeID string) error 
 	rn, err := GetNodeByID(routingNodeID)
 	if err != nil {
 		return errors.New("internet egress has no routing node")
-	}
-	if rn.TcpProxyEnabled {
-		return nil
 	}
 	rh := &schema.Host{ID: rn.HostID}
 	if err := rh.Get(ctx); err == nil && rh.TcpProxyEnabled {
@@ -830,7 +828,7 @@ func DetachExitRoutingNode(ctx context.Context, node *models.Node) []models.Node
 	}
 	// List clients before mutating egress.Nodes so sticky selections are still found.
 	clients := ListExitClientsForRoutingNode(ctx, node.Network, node.ID.String())
-	if len(clients) == 0 && !IsInternetGw(*node) && !NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+	if len(clients) == 0 && !IsInternetGw(*node) && !NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 		return nil
 	}
 

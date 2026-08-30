@@ -79,7 +79,7 @@ func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) 
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
-		if relayedNode.IsInternetGateway || NodeIsInternetEgressRouter(relayedNode.ID.String(), relayedNode.Network) {
+		if relayedNode.IsInternetGateway || NodeIsInternetEgressRouter(ctx, relayedNode.ID.String(), relayedNode.Network) {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
 		// Exit clients are relayed only via exit-node selection (background AssignGateway).

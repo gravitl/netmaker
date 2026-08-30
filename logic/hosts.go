@@ -62,7 +62,7 @@ var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host,
 	}, network)
 }
 
-var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+var GetPostureCheckDeviceInfoByNode = func(ctx context.Context, node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
 }
 
@@ -101,9 +101,16 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 			continue
 		}
 
-		nodes := GetHostNodes(&host)
-		for _, node := range nodes {
-			getNodeCheckInStatus(&node, false)
+		for _, nodeID := range host.Nodes {
+			node := &schema.Node{
+				ID: nodeID,
+			}
+			err = node.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			GetNodeCheckInStatus(node)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -210,7 +217,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
-	newHost.WgPublicListenPort = currentHost.WgPublicListenPort
+	// WgPublicListenPort is already resolved in ConvertAPIHostToNMHost (clear on
+	// listen-port change / dynamic flip, or track ListenPort when static).
+	if newHost.IsStaticPort {
+		newHost.WgPublicListenPort = newHost.ListenPort
+	}
 
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
