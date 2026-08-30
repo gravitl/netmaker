@@ -225,6 +225,48 @@ func TestToSQLSchema_IdempotentRerun(t *testing.T) {
 	assert.Equal(t, firstMembershipCount, secondMembershipCount)
 }
 
+// TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook ensures v1.7.0 step 0 goes through
+// SyncOrgAndTenants (EE overrides this with license sync) rather than always
+// calling CreateLocalDefaults, which breaks MSP installs that need multiple
+// tenants from the account server.
+func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
+	ctx := setupMigrationTest(t)
+
+	orig := SyncOrgAndTenants
+	t.Cleanup(func() { SyncOrgAndTenants = orig })
+
+	called := false
+	SyncOrgAndTenants = func(ctx context.Context) error {
+		called = true
+		org := &schema.Organization{
+			ID:   "license-org-id",
+			Name: "msp-org",
+		}
+		require.NoError(t, org.Create(ctx))
+		for _, tenantID := range []string{"tenant-a", "tenant-b"} {
+			tenant := &schema.Tenant{
+				ID:             tenantID,
+				Name:           tenantID,
+				OrganizationID: org.ID,
+			}
+			require.NoError(t, orchestrator.GetRepository().TenantOrchestrator().CreateTenant(ctx, tenant))
+		}
+		return nil
+	}
+
+	require.NoError(t, migrateV1_7_0(ctx))
+	assert.True(t, called, "expected SyncOrgAndTenants hook to run")
+
+	tenants, err := (&schema.Tenant{}).List(ctx)
+	require.NoError(t, err)
+	require.Len(t, tenants, 2)
+
+	orgs, err := (&schema.Organization{}).ListAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, orgs, 1)
+	assert.Equal(t, "license-org-id", orgs[0].ID)
+}
+
 func TestMigrateV1_6_0_ResolvesNetworkByNameWithoutTenant(t *testing.T) {
 	ctx := setupMigrationTest(t)
 

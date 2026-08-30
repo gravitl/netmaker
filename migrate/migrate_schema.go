@@ -18,11 +18,14 @@ type migrationFunc func(ctx context.Context) error
 // Migration order:
 //   - v1.5.1: users, networks, roles, groups, hosts (pre-MT)
 //   - v1.6.0: pending users, invites, nodes (pre-MT)
-//   - v1.7.0: MT bootstrap (default org/tenant), server conf, memberships, tenant IDs, ...
+//   - v1.7.0: MT bootstrap via SyncOrgAndTenants, server conf, memberships, tenant IDs, ...
 //
-// The legacy migration-multitenancy job is folded into v1.7.0 step 0. Existing
-// deployments that already completed migration-multitenancy keep that job row;
-// CreateLocalDefaults is a no-op when org/tenant already exist.
+// The legacy migration-multitenancy job is folded into v1.7.0 step 0.
+// SyncOrgAndTenants defaults to CreateLocalDefaults (CE); EE overrides it with
+// license.SyncOrgAndTenants so MSP installs create tenants from the account
+// server instead of a local UUID default. Existing deployments that already
+// completed migration-multitenancy keep that job row; bootstrap is idempotent
+// when org/tenant already exist.
 func ToSQLSchema() error {
 	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
 	err := ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)

@@ -34,9 +34,11 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
-	// Step 0: ensure default org + tenant exist (was migration-multitenancy).
-	// CreateLocalDefaults is idempotent — safe when migration-multitenancy already ran.
-	if err := CreateLocalDefaults(ctx); err != nil {
+	// Step 0: bootstrap org/tenants (was migration-multitenancy).
+	// Goes through SyncOrgAndTenants so EE/MSP can sync from license validation
+	// instead of always creating a local UUID default tenant. CE keeps the
+	// CreateLocalDefaults default; idempotent when org/tenant already exist.
+	if err := SyncOrgAndTenants(ctx); err != nil {
 		return err
 	}
 
