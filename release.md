@@ -1,75 +1,63 @@
-# Netmaker v1.6.0 Release Notes 🚀
+# Netmaker v1.7.0 Release Notes 🚀
 
 ## 🚀 What’s New
 
-### 🔁 Site-to-Site ACLs (Beta)
+### 🏢 Multi-Tenancy for MSPs (Organizations & Tenants)
 
-Define ACL policies that permit traffic between egress endpoints across networks.
+Run multiple customer environments from a single Netmaker server.
 
-- Build site-to-site rules between egress resources on different networks.
-- Combine egress resources, nodes, and specific IPs in a single policy.
-- Site-to-site rules are emitted alongside device-mesh rules without key collisions.
+- **Organizations & tenants** — Group customers under an organization; each tenant is an isolated Netmaker environment (networks, devices, users).
+- **MSP license sync** — EE/MSP installs create and update orgs/tenants from the MSP license (including teardown when a tenant is removed from the license). CE and normal Pro accounts continues to use a single local default tenant.
+- **Scoped access** — API and `nmctl` select the target org/tenant via `X-Organization-ID` / `X-Tenant-ID` (`--org_id` / `--tenant_id`), with `nmctl organization list` and `nmctl tenant list` for discovery.
 
+### 🔌 TCP Proxy / WSS Uplink
 
-### 🛡️ Egress ACLs with IP Restriction
+Gateways can publish a **TCP/WSS uplink** so clients can reach the mesh in restrictive environments when UDP is blocked.
 
-ACL policies can now target **individual IPs** inside an egress range using the `ip` ACL target type.
+- Enable TCP proxy on the gateway/host (`tcp_proxy_enabled` and related listen/TLS settings).
+- Clients can opt into a TCP uplink to the gateway when the proxy is enabled.
+- Supports self-signed and externally terminated TLS modes for WSS endpoints.
 
-- Restrict access to specific hosts within a larger egress CIDR.
-- Validate that selected IPs fall within the referenced egress range at policy create/update time.
-- Mix egress resources, nodes, tags, and individual IPs in the same policy.
+### 🛡️ EDR Integration (Pro)
 
-### 📦 Egress Preset Catalog (Pro)
+Connect endpoint detection and response platforms for **posture checks** from **Integrations**.
 
-A built-in catalog simplifies domain-based egress for common SaaS and cloud providers.
+- Supported providers: **Microsoft Defender**, **CrowdStrike**, **SentinelOne**, and **Wazuh**.
+- Sync managed endpoints and evaluate EDR compliance (agent health / risk level) as part of device posture.
+- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/edr/{provider}`).
 
-- Browse presets via `GET /api/v1/egress/presets` (AWS, Azure, Google, Salesforce, and more).
-- Create egress resources from a `preset_id`; the server can resolve AWS IP ranges automatically.
-- Support for **multiple domains** per egress resource.
+### 📱 MDM Integration (Pro)
 
-### ⏱️ JIT Group Memberships
+Connect mobile device management platforms for **device compliance posture** from **Integrations**.
 
-Just-In-Time (JIT) access can now be scoped to **user groups** per network.
+- Supported providers: **Microsoft Intune**, **Jamf**, **JumpCloud**, and **Iru**.
+- Match devices by Entra device ID, serial number, hardware UUID, or hostname.
+- Enforce MDM enrollment/compliance checks alongside existing posture policies.
+- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/mdm/{provider}`).
 
-- Enable JIT for all non-admin users, or limit it to selected user groups.
-- Users request access; admins approve or deny with email notifications.
-- Expired grants are cleaned up automatically and users are notified.
-
-### 🔗 SIEM Integration
-
-Forward Netmaker audit events to your security stack from **Integrations**.
-
-- Supported providers: **Splunk**, **Datadog**, **Elastic**, and **Microsoft Sentinel**.
-- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/siem/{provider}`).
-- Events are exported through the SIEM exporter service.
-
-### 🔑 Default Enrollment Keys
-
-Networks can designate a **default enrollment key** for simplified device onboarding.
-
-- Fetch the default key per network via the API or CLI.
-- Regenerate enrollment key tokens without recreating the key.
 
 ---
 
 ## 🗄️ Database Schema Migration
 
-This release introduces schema changes to the following core entities:
+This release completes the SQL schema path and introduces **multi-tenancy (org/tenant) bootstrap** as part of the v1.7.0 migration.
 
-- Nodes
-- Pending Users
-- User Invites
-- Posture Check Violations
+**Upgrade requirement (existing deployments):**
+
+- You **must** run **Netmaker v1.6.0** successfully **before** upgrading to v1.7.0.
+- v1.7.0 will **refuse to start** if `migration-v1.6.0` has not completed on a prior v1.6.0 deployment.
+- Recommended path: deploy v1.6.0 → confirm the server starts cleanly → then upgrade to v1.7.0.
+
 
 **Impact:**
 
-- The database structure will be updated automatically during the upgrade.
+- Schema and data are updated automatically on successful startup.
 - Downgrades may not be supported after migration.
 
 **👉 Action Required:**
 
-- Ensure the application starts successfully and migrations are complete.
-- Validate core functionality post-upgrade.
+- Do not jump from v1.5.x (or earlier) straight to v1.7.0 on an existing database.
+- Ensure migrations complete and validate core functionality post-upgrade.
 
 For detailed upgrade steps, refer to the official upgrade documentation:
 
@@ -79,19 +67,15 @@ For detailed upgrade steps, refer to the official upgrade documentation:
 
 ## 🧰 Improvements & Fixes
 
-- **Netclient registration UX** — Host registration over OAuth/basic auth now returns clear websocket close reasons on failure (auth errors, missing access, posture violations, and server errors).
+- **Auto-relay peer reset** — Reset a specific peer-to-peer connection that is using a relay (clear/reassign auto-relay for that peer pair) without resetting the entire network’s auto-relay state.
 
-- **User group management** — Streamlined user role permissions and group updates, role-downgrade handling.
+- **Migration reliability** — v1.7.0 blocks startup until v1.6.0 migration completed on existing deployments; migration failures exit cleanly instead of panicking.
 
-- **Orphan reference cleanup** — Removes stale network references left behind after resource deletion.
 
-- **Scalability & reliability** — Optimized node status calculation, offline-status hooks, zombie/orphan node cleanup, and ACL cache race fixes.
+- **Host status** — Host filtering uses live check-in status (Online/Offline/Disconnected) rather than a stale DB value.
 
-- **API hardening** — Auth rate limiting on REST endpoints and activity-log permission fixes.
+- **MSP installs** — `nm-quick.sh` `-s` flag to skip nmctl/mesh/netclient on MSP server installs.
 
-- **Egress improvements** — CIDR validation for ACL egress IPs, multi-domain egress routing, and domain-answer handling for preset-based egress.
-
-- **Failover removed** — Legacy per-node failover APIs and CLI commands have been removed in favor of gateway-based patterns.
 
 ---
 
