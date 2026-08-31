@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -174,18 +175,30 @@ func TestToSQLSchema_StuckServerCompletesV160AndV170(t *testing.T) {
 	}
 	require.NoError(t, network.Create(ctx))
 
-	// First startup on v1.7.0 after v1.5.1: applies v1.6.0 only.
+	origVersion := servercfg.GetVersion()
+	t.Cleanup(func() { servercfg.SetVersion(origVersion) })
+
+	// v1.7.0 image on existing v1.5.1 SQL: hard stop before any migration runs.
+	servercfg.SetVersion("v1.7.0")
 	err := ToSQLSchema()
 	require.ErrorIs(t, err, ErrMigrationV160Required)
-	assertMigrationJobComplete(t, ctx, "migration-v1.6.0")
 
-	completed, err := migrationJobCompleted(ctx, "migration-v1.7.0")
+	completed, err := migrationJobCompleted(ctx, migrationJobV160)
 	require.NoError(t, err)
-	assert.False(t, completed, "v1.7.0 must not run until after a second startup")
+	assert.False(t, completed, "v1.6.0 must not run on a v1.7.0 image")
 
-	// Second startup once migration-v1.6.0 exists from the prior run.
+	// v1.6.0 release applies node migration (separate binary; simulate via migrateV1_6_0).
+	require.NoError(t, ensureMigrationCompleted(ctx, migrationJobV160, migrateV1_6_0))
+	assertMigrationJobComplete(t, ctx, migrationJobV160)
+
+	completed, err = migrationJobCompleted(ctx, migrationJobV170)
+	require.NoError(t, err)
+	assert.False(t, completed, "v1.6.0 release must not run v1.7.0 migration")
+
+	// v1.7.0 release completes MT migration.
+	servercfg.SetVersion("v1.7.0")
 	require.NoError(t, ToSQLSchema())
-	assertMigrationJobComplete(t, ctx, "migration-v1.7.0")
+	assertMigrationJobComplete(t, ctx, migrationJobV170)
 
 	node := &schema.Node{ID: nodeID.String()}
 	require.NoError(t, node.Get(ctx))
@@ -302,7 +315,50 @@ func TestCanRunMigrationV170(t *testing.T) {
 	require.NoError(t, admin.Create(ctx))
 	ok, err = canRunMigrationV170(ctx, false, true)
 	require.NoError(t, err)
-	assert.False(t, ok, "existing SQL deployment must complete v1.6.0 on a prior startup")
+	assert.False(t, ok, "existing SQL deployment must complete v1.6.0 on a v1.6.0 release first")
+}
+
+func TestServerVersionMigrationGates(t *testing.T) {
+	origVersion := servercfg.GetVersion()
+	t.Cleanup(func() { servercfg.SetVersion(origVersion) })
+
+	servercfg.SetVersion("v1.6.0")
+	assert.False(t, isServerVersionAtLeast170())
+	assert.False(t, enforceV160ReleaseGate())
+	assert.False(t, shouldEnforceV160ReleaseGate(true))
+
+	servercfg.SetVersion("v1.7.0")
+	assert.True(t, isServerVersionAtLeast170())
+	assert.True(t, enforceV160ReleaseGate())
+	assert.True(t, shouldEnforceV160ReleaseGate(true))
+	assert.False(t, shouldEnforceV160ReleaseGate(false))
+
+	servercfg.SetVersion("dev")
+	assert.True(t, isServerVersionAtLeast170())
+	assert.False(t, enforceV160ReleaseGate())
+	assert.False(t, shouldEnforceV160ReleaseGate(true))
+}
+
+func TestToSQLSchema_GreenfieldV170SkipsPreMTJobs(t *testing.T) {
+	ctx := setupMigrationTest(t)
+
+	origVersion := servercfg.GetVersion()
+	t.Cleanup(func() { servercfg.SetVersion(origVersion) })
+	servercfg.SetVersion("v1.7.0")
+
+	hasJobs, err := anyMigrationJobPresent(ctx)
+	require.NoError(t, err)
+	assert.False(t, hasJobs)
+
+	require.NoError(t, ToSQLSchema())
+
+	assertMigrationJobComplete(t, ctx, migrationJobV151)
+	assertMigrationJobComplete(t, ctx, migrationJobV160)
+	assertMigrationJobComplete(t, ctx, migrationJobV170)
+
+	tenants, err := (&schema.Tenant{}).List(ctx)
+	require.NoError(t, err)
+	require.Len(t, tenants, 1)
 }
 
 func TestMigrateV1_6_0_ResolvesNetworkByNameWithoutTenant(t *testing.T) {

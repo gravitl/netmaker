@@ -20,12 +20,13 @@ type migrationFunc func(ctx context.Context) error
 //   - v1.6.0: pending users, invites, nodes (pre-MT)
 //   - v1.7.0: MT bootstrap via SyncOrgAndTenants, server conf, memberships, tenant IDs, ...
 //
-// Hard requirement: existing SQL deployments must complete v1.6.0 on a v1.6.0 release
-// (migration-v1.6.0 job recorded from a prior successful startup) before v1.7.0 runs.
-// If v1.6.0 is applied during the same startup as v1.7.0 on an existing deployment,
-// ToSQLSchema returns ErrMigrationV160Required so operators upgrade in two steps.
-// Greenfield installs and full legacy KV upgrade chains are exempt.
+// Greenfield installs (empty jobs table, no legacy data) skip v1.5.1/v1.6.0 and run
+// v1.7.0 bootstrap only.
 //
+// Hard requirement: v1.7.0 refuses startup when migration-v1.6.0 is incomplete on an
+// upgrade that already has migration job history. v1.6.0 migration must run on a
+// v1.6.0 release image first. Legacy KV upgrade chains (no jobs yet but legacy data
+// present) still run the full pre-MT chain.
 // The legacy migration-multitenancy job is folded into v1.7.0 step 0.
 // SyncOrgAndTenants defaults to CreateLocalDefaults (CE); EE overrides it with
 // license.SyncOrgAndTenants so MSP installs create tenants from the account
@@ -36,6 +37,25 @@ func ToSQLSchema() error {
 	ctx := context.TODO()
 	dbctx := db.WithContext(ctx)
 
+	hasPriorMigrationJobs, err := anyMigrationJobPresent(dbctx)
+	if err != nil {
+		return err
+	}
+
+	greenfield, err := isGreenfieldInstall(dbctx, hasPriorMigrationJobs)
+	if err != nil {
+		return err
+	}
+	if greenfield {
+		if err := markMigrationJobSkipped(dbctx, migrationJobV151); err != nil {
+			return err
+		}
+		if err := markMigrationJobSkipped(dbctx, migrationJobV160); err != nil {
+			return err
+		}
+		return ensureMigrationCompleted(dbctx, migrationJobV170, migrateV1_7_0)
+	}
+
 	v151AlreadyComplete, err := migrationJobCompleted(dbctx, migrationJobV151)
 	if err != nil {
 		return err
@@ -45,29 +65,24 @@ func ToSQLSchema() error {
 		return err
 	}
 
-	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	err = ensureMigrationCompleted(ctx, migrationJobV151, migrateV1_5_1)
-	if err != nil {
+	if err := enforceMigrationV170Compatibility(dbctx, hasPriorMigrationJobs, v151AlreadyComplete, v160AlreadyComplete); err != nil {
 		return err
 	}
-
-	// v1.6.0 migration includes migrating the pending users, user invites and nodes tables.
-	err = ensureMigrationCompleted(ctx, migrationJobV160, migrateV1_6_0)
-	if err != nil {
-		return err
+	if !v151AlreadyComplete {
+		err = ensureMigrationCompleted(dbctx, migrationJobV151, migrateV1_5_1)
+		if err != nil {
+			return err
+		}
 	}
 
-	ok, err := canRunMigrationV170(dbctx, v160AlreadyComplete, v151AlreadyComplete)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrMigrationV160Required
+	if !v160AlreadyComplete {
+		err = ensureMigrationCompleted(dbctx, migrationJobV160, migrateV1_6_0)
+		if err != nil {
+			return err
+		}
 	}
 
-	// v1.7.0 bootstraps multi-tenancy and migrates server conf, generated, server uuid,
-	// enrollment keys, memberships, and assigns tenant IDs to existing records.
-	return ensureMigrationCompleted(ctx, migrationJobV170, migrateV1_7_0)
+	return ensureMigrationCompleted(dbctx, migrationJobV170, migrateV1_7_0)
 }
 
 func ensureMigrationCompleted(ctx context.Context, version string, migrate migrationFunc) error {
