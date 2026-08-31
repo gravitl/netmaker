@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -42,6 +43,8 @@ func ToSQLSchema() error {
 		}
 
 		if !migratedToV160 {
+			logger.Log(0, ErrMigrationV160Required.Error())
+			os.Exit(1)
 			return ErrMigrationV160Required
 		}
 	}
