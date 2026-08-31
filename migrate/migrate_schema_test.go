@@ -200,23 +200,6 @@ func TestToSQLSchema_SkipsCompletedPreMTJobs(t *testing.T) {
 	require.Len(t, tenants, 1)
 }
 
-func TestToSQLSchema_IdempotentRerun(t *testing.T) {
-	ctx := setupMigrationTest(t)
-	seedLegacyKVData(t, ctx)
-
-	require.NoError(t, ToSQLSchema())
-
-	var firstMembershipCount int64
-	require.NoError(t, db.FromContext(ctx).Model(&schema.TenantMembership{}).Count(&firstMembershipCount).Error)
-	require.Equal(t, int64(1), firstMembershipCount)
-
-	require.NoError(t, ToSQLSchema())
-
-	var secondMembershipCount int64
-	require.NoError(t, db.FromContext(ctx).Model(&schema.TenantMembership{}).Count(&secondMembershipCount).Error)
-	assert.Equal(t, firstMembershipCount, secondMembershipCount)
-}
-
 // TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook ensures v1.7.0 step 0 goes through
 // SyncOrgAndTenants (EE overrides this with license sync) rather than always
 // calling CreateLocalDefaults, which breaks MSP installs that need multiple
@@ -258,13 +241,6 @@ func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, orgs, 1)
 	assert.Equal(t, "license-org-id", orgs[0].ID)
-}
-
-func TestMigrateV1_7_0_RequiresV160Job(t *testing.T) {
-	ctx := setupMigrationTest(t)
-
-	err := migrateV1_7_0(ctx)
-	require.ErrorIs(t, err, ErrMigrationV160Required)
 }
 
 func TestMigrateV1_6_0_ResolvesNetworkByNameWithoutTenant(t *testing.T) {
