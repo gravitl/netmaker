@@ -110,7 +110,7 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 				continue
 			}
 
-			GetNodeCheckInStatus(node)
+			node.Status = GetNodeCheckInStatus(node)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break

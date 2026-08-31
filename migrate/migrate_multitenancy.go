@@ -9,10 +9,6 @@ import (
 	"github.com/gravitl/netmaker/scope"
 )
 
-func migrateMultiTenancy(ctx context.Context) error {
-	return SyncOrgAndTenants(ctx)
-}
-
 var SyncOrgAndTenants = CreateLocalDefaults
 
 func CreateLocalDefaults(ctx context.Context) error {

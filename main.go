@@ -129,9 +129,9 @@ func initialize() { // Client Mode Prereq Check
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
 		if err != nil {
-			// we shouldn't allow user to use the product until the migration is successfully done.
-			panic(err)
+			logger.FatalLog("schema migration failed: ", err.Error())
 		}
+
 		migrate.Run()
 
 		err = setServerID()

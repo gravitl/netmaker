@@ -449,8 +449,20 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 		return licenseResponse, false, fmt.Errorf("failed to unmarshal validation response: %w", err)
 	}
 
+	if isCachedResp {
+		if licenseResponse.LicenseValue == "" && licenseResponse.EncryptedLicense == "" && len(licenseResponse.Tenants) == 0 {
+			return licenseResponse, false, errNoCachedResponse
+		}
+		return licenseResponse, isCachedResp, nil
+	}
+
+	encryptedLicense := base64decode(licenseResponse.EncryptedLicense)
+	if len(encryptedLicense) < 24 {
+		return licenseResponse, false, errors.New("invalid encrypted license payload")
+	}
+
 	respData, err := ncutils.BoxDecrypt(
-		base64decode(licenseResponse.EncryptedLicense),
+		encryptedLicense,
 		apiPublicKey,
 		tempPrivKey,
 	)

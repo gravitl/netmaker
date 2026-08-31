@@ -26,6 +26,9 @@ func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32
 
 // BoxDecrypt - decrypts traffic box
 func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
+	if len(encrypted) < 24 {
+		return nil, fmt.Errorf("encrypted message too short: %d bytes", len(encrypted))
+	}
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], encrypted[:24])
 	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)

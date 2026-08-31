@@ -13,40 +13,40 @@ import (
 
 type migrationFunc func(ctx context.Context) error
 
-// ToSQLSchema migrates the data from key-value
-// db to sql db.
+// ErrMigrationV160Required is returned when v1.7.0 migration is attempted before
+// migration-v1.6.0 completed on a prior v1.6.0 deployment.
+var ErrMigrationV160Required = errors.New(
+	"migration-v1.6.0 must complete on Netmaker v1.6.0 before upgrading to v1.7.0; " +
+		"deploy v1.6.0, restart the server successfully, then upgrade to v1.7.0",
+)
+
 func ToSQLSchema() error {
-	// multitenancy migration creates the default organization and tenant. this is
-	// done separately from v1.7.0 migration because user role and group info has
-	// been dropped from the users table in v1.7.0. if a tenant is migrated from v1.5.0
-	// to v1.7.0, this info won't be available.
-	err := ensureMigrationCompleted(context.TODO(), "migration-multitenancy", migrateMultiTenancy)
+	migratedToV170, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV170)
 	if err != nil {
 		return err
 	}
 
-	// v1.5.1 migration includes migrating the users, groups, roles, networks and hosts tables.
-	err = ensureMigrationCompleted(context.TODO(), "migration-v1.5.1", migrateV1_5_1)
+	if migratedToV170 {
+		return nil
+	}
+
+	newDeployment, err := isNewDeployment(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
-	// v1.6.0 migration includes migrating the pending users and user invites tables.
-	err = ensureMigrationCompleted(context.TODO(), "migration-v1.6.0", migrateV1_6_0)
-	if err != nil {
-		return err
+	if !newDeployment {
+		migratedToV160, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV160)
+		if err != nil {
+			return err
+		}
+
+		if !migratedToV160 {
+			return ErrMigrationV160Required
+		}
 	}
 
-	// v1.7.0 migration includes migrating the server conf, generated, server uuid and
-	// enrollment key tables.
-	// this version also includes changes for multi-tenancy and so this job
-	// assigns the tenant id to all the existing records.
-	err = ensureMigrationCompleted(context.TODO(), "migration-v1.7.0", migrateV1_7_0)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ensureMigrationCompleted(db.WithContext(context.TODO()), migrationJobV170, migrateV1_7_0)
 }
 
 func ensureMigrationCompleted(ctx context.Context, version string, migrate migrationFunc) error {
