@@ -144,6 +144,10 @@ func getAuthToken(ctx config.Context, force bool) string {
 }
 
 func request[T any](method, route string, payload any) *T {
+	return requestWithHeaders[T](method, route, payload, nil)
+}
+
+func requestWithHeaders[T any](method, route string, payload any, extraHeaders map[string]string) *T {
 	var (
 		_, ctx = config.GetCurrentContext()
 		req    *http.Request
@@ -171,6 +175,9 @@ func request[T any](method, route string, payload any) *T {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
 	}
 	applyScopeHeaders(req, ctx)
+	for k, v := range extraHeaders {
+		req.Header.Set(k, v)
+	}
 	retried := false
 retry:
 	res, err := http.DefaultClient.Do(req)

@@ -9,13 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var orgID string
+
 var tenantListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tenants in an organization",
-	Long:  `List tenants in the organization configured via context org_id (X-Organization-ID)`,
+	Long:  `List tenants in an organization (requires --org_id or context org_id; sent as X-Organization-ID)`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		tenants := functions.ListTenants()
+		tenants := functions.ListTenants(orgID)
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(tenants)
@@ -31,5 +33,6 @@ var tenantListCmd = &cobra.Command{
 }
 
 func init() {
+	tenantListCmd.Flags().StringVar(&orgID, "org_id", "", "Organization ID (sent as X-Organization-ID; falls back to context org_id)")
 	rootCmd.AddCommand(tenantListCmd)
 }
