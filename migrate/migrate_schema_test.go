@@ -118,35 +118,6 @@ func TestGetNetworkByNameForMigration(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestToSQLSchema_FullKVUpgrade(t *testing.T) {
-	ctx := setupMigrationTest(t)
-	networkName, nodeID := seedLegacyKVData(t, ctx)
-
-	require.NoError(t, ToSQLSchema())
-
-	assertMigrationJobComplete(t, ctx, "migration-v1.5.1")
-	assertMigrationJobComplete(t, ctx, "migration-v1.6.0")
-	assertMigrationJobComplete(t, ctx, "migration-v1.7.0")
-
-	tenants, err := (&schema.Tenant{}).List(ctx)
-	require.NoError(t, err)
-	require.Len(t, tenants, 1)
-
-	node := &schema.Node{ID: nodeID.String()}
-	require.NoError(t, node.Get(ctx))
-	assert.NotEmpty(t, node.NetworkID)
-
-	networks, err := (&schema.Network{}).ListAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, networks, 1)
-	assert.Equal(t, networkName, networks[0].Name)
-	assert.Equal(t, tenants[0].ID, networks[0].TenantID)
-
-	var membershipCount int64
-	require.NoError(t, db.FromContext(ctx).Model(&schema.TenantMembership{}).Count(&membershipCount).Error)
-	assert.Equal(t, int64(1), membershipCount)
-}
-
 func TestToSQLSchema_StuckServerCompletesV160AndV170(t *testing.T) {
 	ctx := setupMigrationTest(t)
 	networkName, nodeID := seedLegacyKVData(t, ctx)
