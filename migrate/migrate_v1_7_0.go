@@ -34,10 +34,6 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
-	if err := requireMigrationJobCompleted(ctx, migrationJobV160); err != nil {
-		return err
-	}
-
 	// Step 0: bootstrap org/tenants (was migration-multitenancy).
 	// Goes through SyncOrgAndTenants so EE/MSP can sync from license validation
 	// instead of always creating a local UUID default tenant. CE keeps the
