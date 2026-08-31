@@ -118,13 +118,14 @@ nmctl context set admin \
 nmctl organization list
 # or: nmctl organization list -o json
 
-# List tenants in an org (requires X-Organization-ID via --org_id or context)
+# List tenants in an org (requires org_id on the context)
 nmctl context set admin \
   --endpoint=https://api.example.com \
-  --master_key=<key>
+  --master_key=<key> \
+  --org_id=<organization-uuid>
 
-nmctl tenant list --org_id=<organization-uuid>
-# or: nmctl tenant list --org_id=<organization-uuid> -o json
+nmctl tenant list
+# or: nmctl tenant list -o json
 ```
 
 ### Work in a specific tenant
@@ -147,7 +148,7 @@ You can combine `--master_key` instead of username/password for scripts.
 ### Notes
 
 - **Tenant-scoped** commands (networks, nodes, hosts, enrollment keys, etc.) require `--tenant_id` when more than one tenant exists.
-- **Org-scoped** commands (e.g. `nmctl tenant list`) require `--org_id` (flag or context).
+- **Org-scoped** commands (e.g. `nmctl tenant list`) require `--org_id`.
 - If neither header is set on a single-tenant server, the API still works via the default tenant fallback.
 - SaaS contexts also send `X-Tenant-ID` when `--tenant_id` is set.
 
@@ -190,7 +191,7 @@ nmctl user list
 nmctl enrollment_key list
 
 nmctl organization list    # list organizations
-nmctl tenant list --org_id=<org-uuid>   # list tenants in an organization
+nmctl tenant list          # list tenants (set --org_id on context first)
 
 nmctl server health
 nmctl server info
