@@ -174,9 +174,17 @@ func TestToSQLSchema_StuckServerCompletesV160AndV170(t *testing.T) {
 	}
 	require.NoError(t, network.Create(ctx))
 
-	require.NoError(t, ToSQLSchema())
-
+	// First startup on v1.7.0 after v1.5.1: applies v1.6.0 only.
+	err := ToSQLSchema()
+	require.ErrorIs(t, err, ErrMigrationV160Required)
 	assertMigrationJobComplete(t, ctx, "migration-v1.6.0")
+
+	completed, err := migrationJobCompleted(ctx, "migration-v1.7.0")
+	require.NoError(t, err)
+	assert.False(t, completed, "v1.7.0 must not run until after a second startup")
+
+	// Second startup once migration-v1.6.0 exists from the prior run.
+	require.NoError(t, ToSQLSchema())
 	assertMigrationJobComplete(t, ctx, "migration-v1.7.0")
 
 	node := &schema.Node{ID: nodeID.String()}
@@ -231,6 +239,7 @@ func TestToSQLSchema_IdempotentRerun(t *testing.T) {
 // tenants from the account server.
 func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
 	ctx := setupMigrationTest(t)
+	markMigrationJobComplete(t, ctx, migrationJobV160)
 
 	orig := SyncOrgAndTenants
 	t.Cleanup(func() { SyncOrgAndTenants = orig })
@@ -265,6 +274,35 @@ func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, orgs, 1)
 	assert.Equal(t, "license-org-id", orgs[0].ID)
+}
+
+func TestMigrateV1_7_0_RequiresV160Job(t *testing.T) {
+	ctx := setupMigrationTest(t)
+
+	err := migrateV1_7_0(ctx)
+	require.ErrorIs(t, err, ErrMigrationV160Required)
+}
+
+func TestCanRunMigrationV170(t *testing.T) {
+	ctx := setupMigrationTest(t)
+
+	ok, err := canRunMigrationV170(ctx, true, true)
+	require.NoError(t, err)
+	assert.True(t, ok)
+
+	ok, err = canRunMigrationV170(ctx, false, false)
+	require.NoError(t, err)
+	assert.True(t, ok, "legacy KV chain may continue to v1.7.0 in the same startup")
+
+	ok, err = canRunMigrationV170(ctx, false, true)
+	require.NoError(t, err)
+	assert.True(t, ok, "greenfield install may continue to v1.7.0 when v1.6.0 runs in same startup")
+
+	admin := &schema.User{Username: "existing-admin"}
+	require.NoError(t, admin.Create(ctx))
+	ok, err = canRunMigrationV170(ctx, false, true)
+	require.NoError(t, err)
+	assert.False(t, ok, "existing SQL deployment must complete v1.6.0 on a prior startup")
 }
 
 func TestMigrateV1_6_0_ResolvesNetworkByNameWithoutTenant(t *testing.T) {
