@@ -993,39 +993,38 @@ assign_global_network_admin_group() {
 
 		total_pages=$(echo "$LIST_RESPONSE" | jq -r '.Response.total_pages // 1')
 
-		local usernames
-		usernames=$(echo "$LIST_RESPONSE" | jq -r '.Response.data[].username')
+		# Each list entry is already a full ReturnUser (including user_group_ids),
+		# so we modify and PUT it back directly instead of doing a per-user GET -
+		# GET /api/users/{username} is self-access only (ContinueIfUserMatch has no
+		# master-key bypass) and returns 403 for the master key even for admins.
+		local user_objects
+		user_objects=$(echo "$LIST_RESPONSE" | jq -c '.Response.data[]')
 
-		local username
-		while IFS= read -r username; do
-			[ -z "$username" ] && continue
+		local user_json username already_member updated_user_json put_http_code
+		while IFS= read -r user_json; do
+			[ -z "$user_json" ] && continue
 
-			local USER_JSON
-			USER_JSON=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
-				-H "Authorization: Bearer ${MASTER_KEY}" \
-				-H "Content-Type: application/json")
+			username=$(echo "$user_json" | jq -r '.username')
+			[ -z "$username" ] || [ "$username" = "null" ] && continue
 
-			local already_member
-			already_member=$(echo "$USER_JSON" | jq -r --arg gid "$GROUP_ID" '(.user_group_ids // {})[$gid] // empty')
+			already_member=$(echo "$user_json" | jq -r --arg gid "$GROUP_ID" '(.user_group_ids // {})[$gid] // empty')
 			if [ -n "$already_member" ]; then
 				continue
 			fi
 
-			local UPDATED_USER_JSON
-			UPDATED_USER_JSON=$(echo "$USER_JSON" | jq --arg gid "$GROUP_ID" '.user_group_ids = ((.user_group_ids // {}) + {($gid): {}})')
+			updated_user_json=$(echo "$user_json" | jq --arg gid "$GROUP_ID" '.user_group_ids = ((.user_group_ids // {}) + {($gid): {}})')
 
-			local PUT_HTTP_CODE
-			PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
+			put_http_code=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
 				-H "Authorization: Bearer ${MASTER_KEY}" \
 				-H "Content-Type: application/json" \
-				-d "$UPDATED_USER_JSON")
+				-d "$updated_user_json")
 
-			if [ "$PUT_HTTP_CODE" != "200" ]; then
-				echo "Warning: failed to assign global network admin group to user $username (HTTP $PUT_HTTP_CODE)"
+			if [ "$put_http_code" != "200" ]; then
+				echo "Warning: failed to assign global network admin group to user $username (HTTP $put_http_code)"
 			else
 				echo "  assigned global network admin group to $username"
 			fi
-		done <<< "$usernames"
+		done <<< "$user_objects"
 
 		page=$((page + 1))
 	done
