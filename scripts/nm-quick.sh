@@ -959,6 +959,71 @@ upgrade() {
 	# start docker and rebuild containers / networks
 	stop_services
 	install_netmaker
+	set +e
+	test_connection
+	assign_global_network_admin_group
+	set -e
+}
+
+# assign_global_network_admin_group - on CE -> Pro upgrade, grants the
+# built-in "All Networks Admin" group (global-network-admin-grp) to every
+# existing superadmin/admin so their pre-upgrade access to all networks is
+# preserved under Pro's network-scoped RBAC.
+assign_global_network_admin_group() {
+	echo "Assigning the global network admin group to existing superadmin/admins..."
+	local GROUP_ID="global-network-admin-grp"
+	local page=1
+	local total_pages=1
+
+	while [ "$page" -le "$total_pages" ]; do
+		local LIST_RESPONSE
+		LIST_RESPONSE=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/v2/users?role=super-admin&role=admin&page=${page}&per_page=100" \
+			-H "Authorization: Bearer ${MASTER_KEY}" \
+			-H "Content-Type: application/json")
+
+		if [ -z "$LIST_RESPONSE" ] || ! echo "$LIST_RESPONSE" | jq -e '.Response.data' >/dev/null 2>&1; then
+			echo "Warning: failed to fetch users for global network admin group assignment, skipping"
+			return
+		fi
+
+		total_pages=$(echo "$LIST_RESPONSE" | jq -r '.Response.total_pages // 1')
+
+		local usernames
+		usernames=$(echo "$LIST_RESPONSE" | jq -r '.Response.data[].username')
+
+		local username
+		while IFS= read -r username; do
+			[ -z "$username" ] && continue
+
+			local USER_JSON
+			USER_JSON=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
+				-H "Authorization: Bearer ${MASTER_KEY}" \
+				-H "Content-Type: application/json")
+
+			local already_member
+			already_member=$(echo "$USER_JSON" | jq -r --arg gid "$GROUP_ID" '(.user_group_ids // {})[$gid] // empty')
+			if [ -n "$already_member" ]; then
+				continue
+			fi
+
+			local UPDATED_USER_JSON
+			UPDATED_USER_JSON=$(echo "$USER_JSON" | jq --arg gid "$GROUP_ID" '.user_group_ids = ((.user_group_ids // {}) + {($gid): {}})')
+
+			local PUT_HTTP_CODE
+			PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
+				-H "Authorization: Bearer ${MASTER_KEY}" \
+				-H "Content-Type: application/json" \
+				-d "$UPDATED_USER_JSON")
+
+			if [ "$PUT_HTTP_CODE" != "200" ]; then
+				echo "Warning: failed to assign global network admin group to user $username (HTTP $PUT_HTTP_CODE)"
+			else
+				echo "  assigned global network admin group to $username"
+			fi
+		done <<< "$usernames"
+
+		page=$((page + 1))
+	done
 }
 
 downgrade () {
