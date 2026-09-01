@@ -926,6 +926,11 @@ stop_services(){
 
 upgrade() {
 	print_logo
+	# set_install_vars/set_install_vars_reuse (which normally derive this from
+	# NM_DOMAIN) are only called from the fresh-install path in main(), never
+	# on the -u upgrade path, so it has to be derived here too or every
+	# curl call below silently targets "https://api." (empty domain).
+	NETMAKER_BASE_DOMAIN="${NETMAKER_BASE_DOMAIN:-$NM_DOMAIN}"
 	unset IMAGE_TAG
 	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
@@ -960,34 +965,9 @@ upgrade() {
 	stop_services
 	install_netmaker
 	set +e
-	if wait_for_api_ready; then
-		assign_global_network_admin_group
-	else
-		echo "Warning: API did not become reachable in time, skipping automatic group assignment."
-		echo "You can re-run this manually later, or assign the 'All Networks Admin' group to admins via the dashboard."
-	fi
+	test_connection
+	assign_global_network_admin_group
 	set -e
-}
-
-# wait_for_api_ready - polls the unauthenticated server status endpoint until
-# it responds or a bounded number of retries is exhausted. Unlike
-# test_connection, this never exits the script - a slow/unreachable API after
-# an upgrade shouldn't be treated as a fatal error, since docker compose has
-# already brought the stack up successfully by this point.
-wait_for_api_ready() {
-	echo "Waiting for the API to become reachable (this may take 1-2 minutes)..."
-	local i secs http_code
-	for i in 1 2 3 4 5 6 7 8; do
-		http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.${NETMAKER_BASE_DOMAIN}/api/server/status")
-		if [ "$http_code" = "200" ]; then
-			echo "    API is reachable"
-			return 0
-		fi
-		secs=$((i * 5 + 10))
-		echo "    API not reachable yet (attempt $i/8, last HTTP code: ${http_code:-none}), retrying in ${secs}s..."
-		sleep "$secs"
-	done
-	return 1
 }
 
 # assign_global_network_admin_group - on CE -> Pro upgrade, grants the
