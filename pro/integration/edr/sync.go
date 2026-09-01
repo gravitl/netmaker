@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/schema"
@@ -154,6 +156,8 @@ func runSyncLocked(ctx context.Context, intg *schema.Integration, force bool) er
 
 func hostEligibleForEDR(providerID string, h schema.Host) bool {
 	switch providerID {
+	case ProviderWazuh:
+		return h.ID != uuid.Nil
 	case ProviderDefender:
 		return strings.TrimSpace(h.EntraDeviceID) != "" || strings.TrimSpace(h.SerialNumber) != ""
 	default:
@@ -163,6 +167,8 @@ func hostEligibleForEDR(providerID string, h schema.Host) bool {
 
 func MatchHostToEndpoint(providerID string, h schema.Host, ep ManagedEndpoint) (matchedBy string, ok bool) {
 	switch providerID {
+	case ProviderWazuh:
+		return matchWazuhHostToEndpoint(h, ep)
 	case ProviderDefender:
 		if entra := strings.TrimSpace(h.EntraDeviceID); entra != "" {
 			if deviceEntra := strings.TrimSpace(ep.EntraDeviceID); deviceEntra != "" &&
@@ -191,6 +197,55 @@ func serialMatch(hostSerial, deviceSerial string) bool {
 	hostSerial = strings.TrimSpace(hostSerial)
 	deviceSerial = strings.TrimSpace(deviceSerial)
 	return hostSerial != "" && deviceSerial != "" && strings.EqualFold(hostSerial, deviceSerial)
+}
+
+func matchWazuhHostToEndpoint(h schema.Host, ep ManagedEndpoint) (matchedBy string, ok bool) {
+	if serialMatch(h.SerialNumber, ep.SerialNumber) {
+		return schema.EDRMatchSerialNumber, true
+	}
+	if h.ID != uuid.Nil && strings.EqualFold(h.ID.String(), strings.TrimSpace(ep.Hostname)) {
+		return schema.EDRMatchHostID, true
+	}
+	if labelID := strings.TrimSpace(ep.NetmakerHostID); labelID != "" &&
+		h.ID != uuid.Nil && strings.EqualFold(labelID, h.ID.String()) {
+		return schema.EDRMatchHostID, true
+	}
+	if strings.EqualFold(strings.TrimSpace(h.Name), strings.TrimSpace(ep.Hostname)) &&
+		HostEndpointIPMatches(h, ep.EndpointIP) {
+		return schema.EDRMatchHostname, true
+	}
+	return "", false
+}
+
+// WazuhAgentIPUsable reports whether a Wazuh agent-reported IP is suitable for correlation.
+func WazuhAgentIPUsable(ip string) bool {
+	ip = strings.TrimSpace(strings.ToLower(ip))
+	if ip == "" || ip == "any" {
+		return false
+	}
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	return !parsed.IsLoopback()
+}
+
+// HostEndpointIPMatches reports whether a Wazuh agent IP equals the host WireGuard endpoint.
+func HostEndpointIPMatches(h schema.Host, agentIP string) bool {
+	if !WazuhAgentIPUsable(agentIP) {
+		return false
+	}
+	parsed := net.ParseIP(strings.TrimSpace(agentIP))
+	if parsed == nil {
+		return false
+	}
+	if len(h.EndpointIP) > 0 && h.EndpointIP.Equal(parsed) {
+		return true
+	}
+	if len(h.EndpointIPv6) > 0 && h.EndpointIPv6.Equal(parsed) {
+		return true
+	}
+	return false
 }
 
 func normalizeGUID(id string) string {
