@@ -38,7 +38,7 @@ func NewSIEMGrpcClient(serverAddr string, optFns ...func(*options.Options)) *Grp
 func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
 		defaultClient = NewSIEMGrpcClient(
-			fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain()),
+			servercfg.GetGrpcEndpoint(),
 			options.WithTLS(&tls.Config{}),
 		)
 	})
