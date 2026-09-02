@@ -926,6 +926,11 @@ stop_services(){
 
 upgrade() {
 	print_logo
+	# set_install_vars/set_install_vars_reuse (which normally derive this from
+	# NM_DOMAIN) are only called from the fresh-install path in main(), never
+	# on the -u upgrade path, so it has to be derived here too or every
+	# curl call below silently targets "https://api." (empty domain).
+	NETMAKER_BASE_DOMAIN="${NETMAKER_BASE_DOMAIN:-$NM_DOMAIN}"
 	unset IMAGE_TAG
 	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
@@ -959,6 +964,70 @@ upgrade() {
 	# start docker and rebuild containers / networks
 	stop_services
 	install_netmaker
+	set +e
+	test_connection
+	assign_global_network_admin_group
+	set -e
+}
+
+# assign_global_network_admin_group - on CE -> Pro upgrade, grants the
+# built-in "All Networks Admin" group (global-network-admin-grp) to every
+# existing superadmin/admin so their pre-upgrade access to all networks is
+# preserved under Pro's network-scoped RBAC.
+assign_global_network_admin_group() {
+	echo "Assigning the global network admin group to existing superadmin/admins..."
+	local GROUP_ID="global-network-admin-grp"
+	local page=1
+	local total_pages=1
+
+	while [ "$page" -le "$total_pages" ]; do
+		local LIST_RESPONSE
+		LIST_RESPONSE=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/v2/users?role=super-admin&role=admin&page=${page}&per_page=100" \
+			-H "Authorization: Bearer ${MASTER_KEY}" \
+			-H "Content-Type: application/json")
+
+		if [ -z "$LIST_RESPONSE" ] || ! echo "$LIST_RESPONSE" | jq -e '.Response.data' >/dev/null 2>&1; then
+			echo "Warning: failed to fetch users for global network admin group assignment, skipping"
+			return
+		fi
+
+		total_pages=$(echo "$LIST_RESPONSE" | jq -r '.Response.total_pages // 1')
+
+		# Each list entry is already a full ReturnUser (including user_group_ids),
+		# so we modify and PUT it back directly instead of doing a per-user GET -
+		# GET /api/users/{username} is self-access only (ContinueIfUserMatch has no
+		# master-key bypass) and returns 403 for the master key even for admins.
+		local user_objects
+		user_objects=$(echo "$LIST_RESPONSE" | jq -c '.Response.data[]')
+
+		local user_json username already_member updated_user_json put_http_code
+		while IFS= read -r user_json; do
+			[ -z "$user_json" ] && continue
+
+			username=$(echo "$user_json" | jq -r '.username')
+			[ -z "$username" ] || [ "$username" = "null" ] && continue
+
+			already_member=$(echo "$user_json" | jq -r --arg gid "$GROUP_ID" '(.user_group_ids // {})[$gid] // empty')
+			if [ -n "$already_member" ]; then
+				continue
+			fi
+
+			updated_user_json=$(echo "$user_json" | jq --arg gid "$GROUP_ID" '.user_group_ids = ((.user_group_ids // {}) + {($gid): {}})')
+
+			put_http_code=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
+				-H "Authorization: Bearer ${MASTER_KEY}" \
+				-H "Content-Type: application/json" \
+				-d "$updated_user_json")
+
+			if [ "$put_http_code" != "200" ]; then
+				echo "Warning: failed to assign global network admin group to user $username (HTTP $put_http_code)"
+			else
+				echo "  assigned global network admin group to $username"
+			fi
+		done <<< "$user_objects"
+
+		page=$((page + 1))
+	done
 }
 
 downgrade () {
