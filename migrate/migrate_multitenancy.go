@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -208,9 +209,14 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
-	return db.FromContext(ctx).Model(&schema.Tenant{}).
+	if err := db.FromContext(ctx).Model(&schema.Tenant{}).
 		Where("id = ?", oldID).
-		Update("id", newID).Error
+		Update("id", newID).Error; err != nil {
+		return err
+	}
+
+	middleware.ResetDefaultTenantID(oldID, newID)
+	return nil
 }
 
 func RekeyOrganization(ctx context.Context, oldID, newID string) error {
