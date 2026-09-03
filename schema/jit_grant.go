@@ -2,15 +2,19 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const jitGrantTable = "jit_grants"
 
 type JITGrant struct {
 	ID        string    `gorm:"primaryKey" json:"id"`
+	TenantID  string    `gorm:"default:'';index" json:"tenant_id"`
 	NetworkID string    `gorm:"network_id" json:"network_id"`
 	UserID    string    `gorm:"user_id" json:"user_id"`
 	RequestID string    `gorm:"request_id" json:"request_id"`
@@ -48,26 +52,42 @@ func (g *JITGrant) GetActiveByUserAndNetwork(ctx context.Context) (*JITGrant, er
 
 func (g *JITGrant) ListActiveByNetwork(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("network_id = ? AND expires_at > ?", g.NetworkID, time.Now()).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("network_id = ? AND expires_at > ?", g.NetworkID, time.Now())
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
 }
 
 func (g *JITGrant) ListExpired(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("expires_at <= ?", time.Now()).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("expires_at <= ?", time.Now())
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
 }
 
 func (g *JITGrant) ListByUserAndNetwork(ctx context.Context) ([]JITGrant, error) {
 	var grants []JITGrant
-	err := db.FromContext(ctx).Table(g.Table()).
-		Where("network_id = ? AND user_id = ?", g.NetworkID, g.UserID).
-		Find(&grants).Error
+	query := db.FromContext(ctx).Table(g.Table()).
+		Where("network_id = ? AND user_id = ?", g.NetworkID, g.UserID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitGrantTable), tenantID)(query)
+	}
+	err := query.Find(&grants).Error
 	return grants, err
+}
+
+func (g *JITGrant) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Table(g.Table()).Where(fmt.Sprintf("%s.tenant_id = ?", jitGrantTable), tenantID).Delete(&JITGrant{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", jitGrantTable)).Error
 }
 
 func (g *JITGrant) GetByRequestID(ctx context.Context) (*JITGrant, error) {

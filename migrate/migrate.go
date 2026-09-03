@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -26,25 +27,37 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	migrateSettings()
+	tenants, _ := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	for _, tenant := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		migrateSettings(ctx)
+		assignSuperAdmin(ctx)
+		logic.InitialiseNetworkRoles(ctx)
+		logic.IntialiseGroups(ctx)
+
+		networks, _ := (&schema.Network{}).ListAll(ctx)
+		for _, netI := range networks {
+			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name), "")
+		}
+
+		createDefaultTagsAndPolicies(ctx)
+		cleanupDeletedUserGroupRefs(ctx)
+		updateNewAcls(ctx)
+		updateNodes(ctx)
+		logic.CleanupGwsMigration(ctx)
+		deleteOldExtclients(ctx)
+	}
+
 	updateEnrollmentKeys()
-	assignSuperAdmin()
-	updateNewAcls()
-	createDefaultTagsAndPolicies()
 	syncUsers()
-	updateNodes()
-	updateNewAcls()
 	migrateEgressDomains()
-	logic.CleanupGwsMigration()
+	migrateInternetEgress()
 	updateNetworks()
-	deleteOldExtclients()
-	cleanupDeletedUserGroupRefs()
 	migrateNameservers()
 	migrateEgressNatMode()
 	cleanUpDeleteNetworksRefs()
 
 	logic.InitialiseRoles()
-	logic.IntialiseGroups()
 }
 
 func updateNetworks() {
@@ -120,7 +133,8 @@ func initializeVirtualNATSettings() {
 			continue
 		}
 
-		if err := logic.UpsertNetwork(&network); err != nil {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, network.TenantID)
+		if err := network.Update(ctx); err != nil {
 			logger.Log(0, "failed to update network", network.Name, "with Virtual NAT settings:", err.Error())
 			continue
 		}
@@ -136,25 +150,38 @@ func isValidVNATPool(pool string) bool {
 	return err == nil
 }
 
-func assignSuperAdmin() {
-	users, err := logic.GetUsers()
+func assignSuperAdmin(ctx context.Context) {
+	exists, _ := (&schema.User{}).SuperAdminExists(ctx)
+	if exists {
+		return
+	}
+
+	defaultTenant := &schema.Tenant{}
+	err := defaultTenant.GetDefault(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil || len(users) == 0 {
 		return
 	}
 
-	if ok, _ := logic.HasSuperAdmin(); ok {
-		return
-	}
 	createdSuperAdmin := false
 	owner := servercfg.GetOwnerEmail()
 	if owner != "" {
 		user := &schema.User{Username: owner}
-		err = user.Get(db.WithContext(context.TODO()))
+		err = user.Get(ctx)
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.PlatformRoleID = schema.SuperAdminRole
-		err = logic.UpsertUser(*user)
+
+		tm := &schema.TenantMembership{
+			TenantID: scope.ID(ctx),
+			UserID:   user.ID,
+			RoleID:   schema.SuperAdminRole,
+		}
+		err = tm.UpdateRoleID(ctx)
 		if err != nil {
 			log.Fatal(
 				"error updating user to superadmin",
@@ -166,38 +193,30 @@ func assignSuperAdmin() {
 		}
 		return
 	}
-	for _, u := range users {
-		var isAdmin bool
-		if u.PlatformRoleID == schema.AdminRole {
-			isAdmin = true
-		}
-		if u.PlatformRoleID == "" && u.IsAdmin {
-			isAdmin = true
+
+	for _, user := range users {
+		if user.PlatformRoleID != schema.AdminRole {
+			continue
 		}
 
-		if isAdmin {
-			user := &schema.User{Username: u.UserName}
-			err = user.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
-				continue
-			}
-			user.PlatformRoleID = schema.SuperAdminRole
-			err = logic.UpsertUser(*user)
-			if err != nil {
-				slog.Error(
-					"error updating user to superadmin",
-					"user",
-					user.Username,
-					"error",
-					err.Error(),
-				)
-				continue
-			} else {
-				createdSuperAdmin = true
-			}
-			break
+		tm := &schema.TenantMembership{
+			TenantID: scope.ID(ctx),
+			UserID:   user.ID,
+			RoleID:   schema.SuperAdminRole,
 		}
+		err = tm.UpdateRoleID(ctx)
+		if err != nil {
+			slog.Error(
+				"error updating user to superadmin",
+				"user",
+				user.Username,
+				"error",
+				err.Error(),
+			)
+			continue
+		}
+		createdSuperAdmin = true
+		break
 	}
 
 	if !createdSuperAdmin {
@@ -206,73 +225,33 @@ func assignSuperAdmin() {
 }
 
 func updateEnrollmentKeys() {
-	rows, err := database.FetchRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
+	ctx := db.WithContext(context.TODO())
+	existingKeys, err := logic.GetAllEnrollmentKeys(ctx)
 	if err != nil {
 		return
 	}
-	for _, row := range rows {
-		var key models.EnrollmentKey
-		if err = json.Unmarshal([]byte(row), &key); err != nil {
-			continue
-		}
-		if key.Type != models.Undefined {
-			logger.Log(2, "migration: enrollment key type already set")
-			continue
-		} else {
-			logger.Log(2, "migration: updating enrollment key type")
-			if key.Unlimited {
-				key.Type = models.Unlimited
-			} else if key.UsesRemaining > 0 {
-				key.Type = models.Uses
-			} else if !key.Expiration.IsZero() {
-				key.Type = models.TimeExpiration
+	// check if any networks already have a default enrollment key
+	existingNetworks := make(map[string]struct{})
+	for _, existingKey := range existingKeys {
+		if existingKey.Default {
+			for _, n := range existingKey.Networks {
+				existingNetworks[n] = struct{}{}
 			}
 		}
-		data, err := json.Marshal(key)
-		if err != nil {
-			logger.Log(0, "migration: marshalling enrollment key: "+err.Error())
-			continue
-		}
-		if err = database.Insert(key.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME); err != nil {
-			logger.Log(0, "migration: inserting enrollment key: "+err.Error())
-			continue
-		}
-
 	}
-
-	existingKeys, err := logic.GetAllEnrollmentKeys()
-	if err != nil {
-		return
-	}
-	// check if any tags are duplicate
-	existingTags := make(map[string]struct{})
-	for _, existingKey := range existingKeys {
-		for _, t := range existingKey.Tags {
-			existingTags[t] = struct{}{}
-		}
-	}
-	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	networks, _ := (&schema.Network{}).ListAll(ctx)
 	for _, network := range networks {
-		if _, ok := existingTags[network.Name]; ok {
+		if _, ok := existingNetworks[network.Name]; ok {
 			continue
 		}
-		_, _ = logic.CreateEnrollmentKey(
-			0,
-			time.Time{},
-			[]string{network.Name},
-			[]string{network.Name},
-			[]models.TagID{},
-			true,
-			uuid.Nil,
-			true,
-			false,
-			false,
-		)
+
+		ctx := scope.WithContext(ctx, scope.TenantScope, network.TenantID)
+		_, _ = logic.CreateDefaultNetworkEnrollmentKey(ctx, network.Name)
 	}
 }
 
-func updateNodes() {
-	nodes, err := logic.GetAllNodes()
+func updateNodes(ctx context.Context) {
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("migration failed for nodes", "error", err)
 		return
@@ -283,17 +262,17 @@ func updateNodes() {
 			host := &schema.Host{
 				ID: node.HostID,
 			}
-			err = host.Get(db.WithContext(context.TODO()))
+			err = host.Get(ctx)
 			if err == nil {
-				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
+				go logic.DeleteRole(ctx, models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
 		}
 	}
-	extclients, _ := logic.GetAllExtClients()
+	extclients, _ := logic.GetAllExtClients(ctx)
 	for _, extclient := range extclients {
 		if extclient.Tags == nil {
 			extclient.Tags = make(map[models.TagID]struct{})
-			logic.SaveExtClient(&extclient)
+			logic.SaveExtClient(ctx, &extclient)
 		}
 	}
 }
@@ -309,16 +288,16 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 	return egressRanges, update
 }
 
-func updateNewAcls() {
+func updateNewAcls(ctx context.Context) {
 	if servercfg.IsPro {
-		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+		userGroups, _ := (&schema.UserGroup{}).ListAll(ctx)
 		for _, userGroup := range userGroups {
 			group := userGroup
 			if group.Default {
 				continue
 			}
 
-			networks, err := logic.GetGroupNetworksMap(&group)
+			networks, err := logic.GetGroupNetworksMap(ctx, &group)
 			if err != nil {
 				continue
 			}
@@ -326,7 +305,7 @@ func updateNewAcls() {
 			for networkID, network := range networks {
 				createSeparateACL := false
 				enableSeparateACL := true
-				adminAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
+				adminAcl, err := logic.GetAcl(ctx, fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkAdmin))
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range adminAcl.Src {
@@ -339,10 +318,10 @@ func updateNewAcls() {
 					}
 
 					adminAcl.Src = newAclSrc
-					_ = logic.UpsertAcl(adminAcl)
+					_ = logic.UpsertAcl(ctx, adminAcl)
 				}
 
-				userAcl, err := logic.GetAcl(fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
+				userAcl, err := logic.GetAcl(ctx, fmt.Sprintf("%s.%s-grp", networkID, schema.NetworkUser))
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range userAcl.Src {
@@ -364,7 +343,7 @@ func updateNewAcls() {
 					}
 
 					userAcl.Src = newAclSrc
-					_ = logic.UpsertAcl(userAcl)
+					_ = logic.UpsertAcl(ctx, userAcl)
 				}
 
 				expectedAcl := models.Acl{
@@ -393,7 +372,7 @@ func updateNewAcls() {
 					CreatedAt:        time.Now().UTC(),
 				}
 
-				acls, _ := logic.ListAclsByNetwork(networkID)
+				acls, _ := logic.ListAclsByNetwork(ctx, networkID)
 				for _, acl := range acls {
 					if acl.Name == expectedAcl.Name &&
 						acl.MetaData == expectedAcl.MetaData &&
@@ -406,7 +385,7 @@ func updateNewAcls() {
 						acl.AllowedDirection == expectedAcl.AllowedDirection {
 
 						acl.Default = true
-						_ = logic.UpsertAcl(acl)
+						_ = logic.UpsertAcl(ctx, acl)
 						createSeparateACL = false
 						break
 					}
@@ -414,11 +393,11 @@ func updateNewAcls() {
 
 				if createSeparateACL {
 					expectedAcl.Enabled = enableSeparateACL
-					_ = logic.InsertAcl(expectedAcl)
+					_ = logic.InsertAcl(ctx, expectedAcl)
 				}
 			}
 
-			_ = logic.EnsureDefaultUserGroupNetworkPolicies(nil, &group)
+			_ = logic.EnsureDefaultUserGroupNetworkPolicies(ctx, nil, &group)
 		}
 	}
 }
@@ -442,24 +421,14 @@ func MigrateEmqx() {
 func syncUsers() {
 	logger.Log(1, "Migrating Users (SyncUsers)")
 	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
-	// create default network user roles for existing networks
-	if servercfg.IsPro {
-		networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(schema.NetworkID(netI.Name))
-		}
-	}
 
 	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil {
 		for _, user := range users {
 			user := user
 			user.AuthType = schema.BasicAuth
-			if logic.IsOauthUser(&user) == nil {
+			if logic.IsOauthUser(db.WithContext(context.TODO()), &user) == nil {
 				user.AuthType = schema.OAuth
-			}
-			if len(user.UserGroups.Data()) == 0 {
-				user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 			}
 
 			// Do not call AddGlobalNetRolesToAdmins here: this runs on every server
@@ -472,20 +441,22 @@ func syncUsers() {
 
 }
 
-func createDefaultTagsAndPolicies() {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func createDefaultTagsAndPolicies(ctx context.Context) {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return
 	}
+
 	for _, network := range networks {
-		logic.CreateDefaultTags(schema.NetworkID(network.Name))
-		logic.CreateDefaultAclNetworkPolicies(schema.NetworkID(network.Name))
+		logic.CreateDefaultTags(ctx, schema.NetworkID(network.Name))
+		logic.CreateDefaultAclNetworkPolicies(ctx, schema.NetworkID(network.Name))
 		// delete old remote access gws policy
-		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
+		_ = logic.DeleteAcl(ctx, models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
 	}
-	logic.MigrateAclPolicies()
+
+	logic.MigrateAclPolicies(ctx)
 	if !servercfg.IsPro {
-		nodes, _ := logic.GetAllNodes()
+		nodes, _ := logic.GetAllNodes(ctx)
 		for _, node := range nodes {
 			if node.IsGw {
 				node.Tags = make(map[models.TagID]struct{})
@@ -534,15 +505,13 @@ func migrateEgressDomains() {
 	}
 }
 
-func migrateSettings() {
-	settingsD := make(map[string]interface{})
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
-	if database.IsEmptyRecord(err) {
-		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
-	} else if err == nil {
-		json.Unmarshal([]byte(data), &settingsD)
+func migrateSettings(ctx context.Context) {
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	err := settingsRecord.Get(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		_ = logic.UpsertServerSettings(ctx, logic.GetServerSettingsFromEnv())
 	}
-	settings := logic.GetServerSettings()
+	settings := logic.GetServerSettings(ctx)
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
 	}
@@ -555,9 +524,6 @@ func migrateSettings() {
 	if settings.IPDetectionInterval == 0 {
 		settings.IPDetectionInterval = 15
 	}
-	if settings.AuditLogsRetentionPeriodInDays == 0 {
-		settings.AuditLogsRetentionPeriodInDays = 7
-	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
@@ -567,18 +533,11 @@ func migrateSettings() {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
-	if settings.SmtpHost != "" {
-		_, ok := settingsD["smtp_skip_tls_verify"]
-		if !ok {
-			// skip tls verification for older deployments when tls verification wasn't configurable.
-			settings.SmtpSkipTlsVerify = true
-		}
-	}
-	logic.UpsertServerSettings(settings)
+	_ = logic.UpsertServerSettings(ctx, settings)
 }
 
-func deleteOldExtclients() {
-	extclients, _ := logic.GetAllExtClients()
+func deleteOldExtclients(ctx context.Context) {
+	extclients, _ := logic.GetAllExtClients(ctx)
 	userExtclientMap := make(map[string][]models.ExtClient)
 	for _, extclient := range extclients {
 		if extclient.RemoteAccessClientID == "" {
@@ -599,14 +558,14 @@ func deleteOldExtclients() {
 	for _, userExtclients := range userExtclientMap {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {
-				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+				_ = logic.DeleteExtClient(ctx, extclient.Network, extclient.ClientID, false)
 			}
 		}
 	}
 }
 
-func cleanupDeletedUserGroupRefs() {
-	groups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func cleanupDeletedUserGroupRefs(ctx context.Context) {
+	groups, err := (&schema.UserGroup{}).ListAll(ctx)
 	if err != nil {
 		// skip if we can't list all groups.
 		return
@@ -618,7 +577,7 @@ func cleanupDeletedUserGroupRefs() {
 	}
 
 	existingUsers := make(map[string]schema.User)
-	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, _ := (&schema.User{}).ListAll(ctx)
 	for _, user := range users {
 		existingUsers[user.Username] = user
 		var update bool
@@ -630,11 +589,11 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if update {
-			_ = user.Update(db.WithContext(context.TODO()))
+			_ = user.Update(ctx)
 		}
 	}
 
-	for _, acl := range logic.ListAcls() {
+	for _, acl := range logic.ListAcls(ctx) {
 		var newSrc []models.AclPolicyTag
 		for _, src := range acl.Src {
 			if src.ID == models.UserGroupAclID {
@@ -662,14 +621,14 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if len(newSrc) == 0 {
-			_ = logic.DeleteAcl(acl)
+			_ = logic.DeleteAcl(ctx, acl)
 		} else if len(acl.Src) != len(newSrc) {
 			acl.Src = newSrc
-			_ = logic.UpsertAcl(acl)
+			_ = logic.UpsertAcl(ctx, acl)
 		}
 	}
 
-	postureChecks, _ := (&schema.PostureCheck{}).ListAll(db.WithContext(context.TODO()))
+	postureChecks, _ := (&schema.PostureCheck{}).ListAll(ctx)
 	for _, postureCheck := range postureChecks {
 		var update bool
 		for groupID := range postureCheck.UserGroups {
@@ -682,7 +641,7 @@ func cleanupDeletedUserGroupRefs() {
 		}
 
 		if update {
-			_ = postureCheck.Update(db.WithContext(context.TODO()))
+			_ = postureCheck.Update(ctx)
 		}
 	}
 }
@@ -690,7 +649,7 @@ func cleanupDeletedUserGroupRefs() {
 func migrateNameservers() {
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
-		_ = logic.CreateFallbackNameserver(network.Name)
+		_ = logic.CreateFallbackNameserver(&network)
 	}
 
 	nameservers, _ := (&schema.Nameserver{}).ListAll(db.WithContext(context.TODO()))
@@ -731,17 +690,11 @@ func cleanUpDeleteNetworksRefs() {
 		networksMap[network.Name] = true
 	}
 
-	records, _ := database.FetchRecords(database.DNS_TABLE_NAME)
-	for key, record := range records {
-		var entry models.DNSEntry
-		err := json.Unmarshal([]byte(record), &entry)
-		if err != nil {
-			continue
-		}
-
-		_, ok := networksMap[entry.Network]
+	dnsRecords, _ := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
+	for _, r := range dnsRecords {
+		_, ok := networksMap[r.Value.Data().Network]
 		if !ok {
-			_ = database.DeleteRecord(database.DNS_TABLE_NAME, key)
+			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 

@@ -4,7 +4,8 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
+	"encoding/base64"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -19,11 +20,12 @@ import (
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/migrate"
@@ -36,10 +38,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.6.0"
+var version = "v1.7.0"
 
 //	@title			NetMaker
-//	@version		1.6.0
+//	@version		1.7.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -64,12 +66,11 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	defer db.CloseDB()
-	defer database.CloseDB()
 
 	// TODO: although this doesn't cause any problem, it's not the best way to do this.
 	defer ch.Close()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	ctx, stop := signal.NotifyContext(db.WithContext(context.Background()), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
@@ -124,30 +125,56 @@ func initialize() { // Client Mode Prereq Check
 
 	logger.Log(0, "database successfully connected")
 
-	// initialize kv schema db.
-	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("error initializing database: ", err.Error())
-	}
-
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
 		if err != nil {
-			// we shouldn't allow user to use the product until the migration is successfully done.
-			panic(err)
+			logger.FatalLog("schema migration failed: ", err.Error())
 		}
+
 		migrate.Run()
+
+		err = setServerID()
+		if err != nil {
+			logger.Log(0, "error setting server id: ", err.Error())
+		}
+
+		err = setServerVersion()
+		if err != nil {
+			logger.Log(0, "error setting server version: ", err.Error())
+		}
+
+		logic.SetJWTSecret()
+
+		err = logic.SetOAuthSecret(logic.RandomString(64))
+		if err != nil {
+			logger.Log(0, "error setting oauth secret: ", err.Error())
+		}
+
+		err = setMqKeys()
+		if err != nil {
+			logger.Log(0, "error setting mq keys: ", err.Error())
+		}
+
 	}
 
-	initializeUUID()
-
 	//initialize cache
-	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
-	_, _ = logic.GetAllEnrollmentKeys()
+	initCache()
 	_ = logic.CleanExpiredSSOStates()
 
-	logic.SetJWTSecret()
+}
+
+func initCache() {
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+	for _, t := range tenants {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, t.ID)
+		_ = logic.ListAcls(ctx)
+		_, _ = logic.GetAllExtClients(ctx)
+		_ = logic.LoadMetricsIntoCache(ctx)
+	}
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
@@ -188,7 +215,16 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	// Only run network cleanup hooks on master pod
 	if servercfg.IsMasterPod() {
-		logic.InitNetworkHooks()
+		tenants, err := (&schema.Tenant{}).List(db.WithContext(ctx))
+		if err != nil {
+			logger.Log(0, "error listing tenants when starting network hooks: ", err.Error())
+		} else {
+			for _, tenant := range tenants {
+				ctx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, tenant.ID)
+				logic.InitNetworkHooks(ctx)
+			}
+		}
+
 	}
 	logic.AddSSOStateCleanupHook()
 }
@@ -222,7 +258,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			if err := logic.DeleteNode(node, true); err != nil {
+			if err := logic.DeleteNode(ctx, node, true); err != nil {
 				slog.Error(
 					"error deleting expired node",
 					"nodeid",
@@ -231,7 +267,12 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 					err.Error(),
 				)
 			}
-			go mq.PublishDeletedNodePeerUpdate(nil, node)
+			host := &schema.Host{ID: node.HostID}
+			ctx := db.WithContext(context.Background())
+			if err := host.Get(ctx); err == nil {
+				ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+				go mq.PublishDeletedNodePeerUpdate(ctx, nil, node)
+			}
 		}
 	}()
 	<-ctx.Done()
@@ -274,40 +315,75 @@ func setGarbageCollection() {
 	}
 }
 
-// initializeUUID - create a UUID record for server if none exists
-func initializeUUID() error {
-	records, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
-	if err != nil {
-		if !database.IsEmptyRecord(err) {
-			return err
-		}
-	} else if len(records) > 0 {
+func setServerID() error {
+	serverID := &schema.Internal{
+		Key: schema.InternalKey_ServerID,
+	}
+	err := serverID.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if serverID.Value != "" {
 		return nil
 	}
-	// setup encryption keys
-	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
-	if errT != nil {
-		return errT
+
+	serverID.Value = uuid.NewString()
+	return serverID.Set(db.WithContext(context.TODO()))
+}
+
+func setServerVersion() error {
+	serverVersion := &schema.Internal{
+		Key:   schema.InternalKey_ServerVersion,
+		Value: servercfg.GetVersion(),
 	}
-	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	return serverVersion.Set(db.WithContext(context.TODO()))
+}
+
+func setMqKeys() error {
+	mqPrivateKey := &schema.Internal{
+		Key: schema.InternalKey_MqPrivateKey,
+	}
+	err := mqPrivateKey.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	mqPublicKey := &schema.Internal{
+		Key: schema.InternalKey_MqPublicKey,
+	}
+	err = mqPublicKey.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if mqPrivateKey.Value != "" && mqPublicKey.Value != "" {
+		return nil
+	}
+
+	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
 
-	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	privateKeyBytes, err := ncutils.ConvertKeyToBytes(privateKey)
 	if err != nil {
 		return err
 	}
 
-	telemetry := models.Telemetry{
-		UUID:           uuid.NewString(),
-		TrafficKeyPriv: tPriv,
-		TrafficKeyPub:  tPub,
-	}
-	telJSON, err := json.Marshal(&telemetry)
+	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
 		return err
 	}
 
-	return database.Insert(database.SERVER_UUID_RECORD_KEY, string(telJSON), database.SERVER_UUID_TABLE_NAME)
+	mqPrivateKey.Value = base64.StdEncoding.EncodeToString(privateKeyBytes)
+	mqPublicKey.Value = base64.StdEncoding.EncodeToString(publicKeyBytes)
+
+	ctx := db.WithContext(context.TODO())
+	err = mqPrivateKey.Set(ctx)
+	if err != nil {
+		return err
+	}
+
+	return mqPublicKey.Set(ctx)
 }

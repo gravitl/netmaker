@@ -1,6 +1,8 @@
 package extensions
 
 import (
+	"context"
+
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
@@ -12,12 +14,12 @@ func (p *ProNodeExtensions) ConfigureAutoRelay(node *schema.Node) {
 	node.IsAutoRelay = "yes"
 }
 
-func (p *ProNodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, key *models.EnrollmentKey) {
+func (p *ProNodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, key *schema.EnrollmentKey) {
 	node.AutoAssignGateway = key.AutoAssignGateway
 }
 
-func (p *ProNodeExtensions) ConfigureTag(node *schema.Node, tagID models.TagID) {
-	tag, err := proLogic.GetTag(tagID)
+func (p *ProNodeExtensions) ConfigureTag(ctx context.Context, node *schema.Node, tagID models.TagID) {
+	tag, err := proLogic.GetTag(ctx, tagID)
 	if err != nil {
 		return
 	}

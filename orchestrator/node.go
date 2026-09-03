@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -29,6 +30,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	node := &schema.Node{
 		ID:                 uuid.NewString(),
+		TenantID:           scope.ID(ctx),
 		HostID:             host.ID.String(),
 		Host:               host,
 		NetworkID:          network.ID,
@@ -47,8 +49,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	if ops.useKey {
 		n.nodeExt.ConfigureAutoAssignGateway(node, ops.key)
 
-		for _, tag := range ops.key.Groups {
-			n.nodeExt.ConfigureTag(node, tag)
+		for _, tag := range ops.key.Tags {
+			n.nodeExt.ConfigureTag(ctx, node, models.TagID(tag))
 		}
 	}
 
@@ -108,14 +110,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		return nil, err
 	}
 
-	go logic.CheckZombies(node)
+	go logic.CheckZombies(ctx, node)
 
-	go func() {
-		err := logic.UpdateMetrics(node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
+	go func(ctx context.Context) {
+		err := logic.UpdateMetrics(ctx, node.ID, &models.Metrics{Connectivity: make(map[string]models.Metric)})
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to initialize metrics for node (%s): %v", node.ID, err))
 		}
-	}()
+	}(ctx)
 
 	if host.IsDefault {
 		err = n.ValidateCreateGateway(ctx, node, SkipPublishPeerUpdate())
@@ -127,14 +129,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		if err != nil {
 			return nil, err
 		}
-	} else if ops.useKey && ops.key.Relay != uuid.Nil {
+	} else if ops.useKey && ops.key.GatewayID != nil {
 		gateway := &schema.Node{
-			ID: ops.key.Relay.String(),
+			ID: *ops.key.GatewayID,
 		}
 		err = gateway.Get(ctx)
 		if err == nil {
 			// TODO: merge operation
-			relayID := ops.key.Relay.String()
+			relayID := *ops.key.GatewayID
 			node.RelayedByNodeID = &relayID
 			err = node.UpdateRelayingNode(ctx)
 			if err != nil {
@@ -151,10 +153,10 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(ctx, modelsNode), schema.NetworkID(node.Network.Name))
 		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
 		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -163,6 +165,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		for _, violation := range modelsNode.PostureChecksViolations {
 			_violations = append(_violations, schema.PostureCheckViolation{
 				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
+				TenantID:          node.TenantID,
 				CheckID:           violation.CheckID,
 				NodeID:            node.ID,
 				Name:              violation.Name,
@@ -172,7 +175,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 				EvaluatedAt:       node.PostureCheckLastEvaluatedAt,
 			})
 		}
-		err = node.UpsertViolations(db.WithContext(context.TODO()), _violations)
+		err = node.UpsertViolations(ctx, _violations)
 		if err != nil {
 			logger.Log(1, fmt.Sprintf("failed to upsert node (%s) posture check violations: %v", modelsNode.ID, err))
 		}
@@ -194,14 +197,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 
 		if !ops.skipPublishPeerUpdate {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
 			time.Sleep(time.Second * 30)
 			logic.TriggerCollectMetrics(host.ID.String(), node.ID, "join")
 		}
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return node, nil
 }
@@ -209,24 +212,79 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
+	if logic.IngressLimitExceeded(ctx) {
+		return logic.ErrIngressLimitExceeded
+	}
+
 	node.IsGateway = true
 
-	if ops.isInternetGateway {
-		node.Host.DNS = "yes"
-		node.Host.IsStaticPort = true
-		err := node.Host.Upsert(ctx)
+	if ops.setTcpProxy && ops.tcpProxyEnabled {
+		listenPort := ops.tcpProxyListenPort
+		if listenPort <= 0 {
+			listenPort = schema.DefaultTcpProxyListenPort
+		}
+		tlsMode, err := schema.NormaliseTcpProxyTLSMode(ops.tcpProxyTLSMode)
 		if err != nil {
 			return err
 		}
+		publicHostname := ""
+		if tlsMode == schema.TcpProxyTLSModeProxy {
+			publicHostname, err = schema.NormaliseTcpProxyPublicHostname(ops.tcpProxyPublicHostname)
+			if err != nil {
+				return err
+			}
+		}
+		// Listen is host-level only.
+		if node.Host != nil {
+			node.Host.TcpProxyEnabled = true
+			node.Host.TcpProxyListenPort = listenPort
+			node.Host.TcpProxyTLSMode = tlsMode
+			node.Host.TcpProxyListenAddr = ops.tcpProxyListenAddr
+			node.Host.TcpProxyPublicHostname = publicHostname
+			if err := node.Host.SetTcpProxy(ctx); err != nil {
+				return err
+			}
+		} else if node.HostID != "" {
+			hostID, err := uuid.Parse(node.HostID)
+			if err == nil {
+				host := &schema.Host{ID: hostID}
+				if err := host.Get(ctx); err == nil {
+					host.TcpProxyEnabled = true
+					host.TcpProxyListenPort = listenPort
+					host.TcpProxyTLSMode = tlsMode
+					host.TcpProxyListenAddr = ops.tcpProxyListenAddr
+					host.TcpProxyPublicHostname = publicHostname
+					_ = host.SetTcpProxy(ctx)
+				}
+			}
+		}
+	}
 
+	node.Host.IsStaticPort = true
+	node.Host.IsStatic = true
+	if ops.isInternetGateway {
+		node.Host.DNS = "yes"
 		node.IsInternetGateway = true
 	}
+	err := node.Host.Upsert(ctx)
+	if err != nil {
+		return err
+	}
+
+	go func(host schema.Host) {
+		if err := mq.HostUpdate(&models.HostUpdate{
+			Action: models.UpdateHost,
+			Host:   host,
+		}); err != nil {
+			logger.Log(1, "failed to send host update after gateway creation", host.ID.String(), err.Error())
+		}
+	}(*node.Host)
 
 	n.nodeExt.ConfigureAutoRelay(node)
 
 	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
 
-	err := node.Update(ctx)
+	err = node.Update(ctx)
 	if err != nil {
 		return err
 	}
@@ -235,7 +293,18 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 		node.RelayedClients[relayedClientID] = struct{}{}
 	}
 
+	var internetEgress *schema.Egress
 	if ops.isInternetGateway {
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+		internetEgress, err = logic.CreateInternetEgressForNode(ctx, modelsNode, "", "orchestrator")
+		if err != nil {
+			return fmt.Errorf("failed to create internet egress: %w", err)
+		}
+		if internetEgress.TenantID == "" {
+			internetEgress.TenantID = scope.ID(ctx)
+			_ = internetEgress.Update(ctx)
+		}
+
 		nodeID := node.ID
 		for _, igwClientID := range ops.igwClients {
 			igwClient := &schema.Node{
@@ -258,11 +327,14 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 			igwClient.IsIGWClient = true
 			igwClient.RelayedByNodeID = &nodeID
+			igwClient.SelectedInternetEgressID = internetEgress.ID
 
 			err = igwClient.AssignGateway(ctx)
 			if err != nil {
 				return err
 			}
+			_ = db.FromContext(ctx).Model(&schema.Node{}).Where("id = ?", igwClientID).
+				Update("selected_internet_egress_id", internetEgress.ID).Error
 		}
 	}
 
@@ -303,7 +375,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 
 	if !ops.skipPublishPeerUpdate {
 		go func() {
-			err := mq.PublishPeerUpdate(false)
+			err := mq.PublishPeerUpdate(ctx, false)
 			if err != nil {
 				logger.Log(1, "failed to publish peer update for node", node.ID, err.Error())
 			}
@@ -332,6 +404,10 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 		return fmt.Errorf("relayed node %s cannot be used as a gateway", node.Host.Name)
 	}
 
+	if node.SelectedInternetEgressID != "" {
+		return fmt.Errorf("node %s is using an exit node egress and cannot be set as a gateway", node.Host.Name)
+	}
+
 	for _, relayedClientID := range ops.relayedClients {
 		err := (&schema.Node{
 			ID: relayedClientID,
@@ -346,7 +422,7 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 			return fmt.Errorf("host must have iptables or nftables installed")
 		}
 
-		if node.IsIGWClient {
+		if node.IsIGWClient || node.SelectedInternetEgressID != "" {
 			return fmt.Errorf("node %s is using a internet gateway already", node.Host.Name)
 		}
 
@@ -379,7 +455,7 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 				return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", igwClient.Host.Name)
 			}
 
-			if igwClient.IsIGWClient {
+			if igwClient.IsIGWClient || igwClient.SelectedInternetEgressID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", igwClient.Host.Name)
 			}
 

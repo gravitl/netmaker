@@ -3,28 +3,22 @@ package logic
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
-
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-)
-
-const (
-	auth_key = "netmaker_auth"
+	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -33,32 +27,43 @@ const (
 	NetmakerDesktopApp = "netmaker-desktop"
 )
 
-var IsOAuthConfigured = func() bool { return false }
-var ResetAuthProvider = func() {}
-var ResetIDPSyncHook = func() {}
+var IsOAuthConfigured = func(context.Context) bool { return false }
+var ResetAuthProvider = func(context.Context) {}
+var ResetIDPSyncHook = func(context.Context) {}
 
-// HasSuperAdmin - checks if server has an superadmin/owner
-func HasSuperAdmin() (bool, error) {
-	return (&schema.User{}).SuperAdminExists(db.WithContext(context.TODO()))
-}
+type CleanupUserRefsFunc func(ctx context.Context, username string, forceDeleteConfigs bool)
 
-// GetUsers - gets users
-func GetUsers() ([]models.ReturnUser, error) {
-	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+func ResolveInheritedAuth(ctx context.Context, user *schema.User) error {
+	if scope.Level(ctx) != scope.TenantScope || user.AuthType != schema.Inherited {
+		return nil
+	}
+
+	tenant := &schema.Tenant{ID: scope.ID(ctx)}
+	err := tenant.Get(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	users := make([]models.ReturnUser, len(_users))
-	for i, _user := range _users {
-		users[i] = ToReturnUser(&_user)
+	orgMembership := &schema.OrgMembership{
+		OrganizationID: tenant.OrganizationID,
+		UserID:         user.ID,
 	}
-	return users, nil
+	err = orgMembership.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	user.AuthType = orgMembership.AuthType
+	user.Password = orgMembership.Password
+	user.ExternalIdentityProviderID = orgMembership.ExternalIdentityProviderID
+	user.IsMFAEnabled = orgMembership.IsMFAEnabled
+	user.TOTPSecret = orgMembership.TOTPSecret
+	return nil
 }
 
 // IsOauthUser - returns
-func IsOauthUser(user *schema.User) error {
-	var currentValue, err = FetchPassValue("")
+func IsOauthUser(ctx context.Context, user *schema.User) error {
+	var currentValue, err = FetchOAuthSecret(ctx)
 	if err != nil {
 		return err
 	}
@@ -66,100 +71,8 @@ func IsOauthUser(user *schema.User) error {
 	return bCryptErr
 }
 
-func FetchPassValue(newValue string) (string, error) {
-
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
-	}
-	newValueHolder := valueHolder{}
-	var currentValue, err = FetchAuthSecret()
-	if err != nil {
-		return "", err
-	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
-	if unmarshErr != nil {
-		return "", unmarshErr
-	}
-
-	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
-	if b64Err != nil {
-		logger.Log(0, "could not decode pass")
-		return "", nil
-	}
-	return string(b64CurrentValue), nil
-}
-
-// CreateUser - creates a user
-func CreateUser(_user *schema.User) error {
-	// check if user exists
-	userCheck := &schema.User{Username: _user.Username}
-	if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
-		return errors.New("user exists")
-	}
-	SetUserDefaults(_user)
-	if err := IsGroupsValid(_user.UserGroups.Data()); err != nil {
-		return errors.New("invalid groups: " + err.Error())
-	}
-
-	var err = ValidateUser(_user)
-	if err != nil {
-		logger.Log(0, "failed to validate user", err.Error())
-		return err
-	}
-	// encrypt that password so we never see it again
-	hash, err := bcrypt.GenerateFromPassword([]byte(_user.Password), 5)
-	if err != nil {
-		logger.Log(0, "error encrypting pass", err.Error())
-		return err
-	}
-	// set password to encrypted password
-	_user.Password = string(hash)
-	_user.AuthType = schema.BasicAuth
-	if IsOauthUser(_user) == nil {
-		_user.AuthType = schema.OAuth
-	}
-	AddGlobalNetRolesToAdmins(_user)
-	// create user will always be called either from API or Dashboard.
-	_, err = CreateUserJWT(_user.Username, _user.PlatformRoleID, DashboardApp)
-	if err != nil {
-		logger.Log(0, "failed to generate token", err.Error())
-		return err
-	}
-
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	err = _user.Create(dbctx)
-	if err != nil {
-		return fmt.Errorf("failed to create user %s: %v", _user.Username, err)
-	}
-
-	commit = true
-	return nil
-}
-
-// CreateSuperAdmin - creates an super admin user
-func CreateSuperAdmin(u *schema.User) error {
-	hassuperadmin, err := HasSuperAdmin()
-	if err != nil {
-		return err
-	}
-	if hassuperadmin {
-		return errors.New("superadmin user already exists")
-	}
-	u.PlatformRoleID = schema.SuperAdminRole
-	return CreateUser(u)
-}
-
 // VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
+func VerifyAuthRequest(ctx context.Context, authRequest models.UserAuthParams, appName string) (string, error) {
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
@@ -169,7 +82,12 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	_user := &schema.User{
 		Username: authRequest.UserName,
 	}
-	err := _user.Get(db.WithContext(context.TODO()))
+	err := _user.GetWithMembership(ctx)
+	if err != nil {
+		return "", errors.New("incorrect credentials")
+	}
+
+	err = ResolveInheritedAuth(ctx, _user)
 	if err != nil {
 		return "", errors.New("incorrect credentials")
 	}
@@ -182,7 +100,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 	}
 
 	if _user.IsMFAEnabled {
-		tokenString, err := CreatePreAuthToken(authRequest.UserName)
+		tokenString, err := CreatePreAuthToken(ctx, authRequest.UserName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -191,7 +109,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, schema.UserRoleID(_user.PlatformRoleID), appName)
+		tokenString, err := CreateUserJWT(ctx, authRequest.UserName, appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -199,7 +117,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 
 		// update last login time
 		_user.LastLoginAt = time.Now().UTC()
-		err = _user.Update(db.WithContext(context.TODO()))
+		err = _user.Update(ctx)
 		if err != nil {
 			slog.Error("error upserting user", "error", err)
 			return "", err
@@ -225,9 +143,9 @@ func UpsertUser(_user schema.User) error {
 // preserveExternalUserGroups copies IdP-managed group membership from the existing
 // user onto the update payload so external groups are not dropped when the UI
 // omits them (e.g. role-only updates).
-func preserveExternalUserGroups(existing, change *schema.User) {
+func preserveExternalUserGroups(ctx context.Context, existing, change *schema.User) {
 	for groupID := range existing.UserGroups.Data() {
-		group, err := GetUserGroup(groupID)
+		group, err := GetUserGroup(ctx, groupID)
 		if err != nil || group.ExternalIdentityProviderID == "" {
 			continue
 		}
@@ -236,10 +154,10 @@ func preserveExternalUserGroups(existing, change *schema.User) {
 }
 
 // UpdateUser - updates a given user
-func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
+func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
 	userCheck := &schema.User{Username: _user.Username}
-	if err := userCheck.Get(db.WithContext(context.TODO())); err != nil {
+	if err := userCheck.Get(ctx); err != nil {
 		return &schema.User{}, err
 	}
 
@@ -247,7 +165,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	if userchange.Username != "" && _user.Username != userchange.Username {
 		// check if username is available
 		userCheck := &schema.User{Username: userchange.Username}
-		if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
+		if err := userCheck.Get(ctx); err == nil {
 			return &schema.User{}, errors.New("username exists already")
 		}
 		if userchange.Username == MasterUser {
@@ -274,7 +192,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 
 	validUserGroups := make(map[schema.UserGroupID]struct{})
 	for userGroupID := range userchange.UserGroups.Data() {
-		_, err := GetUserGroup(userGroupID)
+		_, err := GetUserGroup(ctx, userGroupID)
 		if err == nil {
 			validUserGroups[userGroupID] = struct{}{}
 		}
@@ -288,7 +206,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 		newRole = oldRole
 	}
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
-	preserveExternalUserGroups(_user, userchange)
+	preserveExternalUserGroups(ctx, _user, userchange)
 	if oldRole != newRole {
 		for groupID := range _user.UserGroups.Data() {
 			userchange.UserGroups.Data()[groupID] = struct{}{}
@@ -310,7 +228,8 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	}
 
 	// Reset Gw Access for service users
-	go UpdateUserGwAccess(_user, userchange)
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go UpdateUserGwAccess(detachedCtx, _user, userchange)
 	if userchange.PlatformRoleID != "" {
 		_user.PlatformRoleID = userchange.PlatformRoleID
 	}
@@ -318,7 +237,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	for groupID := range userchange.UserGroups.Data() {
 		_, ok := _user.UserGroups.Data()[groupID]
 		if !ok {
-			group, err := GetUserGroup(groupID)
+			group, err := GetUserGroup(ctx, groupID)
 			if err != nil {
 				return userchange, err
 			}
@@ -335,7 +254,7 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 			if newRole == schema.Auditor {
 				continue
 			}
-			group, err := GetUserGroup(groupID)
+			group, err := GetUserGroup(ctx, groupID)
 			if err != nil {
 				return userchange, err
 			}
@@ -346,69 +265,43 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 		}
 	}
 
-	var updateMFA bool
-	if _user.IsMFAEnabled != userchange.IsMFAEnabled {
-		updateMFA = true
-	}
-
-	_user.IsMFAEnabled = userchange.IsMFAEnabled
-
-	var updateAccountStatus bool
-	if _user.AccountDisabled != userchange.AccountDisabled {
-		updateAccountStatus = true
-	}
-
 	_user.IsMFAEnabled = userchange.IsMFAEnabled
 	if !_user.IsMFAEnabled {
 		_user.TOTPSecret = ""
 	}
 
+	groupsChanged := !CompareMaps(_user.UserGroups.Data(), userchange.UserGroups.Data())
+
+	_user.AccountDisabled = userchange.AccountDisabled
 	_user.UserGroups = userchange.UserGroups
 	err := ValidateUser(_user)
 	if err != nil {
 		return &schema.User{}, err
 	}
 
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-			logger.Log(1, "updated user", queryUser)
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
 	// Fetch existing user to get ID
 	_schemaUser := schema.User{Username: queryUser}
-	err = _schemaUser.Get(dbctx)
+	err = _schemaUser.Get(ctx)
 	if err != nil {
 		return &schema.User{}, err
 	}
 
 	_user.ID = _schemaUser.ID
 
-	err = _user.Update(dbctx)
+	err = _user.Update(ctx)
 	if err != nil {
 		return &schema.User{}, err
 	}
 
-	if updateAccountStatus {
-		err = _user.UpdateAccountStatus(dbctx)
-		if err != nil {
-			return &schema.User{}, err
-		}
+	err = _user.UpsertMembership(ctx)
+	if err != nil {
+		return &schema.User{}, err
 	}
 
-	if updateMFA {
-		err = _user.UpdateMFA(dbctx)
-		if err != nil {
-			return &schema.User{}, err
-		}
+	if groupsChanged {
+		go RunPostureChecksForTenant(detachedCtx)
 	}
 
-	commit = true
 	return _user, nil
 }
 
@@ -444,7 +337,7 @@ func ValidateUser(user *schema.User) error {
 	var validationErr error
 	// check if role is valid
 	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
-	err := roleCheck.Get(db.WithContext(context.TODO()))
+	err := roleCheck.GetPlatformRole(db.WithContext(context.TODO()))
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -458,19 +351,21 @@ func ValidateUser(user *schema.User) error {
 		validationErr = errors.Join(validationErr, err)
 	}
 
-	if len(user.Password) < 5 {
-		validationErr = errors.Join(validationErr, errors.New("password must have a minimum of 5 characters"))
-	}
-
 	return validationErr
 }
 
-// DeleteUser - deletes a given user
-func DeleteUser(user string) error {
-	_user := schema.User{
-		Username: user,
+func IsIDPUser(ctx context.Context, user *schema.User) bool {
+	if scope.Level(ctx) == scope.TenantScope {
+		if user.AuthType == schema.OAuth && IsSyncEnabled(ctx) {
+			return true
+		}
 	}
-	err := _user.Delete(db.WithContext(context.TODO()))
+
+	return false
+}
+
+func DeleteTenantUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.TenantMembership{TenantID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user does not exist")
@@ -479,72 +374,259 @@ func DeleteUser(user string) error {
 		return err
 	}
 
-	RemoveUserFromAclPolicy(user)
-	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
+	RemoveUserFromAclPolicy(ctx, user.Username)
+
+	if err := (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(ctx); err != nil {
+		return err
+	}
+
+	if cleanup != nil {
+		cleanupCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, scope.ID(ctx))
+		go cleanup(cleanupCtx, user.Username, forceDeleteConfigs)
+	}
+
+	return nil
 }
 
-func SetAuthSecret(secret string) error {
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
-	}
-	record, err := FetchAuthSecret()
-	if err == nil {
-		v := valueHolder{}
-		json.Unmarshal([]byte(record), &v)
-		if v.Value != "" {
-			return nil
+func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
+	err := (&schema.OrgMembership{OrganizationID: scope.ID(ctx), UserID: user.ID}).Delete(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not exist")
 		}
-	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
-	newValueHolder := valueHolder{
-		Value: b64NewValue,
-	}
-	d, _ := json.Marshal(newValueHolder)
-	return database.Insert(auth_key, string(d), database.GENERATED_TABLE_NAME)
-}
 
-// FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret() (string, error) {
-	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, auth_key)
-	if err != nil {
-		return "", err
-	}
-	return record, nil
-}
-
-// GetState - gets an SsoState from DB, if expired returns error
-func GetState(state string) (*models.SsoState, error) {
-	var s models.SsoState
-	record, err := database.FetchRecord(database.SSO_STATE_CACHE, state)
-	if err != nil {
-		return &s, err
+		return err
 	}
 
-	if err = json.Unmarshal([]byte(record), &s); err != nil {
-		return &s, err
-	}
-
-	if s.IsExpired() {
-		return &s, fmt.Errorf("state expired")
-	}
-
-	return &s, nil
-}
-
-// SetState - sets a state with new expiration
-func SetState(appName, state string) error {
-	s := models.SsoState{
-		AppName:    appName,
-		Value:      state,
-		Expiration: time.Now().Add(models.DefaultExpDuration),
-	}
-
-	data, err := json.Marshal(&s)
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
 	if err != nil {
 		return err
 	}
 
-	return database.Insert(state, string(data), database.SSO_STATE_CACHE)
+	for _, membership := range memberships {
+		if membership.AuthType != schema.Inherited {
+			continue
+		}
+
+		tenant := &schema.Tenant{
+			ID: membership.TenantID,
+		}
+		err = tenant.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		if tenant.OrganizationID != scope.ID(ctx) {
+			continue
+		}
+
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, membership.TenantID)
+		err = DeleteTenantUser(tenantCtx, user, forceDeleteConfigs, cleanup)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func SetOAuthSecret(secret string) error {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
+	}
+	err := oauthSecret.Get(db.WithContext(context.TODO()))
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if oauthSecret.Value != "" {
+		return nil
+	}
+
+	oauthSecret.Value = base64.StdEncoding.EncodeToString([]byte(secret))
+	return oauthSecret.Set(db.WithContext(context.TODO()))
+}
+
+// FetchOAuthSecret fetches secrets for oauth
+func FetchOAuthSecret(ctx context.Context) (string, error) {
+	oauthSecret := &schema.Internal{
+		Key: schema.InternalKey_OAuthSecret,
+	}
+	err := oauthSecret.Get(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	oauthSecretValue, err := base64.StdEncoding.DecodeString(oauthSecret.Value)
+	if err != nil {
+		return "", err
+	}
+
+	return string(oauthSecretValue), nil
+}
+
+// GetState - gets an SsoState from DB, if expired returns error
+func GetState(state string) (*models.SsoState, error) {
+	r := &schema.SsoStateRecord{Key: state}
+	if err := r.Get(db.WithContext(context.TODO())); err != nil {
+		return nil, err
+	}
+	s := r.Value.Data()
+	if s.IsExpired() {
+		return &s, fmt.Errorf("state expired")
+	}
+	return &s, nil
+}
+
+// SetState - sets a state with new expiration
+func SetState(scope scope.Scope, scopeID, appName, state string) error {
+	s := models.SsoState{
+		Scope:      scope,
+		ScopeID:    scopeID,
+		AppName:    appName,
+		Value:      state,
+		Expiration: time.Now().Add(models.DefaultExpDuration),
+	}
+	r := &schema.SsoStateRecord{Key: state, Value: datatypes.NewJSONType(s)}
+	return r.Upsert(db.WithContext(context.TODO()))
+}
+
+// GetLoginMethodsForUser returns available login options for the given username.
+// Returns an empty slice (not an error) when the user is not found.
+func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.LoginOption, error) {
+	user := &schema.User{Username: username}
+	err := user.Get(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return []models.LoginOption{}, nil
+		}
+		return []models.LoginOption{}, err
+	}
+
+	var options []models.LoginOption
+	tenantMemberships, err := (&schema.TenantMembership{
+		UserID: user.ID,
+	}).ListByUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tenant memberships: %w", err)
+	}
+
+	for _, membership := range tenantMemberships {
+		tenant := &schema.Tenant{ID: membership.TenantID}
+		err = tenant.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		settings := &schema.TenantSettingsRecord{Key: membership.TenantID}
+		err = settings.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Value = datatypes.NewJSONType(schema.TenantSettings{})
+			} else {
+				continue
+			}
+		}
+
+		var methodsAvailable models.LoginMethodsAvailable
+		switch membership.AuthType {
+		case schema.BasicAuth:
+			methodsAvailable.BasicAuth = true
+		case schema.OAuth:
+			methodsAvailable.SSO = true
+			methodsAvailable.SSOProvider = settings.Value.Data().AuthProvider
+		case schema.Inherited:
+			orgMembership := &schema.OrgMembership{
+				OrganizationID: tenant.OrganizationID,
+				UserID:         user.ID,
+			}
+			err = orgMembership.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			methodsAvailable.OrgAuth = true
+			methodsAvailable.OrganizationID = tenant.OrganizationID
+			if orgMembership.AuthType == schema.BasicAuth {
+				methodsAvailable.BasicAuth = true
+			} else if orgMembership.AuthType == schema.OAuth {
+				orgSettings := &schema.OrganizationSettings{
+					ID: tenant.OrganizationID,
+				}
+				err = orgSettings.Get(ctx)
+				if err != nil {
+					continue
+				}
+
+				methodsAvailable.SSO = true
+				methodsAvailable.SSOProvider = orgSettings.Settings.Data().AuthProvider
+			} else {
+				continue
+			}
+		}
+
+		options = append(options, models.LoginOption{
+			Scope:         scope.TenantScope,
+			ScopeID:       tenant.ID,
+			ScopeName:     tenant.Name,
+			ScopeSlug:     tenant.Slug,
+			ScopeMetadata: tenant.Metadata,
+			Methods:       methodsAvailable,
+		})
+	}
+
+	var orgMemberships []schema.OrgMembership
+	if IsMSP(ctx) {
+		orgMemberships, err = (&schema.OrgMembership{
+			UserID: user.ID,
+		}).ListByUserID(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error listing org memberships: %w", err)
+		}
+	}
+
+	for _, membership := range orgMemberships {
+		org := &schema.Organization{ID: membership.OrganizationID}
+		err = org.Get(ctx)
+		if err != nil {
+			continue
+		}
+
+		settings := &schema.OrganizationSettings{ID: membership.OrganizationID}
+		err = settings.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				settings.Settings = datatypes.NewJSONType(schema.OrganizationSettingsData{})
+			} else {
+				continue
+			}
+		}
+
+		var methodsAvailable models.LoginMethodsAvailable
+		switch membership.AuthType {
+		case schema.BasicAuth:
+			methodsAvailable.BasicAuth = true
+		case schema.OAuth:
+			methodsAvailable.SSO = true
+			methodsAvailable.SSOProvider = settings.Settings.Data().AuthProvider
+		default:
+			continue
+		}
+
+		options = append(options, models.LoginOption{
+			Scope:         scope.OrgScope,
+			ScopeID:       org.ID,
+			ScopeName:     org.Name,
+			ScopeSlug:     org.Slug,
+			ScopeMetadata: org.Metadata,
+			Methods:       methodsAvailable,
+		})
+	}
+
+	if options == nil {
+		options = []models.LoginOption{}
+	}
+	return options, nil
 }
 
 // IsStateValid - checks if given state is valid or not
@@ -566,27 +648,20 @@ func IsStateValid(state string) (string, bool) {
 
 // delState - removes a state from cache/db
 func delState(state string) error {
-	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
+	return (&schema.SsoStateRecord{Key: state}).Delete(db.WithContext(context.TODO()))
 }
 
 // CleanExpiredSSOStates removes expired SSO state entries from the database
 // to prevent unbounded table growth that degrades FetchRecord performance.
 func CleanExpiredSSOStates() error {
-	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	records, err := (&schema.SsoStateRecord{}).List(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
 		return err
 	}
-	for key, value := range records {
-		var s models.SsoState
-		if err := json.Unmarshal([]byte(value), &s); err != nil {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
-			continue
-		}
+	for _, r := range records {
+		s := r.Value.Data()
 		if s.IsExpired() {
-			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			_ = (&schema.SsoStateRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 	return nil

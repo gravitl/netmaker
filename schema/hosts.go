@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
 )
@@ -120,6 +121,7 @@ func (a *AddrPort) UnmarshalJSON(data []byte) error {
 
 type Host struct {
 	ID                  uuid.UUID                   `gorm:"primaryKey" json:"id" yaml:"id"`
+	TenantID            string                      `gorm:"default:'';index" json:"tenant_id"`
 	Verbosity           int                         `json:"verbosity" yaml:"verbosity"`
 	FirewallInUse       string                      `json:"firewallinuse" yaml:"firewallinuse"`
 	Version             string                      `json:"version" yaml:"version"`
@@ -136,6 +138,19 @@ type Host struct {
 	Debug               bool                        `json:"debug" yaml:"debug"`
 	ListenPort          int                         `json:"listenport" yaml:"listenport"`
 	WgPublicListenPort  int                         `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	// TcpProxyEnabled: host accepts TCP/WSS framed WG uplinks (gateway listen is host-level).
+	TcpProxyEnabled bool `json:"tcp_proxy_enabled" yaml:"tcp_proxy_enabled"`
+	// TcpProxyListenPort: listen port when TcpProxyEnabled (default 443 if enabled with port 0).
+	TcpProxyListenPort int `json:"tcp_proxy_listen_port" yaml:"tcp_proxy_listen_port"`
+	// TcpProxyTLSMode: selfsigned (default) or proxy. Empty means selfsigned.
+	TcpProxyTLSMode string `json:"tcp_proxy_tls_mode" yaml:"tcp_proxy_tls_mode"`
+	// TcpProxyListenAddr: optional bind address (e.g. 127.0.0.1). Empty means all interfaces (:port).
+	TcpProxyListenAddr string `json:"tcp_proxy_listen_addr,omitempty" yaml:"tcp_proxy_listen_addr,omitempty"`
+	// TcpProxyPublicHostname: public DNS name clients dial when TLS mode is proxy
+	// (e.g. gateway.example.com). Empty falls back to EndpointIP.
+	TcpProxyPublicHostname string `json:"tcp_proxy_public_hostname,omitempty" yaml:"tcp_proxy_public_hostname,omitempty"`
+	// TcpProxyCertFingerprint: SHA-256 hex of the leaf cert when tls mode is selfsigned.
+	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
 	MTU                 int                         `json:"mtu" yaml:"mtu"`
 	PublicKey           WgKey                       `json:"publickey" yaml:"publickey"`
 	MacAddress          net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
@@ -157,12 +172,25 @@ type Host struct {
 	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode         string                      `json:"country_code" yaml:"country_code"`
 	EnableFlowLogs      bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
-	CreatedAt           time.Time                   `json:"created_at" yaml:"created_at"`
-	UpdatedAt           time.Time                   `json:"updated_at" yaml:"updated_at"`
+
+	// MDM device-matching identifiers. Reported by netclient on host check-in
+	// and consumed by the MDM sync worker to match a Netmaker host to its
+	// upstream MDM-managed device record.
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+
+	// OwnerUsername is the Netmaker user who registered this device (desktop/netclient).
+	OwnerUsername string `json:"owner_username" yaml:"owner_username"`
+
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
+const hostsTable = "hosts_v1"
+
 func (h *Host) TableName() string {
-	return "hosts_v1"
+	return hostsTable
 }
 
 func (h *Host) Create(ctx context.Context) error {
@@ -180,6 +208,10 @@ func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	var count int64
 	query := db.FromContext(ctx).Model(&Host{})
 
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
+	}
+
 	for _, option := range options {
 		query = option(query)
 	}
@@ -191,6 +223,10 @@ func (h *Host) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, error) {
 	var hosts []Host
 	query := db.FromContext(ctx).Model(&Host{})
+
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID))
+	}
 
 	for _, option := range options {
 		query = option(query)
@@ -204,6 +240,20 @@ func (h *Host) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(h).Error
 }
 
+// SetTcpProxy persists TCP proxy listen settings on the host (source of truth for gateway listen).
+func (h *Host) SetTcpProxy(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Host{}).
+		Where("id = ?", h.ID).
+		Updates(map[string]interface{}{
+			"tcp_proxy_enabled":          h.TcpProxyEnabled,
+			"tcp_proxy_listen_port":      h.TcpProxyListenPort,
+			"tcp_proxy_tls_mode":         h.TcpProxyTLSMode,
+			"tcp_proxy_listen_addr":      h.TcpProxyListenAddr,
+			"tcp_proxy_public_hostname":  h.TcpProxyPublicHostname,
+			"tcp_proxy_cert_fingerprint": h.TcpProxyCertFingerprint,
+		}).Error
+}
+
 func (h *Host) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Host{}).
 		Where("id = ?", h.ID).
@@ -212,5 +262,8 @@ func (h *Host) Delete(ctx context.Context) error {
 }
 
 func (h *Host) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM hosts_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM hosts_v1").Error
 }

@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slices"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+
+	"context"
 )
 
 // EnrollmentErrors - struct for holding EnrollmentKey error messages
@@ -33,51 +37,72 @@ var EnrollmentErrors = struct {
 	FailedToTokenize:   fmt.Errorf("failed to tokenize"),
 	FailedToDeTokenize: fmt.Errorf("failed to detokenize"),
 }
-var (
-	enrollmentkeyCacheMutex = &sync.RWMutex{}
-	enrollmentkeyCacheMap   = make(map[string]models.EnrollmentKey)
-)
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks,
+func CreateEnrollmentKey(ctx context.Context, uses int, expiration time.Time, networks,
 	tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID,
-	defaultKey, autoEgress, autoAssignGw bool) (*models.EnrollmentKey, error) {
-	newKeyID, err := getUniqueEnrollmentID()
+	defaultKey, autoEgress, autoAssignGw bool) (*schema.EnrollmentKey, error) {
+
+	newKeyID, err := getUniqueEnrollmentID(ctx)
 	if err != nil {
 		return nil, err
 	}
-	k := &models.EnrollmentKey{
+
+	var keyType schema.EnrollmentKeyType
+	var exp time.Time
+	var usesRemaining int
+
+	if uses > 0 {
+		usesRemaining = uses
+		keyType = schema.EnrollmentKeyType_LimitedUses
+	} else if !expiration.IsZero() {
+		exp = expiration
+		keyType = schema.EnrollmentKeyType_TimedExpiry
+	} else if unlimited {
+		keyType = schema.EnrollmentKeyType_UnlimitedUses
+	}
+
+	keyTags := make(datatypes.JSONSlice[string], 0, len(groups))
+	for _, g := range groups {
+		keyTags = append(keyTags, g.String())
+	}
+
+	var relayPtr *string
+	if relay != uuid.Nil {
+		s := relay.String()
+		relayPtr = &s
+	}
+
+	// tags[0] is the enrollment key display name
+	name := ""
+	if len(tags) > 0 {
+		name = tags[0]
+	}
+
+	k := &schema.EnrollmentKey{
+		ID:                uuid.NewString(),
+		TenantID:          scope.ID(ctx),
+		Name:              name,
 		Value:             newKeyID,
-		Expiration:        time.Time{},
-		UsesRemaining:     0,
+		Expiration:        exp,
+		UsesRemaining:     usesRemaining,
 		Unlimited:         unlimited,
-		Networks:          []string{},
-		Tags:              []string{},
-		Type:              models.Undefined,
-		Relay:             relay,
-		Groups:            groups,
+		Networks:          networks,
+		Tags:              keyTags,
+		Type:              keyType,
+		GatewayID:         relayPtr,
 		Default:           defaultKey,
 		AutoEgress:        autoEgress,
 		AutoAssignGateway: autoAssignGw,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
-	if uses > 0 {
-		k.UsesRemaining = uses
-		k.Type = models.Uses
-	} else if !expiration.IsZero() {
-		k.Expiration = expiration
-		k.Type = models.TimeExpiration
-	} else if k.Unlimited {
-		k.Type = models.Unlimited
+
+	if !enrollmentKeyIsValid(k) {
+		return nil, fmt.Errorf("%w: uses remaining: %d, expiration: %s, unlimited: %t",
+			models.ErrInvalidEnrollmentKey, k.UsesRemaining, k.Expiration, k.Unlimited)
 	}
-	if len(networks) > 0 {
-		k.Networks = networks
-	}
-	if len(tags) > 0 {
-		k.Tags = tags
-	}
-	if err := k.Validate(); err != nil {
-		return nil, err
-	}
+
 	if relay != uuid.Nil {
 		relayNode, err := GetNodeByID(relay.String())
 		if err != nil {
@@ -90,60 +115,79 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks,
 			return nil, errors.New("relay node is not a relay")
 		}
 	}
+
 	if defaultKey {
-		if err := clearDefaultEnrollmentKeysForNetworks(networksForDefaultEnrollmentKey(k.Networks, k.Tags), ""); err != nil {
+		if err := clearDefaultEnrollmentKeysForNetworks(ctx, networksForDefaultEnrollmentKey(k.Networks), ""); err != nil {
 			return nil, err
 		}
 	}
-	if err = upsertEnrollmentKey(k); err != nil {
+
+	if err = k.Create(ctx); err != nil {
 		return nil, err
 	}
 	return k, nil
 }
 
-// RegenerateEnrollmentKeyToken replaces the enrollment key value, invalidating any
-// previously issued registration tokens while preserving key configuration.
-func RegenerateEnrollmentKeyToken(keyID string) (*models.EnrollmentKey, error) {
-	key, err := GetEnrollmentKey(keyID)
+// CreateDefaultNetworkEnrollmentKey creates an unlimited default enrollment key for a network.
+func CreateDefaultNetworkEnrollmentKey(ctx context.Context, networkName string) (*schema.EnrollmentKey, error) {
+	value, err := getUniqueEnrollmentID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	oldValue := key.Value
-	newValue, err := getUniqueEnrollmentID()
+	key := &schema.EnrollmentKey{
+		ID:        uuid.NewString(),
+		TenantID:  scope.ID(ctx),
+		Name:      networkName,
+		Value:     value,
+		Token:     "",
+		Default:   true,
+		Unlimited: true,
+		Networks:  []string{networkName},
+		Type:      schema.EnrollmentKeyType_UnlimitedUses,
+	}
+	err = key.Create(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
+// RegenerateEnrollmentKeyToken replaces the enrollment key value, invalidating any
+// previously issued registration tokens while preserving key configuration.
+func RegenerateEnrollmentKeyToken(ctx context.Context, keyValue string) (*schema.EnrollmentKey, error) {
+	key := &schema.EnrollmentKey{Value: keyValue}
+	if err := key.GetByValue(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, EnrollmentErrors.NoKeyFound
+		}
+		return nil, err
+	}
+
+	newValue, err := getUniqueEnrollmentID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	key.Value = newValue
 	key.Token = ""
-	if err := key.Validate(); err != nil {
+	key.UpdatedAt = time.Now()
+	err = key.Upsert(ctx)
+	if err != nil {
 		return nil, err
 	}
-
-	if err := upsertEnrollmentKey(&key); err != nil {
-		return nil, err
-	}
-	if err := database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, oldValue); err != nil {
-		if !database.IsEmptyRecord(err) {
-			// best-effort rollback: remove the newly written key to avoid duplicates
-			_ = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, key.Value)
-			if servercfg.CacheEnabled() {
-				deleteEnrollmentkeyFromCache(key.Value)
-			}
-			return nil, err
-		}
-	}
-	if servercfg.CacheEnabled() {
-		deleteEnrollmentkeyFromCache(oldValue)
-	}
-	return &key, nil
+	return key, nil
 }
 
-// UpdateEnrollmentKey - updates an existing enrollment key's associated relay
-func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*models.EnrollmentKey, error) {
-	key, err := GetEnrollmentKey(keyId)
+// UpdateEnrollmentKey - updates an existing enrollment key's relay and groups
+func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.APIEnrollmentKey) (*schema.EnrollmentKey, error) {
+	key := &schema.EnrollmentKey{Value: keyValue}
+	err := key.GetByValue(ctx)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, EnrollmentErrors.NoKeyFound
+		}
 		return nil, err
 	}
 
@@ -163,83 +207,326 @@ func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*model
 		if !relayNode.IsRelay {
 			return nil, errors.New("relay node is not a relay")
 		}
-	}
-
-	if relayID != uuid.Nil {
 		updates.AutoAssignGateway = false
 	}
 
-	key.Relay = relayID
-	key.Groups = updates.Groups
+	if relayID != uuid.Nil {
+		s := relayID.String()
+		key.GatewayID = &s
+	} else {
+		key.GatewayID = nil
+	}
+
+	keyTags := make(datatypes.JSONSlice[string], 0, len(updates.Groups))
+	for _, g := range updates.Groups {
+		keyTags = append(keyTags, g.String())
+	}
+	key.Tags = keyTags
 	key.AutoAssignGateway = updates.AutoAssignGateway
+
 	if !key.Default && updates.Default {
-		if len(key.Groups) == 0 && len(key.Networks) == 0 {
+		if len(key.Tags) == 0 && len(key.Networks) == 0 {
 			return nil, errors.New("default enrollment keys require at least one network or tag")
 		}
 		key.Default = true
-		err = clearDefaultEnrollmentKeysForNetworks(networksForDefaultEnrollmentKey(key.Networks, key.Tags), "")
-		if err != nil {
+		if err := clearDefaultEnrollmentKeysForNetworks(ctx, networksForDefaultEnrollmentKey(key.Networks), ""); err != nil {
 			return nil, err
 		}
 	} else if key.Default && !updates.Default {
 		key.Default = false
 	}
-	if err = upsertEnrollmentKey(&key); err != nil {
-		return nil, err
-	}
 
-	return &key, nil
-}
-
-// GetAllEnrollmentKeys - fetches all enrollment keys from DB
-func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
-	currentKeys, err := getEnrollmentKeysMap()
+	key.UpdatedAt = time.Now()
+	err = key.Upsert(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var currentKeysList = []models.EnrollmentKey{}
-	for k := range currentKeys {
-		currentKeysList = append(currentKeysList, currentKeys[k])
-	}
-	return currentKeysList, nil
+	return key, nil
 }
 
-func enrollmentKeyAppliesToNetwork(key models.EnrollmentKey, network string) bool {
-	if slices.Contains(key.Networks, network) {
+// ModelsEnrollmentKeyFromSchema converts a schema enrollment key to the models type.
+func ModelsEnrollmentKeyFromSchema(key schema.EnrollmentKey) models.EnrollmentKey {
+	if len(key.Networks) == 0 {
+		key.Networks = make([]string, 0)
+	}
+
+	keyType := models.KeyType(key.Type)
+	var relay uuid.UUID
+	if key.GatewayID != nil {
+		relay, _ = uuid.Parse(*key.GatewayID)
+	}
+	groups := make([]models.TagID, 0, len(key.Tags))
+	for _, tag := range key.Tags {
+		groups = append(groups, models.TagID(tag))
+	}
+	tags := make([]string, 0)
+	if key.Name != "" {
+		tags = append(tags, key.Name)
+	}
+	return models.EnrollmentKey{
+		Expiration:        key.Expiration,
+		UsesRemaining:     key.UsesRemaining,
+		Value:             key.Value,
+		Networks:          key.Networks,
+		Unlimited:         key.Unlimited,
+		Tags:              tags,
+		Token:             key.Token,
+		Type:              keyType,
+		Relay:             relay,
+		Groups:            groups,
+		Default:           key.Default,
+		AutoEgress:        key.AutoEgress,
+		AutoAssignGateway: key.AutoAssignGateway,
+	}
+}
+
+// SchemaEnrollmentKeyFromModels converts a models enrollment key to the schema type.
+func SchemaEnrollmentKeyFromModels(key models.EnrollmentKey) *schema.EnrollmentKey {
+	sk := &schema.EnrollmentKey{
+		Value:             key.Value,
+		Networks:          append(datatypes.JSONSlice[string](nil), key.Networks...),
+		Unlimited:         key.Unlimited,
+		UsesRemaining:     key.UsesRemaining,
+		Expiration:        key.Expiration,
+		AutoEgress:        key.AutoEgress,
+		AutoAssignGateway: key.AutoAssignGateway,
+		Default:           key.Default,
+		Token:             key.Token,
+		Type:              schema.EnrollmentKeyType(key.Type),
+	}
+	if key.Relay != uuid.Nil {
+		s := key.Relay.String()
+		sk.GatewayID = &s
+	}
+	tags := make(datatypes.JSONSlice[string], 0, len(key.Groups))
+	for _, g := range key.Groups {
+		tags = append(tags, g.String())
+	}
+	sk.Tags = tags
+	if len(key.Tags) > 0 {
+		sk.Name = key.Tags[0]
+	}
+	return sk
+}
+
+// GetAllEnrollmentKeys - fetches all enrollment keys from DB
+func GetAllEnrollmentKeys(ctx context.Context) ([]schema.EnrollmentKey, error) {
+	return (&schema.EnrollmentKey{}).ListAll(ctx)
+}
+
+// GetEnrollmentKey - fetches a single enrollment key by value
+func GetEnrollmentKey(ctx context.Context, value string) (*schema.EnrollmentKey, error) {
+	key := &schema.EnrollmentKey{Value: value}
+	if err := key.GetByValue(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, EnrollmentErrors.NoKeyFound
+		}
+		return nil, err
+	}
+	return key, nil
+}
+
+// DeleteEnrollmentKey - deletes a given enrollment key by value
+func DeleteEnrollmentKey(ctx context.Context, value string, force bool) error {
+	key := &schema.EnrollmentKey{Value: value}
+	if err := key.GetByValue(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return EnrollmentErrors.NoKeyFound
+		}
+		return err
+	}
+	if key.Default && !force {
+		return errors.New("cannot delete default network key")
+	}
+	return key.DeleteByValue(ctx)
+}
+
+// GetDefaultEnrollmentKeyForNetwork returns the default enrollment key for a network.
+func GetDefaultEnrollmentKeyForNetwork(ctx context.Context, network string) (*schema.EnrollmentKey, error) {
+	keys, err := GetAllEnrollmentKeys(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Value < keys[j].Value })
+	for i := range keys {
+		if !keys[i].Default {
+			continue
+		}
+		if enrollmentKeyAppliesToNetwork(keys[i], network) {
+			return &keys[i], nil
+		}
+	}
+	return nil, EnrollmentErrors.NoKeyFound
+}
+
+// TryToUseEnrollmentKey - checks first if key can be decremented
+// returns true if it is decremented or isvalid
+func TryToUseEnrollmentKey(ctx context.Context, k *schema.EnrollmentKey) bool {
+	key, err := decrementEnrollmentKey(ctx, k.Value)
+	if err != nil {
+		if errors.Is(err, EnrollmentErrors.NoUsesRemaining) {
+			return enrollmentKeyIsValid(k)
+		}
+	} else {
+		k.UsesRemaining = key.UsesRemaining
 		return true
 	}
-	return len(key.Tags) > 0 && key.Tags[0] == network
+	return false
 }
 
-func networksForDefaultEnrollmentKey(networks, tags []string) []string {
-	seen := make(map[string]struct{}, len(networks)+1)
-	out := make([]string, 0, len(networks)+1)
-	add := func(n string) {
+// Tokenize - tokenizes an enrollment key to be used via registration
+// and attaches it to the Token field on the struct
+func Tokenize(ctx context.Context, k *schema.EnrollmentKey, serverAddr string) error {
+	if len(serverAddr) == 0 || k == nil {
+		return EnrollmentErrors.FailedToTokenize
+	}
+	newToken := models.EnrollmentToken{
+		Server:   serverAddr,
+		TenantID: k.TenantID,
+		Value:    k.Value,
+	}
+	data, err := json.Marshal(&newToken)
+	if err != nil {
+		return err
+	}
+	k.Token = b64.StdEncoding.EncodeToString(data)
+	return nil
+}
+
+// DeTokenize - detokenizes a base64 encoded string
+// and finds the associated enrollment key
+func DeTokenize(ctx context.Context, b64Token string) (*schema.EnrollmentKey, error) {
+	if len(b64Token) == 0 {
+		return nil, EnrollmentErrors.FailedToDeTokenize
+	}
+	tokenData, err := b64.StdEncoding.DecodeString(b64Token)
+	if err != nil {
+		return nil, err
+	}
+
+	var newToken models.EnrollmentToken
+	if err = json.Unmarshal(tokenData, &newToken); err != nil {
+		return nil, err
+	}
+	return GetEnrollmentKey(ctx, newToken.Value)
+}
+
+func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
+	ctx := db.WithContext(context.TODO())
+	keys, _ := GetAllEnrollmentKeys(ctx)
+	for _, key := range keys {
+		newTags := datatypes.JSONSlice[string]{}
+		update := false
+		for _, tagID := range key.Tags {
+			if tagID == deletedTagID.String() {
+				update = true
+				continue
+			}
+			newTags = append(newTags, tagID)
+		}
+		if update {
+			key.Tags = newTags
+			key.UpdatedAt = time.Now()
+			_ = key.Upsert(ctx)
+		}
+	}
+}
+
+func UnlinkNetworkAndTagsFromEnrollmentKeys(ctx context.Context, network string, delete bool) error {
+	keys, err := GetAllEnrollmentKeys(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve keys: %w", err)
+	}
+
+	var errs []error
+	for _, key := range keys {
+		newNetworks := datatypes.JSONSlice[string]{}
+		newTags := datatypes.JSONSlice[string]{}
+		update := false
+
+		for _, net := range key.Networks {
+			if net == network {
+				update = true
+				continue
+			}
+			newNetworks = append(newNetworks, net)
+		}
+
+		for _, tag := range key.Tags {
+			tagParts := strings.Split(tag, ".")
+			if len(tagParts) == 0 {
+				continue
+			}
+			if tagParts[0] == network {
+				update = true
+				continue
+			}
+			newTags = append(newTags, tag)
+		}
+
+		if update && len(newNetworks) == 0 && delete {
+			if err := DeleteEnrollmentKey(ctx, key.Value, true); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete key %s: %w", key.Value, err))
+			}
+			continue
+		}
+		if update {
+			key.Networks = newNetworks
+			key.Tags = newTags
+			key.UpdatedAt = time.Now()
+			key.UpdatedAt = time.Now()
+			if err := key.Upsert(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("errors unlinking network/tags from keys: %v", errs)
+	}
+	return nil
+}
+
+// == private ==
+
+func enrollmentKeyIsValid(k *schema.EnrollmentKey) bool {
+	if k == nil {
+		return false
+	}
+	if k.UsesRemaining > 0 {
+		return true
+	}
+	if !k.Expiration.IsZero() && time.Now().Before(k.Expiration) {
+		return true
+	}
+	return k.Unlimited
+}
+
+func enrollmentKeyAppliesToNetwork(key schema.EnrollmentKey, network string) bool {
+	return slices.Contains(key.Networks, network)
+}
+
+func networksForDefaultEnrollmentKey(networks datatypes.JSONSlice[string]) []string {
+	seen := make(map[string]struct{}, len(networks))
+	out := make([]string, 0, len(networks))
+	for _, n := range networks {
 		if n == "" {
-			return
+			continue
 		}
 		if _, ok := seen[n]; ok {
-			return
+			continue
 		}
 		seen[n] = struct{}{}
 		out = append(out, n)
 	}
-	for _, n := range networks {
-		add(n)
-	}
-	if len(tags) > 0 {
-		add(tags[0])
-	}
 	return out
 }
 
-// clearDefaultEnrollmentKeysForNetworks unsets Default on any existing default keys
-// for the given networks, except the key identified by exceptValue (if non-empty).
-func clearDefaultEnrollmentKeysForNetworks(networks []string, exceptValue string) error {
+func clearDefaultEnrollmentKeysForNetworks(ctx context.Context, networks []string, exceptValue string) error {
 	if len(networks) == 0 {
 		return nil
 	}
-	keys, err := GetAllEnrollmentKeys()
+	keys, err := GetAllEnrollmentKeys(ctx)
 	if err != nil {
 		return err
 	}
@@ -262,286 +549,42 @@ func clearDefaultEnrollmentKeysForNetworks(networks []string, exceptValue string
 			continue
 		}
 		keys[i].Default = false
-		if err := upsertEnrollmentKey(&keys[i]); err != nil {
+		keys[i].UpdatedAt = time.Now()
+		err = keys[i].Upsert(ctx)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// GetDefaultEnrollmentKeyForNetwork returns the default enrollment key for a network.
-func GetDefaultEnrollmentKeyForNetwork(network string) (models.EnrollmentKey, error) {
-	keys, err := GetAllEnrollmentKeys()
-	if err != nil {
-		return models.EnrollmentKey{}, err
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i].Value < keys[j].Value })
-	for _, key := range keys {
-		if !key.Default {
-			continue
-		}
-		if enrollmentKeyAppliesToNetwork(key, network) {
-			return key, nil
-		}
-	}
-	return models.EnrollmentKey{}, EnrollmentErrors.NoKeyFound
-}
-
-// GetEnrollmentKey - fetches a single enrollment key
-// returns nil and error if not found
-func GetEnrollmentKey(value string) (key models.EnrollmentKey, err error) {
-	currentKeys, err := getEnrollmentKeysMap()
-	if err != nil {
-		return key, err
-	}
-	if key, ok := currentKeys[value]; ok {
-		return key, nil
-	}
-	return key, EnrollmentErrors.NoKeyFound
-}
-
-func deleteEnrollmentkeyFromCache(key string) {
-	enrollmentkeyCacheMutex.Lock()
-	delete(enrollmentkeyCacheMap, key)
-	enrollmentkeyCacheMutex.Unlock()
-}
-
-// DeleteEnrollmentKey - delete's a given enrollment key by value
-func DeleteEnrollmentKey(value string, force bool) error {
-	key, err := GetEnrollmentKey(value)
-	if err != nil {
-		return err
-	}
-	if key.Default && !force {
-		return errors.New("cannot delete default network key")
-	}
-	err = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
-	if err == nil {
-		if servercfg.CacheEnabled() {
-			deleteEnrollmentkeyFromCache(value)
-		}
-	}
-	return err
-}
-
-// TryToUseEnrollmentKey - checks first if key can be decremented
-// returns true if it is decremented or isvalid
-func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
-	key, err := decrementEnrollmentKey(k.Value)
-	if err != nil {
-		if errors.Is(err, EnrollmentErrors.NoUsesRemaining) {
-			return k.IsValid()
-		}
-	} else {
-		k.UsesRemaining = key.UsesRemaining
-		return true
-	}
-	return false
-}
-
-// Tokenize - tokenizes an enrollment key to be used via registration
-// and attaches it to the Token field on the struct
-func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
-	if len(serverAddr) == 0 || k == nil {
-		return EnrollmentErrors.FailedToTokenize
-	}
-	newToken := models.EnrollmentToken{
-		Server: serverAddr,
-		Value:  k.Value,
-	}
-	data, err := json.Marshal(&newToken)
-	if err != nil {
-		return err
-	}
-	k.Token = b64.StdEncoding.EncodeToString(data)
-	return nil
-}
-
-// DeTokenize - detokenizes a base64 encoded string
-// and finds the associated enrollment key
-func DeTokenize(b64Token string) (*models.EnrollmentKey, error) {
-	if len(b64Token) == 0 {
-		return nil, EnrollmentErrors.FailedToDeTokenize
-	}
-	tokenData, err := b64.StdEncoding.DecodeString(b64Token)
-	if err != nil {
-		return nil, err
-	}
-
-	var newToken models.EnrollmentToken
-	err = json.Unmarshal(tokenData, &newToken)
-	if err != nil {
-		return nil, err
-	}
-	k, err := GetEnrollmentKey(newToken.Value)
-	if err != nil {
-		return nil, err
-	}
-	return &k, nil
-}
-
-// == private ==
-
-// decrementEnrollmentKey - decrements the uses on a key if above 0 remaining
-func decrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
-	k, err := GetEnrollmentKey(value)
+func decrementEnrollmentKey(ctx context.Context, value string) (*schema.EnrollmentKey, error) {
+	k, err := GetEnrollmentKey(ctx, value)
 	if err != nil {
 		return nil, err
 	}
 	if k.UsesRemaining == 0 {
 		return nil, EnrollmentErrors.NoUsesRemaining
 	}
-	k.UsesRemaining = k.UsesRemaining - 1
-	if err = upsertEnrollmentKey(&k); err != nil {
+	k.UsesRemaining--
+	k.UpdatedAt = time.Now()
+	if err = k.Upsert(ctx); err != nil {
 		return nil, err
 	}
-
-	return &k, nil
+	return k, nil
 }
 
-func upsertEnrollmentKey(k *models.EnrollmentKey) error {
-	if k == nil {
-		return EnrollmentErrors.InvalidKey
-	}
-	data, err := json.Marshal(k)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(k.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME)
-	if err == nil {
-		if servercfg.CacheEnabled() {
-			storeEnrollmentkeyInCache(k.Value, *k)
-		}
-	}
-	return nil
-}
-
-func getUniqueEnrollmentID() (string, error) {
-	currentKeys, err := getEnrollmentKeysMap()
-	if err != nil {
-		return "", err
-	}
+func getUniqueEnrollmentID(ctx context.Context) (string, error) {
 	newID := RandomString(models.EnrollmentKeyLength)
-	for _, ok := currentKeys[newID]; ok; {
+	for {
+		key := &schema.EnrollmentKey{Value: newID}
+		err := key.GetByValue(ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return newID, nil
+		}
+		if err != nil {
+			return "", err
+		}
 		newID = RandomString(models.EnrollmentKeyLength)
 	}
-	return newID, nil
-}
-
-func getEnrollmentkeysFromCache() map[string]models.EnrollmentKey {
-	return enrollmentkeyCacheMap
-}
-
-func storeEnrollmentkeyInCache(key string, enrollmentkey models.EnrollmentKey) {
-	enrollmentkeyCacheMutex.Lock()
-	enrollmentkeyCacheMap[key] = enrollmentkey
-	enrollmentkeyCacheMutex.Unlock()
-}
-
-func getEnrollmentKeysMap() (map[string]models.EnrollmentKey, error) {
-	if servercfg.CacheEnabled() {
-		keys := getEnrollmentkeysFromCache()
-		if len(keys) != 0 {
-			return keys, nil
-		}
-	}
-	records, err := database.FetchRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
-	if err != nil {
-		if !database.IsEmptyRecord(err) {
-			return nil, err
-		}
-	}
-	if records == nil {
-		records = make(map[string]string)
-	}
-	currentKeys := make(map[string]models.EnrollmentKey, 0)
-	if len(records) > 0 {
-		for k := range records {
-			var currentKey models.EnrollmentKey
-			if err = json.Unmarshal([]byte(records[k]), &currentKey); err != nil {
-				continue
-			}
-			currentKeys[k] = currentKey
-			if servercfg.CacheEnabled() {
-				storeEnrollmentkeyInCache(currentKey.Value, currentKey)
-			}
-		}
-	}
-	return currentKeys, nil
-}
-
-func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
-	keys, _ := GetAllEnrollmentKeys()
-	for _, key := range keys {
-		newTags := []models.TagID{}
-		update := false
-		for _, tagID := range key.Groups {
-			if tagID == deletedTagID {
-				update = true
-				continue
-			}
-			newTags = append(newTags, tagID)
-		}
-		if update {
-			key.Groups = newTags
-			upsertEnrollmentKey(&key)
-		}
-
-	}
-}
-
-func UnlinkNetworkAndTagsFromEnrollmentKeys(network string, delete bool) error {
-	keys, err := GetAllEnrollmentKeys()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve keys: %w", err)
-	}
-
-	var errs []error
-	for _, key := range keys {
-		newNetworks := []string{}
-		newTags := []models.TagID{}
-		update := false
-
-		// Check and update networks
-		for _, net := range key.Networks {
-			if net == network {
-				update = true
-				continue
-			}
-			newNetworks = append(newNetworks, net)
-		}
-
-		// Check and update tags
-		for _, tag := range key.Groups {
-			tagParts := strings.Split(tag.String(), ".")
-			if len(tagParts) == 0 {
-				continue
-			}
-			tagNetwork := tagParts[0]
-			if tagNetwork == network {
-				update = true
-				continue
-			}
-			newTags = append(newTags, tag)
-		}
-
-		if update && len(newNetworks) == 0 && delete {
-			if err := DeleteEnrollmentKey(key.Value, true); err != nil {
-				errs = append(errs, fmt.Errorf("failed to delete key %s: %w", key.Value, err))
-			}
-			continue
-		}
-		if update {
-			key.Networks = newNetworks
-			key.Groups = newTags
-			if err := upsertEnrollmentKey(&key); err != nil {
-				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
-			}
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("errors unlinking network/tags from keys: %v", errs)
-	}
-	return nil
 }

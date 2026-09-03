@@ -1,0 +1,107 @@
+package schema
+
+import (
+	"context"
+
+	"github.com/gravitl/netmaker/db"
+	"gorm.io/datatypes"
+)
+
+type TenantMembership struct {
+	TenantID                   string                                       `gorm:"primaryKey" json:"tenant_id"`
+	UserID                     string                                       `gorm:"primaryKey" json:"user_id"`
+	RoleID                     UserRoleID                                   `json:"role_id"`
+	Groups                     datatypes.JSONType[map[UserGroupID]struct{}] `json:"groups"`
+	AuthType                   AuthType                                     `json:"auth_type"`
+	ExternalIdentityProviderID string                                       `json:"external_identity_provider_id"`
+	Password                   string                                       `json:"password"`
+	AccountDisabled            bool                                         `json:"account_disabled"`
+	IsMFAEnabled               bool                                         `json:"is_mfa_enabled"`
+	TOTPSecret                 string                                       `json:"totp_secret"`
+}
+
+func (t *TenantMembership) TableName() string {
+	return "tenant_memberships_v1"
+}
+
+func (t *TenantMembership) Create(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).Create(t).Error
+}
+
+func (t *TenantMembership) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Save(t).Error
+}
+
+func (t *TenantMembership) Get(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		First(t).
+		Error
+}
+
+func (t *TenantMembership) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		Delete(t).
+		Error
+}
+
+func (t *TenantMembership) UpdateRoleID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("role_id", t.RoleID).
+		Error
+}
+
+func (t *TenantMembership) UpdateGroups(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("groups", t.Groups).
+		Error
+}
+
+func (t *TenantMembership) UpdateExternalIdentityProviderID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?  AND user_id = ?", t.TenantID, t.UserID).
+		Update("external_identity_provider_id", t.ExternalIdentityProviderID).
+		Error
+}
+
+func (t *TenantMembership) UpdateAccountStatus(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		Update("account_disabled", t.AccountDisabled).
+		Error
+}
+
+func (t *TenantMembership) UpdateMFA(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ? AND user_id = ?", t.TenantID, t.UserID).
+		Updates(map[string]any{
+			"is_mfa_enabled": t.IsMFAEnabled,
+			"totp_secret":    t.TOTPSecret,
+		}).
+		Error
+}
+
+func (t *TenantMembership) ListByUserID(ctx context.Context) ([]TenantMembership, error) {
+	var memberships []TenantMembership
+	err := db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("user_id = ?", t.UserID).
+		Find(&memberships).
+		Error
+	return memberships, err
+}
+
+func (t *TenantMembership) ListByTenantID(ctx context.Context) ([]TenantMembership, error) {
+	var memberships []TenantMembership
+	err := db.FromContext(ctx).Model(&TenantMembership{}).
+		Where("tenant_id = ?", t.TenantID).
+		Find(&memberships).
+		Error
+	return memberships, err
+}
+
+func (t *TenantMembership) DeleteAllByTenantID(ctx context.Context) error {
+	return db.FromContext(ctx).Where("tenant_id = ?", t.TenantID).Delete(&TenantMembership{}).Error
+}

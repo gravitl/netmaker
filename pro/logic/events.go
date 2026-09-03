@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/pro/integration"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 )
@@ -30,22 +31,30 @@ var allowUnexported = []any{
 var _siemMtx sync.Mutex
 var _pushToSiem bool
 
-func LogEvent(a *models.Event) {
+func LogEvent(ctx context.Context, a *models.Event) {
+	a.TenantID = scope.ID(ctx)
 	EventActivityCh <- *a
 }
 
-func EventRententionHook() error {
-	settings := logic.GetServerSettings()
-	retentionPeriod := settings.AuditLogsRetentionPeriodInDays
+func EventRetentionHook() error {
+	retentionPeriod := logic.GetAuditLogsRetentionPeriodInDays(db.WithContext(context.TODO()))
 	if retentionPeriod <= 0 {
 		retentionPeriod = 30
 	}
-	err := (&schema.Event{}).DeleteOldEvents(db.WithContext(context.TODO()), retentionPeriod)
-	if err != nil {
-		slog.Warn("failed to delete old events pas retention period", "error", err)
-	}
-	return nil
 
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		if err := (&schema.Event{}).DeleteOldEvents(tenantCtx, retentionPeriod); err != nil {
+			slog.Warn("failed to delete old events past retention period", "error", err)
+		}
+	}
+
+	return nil
 }
 
 func PushToSIEM() {
@@ -63,7 +72,7 @@ func SkipPushToSiem() {
 func EventWatcher() {
 	logic.HookManagerCh <- models.HookDetails{
 		ID:       "events-retention-hook",
-		Hook:     logic.WrapHook(EventRententionHook),
+		Hook:     logic.WrapHook(EventRetentionHook),
 		Interval: time.Hour * 24,
 	}
 
@@ -88,6 +97,7 @@ func EventWatcher() {
 		diff, _ := json.Marshal(e.Diff)
 		a := schema.Event{
 			ID:          uuid.New().String(),
+			TenantID:    e.TenantID,
 			Action:      e.Action,
 			Source:      sourceJson,
 			Target:      dstJson,
@@ -106,7 +116,8 @@ func EventWatcher() {
 		}
 		_siemMtx.Unlock()
 
-		if GetFeatureFlags().EnableSIEMIntegration {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, e.TenantID)
+		if logic.GetFeatureFlags(ctx).EnableSIEMIntegration {
 			sourceMap := make(map[string]interface{})
 			dstMap := make(map[string]interface{})
 			diffMap := make(map[string]interface{})
@@ -129,6 +140,7 @@ func EventWatcher() {
 				Target:      dstStruct,
 				Diff:        diffStruct,
 				TsMs:        a.TimeStamp.UnixMilli(),
+				TenantId:    a.TenantID,
 			})
 		}
 	}

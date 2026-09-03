@@ -22,7 +22,7 @@ var autoRelayCache = make(map[schema.NetworkID][]string)
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	allNodes, err := logic.GetAllNodes()
+	allNodes, err := logic.GetAllNodes(db.WithContext(context.Background()))
 	if err != nil {
 		return
 	}
@@ -40,6 +40,15 @@ func SetAutoRelay(node *models.Node) {
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.RLock()
 	defer autoRelayCtxMutex.RUnlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		return nil
 	}
@@ -68,6 +77,15 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.Lock()
 	defer autoRelayCtxMutex.Unlock()
+	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+		return err
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+		return err
+	}
 	if peerNode.AutoRelayedPeers == nil {
 		peerNode.AutoRelayedPeers = make(map[string]string)
 	}
@@ -138,11 +156,11 @@ func SetAutoRelayInCache(node models.Node) {
 }
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
-func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
+func DoesAutoRelayExist(ctx context.Context, network string) (autoRelayNodes []models.Node) {
 	autoRelayCacheMutex.RLock()
 	defer autoRelayCacheMutex.RUnlock()
 	if !servercfg.CacheEnabled() {
-		nodes, _ := logic.GetNetworkNodes(network)
+		nodes, _ := logic.GetNetworkNodes(ctx, network)
 		for _, node := range nodes {
 			if node.IsAutoRelay {
 				autoRelayNodes = append(autoRelayNodes, node)
@@ -162,11 +180,11 @@ func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
 }
 
 // ResetAutoRelayedPeer - removes auto relayed over node from network peers
-func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
+func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) error {
 	if len(autoRelayedNode.AutoRelayedPeers) == 0 {
 		return nil
 	}
-	nodes, err := logic.GetNetworkNodes(autoRelayedNode.Network)
+	nodes, err := logic.GetNetworkNodes(ctx, autoRelayedNode.Network)
 	if err != nil {
 		return err
 	}
@@ -190,9 +208,9 @@ func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
 }
 
 // ResetAutoRelay - reset autorelayed peers
-func ResetAutoRelay(autoRelayNode *models.Node) error {
+func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 	// Unset autorelayed peers
-	nodes, err := logic.GetNetworkNodes(autoRelayNode.Network)
+	nodes, err := logic.GetNetworkNodes(ctx, autoRelayNode.Network)
 	if err != nil {
 		return err
 	}
@@ -214,10 +232,10 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
-func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
+func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	acls, _ := logic.ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
@@ -242,32 +260,18 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 			if autoRelayedpeer.EgressDetails.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
 			}
-			if autoRelayedpeer.IsRelay {
-				for _, id := range autoRelayedpeer.RelayedNodes {
-					rNode, _ := logic.GetNodeByID(id)
-					logic.GetNodeEgressInfo(&rNode, eli, acls)
-					if rNode.Address.IP != nil {
-						allowed := net.IPNet{
-							IP:   rNode.Address.IP,
-							Mask: net.CIDRMask(32, 32),
-						}
-						allowedips = append(allowedips, allowed)
-					}
-					if rNode.Address6.IP != nil {
-						allowed := net.IPNet{
-							IP:   rNode.Address6.IP,
-							Mask: net.CIDRMask(128, 128),
-						}
-						allowedips = append(allowedips, allowed)
-					}
-					if rNode.EgressDetails.IsEgressGateway {
-						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
-					}
-				}
+			// Advertise clients relayed by this auto-relayed peer (including exit-node
+			// clients on a non-gateway exit). Include their egress ranges so LAN
+			// routes remain reachable through the auto-relay; default routes are
+			// stripped by getNodeAllowedIPs.
+			if autoRelayedpeer.IsRelay || len(autoRelayedpeer.RelayedNodes) > 0 ||
+				len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
+				allowedips = append(allowedips, logic.RelayedAllowedIPs(ctx, &autoRelayedpeer, node)...)
+				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(&autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}
@@ -293,6 +297,9 @@ func CreateAutoRelay(node models.Node) error {
 	}
 	if node.IsRelayed {
 		return errors.New("relayed node cannot be set as autoRelay")
+	}
+	if err := logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
+		return err
 	}
 	node.IsAutoRelay = true
 	err = logic.UpsertNode(&node)

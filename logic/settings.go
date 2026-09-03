@@ -1,7 +1,7 @@
 package logic
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,13 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 var (
@@ -24,10 +26,9 @@ var (
 	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
-var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
-var serverSettingsCache atomic.Value
+var serverSettingsCache sync.Map
 
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
@@ -35,46 +36,58 @@ var defaultUserSettings = models.UserSettings{
 	ReducedMotion: false,
 }
 
-func GetServerSettings() (s models.ServerSettings) {
-	if cached, ok := serverSettingsCache.Load().(*models.ServerSettings); ok && cached != nil {
-		return *cached
+func GetServerSettings(ctx context.Context) (s models.ServerSettings) {
+	tenantID := scope.ID(ctx)
+	if cached, ok := serverSettingsCache.Load(tenantID); ok {
+		if cachedSettings, ok := cached.(*models.ServerSettings); ok && cachedSettings != nil {
+			s = *cachedSettings
+			overlayOrgBackedSettings(ctx, &s)
+			return s
+		}
 	}
-	s, err := getServerSettingsFromDB()
+	s, err := getServerSettingsFromDB(ctx)
 	if err == nil {
-		serverSettingsCache.Store(&s)
+		serverSettingsCache.Store(tenantID, &s)
 	}
+	overlayOrgBackedSettings(ctx, &s)
 	return
 }
 
-// InvalidateServerSettingsCache clears the in-memory settings cache so
-// the next GetServerSettings call re-reads from the database.
-func InvalidateServerSettingsCache() {
-	serverSettingsCache.Store((*models.ServerSettings)(nil))
+func overlayOrgBackedSettings(ctx context.Context, s *models.ServerSettings) {
+	org := resolveOrgSettings(ctx)
+	s.AuditLogsRetentionPeriodInDays = org.AuditLogsRetentionPeriodInDays
+	s.SmtpHost = org.SmtpHost
+	s.SmtpPort = org.SmtpPort
+	s.SmtpSkipTlsVerify = org.SmtpSkipTlsVerify
+	s.EmailSenderAddr = org.EmailSenderAddr
+	s.EmailSenderUser = org.EmailSenderUser
+	s.EmailSenderPassword = org.EmailSenderPassword
 }
 
-func getServerSettingsFromDB() (models.ServerSettings, error) {
-	var s models.ServerSettings
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
+// InvalidateServerSettingsCache clears the in-memory settings cache for the tenant
+// scoped by ctx so the next GetServerSettings call re-reads from the database.
+func InvalidateServerSettingsCache(ctx context.Context) {
+	serverSettingsCache.Delete(scope.ID(ctx))
+}
+
+func getServerSettingsFromDB(ctx context.Context) (models.ServerSettings, error) {
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	err := settingsRecord.Get(ctx)
 	if err != nil {
-		return s, err
+		return models.ServerSettings{}, err
 	}
-	if err := json.Unmarshal([]byte(data), &s); err != nil {
-		return s, err
-	}
-	return s, nil
+	return settingsRecord.Value.Data(), nil
 }
 
-func UpsertServerSettings(s models.ServerSettings) error {
+func UpsertServerSettings(ctx context.Context, s models.ServerSettings) error {
 	// get curr settings from DB directly (not cache) for accurate comparison
-	currSettings, _ := getServerSettingsFromDB()
+	currSettings, _ := getServerSettingsFromDB(ctx)
+	overlayOrgBackedSettings(ctx, &currSettings)
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
 	if s.OktaAPIToken == Mask() {
 		s.OktaAPIToken = currSettings.OktaAPIToken
-	}
-	if s.EmailSenderPassword == Mask() {
-		s.EmailSenderPassword = currSettings.EmailSenderPassword
 	}
 
 	if servercfg.DeployedByOperator() {
@@ -98,62 +111,109 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-	data, err := json.Marshal(s)
+
+	err := upsertOverlayedOrgSettings(ctx, &s, currSettings)
 	if err != nil {
 		return err
 	}
-	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx), Value: datatypes.NewJSONType(s)}
+	err = settingsRecord.Upsert(ctx)
 	if err != nil {
 		return err
 	}
-	serverSettingsCache.Store(&s)
+	serverSettingsCache.Store(scope.ID(ctx), &s)
 	if PublishServerSync != nil {
-		PublishServerSync(SyncTypeSettings)
+		PublishServerSync(ctx, SyncTypeSettings)
 	}
 	return nil
 }
 
-func GetUserSettings(userID string) models.UserSettings {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
-	if err != nil {
-		return defaultUserSettings
-	}
-	var userSettings models.UserSettings
-	err = json.Unmarshal([]byte(data), &userSettings)
-	if err != nil {
-		return defaultUserSettings
+func upsertOverlayedOrgSettings(ctx context.Context, s *models.ServerSettings, currSettings models.ServerSettings) error {
+	if s.EmailSenderPassword == Mask() {
+		s.EmailSenderPassword = currSettings.EmailSenderPassword
 	}
 
-	return userSettings
+	if !IsMSP(ctx) {
+		org, err := SoleOrganization(ctx)
+		if err != nil {
+			return err
+		}
+		orgCtx := scope.WithContext(ctx, scope.OrgScope, org.ID)
+
+		orgSettings := &schema.OrganizationSettings{ID: org.ID}
+		_ = orgSettings.Get(orgCtx)
+		data := orgSettings.Settings.Data()
+
+		// a zero/empty value is treated as "unset" rather than clobbering
+		// the org's configured value (e.g. when seeding default settings
+		// for a new tenant).
+		if s.AuditLogsRetentionPeriodInDays > 0 {
+			data.AuditLogsRetentionPeriodInDays = s.AuditLogsRetentionPeriodInDays
+		}
+		if s.SmtpHost != "" {
+			data.SmtpHost = s.SmtpHost
+			data.SmtpPort = s.SmtpPort
+			data.SmtpSkipTlsVerify = s.SmtpSkipTlsVerify
+			data.EmailSenderAddr = s.EmailSenderAddr
+			data.EmailSenderUser = s.EmailSenderUser
+			if s.EmailSenderPassword != "" {
+				data.EmailSenderPassword = s.EmailSenderPassword
+			}
+		}
+
+		orgSettings.Settings = datatypes.NewJSONType(data)
+		if err := orgSettings.Upsert(orgCtx); err != nil {
+			return err
+		}
+	}
+
+	s.AuditLogsRetentionPeriodInDays = 0
+	s.SmtpHost = ""
+	s.SmtpPort = 0
+	s.SmtpSkipTlsVerify = false
+	s.EmailSenderAddr = ""
+	s.EmailSenderUser = ""
+	s.EmailSenderPassword = ""
+	return nil
 }
 
-func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+func GetUserSettings(username string) models.UserSettings {
+	user := schema.User{Username: username}
+	err := user.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return defaultUserSettings
+	}
+	return models.UserSettings{
+		Theme:         user.Theme,
+		TextSize:      user.TextSize,
+		ReducedMotion: user.ReducedMotion,
+	}
+}
+
+func UpsertUserSettings(username string, userSettings models.UserSettings) error {
 	if userSettings.TextSize == "" {
 		userSettings.TextSize = "16"
 	}
-
 	if userSettings.Theme == "" {
 		userSettings.Theme = models.Dark
 	}
-
-	data, err := json.Marshal(userSettings)
-	if err != nil {
-		return err
+	u := schema.User{
+		Username:      username,
+		Theme:         userSettings.Theme,
+		TextSize:      userSettings.TextSize,
+		ReducedMotion: userSettings.ReducedMotion,
 	}
-	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
+	return u.UpdateUserSettings(db.WithContext(context.TODO()))
 }
 
-func DeleteUserSettings(userID string) error {
-	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
-}
-
-func ValidateNewSettings(req models.ServerSettings) error {
+func ValidateNewSettings(ctx context.Context, req models.ServerSettings) error {
 	// TODO: add checks for different fields
 	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
 		return ErrInvalidJwtValidityDuration
 	}
 
-	if req.EnableFlowLogs && !GetFeatureFlags().EnableFlowLogs {
+	if req.EnableFlowLogs && !GetFeatureFlags(ctx).EnableFlowLogs {
 		return ErrFlowLogsNotSupported
 	}
 
@@ -183,11 +243,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
-		EmailSenderAddr:            servercfg.GetSenderEmail(),
-		EmailSenderUser:            servercfg.GetSenderUser(),
-		EmailSenderPassword:        servercfg.GetEmaiSenderPassword(),
-		SmtpHost:                   servercfg.GetSmtpHost(),
-		SmtpPort:                   servercfg.GetSmtpPort(),
 		MetricInterval:             servercfg.GetMetricInterval(),
 		MetricsPort:                servercfg.GetMetricsPort(),
 		ManageDNS:                  servercfg.GetManageDNS(),
@@ -199,10 +254,39 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 	return
 }
 
+func GetDefaultTenantSettings() models.ServerSettings {
+	return models.ServerSettings{
+		NetclientAutoUpdate:         true,
+		Verbosity:                   0,
+		AuthProvider:                "",
+		OIDCIssuer:                  "",
+		ClientID:                    "",
+		ClientSecret:                "",
+		AzureTenant:                 "",
+		Telemetry:                   "on",
+		BasicAuth:                   true,
+		JwtValidityDuration:         720,
+		JwtValidityDurationClients:  720,
+		RacRestrictToSingleNetwork:  false,
+		EndpointDetection:           true,
+		AllowedEmailDomains:         "*",
+		MetricInterval:              "15",
+		MetricsPort:                 51821,
+		ManageDNS:                   true,
+		DefaultDomain:               servercfg.GetDefaultDomain(),
+		Stun:                        true,
+		StunServers:                 "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302",
+		PeerConnectionCheckInterval: "15",
+		PostureCheckInterval:        "30",
+		CleanUpInterval:             10,
+		IPDetectionInterval:         15,
+	}
+}
+
 // GetServerConfig - gets the server config into memory from file or env
-func GetServerConfig() config.ServerConfig {
+func GetServerConfig(ctx context.Context) config.ServerConfig {
 	var cfg config.ServerConfig
-	settings := GetServerSettings()
+	settings := GetServerSettings(ctx)
 	cfg.APIConnString = servercfg.GetAPIConnString()
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIHost = servercfg.GetAPIHost()
@@ -266,10 +350,12 @@ func GetServerConfig() config.ServerConfig {
 }
 
 // GetServerInfo - gets the server config into memory from file or env
-func GetServerInfo() models.ServerConfig {
+func GetServerInfo(ctx context.Context) models.ServerConfig {
 	var cfg models.ServerConfig
-	serverSettings := GetServerSettings()
+	serverSettings := GetServerSettings(ctx)
+	cfg.TenantID = scope.ID(ctx)
 	cfg.Server = servercfg.GetServer()
+	cfg.APIHost = servercfg.GetAPIHost()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		cfg.MQUserName = "HOST_ID"
 		cfg.MQPassword = "HOST_PASS"
@@ -304,8 +390,8 @@ func GetServerInfo() models.ServerConfig {
 }
 
 // GetDefaultDomain - get the default domain
-func GetDefaultDomain() string {
-	return GetServerSettings().DefaultDomain
+func GetDefaultDomain(ctx context.Context) string {
+	return GetServerSettings(ctx).DefaultDomain
 }
 
 func ValidateDomain(domain string) bool {
@@ -317,54 +403,80 @@ func ValidateDomain(domain string) bool {
 }
 
 // Telemetry - checks if telemetry data should be sent
-func Telemetry() string {
-	return GetServerSettings().Telemetry
+func Telemetry(ctx context.Context) string {
+	return GetServerSettings(ctx).Telemetry
 }
 
 // GetJwtValidityDuration - returns the JWT validity duration in minutes
-func GetJwtValidityDuration() time.Duration {
-	return time.Duration(GetServerSettings().JwtValidityDuration) * time.Minute
+func GetJwtValidityDuration(ctx context.Context) time.Duration {
+	return time.Duration(GetServerSettings(ctx).JwtValidityDuration) * time.Minute
 }
 
 // GetJwtValidityDurationForClients returns the JWT validity duration in
 // minutes for clients.
-func GetJwtValidityDurationForClients() time.Duration {
-	return time.Duration(GetServerSettings().JwtValidityDurationClients) * time.Minute
+func GetJwtValidityDurationForClients(ctx context.Context) time.Duration {
+	return time.Duration(GetServerSettings(ctx).JwtValidityDurationClients) * time.Minute
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
-func GetRacRestrictToSingleNetwork() bool {
-	return GetServerSettings().RacRestrictToSingleNetwork
+func GetRacRestrictToSingleNetwork(ctx context.Context) bool {
+	return GetServerSettings(ctx).RacRestrictToSingleNetwork
 }
 
-func GetSmtpHost() string {
-	return GetServerSettings().SmtpHost
+// GetOrgSettings returns the organization settings for the organization
+// scoped by ctx (resolving through the tenant if ctx is tenant-scoped).
+func GetOrgSettings(ctx context.Context) schema.OrganizationSettingsData {
+	orgSettings := &schema.OrganizationSettings{
+		ID: scope.ID(ctx),
+	}
+	err := orgSettings.Get(ctx)
+	if err != nil {
+		return schema.OrganizationSettingsData{}
+	}
+
+	return orgSettings.Settings.Data()
 }
 
-func GetSmtpPort() int {
-	return GetServerSettings().SmtpPort
+func resolveOrgSettings(ctx context.Context) schema.OrganizationSettingsData {
+	org, err := SoleOrganization(ctx)
+	if err != nil {
+		return schema.OrganizationSettingsData{}
+	}
+	return GetOrgSettings(scope.WithContext(ctx, scope.OrgScope, org.ID))
 }
 
-func SmtpSkipTlsVerify() bool {
-	return GetServerSettings().SmtpSkipTlsVerify
+func GetSmtpHost(ctx context.Context) string {
+	return resolveOrgSettings(ctx).SmtpHost
 }
 
-func GetSenderEmail() string {
-	return GetServerSettings().EmailSenderAddr
+func GetSmtpPort(ctx context.Context) int {
+	return resolveOrgSettings(ctx).SmtpPort
 }
 
-func GetSenderUser() string {
-	return GetServerSettings().EmailSenderUser
+func SmtpSkipTlsVerify(ctx context.Context) bool {
+	return resolveOrgSettings(ctx).SmtpSkipTlsVerify
 }
 
-func GetEmaiSenderPassword() string {
-	return GetServerSettings().EmailSenderPassword
+func GetSenderEmail(ctx context.Context) string {
+	return resolveOrgSettings(ctx).EmailSenderAddr
+}
+
+func GetSenderUser(ctx context.Context) string {
+	return resolveOrgSettings(ctx).EmailSenderUser
+}
+
+func GetEmaiSenderPassword(ctx context.Context) string {
+	return resolveOrgSettings(ctx).EmailSenderPassword
+}
+
+func GetAuditLogsRetentionPeriodInDays(ctx context.Context) int {
+	return resolveOrgSettings(ctx).AuditLogsRetentionPeriodInDays
 }
 
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
 // default is enabled
-func AutoUpdateEnabled() bool {
-	return GetServerSettings().NetclientAutoUpdate
+func AutoUpdateEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).NetclientAutoUpdate
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
@@ -393,19 +505,19 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 }
 
 // GetAzureTenant - retrieve the azure tenant ID from env variable or config file
-func GetAzureTenant() string {
-	return GetServerSettings().AzureTenant
+func GetAzureTenant(ctx context.Context) string {
+	return GetServerSettings(ctx).AzureTenant
 }
 
 // IsSyncEnabled returns whether auth provider sync is enabled.
-func IsSyncEnabled() bool {
-	return GetServerSettings().SyncEnabled
+func IsSyncEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).SyncEnabled
 }
 
 // GetIDPSyncInterval returns the interval at which the netmaker should sync
 // data from IDP.
-func GetIDPSyncInterval() time.Duration {
-	syncInterval, err := time.ParseDuration(GetServerSettings().IDPSyncInterval)
+func GetIDPSyncInterval(ctx context.Context) time.Duration {
+	syncInterval, err := time.ParseDuration(GetServerSettings(ctx).IDPSyncInterval)
 	if err != nil {
 		return 24 * time.Hour
 	}
@@ -418,14 +530,14 @@ func GetIDPSyncInterval() time.Duration {
 }
 
 // GetMetricsPort - get metrics port
-func GetMetricsPort() int {
-	return GetServerSettings().MetricsPort
+func GetMetricsPort(ctx context.Context) int {
+	return GetServerSettings(ctx).MetricsPort
 }
 
 // GetMetricIntervalInMinutes returns the publish-to-exporter interval from server
 // settings (dashboard), with fallback to servercfg / env when unset or invalid.
-func GetMetricIntervalInMinutes() time.Duration {
-	mi := strings.TrimSpace(GetServerSettings().MetricInterval)
+func GetMetricIntervalInMinutes(ctx context.Context) time.Duration {
+	mi := strings.TrimSpace(GetServerSettings(ctx).MetricInterval)
 	if mi != "" {
 		if interval, err := strconv.Atoi(mi); err == nil && interval > 0 {
 			return time.Duration(interval) * time.Minute
@@ -436,23 +548,27 @@ func GetMetricIntervalInMinutes() time.Duration {
 
 var (
 	metricExportIntervalMu   sync.Mutex
-	metricExportIntervalSubs []chan struct{}
+	metricExportIntervalSubs = map[string][]chan struct{}{}
 )
 
-// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval setting changes.
-func SubscribeMetricExportIntervalReset() <-chan struct{} {
+// SubscribeMetricExportIntervalReset returns a channel notified when the metric interval
+// setting changes for ctx's tenant.
+func SubscribeMetricExportIntervalReset(ctx context.Context) <-chan struct{} {
+	tenantID := scope.ID(ctx)
 	ch := make(chan struct{}, 1)
 	metricExportIntervalMu.Lock()
-	metricExportIntervalSubs = append(metricExportIntervalSubs, ch)
+	metricExportIntervalSubs[tenantID] = append(metricExportIntervalSubs[tenantID], ch)
 	metricExportIntervalMu.Unlock()
 	return ch
 }
 
-// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker.
-func NotifyMetricExportIntervalChanged() {
+// NotifyMetricExportIntervalChanged signals mq.Keepalive to reset the metrics export ticker
+// for ctx's tenant.
+func NotifyMetricExportIntervalChanged(ctx context.Context) {
+	tenantID := scope.ID(ctx)
 	metricExportIntervalMu.Lock()
 	defer metricExportIntervalMu.Unlock()
-	for _, ch := range metricExportIntervalSubs {
+	for _, ch := range metricExportIntervalSubs[tenantID] {
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -461,50 +577,50 @@ func NotifyMetricExportIntervalChanged() {
 }
 
 // GetMetricInterval - get the publish metric interval
-func GetMetricInterval() string {
-	return GetServerSettings().MetricInterval
+func GetMetricInterval(ctx context.Context) string {
+	return GetServerSettings(ctx).MetricInterval
 }
 
 // GetManageDNS - if manage DNS enabled or not
-func GetManageDNS() bool {
-	return GetServerSettings().ManageDNS
+func GetManageDNS(ctx context.Context) bool {
+	return GetServerSettings(ctx).ManageDNS
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
-func IsBasicAuthEnabled() bool {
+func IsBasicAuthEnabled(ctx context.Context) bool {
 	if servercfg.DeployedByOperator() {
 		return true
 	}
 
-	return GetServerSettings().BasicAuth
+	return GetServerSettings(ctx).BasicAuth
 }
 
 // IsMFAEnforced returns whether MFA has been enforced.
-func IsMFAEnforced() bool {
-	return GetServerSettings().MFAEnforced
+func IsMFAEnforced(ctx context.Context) bool {
+	return GetServerSettings(ctx).MFAEnforced
 }
 
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled
-func IsEndpointDetectionEnabled() bool {
-	return GetServerSettings().EndpointDetection
+func IsEndpointDetectionEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).EndpointDetection
 }
 
 // IsStunEnabled - returns true if STUN set to on
-func IsStunEnabled() bool {
-	return GetServerSettings().Stun
+func IsStunEnabled(ctx context.Context) bool {
+	return GetServerSettings(ctx).Stun
 }
 
-func GetStunServers() string {
-	return GetServerSettings().StunServers
+func GetStunServers(ctx context.Context) string {
+	return GetServerSettings(ctx).StunServers
 }
 
 // GetAllowedEmailDomains - gets the allowed email domains for oauth signup
-func GetAllowedEmailDomains() string {
-	return GetServerSettings().AllowedEmailDomains
+func GetAllowedEmailDomains(ctx context.Context) string {
+	return GetServerSettings(ctx).AllowedEmailDomains
 }
 
-func GetVerbosity() int32 {
-	return GetServerSettings().Verbosity
+func GetVerbosity(ctx context.Context) int32 {
+	return GetServerSettings(ctx).Verbosity
 }
 
 func Mask() string {

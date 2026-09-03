@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
@@ -21,6 +22,7 @@ type ApiNodeStatus struct {
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
 	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	TenantID           string            `json:"tenant_id"`
 	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
 	Address            string            `json:"address" validate:"omitempty,cidrv4"`
 	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
@@ -39,6 +41,12 @@ type ApiNode struct {
 	IsAutoRelay        bool              `json:"is_auto_relay"`
 	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
 	AutoAssignGateway  bool              `json:"auto_assign_gw"`
+	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode    string            `json:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr     string            `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string            `json:"tcp_proxy_public_hostname,omitempty"`
+	UseTcpUplink           bool              `json:"use_tcp_uplink"`
 	//AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
@@ -63,6 +71,7 @@ type ApiNode struct {
 	IsInternetGateway                 bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
 	InetNodeReq                       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID                      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
+	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" yaml:"selected_internet_egress_id"`
 	AdditionalRagIps                  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
 	Tags                              map[TagID]struct{}  `json:"tags" yaml:"tags"`
 	IsStatic                          bool                `json:"is_static"`
@@ -84,6 +93,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Action = currentNode.Action
 	convertedNode.Connected = a.Connected
 	convertedNode.ID, _ = uuid.Parse(a.ID)
+	convertedNode.TenantID = currentNode.TenantID
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	//convertedNode.IsRelay = a.IsRelay
 	if a.RelayedBy != "" && !a.IsRelayed {
@@ -104,13 +114,15 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.InternetGwID = currentNode.InternetGwID
+	convertedNode.SelectedInternetEgressID = currentNode.SelectedInternetEgressID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.OwnerID = currentNode.OwnerID
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 	network := &schema.Network{
 		Name: a.Network,
 	}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err == nil {
 		_, networkRange, err := net.ParseCIDR(network.AddressRange)
 		if err == nil {
@@ -164,6 +176,15 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsIngressGateway = true
 	}
 	convertedNode.AutoAssignGateway = a.AutoAssignGateway
+	// TCP proxy / uplink are managed by dedicated gateway APIs. Preserve server
+	// state so connect/disconnect (and other partial UI node updates) cannot
+	// wipe these flags when the payload omits them (bool zero value is false).
+	convertedNode.TcpProxyEnabled = currentNode.TcpProxyEnabled
+	convertedNode.TcpProxyListenPort = currentNode.TcpProxyListenPort
+	convertedNode.TcpProxyTLSMode = currentNode.TcpProxyTLSMode
+	convertedNode.TcpProxyListenAddr = currentNode.TcpProxyListenAddr
+	convertedNode.TcpProxyPublicHostname = currentNode.TcpProxyPublicHostname
+	convertedNode.UseTcpUplink = currentNode.UseTcpUplink
 	convertedNode.Status = currentNode.Status
 	convertedNode.AutoRelayedPeers = currentNode.AutoRelayedPeers
 	return &convertedNode
@@ -186,6 +207,7 @@ func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
 func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode := ApiNode{}
 	apiNode.ID = nm.ID.String()
+	apiNode.TenantID = nm.TenantID
 	apiNode.HostID = nm.HostID.String()
 	apiNode.Address = nm.Address.String()
 	if isEmptyAddr(apiNode.Address) {
@@ -221,6 +243,12 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	//apiNode.AutoRelayedBy = nm.AutoRelayedBy
 	apiNode.AutoRelayedPeers = nm.AutoRelayedPeers
 	apiNode.AutoAssignGateway = nm.AutoAssignGateway
+	apiNode.TcpProxyEnabled = nm.TcpProxyEnabled
+	apiNode.TcpProxyListenPort = nm.TcpProxyListenPort
+	apiNode.TcpProxyTLSMode = nm.TcpProxyTLSMode
+	apiNode.TcpProxyListenAddr = nm.TcpProxyListenAddr
+	apiNode.TcpProxyPublicHostname = nm.TcpProxyPublicHostname
+	apiNode.UseTcpUplink = nm.UseTcpUplink
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
@@ -230,6 +258,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
+	apiNode.SelectedInternetEgressID = nm.SelectedInternetEgressID
 	apiNode.InetNodeReq = nm.InetNodeReq
 	apiNode.IsFailOver = false
 	apiNode.FailOverPeers = nm.FailOverPeers

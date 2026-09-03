@@ -17,7 +17,7 @@ fi
 CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
-LATEST=v1.6.0
+LATEST=v1.7.0
 BRANCH=master
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
@@ -36,14 +36,16 @@ unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
 INSTALL_MONITORING="${INSTALL_MONITORING:-off}"
+INSTALL_MSP="${INSTALL_MSP:-off}"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-c]"
+	echo "usage: ./nm-quick.sh [-c] [-p] [-m] [-s]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter); requires at least 2 GB RAM and 2 vCPUs"
 	echo "      with an existing install, -m alone only adds monitoring; use -p -m for a full Pro+monitoring re-install"
+	echo " -s  MSP / server-only install: skip nmctl setup, default mesh enrollment, and netclient on this host"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
@@ -105,6 +107,9 @@ set_buildinfo() {
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
 	echo "   Installer: v$NM_QUICK_VERSION"
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "   MSP mode:  server-only (no nmctl / netclient on this host)"
+	fi
 	echo "-----------------------------------------------------"
 
 }
@@ -165,23 +170,18 @@ setup_netclient() {
 	fi
 }
 
+
+
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	# NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
-	# if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-	# 	echo "Error obtaining NODE_ID for the new network"
-	# 	exit 1
-	# fi
-	# echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
-		echo "Error obtaining HOST_ID for the new network"
-		exit 1
+		echo "Warning: could not obtain HOST_ID from netclient.json, skipping host/gateway configuration"
+		return
 	fi
-	echo "making host a default"
+	echo "making host a default and enabling TCP proxy"
 	echo "Host ID: $HOST_ID"
-	# set as a default host
 	set +e
 	GET_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 		-H "Authorization: Bearer ${MASTER_KEY}" \
@@ -189,25 +189,28 @@ configure_netclient() {
 	GET_HTTP_CODE=$(echo "$GET_RESPONSE" | tail -n1)
 	HOST_JSON=$(echo "$GET_RESPONSE" | head -n -1)
 	if [ "$GET_HTTP_CODE" != "200" ]; then
-		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping set default"
+		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping host/gateway configuration"
 	else
-		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq '.Response | .isdefault = true')
+		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq \
+			--arg host "default-gateway.${NETMAKER_BASE_DOMAIN}" \
+			'.Response
+			| .isdefault = true
+			| .tcp_proxy_enabled = true
+			| .tcp_proxy_listen_port = 6443
+			| .tcp_proxy_tls_mode = "proxy"
+			| .tcp_proxy_public_hostname = $host
+			| .tcp_proxy_cert_fingerprint = ""')
 		PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 			-H "Authorization: Bearer ${MASTER_KEY}" \
 			-H "Content-Type: application/json" \
 			-d "$UPDATED_HOST_JSON")
 		if [ "$PUT_HTTP_CODE" != "200" ]; then
-			echo "Warning: failed to set host as default (HTTP $PUT_HTTP_CODE), skipping"
+			echo "Warning: failed to update default host TCP proxy settings (HTTP $PUT_HTTP_CODE)"
+		else
+			echo "Default host and TCP proxy settings updated"
 		fi
 	fi
 	sleep 5
-	# nmctl node create_remote_access_gateway netmaker $NODE_ID
-	# sleep 2
-	# # set failover
-	# if [ "$INSTALL_TYPE" = "pro" ]; then
-	#     #setup failOver
-	# 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
-	# fi
 	set -e
 }
 
@@ -883,6 +886,10 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network (skip when reusing saved config)
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP install: skipping netclient cleanup on this host."
+		return
+	fi
 	if [ "${REUSE_EXISTING_CONFIG:-0}" -eq 1 ]; then
 		echo "Keeping existing netclient registration (reusing saved configuration)."
 	else
@@ -919,6 +926,11 @@ stop_services(){
 
 upgrade() {
 	print_logo
+	# set_install_vars/set_install_vars_reuse (which normally derive this from
+	# NM_DOMAIN) are only called from the fresh-install path in main(), never
+	# on the -u upgrade path, so it has to be derived here too or every
+	# curl call below silently targets "https://api." (empty domain).
+	NETMAKER_BASE_DOMAIN="${NETMAKER_BASE_DOMAIN:-$NM_DOMAIN}"
 	unset IMAGE_TAG
 	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
@@ -952,6 +964,70 @@ upgrade() {
 	# start docker and rebuild containers / networks
 	stop_services
 	install_netmaker
+	set +e
+	test_connection
+	assign_global_network_admin_group
+	set -e
+}
+
+# assign_global_network_admin_group - on CE -> Pro upgrade, grants the
+# built-in "All Networks Admin" group (global-network-admin-grp) to every
+# existing superadmin/admin so their pre-upgrade access to all networks is
+# preserved under Pro's network-scoped RBAC.
+assign_global_network_admin_group() {
+	echo "Assigning the global network admin group to existing superadmin/admins..."
+	local GROUP_ID="global-network-admin-grp"
+	local page=1
+	local total_pages=1
+
+	while [ "$page" -le "$total_pages" ]; do
+		local LIST_RESPONSE
+		LIST_RESPONSE=$(curl -s -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/v2/users?role=super-admin&role=admin&page=${page}&per_page=100" \
+			-H "Authorization: Bearer ${MASTER_KEY}" \
+			-H "Content-Type: application/json")
+
+		if [ -z "$LIST_RESPONSE" ] || ! echo "$LIST_RESPONSE" | jq -e '.Response.data' >/dev/null 2>&1; then
+			echo "Warning: failed to fetch users for global network admin group assignment, skipping"
+			return
+		fi
+
+		total_pages=$(echo "$LIST_RESPONSE" | jq -r '.Response.total_pages // 1')
+
+		# Each list entry is already a full ReturnUser (including user_group_ids),
+		# so we modify and PUT it back directly instead of doing a per-user GET -
+		# GET /api/users/{username} is self-access only (ContinueIfUserMatch has no
+		# master-key bypass) and returns 403 for the master key even for admins.
+		local user_objects
+		user_objects=$(echo "$LIST_RESPONSE" | jq -c '.Response.data[]')
+
+		local user_json username already_member updated_user_json put_http_code
+		while IFS= read -r user_json; do
+			[ -z "$user_json" ] && continue
+
+			username=$(echo "$user_json" | jq -r '.username')
+			[ -z "$username" ] || [ "$username" = "null" ] && continue
+
+			already_member=$(echo "$user_json" | jq -r --arg gid "$GROUP_ID" '(.user_group_ids // {})[$gid] // empty')
+			if [ -n "$already_member" ]; then
+				continue
+			fi
+
+			updated_user_json=$(echo "$user_json" | jq --arg gid "$GROUP_ID" '.user_group_ids = ((.user_group_ids // {}) + {($gid): {}})')
+
+			put_http_code=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/users/${username}" \
+				-H "Authorization: Bearer ${MASTER_KEY}" \
+				-H "Content-Type: application/json" \
+				-d "$updated_user_json")
+
+			if [ "$put_http_code" != "200" ]; then
+				echo "Warning: failed to assign global network admin group to user $username (HTTP $put_http_code)"
+			else
+				echo "  assigned global network admin group to $username"
+			fi
+		done <<< "$user_objects"
+
+		page=$((page + 1))
+	done
 }
 
 downgrade () {
@@ -1084,7 +1160,7 @@ main (){
 	OPTIND=1
 	HAS_P=0
 	HAS_M=0
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 		case "${flag}" in
 		p) HAS_P=1 ;;
 		m) HAS_M=1 ;;
@@ -1098,7 +1174,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -1120,6 +1196,10 @@ main (){
 		echo "installing pro version..."
 		INSTALL_TYPE="pro"
 		COLLECT_PRO_VARS="true"
+		;;
+	s)
+		echo "MSP server-only install: will skip nmctl, mesh enrollment, and netclient on this host."
+		INSTALL_MSP="on"
 		;;
 	m)
 		if [ -f "$INSTALL_DIR/$CONFIG_FILE" ] || [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
@@ -1199,21 +1279,27 @@ done
 	# 8. make sure Caddy certs are working
 	test_connection
 
-	# 9. install the netmaker CLI
-	setup_nmctl
-
-	# 10. create a default mesh network for netmaker
-	setup_mesh
-
-	set -e
-
-	# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
-	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
-		echo "Skipping netclient setup and host configuration (reusing saved configuration)."
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP server-only install: skipping nmctl, default mesh setup, and netclient."
 	else
-		setup_netclient
+		# 9. install the netmaker CLI
+		setup_nmctl
+
+		# 10. create a default mesh network for netmaker
+		setup_mesh
+
+		set -e
+
+		# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
+		if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
+			echo "Skipping netclient reinstall (reusing saved configuration)."
+		else
+			setup_netclient
+		fi
 		configure_netclient
 	fi
+
+	set -e
 
 	# 13. print success message
 	print_success

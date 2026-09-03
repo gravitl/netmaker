@@ -9,25 +9,27 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/middleware"
 	m "github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // HttpMiddlewares - middleware functions for REST interactions
 var HttpMiddlewares = []mux.MiddlewareFunc{
-	db.Middleware,
+	middleware.DB,
 	userMiddleWare,
 }
 
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
 	nodeHandlers,
+	nodeExitNodeHandlers,
 	gwHandlers,
 	userHandlers,
 	networkHandlers,
@@ -40,8 +42,10 @@ var HttpHandlers = []interface{}{
 	hostHandlers,
 	enrollmentKeyHandlers,
 	aclHandlers,
+	deviceHandlers,
 	egressHandlers,
 	internetGatewayHandlers,
+	orgHandlers,
 }
 
 func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
@@ -58,6 +62,9 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"authorization",
 			"From-Ui",
 			"X-Application-Name",
+			"X-Host-ID",
+			scope.HeaderOrgID,
+			scope.HeaderTenantID,
 		},
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))

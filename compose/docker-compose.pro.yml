@@ -50,7 +50,7 @@ services:
 
   netmaker-exporter:
     container_name: netmaker-exporter
-    image: gravitl/netmaker-exporter:latest
+    image: gravitl/netmaker-exporter:v1.0.0
     env_file: ./netmaker.env
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}

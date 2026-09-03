@@ -15,9 +15,10 @@ var (
 	password  string
 	masterKey string
 	sso       bool
-	tenantId  string
-	saas      bool
-	authToken string
+	tenantId       string
+	organizationId string
+	saas           bool
+	authToken      string
 )
 
 var contextSetCmd = &cobra.Command{
@@ -33,8 +34,9 @@ var contextSetCmd = &cobra.Command{
 			MasterKey: masterKey,
 			AuthToken: authToken,
 			SSO:       sso,
-			TenantId:  tenantId,
-			Saas:      saas,
+			TenantId:       tenantId,
+			OrganizationId: organizationId,
+			Saas:           saas,
 		}
 		if !ctx.Saas {
 			if ctx.Username == "" && ctx.MasterKey == "" && !ctx.SSO && ctx.AuthToken == "" {
@@ -68,7 +70,8 @@ func init() {
 	contextSetCmd.MarkFlagsRequiredTogether("username", "password")
 	contextSetCmd.Flags().BoolVar(&sso, "sso", false, "Login via Single Sign On (SSO)?")
 	contextSetCmd.Flags().StringVar(&masterKey, "master_key", "", "Master Key")
-	contextSetCmd.Flags().StringVar(&tenantId, "tenant_id", "", "Tenant ID")
+	contextSetCmd.Flags().StringVar(&tenantId, "tenant_id", "", "Tenant ID (required for SaaS; sent as X-Tenant-ID for self-hosted multi-tenancy)")
+	contextSetCmd.Flags().StringVar(&organizationId, "org_id", "", "Organization ID (sent as X-Organization-ID; required for org-scoped API calls such as tenant list)")
 	contextSetCmd.Flags().BoolVar(&saas, "saas", false, "Is this context for a SaaS tenant?")
 	rootCmd.AddCommand(contextSetCmd)
 }

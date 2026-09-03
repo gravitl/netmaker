@@ -8,22 +8,14 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
 )
 
-var SyncFromIDP = func() error { return nil }
+var SyncFromIDP = func(context.Context) error { return nil }
 
-// GetReturnUser - gets a user
-func GetReturnUser(username string) (models.ReturnUser, error) {
-	_user := &schema.User{
-		Username: username,
-	}
-	err := _user.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return models.ReturnUser{}, err
-	}
+var ErrUserLimitExceeded = errors.New("user limit reached for this tenant, please upgrade your license")
 
-	return ToReturnUser(_user), nil
+var UserLimitExceeded = func(ctx context.Context) bool {
+	return false
 }
 
 // ToReturnUser - gets a user as a return user
@@ -32,6 +24,7 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 		UserName:                   user.Username,
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 		IsMFAEnabled:               user.IsMFAEnabled,
+		EmailValidated:             user.EmailValidated,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
 		IsAdmin:                    user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole,
@@ -51,13 +44,13 @@ func ToReturnUser(user *schema.User) models.ReturnUser {
 }
 
 // ToUserEventLog - converts a user to an event log entry with resolved group/role names
-func ToUserEventLog(user *schema.User) models.UserEventLog {
+func ToUserEventLog(ctx context.Context, user *schema.User) models.UserEventLog {
 	log := models.UserEventLog{
 		ReturnUser:          ToReturnUser(user),
 		UserGroupsWithNames: make(map[string]string),
 	}
 	for gID := range user.UserGroups.Data() {
-		grp, err := GetUserGroup(gID)
+		grp, err := GetUserGroup(ctx, gID)
 		if err == nil {
 			log.UserGroupsWithNames[string(gID)] = grp.Name
 		} else {
@@ -65,13 +58,6 @@ func ToUserEventLog(user *schema.User) models.UserEventLog {
 		}
 	}
 	return log
-}
-
-// SetUserDefaults - sets the defaults of a user to avoid empty fields
-func SetUserDefaults(user *schema.User) {
-	if len(user.UserGroups.Data()) == 0 {
-		user.UserGroups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
-	}
 }
 
 // SortUsers - Sorts slice of Users by username
@@ -82,9 +68,9 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 }
 
 // GetSuperAdmin - fetches superadmin user
-func GetSuperAdmin() (models.ReturnUser, error) {
+func GetSuperAdmin(ctx context.Context) (models.ReturnUser, error) {
 	_user := &schema.User{}
-	err := _user.GetSuperAdmin(db.WithContext(context.TODO()))
+	err := _user.GetSuperAdmin(ctx)
 	if err != nil {
 		return models.ReturnUser{}, err
 	}
@@ -92,16 +78,10 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 	return ToReturnUser(_user), nil
 }
 
-func DeletePendingUser(username string) error {
-	return (&schema.PendingUser{
-		Username: username,
-	}).Delete(db.WithContext(context.TODO()))
-}
-
-func IsPendingUser(username string) bool {
+func IsPendingUser(ctx context.Context, username string) bool {
 	exists, err := (&schema.PendingUser{
 		Username: username,
-	}).Exists(db.WithContext(context.TODO()))
+	}).Exists(ctx)
 	if err == nil {
 		return exists
 	}
@@ -123,11 +103,11 @@ func GetUserMap() (map[string]schema.User, error) {
 	return userMap, nil
 }
 
-func GetUserInvite(email string) (*schema.UserInvite, error) {
+func GetUserInvite(ctx context.Context, email string) (*schema.UserInvite, error) {
 	userInvite := &schema.UserInvite{
 		Email: email,
 	}
-	err := userInvite.GetByEmail(db.WithContext(context.TODO()))
+	err := userInvite.GetByEmail(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -135,15 +115,8 @@ func GetUserInvite(email string) (*schema.UserInvite, error) {
 	return userInvite, nil
 }
 
-func DeleteUserInvite(email string) error {
-	userInvite := &schema.UserInvite{
-		Email: email,
-	}
-	return userInvite.DeleteByEmail(db.WithContext(context.TODO()))
-}
-
-func ValidateAndApproveUserInvite(email, code string) error {
-	in, err := GetUserInvite(email)
+func ValidateAndApproveUserInvite(ctx context.Context, email, code string) error {
+	in, err := GetUserInvite(ctx, email)
 	if err != nil {
 		return err
 	}

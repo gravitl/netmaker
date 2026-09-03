@@ -3,11 +3,14 @@ package schema
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -37,6 +40,7 @@ const (
 
 type Node struct {
 	ID                                string                                `gorm:"primaryKey" json:"id"`
+	TenantID                          string                                `gorm:"default:'';index" json:"tenant_id"`
 	HostID                            string                                `gorm:"not null;index" json:"host_id"`
 	Host                              *Host                                 `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
 	NetworkID                         string                                `gorm:"not null;index" json:"network_id"`
@@ -56,6 +60,10 @@ type Node struct {
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	// UseTcpUplink: assigned/relayed node opts into TCP uplink to its gateway (requires host TcpProxyEnabled).
+	UseTcpUplink bool `json:"use_tcp_uplink"`
+	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
+	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              Severity                              `json:"posture_check_severity"`
@@ -127,12 +135,18 @@ func (n *Node) Delete(ctx context.Context) error {
 }
 
 func (n *Node) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Exec("DELETE FROM nodes_v1 WHERE tenant_id = ?", tenantID).Error
+	}
 	return db.FromContext(ctx).Exec("DELETE FROM nodes_v1").Error
 }
 
 func (n *Node) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Node, error) {
 	var nodes []Node
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -147,6 +161,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 		return nil, nil
 	}
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -158,6 +175,9 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -167,6 +187,12 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
 	if len(violations) > 0 {
+		for i := range violations {
+			if violations[i].TenantID == "" {
+				violations[i].TenantID = n.TenantID
+			}
+		}
+
 		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
 		if err != nil {
 			return err
@@ -183,22 +209,29 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
-	err := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID).
-		Find(&violations).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	err := query.Find(&violations).Error
 	return violations, err
 }
 
 func (n *Node) DeleteViolations(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ?", n.ID).
-		Delete(&PostureCheckViolation{}).
-		Error
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	return query.Delete(&PostureCheckViolation{}).Error
 }
 
 func (n *Node) UpdateConnectedStatus(ctx context.Context, options ...dbtypes.Option) error {
 	query := db.FromContext(ctx).Model(&Node{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
 	for _, opt := range options {
 		query = opt(query)
 	}
@@ -391,6 +424,66 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 		Error
 }
 
+// DefaultTcpProxyListenPort is used when TcpProxyEnabled is set with listen port <= 0.
+const DefaultTcpProxyListenPort = 443
+
+// TcpProxyClientPortProxy is the default client-facing WSS port published when
+// TLS mode is proxy (external termination). Override at runtime with the
+// TCP_PROXY_PUBLIC_PORT server environment variable.
+const TcpProxyClientPortProxy = 443
+
+// TcpProxyTLSMode values (host/node). Empty defaults to selfsigned on clients.
+const (
+	TcpProxyTLSModeSelfSigned = "selfsigned"
+	TcpProxyTLSModeProxy      = "proxy"
+)
+
+// NormaliseTcpProxyTLSMode returns a valid mode; empty → selfsigned.
+func NormaliseTcpProxyTLSMode(mode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", TcpProxyTLSModeSelfSigned:
+		return TcpProxyTLSModeSelfSigned, nil
+	case TcpProxyTLSModeProxy:
+		return TcpProxyTLSModeProxy, nil
+	default:
+		return "", fmt.Errorf("unsupported uplink TLS mode: %s", mode)
+	}
+}
+
+// NormaliseTcpProxyPublicHostname cleans a public hostname for WSS publish.
+// Strips schemes/paths; rejects values that look like URLs with paths or empty hosts.
+func NormaliseTcpProxyPublicHostname(raw string) (string, error) {
+	h := strings.TrimSpace(raw)
+	if h == "" {
+		return "", nil
+	}
+	lower := strings.ToLower(h)
+	for _, pfx := range []string{"wss://", "ws://", "https://", "http://"} {
+		if strings.HasPrefix(lower, pfx) {
+			h = h[len(pfx):]
+			break
+		}
+	}
+	if i := strings.IndexAny(h, "/?"); i >= 0 {
+		h = h[:i]
+	}
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	// Drop accidental port; public port is published separately.
+	if host, _, err := net.SplitHostPort(h); err == nil {
+		h = host
+	} else if strings.HasPrefix(h, "[") && strings.Contains(h, "]") {
+		// leave bracketed IPv6 literals as-is without port
+	}
+	h = strings.TrimSpace(h)
+	if h == "" || strings.ContainsAny(h, " /\\") {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	return h, nil
+}
+
 func (n *Node) AssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")
@@ -401,6 +494,7 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": n.RelayedByNodeID,
 			"is_igw_client":      n.IsIGWClient,
+			"use_tcp_uplink":     n.UseTcpUplink,
 		}).Error
 	if err != nil {
 		return err
@@ -447,30 +541,41 @@ func (n *Node) AssignGateway(ctx context.Context) error {
 }
 
 func (n *Node) UnassignGateway(ctx context.Context) error {
+	n.UseTcpUplink = false
+	if n.NetworkID == "" {
+		existing := &Node{ID: n.ID}
+		if err := existing.Get(ctx); err == nil {
+			n.NetworkID = existing.NetworkID
+		}
+	}
 	err := db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": n.RelayedByNodeID,
 			"is_igw_client":      n.IsIGWClient,
+			"use_tcp_uplink":     false,
 		}).Error
 	if err != nil {
 		return err
 	}
 
-	err = db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_clients", n.ID)).
-		UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).
-		Error
+	// Prefer network-scoped remove; if NetworkID is still unknown, scrub the key
+	// from any node that still lists this client so orphans cannot linger.
+	relayedClientsQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_clients", n.ID))
+	relayedIGWQ := db.FromContext(ctx).Model(&Node{}).
+		Where(expr.WhereNotNull("relayed_igw_clients", n.ID))
+	if n.NetworkID != "" {
+		relayedClientsQ = relayedClientsQ.Where("network_id = ?", n.NetworkID)
+		relayedIGWQ = relayedIGWQ.Where("network_id = ?", n.NetworkID)
+	}
+
+	err = relayedClientsQ.UpdateColumn("relayed_clients", expr.Remove("relayed_clients", n.ID)).Error
 	if err != nil {
 		return err
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("network_id = ?", n.NetworkID).
-		Where(expr.WhereNotNull("relayed_igw_clients", n.ID)).
-		UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).
-		Error
+	return relayedIGWQ.UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).Error
 }
 
 func (n *Node) ResetGateway(ctx context.Context) error {
@@ -488,11 +593,15 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		return err
 	}
 
+	// Only unassign clients relayed by THIS gateway. Clearing the whole network
+	// would drop RelayedBy / IsIGWClient for exit clients of other exit nodes.
 	err = db.FromContext(ctx).Model(&Node{}).
 		Where("network_id = ?", n.NetworkID).
+		Where("relayed_by_node_id = ?", n.ID).
 		Updates(map[string]interface{}{
 			"relayed_by_node_id": nil,
 			"is_igw_client":      false,
+			"use_tcp_uplink":     false,
 		}).Error
 	if err != nil {
 		return err
@@ -502,5 +611,12 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		Where("network_id = ?", n.NetworkID).
 		Where(expr.WhereHasValue("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", n.ID)).
+		Error
+}
+
+func (n *Node) ClearGatewayIDFromEnrollmentKeys(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&EnrollmentKey{}).
+		Where("gateway_id = ?", n.ID).
+		Update("gateway_id", nil).
 		Error
 }

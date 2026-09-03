@@ -9,60 +9,63 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/orchestrator"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
 	"gorm.io/gorm"
 )
 
-var azure_ad_functions = map[string]interface{}{
-	init_provider:   initAzureAD,
-	get_user_info:   getAzureUserInfo,
-	handle_callback: handleAzureCallback,
-	handle_login:    handleAzureLogin,
-	verify_user:     verifyAzureUser,
+// AzureADProvider implements Provider for Azure Active Directory OAuth2.
+type AzureADProvider struct {
+	cfg *oauth2.Config
 }
 
-// == handle azure ad authentication here ==
-
-func initAzureAD(redirectURL string, clientID string, clientSecret string) {
-	auth_provider = &oauth2.Config{
-		RedirectURL:  redirectURL,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Scopes:       []string{"User.Read", "email", "profile", "openid"},
-		Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant()),
+// NewAzureADProvider constructs an AzureADProvider for the given OAuth2 credentials.
+func NewAzureADProvider(redirectURL, clientID, clientSecret, azureTenantID string) *AzureADProvider {
+	return &AzureADProvider{
+		cfg: &oauth2.Config{
+			RedirectURL:  redirectURL,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Scopes:       []string{"User.Read", "email", "profile", "openid"},
+			Endpoint:     microsoft.AzureADEndpoint(azureTenantID),
+		},
 	}
 }
 
-func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
+func (p *AzureADProvider) Name() string {
+	return azure_ad_provider_name
+}
+
+func (p *AzureADProvider) Config() *oauth2.Config {
+	return p.cfg
+}
+
+func (p *AzureADProvider) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	appName := r.Header.Get("X-Application-Name")
 	if appName == "" {
 		appName = logic.NetmakerDesktopApp
 	}
 
-	var oauth_state_string = logic.RandomString(user_signin_length)
-	if auth_provider == nil {
-		handleOauthNotConfigured(w)
+	oauthState := logic.RandomString(user_signin_length)
+	err := logic.SetState(scope.Level(r.Context()), scope.ID(r.Context()), appName, oauthState)
+	if err != nil {
+		handleSomethingWentWrong(w)
 		return
 	}
 
-	if err := logic.SetState(appName, oauth_state_string); err != nil {
-		handleOauthNotConfigured(w)
-		return
-	}
-
-	var url = auth_provider.AuthCodeURL(oauth_state_string)
+	url := p.cfg.AuthCodeURL(oauthState)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
+func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	var rState, rCode = getStateAndCode(r)
 	state, err := logic.GetState(rState)
 	if err != nil {
@@ -70,7 +73,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := getAzureUserInfo(rState, rCode)
+	content, err := p.GetUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
 		if strings.Contains(err.Error(), "invalid oauth state") || strings.Contains(err.Error(), "failed to fetch user email from SSO state") {
@@ -80,47 +83,66 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+
 	var inviteExists bool
-	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.Email)
+	in, err := logic.GetUserInvite(r.Context(), content.Email)
 	if err == nil {
 		inviteExists = true
 	}
-	// check if user approval is already pending
-	if !inviteExists && (logic.IsPendingUser(content.Email) || logic.IsPendingUser(content.UserPrincipalName)) {
+	if !inviteExists && (logic.IsPendingUser(r.Context(), content.Email) || logic.IsPendingUser(r.Context(), content.UserPrincipalName)) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 
-	user, err := GetMatchingUser(content)
+	user, err := GetMatchingUser(r.Context(), content)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if inviteExists {
-				// create user
-				user, err := proLogic.PrepareOauthUserFromInvite(in)
+				user, err := proLogic.PrepareOauthUserFromInvite(r.Context(), in)
 				if err != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
 				user.Username = content.UserPrincipalName
 				user.ExternalIdentityProviderID = string(content.ID)
-				if err = logic.CreateUser(&user); err != nil {
+				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+				if err != nil {
+					if errors.Is(err, logic.ErrUserLimitExceeded) {
+						handleUserLimitExceeded(w)
+						return
+					}
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(content.Email)
-				logic.DeletePendingUser(content.UserPrincipalName)
-				logic.DeletePendingUser(content.Email)
+				_ = (&schema.UserInvite{
+					Email: content.Email,
+				}).DeleteByEmail(r.Context())
+
+				_ = (&schema.PendingUser{
+					Username: content.UserPrincipalName,
+				}).Delete(r.Context())
+
+				_ = (&schema.PendingUser{
+					Username: content.Email,
+				}).Delete(r.Context())
+
 			} else {
-				if !isEmailAllowed(content.Email) {
-					handleOauthUserNotAllowedToSignUp(w)
+				if scope.Level(r.Context()) == scope.OrgScope {
+					handleOauthInviteNotFound(w)
 					return
 				}
 
-				err := (&schema.PendingUser{
+				if !isEmailAllowed(r.Context(), content.Email) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
+				pendingUser := &schema.PendingUser{
+					Scope:                      scope.Level(r.Context()),
+					ScopeID:                    scope.ID(r.Context()),
 					Username:                   content.UserPrincipalName,
 					ExternalIdentityProviderID: string(content.ID),
-				}).Create(r.Context())
+				}
+				err := pendingUser.Create(r.Context())
 				if err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -133,8 +155,6 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// if user exists, then ensure user's auth type is
-		// oauth before proceeding.
 		if user.AuthType == schema.BasicAuth {
 			logger.Log(0, "invalid auth type: basic_auth")
 			handleAuthTypeMismatch(w)
@@ -142,7 +162,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err = GetMatchingUser(content)
+	user, err = GetMatchingUser(r.Context(), content)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -154,7 +174,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return
@@ -163,22 +183,22 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = logic.FetchPassValue("")
+
+	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
 		return
 	}
-	// send a netmaker jwt token
-	var authRequest = models.UserAuthParams{
+	authRequest := models.UserAuthParams{
 		UserName: content.UserPrincipalName,
 		Password: newPass,
 	}
-
-	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest, state.AppName)
+	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
-	logic.LogEvent(&models.Event{
+
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Login,
 		Source: models.Subject{
 			ID:   user.Username,
@@ -194,53 +214,27 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	logger.Log(1, "completed azure OAuth sigin in for", user.Username)
+	logger.Log(1, "completed azure OAuth signin for", user.Username)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)
 }
 
-func GetMatchingUser(oauthUser *OAuthUser) (*schema.User, error) {
-	user := &schema.User{
-		Username: oauthUser.UserPrincipalName,
-	}
-	err := user.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-	} else {
-		return user, nil
-	}
-
-	user = &schema.User{
-		ExternalIdentityProviderID: string(oauthUser.ID),
-	}
-	err = user.GetByExternalID(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-
-func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
+func (p *AzureADProvider) GetUserInfo(state string, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	var token, err = auth_provider.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
+	token, err := p.cfg.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
-	var data []byte
-	data, err = json.Marshal(token)
+	data, err := json.Marshal(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	var httpReq, reqErr = http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
+	httpReq, reqErr := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
 	if reqErr != nil {
 		return nil, fmt.Errorf("failed to create request to microsoft")
 	}
-
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
@@ -251,7 +245,7 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	var userInfo = &OAuthUser{}
+	userInfo := &OAuthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
@@ -263,12 +257,27 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 		userInfo.Email = userInfo.UserPrincipalName
 	}
 	if userInfo.Email == "" {
-		err = errors.New("failed to fetch user email from SSO state")
-		return userInfo, err
+		return userInfo, errors.New("failed to fetch user email from SSO state")
 	}
 	return userInfo, nil
 }
 
-func verifyAzureUser(token *oauth2.Token) bool {
-	return token.Valid()
+// GetMatchingUser looks up an Azure AD user by UPN or external provider ID.
+func GetMatchingUser(ctx context.Context, oauthUser *OAuthUser) (*schema.User, error) {
+	user := &schema.User{Username: oauthUser.UserPrincipalName}
+	err := user.GetWithMembership(ctx)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	} else {
+		return user, nil
+	}
+
+	user = &schema.User{ExternalIdentityProviderID: string(oauthUser.ID)}
+	err = user.GetByExternalID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }

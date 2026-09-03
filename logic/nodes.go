@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -26,8 +27,8 @@ var (
 )
 
 // GetNetworkNodes - gets the nodes of a network
-func GetNetworkNodes(network string) ([]models.Node, error) {
-	allnodes, err := GetAllNodes()
+func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error) {
+	allnodes, err := GetAllNodes(ctx)
 	if err != nil {
 		return []models.Node{}, err
 	}
@@ -114,15 +115,15 @@ func UpsertNode(newNode *models.Node) error {
 	if _node.ID == "" {
 		return errors.New("error converting models.Node to schema.Node")
 	}
-
 	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 		network := &schema.Network{Name: newNode.Network}
-		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+		if err := network.Get(ctx); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -144,7 +145,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if _node.ID == "" {
 			return errors.New("error converting models.Node to schema.Node")
 		}
-
 		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
@@ -155,9 +155,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // cleanupNodeReferences handles best-effort cleanup of all external references
 // to a node (relay, internet gw, failover, nameservers, ACL, egress, enrollment keys).
 // Errors are logged but do not prevent node deletion.
-func cleanupNodeReferences(node *models.Node) {
+func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+		if err := DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
@@ -175,14 +175,17 @@ func cleanupNodeReferences(node *models.Node) {
 			UpsertNode(&relayNode)
 		}
 	}
+	// Always scrub this node ID from every gateway RelayedClients map in the
+	// network. RelayedBy may already be cleared while orphan map keys remain.
+	RemoveNodeFromAllGatewayRelays(ctx, node.Network, node.ID.String())
 	if len(node.AutoRelayedPeers) > 0 {
-		ResetAutoRelayedPeer(node)
+		ResetAutoRelayedPeer(ctx, node)
 	}
 	if node.IsRelay {
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	if node.InternetGwID != "" {
-		inetNode, err := GetNodeByID(node.InternetGwID)
+	if routingID := InternetExitRoutingNodeID(node); routingID != "" {
+		inetNode, err := GetNodeByID(routingID)
 		if err == nil {
 			clientNodeIDs := []string{}
 			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
@@ -196,7 +199,7 @@ func cleanupNodeReferences(node *models.Node) {
 		}
 	}
 	if node.IsInternetGateway {
-		UnsetInternetGw(node)
+		UnsetInternetGw(ctx, node)
 	}
 
 	filters := make(map[string]bool)
@@ -208,23 +211,24 @@ func cleanupNodeReferences(node *models.Node) {
 	}
 	nameservers, _ := (&schema.Nameserver{
 		NetworkID: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
+	}).ListByNetwork(ctx)
 	for _, ns := range nameservers {
 		ns.Servers = FilterOutIPs(ns.Servers, filters)
 		delete(ns.Nodes, node.ID.String())
 		if len(ns.Servers) > 0 {
-			_ = ns.Update(db.WithContext(context.TODO()))
+			_ = ns.Update(ctx)
 		} else {
-			_ = ns.Delete(db.WithContext(context.TODO()))
+			_ = ns.Delete(ctx)
 		}
 	}
 
-	go RemoveNodeFromAclPolicy(*node)
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go RemoveNodeFromAclPolicy(detachedCtx, *node)
 	go RemoveNodeFromEgress(*node)
 	go RemoveNodeFromEnrollmentKeys(node)
 }
 
-func DeleteNode(node *models.Node, purge bool) error {
+func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == schema.NODE_DELETE
 	node.Action = schema.NODE_DELETE
 
@@ -235,38 +239,43 @@ func DeleteNode(node *models.Node, purge bool) error {
 			Action:        schema.NODE_DELETE,
 			PendingDelete: true,
 		}
-		err := node.MarkForDeletion(db.WithContext(context.TODO()))
+		err := node.MarkForDeletion(ctx)
 		if err != nil {
 			return err
 		}
-		newZombie <- nodeID
+		zombieChan(scope.ID(ctx)) <- nodeID
 		return nil
 	}
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	cleanupNodeReferences(node)
+
+	// Before removing an exit routing node: fail-open its clients and detach from
+	// internet egress maps so sticky selections are not left pointing at a dead relay.
+	FailOpenAndDetachExitRoutingNode(ctx, node)
+
+	cleanupNodeReferences(ctx, node)
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+	if err := host.Get(ctx); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
-		if delErr := DeleteNodeByID(node); delErr != nil {
+		if delErr := DeleteNodeByID(ctx, node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
 			return delErr
 		}
 		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
 		return nil
 	}
-	if err := DissasociateNodeFromHost(node, host); err != nil {
+	if err := DisassociateNodeFromHost(ctx, node, host); err != nil {
 		return err
 	}
 	return nil
 }
 
 // GetNodeByHostRef - gets the node by host id and network
-func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
-	nodes, err := GetNetworkNodes(network)
+func GetNodeByHostRef(ctx context.Context, hostid, network string) (node models.Node, err error) {
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -279,37 +288,37 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 }
 
 // DeleteNodeByID - deletes a node from database
-func DeleteNodeByID(node *models.Node) error {
+func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
-	err := _node.Delete(db.WithContext(context.TODO()))
+	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	err = _node.DeleteViolations(db.WithContext(context.TODO()))
+	err = _node.DeleteViolations(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = DeleteMetrics(node.ID.String()); err != nil {
+	if err = DeleteMetrics(ctx, node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	go DeleteNodeMetricsFromPeers(node.ID.String())
+	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
 }
 
 // GetAllNodes - returns all nodes in the DB
-func GetAllNodes() ([]models.Node, error) {
+func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 	var nodes []models.Node
-	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
+	_nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithAllPreloads())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, _node := range _nodes {
-		node := ConvertSchemaNodeToModelsNode(&_node)
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_node)
 		ensureNodeMutex(node)
 		nodes = append(nodes, *node)
 	}
@@ -317,30 +326,30 @@ func GetAllNodes() ([]models.Node, error) {
 	return nodes, nil
 }
 
-func AddStaticNodestoList(nodes []models.Node) []models.Node {
+func AddStaticNodestoList(ctx context.Context, nodes []models.Node) []models.Node {
 	netMap := make(map[string]struct{})
 	for _, node := range nodes {
 		if _, ok := netMap[node.Network]; ok {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
 	return nodes
 }
 
-func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
+func AddStatusToNodes(ctx context.Context, nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
-			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+			GetNodeStatus(ctx, &node, aclDefaultPolicyStatusMap[node.Network])
 		} else {
 			getNodeCheckInStatus(&node, true)
 		}
@@ -552,9 +561,9 @@ func ValidateEgressCIDR(network *schema.Network, cidr string) error {
 	return nil
 }
 
-func ValidateEgressRange(netID string, ranges []string) error {
+func ValidateEgressRange(ctx context.Context, netID string, ranges []string) error {
 	network := &schema.Network{Name: netID}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
@@ -582,6 +591,11 @@ func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
 }
 
 func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
+	return ConvertSchemaNodeToModelsNodeWithContext(ctx, _node)
+}
+
+func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema.Node) *models.Node {
 	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
 		return &models.Node{}
@@ -617,7 +631,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Host = &schema.Host{
 			ID: hostID,
 		}
-		err = _node.Host.Get(db.WithContext(context.TODO()))
+		err = _node.Host.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Host = &schema.Host{}
@@ -632,7 +646,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Network = &schema.Network{
 			ID: _node.NetworkID,
 		}
-		err = _node.Network.Get(db.WithContext(context.TODO()))
+		err = _node.Network.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Network = &schema.Network{}
@@ -661,7 +675,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	}
 
 	var violations []models.Violation
-	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
+	_violations, err := _node.ListViolations(ctx)
 	if err == nil {
 		for _, _violation := range _violations {
 			violations = append(violations, models.Violation{
@@ -677,6 +691,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	node := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:                nodeID,
+			TenantID:          _node.TenantID,
 			HostID:            hostID,
 			Network:           _node.Network.Name,
 			NetworkRange:      netAddrRange,
@@ -690,6 +705,42 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			IsRelay:           _node.IsGateway,
 			IsGw:              _node.IsGateway,
 			AutoAssignGateway: _node.AutoAssignGateway,
+			// TCP proxy listen settings live on the host; surface on the node API for UI/clients.
+			TcpProxyEnabled: _node.Host != nil && _node.Host.TcpProxyEnabled,
+			TcpProxyListenPort: func() int {
+				if _node.Host == nil {
+					return 0
+				}
+				if _node.Host.TcpProxyListenPort > 0 {
+					return _node.Host.TcpProxyListenPort
+				}
+				if _node.Host.TcpProxyEnabled {
+					return schema.DefaultTcpProxyListenPort
+				}
+				return 0
+			}(),
+			TcpProxyTLSMode: func() string {
+				if _node.Host == nil || !_node.Host.TcpProxyEnabled {
+					return ""
+				}
+				if _node.Host.TcpProxyTLSMode != "" {
+					return _node.Host.TcpProxyTLSMode
+				}
+				return schema.TcpProxyTLSModeSelfSigned
+			}(),
+			TcpProxyListenAddr: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyListenAddr
+				}
+				return ""
+			}(),
+			TcpProxyPublicHostname: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyPublicHostname
+				}
+				return ""
+			}(),
+			UseTcpUplink: _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,
@@ -699,6 +750,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		IsAutoRelay:                        _node.IsAutoRelay == "yes",
 		AutoRelayedPeers:                   _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                  _node.IsInternetGateway,
+		SelectedInternetEgressID:           _node.SelectedInternetEgressID,
 		Tags:                               make(map[models.TagID]struct{}),
 		Status:                             _node.Status,
 		PostureChecksViolations:            violations,
@@ -726,12 +778,36 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			// Keep RelayedNodes complete for AllowedIPs: exit clients must be
+			// advertised even if RelayedClients and RelayedIGWClients diverge.
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
+			}
 		}
 
 		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
 			endpointIP := net.ParseIP(additionalEndpoint)
 			if endpointIP != nil {
 				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
+			}
+		}
+	} else if len(_node.RelayedClients) > 0 {
+		// A non-gateway node can still relay clients when it acts as an internet
+		// exit node: the peers using it as their exit node are relayed through it
+		// for overlay stability. Surface those relationships (previously only
+		// populated for gateways) so peer AllowedIPs and ACL/firewall rules
+		// account for them, and so a model->schema round-trip doesn't wipe them.
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
 			}
 		}
 	}
@@ -753,6 +829,8 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+
 	var address, address6 string
 	if node.Address.IP != nil {
 		address = node.Address.String()
@@ -765,7 +843,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	err := host.Get(db.WithContext(context.TODO()))
+	err := host.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}
@@ -773,7 +851,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	network := &schema.Network{
 		Name: node.Network,
 	}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}
@@ -814,6 +892,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 
 	return &schema.Node{
 		ID:                                node.ID.String(),
+		TenantID:                          node.TenantID,
 		HostID:                            host.ID.String(),
 		Host:                              host,
 		NetworkID:                         network.ID,
@@ -833,6 +912,8 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayedByNodeID:                   relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+		UseTcpUplink:                      node.UseTcpUplink,
+		SelectedInternetEgressID:          node.SelectedInternetEgressID,
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
 		PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,

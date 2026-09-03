@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
@@ -28,21 +29,21 @@ var (
 var ServiceUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.ServiceUser,
 	Default:             true,
-	FullAccess:          false,
+	TenantGlobalAccess:  false,
 	DenyDashboardAccess: true,
 }
 
 var PlatformUserUserPermissionTemplate = schema.UserRole{
-	ID:         schema.PlatformUser,
-	Default:    true,
-	FullAccess: false,
+	ID:                 schema.PlatformUser,
+	Default:            true,
+	TenantGlobalAccess: false,
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{
 	ID:                  schema.Auditor,
 	Default:             true,
 	DenyDashboardAccess: false,
-	FullAccess:          false,
+	TenantGlobalAccess:  false,
 	NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
 		schema.NetworkRsrc: {
 			schema.AllNetworkRsrcID: schema.RsrcPermissionScope{
@@ -53,21 +54,21 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	ID:         globalNetworksAdminRoleID,
-	Name:       "Network Admins",
-	MetaData:   "can manage configuration of all networks",
-	Default:    true,
-	FullAccess: true,
-	NetworkID:  schema.AllNetworks,
+	ID:                 globalNetworksAdminRoleID,
+	Name:               "Network Admins",
+	MetaData:           "can manage configuration of all networks",
+	Default:            true,
+	TenantGlobalAccess: true,
+	NetworkID:          schema.AllNetworks,
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
-	ID:         globalNetworksUserRoleID,
-	Name:       "Network Users",
-	MetaData:   "Can connect to nodes in your networks via Netmaker Desktop App.",
-	Default:    true,
-	FullAccess: false,
-	NetworkID:  schema.AllNetworks,
+	ID:                 globalNetworksUserRoleID,
+	Name:               "Network Users",
+	MetaData:           "Can connect to nodes in your networks via Netmaker Desktop App.",
+	Default:            true,
+	TenantGlobalAccess: false,
+	NetworkID:          schema.AllNetworks,
 	NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
 		schema.HostRsrc: {
 			schema.AllHostRsrcID: schema.RsrcPermissionScope{
@@ -142,19 +143,27 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 }
 
 func UserRolesInit() {
+	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = PlatformUserUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AuditorUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkAdminAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserAllPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }
 
-func UserGroupsInit() {
+func UserNetworkRolesInit(ctx context.Context) {
+	networkAdminAllRole := NetworkAdminAllPermissionTemplate
+	networkUserAllRole := NetworkUserAllPermissionTemplate
+	_ = networkAdminAllRole.Upsert(ctx)
+	_ = networkUserAllRole.Upsert(ctx)
+}
+
+func UserGroupsInit(ctx context.Context) {
 	// create default network groups
 	var NetworkGlobalAdminGroup = schema.UserGroup{
 		ID:       globalNetworksAdminGroupID,
+		TenantID: scope.ID(ctx),
 		Default:  true,
 		Name:     "All Networks Admin Group",
 		MetaData: "can manage configuration of all networks",
@@ -165,9 +174,10 @@ func UserGroupsInit() {
 		}),
 	}
 	var NetworkGlobalUserGroup = schema.UserGroup{
-		ID:      globalNetworksUserGroupID,
-		Name:    "All Networks User Group",
-		Default: true,
+		ID:       globalNetworksUserGroupID,
+		TenantID: scope.ID(ctx),
+		Name:     "All Networks User Group",
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			schema.AllNetworks: {
 				globalNetworksUserRoleID: {},
@@ -176,11 +186,11 @@ func UserGroupsInit() {
 		MetaData: "Provides read-only dashboard access to platform users and allows connection to network nodes via the Netmaker Desktop App.",
 	}
 
-	_ = NetworkGlobalAdminGroup.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkGlobalUserGroup.Upsert(db.WithContext(context.TODO()))
+	_ = NetworkGlobalAdminGroup.Upsert(ctx)
+	_ = NetworkGlobalUserGroup.Upsert(ctx)
 }
 
-func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
+func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.NetworkID, username string) {
 	if netID.String() == "" {
 		return
 	}
@@ -190,7 +200,7 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
-		FullAccess:         true,
+		TenantGlobalAccess: true,
 		NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{}),
 	}
 
@@ -199,7 +209,7 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		Name:                fmt.Sprintf("%s User", netID),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
-		FullAccess:          false,
+		TenantGlobalAccess:  false,
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
@@ -275,14 +285,15 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		}),
 	}
 
-	_ = NetworkAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = NetworkAdminPermissionTemplate.Upsert(ctx)
+	_ = NetworkUserPermissionTemplate.Upsert(ctx)
 
 	// create default network groups
 	var NetworkAdminGroup = schema.UserGroup{
-		ID:      GetDefaultNetworkAdminGroupID(netID),
-		Name:    fmt.Sprintf("%s Admin Group", netID),
-		Default: true,
+		ID:       GetDefaultNetworkAdminGroupID(netID),
+		TenantID: scope.ID(ctx),
+		Name:     fmt.Sprintf("%s Admin Group", netID),
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			netID: {
 				GetDefaultNetworkAdminRoleID(netID): {},
@@ -291,9 +302,10 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
 	}
 	var NetworkUserGroup = schema.UserGroup{
-		ID:      GetDefaultNetworkUserGroupID(netID),
-		Name:    fmt.Sprintf("%s User Group", netID),
-		Default: true,
+		ID:       GetDefaultNetworkUserGroupID(netID),
+		TenantID: scope.ID(ctx),
+		Name:     fmt.Sprintf("%s User Group", netID),
+		Default:  true,
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			netID: {
 				GetDefaultNetworkUserRoleID(netID): {},
@@ -301,182 +313,96 @@ func CreateDefaultNetworkRolesAndGroups(netID schema.NetworkID) {
 		}),
 		MetaData: fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App. Platform users will have read-only access to the the dashboard.", netID),
 	}
-	_ = NetworkAdminGroup.Upsert(db.WithContext(context.TODO()))
-	_ = NetworkUserGroup.Upsert(db.WithContext(context.TODO()))
+	_ = NetworkAdminGroup.Upsert(ctx)
+	_ = NetworkUserGroup.Upsert(ctx)
+
+	if username != "" {
+		user := &schema.User{
+			Username: username,
+		}
+		err := user.Get(ctx)
+		if err == nil {
+			tm := &schema.TenantMembership{
+				TenantID: scope.ID(ctx),
+				UserID:   user.ID,
+			}
+			err = tm.Get(ctx)
+			if err == nil {
+				tm.Groups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+				_ = tm.Upsert(ctx)
+			}
+		}
+	}
 }
 
-func DeleteNetworkRoles(netID string) {
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+func DeleteNetworkRoles(ctx context.Context, netID string) {
+	memberships, err := (&schema.TenantMembership{
+		TenantID: scope.ID(ctx),
+	}).ListByTenantID(ctx)
 	if err != nil {
 		return
 	}
 
 	defaultAdminGrpID := GetDefaultNetworkAdminGroupID(schema.NetworkID(netID))
 	defaultUserGrpID := GetDefaultNetworkUserGroupID(schema.NetworkID(netID))
-	for _, user := range users {
+	for _, membership := range memberships {
 		var upsert bool
-		if _, ok := user.UserGroups.Data()[defaultUserGrpID]; ok {
-			delete(user.UserGroups.Data(), defaultUserGrpID)
+		if _, ok := membership.Groups.Data()[defaultUserGrpID]; ok {
+			delete(membership.Groups.Data(), defaultUserGrpID)
 			upsert = true
 		}
-		if _, ok := user.UserGroups.Data()[defaultAdminGrpID]; ok {
-			delete(user.UserGroups.Data(), defaultAdminGrpID)
+		if _, ok := membership.Groups.Data()[defaultAdminGrpID]; ok {
+			delete(membership.Groups.Data(), defaultAdminGrpID)
 			upsert = true
 		}
 		if upsert {
-			logic.UpsertUser(user)
+			_ = membership.Upsert(ctx)
 		}
 	}
 	_ = (&schema.UserGroup{
 		ID: defaultUserGrpID,
-	}).Delete(db.WithContext(context.TODO()))
+	}).Delete(ctx)
 
 	_ = (&schema.UserGroup{
 		ID: defaultAdminGrpID,
-	}).Delete(db.WithContext(context.TODO()))
+	}).Delete(ctx)
 
-	userGs, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	userGs, _ := (&schema.UserGroup{}).ListAll(ctx)
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles.Data()[schema.NetworkID(netID)]; ok {
 			delete(userGI.NetworkRoles.Data(), schema.NetworkID(netID))
-			UpdateUserGroup(userGI)
+			_ = UpdateUserGroup(ctx, userGI)
 		}
 	}
 
 	networkRoles := &schema.UserRole{
 		NetworkID: schema.NetworkID(netID),
 	}
-	_ = networkRoles.DeleteNetworkRoles(db.WithContext(context.TODO()))
+	_ = networkRoles.DeleteNetworkRoles(ctx)
 }
 
-func ValidateCreateRoleReq(userRole *schema.UserRole) error {
-	// check if role exists with this id
-	roleCheck := &schema.UserRole{ID: userRole.ID}
-	err := roleCheck.Get(db.WithContext(context.TODO()))
-	if err == nil {
-		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
+func GetAnyRole(ctx context.Context, id schema.UserRoleID) (*schema.UserRole, error) {
+	role := &schema.UserRole{ID: id}
+	if err := role.GetNetworkRole(ctx); err == nil {
+		return role, nil
 	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
+	role = &schema.UserRole{ID: id}
+	if err := role.GetPlatformRole(ctx); err != nil {
+		return nil, err
 	}
-	if userRole.NetworkID == "" {
-		return errors.New("only network roles are allowed to be created")
-	}
-	return nil
-}
-
-func ValidateUpdateRoleReq(userRole *schema.UserRole) error {
-	roleInDB := &schema.UserRole{ID: userRole.ID}
-	err := roleInDB.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-	if roleInDB.NetworkID != userRole.NetworkID {
-		return errors.New("network id mismatch")
-	}
-	if roleInDB.Default {
-		return errors.New("cannot update default role")
-	}
-	if len(userRole.NetworkLevelAccess.Data()) > 0 {
-		for rsrcType := range userRole.NetworkLevelAccess.Data() {
-			if _, ok := schema.RsrcTypeMap[rsrcType]; !ok {
-				return errors.New("invalid rsrc type " + rsrcType.String())
-			}
-			if rsrcType == schema.RemoteAccessGwRsrc {
-				userRsrcPermissions := userRole.NetworkLevelAccess.Data()[schema.RemoteAccessGwRsrc]
-				var vpnAccess bool
-				for _, scope := range userRsrcPermissions {
-					if scope.VPNaccess {
-						vpnAccess = true
-						break
-					}
-				}
-				if vpnAccess {
-					userRole.NetworkLevelAccess.Data()[schema.ExtClientsRsrc] = map[schema.RsrcID]schema.RsrcPermissionScope{
-						schema.AllExtClientsRsrcID: {
-							Read:     true,
-							Create:   true,
-							Update:   true,
-							Delete:   true,
-							SelfOnly: true,
-						},
-					}
-
-				}
-
-			}
-		}
-	}
-	return nil
-}
-
-// CreateRole - inserts new role into DB
-func CreateRole(role *schema.UserRole) error {
-	// default roles are currently created directly in the db.
-	// this check is only to prevent future errors.
-	if role.Default && role.ID == "" {
-		return errors.New("role id cannot be empty for default role")
-	}
-
-	if !role.Default {
-		role.ID = schema.UserRoleID(uuid.NewString())
-	}
-
-	// check if the role already exists
-	if role.Name == "" {
-		return errors.New("role name cannot be empty")
-	}
-
-	exists, err := role.Exists(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return errors.New("role already exists")
-	}
-
-	return role.Create(db.WithContext(context.TODO()))
+	return role, nil
 }
 
 // DeleteRole - deletes user role
-func DeleteRole(rid schema.UserRoleID, force bool) error {
+func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 	if rid.String() == "" {
 		return errors.New("role id cannot be empty")
 	}
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
-	role := &schema.UserRole{ID: rid}
-	err = role.Get(db.WithContext(context.TODO()))
+	role, err := GetAnyRole(ctx, rid)
 	if err != nil {
 		return err
 	}
@@ -488,7 +414,7 @@ func DeleteRole(rid schema.UserRoleID, force bool) error {
 		return errors.New("cannot delete default network role")
 	}
 	// check if network exists
-	exists, _ := logic.NetworkExists(role.NetworkID.String())
+	exists, _ := logic.NetworkExists(ctx, role.NetworkID.String())
 	if role.Default {
 		if exists && !force {
 			return errors.New("cannot delete default role")
@@ -496,14 +422,14 @@ func DeleteRole(rid schema.UserRoleID, force bool) error {
 	}
 	for _, user := range users {
 		for userG := range user.UserGroups.Data() {
-			ug, err := GetUserGroup(userG)
+			ug, err := GetUserGroup(ctx, userG)
 			if err == nil {
 				if role.NetworkID != "" {
 					for netID, networkRoles := range ug.NetworkRoles.Data() {
 						if _, ok := networkRoles[rid]; ok {
 							delete(networkRoles, rid)
 							ug.NetworkRoles.Data()[netID] = networkRoles
-							UpdateUserGroup(ug)
+							_ = UpdateUserGroup(ctx, ug)
 						}
 					}
 				}
@@ -518,27 +444,23 @@ func DeleteRole(rid schema.UserRoleID, force bool) error {
 	}
 	return (&schema.UserRole{
 		ID: rid,
-	}).Delete(db.WithContext(context.TODO()))
+	}).DeleteNetworkRole(ctx)
 }
 
-func ValidateCreateGroupReq(g schema.UserGroup) error {
+func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
 
 	// check if network roles are valid
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
 			role := &schema.UserRole{ID: roleID}
-			err := role.Get(db.WithContext(context.TODO()))
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
-			}
-			if role.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
 			}
 		}
 	}
 	return nil
 }
-func ValidateUpdateGroupReq(new schema.UserGroup) error {
+func ValidateUpdateGroupReq(ctx context.Context, new schema.UserGroup) error {
 	var newHasAllNetworkRole, newHasSpecNetworkRole bool
 	for networkID := range new.NetworkRoles.Data() {
 		if networkID == schema.AllNetworks {
@@ -550,13 +472,8 @@ func ValidateUpdateGroupReq(new schema.UserGroup) error {
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
 			netRole := &schema.UserRole{ID: roleID}
-			err := netRole.Get(db.WithContext(context.TODO()))
-			if err != nil {
-				err = fmt.Errorf("invalid network role")
-				return err
-			}
-			if netRole.NetworkID == "" {
-				return errors.New("platform role cannot be used as network role")
+			if err := netRole.GetNetworkRole(ctx); err != nil {
+				return fmt.Errorf("invalid network role")
 			}
 		}
 	}
@@ -569,7 +486,7 @@ func ValidateUpdateGroupReq(new schema.UserGroup) error {
 }
 
 // CreateUserGroup - creates new user group
-func CreateUserGroup(g *schema.UserGroup) error {
+func CreateUserGroup(ctx context.Context, g *schema.UserGroup) error {
 	// default groups are currently created directly in the db.
 	// this check is only to prevent future errors.
 	if g.Default && g.ID == "" {
@@ -587,7 +504,7 @@ func CreateUserGroup(g *schema.UserGroup) error {
 
 	err := (&schema.UserGroup{
 		Name: g.Name,
-	}).GetByName(db.WithContext(context.TODO()))
+	}).GetByName(ctx)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -596,21 +513,22 @@ func CreateUserGroup(g *schema.UserGroup) error {
 		return errors.New("group already exists")
 	}
 
-	err = g.Create(db.WithContext(context.TODO()))
+	g.TenantID = scope.ID(ctx)
+	err = g.Create(ctx)
 	if err != nil {
 		return err
 	}
 	// create default network gateway policies
-	_ = EnsureDefaultUserGroupNetworkPolicies(nil, g)
+	_ = EnsureDefaultUserGroupNetworkPolicies(ctx, nil, g)
 	return nil
 }
 
 // GetUserGroup - fetches user group
-func GetUserGroup(gid schema.UserGroupID) (schema.UserGroup, error) {
+func GetUserGroup(ctx context.Context, gid schema.UserGroupID) (schema.UserGroup, error) {
 	group := schema.UserGroup{
 		ID: gid,
 	}
-	err := group.Get(db.WithContext(context.TODO()))
+	err := group.Get(ctx)
 	return group, err
 }
 
@@ -651,42 +569,44 @@ func GetDefaultGroupAclName(groupName string) string {
 }
 
 // UpdateUserGroup - updates new user group
-func UpdateUserGroup(g schema.UserGroup) error {
+func UpdateUserGroup(ctx context.Context, g schema.UserGroup) error {
 	// check if the group exists
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
-	return g.Update(db.WithContext(context.TODO()))
+	return g.Update(ctx)
 }
 
 func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, group.TenantID)
+
 	// TODO: wrap in transaction once acls are migrated to sql schema.
-	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, err := (&schema.User{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, user := range users {
 		delete(user.UserGroups.Data(), group.ID)
-		err = user.Update(db.WithContext(context.TODO()))
+		err = user.Update(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = EnsureDefaultUserGroupNetworkPolicies(group, nil)
+	err = EnsureDefaultUserGroupNetworkPolicies(ctx, group, nil)
 	if err != nil {
 		return err
 	}
 
-	err = group.Delete(db.WithContext(context.TODO()))
+	err = group.Delete(ctx)
 	if err != nil {
 		return err
 	}
 
-	go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
+	go UpdatesUserGwAccessOnGrpUpdates(ctx, group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 
-	networksMap, err := GetGroupNetworksMap(group)
+	networksMap, err := GetGroupNetworksMap(ctx, group)
 	if err != nil {
 		return err
 	}
@@ -696,13 +616,13 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		replacePeers = true
 	}
 
-	go mq.PublishPeerUpdate(replacePeers)
+	go mq.PublishPeerUpdate(ctx, replacePeers)
 
 	for networkID := range networksMap {
 		go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 	}
 
-	if err := RemoveUserGroupFromAllJITScopes(group.ID); err != nil {
+	if err := RemoveUserGroupFromAllJITScopes(ctx, group.ID); err != nil {
 		slog.Warn("failed to clean up JIT scopes for deleted user group",
 			"group_id", group.ID, "error", err)
 	}
@@ -710,9 +630,9 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 	return nil
 }
 
-func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
+func GetUserRAGNodes(ctx context.Context, user *schema.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
-	nodes, err := logic.GetAllNodes()
+	nodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		return
 	}
@@ -721,10 +641,10 @@ func GetUserRAGNodes(user *schema.User) (gws map[string]models.Node) {
 		if !node.IsGw {
 			continue
 		}
-		if !UserHasNetworkGroupAccess(user, node.Network) {
+		if !UserHasNetworkGroupAccess(ctx, user, node.Network) {
 			continue
 		}
-		if ok, _ := IsUserAllowedToCommunicate(user.Username, node); ok {
+		if ok, _ := IsUserAllowedToCommunicate(ctx, user.Username, node); ok {
 			gws[node.ID.String()] = node
 		}
 	}
@@ -735,13 +655,13 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 	return nodes
 }
 
-func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []schema.Network {
+func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
 	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err := platformRole.Get(db.WithContext(context.TODO()))
+	err := platformRole.GetPlatformRole(ctx)
 	if err != nil {
 		return []schema.Network{}
 	}
-	if !platformRole.FullAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if !platformRole.TenantGlobalAccess || PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		allNetworkRoles := make(map[schema.NetworkID]struct{})
 		_, ok := platformRole.NetworkLevelAccess.Data()[schema.NetworkRsrc]
 		if ok {
@@ -751,7 +671,7 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 			}
 		}
 		for userGID := range user.UserGroups.Data() {
-			userG, err := GetUserGroup(userGID)
+			userG, err := GetUserGroup(ctx, userGID)
 			if err == nil {
 				if len(userG.NetworkRoles.Data()) > 0 {
 					for netID := range userG.NetworkRoles.Data() {
@@ -767,6 +687,12 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 		for _, networkI := range allnetworks {
 			if _, ok := allNetworkRoles[schema.NetworkID(networkI.Name)]; ok {
 				filteredNetworks = append(filteredNetworks, networkI)
+				continue
+			}
+			if networkI.ID != "" {
+				if _, ok := allNetworkRoles[schema.NetworkID(networkI.ID)]; ok {
+					filteredNetworks = append(filteredNetworks, networkI)
+				}
 			}
 		}
 		allnetworks = filteredNetworks
@@ -774,10 +700,10 @@ func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []sch
 	return allnetworks
 }
 
-func IsGroupsValid(groups map[schema.UserGroupID]struct{}) error {
+func IsGroupsValid(ctx context.Context, groups map[schema.UserGroupID]struct{}) error {
 
 	for groupID := range groups {
-		_, err := GetUserGroup(groupID)
+		_, err := GetUserGroup(ctx, groupID)
 		if err != nil {
 			return fmt.Errorf("user group `%s` not found", groupID)
 		}
@@ -785,9 +711,9 @@ func IsGroupsValid(groups map[schema.UserGroupID]struct{}) error {
 	return nil
 }
 
-func IsGroupValid(groupID schema.UserGroupID) error {
+func IsGroupValid(ctx context.Context, groupID schema.UserGroupID) error {
 
-	_, err := GetUserGroup(groupID)
+	_, err := GetUserGroup(ctx, groupID)
 	if err != nil {
 		return fmt.Errorf("user group `%s` not found", groupID)
 	}
@@ -795,23 +721,19 @@ func IsGroupValid(groupID schema.UserGroupID) error {
 	return nil
 }
 
-func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
+func IsNetworkRolesValid(ctx context.Context, networkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
 
 		if netID != schema.AllNetworks {
-			err := (&schema.Network{Name: netID.String()}).Get(db.WithContext(context.TODO()))
+			err := (&schema.Network{Name: netID.String()}).Get(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
 			}
 		}
 		for netRoleID := range netRoles {
 			role := &schema.UserRole{ID: netRoleID}
-			err := role.Get(db.WithContext(context.TODO()))
-			if err != nil {
+			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("failed to fetch role %s ", netRoleID)
-			}
-			if role.NetworkID == "" {
-				return fmt.Errorf("cannot use platform as network role %s", netRoleID)
 			}
 		}
 	}
@@ -819,24 +741,32 @@ func IsNetworkRolesValid(networkRoles map[schema.NetworkID]map[schema.UserRoleID
 }
 
 // PrepareOauthUserFromInvite - init oauth user before create
-func PrepareOauthUserFromInvite(in *schema.UserInvite) (schema.User, error) {
-	var newPass, fetchErr = logic.FetchPassValue("")
+func PrepareOauthUserFromInvite(ctx context.Context, in *schema.UserInvite) (schema.User, error) {
+	var newPass, fetchErr = logic.FetchOAuthSecret(ctx)
 	if fetchErr != nil {
 		return schema.User{}, fetchErr
 	}
 	user := schema.User{
-		Username: in.Email,
-		Password: newPass,
+		Username:       in.Email,
+		Password:       newPass,
+		EmailValidated: true,
 	}
 	user.UserGroups = in.UserGroups
 	user.PlatformRoleID = schema.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
-		user.PlatformRoleID = schema.ServiceUser
+		user.PlatformRoleID = DefaultRoleForScope(in.Scope)
 	}
 	return user, nil
 }
 
-func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
+func DefaultRoleForScope(s scope.Scope) schema.UserRoleID {
+	if s == scope.OrgScope {
+		return schema.OrgAdmin
+	}
+	return schema.ServiceUser
+}
+
+func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 	changeNetworkAccess map[schema.RsrcType]map[schema.RsrcID]schema.RsrcPermissionScope, netID string) {
 	networkChangeMap := make(map[schema.RsrcID]schema.RsrcPermissionScope)
 	for rsrcType, RsrcPermsMap := range currNetworkAccess {
@@ -856,7 +786,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 		}
 	}
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -874,12 +804,12 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -891,12 +821,12 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -907,7 +837,7 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 	}
 }
 
-func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
+func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGroupID, oldNetworkRoles, newNetworkRoles map[schema.NetworkID]map[schema.UserRoleID]struct{}) {
 	networkRemovedMap := make(map[schema.NetworkID]struct{})
 	for netID := range oldNetworkRoles {
 		if _, ok := newNetworkRoles[netID]; !ok {
@@ -915,7 +845,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 		}
 	}
 
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -936,18 +866,18 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 			_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
 			_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
 			if userInGroup && (networkRemoved || allNetworkAccessRemoved) &&
-				!UserHasNetworkGroupAccess(&user, extclient.Network) {
+				!UserHasNetworkGroupAccess(ctx, &user, extclient.Network) {
 				shouldDelete = true
 			}
 		}
 
 		if shouldDelete {
-			err = logic.DeleteExtClientAndCleanup(extclient)
+			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 			if err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
 			} else {
-				if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
@@ -955,7 +885,7 @@ func UpdatesUserGwAccessOnGrpUpdates(groupID schema.UserGroupID, oldNetworkRoles
 	}
 }
 
-func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
+func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.User) {
 	if changeUser.PlatformRoleID != schema.ServiceUser {
 		return
 	}
@@ -965,7 +895,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 		if _, ok := changeUser.UserGroups.Data()[gID]; ok {
 			continue
 		}
-		userG, err := GetUserGroup(gID)
+		userG, err := GetUserGroup(ctx, gID)
 		if err == nil {
 			for netID, networkUserRoles := range userG.NetworkRoles.Data() {
 				for netRoleID := range networkUserRoles {
@@ -982,7 +912,7 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	}
 	// TODO - cleanup gw access when role and groups are updated
 	//removedGwAccess
-	extclients, err := logic.GetAllExtClients()
+	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
 		return
@@ -990,12 +920,12 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	for _, extclient := range extclients {
 		if extclient.OwnerID == currentUser.Username {
 			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
 					}
 				}
@@ -1005,13 +935,13 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 	}
 }
 
-func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
-	oldNetworks, err := GetGroupNetworksMap(old)
+func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema.UserGroup) error {
+	oldNetworks, err := GetGroupNetworksMap(ctx, old)
 	if err != nil {
 		return err
 	}
 
-	newNetworks, err := GetGroupNetworksMap(new)
+	newNetworks, err := GetGroupNetworksMap(ctx, new)
 	if err != nil {
 		return err
 	}
@@ -1049,7 +979,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	defaultAclName := GetDefaultGroupAclName(groupName)
 	for networkID, network := range networksAdded {
 		var exists bool
-		acls, err := logic.ListAclsByNetwork(networkID)
+		acls, err := logic.ListAclsByNetwork(ctx, networkID)
 		if err != nil {
 			continue
 		}
@@ -1062,7 +992,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 		}
 
 		if !exists {
-			_ = logic.InsertAcl(models.Acl{
+			_ = logic.InsertAcl(ctx, models.Acl{
 				ID:          uuid.New().String(),
 				Name:        defaultAclName,
 				MetaData:    "This Policy allows user group to communicate with all gateways",
@@ -1094,13 +1024,13 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	for networkID := range networksRemoved {
 		if new != nil {
 			RemoveUserGroupFromPostureChecks(new.ID, networkID)
-			if err := RemoveUserGroupFromNetworkJITScope(networkID.String(), new.ID); err != nil {
+			if err := RemoveUserGroupFromNetworkJITScope(ctx, networkID.String(), new.ID); err != nil {
 				slog.Warn("failed to clean up JIT scope for removed user group",
 					"group_id", new.ID, "network", networkID, "error", err)
 			}
 		}
 
-		acls, err := logic.ListAclsByNetwork(networkID)
+		acls, err := logic.ListAclsByNetwork(ctx, networkID)
 		if err != nil {
 			continue
 		}
@@ -1130,10 +1060,10 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 
 			if groupSrcExists {
 				if len(newAclSrc) == 0 {
-					_ = logic.DeleteAcl(acl)
+					_ = logic.DeleteAcl(ctx, acl)
 				} else {
 					acl.Src = newAclSrc
-					_ = logic.UpsertAcl(acl)
+					_ = logic.UpsertAcl(ctx, acl)
 				}
 			}
 		}
@@ -1142,7 +1072,7 @@ func EnsureDefaultUserGroupNetworkPolicies(old, new *schema.UserGroup) error {
 	return nil
 }
 
-func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
+func GetGroupNetworksMap(ctx context.Context, g *schema.UserGroup) (map[schema.NetworkID]schema.Network, error) {
 	networksMap := make(map[schema.NetworkID]schema.Network)
 	if g == nil {
 		return networksMap, nil
@@ -1150,7 +1080,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 
 	if _, ok := g.NetworkRoles.Data()[schema.AllNetworks]; ok {
 		var err error
-		networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+		networks, err := (&schema.Network{}).ListAll(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1161,7 +1091,7 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 	} else {
 		for networkID := range g.NetworkRoles.Data() {
 			network := &schema.Network{Name: networkID.String()}
-			err := network.Get(db.WithContext(context.TODO()))
+			err := network.Get(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -1173,12 +1103,12 @@ func GetGroupNetworksMap(g *schema.UserGroup) (map[schema.NetworkID]schema.Netwo
 	return networksMap, nil
 }
 
-func CreateDefaultUserPolicies(netID schema.NetworkID) {
+func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:     true,
@@ -1204,10 +1134,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin)) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s-grp", netID, schema.NetworkAdmin)) {
 		networkAdminGroupID := GetDefaultNetworkAdminGroupID(netID)
 
 		defaultUserAcl := models.Acl{
@@ -1239,10 +1169,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser)) {
+	if !logic.IsAclExists(ctx, fmt.Sprintf("%s.%s-grp", netID, schema.NetworkUser)) {
 		networkUserGroupID := GetDefaultNetworkUserGroupID(netID)
 
 		defaultUserAcl := models.Acl{
@@ -1274,10 +1204,10 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		logic.InsertAcl(ctx, defaultUserAcl)
 	}
 
-	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+	groups, _ := (&schema.UserGroup{}).ListAll(ctx)
 	for _, group := range groups {
 		if group.Default {
 			continue
@@ -1294,7 +1224,7 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 
 		if hasAccess {
 			var exists bool
-			acls, err := logic.ListAclsByNetwork(netID)
+			acls, err := logic.ListAclsByNetwork(ctx, netID)
 			if err != nil {
 				continue
 			}
@@ -1308,7 +1238,7 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 			}
 
 			if !exists {
-				_ = logic.InsertAcl(models.Acl{
+				_ = logic.InsertAcl(ctx, models.Acl{
 					ID:          uuid.New().String(),
 					Name:        defaultAclName,
 					MetaData:    "This Policy allows user group to communicate with all gateways",
@@ -1338,8 +1268,8 @@ func CreateDefaultUserPolicies(netID schema.NetworkID) {
 	}
 }
 
-func GetUserGroupsInNetwork(netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
-	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
+func GetUserGroupsInNetwork(ctx context.Context, netID schema.NetworkID) (networkGrps map[schema.UserGroupID]schema.UserGroup) {
+	groups, _ := (&schema.UserGroup{}).ListAll(ctx)
 	networkGrps = make(map[schema.UserGroupID]schema.UserGroup)
 	for _, grp := range groups {
 		if _, ok := grp.NetworkRoles.Data()[schema.AllNetworks]; ok {
@@ -1388,10 +1318,10 @@ func CanUserCreateNetwork(ctx context.Context, username string) bool {
 		return false
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	if err := userRole.Get(db.WithContext(ctx)); err != nil {
+	if err := userRole.GetPlatformRole(db.WithContext(ctx)); err != nil {
 		return false
 	}
-	if userRole.FullAccess {
+	if userRole.TenantGlobalAccess {
 		return true
 	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[schema.NetworkRsrc]
@@ -1415,16 +1345,21 @@ func UserHasGlobalNetworksAdminMembership(user *schema.User) bool {
 
 // UserHasNetworkGroupAccess reports whether the user has any network role on the
 // network (or all-networks scope) through group membership.
-func UserHasNetworkGroupAccess(user *schema.User, networkID string) bool {
-	if user == nil {
+// networkID may be the network name (netid) or UUID.
+func UserHasNetworkGroupAccess(ctx context.Context, user *schema.User, networkID string) bool {
+	if user == nil || networkID == "" {
 		return false
 	}
-	if IsNetworkAdmin(user, networkID) {
+	net := &schema.Network{ID: networkID, Name: networkID}
+	if err := net.Get(ctx); err == nil && net.Name != "" {
+		networkID = net.Name
+	}
+	if IsNetworkAdmin(ctx, user, networkID) {
 		return true
 	}
 	netID := schema.NetworkID(networkID)
 	for groupID := range user.UserGroups.Data() {
-		userG, err := GetUserGroup(groupID)
+		userG, err := GetUserGroup(ctx, groupID)
 		if err != nil {
 			continue
 		}
@@ -1491,18 +1426,22 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.
-func IsNetworkAdmin(user *schema.User, networkID string) bool {
+// networkID may be the network name (netid) or UUID.
+func IsNetworkAdmin(ctx context.Context, user *schema.User, networkID string) bool {
+	if user == nil || networkID == "" {
+		return false
+	}
 	networkIDModel := schema.NetworkID(networkID)
 	allNetworksID := schema.AllNetworks
 
 	// Check user groups for network admin roles
 	for groupID := range user.UserGroups.Data() {
-		group, err := logic.GetUserGroup(groupID)
-		if err != nil {
-			continue
-		}
 		if groupID == globalNetworksAdminGroupID {
 			return true
+		}
+		group, err := logic.GetUserGroup(ctx, groupID)
+		if err != nil {
+			continue
 		}
 		// Check if group has network admin role for this network
 		if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {

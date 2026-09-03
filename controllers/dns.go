@@ -11,40 +11,41 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/datatypes"
 )
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", logic.SecurityCheck(true, http.HandlerFunc(getAllDNS))).
+	r.HandleFunc("/api/dns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/nodes", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/custom", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).
+	r.HandleFunc("/api/dns/adm/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getDNS)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncDNS))).
+	r.HandleFunc("/api/dns/adm/{network}/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).
+	r.HandleFunc("/api/dns/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).
+	r.HandleFunc("/api/dns/adm/pushdns", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(pushDNS)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).
+	r.HandleFunc("/api/dns/{network}/{domain}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(createNs))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/nameserver/global", logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)
 }
 
 // @Summary     List Global Nameservers
@@ -82,7 +83,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNameserverReq(&req); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -117,6 +118,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
+		TenantID:    scope.ID(r.Context()),
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
@@ -130,7 +132,6 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-
 	err = ns.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -140,7 +141,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -156,8 +157,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		NetworkID: schema.NetworkID(ns.NetworkID),
 		Origin:    schema.Dashboard,
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "created nameserver")
 }
 
@@ -213,7 +214,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.ValidateNameserverReq(&updateNs); err != nil {
+	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -289,7 +290,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Nodes = updateNs.Nodes
 		ns.UpdatedAt = time.Now().UTC()
 
-		err = ns.Update(db.WithContext(context.TODO()))
+		err = ns.Update(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(
 				w,
@@ -301,21 +302,22 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 
 		if updateMatchAll {
 			ns.MatchAll = updateNs.MatchAll
-			ns.UpdateMatchAll(db.WithContext(context.TODO()))
+			ns.UpdateMatchAll(r.Context())
 		}
 
 		if updateFallback {
 			ns.Fallback = updateNs.Fallback
-			ns.UpdateFallback(db.WithContext(context.TODO()))
+			ns.UpdateFallback(r.Context())
 		}
 	}
 
 	if updateStatus {
 		ns.Status = updateNs.Status
-		ns.UpdateStatus(db.WithContext(context.TODO()))
+		ns.UpdateStatus(r.Context())
 	}
-	logic.LogEvent(event)
-	go mq.PublishPeerUpdate(false)
+	logic.LogEvent(r.Context(), event)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, ns, "updated nameserver")
 }
 
@@ -352,7 +354,7 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -372,8 +374,8 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-
-	go mq.PublishPeerUpdate(false)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted nameserver resource")
 }
 
@@ -392,7 +394,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetNodeDNS(network)
+	dns, err := logic.GetNodeDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get node DNS entries for network [%s]: %v", network, err))
@@ -412,7 +414,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	dns, err := logic.GetAllDNS()
+	dns, err := logic.GetAllDNS(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -438,7 +440,7 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetCustomDNS(network)
+	dns, err := logic.GetCustomDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(
 			0,
@@ -471,7 +473,7 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetDNS(network)
+	dns, err := logic.GetDNS(r.Context(), network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get all DNS entries for network [%s]: %v", network, err.Error()))
@@ -503,14 +505,14 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&entry)
 	entry.Network = params["network"]
 
-	err := logic.ValidateDNSCreate(entry)
+	err := logic.ValidateDNSCreate(r.Context(), entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("invalid DNS entry %+v: %v", entry, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	entry, err = logic.CreateDNS(entry)
+	entry, err = logic.CreateDNS(r.Context(), entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("Failed to create DNS entry %+v: %v", entry, err))
@@ -518,8 +520,8 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if logic.GetManageDNS() {
-		mq.SendDNSSyncByNetwork(netID)
+	if logic.GetManageDNS(r.Context()) {
+		mq.SendDNSSyncByNetwork(r.Context(), netID)
 	}
 
 	logger.Log(1, "new DNS record added:", entry.Name)
@@ -547,8 +549,8 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	domain := params["domain"]
 	netID := params["network"]
 	entrytext := domain + "." + netID
-	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings().DefaultDomain)
-	err := logic.DeleteDNS(domain, netID)
+	domain, _ = strings.CutSuffix(domain, "."+logic.GetServerSettings(r.Context()).DefaultDomain)
+	err := logic.DeleteDNS(r.Context(), domain, netID)
 
 	if err != nil {
 		logger.Log(0, "failed to delete dns entry: ", entrytext)
@@ -557,27 +559,12 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "deleted dns entry: ", entrytext)
 
-	if logic.GetManageDNS() {
-		mq.SendDNSSyncByNetwork(netID)
+	if logic.GetManageDNS(r.Context()) {
+		mq.SendDNSSyncByNetwork(r.Context(), netID)
 	}
 
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 
-}
-
-// GetDNSEntry - gets a DNS entry
-func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
-	var entry models.DNSEntry
-	key, err := logic.GetRecordKey(domain, network)
-	if err != nil {
-		return entry, err
-	}
-	record, err := database.FetchRecord(database.DNS_TABLE_NAME, key)
-	if err != nil {
-		return entry, err
-	}
-	err = json.Unmarshal([]byte(record), &entry)
-	return entry, err
 }
 
 // @Summary     Push DNS entries to nameserver
@@ -618,7 +605,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 func syncDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-	if !logic.GetManageDNS() {
+	if !logic.GetManageDNS(r.Context()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -628,7 +615,7 @@ func syncDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	var params = mux.Vars(r)
 	netID := params["network"]
-	k, err := logic.GetDNS(netID)
+	k, err := logic.GetDNS(r.Context(), netID)
 	if err == nil && len(k) > 0 {
 		err = mq.PushSyncDNS(k)
 	}
