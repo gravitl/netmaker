@@ -896,13 +896,13 @@ cleanup() {
 		if ! command -v netclient >/dev/null 2>&1; then
 			return
 		fi
-		if command -v nmctl >/dev/null 2>&1; then
-			local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
-			node_id="${node_id//\"/}"
-			if test -n "$node_id"; then
-				echo "De-registering the existing netclient..."
-				nmctl node delete netmaker $node_id >/dev/null 2>&1
-			fi
+		local host_id
+		host_id=$(sudo cat /etc/netclient/netclient.json 2>/dev/null | jq -r '.id' 2>/dev/null)
+		if [ -n "$host_id" ] && [ "$host_id" != "null" ]; then
+			echo "De-registering the existing netclient host..."
+			curl -s -o /dev/null -X DELETE "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${host_id}?force=true" \
+				-H "Authorization: Bearer ${MASTER_KEY}" \
+				-H "Content-Type: application/json"
 		fi
 	fi
 
