@@ -2,15 +2,19 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const jitRequestTable = "jit_requests"
 
 type JITRequest struct {
 	ID            string    `gorm:"primaryKey" json:"id"`
+	TenantID      string    `gorm:"default:'';index" json:"tenant_id"`
 	NetworkID     string    `gorm:"network_id" json:"network_id"`
 	UserID        string    `gorm:"user_id" json:"user_id"`
 	UserName      string    `gorm:"user_name" json:"user_name"`
@@ -46,26 +50,49 @@ func (r *JITRequest) Delete(ctx context.Context) error {
 
 func (r *JITRequest) ListByNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Order("requested_at DESC").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitRequestTable), tenantID)(query)
+	}
+	err := query.Order("requested_at DESC").Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListByUserAndNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND user_id = ?", r.NetworkID, r.UserID).Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND user_id = ?", r.NetworkID, r.UserID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitRequestTable), tenantID)(query)
+	}
+	err := query.Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListPendingByNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, "pending").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, "pending")
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitRequestTable), tenantID)(query)
+	}
+	err := query.Find(&requests).Error
 	return requests, err
 }
 
 func (r *JITRequest) ListByStatusAndNetwork(ctx context.Context, status string) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status).Order("requested_at DESC").Find(&requests).Error
+	query := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", jitRequestTable), tenantID)(query)
+	}
+	err := query.Order("requested_at DESC").Find(&requests).Error
 	return requests, err
+}
+
+func (r *JITRequest) DeleteAll(ctx context.Context) error {
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		return db.FromContext(ctx).Table(r.Table()).Where(fmt.Sprintf("%s.tenant_id = ?", jitRequestTable), tenantID).Delete(&JITRequest{}).Error
+	}
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", jitRequestTable)).Error
 }
 
 func (r *JITRequest) CountByNetwork(ctx context.Context) (int64, error) {

@@ -7,12 +7,13 @@
 package auditlogs
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -41,7 +42,9 @@ type AuditLogEvent struct {
 	Target *structpb.Struct `protobuf:"bytes,7,opt,name=target,proto3" json:"target,omitempty"`
 	Diff   *structpb.Struct `protobuf:"bytes,8,opt,name=diff,proto3" json:"diff,omitempty"`
 	// Timestamp (milliseconds since Unix epoch)
-	TsMs          int64 `protobuf:"varint,9,opt,name=ts_ms,json=tsMs,proto3" json:"ts_ms,omitempty"`
+	TsMs int64 `protobuf:"varint,9,opt,name=ts_ms,json=tsMs,proto3" json:"ts_ms,omitempty"`
+	// Tenant this event belongs to (empty for pre-multi-tenancy senders/deployments)
+	TenantId      string `protobuf:"bytes,10,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -137,6 +140,13 @@ func (x *AuditLogEvent) GetTsMs() int64 {
 		return x.TsMs
 	}
 	return 0
+}
+
+func (x *AuditLogEvent) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 // *
@@ -243,7 +253,7 @@ var File_grpc_auditlogs_auditlogs_proto protoreflect.FileDescriptor
 
 const file_grpc_auditlogs_auditlogs_proto_rawDesc = "" +
 	"\n" +
-	"\x1egrpc/auditlogs/auditlogs.proto\x12\x12netmaker.auditlogs\x1a\x1cgoogle/protobuf/struct.proto\"\xb5\x02\n" +
+	"\x1egrpc/auditlogs/auditlogs.proto\x12\x12netmaker.auditlogs\x1a\x1cgoogle/protobuf/struct.proto\"\xd2\x02\n" +
 	"\rAuditLogEvent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\tR\x06action\x12\x16\n" +
@@ -254,7 +264,9 @@ const file_grpc_auditlogs_auditlogs_proto_rawDesc = "" +
 	"\x06source\x18\x06 \x01(\v2\x17.google.protobuf.StructR\x06source\x12/\n" +
 	"\x06target\x18\a \x01(\v2\x17.google.protobuf.StructR\x06target\x12+\n" +
 	"\x04diff\x18\b \x01(\v2\x17.google.protobuf.StructR\x04diff\x12\x13\n" +
-	"\x05ts_ms\x18\t \x01(\x03R\x04tsMs\"M\n" +
+	"\x05ts_ms\x18\t \x01(\x03R\x04tsMs\x12\x1b\n" +
+	"\ttenant_id\x18\n" +
+	" \x01(\tR\btenantId\"M\n" +
 	"\x10AuditLogEnvelope\x129\n" +
 	"\x06events\x18\x01 \x03(\v2!.netmaker.auditlogs.AuditLogEventR\x06events\"B\n" +
 	"\x10AuditLogResponse\x12\x18\n" +

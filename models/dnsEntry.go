@@ -1,6 +1,8 @@
 // TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
+import "github.com/gravitl/netmaker/schema"
+
 // DNSUpdateAction identifies the action to be performed with the dns update data
 type DNSUpdateAction int
 
@@ -40,21 +42,14 @@ type DNSUpdate struct {
 	NewAddress string
 }
 
-type DNSEntryType string
+type DNSEntryType = schema.DNSEntryType
 
 const (
-	DNSEntryType_Node   = "node"
-	DNSEntryType_Custom = "custom"
+	DNSEntryType_Node   = schema.DNSEntryType_Node
+	DNSEntryType_Custom = schema.DNSEntryType_Custom
 )
 
-// DNSEntry - a DNS entry represented as struct
-type DNSEntry struct {
-	Type     DNSEntryType `json:"type"`
-	Address  string       `json:"address" validate:"omitempty,ip"`
-	Address6 string       `json:"address6" validate:"omitempty,ip"`
-	Name     string       `json:"name" validate:"required,name_unique,min=1,max=192,whitespace"`
-	Network  string       `json:"network" validate:"network_exists"`
-}
+type DNSEntry = schema.DNSEntry
 
 type NameserverReq struct {
 	Name        string   `json:"name"`

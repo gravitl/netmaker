@@ -53,6 +53,12 @@ func Initialize() error {
 	return nil
 }
 
+// IsConnected returns whether a clickhouse connection
+// has been established via Initialize.
+func IsConnected() bool {
+	return ch != nil
+}
+
 // WithContext returns a new context with the clickhouse
 // connection instance.
 //

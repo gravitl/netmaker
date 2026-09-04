@@ -3,6 +3,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestValidateEgressReq_RejectsVirtualNATForEgressApp(t *testing.T) {
 		Domains:  datatypes.JSONSlice[string]{"github.com"},
 		Nodes:    datatypes.JSONMap{"node-1": float64(256)},
 	}
-	err := ValidateEgressReq(e)
+	err := ValidateEgressReq(context.Background(), e)
 	if !errors.Is(err, logic.ErrVirtualNATNotForEgressApps) {
 		t.Fatalf("expected ErrVirtualNATNotForEgressApps, got %v", err)
 	}
@@ -35,7 +36,7 @@ func TestValidateEgressReq_ForcesDirectNATForEgressApp(t *testing.T) {
 		Domains:  datatypes.JSONSlice[string]{"github.com"},
 		Nodes:    datatypes.JSONMap{"node-1": float64(256)},
 	}
-	_ = ValidateEgressReq(e)
+	_ = ValidateEgressReq(context.Background(), e)
 	if e.Mode != schema.DirectNAT {
 		t.Fatalf("expected direct NAT mode, got %q", e.Mode)
 	}

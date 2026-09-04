@@ -3,7 +3,6 @@ syntax = "proto3";
 package netmaker.siem;
 
 import "google/protobuf/struct.proto";
-import "google/protobuf/empty.proto";
 
 option go_package = "github.com/gravitl/netmaker/grpc/siem";
 
@@ -28,6 +27,18 @@ message InitSIEMRequest {
 
   // Provider-specific configuration (e.g. endpoint, token, index)
   google.protobuf.Struct config = 2;
+
+  // Tenant identifier scoping this SIEM export.
+  string tenant_id = 3;
+}
+
+/**
+ * Sent by the netmaker server to instruct the exporter to stop
+ * forwarding events.
+ */
+message TerminateSIEMRequest {
+  // Tenant identifier scoping which export to terminate.
+  string tenant_id = 1;
 }
 
 /**
@@ -51,5 +62,5 @@ service SIEMService {
   rpc InitSIEM(InitSIEMRequest) returns (SIEMResponse);
 
   // Instruct the exporter to stop all SIEM forwarding.
-  rpc TerminateSIEM(google.protobuf.Empty) returns (SIEMResponse);
+  rpc TerminateSIEM(TerminateSIEMRequest) returns (SIEMResponse);
 }

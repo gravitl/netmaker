@@ -41,12 +41,11 @@ var hooksMutex sync.RWMutex
 
 // TimerCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
 func TimerCheckpoint() error {
-	// get the telemetry record in the DB, which contains a timestamp
-	telRecord, err := FetchTelemetryRecord()
+	lastReportedAt, err := getTelemetryLastReportedAt()
 	if err != nil {
 		return err
 	}
-	sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Hour * time.Duration(timer_hours_between_runs))
+	sendtime := lastReportedAt.Add(time.Hour * time.Duration(timer_hours_between_runs))
 	// can set to 2 minutes for testing
 	// sendtime := time.Unix(telRecord.LastSend, 0).Add(time.Minute * 2)
 	enoughTimeElapsed := time.Now().After(sendtime)
@@ -54,7 +53,7 @@ func TimerCheckpoint() error {
 	if enoughTimeElapsed {
 		// run any time hooks
 		runHooks()
-		return setTelemetryTimestamp(&telRecord)
+		return setTelemetryLastReportedAt()
 
 	}
 	return nil

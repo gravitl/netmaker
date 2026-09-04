@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -23,7 +25,7 @@ var jwtSecretKey []byte
 
 // SetJWTSecret - sets the jwt secret on server startup
 func SetJWTSecret() {
-	currentSecret, jwtErr := FetchJWTSecret()
+	currentSecret, jwtErr := GetJwtSecretValue()
 	if jwtErr != nil {
 		newValue := RandomString(64)
 		jwtSecretKey = []byte(newValue) // 512 bit random password
@@ -59,10 +61,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserAccessJwtToken(username string, role schema.UserRoleID, d time.Time, tokenID string) (response string, err error) {
+func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time, tokenID string) (response string, err error) {
 	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
 		UserName:  username,
-		Role:      role,
 		TokenType: models.AccessTokenType,
 		Api:       servercfg.GetAPIHost(),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -83,16 +86,20 @@ func CreateUserAccessJwtToken(username string, role schema.UserRoleID, d time.Ti
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, role schema.UserRoleID, appName string) (response string, err error) {
-	duration := GetJwtValidityDuration()
-	if appName == NetclientApp || appName == NetmakerDesktopApp {
-		duration = GetJwtValidityDurationForClients()
+func CreateUserJWT(ctx context.Context, username string, appName string) (response string, err error) {
+	duration := time.Duration(12) * time.Hour
+	if scope.Level(ctx) == scope.TenantScope {
+		duration = GetJwtValidityDuration(ctx)
+		if appName == NetclientApp || appName == NetmakerDesktopApp {
+			duration = GetJwtValidityDurationForClients(ctx)
+		}
 	}
 
 	expirationTime := time.Now().Add(duration)
 	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
 		UserName:  username,
-		Role:      role,
 		TokenType: models.UserIDTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
@@ -112,16 +119,25 @@ func CreateUserJWT(username string, role schema.UserRoleID, appName string) (res
 
 // CreatePreAuthToken generate a jwt token to be used as intermediate
 // token after primary-factor authentication but before secondary-factor
-// authentication.
-func CreatePreAuthToken(username string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer:    "Netmaker",
-		Subject:   username,
-		Audience:  []string{"auth:mfa"},
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-	})
+// authentication. It carries the same scope as the eventual auth token so
+// that PreAuthCheck can confirm the token was issued for the scope it's
+// being redeemed in.
+func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
+	claims := &models.UserClaims{
+		Scope:     scope.Level(ctx),
+		ScopeID:   scope.ID(ctx),
+		UserName:  username,
+		TokenType: models.PreAuthTokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("user|%s", username),
+			Audience:  []string{"auth:mfa"},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		},
+	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecretKey)
 }
 
@@ -142,7 +158,7 @@ func VerifyOTPAuthURL(url, signature string) bool {
 	return hmac.Equal(signatureBytes, signer.Sum(nil))
 }
 
-func GetUserNameFromToken(authtoken string) (username string, err error) {
+func GetUserNameFromToken(ctx context.Context, authtoken string) (username string, err error) {
 	claims := &models.UserClaims{}
 	var tokenSplit = strings.Split(authtoken, " ")
 	var tokenString = ""
@@ -176,38 +192,41 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get(db.WithContext(context.TODO()))
+			err := a.Get(ctx)
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update(db.WithContext(context.TODO()))
+			a.Update(ctx)
 		}
 	}
 
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(db.WithContext(context.TODO()))
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
 			return "", err
 		}
-		if user.Username != "" {
-			return user.Username, nil
+
+		err = checkUserAccess(ctx, user.ID, claims)
+		if err != nil {
+			return "", err
 		}
-		if user.PlatformRoleID != claims.Role {
-			return "", Unauthorized_Err
-		}
-		err = errors.New("user does not exist")
-	} else {
-		err = Unauthorized_Err
+
+		return user.Username, nil
 	}
-	return "", err
+
+	return "", Unauthorized_Err
 }
 
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
-func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
+func VerifyUserToken(ctx context.Context, tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
 
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
@@ -217,38 +236,121 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
+	if err != nil {
+		return "", false, false, err
+	}
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get(db.WithContext(context.TODO()))
+			err := a.Get(ctx)
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update(db.WithContext(context.TODO()))
+			a.Update(ctx)
 		}
 	}
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.Get(db.WithContext(context.TODO()))
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
 			return "", false, false, err
 		}
-		if user.Username != "" {
-			return user.Username, user.PlatformRoleID == schema.SuperAdminRole,
-				user.PlatformRoleID == schema.AdminRole, nil
+
+		err = checkUserAccess(ctx, user.ID, claims)
+		if err != nil {
+			return "", false, false, err
 		}
-		err = errors.New("user does not exist")
+
+		return user.Username, user.PlatformRoleID == schema.SuperAdminRole,
+			user.PlatformRoleID == schema.AdminRole, nil
 	}
 	return "", false, false, err
 }
 
+func checkUserAccess(ctx context.Context, userID string, claims *models.UserClaims) error {
+	if scope.Level(ctx) == scope.GlobalScope {
+		return nil
+	} else if scope.Level(ctx) == scope.OrgScope {
+		membership := &schema.OrgMembership{
+			OrganizationID: scope.ID(ctx),
+			UserID:         userID,
+		}
+		err := membership.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return Unauthorized_Err
+			}
+
+			return err
+		}
+
+		if claims.Scope == scope.OrgScope && claims.ScopeID == scope.ID(ctx) {
+			return nil
+		}
+
+		return Unauthorized_Err
+	} else if scope.Level(ctx) == scope.TenantScope {
+		membership := &schema.TenantMembership{
+			TenantID: scope.ID(ctx),
+			UserID:   userID,
+		}
+		err := membership.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return Unauthorized_Err
+			}
+
+			return err
+		}
+
+		if claims.Scope == scope.OrgScope {
+			tenant := &schema.Tenant{
+				ID: scope.ID(ctx),
+			}
+			err = tenant.Get(ctx)
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return Unauthorized_Err
+				}
+
+				return err
+			}
+
+			if claims.ScopeID == tenant.OrganizationID {
+				return nil
+			}
+
+			return Unauthorized_Err
+		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) {
+			return nil
+		} else if claims.Scope == scope.GlobalScope && claims.ScopeID == "" {
+			// token predates scope-aware claims; assume it was issued for
+			// the sole tenant that existed before multi-tenancy.
+			soleTenant, err := SoleTenant(ctx)
+			if err != nil {
+				return Unauthorized_Err
+			}
+
+			if soleTenant.ID == scope.ID(ctx) {
+				return nil
+			}
+		}
+	}
+
+	return Unauthorized_Err
+}
+
 // VerifyHostToken - [hosts] Only
-func VerifyHostToken(tokenString string) (hostID string, mac string, network string, err error) {
+func VerifyHostToken(ctx context.Context, tokenString string) (hostID string, mac string, network string, err error) {
 	claims := &models.Claims{}
 
 	// this may be a stupid way of serving up a master key
@@ -267,6 +369,23 @@ func VerifyHostToken(tokenString string) (hostID string, mac string, network str
 		}
 		if claims.ID == "" {
 			return "", "", "", errors.New("invalid host token: missing host ID")
+		}
+
+		hostID, err := uuid.Parse(claims.ID)
+		if err != nil {
+			return "", "", "", errors.New("invalid host token: invalid host ID")
+		}
+
+		host := &schema.Host{
+			ID: hostID,
+		}
+		err = host.Get(ctx)
+		if err != nil {
+			return "", "", "", fmt.Errorf("error getting host %s: %w", claims.ID, err)
+		}
+
+		if scope.ID(ctx) != host.TenantID {
+			return "", "", "", fmt.Errorf("host %s does not belong to tenant %s", claims.ID, host.TenantID)
 		}
 		return claims.ID, claims.MacAddress, claims.Network, nil
 	}

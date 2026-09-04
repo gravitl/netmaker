@@ -1,38 +1,34 @@
 package logic
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/gravitl/netmaker/db"
-
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/scope"
 )
 
 const (
 	MasterUser       = "masteradministrator"
 	Forbidden_Msg    = "forbidden"
-	Forbidden_Err    = models.Error(Forbidden_Msg)
 	Unauthorized_Msg = "unauthorized"
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
 var NetworkPermissionsCheck = func(username string, r *http.Request) error { return nil }
-var GlobalPermissionsCheck = func(username string, r *http.Request) error { return nil }
+var TenantPermissionsCheck = func(username string, r *http.Request) error { return nil }
+var OrgPermissionsCheck = func(username string, r *http.Request) error { return nil }
 
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
-		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		bearerToken := r.Header.Get("Authorization")
-		username, err := GetUserNameFromToken(bearerToken)
+		username, err := GetUserNameFromToken(r.Context(), bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
@@ -56,17 +52,24 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		if username == MasterUser {
 			r.Header.Set("ismaster", "yes")
 		} else {
-			if isGlobalAccesss {
-				err = GlobalPermissionsCheck(username, r)
-			} else {
-				err = NetworkPermissionsCheck(username, r)
+			switch scope.Level(r.Context()) {
+			case scope.OrgScope:
+				err = OrgPermissionsCheck(username, r)
+			case scope.TenantScope:
+				if r.Header.Get("IS_NETWORK_ACCESS") == "yes" {
+					err = NetworkPermissionsCheck(username, r)
+				} else {
+					err = TenantPermissionsCheck(username, r)
+				}
+				w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+				w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+				w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
+				w.Header().Set("IS_NETWORK_ACCESS", r.Header.Get("IS_NETWORK_ACCESS"))
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			default:
+				err = nil
 			}
 		}
-		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
-		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
-		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
-		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if err != nil {
 			w.Header().Set("ACCESS_PERM", err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, "forbidden"))
@@ -90,11 +93,11 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 
 		// first check is user is authenticated.
 		// if yes, allow the user to go through.
-		username, err := GetUserNameFromToken(authHeader)
+		username, err := GetUserNameFromToken(r.Context(), authHeader)
 		if err != nil {
 			// if no, then check the user has a pre-auth token.
-			var claims jwt.RegisteredClaims
-			token, err := jwt.ParseWithClaims(authToken, &claims, func(token *jwt.Token) (interface{}, error) {
+			claims := &models.UserClaims{}
+			token, err := jwt.ParseWithClaims(authToken, claims, func(token *jwt.Token) (interface{}, error) {
 				return jwtSecretKey, nil
 			})
 			if err != nil {
@@ -116,7 +119,24 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 						return
 					}
 
-					r.Header.Set("user", claims.Subject)
+					username := claims.UserName
+					if username == "" && claims.Scope == scope.GlobalScope && claims.ScopeID == "" {
+						// token predates scope-aware claims; fall back to the
+						// plain-username subject and assume it was issued for
+						// the sole tenant that existed before multi-tenancy.
+						username = claims.Subject
+
+						soleTenant, err := SoleTenant(r.Context())
+						if err != nil || soleTenant.ID != scope.ID(r.Context()) {
+							ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+							return
+						}
+					} else if claims.Scope != scope.Level(r.Context()) || claims.ScopeID != scope.ID(r.Context()) {
+						ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+						return
+					}
+
+					r.Header.Set("user", username)
 					next.ServeHTTP(w, r)
 					return
 				} else {
@@ -133,37 +153,6 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 			return
 		}
 	}
-}
-
-// UserPermissions - checks token stuff
-func UserPermissions(reqAdmin bool, token string) (string, error) {
-	var tokenSplit = strings.Split(token, " ")
-	var authToken = ""
-
-	if len(tokenSplit) < 2 {
-		return "", Unauthorized_Err
-	} else {
-		authToken = tokenSplit[1]
-	}
-	//all endpoints here require master so not as complicated
-	if authenticateMaster(authToken) {
-		// TODO log in as an actual admin user
-		return MasterUser, nil
-	}
-	username, issuperadmin, isadmin, err := VerifyUserToken(authToken)
-	if err != nil {
-		return username, Unauthorized_Err
-	}
-	if reqAdmin && !(issuperadmin || isadmin) {
-		return username, Forbidden_Err
-	}
-
-	return username, nil
-}
-
-// Consider a more secure way of setting master key
-func authenticateMaster(tokenString string) bool {
-	return tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != ""
 }
 
 func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
@@ -199,14 +188,23 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 		user := &schema.User{
 			Username: username,
 		}
-		err := user.Get(db.WithContext(context.TODO()))
+		err := user.Get(r.Context())
 		if err != nil {
 			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 
-		if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+		switch scope.Level(r.Context()) {
+		case scope.OrgScope:
 			next.ServeHTTP(w, r)
+			return
+		case scope.TenantScope:
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+				next.ServeHTTP(w, r)
+				return
+			}
+		default:
+			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
 

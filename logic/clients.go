@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"sort"
 
@@ -15,8 +16,8 @@ func SortExtClient(unsortedExtClient []models.ExtClient) {
 }
 
 // GetExtClientByName - gets an ext client by name
-func GetExtClientByName(ID string) (models.ExtClient, error) {
-	clients, err := GetAllExtClients()
+func GetExtClientByName(ctx context.Context, ID string) (models.ExtClient, error) {
+	clients, err := GetAllExtClients(ctx)
 	if err != nil {
 		return models.ExtClient{}, err
 	}

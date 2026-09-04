@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/cli/config"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 )
 
@@ -169,6 +170,7 @@ func request[T any](method, route string, payload any) *T {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
 	}
+	applyScopeHeaders(req, ctx)
 	retried := false
 retry:
 	res, err := http.DefaultClient.Do(req)
@@ -209,6 +211,7 @@ func get(route string) string {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 	}
+	applyScopeHeaders(req, ctx)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatal(err)
@@ -218,6 +221,15 @@ func get(route string) string {
 		log.Fatal(err)
 	}
 	return string(bodyBytes)
+}
+
+func applyScopeHeaders(req *http.Request, ctx config.Context) {
+	if ctx.TenantId != "" {
+		req.Header.Set(scope.HeaderTenantID, ctx.TenantId)
+	}
+	if ctx.OrganizationId != "" {
+		req.Header.Set(scope.HeaderOrgID, ctx.OrganizationId)
+	}
 }
 
 func basicAuthSaasSignin(email, password string) (string, http.Header, error) {

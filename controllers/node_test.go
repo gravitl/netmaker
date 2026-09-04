@@ -1,11 +1,12 @@
 package controller
 
 import (
+	"context"
 	"net"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -20,18 +21,18 @@ func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
-		node, err := logic.GetNetworkNodes("badnet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "badnet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
-		node, err := logic.GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()
-		node, err := logic.GetNetworkNodes("skynet")
+		node, err := logic.GetNetworkNodes(db.WithContext(context.Background()), "skynet")
 		assert.Nil(t, err)
 		assert.NotEqual(t, []models.Node(nil), node)
 	})
@@ -49,7 +50,10 @@ func TestValidateEgressGateway(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	database.DeleteAllRecords(database.NODES_TABLE_NAME)
+	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()))
+	for _, node := range nodes {
+		_ = node.Delete(db.WithContext(context.TODO()))
+	}
 }
 
 func createTestNode() *models.Node {
@@ -62,9 +66,10 @@ func createTestNode() *models.Node {
 func createNodeWithParams(network, address string) *models.Node {
 	_, ipnet, _ := net.ParseCIDR("10.0.0.1/32")
 	tmpCNode := models.CommonNode{
-		ID:      uuid.New(),
-		Network: "skynet",
-		Address: *ipnet,
+		ID:       uuid.New(),
+		TenantID: defaultTenantID,
+		Network:  "skynet",
+		Address:  *ipnet,
 	}
 	if len(network) > 0 {
 		tmpCNode.Network = network
@@ -88,7 +93,7 @@ func createNodeHosts() {
 		OS:        "linux",
 		Name:      "linuxhost",
 	}
-	_ = logic.CreateHost(&linuxHost)
+	_ = logic.CreateHost(dnsTestCtx(), &linuxHost)
 	nonLinuxHost = schema.Host{
 		ID:        uuid.New(),
 		OS:        "windows",
@@ -97,5 +102,5 @@ func createNodeHosts() {
 		HostPass:  "password",
 	}
 
-	_ = logic.CreateHost(&nonLinuxHost)
+	_ = logic.CreateHost(dnsTestCtx(), &nonLinuxHost)
 }

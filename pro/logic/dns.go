@@ -10,7 +10,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func ValidateNameserverReq(ns *schema.Nameserver) error {
+func ValidateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -25,7 +25,7 @@ func ValidateNameserverReq(ns *schema.Nameserver) error {
 			if tagI == "*" {
 				continue
 			}
-			_, err := GetTag(models.TagID(tagI))
+			_, err := GetTag(ctx, models.TagID(tagI))
 			if err != nil {
 				return errors.New("invalid tag")
 			}
@@ -49,7 +49,7 @@ func ValidateNameserverReq(ns *schema.Nameserver) error {
 	return nil
 }
 
-func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+func GetNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
 	filters := make(map[string]bool)
 	if node.Address.IP != nil {
 		filters[node.Address.IP.String()] = true
@@ -62,7 +62,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	ns := &schema.Nameserver{
 		NetworkID: node.Network,
 	}
-	nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+	nsLi, _ := ns.ListByNetwork(ctx)
 	for _, nsI := range nsLi {
 		if !nsI.Status {
 			continue
@@ -140,7 +140,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func GetNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
+func GetNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}
@@ -163,7 +163,7 @@ func GetNameserversForHost(h *schema.Host) (returnNsLi []models.Nameserver) {
 		ns := &schema.Nameserver{
 			NetworkID: node.Network,
 		}
-		nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		nsLi, _ := ns.ListByNetwork(ctx)
 		for _, nsI := range nsLi {
 			if !nsI.Status {
 				continue

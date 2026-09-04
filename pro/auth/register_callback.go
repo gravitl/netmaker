@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 var (
@@ -24,8 +25,8 @@ var (
 // Listens in /oidc/callback.
 func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
-	var functions = getCurrentAuthFunctions()
-	if functions == nil {
+	p, ok := Registry().FromContext(r.Context())
+	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad conf"))
 		logger.Log(0, "Missing Oauth config in HandleNodeSSOCallback")
@@ -34,7 +35,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	state, code := getStateAndCode(r)
 
-	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
+	var userClaims, err = p.GetUserInfo(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
 		handleOauthNotConfigured(w)
@@ -138,21 +139,27 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 // Puts machine key in cache so the callback can retrieve it using the oidc state param
 // Listens in /oidc/register/:regKey.
 func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
-
-	if auth_provider == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid login attempt"))
-		return
-	}
-	vars := mux.Vars(r)
-
-	// machineKeyStr this is not key but state
-	machineKeyStr := vars["regKey"]
+	machineKeyStr := mux.Vars(r)["regKey"]
 	if machineKeyStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid login attempt"))
+		_, _ = w.Write([]byte("invalid login attempt: no key"))
 		return
 	}
 
-	http.Redirect(w, r, auth_provider.AuthCodeURL(machineKeyStr), http.StatusSeeOther)
+	state, err := netcache.Get(machineKeyStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("invalid login attempt: no state"))
+		return
+	}
+
+	ctx := scope.WithContext(r.Context(), state.Scope, state.ScopeID)
+	p, ok := Registry().FromContext(ctx)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("invalid login attempt: no auth provider"))
+		return
+	}
+
+	http.Redirect(w, r, p.Config().AuthCodeURL(machineKeyStr), http.StatusSeeOther)
 }

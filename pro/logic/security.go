@@ -9,8 +9,8 @@ import (
 	"context"
 
 	"github.com/gorilla/mux"
-
 	"github.com/gravitl/netmaker/db"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -43,21 +43,32 @@ const (
 	saasNMUIHostProduction = "https://app.netmaker.io"
 )
 
+func isDeviceAPIRequest(r *http.Request) bool {
+	// Exact prefix match so paths like /api/v1/devices/... are not treated as device APIs.
+	return strings.HasPrefix(r.URL.Path, "/api/v1/device/")
+}
+
 func NetworkPermissionsCheck(username string, r *http.Request) error {
+	// Device APIs skip TARGET_RSRC middleware checks (desktop clients do not send
+	// dashboard resource headers). Mutating device ops enforce write scopes in
+	// UserHasDeviceNetworkWriteAccess instead.
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	// at this point global checks should be completed
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err := user.GetWithMembership(r.Context())
 	if err != nil {
 		return err
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}
 	// Platform admin/super-admin FullAccess applies to global APIs only; network
 	// APIs always require group-based network roles.
-	if userRole.FullAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+	if userRole.TenantGlobalAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
 		return nil
 	}
 
@@ -88,11 +99,11 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 
 	for groupID := range user.UserGroups.Data() {
 
-		userG, err := GetUserGroup(groupID)
+		userG, err := GetUserGroup(r.Context(), groupID)
 		if err == nil {
 			if netRoles, ok := userG.NetworkRoles.Data()[schema.AllNetworks]; ok {
 				for netRoleID := range netRoles {
-					err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
+					err = checkNetworkAccessPermissions(r.Context(), netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 					if err == nil {
 						return nil
 					}
@@ -100,7 +111,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 			}
 			netRoles := userG.NetworkRoles.Data()[schema.NetworkID(netID)]
 			for netRoleID := range netRoles {
-				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
+				err = checkNetworkAccessPermissions(r.Context(), netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 				if err == nil {
 					return nil
 				}
@@ -111,14 +122,17 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
+func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope := &schema.UserRole{ID: netRoleID}
-	err := networkPermissionScope.Get(db.WithContext(context.TODO()))
+	err := networkPermissionScope.GetNetworkRole(ctx)
 	if err != nil {
 		return err
 	}
-	if networkPermissionScope.FullAccess {
+	if networkPermissionScope.TenantGlobalAccess {
 		return nil
+	}
+	if networkPermissionScope.NetworkID != schema.AllNetworks && networkPermissionScope.NetworkID.String() != netID {
+		return errors.New("access denied")
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
@@ -127,7 +141,7 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(schema.RsrcType(targetRsrc))]; ok {
 		// handle extclient apis here
 		if schema.RsrcType(targetRsrc) == schema.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
-			extclient, err := logic.GetExtClient(targetRsrcID, netID)
+			extclient, err := logic.GetExtClient(ctx, targetRsrcID, netID)
 			if err != nil {
 				return err
 			}
@@ -153,22 +167,38 @@ func checkNetworkAccessPermissions(netRoleID schema.UserRoleID, username, reqSco
 	return errors.New("access denied")
 }
 
-func GlobalPermissionsCheck(username string, r *http.Request) error {
+func OrgPermissionsCheck(username string, r *http.Request) error {
+	user := &schema.User{Username: username}
+	err := user.GetWithMembership(r.Context())
+	if err != nil {
+		return err
+	}
+	if user.PlatformRoleID == schema.OrgOwner || user.PlatformRoleID == schema.OrgAdmin {
+		return nil
+	}
+	return errors.New("access denied")
+}
+
+func TenantPermissionsCheck(username string, r *http.Request) error {
+	// Same rationale as NetworkPermissionsCheck: device handlers enforce their own RBAC.
+	if isDeviceAPIRequest(r) {
+		return nil
+	}
 	route, err := mux.CurrentRoute(r).GetPathTemplate()
 	if err != nil {
 		return err
 	}
 	user := &schema.User{Username: username}
-	err = user.Get(r.Context())
+	err = user.GetWithMembership(r.Context())
 	if err != nil {
 		return err
 	}
 	userRole := &schema.UserRole{ID: user.PlatformRoleID}
-	err = userRole.Get(r.Context())
+	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}
-	if userRole.FullAccess {
+	if userRole.TenantGlobalAccess {
 		return nil
 	}
 	if strings.Contains(r.URL.Path, "/api/v1/egress/presets") {
@@ -255,6 +285,105 @@ func checkPermissionScopeWithReqMethod(scope schema.RsrcPermissionScope, reqmeth
 	return errors.New("operation not permitted")
 }
 
+// UserHasDeviceNetworkWriteAccess reports whether the user may mutate device network
+// membership/state (join, leave, exit-node selection). Read-only network roles that
+// only grant Read are denied; Network Users (VPNaccess / extclient create) and roles
+// with host write scopes are allowed.
+func UserHasDeviceNetworkWriteAccess(ctx context.Context, user *schema.User, network string) bool {
+	if user == nil || user.Username == "" || network == "" {
+		return false
+	}
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	ctx = db.WithContext(ctx)
+
+	if !logic.UserHasAccessToNetwork(ctx, user, network) {
+		return false
+	}
+
+	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := platformRole.GetPlatformRole(ctx); err != nil {
+		return false
+	}
+	if platformRole.ID == schema.Auditor {
+		return false
+	}
+	if platformRole.TenantGlobalAccess && !PlatformRoleRequiresGroupEnforcement(user.PlatformRoleID) {
+		return true
+	}
+
+	networkName := network
+	net := &schema.Network{ID: network, Name: network}
+	if err := net.Get(ctx); err == nil && net.Name != "" {
+		networkName = net.Name
+	}
+	netID := schema.NetworkID(networkName)
+
+	for groupID := range user.UserGroups.Data() {
+		userG, err := GetUserGroup(ctx, groupID)
+		if err != nil {
+			continue
+		}
+		roles := userG.NetworkRoles.Data()
+		if netRoles, ok := roles[schema.AllNetworks]; ok {
+			for netRoleID := range netRoles {
+				if networkRoleGrantsDeviceWrite(ctx, netRoleID) {
+					return true
+				}
+			}
+		}
+		if netRoles, ok := roles[netID]; ok {
+			for netRoleID := range netRoles {
+				if networkRoleGrantsDeviceWrite(ctx, netRoleID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func networkRoleGrantsDeviceWrite(ctx context.Context, netRoleID schema.UserRoleID) bool {
+	role := &schema.UserRole{ID: netRoleID}
+	if err := role.GetNetworkRole(ctx); err != nil {
+		return false
+	}
+	return roleGrantsDeviceWrite(role)
+}
+
+func roleGrantsDeviceWrite(role *schema.UserRole) bool {
+	if role == nil {
+		return false
+	}
+	if role.TenantGlobalAccess {
+		return true
+	}
+	access := role.NetworkLevelAccess.Data()
+	if hostScopes, ok := access[schema.HostRsrc]; ok {
+		for _, s := range hostScopes {
+			if s.Create || s.Update || s.Delete {
+				return true
+			}
+		}
+	}
+	if ragScopes, ok := access[schema.RemoteAccessGwRsrc]; ok {
+		for _, s := range ragScopes {
+			if s.VPNaccess {
+				return true
+			}
+		}
+	}
+	if ecScopes, ok := access[schema.ExtClientsRsrc]; ok {
+		for _, s := range ecScopes {
+			if s.Create || s.Update || s.Delete {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func GetAccountsHost() string {
 	switch servercfg.GetEnvironment() {
 	case "dev":
@@ -290,4 +419,26 @@ func GetSaaSNMUIHost() string {
 
 func GetSaaSNMUIHostWithVersion() string {
 	return fmt.Sprintf("%s/%s", GetSaaSNMUIHost(), servercfg.GetVersion())
+}
+
+// CheckUIHostReadAccess ensures a dashboard user may read posture data for a host
+// by verifying network-scoped host read permission on at least one host network.
+func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
+	username := r.Header.Get("user")
+	if username == logic.MasterUser {
+		return nil
+	}
+	user := &schema.User{Username: username}
+	if err := user.Get(r.Context()); err != nil {
+		return err
+	}
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	if err := userRole.GetPlatformRole(r.Context()); err != nil {
+		return errors.New("access denied")
+	}
+	if userRole.TenantGlobalAccess || userRole.ID == schema.Auditor {
+		return nil
+	}
+
+	return errors.New("access denied")
 }

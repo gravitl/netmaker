@@ -111,6 +111,9 @@ message FlowEvent {
    * Usually equal to the netclient event timestamp (ms).
    */
   int64 version = 21;
+
+  // Tenant this flow belongs to (empty for pre-multi-tenancy senders/deployments)
+  string tenant_id = 22;
 }
 
 // ============================================================

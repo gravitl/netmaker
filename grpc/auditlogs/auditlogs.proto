@@ -43,6 +43,9 @@ message AuditLogEvent {
 
   // Timestamp (milliseconds since Unix epoch)
   int64 ts_ms = 9;
+
+  // Tenant this event belongs to (empty for pre-multi-tenancy senders/deployments)
+  string tenant_id = 10;
 }
 
 // ============================================================

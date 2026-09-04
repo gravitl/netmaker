@@ -2,32 +2,38 @@ package models
 
 import (
 	"net"
-	"time"
 
 	"github.com/gravitl/netmaker/schema"
 )
 
-// AllowedTrafficDirection - allowed direction of traffic
-type AllowedTrafficDirection int
+type AllowedTrafficDirection = schema.AllowedTrafficDirection
+type Protocol = schema.Protocol
+type AclPolicyType = schema.AclPolicyType
+type AclPolicyTag = schema.AclPolicyTag
+type AclGroupType = schema.AclGroupType
+type Acl = schema.Acl
 
 const (
-	// TrafficDirectionUni implies traffic is only allowed in one direction (src --> dst)
-	TrafficDirectionUni AllowedTrafficDirection = iota
-	// TrafficDirectionBi implies traffic is allowed both direction (src <--> dst )
-	TrafficDirectionBi
-)
+	TrafficDirectionUni = schema.TrafficDirectionUni
+	TrafficDirectionBi  = schema.TrafficDirectionBi
 
-// Protocol - allowed protocol
-type Protocol string
+	ALL  = schema.ALL
+	UDP  = schema.UDP
+	TCP  = schema.TCP
+	ICMP = schema.ICMP
 
-const (
-	ALL  Protocol = "all"
-	UDP  Protocol = "udp"
-	TCP  Protocol = "tcp"
-	ICMP Protocol = "icmp"
-)
+	UserPolicy   = schema.UserPolicy
+	DevicePolicy = schema.DevicePolicy
 
-const (
+	UserAclID                = schema.UserAclID
+	UserGroupAclID           = schema.UserGroupAclID
+	NodeTagID                = schema.NodeTagID
+	NodeID                   = schema.NodeID
+	EgressRange              = schema.EgressRange
+	EgressID                 = schema.EgressID
+	NetmakerIPAclID          = schema.NetmakerIPAclID
+	NetmakerSubNetRangeAClID = schema.NetmakerSubNetRangeAClID
+
 	Http        = "HTTP"
 	Https       = "HTTPS"
 	AllTCP      = "All TCP"
@@ -38,40 +44,6 @@ const (
 	Any         = "Any"
 )
 
-func (p Protocol) String() string {
-	return string(p)
-}
-
-type AclPolicyType string
-
-const (
-	UserPolicy   AclPolicyType = "user-policy"
-	DevicePolicy AclPolicyType = "device-policy"
-)
-
-type AclPolicyTag struct {
-	ID    AclGroupType `json:"id"`
-	Name  string       `json:"name"`
-	Value string       `json:"value"`
-}
-
-type AclGroupType string
-
-const (
-	UserAclID                AclGroupType = "user"
-	UserGroupAclID           AclGroupType = "user-group"
-	NodeTagID                AclGroupType = "tag"
-	NodeID                   AclGroupType = "device"
-	EgressRange              AclGroupType = "egress-range"
-	EgressID                 AclGroupType = "egress-id"
-	NetmakerIPAclID          AclGroupType = "ip"
-	NetmakerSubNetRangeAClID AclGroupType = "ipset"
-)
-
-func (g AclGroupType) String() string {
-	return string(g)
-}
-
 type UpdateAclRequest struct {
 	Acl
 	NewName string `json:"new_name"`
@@ -80,24 +52,6 @@ type UpdateAclRequest struct {
 type AclPolicy struct {
 	TypeID        AclPolicyType
 	PrefixTagUser AclGroupType
-}
-
-type Acl struct {
-	ID               string                  `json:"id"`
-	Default          bool                    `json:"default"`
-	MetaData         string                  `json:"meta_data"`
-	Name             string                  `json:"name"`
-	NetworkID        schema.NetworkID        `json:"network_id"`
-	RuleType         AclPolicyType           `json:"policy_type"`
-	Src              []AclPolicyTag          `json:"src_type"`
-	Dst              []AclPolicyTag          `json:"dst_type"`
-	Proto            Protocol                `json:"protocol"` // tcp, udp, etc.
-	ServiceType      string                  `json:"type"`
-	Port             []string                `json:"ports"`
-	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
-	Enabled          bool                    `json:"enabled"`
-	CreatedBy        string                  `json:"created_by"`
-	CreatedAt        time.Time               `json:"created_at"`
 }
 
 type AclPolicyTypes struct {
@@ -118,9 +72,9 @@ type AclRule struct {
 	ID              string                  `json:"id"`
 	IPList          []net.IPNet             `json:"ip_list"`
 	IP6List         []net.IPNet             `json:"ip6_list"`
-	AllowedProtocol Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedProtocol Protocol                `json:"allowed_protocols"`
 	AllowedPorts    []string                `json:"allowed_ports"`
-	Direction       AllowedTrafficDirection `json:"direction"` // single or two-way
+	Direction       AllowedTrafficDirection `json:"direction"`
 	Dst             []net.IPNet             `json:"dst"`
 	Dst6            []net.IPNet             `json:"dst6"`
 	Allowed         bool

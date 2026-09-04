@@ -3,8 +3,10 @@ package migrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/gravitl/netmaker/db"
+	"gorm.io/gorm"
 )
 
 type KVRecord struct {
@@ -18,7 +20,20 @@ func kvInsert(ctx context.Context, tableName, key string, value any) error {
 		return err
 	}
 
-	return db.FromContext(ctx).Table(tableName).Save(&KVRecord{Key: key, Value: string(data)}).Error
+	var existing KVRecord
+	err = db.FromContext(ctx).Table(tableName).Where("key = ?", key).First(&existing).Error
+	if err == nil {
+		return db.FromContext(ctx).Table(tableName).Where("key = ?", key).Update("value", string(data)).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return db.FromContext(ctx).Table(tableName).Create(&KVRecord{Key: key, Value: string(data)}).Error
+}
+
+func kvDelete(ctx context.Context, tableName, key string) error {
+	return db.FromContext(ctx).Table(tableName).Where("key = ?", key).Delete(&KVRecord{}).Error
 }
 
 func kvList(ctx context.Context, tableName string) (map[string]string, error) {
@@ -34,4 +49,10 @@ func kvList(ctx context.Context, tableName string) (map[string]string, error) {
 	}
 
 	return list, nil
+}
+
+func kvCount(ctx context.Context, tableName string) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Table(tableName).Count(&count).Error
+	return int(count), err
 }

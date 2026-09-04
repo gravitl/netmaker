@@ -5,42 +5,44 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/require"
 )
 
-func CreateIPv4Network(t *testing.T, name string) *schema.Network {
+func CreateIPv4Network(t *testing.T, ctx context.Context, name string) *schema.Network {
 	addressRange, err := RandomPrivateCIDRv4(24)
 	require.NoError(t, err)
 
 	network := &schema.Network{
 		ID:           uuid.NewString(),
+		TenantID:     scope.ID(ctx),
 		Name:         name,
 		AddressRange: addressRange.String(),
 	}
-	err = network.Create(db.WithContext(context.TODO()))
+	err = network.Create(ctx)
 	require.NoError(t, err)
 
 	return network
 }
 
-func CreateIPv6Network(t *testing.T, name string) *schema.Network {
+func CreateIPv6Network(t *testing.T, ctx context.Context, name string) *schema.Network {
 	addressRange6, err := RandomPrivateCIDRv6(48)
 	require.NoError(t, err)
 
 	network := &schema.Network{
 		ID:            uuid.NewString(),
+		TenantID:      scope.ID(ctx),
 		Name:          name,
 		AddressRange6: addressRange6.String(),
 	}
-	err = network.Create(db.WithContext(context.TODO()))
+	err = network.Create(ctx)
 	require.NoError(t, err)
 
 	return network
 }
 
-func CreateIPv10Network(t *testing.T, name string) *schema.Network {
+func CreateIPv10Network(t *testing.T, ctx context.Context, name string) *schema.Network {
 	addressRange, err := RandomPrivateCIDRv4(24)
 	require.NoError(t, err)
 	addressRange6, err := RandomPrivateCIDRv6(48)
@@ -48,17 +50,18 @@ func CreateIPv10Network(t *testing.T, name string) *schema.Network {
 
 	network := &schema.Network{
 		ID:            uuid.NewString(),
+		TenantID:      scope.ID(ctx),
 		Name:          name,
 		AddressRange:  addressRange.String(),
 		AddressRange6: addressRange6.String(),
 	}
-	err = network.Create(db.WithContext(context.TODO()))
+	err = network.Create(ctx)
 	require.NoError(t, err)
 
 	return network
 }
 
-func DeleteNetwork(t *testing.T, network *schema.Network) {
-	err := network.Delete(db.WithContext(context.TODO()))
+func DeleteNetwork(t *testing.T, ctx context.Context, network *schema.Network) {
+	err := network.Delete(ctx)
 	require.NoError(t, err)
 }

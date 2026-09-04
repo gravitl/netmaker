@@ -1,16 +1,24 @@
 package orchestrator
 
-import "github.com/gravitl/netmaker/models"
+import "github.com/gravitl/netmaker/schema"
 
 type Options struct {
 	useKey                bool
-	key                   *models.EnrollmentKey
+	key                   *schema.EnrollmentKey
 	skipHostUpdate        bool
 	skipNodeUpdate        bool
 	skipPublishPeerUpdate bool
 	relayedClients        []string
 	isInternetGateway     bool
 	igwClients            []string
+	tcpProxyEnabled       bool
+	tcpProxyListenPort    int
+	tcpProxyTLSMode       string
+	tcpProxyListenAddr    string
+	tcpProxyPublicHostname string
+	setTcpProxy           bool
+	inheritedAuth         bool
+	replicatedAuth        bool
 }
 
 type Option func(options *Options) *Options
@@ -23,7 +31,7 @@ func applyOptions(opts ...Option) *Options {
 	return o
 }
 
-func UseKey(key *models.EnrollmentKey) Option {
+func UseKey(key *schema.EnrollmentKey) Option {
 	return func(o *Options) *Options {
 		o.useKey = true
 		o.key = key
@@ -63,6 +71,35 @@ func WithInternetGateway(igwClients []string) Option {
 	return func(o *Options) *Options {
 		o.isInternetGateway = true
 		o.igwClients = igwClients
+		return o
+	}
+}
+
+// WithTcpProxy enables TCP proxy listen settings when creating a gateway.
+// tlsMode may be empty (defaults to selfsigned). listenAddr is optional (e.g. 127.0.0.1).
+// publicHostname is used when tlsMode is proxy (clients dial this DNS name).
+func WithTcpProxy(enabled bool, listenPort int, tlsMode, listenAddr, publicHostname string) Option {
+	return func(o *Options) *Options {
+		o.setTcpProxy = true
+		o.tcpProxyEnabled = enabled
+		o.tcpProxyListenPort = listenPort
+		o.tcpProxyTLSMode = tlsMode
+		o.tcpProxyListenAddr = listenAddr
+		o.tcpProxyPublicHostname = publicHostname
+		return o
+	}
+}
+
+func WithInheritedAuth() Option {
+	return func(o *Options) *Options {
+		o.inheritedAuth = true
+		return o
+	}
+}
+
+func WithReplicatedAuth() Option {
+	return func(o *Options) *Options {
+		o.replicatedAuth = true
 		return o
 	}
 }

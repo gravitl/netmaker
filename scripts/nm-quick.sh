@@ -17,7 +17,7 @@ fi
 CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
-LATEST=v1.6.0
+LATEST=v1.7.0
 BRANCH=master
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
@@ -36,14 +36,16 @@ unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
 INSTALL_MONITORING="${INSTALL_MONITORING:-off}"
+INSTALL_MSP="${INSTALL_MSP:-off}"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-c]"
+	echo "usage: ./nm-quick.sh [-c] [-p] [-m] [-s]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -m  if specified, will install netmaker pro with monitoring stack (Prometheus, Grafana, Exporter); requires at least 2 GB RAM and 2 vCPUs"
 	echo "      with an existing install, -m alone only adds monitoring; use -p -m for a full Pro+monitoring re-install"
+	echo " -s  MSP / server-only install: skip nmctl setup, default mesh enrollment, and netclient on this host"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
@@ -105,6 +107,9 @@ set_buildinfo() {
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
 	echo "   Installer: v$NM_QUICK_VERSION"
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "   MSP mode:  server-only (no nmctl / netclient on this host)"
+	fi
 	echo "-----------------------------------------------------"
 
 }
@@ -165,23 +170,18 @@ setup_netclient() {
 	fi
 }
 
+
+
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	# NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
-	# if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-	# 	echo "Error obtaining NODE_ID for the new network"
-	# 	exit 1
-	# fi
-	# echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
-		echo "Error obtaining HOST_ID for the new network"
-		exit 1
+		echo "Warning: could not obtain HOST_ID from netclient.json, skipping host/gateway configuration"
+		return
 	fi
-	echo "making host a default"
+	echo "making host a default and enabling TCP proxy"
 	echo "Host ID: $HOST_ID"
-	# set as a default host
 	set +e
 	GET_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 		-H "Authorization: Bearer ${MASTER_KEY}" \
@@ -189,25 +189,28 @@ configure_netclient() {
 	GET_HTTP_CODE=$(echo "$GET_RESPONSE" | tail -n1)
 	HOST_JSON=$(echo "$GET_RESPONSE" | head -n -1)
 	if [ "$GET_HTTP_CODE" != "200" ]; then
-		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping set default"
+		echo "Warning: failed to fetch host (HTTP $GET_HTTP_CODE), skipping host/gateway configuration"
 	else
-		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq '.Response | .isdefault = true')
+		UPDATED_HOST_JSON=$(echo "$HOST_JSON" | jq \
+			--arg host "default-gateway.${NETMAKER_BASE_DOMAIN}" \
+			'.Response
+			| .isdefault = true
+			| .tcp_proxy_enabled = true
+			| .tcp_proxy_listen_port = 6443
+			| .tcp_proxy_tls_mode = "proxy"
+			| .tcp_proxy_public_hostname = $host
+			| .tcp_proxy_cert_fingerprint = ""')
 		PUT_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/hosts/${HOST_ID}" \
 			-H "Authorization: Bearer ${MASTER_KEY}" \
 			-H "Content-Type: application/json" \
 			-d "$UPDATED_HOST_JSON")
 		if [ "$PUT_HTTP_CODE" != "200" ]; then
-			echo "Warning: failed to set host as default (HTTP $PUT_HTTP_CODE), skipping"
+			echo "Warning: failed to update default host TCP proxy settings (HTTP $PUT_HTTP_CODE)"
+		else
+			echo "Default host and TCP proxy settings updated"
 		fi
 	fi
 	sleep 5
-	# nmctl node create_remote_access_gateway netmaker $NODE_ID
-	# sleep 2
-	# # set failover
-	# if [ "$INSTALL_TYPE" = "pro" ]; then
-	#     #setup failOver
-	# 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
-	# fi
 	set -e
 }
 
@@ -883,6 +886,10 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network (skip when reusing saved config)
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP install: skipping netclient cleanup on this host."
+		return
+	fi
 	if [ "${REUSE_EXISTING_CONFIG:-0}" -eq 1 ]; then
 		echo "Keeping existing netclient registration (reusing saved configuration)."
 	else
@@ -1084,7 +1091,7 @@ main (){
 	OPTIND=1
 	HAS_P=0
 	HAS_M=0
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 		case "${flag}" in
 		p) HAS_P=1 ;;
 		m) HAS_M=1 ;;
@@ -1098,7 +1105,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpmv flag; do
+	while getopts :cudpmvs flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -1120,6 +1127,10 @@ main (){
 		echo "installing pro version..."
 		INSTALL_TYPE="pro"
 		COLLECT_PRO_VARS="true"
+		;;
+	s)
+		echo "MSP server-only install: will skip nmctl, mesh enrollment, and netclient on this host."
+		INSTALL_MSP="on"
 		;;
 	m)
 		if [ -f "$INSTALL_DIR/$CONFIG_FILE" ] || [ -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
@@ -1199,21 +1210,27 @@ done
 	# 8. make sure Caddy certs are working
 	test_connection
 
-	# 9. install the netmaker CLI
-	setup_nmctl
-
-	# 10. create a default mesh network for netmaker
-	setup_mesh
-
-	set -e
-
-	# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
-	if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
-		echo "Skipping netclient setup and host configuration (reusing saved configuration)."
+	if [ "$INSTALL_MSP" = "on" ]; then
+		echo "MSP server-only install: skipping nmctl, default mesh setup, and netclient."
 	else
-		setup_netclient
+		# 9. install the netmaker CLI
+		setup_nmctl
+
+		# 10. create a default mesh network for netmaker
+		setup_mesh
+
+		set -e
+
+		# 11–12. netclient: skip reinstall/join when reusing an existing netmaker.env
+		if [ "$REUSE_EXISTING_CONFIG" -eq 1 ]; then
+			echo "Skipping netclient reinstall (reusing saved configuration)."
+		else
+			setup_netclient
+		fi
 		configure_netclient
 	fi
+
+	set -e
 
 	# 13. print success message
 	print_success

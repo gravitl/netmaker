@@ -18,8 +18,8 @@ type JITRequestMail struct {
 }
 
 // SendJITRequestEmails - sends email notifications to network admins about JIT requests
-func SendJITRequestEmails(request *schema.JITRequest, network *schema.Network) error {
-	admins, err := proLogic.GetNetworkAdmins(request.NetworkID)
+func SendJITRequestEmails(ctx context.Context, request *schema.JITRequest, network *schema.Network) error {
+	admins, err := proLogic.GetNetworkAdmins(ctx, request.NetworkID)
 	if err != nil {
 		return err
 	}

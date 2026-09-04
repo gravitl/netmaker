@@ -2,8 +2,9 @@ package functions
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/models"
 	"net/http"
+
+	"github.com/gravitl/netmaker/models"
 )
 
 func CreateGateway(ingressRequest models.IngressRequest, relayRequest models.RelayRequest) *models.ApiNode {

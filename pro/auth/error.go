@@ -109,10 +109,20 @@ var somethingwentwrong = fmt.Sprintf(htmlBaseTemplate, `<h2>Something went wrong
 
 var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not allowed. Please contact your administrator.</h2>`)
 
+var inviteNotFound = fmt.Sprintf(htmlBaseTemplate, `<h2>Invite Not Found.</h2>
+<p>No invite was found for you in this organization. Please contact your administrator to request an invite.</p>`)
+
 var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you already have an account with us using Basic Authentication.</h2>
 <p>To continue, please log in with your existing credentials or reset your password if needed.</p>`)
 
 var userAccountDisabled = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account has been disabled. Please contact your administrator for more information about your account.</h2>`)
+
+var userLimitExceeded = fmt.Sprintf(htmlBaseTemplate, `<h2>User limit reached for this tenant. Please contact your administrator to upgrade your license.</h2>`)
+
+var emailValidated = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email has been validated.</h2>
+<button class="back-to-login-btn" onclick="redirect()">Go to Dashboard</button>`)
+
+var invalidValidationLink = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid or expired validation link.</h2>`)
 
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -141,6 +151,12 @@ func handleOauthUserNotAllowedToSignUp(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusForbidden)
 	response.Write([]byte(notallowedtosignup))
+}
+
+func handleOauthInviteNotFound(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusNotFound)
+	response.Write([]byte(inviteNotFound))
 }
 
 // handleOauthNotConfigured - returns an appropriate html page when oauth is not configured on netmaker server but an oauth login was attempted
@@ -172,4 +188,22 @@ func handleUserAccountDisabled(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusUnauthorized)
 	response.Write([]byte(userAccountDisabled))
+}
+
+func handleUserLimitExceeded(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusForbidden)
+	response.Write([]byte(userLimitExceeded))
+}
+
+func handleEmailValidated(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusOK)
+	response.Write([]byte(emailValidated))
+}
+
+func handleInvalidValidationLink(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusBadRequest)
+	response.Write([]byte(invalidValidationLink))
 }

@@ -46,9 +46,6 @@ func ListUserRoles() (roles []schema.UserRole) {
 	return
 }
 
-func DeleteUserRole(roleID string) *models.SuccessResponse {
-	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/v1/users/role?role_id=%s", roleID), nil)
-}
 func GetUserRole(roleID string) (role schema.UserRole) {
 	resp := request[models.SuccessResponse](http.MethodGet, fmt.Sprintf("/api/v1/users/role?role_id=%s", roleID), nil)
 	d, _ := json.Marshal(resp.Response)

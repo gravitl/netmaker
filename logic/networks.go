@@ -12,66 +12,71 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm"
 )
 
+var ErrNetworkLimitExceeded = errors.New("network limit reached for this tenant, please upgrade your license")
+
+var NetworkLimitExceeded = func(ctx context.Context) bool {
+	return false
+}
+
 // DeleteNetwork - deletes a network
-func DeleteNetwork(network string, force bool, done chan struct{}) error {
-	defer func() {
+func DeleteNetwork(ctx context.Context, network string, force bool, done chan struct{}) error {
+	defer func(ctx context.Context) {
 		// Delete default network enrollment key
-		keys, _ := GetAllEnrollmentKeys()
+		keys, _ := GetAllEnrollmentKeys(ctx)
 		for _, key := range keys {
-			if key.Default && len(key.Tags) > 0 && key.Tags[0] == network {
-				_ = DeleteEnrollmentKey(key.Value, true)
+			if key.Default && enrollmentKeyAppliesToNetwork(key, network) {
+				_ = DeleteEnrollmentKey(ctx, key.Value, true)
 				break
 			}
 		}
 
-		_ = DeleteNetworkDNS(network)
-	}()
+		_ = DeleteNetworkDNS(ctx, network)
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
-	nodeCount, err := GetNetworkNonServerNodeCount(network)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
+	nodeCount, err := GetNetworkNonServerNodeCount(ctx, network)
+	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
 		_network := &schema.Network{
 			Name: network,
 		}
 		// delete server nodes first then db records
-		return _network.Delete(db.WithContext(context.TODO()))
+		return _network.Delete(ctx)
 	}
 
 	// Remove All Nodes
-	go func() {
-		nodes, err := GetNetworkNodes(network)
+	go func(ctx context.Context) {
+		nodes, err := GetNetworkNodes(ctx, network)
 		if err == nil {
 			for _, node := range nodes {
 				node := node
 				host := &schema.Host{ID: node.HostID}
-				if err := host.Get(db.WithContext(context.TODO())); err != nil {
+				if err := host.Get(ctx); err != nil {
 					continue
 				}
 				if node.IsGw {
 					// delete ext clients belonging to gateway
-					DeleteGatewayExtClients(node.ID.String(), node.Network)
+					DeleteGatewayExtClients(ctx, node.ID.String(), node.Network)
 				}
-				DissasociateNodeFromHost(&node, host)
+				DisassociateNodeFromHost(ctx, &node, host)
 			}
 		}
 		// delete server nodes first then db records
 		_network := &schema.Network{
 			Name: network,
 		}
-		err = _network.Delete(db.WithContext(context.TODO()))
+		err = _network.Delete(ctx)
 		if err != nil {
 			return
 		}
 		done <- struct{}{}
 		close(done)
-	}()
+	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	return nil
 }
@@ -130,8 +135,8 @@ const (
 
 // AllocateUniqueVNATPool allocates a unique Virtual NAT pool for a network,
 // ensuring it doesn't conflict with pools already assigned to other networks.
-func AllocateUniqueVNATPool(network *schema.Network) error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func AllocateUniqueVNATPool(ctx context.Context, network *schema.Network) error {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list networks: %w", err)
 	}
@@ -284,7 +289,7 @@ func GetOnboardingStatus(ctx context.Context, username string) (models.Onboardin
 }
 
 // CreateNetwork - creates a network in database
-func CreateNetwork(_network *schema.Network) error {
+func CreateNetwork(ctx context.Context, _network *schema.Network) error {
 	if _network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(_network.AddressRange)
 		if err != nil {
@@ -299,37 +304,23 @@ func CreateNetwork(_network *schema.Network) error {
 		}
 		_network.AddressRange6 = normalizedRange
 	}
-	if !IsNetworkCIDRUnique(GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
+	if !IsNetworkCIDRUnique(ctx, GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
 		return errors.New("network cidr already in use")
 	}
 
 	_network.NodesUpdatedAt = time.Now().UTC()
 
-	err := ValidateNetwork(_network, false)
+	err := ValidateNetwork(ctx, _network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return err
 	}
 
-	err = _network.Create(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
+	if NetworkLimitExceeded(ctx) {
+		return ErrNetworkLimitExceeded
 	}
 
-	_, _ = CreateEnrollmentKey(
-		0,
-		time.Time{},
-		[]string{_network.Name},
-		[]string{_network.Name},
-		[]models.TagID{},
-		true,
-		uuid.Nil,
-		true,
-		false,
-		false,
-	)
-
-	return nil
+	return _network.Create(ctx)
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
@@ -348,13 +339,13 @@ func GetNetworkNetworkCIDR6(network *schema.Network) *net.IPNet {
 }
 
 // GetNetworkNonServerNodeCount - get number of network non server nodes
-func GetNetworkNonServerNodeCount(networkName string) (int, error) {
-	nodes, err := GetNetworkNodes(networkName)
+func GetNetworkNonServerNodeCount(ctx context.Context, networkName string) (int, error) {
+	nodes, err := GetNetworkNodes(ctx, networkName)
 	return len(nodes), err
 }
 
-func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+func IsNetworkCIDRUnique(ctx context.Context, cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return errors.Is(err, gorm.ErrRecordNotFound)
 	}
@@ -375,11 +366,11 @@ func intersect(n1, n2 *net.IPNet) bool {
 }
 
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
-func IsNetworkNameUnique(network *schema.Network) (bool, error) {
+func IsNetworkNameUnique(ctx context.Context, network *schema.Network) (bool, error) {
 	_network := &schema.Network{
 		Name: network.Name,
 	}
-	err := _network.Get(db.WithContext(context.TODO()))
+	err := _network.Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return true, nil
@@ -391,19 +382,15 @@ func IsNetworkNameUnique(network *schema.Network) (bool, error) {
 	return false, nil
 }
 
-func UpsertNetwork(_network *schema.Network) error {
-	return _network.Update(db.WithContext(context.TODO()))
-}
-
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
-	if err := ValidateNetwork(newNetwork, true); err != nil {
+func UpdateNetwork(ctx context.Context, currentNetwork, newNetwork *schema.Network) error {
+	if err := ValidateNetwork(ctx, newNetwork, true); err != nil {
 		return err
 	}
 	if newNetwork.Name != currentNetwork.Name {
 		return errors.New("failed to update network " + newNetwork.Name + ", cannot change netid.")
 	}
-	featureFlags := GetFeatureFlags()
+	featureFlags := GetFeatureFlags(ctx)
 	if featureFlags.EnableDeviceApproval {
 		currentNetwork.AutoJoin = newNetwork.AutoJoin
 	} else {
@@ -450,7 +437,7 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
 	}
 	// When both VNAT fields are omitted from the update, preserve existing settings
-	return currentNetwork.Update(db.WithContext(context.TODO()))
+	return currentNetwork.Update(ctx)
 }
 
 // validateNetName - checks if a netid of a network uses valid characters
@@ -477,7 +464,7 @@ func validateNetName(network *schema.Network) error {
 }
 
 // Validate - validates fields of an network struct
-func ValidateNetwork(network *schema.Network, isUpdate bool) error {
+func ValidateNetwork(ctx context.Context, network *schema.Network, isUpdate bool) error {
 	var validationErr error
 	err := validateNetName(network)
 	if err != nil {
@@ -485,7 +472,7 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	}
 
 	if !isUpdate {
-		nameUnique, _ := IsNetworkNameUnique(network)
+		nameUnique, _ := IsNetworkNameUnique(ctx, network)
 		if !nameUnique {
 			validationErr = errors.Join(validationErr, errors.New("invalid network name"))
 		}
@@ -512,22 +499,8 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	return validationErr
 }
 
-// SaveNetwork - save network struct to database
-func SaveNetwork(_network *schema.Network) error {
-	_existingNetwork := schema.Network{Name: _network.Name}
-	// Check if network exists to preserve ID
-	err := _existingNetwork.Get(db.WithContext(context.TODO()))
-	if err == nil {
-		_network.ID = _existingNetwork.ID
-		return _network.Update(db.WithContext(context.TODO()))
-	}
-
-	return _network.Create(db.WithContext(context.TODO()))
-}
-
-// NetworkExists - check if network exists
-func NetworkExists(name string) (bool, error) {
-	err := (&schema.Network{Name: name}).Get(db.WithContext(context.TODO()))
+func NetworkExists(ctx context.Context, name string) (bool, error) {
+	err := (&schema.Network{Name: name}).Get(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
@@ -547,11 +520,21 @@ func SortNetworks(unsortedNetworks []schema.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if len(params) != 1 {
+		return errors.New("invalid number of params")
+	}
+
+	tenantID, _ := params[0].(string)
+	if len(tenantID) == 0 {
+		return errors.New("invalid tenant id")
+	}
+
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenantID)
+	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		return err
 	}
-	allNodes, err := GetAllNodes()
+	allNodes, err := GetAllNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -579,15 +562,15 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 				continue
 			}
 			if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
-				if err := DeleteNode(&node, true); err != nil {
+				if err := DeleteNode(ctx, &node, true); err != nil {
 					continue
 				}
 				node.PendingDelete = true
 				node.Action = schema.NODE_DELETE
 				DeleteNodesCh <- &node
 				host := &schema.Host{ID: node.HostID}
-				if err := host.Get(db.WithContext(context.TODO())); err == nil && len(host.Nodes) == 0 {
-					(&schema.Host{ID: host.ID}).Delete(db.WithContext(context.TODO()))
+				if err := host.Get(ctx); err == nil && len(host.Nodes) == 0 {
+					(&schema.Host{ID: host.ID}).Delete(ctx)
 				}
 			}
 		}
@@ -595,10 +578,19 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	return nil
 }
 
-func InitNetworkHooks() {
+func GetTenantNetworkHookID(ctx context.Context) string {
+	return fmt.Sprintf("network-hook-%s", scope.ID(ctx))
+}
+
+func InitNetworkHooks(ctx context.Context) {
+	interval := 10
+	if GetServerSettings(ctx).CleanUpInterval > 0 {
+		interval = GetServerSettings(ctx).CleanUpInterval
+	}
 	HookManagerCh <- models.HookDetails{
-		ID:       "network-hook",
+		ID:       GetTenantNetworkHookID(ctx),
 		Hook:     NetworkHook,
-		Interval: time.Duration(GetServerSettings().CleanUpInterval) * time.Minute,
+		Params:   []any{scope.ID(ctx)},
+		Interval: time.Duration(interval) * time.Minute,
 	}
 }
