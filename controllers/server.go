@@ -46,6 +46,7 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/getserverinfo", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getServerInfo)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/auth/methods", middleware.InferScope(http.HandlerFunc(getAuthMethods))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/usage", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getUsage)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/cpu_profile", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(cpuProfile)))).
@@ -142,6 +143,16 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(&currentServerStatus)
+}
+
+func getAuthMethods(w http.ResponseWriter, r *http.Request) {
+	loginMethods, err := logic.GetLoginMethods(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, loginMethods, "login methods retrieved")
 }
 
 // allowUsers - allow all authenticated (valid) users - only used by getConfig, may be able to remove during refactor

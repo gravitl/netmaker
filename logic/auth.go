@@ -491,6 +491,37 @@ func SetState(scope scope.Scope, scopeID, appName, state string) error {
 	return r.Upsert(db.WithContext(context.TODO()))
 }
 
+func GetLoginMethods(ctx context.Context) (*models.LoginMethodsAvailable, error) {
+	switch scope.Level(ctx) {
+	case scope.TenantScope:
+		settings := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+		err := settings.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return &models.LoginMethodsAvailable{
+			BasicAuth:   settings.Value.Data().BasicAuth,
+			SSO:         settings.Value.Data().AuthProvider != "",
+			SSOProvider: settings.Value.Data().AuthProvider,
+		}, nil
+	case scope.OrgScope:
+		settings := &schema.OrganizationSettings{ID: scope.ID(ctx)}
+		err := settings.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return &models.LoginMethodsAvailable{
+			BasicAuth:   true,
+			SSO:         settings.Settings.Data().AuthProvider != "",
+			SSOProvider: settings.Settings.Data().AuthProvider,
+		}, nil
+	default:
+		return &models.LoginMethodsAvailable{}, nil
+	}
+}
+
 // GetLoginMethodsForUser returns available login options for the given username.
 // Returns an empty slice (not an error) when the user is not found.
 func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.LoginOption, error) {
