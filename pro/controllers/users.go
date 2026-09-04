@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/apiutil"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -53,6 +55,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserGroup)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserGroup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(patchUserGroup)))).Methods(http.MethodPatch)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet)
@@ -750,6 +753,98 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	userGroup.ExternalIdentityProviderID = currUserG.ExternalIdentityProviderID
 
 	err = proLogic.UpdateUserGroup(r.Context(), userGroup)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.LogEvent(r.Context(), &models.Event{
+		Action: schema.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: schema.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userGroup.ID.String(),
+			Name: userGroup.Name,
+			Type: schema.UserGroupSub,
+		},
+		Diff: models.Diff{
+			Old: currUserG,
+			New: userGroup,
+		},
+		Origin: schema.Dashboard,
+	})
+	replacePeers := false
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
+	// reset configs for service user
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go mq.PublishPeerUpdate(ctx, replacePeers)
+	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
+}
+
+// @Summary     Partially update a user group
+// @Router      /api/v1/users/group [patch]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       group_id query string true "Group ID"
+// @Param       body body schema.UserGroup true "User group fields to patch"
+// @Success     200 {object} schema.UserGroup
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func patchUserGroup(w http.ResponseWriter, r *http.Request) {
+	gid := r.URL.Query().Get("group_id")
+	if gid == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		slog.Error("error reading request body", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	patch, err := apiutil.NewPatchFromBytes[schema.UserGroup](body)
+	if err != nil {
+		slog.Error("error decoding request body", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	// fetch curr group
+	currUserG := schema.UserGroup{ID: schema.UserGroupID(gid)}
+	err = currUserG.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if currUserG.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default user group"), "badrequest"))
+		return
+	}
+
+	result, err := patch.Apply(&currUserG, apiutil.IncludeFields(
+		"name", "network_roles", "color_code", "meta_data",
+	))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	userGroup := *result.Patched
+
+	err = proLogic.ValidateUpdateGroupReq(r.Context(), userGroup)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = userGroup.Update(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
