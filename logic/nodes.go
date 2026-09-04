@@ -85,6 +85,8 @@ func UpdateNodeCheckin(nodeID string) error {
 
 // FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
 // Called periodically (e.g., every 30s) to avoid per-checkin write lock contention.
+// Uses a single transaction so SQLite (MaxOpenConns=1) holds the write lock once
+// instead of once per node, which previously made /api/server/status Ping time out.
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
@@ -93,19 +95,36 @@ func FlushNodeCheckins() {
 	if len(batch) == 0 {
 		return
 	}
-	var failed int
-	for id, checkin := range batch {
-		node := &schema.Node{
-			ID:          id,
-			LastCheckIn: checkin,
+
+	requeue := func() {
+		pendingCheckinsMu.Lock()
+		for id, checkin := range batch {
+			if existing, exists := pendingCheckins[id]; !exists || checkin.After(existing) {
+				pendingCheckins[id] = checkin
+			}
 		}
-		err := node.UpdateLastCheckIn(db.WithContext(context.TODO()))
-		if err != nil {
-			failed++
+		pendingCheckinsMu.Unlock()
+	}
+
+	ctx := db.WithContext(context.TODO())
+	tx := db.FromContext(ctx).Begin()
+	if tx.Error != nil {
+		slog.Error("FlushNodeCheckins: failed to begin transaction", "error", tx.Error, "total", len(batch))
+		requeue()
+		return
+	}
+
+	for id, checkin := range batch {
+		if err := tx.Model(&schema.Node{}).Where("id = ?", id).Update("last_check_in", checkin).Error; err != nil {
+			_ = tx.Rollback()
+			slog.Error("FlushNodeCheckins: failed to persist checkins", "error", err, "total", len(batch))
+			requeue()
+			return
 		}
 	}
-	if failed > 0 {
-		slog.Error("FlushNodeCheckins: failed to persist checkins", "failed", failed, "total", len(batch))
+	if err := tx.Commit().Error; err != nil {
+		slog.Error("FlushNodeCheckins: failed to commit checkins", "error", err, "total", len(batch))
+		requeue()
 	}
 }
 
@@ -317,13 +336,62 @@ func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 		return nil, err
 	}
 
-	for _, _node := range _nodes {
-		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_node)
+	for i := range _nodes {
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i], SkipViolations())
 		ensureNodeMutex(node)
 		nodes = append(nodes, *node)
 	}
+	attachPostureViolations(ctx, _nodes, nodes)
 
 	return nodes, nil
+}
+
+// attachPostureViolations loads violations for all nodes in one query and
+// assigns each node's current-cycle violations onto the models.Node slice.
+// schemaNodes and modelsNodes must be the same length and aligned by index.
+func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, modelsNodes []models.Node) {
+	if len(schemaNodes) == 0 || len(schemaNodes) != len(modelsNodes) {
+		return
+	}
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		if schemaNodes[i].ID != "" && schemaNodes[i].PostureCheckLastEvaluationCycleID != "" {
+			ids = append(ids, schemaNodes[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load posture violations", "error", err, "nodes", len(ids))
+		return
+	}
+	// nodeID -> cycleID -> violations
+	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := byNodeCycle[v.NodeID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			byNodeCycle[v.NodeID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+	for i := range modelsNodes {
+		cycleID := schemaNodes[i].PostureCheckLastEvaluationCycleID
+		if cycleID == "" {
+			continue
+		}
+		if cycles, ok := byNodeCycle[schemaNodes[i].ID]; ok {
+			modelsNodes[i].PostureChecksViolations = cycles[cycleID]
+		}
+	}
 }
 
 func AddStaticNodestoList(ctx context.Context, nodes []models.Node) []models.Node {
@@ -412,55 +480,48 @@ func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]models.Node, len(_nodes))
+	ctx := db.WithContext(context.TODO())
+	if len(_nodes) > 0 {
+		ctx = scope.WithContext(ctx, scope.TenantScope, _nodes[0].TenantID)
+	}
+	modelsNodes := make([]models.Node, len(_nodes))
 	for i := range _nodes {
-		n := ConvertSchemaNodeToModelsNode(&_nodes[i])
+		n := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i], SkipViolations())
 		ensureNodeMutex(n)
-		result[_nodes[i].ID] = *n
+		modelsNodes[i] = *n
+	}
+	attachPostureViolations(ctx, _nodes, modelsNodes)
+
+	result := make(map[string]models.Node, len(modelsNodes))
+	for i := range modelsNodes {
+		result[_nodes[i].ID] = modelsNodes[i]
 	}
 	return result, nil
 }
 
-// GetAllNodesAPI - get all nodes for api usage
+// GetAllNodesAPI - get all nodes for api usage.
+// Location/CountryCode are already filled during schema→models conversion from
+// the preloaded Host; do not re-fetch hosts (N+1 on SQLite).
 func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
-	apiNodes := []models.ApiNode{}
+	apiNodes := make([]models.ApiNode, 0, len(nodes))
 	for i := range nodes {
-		node := nodes[i]
-		if !node.IsStatic {
-			h := &schema.Host{
-				ID: node.HostID,
-			}
-			err := h.Get(db.WithContext(context.TODO()))
-			if err == nil {
-				node.Location = h.Location
-				node.CountryCode = h.CountryCode
-			}
-		}
-		newApiNode := node.ConvertToAPINode()
-		apiNodes = append(apiNodes, *newApiNode)
+		apiNodes = append(apiNodes, *nodes[i].ConvertToAPINode())
 	}
-	return apiNodes[:]
+	return apiNodes
 }
 
-// GetAllNodesAPI - get all nodes for api usage
+// GetAllNodesAPIWithLocation - get all nodes for api usage with location.
+// Uses values already on the models.Node (from host preload / static node).
 func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
-	apiNodes := []models.ApiNode{}
+	apiNodes := make([]models.ApiNode, 0, len(nodes))
 	for i := range nodes {
-		node := nodes[i]
-		newApiNode := node.ConvertToAPINode()
-		if node.IsStatic {
-			newApiNode.Location = node.StaticNode.Location
-		} else {
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			_ = host.Get(db.WithContext(context.TODO()))
-			newApiNode.Location = host.Location
+		newApiNode := nodes[i].ConvertToAPINode()
+		if nodes[i].IsStatic {
+			newApiNode.Location = nodes[i].StaticNode.Location
 		}
-
 		apiNodes = append(apiNodes, *newApiNode)
 	}
-	return apiNodes[:]
+	return apiNodes
 }
 
 // GetNodesStatusAPI - gets nodes status
@@ -590,12 +651,30 @@ func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
 	return ConvertSchemaNodeToModelsNode(_node).ConvertToAPINode()
 }
 
-func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
-	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
-	return ConvertSchemaNodeToModelsNodeWithContext(ctx, _node)
+type nodeConvertOpts struct {
+	skipViolations bool
 }
 
-func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema.Node) *models.Node {
+// NodeConvertOption customizes schema→models conversion.
+type NodeConvertOption func(*nodeConvertOpts)
+
+// SkipViolations skips the per-node posture_check_violations query.
+// Use with attachPostureViolations for batched list loads.
+func SkipViolations() NodeConvertOption {
+	return func(o *nodeConvertOpts) { o.skipViolations = true }
+}
+
+func ConvertSchemaNodeToModelsNode(_node *schema.Node, opts ...NodeConvertOption) *models.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
+	return ConvertSchemaNodeToModelsNodeWithContext(ctx, _node, opts...)
+}
+
+func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema.Node, opts ...NodeConvertOption) *models.Node {
+	cfg := nodeConvertOpts{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
 		return &models.Node{}
@@ -675,16 +754,18 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 	}
 
 	var violations []models.Violation
-	_violations, err := _node.ListViolations(ctx)
-	if err == nil {
-		for _, _violation := range _violations {
-			violations = append(violations, models.Violation{
-				CheckID:   _violation.CheckID,
-				Name:      _violation.Name,
-				Attribute: _violation.Attribute,
-				Message:   _violation.Message,
-				Severity:  _violation.Severity,
-			})
+	if !cfg.skipViolations {
+		_violations, err := _node.ListViolations(ctx)
+		if err == nil {
+			for _, _violation := range _violations {
+				violations = append(violations, models.Violation{
+					CheckID:   _violation.CheckID,
+					Name:      _violation.Name,
+					Attribute: _violation.Attribute,
+					Message:   _violation.Message,
+					Severity:  _violation.Severity,
+				})
+			}
 		}
 	}
 

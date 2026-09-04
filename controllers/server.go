@@ -117,12 +117,21 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	// 		isOnTrial = true
 	// 	}
 	// }
-	var isDBConnected bool
+	// With SQLite MaxOpenConns(1), a timed Ping can fail while the DB is healthy
+	// but the single connection is held by check-in flush / peer updates.
+	// Treat the pool as connected unless we get a hard connection error.
+	isDBConnected := false
 	sqldb, err := db.FromContext(r.Context()).DB()
 	if err == nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
-		defer cancel()
-		if sqldb.PingContext(ctx) == nil {
+		stats := sqldb.Stats()
+		if stats.OpenConnections == 0 || stats.InUse == 0 {
+			ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+			defer cancel()
+			if pingErr := sqldb.PingContext(ctx); pingErr == nil {
+				isDBConnected = true
+			}
+		} else {
+			// Connection is in use — DB is up; avoid false negatives under load.
 			isDBConnected = true
 		}
 	}
