@@ -10,6 +10,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -24,6 +25,9 @@ var (
 // Honours sync_interval_minutes from integration config as an optional per-tick
 // rate-limit hint. Returns nil (no-op) if MDM is not configured.
 func RunMDMSync(ctx context.Context) error {
+	if !logic.GetFeatureFlags(ctx).EnableMDMIntegration {
+		return nil
+	}
 	intg, err := GetActive(ctx)
 	if err != nil {
 		return err
@@ -43,6 +47,9 @@ func RunMDMSync(ctx context.Context) error {
 
 // RunMDMSyncForce ignores the rate-limit hint and triggers a fresh sync.
 func RunMDMSyncForce(ctx context.Context) error {
+	if !logic.GetFeatureFlags(ctx).EnableMDMIntegration {
+		return errors.New("mdm integration is not enabled on your plan")
+	}
 	intg, err := GetActive(ctx)
 	if err != nil {
 		return err

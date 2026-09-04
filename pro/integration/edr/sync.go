@@ -10,6 +10,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -19,6 +20,9 @@ var (
 )
 
 func RunEDRSync(ctx context.Context) error {
+	if !logic.GetFeatureFlags(ctx).EnableEDRIntegration {
+		return nil
+	}
 	intg, err := GetActive(ctx)
 	if err != nil {
 		return err
@@ -37,6 +41,9 @@ func RunEDRSync(ctx context.Context) error {
 }
 
 func RunEDRSyncForce(ctx context.Context) error {
+	if !logic.GetFeatureFlags(ctx).EnableEDRIntegration {
+		return errors.New("edr integration is not enabled on your plan")
+	}
 	intg, err := GetActive(ctx)
 	if err != nil {
 		return err
