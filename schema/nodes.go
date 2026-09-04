@@ -218,6 +218,21 @@ func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, err
 	return violations, err
 }
 
+// ListViolationsByNodeIDs fetches posture violations for many nodes in one query.
+// Callers should filter by each node's PostureCheckLastEvaluationCycleID in memory.
+func ListViolationsByNodeIDs(ctx context.Context, nodeIDs []string) ([]PostureCheckViolation, error) {
+	if len(nodeIDs) == 0 {
+		return nil, nil
+	}
+	var violations []PostureCheckViolation
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id IN ?", nodeIDs)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	err := query.Find(&violations).Error
+	return violations, err
+}
+
 func (n *Node) DeleteViolations(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
 		Where("node_id = ?", n.ID)
