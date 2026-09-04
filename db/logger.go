@@ -21,10 +21,10 @@ func newGormLogger() logger.Interface {
 		return logger.Default.LogMode(logger.Silent)
 	}
 
-	slowMs := 200 * time.Millisecond
+	slowThreshold := 200 * time.Millisecond
 	if v := os.Getenv("SQL_SLOW_MS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			slowMs = time.Duration(n) * time.Millisecond
+			slowThreshold = time.Duration(n) * time.Millisecond
 		}
 	}
 
@@ -36,7 +36,7 @@ func newGormLogger() logger.Interface {
 	return logger.New(
 		log.New(os.Stdout, "[gorm] ", log.LstdFlags|log.Lmicroseconds),
 		logger.Config{
-			SlowThreshold:             slowMs,
+			SlowThreshold:             slowThreshold,
 			LogLevel:                  level,
 			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
