@@ -145,6 +145,12 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&currentServerStatus)
 }
 
+// @Summary     Get Auth Methods
+// @Router      /api/v1/auth/methods [get]
+// @Tags        Auth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func getAuthMethods(w http.ResponseWriter, r *http.Request) {
 	loginMethods, err := logic.GetLoginMethods(r.Context())
 	if err != nil {
