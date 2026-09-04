@@ -28,7 +28,12 @@ func Initialize() error {
 		return nil
 	}
 
+	if !servercfg.IsClickHouseConfigured() {
+		return errors.New("missing clickhouse config")
+	}
+
 	config := servercfg.GetClickHouseConfig()
+
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", config.Host, config.Port)},
 		Auth: clickhouse.Auth{

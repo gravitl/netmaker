@@ -157,6 +157,12 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
+	if err := db.FromContext(ctx).Model(&schema.TenantSettingsRecord{}).
+		Where("key = ?", oldID).
+		Update("key", newID).Error; err != nil {
+		return err
+	}
+
 	roleQuery := db.FromContext(ctx).Model(&schema.UserRole{}).Where("network_id <> ''")
 	if oldID == "" {
 		roleQuery = roleQuery.Where("id NOT LIKE '%::%'")

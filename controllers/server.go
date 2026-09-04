@@ -161,6 +161,9 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 		}
 		user, _, _, err := logic.VerifyUserToken(r.Context(), authToken)
 		if err != nil || user == "" {
+			if err != nil {
+				logger.Log(4, "unauthorized:", err.Error())
+			}
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
