@@ -77,6 +77,9 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 				}
 			}
 		}
+		if err := logic.ValidateWindowsEgressNATMode(*e); err != nil {
+			return err
+		}
 	}
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
