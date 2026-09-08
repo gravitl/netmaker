@@ -679,7 +679,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			)
 			for _, _node := range _nodes {
 				node := logic.ConvertSchemaNodeToModelsNode(&_node)
-				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(ctx, node), schema.NetworkID(node.Network))
+				deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, node)
+				oldViolations := node.PostureChecksViolations
+				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, deviceInfo, schema.NetworkID(node.Network))
+				logic.EmitNewPostureViolationEvents(ctx, oldViolations, node.PostureChecksViolations, deviceInfo, schema.NetworkID(node.Network))
 				_node.PostureCheckSeverity = node.PostureCheckViolationSeverityLevel
 				_node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 				_node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -1011,6 +1014,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
+		logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(networkID))
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
 	}
@@ -1913,6 +1917,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 
 	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, keyTags, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
+		logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
@@ -1981,6 +1986,7 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 
 		violations, _ := logic.CheckPostureViolationsForHost(ctx, host, make(map[models.TagID]struct{}), schema.NetworkID(network.Name), true)
 		if len(violations) > 0 {
+			logic.EmitNewPostureViolationEvents(ctx, nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
 			continue
 		}
