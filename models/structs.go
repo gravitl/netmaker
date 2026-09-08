@@ -472,6 +472,9 @@ type PostureCheckDeviceInfo struct {
 	UserGroups     map[schema.UserGroupID]struct{}
 	// HostID is the Netmaker host's UUID; used to look up MDM state.
 	HostID string
+	// Username / ClientID identify Active User (extclient) posture subjects.
+	Username string
+	ClientID string
 	// MDMState is the most recent sync snapshot for the configured MDM
 	// provider; nil if MDM is not configured or the host hasn't synced yet.
 	MDMState *schema.DeviceMDMState

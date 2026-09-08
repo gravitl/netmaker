@@ -224,6 +224,7 @@ func InitPro() {
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.CheckPostureViolationsForHost = proLogic.CheckPostureViolationsForHost
+	logic.EmitNewPostureViolationEvents = proLogic.EmitNewPostureViolationEvents
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.SyncHostMDMState = mdmpkg.SyncHostMDMState
 	logic.SyncHostEDRState = edrpkg.SyncHostEDRState

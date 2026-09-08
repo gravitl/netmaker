@@ -538,6 +538,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		violations, _ := logic.CheckPostureViolationsForHost(r.Context(), &newHost, keyTags, schema.NetworkID(netI), true)
 		if len(violations) == 0 {
 			joinNetworks = append(joinNetworks, netI)
+		} else {
+			logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, models.PostureCheckDeviceInfo{HostID: newHost.ID.String()}, schema.NetworkID(netI))
 		}
 	}
 	if len(joinNetworks) != len(enrollmentKey.Networks) && len(joinNetworks) == 0 {
