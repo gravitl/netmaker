@@ -203,6 +203,20 @@ func (a *Event) HasAction(ctx context.Context, action Action) (bool, error) {
 	return count > 0, err
 }
 
+// HasPostureFailureForSubjectType reports whether a POSTURE_CHECK_FAILED event
+// exists whose source JSON has the given subject_type (DEVICE or USER).
+func (a *Event) HasPostureFailureForSubjectType(ctx context.Context, subType SubjectType) (bool, error) {
+	query := db.FromContext(ctx).Model(&Event{}).
+		Where("action = ?", PostureCheckFailed).
+		Where("source LIKE ?", fmt.Sprintf(`%%"subject_type":"%s"%%`, subType))
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
+	}
+	var count int64
+	err := query.Limit(1).Count(&count).Error
+	return count > 0, err
+}
+
 func (a *Event) DeleteAllForTenant(ctx context.Context) error {
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", eventsTable), tenantID).Delete(&Event{}).Error

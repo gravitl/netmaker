@@ -97,14 +97,19 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 		return err
 	}
 
-	// One-time backfill: if this tenant has never logged a posture failure,
-	// treat previous violations as empty so current failures appear in activity.
-	// After the first POSTURE_CHECK_FAILED is written, resume new-only dedupe.
-	backfillPostureFailures := false
-	if has, err := (&schema.Event{}).HasAction(ctx, schema.PostureCheckFailed); err != nil {
-		slog.Warn("failed to check for existing posture failure events", "error", err)
+	// One-time backfill per subject type: devices and users are tracked
+	// separately so device events do not suppress user violation backfill.
+	backfillDeviceFailures := false
+	backfillUserFailures := false
+	if has, err := (&schema.Event{}).HasPostureFailureForSubjectType(ctx, schema.DeviceSub); err != nil {
+		slog.Warn("failed to check for existing device posture failure events", "error", err)
 	} else {
-		backfillPostureFailures = !has
+		backfillDeviceFailures = !has
+	}
+	if has, err := (&schema.Event{}).HasPostureFailureForSubjectType(ctx, schema.UserSub); err != nil {
+		slog.Warn("failed to check for existing user posture failure events", "error", err)
+	} else {
+		backfillUserFailures = !has
 	}
 
 	for _, netI := range nets {
@@ -138,7 +143,7 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						continue
 					}
 					oldVi := extclient.PostureChecksViolations
-					if backfillPostureFailures {
+					if backfillUserFailures {
 						oldVi = nil
 					}
 					EmitNewPostureViolationEvents(ctx, oldVi, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
@@ -158,7 +163,7 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 					continue
 				}
 				oldVi := nodeI.PostureChecksViolations
-				if backfillPostureFailures {
+				if backfillDeviceFailures {
 					oldVi = nil
 				}
 				EmitNewPostureViolationEvents(ctx, oldVi, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
@@ -496,6 +501,8 @@ func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) mod
 			KernelVersion:  node.StaticNode.KernelVersion,
 			Tags:           make(map[models.TagID]struct{}),
 			IsUser:         true,
+			Username:       node.StaticNode.OwnerID,
+			ClientID:       node.StaticNode.ClientID,
 			UserGroups:     make(map[schema.UserGroupID]struct{}),
 		}
 		// get user groups
@@ -973,6 +980,7 @@ func asInt(v interface{}) int {
 // every violation newly present in newVi (any attribute). Dedupes by CheckID
 // against oldVi so ongoing failures do not re-fire; cleared violations are
 // ignored. MDM/EDR events keep their provider-specific enrichment fields.
+// Active User subjects are logged as USER; hosts as DEVICE.
 func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
 	if len(newVi) == 0 {
 		return
@@ -983,6 +991,19 @@ func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Vi
 			continue
 		}
 		prev[v.CheckID] = struct{}{}
+	}
+
+	sourceID := d.HostID
+	sourceName := d.HostID
+	sourceType := schema.DeviceSub
+	if d.IsUser {
+		sourceType = schema.UserSub
+		sourceID = d.Username
+		sourceName = d.Username
+		if sourceID == "" {
+			sourceID = d.ClientID
+			sourceName = d.ClientID
+		}
 	}
 
 	var mdmProviderID, edrProviderID string
@@ -1000,6 +1021,11 @@ func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Vi
 			"check":    v.Name,
 			"reason":   v.Message,
 			"severity": v.Severity,
+			"is_user":  d.IsUser,
+		}
+		if d.IsUser {
+			payload["username"] = d.Username
+			payload["client_id"] = d.ClientID
 		}
 		switch v.Attribute {
 		case string(schema.MDMCompliance):
@@ -1021,9 +1047,9 @@ func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Vi
 		logic.LogEvent(ctx, &models.Event{
 			Action: schema.PostureCheckFailed,
 			Source: models.Subject{
-				ID:   d.HostID,
-				Name: d.HostID,
-				Type: schema.DeviceSub,
+				ID:   sourceID,
+				Name: sourceName,
+				Type: sourceType,
 			},
 			TriggeredBy: "system",
 			Target: models.Subject{
