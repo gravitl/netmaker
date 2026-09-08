@@ -55,6 +55,20 @@ func extractAndValidateIntegration(w http.ResponseWriter, r *http.Request) (inte
 	return intType, id, true
 }
 
+func integrationFeatureEnabled(ctx context.Context, intType integration.Type) bool {
+	flags := logic.GetFeatureFlags(ctx)
+	switch intType {
+	case integration.TypeSIEM:
+		return flags.EnableSIEMIntegration
+	case integration.TypeMDM:
+		return flags.EnableMDMIntegration
+	case integration.TypeEDR:
+		return flags.EnableEDRIntegration
+	default:
+		return true
+	}
+}
+
 // @Summary     Get an integration
 // @Router      /api/v1/integrations/{type} [get]
 // @Tags        Integrations
@@ -114,6 +128,11 @@ func getIntegration(w http.ResponseWriter, r *http.Request) {
 func upsertIntegration(w http.ResponseWriter, r *http.Request) {
 	intType, id, ok := extractAndValidateIntegration(w, r)
 	if !ok {
+		return
+	}
+
+	if !integrationFeatureEnabled(r.Context(), intType) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("%s integration is not enabled on your plan", intType), logic.BadReq))
 		return
 	}
 
@@ -361,6 +380,11 @@ func listMDMProviders(w http.ResponseWriter, r *http.Request) {
 // @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags(r.Context()).EnableMDMIntegration {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("mdm integration is not enabled on your plan"), logic.BadReq))
+		return
+	}
+
 	active, err := mdmpkg.GetActive(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -408,6 +432,11 @@ func triggerMDMSync(w http.ResponseWriter, r *http.Request) {
 // @Param       provider  query string false "Filter by provider name"
 // @Success     200 {array} schema.DeviceMDMState
 func listMDMDeviceState(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags(r.Context()).EnableMDMIntegration {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("mdm integration is not enabled on your plan"), logic.BadReq))
+		return
+	}
+
 	ctx := r.Context()
 	hostID := r.URL.Query().Get("host_id")
 	provider := r.URL.Query().Get("provider")
@@ -445,6 +474,11 @@ func listEDRProviders(w http.ResponseWriter, r *http.Request) {
 }
 
 func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags(r.Context()).EnableEDRIntegration {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr integration is not enabled on your plan"), logic.BadReq))
+		return
+	}
+
 	active, err := edrpkg.GetActive(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -465,6 +499,11 @@ func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
 }
 
 func listEDRDeviceState(w http.ResponseWriter, r *http.Request) {
+	if !logic.GetFeatureFlags(r.Context()).EnableEDRIntegration {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr integration is not enabled on your plan"), logic.BadReq))
+		return
+	}
+
 	ctx := r.Context()
 	hostID := r.URL.Query().Get("host_id")
 	provider := r.URL.Query().Get("provider")
