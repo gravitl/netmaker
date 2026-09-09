@@ -22,7 +22,7 @@ func TestExitNodeAllowedEndpoints(t *testing.T) {
 	if got[0] != "203.0.113.10" || got[1] != "2001:db8::1" {
 		t.Fatalf("unexpected endpoints %v", got)
 	}
-	if n := exitNodeAllowedEndpoints(nil); n != nil && len(n) != 0 {
+	if n := exitNodeAllowedEndpoints(nil); len(n) != 0 {
 		t.Fatalf("expected no endpoints, got %v", n)
 	}
 }
