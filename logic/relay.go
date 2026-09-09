@@ -12,6 +12,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// listEgressByNetwork lists egresses for RelayedAllowedIPs; tests may override.
+var listEgressByNetwork = func(ctx context.Context, network string) ([]schema.Egress, error) {
+	e := schema.Egress{Network: network}
+	return e.ListByNetwork(ctx)
+}
+
 // SetRelayedNodes- sets and saves node as relayed
 func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Node {
 	var returnnodes []models.Node
@@ -73,7 +79,7 @@ func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) 
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
-		if relayedNode.IsInternetGateway || NodeIsInternetEgressRouter(relayedNode.ID.String(), relayedNode.Network) {
+		if relayedNode.IsInternetGateway || NodeIsInternetEgressRouter(ctx, relayedNode.ID.String(), relayedNode.Network) {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
 		// Exit clients are relayed only via exit-node selection (background AssignGateway).
@@ -252,19 +258,28 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 
 func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	if peer == nil || node == nil {
+		return allowedIPs
+	}
+	eli, _ := listEgressByNetwork(ctx, node.Network)
 	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 	GetNodeEgressInfo(node, eli, acls)
 	bypass := SelectedInternetEgressBypasses(node)
 	viewerIsSpecificEgress := PeerAdvertisesSpecificEgress(node)
 	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	for _, relayedNodeID := range peer.RelayedNodes {
-		if node.ID.String() == relayedNodeID {
-			continue
+	excludeID := node.ID.String()
+	seen := map[string]struct{}{}
+	add := func(relayedNodeID string) {
+		if relayedNodeID == "" || relayedNodeID == excludeID {
+			return
 		}
-		relayedNode, err := GetNodeByID(relayedNodeID)
+		if _, ok := seen[relayedNodeID]; ok {
+			return
+		}
+		seen[relayedNodeID] = struct{}{}
+		relayedNode, err := getNodeByID(relayedNodeID)
 		if err != nil {
-			continue
+			return
 		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
 		unfilteredSpecific := PeerAdvertisesSpecificEgress(&relayedNode)
@@ -273,21 +288,55 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			// specific-egress peer that should stay direct (not via this relay).
 			AddEgressInfoToPeerByAccess(node, &relayedNode, eli, acls, defaultPolicy.Enabled)
 			if unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode) {
-				continue
+				return
 			}
 		}
 		// Reverse of bypass: specific-egress GWs keep bypass clients as direct
 		// peers — do not also advertise those clients' overlays under the exit.
 		if viewerIsSpecificEgress && SelectedInternetEgressBypasses(&relayedNode) {
-			continue
+			return
 		}
-		allowed := getRelayedAddresses(relayedNodeID)
-		if relayedNode.EgressDetails.IsEgressGateway {
-			allowed = append(allowed, GetEgressIPs(&relayedNode)...)
-		}
-		allowedIPs = append(allowedIPs, allowed...)
+		allowedIPs = append(allowedIPs, allowedIPsFromRelayedNode(&relayedNode)...)
+	}
+	for _, relayedNodeID := range peer.RelayedNodes {
+		add(relayedNodeID)
+	}
+	// Exit clients may appear only under InetNodeClientIDs / RelayedIGWClients.
+	for _, relayedNodeID := range peer.InetNodeReq.InetNodeClientIDs {
+		add(relayedNodeID)
 	}
 	return allowedIPs
+}
+
+// peerRelaysExitClients reports whether peer has nodes relayed through it
+// (gateway RelayedNodes or internet-exit clients).
+func peerRelaysExitClients(peer *models.Node) bool {
+	return peer != nil && (len(peer.RelayedNodes) > 0 || len(peer.InetNodeReq.InetNodeClientIDs) > 0)
+}
+
+// allowedIPsFromRelayedNode returns overlay /32,/128 addresses plus any egress
+// ranges advertised by a relayed client (including a node using an exit node).
+func allowedIPsFromRelayedNode(relayedNode *models.Node) []net.IPNet {
+	if relayedNode == nil {
+		return nil
+	}
+	allowed := make([]net.IPNet, 0, 2)
+	if relayedNode.Address.IP != nil {
+		allowed = append(allowed, net.IPNet{
+			IP:   relayedNode.Address.IP,
+			Mask: net.CIDRMask(32, 32),
+		})
+	}
+	if relayedNode.Address6.IP != nil {
+		allowed = append(allowed, net.IPNet{
+			IP:   relayedNode.Address6.IP,
+			Mask: net.CIDRMask(128, 128),
+		})
+	}
+	if relayedNode.EgressDetails.IsEgressGateway {
+		allowed = append(allowed, GetEgressIPs(relayedNode)...)
+	}
+	return allowed
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay

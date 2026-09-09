@@ -53,7 +53,7 @@ func NewAuditLogsGrpcClient(serverAddr string, optFns ...func(*options.Options))
 func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
 		defaultClient = NewAuditLogsGrpcClient(
-			fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain()),
+			servercfg.GetGrpcEndpoint(),
 			options.WithTLS(&tls.Config{}),
 		)
 

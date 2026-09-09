@@ -436,6 +436,15 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	// Host is source of truth for TCP proxy; clear use_tcp_uplink on relayed
+	// clients when TCP is disabled on the host.
+	if err := clearUseTcpUplinkWhenHostTcpDisabled(r.Context(), newHost, currHost); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to clear use_tcp_uplink after host tcp disable:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
@@ -482,6 +491,29 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
+}
+
+// clearUseTcpUplinkWhenHostTcpDisabled clears use_tcp_uplink on clients relayed
+// by this host's gateways when TCP proxy is turned off on the host.
+func clearUseTcpUplinkWhenHostTcpDisabled(ctx context.Context, newHost, currHost *schema.Host) error {
+	if newHost == nil || currHost == nil {
+		return nil
+	}
+	if newHost.TcpProxyEnabled || !currHost.TcpProxyEnabled {
+		return nil
+	}
+	for _, nodeID := range newHost.Nodes {
+		node := &schema.Node{ID: nodeID}
+		if err := node.Get(ctx); err != nil || !node.IsGateway {
+			continue
+		}
+		if err := db.FromContext(ctx).Model(&schema.Node{}).
+			Where("relayed_by_node_id = ? AND use_tcp_uplink = ?", node.ID, true).
+			Update("use_tcp_uplink", false).Error; err != nil {
+			return fmt.Errorf("clear use_tcp_uplink for gateway %s: %w", node.ID, err)
+		}
+	}
+	return nil
 }
 
 // @Summary     Updates a Netclient host on Netmaker server
@@ -647,7 +679,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			)
 			for _, _node := range _nodes {
 				node := logic.ConvertSchemaNodeToModelsNode(&_node)
-				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(node), schema.NetworkID(node.Network))
+				deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, node)
+				oldViolations := node.PostureChecksViolations
+				node.PostureChecksViolations, node.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, deviceInfo, schema.NetworkID(node.Network))
+				logic.EmitNewPostureViolationEvents(ctx, oldViolations, node.PostureChecksViolations, deviceInfo, schema.NetworkID(node.Network))
 				_node.PostureCheckSeverity = node.PostureCheckViolationSeverityLevel
 				_node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 				_node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -979,6 +1014,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
+		logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(networkID))
 		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
 		return
 	}
@@ -1738,14 +1774,11 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Per-network status - copy from already-evaluated nodes belonging to the
 	// host. No new posture computation happens on this read path (v1).
-	nodes, err := logic.GetAllNodes(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
-		return
-	}
+	// GetHostNodes loads only this host's nodes and includes violation details
+	// (unlike GetAllNodes, which skips them for list performance).
 	var latest time.Time
-	for _, n := range nodes {
-		if n.HostID != hostID || n.IsStatic {
+	for _, n := range logic.GetHostNodes(host) {
+		if n.IsStatic {
 			continue
 		}
 		entry := models.NetworkPostureStatus{
@@ -1845,8 +1878,16 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	key := schema.EnrollmentKey{}
-	json.Unmarshal(p.EnrollmentKey, &key)
+
+	modelsKey := models.EnrollmentKey{}
+	err = json.Unmarshal(p.EnrollmentKey, &modelsKey)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal enrollment key: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	key := logic.SchemaEnrollmentKeyFromModels(modelsKey)
 
 	network := &schema.Network{
 		Name: p.Network,
@@ -1873,13 +1914,14 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 
 	violations, _ := logic.CheckPostureViolationsForHost(r.Context(), host, keyTags, schema.NetworkID(network.Name), true)
 	if len(violations) > 0 {
+		logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 		err = fmt.Errorf("failed to approve pending host (%s): posture check violations", id)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 
-	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(&key))
+	newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(r.Context(), host, network, orchestrator.UseKey(key))
 	if err != nil {
 		err = fmt.Errorf("failed to approve pending host (%s): error creating node: %w", id, err)
 		logger.Log(0, err.Error())
@@ -1941,6 +1983,7 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 
 		violations, _ := logic.CheckPostureViolationsForHost(ctx, host, make(map[models.TagID]struct{}), schema.NetworkID(network.Name), true)
 		if len(violations) > 0 {
+			logic.EmitNewPostureViolationEvents(ctx, nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 			logger.Log(2, "skipping network", network.Name, "for default host", host.Name, ": posture check violations")
 			continue
 		}

@@ -14,7 +14,9 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/node"
+	"github.com/gravitl/netmaker/cli/cmd/organization"
 	"github.com/gravitl/netmaker/cli/cmd/server"
+	"github.com/gravitl/netmaker/cli/cmd/tenant"
 	"github.com/gravitl/netmaker/cli/cmd/user"
 
 	"github.com/spf13/cobra"
@@ -46,6 +48,8 @@ func init() {
 	// Bind subcommands here
 	rootCmd.AddCommand(network.GetRoot())
 	rootCmd.AddCommand(context.GetRoot())
+	rootCmd.AddCommand(organization.GetRoot())
+	rootCmd.AddCommand(tenant.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())
 	rootCmd.AddCommand(server.GetRoot())

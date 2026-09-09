@@ -27,3 +27,22 @@ func TestValidateDomain(t *testing.T) {
 	})
 
 }
+
+func TestGetTcpProxyPublicPort(t *testing.T) {
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "")
+	if got := GetTcpProxyPublicPort(); got != 443 {
+		t.Fatalf("default: got %d", got)
+	}
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "8443")
+	if got := GetTcpProxyPublicPort(); got != 8443 {
+		t.Fatalf("override: got %d", got)
+	}
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "0")
+	if got := GetTcpProxyPublicPort(); got != 443 {
+		t.Fatalf("invalid 0: got %d", got)
+	}
+	t.Setenv("TCP_PROXY_PUBLIC_PORT", "nope")
+	if got := GetTcpProxyPublicPort(); got != 443 {
+		t.Fatalf("invalid string: got %d", got)
+	}
+}

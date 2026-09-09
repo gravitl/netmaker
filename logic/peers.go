@@ -322,19 +322,22 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
+		if !defaultDevicePolicy.Enabled {
+			applyInternetExitFromDeviceACL(&node, eli, acls)
+		}
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
-			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(node.ID.String(), node.Network)
+			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
@@ -572,16 +575,20 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			// pass network="" (all networks on the host); only then include every network's peers.
 			if (network == "" || node.Network == network) && !peerConfig.Remove && len(peerConfig.AllowedIPs) > 0 {
 				ida := models.IDandAddr{
-					ID:               peer.ID.String(),
-					HostID:           peerHost.ID.String(),
-					Address:          peer.PrimaryAddress(),
-					Name:             peerHost.Name,
-					Network:          peer.Network,
-					ListenPort:       peerHost.ListenPort,
-					TcpProxyEndpoint: tcpProxyEndpointForPeer(&peer, peerHost, host),
+					ID:                      peer.ID.String(),
+					HostID:                  peerHost.ID.String(),
+					Address:                 peer.PrimaryAddress(),
+					Name:                    peerHost.Name,
+					Network:                 peer.Network,
+					ListenPort:              peerHost.ListenPort,
+					TcpProxyEndpoint:        tcpProxyEndpointForPeer(&peer, peerHost, host),
+					TcpProxyCertFingerprint: tcpProxyCertFingerprintForPeer(&peer, peerHost),
 				}
 				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyEndpoint == "" && prev.TcpProxyEndpoint != "" {
 					ida.TcpProxyEndpoint = prev.TcpProxyEndpoint
+				}
+				if prev, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; ok && ida.TcpProxyCertFingerprint == "" && prev.TcpProxyCertFingerprint != "" {
+					ida.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
 				}
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = ida
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
@@ -845,50 +852,86 @@ func buildHostNetworkInfo(peerHost *schema.Host, peer *models.Node, prev *models
 		IsStaticPort: peerHost.IsStaticPort,
 		IsStatic:     peerHost.IsStatic,
 	}
-	// Prefer host-level TCP proxy (listen is per host); fall back to node for older data.
-	tcpEnabled := peerHost.TcpProxyEnabled || (peer.IsGw && peer.TcpProxyEnabled)
-	if peer.IsGw && tcpEnabled {
+	if peer.IsGw && peerHost.TcpProxyEnabled {
 		info.TcpProxyEnabled = true
 		info.TcpProxyListenPort = peerHost.TcpProxyListenPort
 		if info.TcpProxyListenPort <= 0 {
-			info.TcpProxyListenPort = peer.TcpProxyListenPort
-		}
-		if info.TcpProxyListenPort <= 0 {
 			info.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
+		}
+		info.TcpProxyTLSMode = peerHost.TcpProxyTLSMode
+		if info.TcpProxyTLSMode == "" {
+			info.TcpProxyTLSMode = schema.TcpProxyTLSModeSelfSigned
+		}
+		info.TcpProxyListenAddr = peerHost.TcpProxyListenAddr
+		info.TcpProxyPublicHostname = peerHost.TcpProxyPublicHostname
+		// External termination uses the reverse-proxy cert; do not publish a
+		// (possibly stale) self-signed fingerprint to clients.
+		if info.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = peerHost.TcpProxyCertFingerprint
 		}
 	} else if prev != nil && prev.TcpProxyEnabled {
 		// Preserve TCP settings from another network's gateway node on the same host.
 		info.TcpProxyEnabled = prev.TcpProxyEnabled
 		info.TcpProxyListenPort = prev.TcpProxyListenPort
+		info.TcpProxyTLSMode = prev.TcpProxyTLSMode
+		info.TcpProxyListenAddr = prev.TcpProxyListenAddr
+		info.TcpProxyPublicHostname = prev.TcpProxyPublicHostname
+		if prev.TcpProxyTLSMode != schema.TcpProxyTLSModeProxy {
+			info.TcpProxyCertFingerprint = prev.TcpProxyCertFingerprint
+		}
 	}
 	return info
 }
 
 func tcpProxyEndpointForPeer(peer *models.Node, peerHost *schema.Host, clientHost *schema.Host) string {
-	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw {
+	if peer == nil || peerHost == nil || clientHost == nil || !peer.IsGw || !peerHost.TcpProxyEnabled {
 		return ""
 	}
-	tcpEnabled := peerHost.TcpProxyEnabled || peer.TcpProxyEnabled
-	if !tcpEnabled {
+	tlsMode, _ := schema.NormaliseTcpProxyTLSMode(peerHost.TcpProxyTLSMode)
+
+	// External termination: clients dial the public reverse-proxy port
+	// (default 443, overridable via TCP_PROXY_PUBLIC_PORT), not the backend
+	// listen port behind Caddy/nginx/etc.
+	port := servercfg.GetTcpProxyPublicPort()
+	if tlsMode != schema.TcpProxyTLSModeProxy {
+		port = peerHost.TcpProxyListenPort
+		if port <= 0 {
+			port = schema.DefaultTcpProxyListenPort
+		}
+	}
+
+	hostPart := ""
+	if tlsMode == schema.TcpProxyTLSModeProxy {
+		if hn, err := schema.NormaliseTcpProxyPublicHostname(peerHost.TcpProxyPublicHostname); err == nil && hn != "" {
+			hostPart = hn
+		}
+	}
+	if hostPart == "" {
+		var ip net.IP
+		if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
+			ip = peerHost.EndpointIP
+		} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
+			ip = peerHost.EndpointIPv6
+		}
+		if ip == nil {
+			return ""
+		}
+		hostPart = ip.String()
+	}
+	return fmt.Sprintf("wss://%s/uplink/v1", net.JoinHostPort(hostPart, strconv.Itoa(port)))
+}
+
+func tcpProxyCertFingerprintForPeer(peer *models.Node, peerHost *schema.Host) string {
+	if peer == nil || peerHost == nil || !peer.IsGw || !peerHost.TcpProxyEnabled {
 		return ""
 	}
-	port := peerHost.TcpProxyListenPort
-	if port <= 0 {
-		port = peer.TcpProxyListenPort
-	}
-	if port <= 0 {
-		port = schema.DefaultTcpProxyListenPort
-	}
-	var ip net.IP
-	if clientHost.EndpointIP != nil && peerHost.EndpointIP != nil {
-		ip = peerHost.EndpointIP
-	} else if clientHost.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
-		ip = peerHost.EndpointIPv6
-	}
-	if ip == nil {
+	tlsMode, _ := schema.NormaliseTcpProxyTLSMode(peerHost.TcpProxyTLSMode)
+	// External termination uses the reverse-proxy's public cert; do not pin the
+	// gateway's (possibly stale) self-signed fingerprint.
+	if tlsMode == schema.TcpProxyTLSModeProxy {
 		return ""
 	}
-	return net.JoinHostPort(ip.String(), strconv.Itoa(port))
+	return peerHost.TcpProxyCertFingerprint
 }
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {
@@ -1248,24 +1291,18 @@ func getNodeAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	// A relay advertises its relayed clients' overlay IPs (and non-default egress
 	// ranges) to other peers. Default routes are stripped: full-tunnel is opt-in
 	// via usesPeerAsInternetExit → GetAllowedIpForInetNodeClient only.
-	if peer.IsRelay {
+	//
+	// Non-gateway internet exit nodes also relay the peers using them as an exit
+	// (kept in RelayedNodes). Those clients' egress ranges must be advertised the
+	// same way, or LAN routes never appear on other peers' WireGuard AllowedIPs.
+	// Default routes are still stripped so 0.0.0.0/0 cannot cover the exit node's
+	// public endpoint (WG routing loop / endpoint flap). Exit clients themselves
+	// already receive a default route and skip this via usesPeerAsInternetExit.
+	if peer.IsRelay || (!usesPeerAsInternetExit(node, peer) && peerRelaysExitClients(peer)) {
 		allowedips = append(allowedips, withoutDefaultRoutes(RelayedAllowedIPs(ctx, peer, node))...)
-		// RelayedAllowedIPs only walks RelayedNodes; also advertise exit clients that
-		// appear only under InetNodeClientIDs / RelayedIGWClients.
+		// RelayedAllowedIPs walks RelayedNodes and InetNodeClientIDs; keep overlay
+		// IPs for inet-only clients as a safety net if the two lists diverge.
 		allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(peer, node)...)
-	} else if !usesPeerAsInternetExit(node, peer) {
-		// A non-gateway internet exit node also relays the overlay traffic of the
-		// peers using it as an exit node (they are kept in RelayedNodes for
-		// stability). Advertise ONLY those clients' overlay addresses to other
-		// peers so they remain reachable through the exit node.
-		//
-		// Deliberately do not use RelayedAllowedIPs here: it additionally appends
-		// each relayed client's egress ranges (which may be broad, e.g. 0.0.0.0/0),
-		// which can cover the exit node's public endpoint and create a WireGuard
-		// routing loop, causing the exit node's endpoint to flap to an overlay
-		// address. Only third-party peers need these routes; the exit node's own
-		// clients already receive a default route to it.
-		allowedips = append(allowedips, ExitClientOverlayIPs(peer, node)...)
 	}
 	if peer.IsAutoRelay {
 		allowedips = append(allowedips, withoutDefaultRoutes(GetAutoRelayPeerIps(ctx, peer, node))...)

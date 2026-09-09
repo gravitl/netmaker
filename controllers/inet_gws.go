@@ -38,7 +38,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+	if logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network) {
 		logic.ReturnSuccessResponse(w, r, "node is already acting as internet gateway")
 		return
 	}

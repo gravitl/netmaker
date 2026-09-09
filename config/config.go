@@ -107,6 +107,7 @@ type ServerConfig struct {
 	StunServers                string        `yaml:"stun_servers"`
 	DefaultDomain              string        `yaml:"default_domain"`
 	PublicIp                   string        `yaml:"public_ip"`
+	GrpcEndpoint               string        `yaml:"grpc_endpoint"`
 }
 
 // SQLConfig - Generic SQL Config

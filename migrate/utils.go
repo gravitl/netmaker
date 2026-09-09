@@ -51,16 +51,6 @@ func kvList(ctx context.Context, tableName string) (map[string]string, error) {
 	return list, nil
 }
 
-func kvGet(ctx context.Context, tableName, key string) (string, error) {
-	var record KVRecord
-	err := db.FromContext(ctx).Table(tableName).Where("key = ?", key).First(&record).Error
-	if err != nil {
-		return "", err
-	}
-
-	return record.Value, nil
-}
-
 func kvCount(ctx context.Context, tableName string) (int, error) {
 	var count int64
 	err := db.FromContext(ctx).Table(tableName).Count(&count).Error

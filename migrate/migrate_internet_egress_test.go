@@ -42,3 +42,21 @@ func TestCollectLegacyIGWClients(t *testing.T) {
 		t.Fatalf("missing clientB in %v", got)
 	}
 }
+
+func TestAllExtClientsMissingInternetEgressSelection(t *testing.T) {
+	if !allExtClientsMissingInternetEgressSelection([]models.ExtClient{
+		{ClientID: "a"},
+		{ClientID: "b"},
+	}) {
+		t.Fatal("expected true when all selections empty")
+	}
+	if allExtClientsMissingInternetEgressSelection([]models.ExtClient{
+		{ClientID: "a"},
+		{ClientID: "b", SelectedInternetEgressID: "eg-1"},
+	}) {
+		t.Fatal("expected false when any selection is set")
+	}
+	if !allExtClientsMissingInternetEgressSelection(nil) {
+		t.Fatal("expected true for empty list")
+	}
+}

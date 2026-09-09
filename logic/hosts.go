@@ -44,6 +44,11 @@ var CheckPostureViolations = func(ctx context.Context, d models.PostureCheckDevi
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+// EmitNewPostureViolationEvents records audit events for newly observed posture
+// failures. No-op in community; wired by pro.
+var EmitNewPostureViolationEvents = func(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+}
+
 var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown
@@ -62,7 +67,7 @@ var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host,
 	}, network)
 }
 
-var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+var GetPostureCheckDeviceInfoByNode = func(ctx context.Context, node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
 }
 
@@ -101,9 +106,16 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 			continue
 		}
 
-		nodes := GetHostNodes(&host)
-		for _, node := range nodes {
-			getNodeCheckInStatus(&node, false)
+		for _, nodeID := range host.Nodes {
+			node := &schema.Node{
+				ID: nodeID,
+			}
+			err = node.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			node.Status = GetNodeCheckInStatus(node)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -210,7 +222,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
-	newHost.WgPublicListenPort = currentHost.WgPublicListenPort
+	// WgPublicListenPort is already resolved in ConvertAPIHostToNMHost (clear on
+	// listen-port change / dynamic flip, or track ListenPort when static).
+	if newHost.IsStaticPort {
+		newHost.WgPublicListenPort = newHost.ListenPort
+	}
 
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
@@ -334,6 +350,12 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
 		peerUpdateReasons = append(peerUpdateReasons, "nat_type")
+	}
+	// Gateway reports self-signed uplink cert fingerprint after LoadOrCreateServerTLS.
+	if newHost.TcpProxyCertFingerprint != "" && newHost.TcpProxyCertFingerprint != currHost.TcpProxyCertFingerprint {
+		currHost.TcpProxyCertFingerprint = newHost.TcpProxyCertFingerprint
+		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "tcp_proxy_cert_fingerprint")
 	}
 
 	if sendPeerUpdate {

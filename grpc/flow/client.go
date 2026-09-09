@@ -47,9 +47,7 @@ func NewGrpcClient(serverAddr string, optFns ...func(*options.Options)) *GrpcCli
 
 func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
-		defaultClient = NewGrpcClient(
-			fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain()),
-		)
+		defaultClient = NewGrpcClient(servercfg.GetGrpcEndpoint())
 	})
 	return defaultClient
 }

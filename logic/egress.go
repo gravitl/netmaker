@@ -292,7 +292,8 @@ func ErrExitNodeBlocksGatewayOps(node *models.Node) error {
 	if node.SelectedInternetEgressID != "" {
 		return errors.New("node is using an exit node; gateway assignment is managed by the exit node")
 	}
-	if NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+	if NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 		return errors.New("exit node cannot use gateway or auto-assign gateway options")
 	}
 	return nil
@@ -356,11 +357,11 @@ func SyncClearedExitNodeFields(dst, src *models.Node) {
 }
 
 // NodeIsInternetEgressRouter reports whether the node is a routing node for any active internet egress.
-func NodeIsInternetEgressRouter(nodeID, network string) bool {
+func NodeIsInternetEgressRouter(ctx context.Context, nodeID, network string) bool {
 	if nodeID == "" || network == "" {
 		return false
 	}
-	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(context.TODO()))
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(ctx)
 	if err != nil {
 		return false
 	}
@@ -425,6 +426,37 @@ func ResolveInternetExitRoutingNode(node *models.Node) {
 	if node.SelectedInternetEgressID != "" {
 		// Sticky selection but egress unavailable (disabled/missing): fail open.
 		node.InternetGwID = ""
+	}
+}
+
+// applyInternetExitFromDeviceACL sets InternetGwID in-memory when a device ACL
+// grants this node access to a single internet egress and no exit is selected.
+// That attaches the exit node peer (0.0.0.0/0, default gw) the same way explicit
+// exit selection does. Multiple internet exits still require an explicit choice.
+func applyInternetExitFromDeviceACL(node *models.Node, eli []schema.Egress, acls []models.Acl) {
+	if node == nil || node.SelectedInternetEgressID != "" || node.InternetGwID != "" {
+		return
+	}
+	routingID := ""
+	for i := range eli {
+		e := eli[i]
+		if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(e) {
+			continue
+		}
+		if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			continue
+		}
+		id := FirstInternetEgressRoutingNodeID(e)
+		if id == "" || id == node.ID.String() {
+			continue
+		}
+		if routingID != "" && routingID != id {
+			return
+		}
+		routingID = id
+	}
+	if routingID != "" {
+		node.InternetGwID = routingID
 	}
 }
 
@@ -541,7 +573,7 @@ func SetNodeSelectedInternetEgress(node *models.Node, egressID string, useTcpUpl
 		node,
 		schemaNode,
 		routingNodeID,
-		NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+		NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network),
 	); err != nil {
 		return err
 	}
@@ -608,9 +640,6 @@ func errTcpUplinkRequiresProxy(ctx context.Context, routingNodeID string) error 
 	rn, err := GetNodeByID(routingNodeID)
 	if err != nil {
 		return errors.New("internet egress has no routing node")
-	}
-	if rn.TcpProxyEnabled {
-		return nil
 	}
 	rh := &schema.Host{ID: rn.HostID}
 	if err := rh.Get(ctx); err == nil && rh.TcpProxyEnabled {
@@ -830,7 +859,7 @@ func DetachExitRoutingNode(ctx context.Context, node *models.Node) []models.Node
 	}
 	// List clients before mutating egress.Nodes so sticky selections are still found.
 	clients := ListExitClientsForRoutingNode(ctx, node.Network, node.ID.String())
-	if len(clients) == 0 && !IsInternetGw(*node) && !NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+	if len(clients) == 0 && !IsInternetGw(*node) && !NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 		return nil
 	}
 
@@ -944,6 +973,9 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 
 func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []models.Acl) bool {
 	nodeTags := maps.Clone(node.Tags)
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	nodeTags[models.TagID("*")] = struct{}{}
 	for _, acl := range acls {
@@ -954,9 +986,7 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 		for _, dstI := range acl.Dst {
 			if (dstI.ID == models.EgressID && dstI.Value == e.ID) || (dstI.ID == models.NodeTagID && dstI.Value == "*") {
 				if dstI.ID == models.EgressID {
-					e := schema.Egress{ID: dstI.Value}
-					err := e.Get(db.WithContext(context.TODO()))
-					if err != nil {
+					if _, err := getEgressByID(dstI.Value); err != nil {
 						continue
 					}
 				}
@@ -1117,7 +1147,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) {
+		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) && isDefaultPolicyActive {
+			// Default-allow must not auto-full-tunnel every peer. Explicit exit
+			// selection or a specific ACL (handled below when default is off)
+			// is required to attach 0.0.0.0/0.
 			continue
 		}
 		if !isDefaultPolicyActive {

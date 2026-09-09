@@ -34,6 +34,14 @@ const (
 )
 
 func migrateV1_7_0(ctx context.Context) error {
+	// Step 0: bootstrap org/tenants (was migration-multitenancy).
+	// Goes through SyncOrgAndTenants so EE/MSP can sync from license validation
+	// instead of always creating a local UUID default tenant. CE keeps the
+	// CreateLocalDefaults default; idempotent when org/tenant already exist.
+	if err := SyncOrgAndTenants(ctx); err != nil {
+		return err
+	}
+
 	err := migrateServerConf(ctx)
 	if err != nil {
 		return err
@@ -352,7 +360,14 @@ func migrateServerSettings(ctx context.Context) error {
 	}
 
 	if legacyValue, ok := records[LegacyServerSettingsKey]; ok {
-		err = kvInsert(ctx, TableName_ServerSettings, defaultTenant.ID, json.RawMessage(legacyValue))
+		var legacySettings models.ServerSettings
+		err = json.Unmarshal([]byte(legacyValue), &legacySettings)
+		if err != nil {
+			return err
+		}
+
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, defaultTenant.ID)
+		err = logic.UpsertServerSettings(tenantCtx, legacySettings)
 		if err != nil {
 			return err
 		}
