@@ -1774,14 +1774,11 @@ func getHostPostureStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Per-network status - copy from already-evaluated nodes belonging to the
 	// host. No new posture computation happens on this read path (v1).
-	nodes, err := logic.GetAllNodes(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, models.ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
-		return
-	}
+	// GetHostNodes loads only this host's nodes and includes violation details
+	// (unlike GetAllNodes, which skips them for list performance).
 	var latest time.Time
-	for _, n := range nodes {
-		if n.HostID != hostID || n.IsStatic {
+	for _, n := range logic.GetHostNodes(host) {
+		if n.IsStatic {
 			continue
 		}
 		entry := models.NetworkPostureStatus{
