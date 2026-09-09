@@ -44,6 +44,11 @@ var CheckPostureViolations = func(ctx context.Context, d models.PostureCheckDevi
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+// EmitNewPostureViolationEvents records audit events for newly observed posture
+// failures. No-op in community; wired by pro.
+var EmitNewPostureViolationEvents = func(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+}
+
 var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown

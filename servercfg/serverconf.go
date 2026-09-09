@@ -845,6 +845,16 @@ func GetNmBaseDomain() string {
 	return os.Getenv("NM_DOMAIN")
 }
 
+func GetGrpcEndpoint() string {
+	if os.Getenv("GRPC_ENDPOINT") != "" {
+		return os.Getenv("GRPC_ENDPOINT")
+	} else if config.Config.Server.GrpcEndpoint != "" {
+		return config.Config.Server.GrpcEndpoint
+	}
+
+	return fmt.Sprintf("grpc.%s", GetNmBaseDomain())
+}
+
 // IsHA - returns true if running in High Availability mode (multiple replicas)
 func IsHA() bool {
 	return os.Getenv("IS_HA") == "true"

@@ -20,6 +20,10 @@ var (
 
 var defaultTenantID atomic.Value
 
+func ResetDefaultTenantID(oldID, newID string) {
+	defaultTenantID.CompareAndSwap(oldID, newID)
+}
+
 // Scope reads the scope header for the given level, validates the tenant/org,
 // and stores the level and id in the request context.
 func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
