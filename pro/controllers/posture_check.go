@@ -345,24 +345,6 @@ func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
 		mq.PublishPeerUpdate(ctx, false)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context())))
 
-	logic.LogEvent(r.Context(), &models.Event{
-		Action:      schema.Sync,
-		TriggeredBy: r.Header.Get("user"),
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		Target: models.Subject{
-			ID:   string(schema.AllPostureCheckRsrcID),
-			Name: "all",
-			Type: schema.PostureCheckSub,
-		},
-		Origin: schema.Dashboard,
-		Diff: models.Diff{
-			New: map[string]interface{}{"status": "queued"},
-		},
-	})
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "posture checks queued")
 }
 
