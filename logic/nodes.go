@@ -328,8 +328,23 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	return nil
 }
 
-// GetAllNodes - returns all nodes in the DB
+// GetAllNodes - returns all nodes in the DB.
+// List/API responses use posture severity/cycle fields already on the node row
+// (written by the background posture hook). Full violation details are omitted
+// here — use GetAllNodesWithViolations or single-node convert / the dedicated
+// violations API when the detail array is required.
 func GetAllNodes(ctx context.Context) ([]models.Node, error) {
+	return getAllNodes(ctx, false)
+}
+
+// GetAllNodesWithViolations is like GetAllNodes but attaches current-cycle
+// posture_check_violations in one batch query. Intended for the posture hook
+// (event diffs), not for high-frequency list APIs.
+func GetAllNodesWithViolations(ctx context.Context) ([]models.Node, error) {
+	return getAllNodes(ctx, true)
+}
+
+func getAllNodes(ctx context.Context, withViolations bool) ([]models.Node, error) {
 	var nodes []models.Node
 	_nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithAllPreloads())
 	if err != nil {
@@ -341,7 +356,9 @@ func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 		ensureNodeMutex(node)
 		nodes = append(nodes, *node)
 	}
-	attachPostureViolations(ctx, _nodes, nodes)
+	if withViolations {
+		attachPostureViolations(ctx, _nodes, nodes)
+	}
 
 	return nodes, nil
 }
@@ -349,6 +366,7 @@ func GetAllNodes(ctx context.Context) ([]models.Node, error) {
 // attachPostureViolations loads violations for all nodes in one query and
 // assigns each node's current-cycle violations onto the models.Node slice.
 // schemaNodes and modelsNodes must be the same length and aligned by index.
+// Used by GetAllNodesWithViolations (posture hook), not the high-frequency list API.
 func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, modelsNodes []models.Node) {
 	if len(schemaNodes) == 0 || len(schemaNodes) != len(modelsNodes) {
 		return
@@ -367,7 +385,6 @@ func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, mod
 		slog.Warn("failed to batch-load posture violations", "error", err, "nodes", len(ids))
 		return
 	}
-	// nodeID -> cycleID -> violations
 	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
 	for _, v := range all {
 		cycles := byNodeCycle[v.NodeID]
@@ -385,11 +402,22 @@ func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, mod
 	}
 	for i := range modelsNodes {
 		cycleID := schemaNodes[i].PostureCheckLastEvaluationCycleID
-		if cycleID == "" {
+		cycles := byNodeCycle[schemaNodes[i].ID]
+		if cycles == nil {
 			continue
 		}
-		if cycles, ok := byNodeCycle[schemaNodes[i].ID]; ok {
-			modelsNodes[i].PostureChecksViolations = cycles[cycleID]
+		if cycleID != "" {
+			if v, ok := cycles[cycleID]; ok {
+				modelsNodes[i].PostureChecksViolations = v
+				continue
+			}
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if schemaNodes[i].PostureCheckSeverity != schema.SeverityUnknown {
+			for _, v := range cycles {
+				modelsNodes[i].PostureChecksViolations = v
+				break
+			}
 		}
 	}
 }
@@ -490,7 +518,6 @@ func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
 		ensureNodeMutex(n)
 		modelsNodes[i] = *n
 	}
-	attachPostureViolations(ctx, _nodes, modelsNodes)
 
 	result := make(map[string]models.Node, len(modelsNodes))
 	for i := range modelsNodes {
@@ -659,7 +686,8 @@ type nodeConvertOpts struct {
 type NodeConvertOption func(*nodeConvertOpts)
 
 // SkipViolations skips the per-node posture_check_violations query.
-// Use with attachPostureViolations for batched list loads.
+// Use on list paths: severity/cycle fields on the node row are enough;
+// violation details come from the dedicated violations API or single-node get.
 func SkipViolations() NodeConvertOption {
 	return func(o *nodeConvertOpts) { o.skipViolations = true }
 }
