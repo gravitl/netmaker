@@ -1,55 +1,66 @@
 package models
 
 import (
+	"context"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 )
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID                  string     `json:"id"`
-	Verbosity           int        `json:"verbosity"`
-	FirewallInUse       string     `json:"firewallinuse"`
-	Version             string     `json:"version"`
-	Name                string     `json:"name"`
-	OS                  string     `json:"os"`
-	OSFamily            string     `json:"os_family" yaml:"os_family"`
-	OSVersion           string     `json:"os_version"                      yaml:"os_version"`
-	KernelVersion       string     `json:"kernel_version" yaml:"kernel_version"`
-	Debug               bool       `json:"debug"`
-	IsStaticPort        bool       `json:"isstaticport"`
-	IsStatic            bool       `json:"isstatic"`
-	ListenPort          int        `json:"listenport"`
-	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	TcpProxyEnabled     bool       `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort  int        `json:"tcp_proxy_listen_port"`
-	TcpProxyTLSMode     string     `json:"tcp_proxy_tls_mode"`
-	TcpProxyListenAddr     string     `json:"tcp_proxy_listen_addr,omitempty"`
-	TcpProxyPublicHostname string     `json:"tcp_proxy_public_hostname,omitempty"`
-	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty"`
-	MTU                 int        `json:"mtu"                   yaml:"mtu"`
-	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
-	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
-	EndpointIP          string     `json:"endpointip"            yaml:"endpointip"`
-	EndpointIPv6        string     `json:"endpointipv6"            yaml:"endpointipv6"`
-	PublicKey           string     `json:"publickey"`
-	MacAddress          string     `json:"macaddress"`
-	Nodes               []string   `json:"nodes"`
-	IsDefault           bool       `json:"isdefault"             yaml:"isdefault"`
-	NatType             string     `json:"nat_type"              yaml:"nat_type"`
-	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
-	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
-	DNS                 string     `json:"dns"               yaml:"dns"`
-	EnableFlowLogs      bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
-	Location            string     `json:"location"`
-	CountryCode         string     `json:"country_code"`
+	ID                      string     `json:"id"`
+	Verbosity               int        `json:"verbosity"`
+	FirewallInUse           string     `json:"firewallinuse"`
+	Version                 string     `json:"version"`
+	Name                    string     `json:"name"`
+	OS                      string     `json:"os"`
+	OSFamily                string     `json:"os_family" yaml:"os_family"`
+	OSVersion               string     `json:"os_version"                      yaml:"os_version"`
+	KernelVersion           string     `json:"kernel_version" yaml:"kernel_version"`
+	Debug                   bool       `json:"debug"`
+	IsStaticPort            bool       `json:"isstaticport"`
+	IsStatic                bool       `json:"isstatic"`
+	ListenPort              int        `json:"listenport"`
+	WgPublicListenPort      int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	TcpProxyEnabled         bool       `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort      int        `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode         string     `json:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr      string     `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname  string     `json:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string     `json:"tcp_proxy_cert_fingerprint,omitempty"`
+	MTU                     int        `json:"mtu"                   yaml:"mtu"`
+	Interfaces              []ApiIface `json:"interfaces"            yaml:"interfaces"`
+	DefaultInterface        string     `json:"defaultinterface"      yaml:"defautlinterface"`
+	EndpointIP              string     `json:"endpointip"            yaml:"endpointip"`
+	EndpointIPv6            string     `json:"endpointipv6"            yaml:"endpointipv6"`
+	PublicKey               string     `json:"publickey"`
+	MacAddress              string     `json:"macaddress"`
+	Nodes                   []string   `json:"nodes"`
+	IsDefault               bool       `json:"isdefault"             yaml:"isdefault"`
+	NatType                 string     `json:"nat_type"              yaml:"nat_type"`
+	PersistentKeepalive     int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
+	AutoUpdate              bool       `json:"autoupdate"              yaml:"autoupdate"`
+	DNS                     string     `json:"dns"               yaml:"dns"`
+	EnableFlowLogs          bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	Location                string     `json:"location"`
+	CountryCode             string     `json:"country_code"`
 	// Device-matching identifiers reported by netclient; read-only via the API.
-	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
-	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
-	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	EntraDeviceID string                 `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string                 `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string                 `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	NetworkNodes  map[string]ApiHostNode `json:"network_nodes" yaml:"network_nodes"`
+}
+
+type ApiHostNode struct {
+	ID        string            `json:"id"`
+	Address   string            `json:"address"`
+	Address6  string            `json:"address6"`
+	Status    schema.NodeStatus `json:"status"`
+	Connected bool              `json:"connected"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -60,7 +71,7 @@ type ApiIface struct {
 }
 
 // NewApiHostFromSchemaHost - converts a Netmaker host to an API editable host
-func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
+func NewApiHostFromSchemaHost(h *schema.Host, populateNetworkNodes bool) *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
@@ -112,7 +123,32 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.EntraDeviceID = h.EntraDeviceID
 	a.SerialNumber = h.SerialNumber
 	a.HardwareUUID = h.HardwareUUID
+	if populateNetworkNodes {
+		a.NetworkNodes = getHostNetworkNodes(h)
+	}
 	return &a
+}
+
+// getHostNetworkNodes fetches each node on the host and returns them keyed
+// by network ID, with a freshly computed check-in status.
+func getHostNetworkNodes(h *schema.Host) map[string]ApiHostNode {
+	networkNodes := make(map[string]ApiHostNode)
+	ctx := db.WithContext(context.TODO())
+	for _, nodeID := range h.Nodes {
+		node := &schema.Node{ID: nodeID}
+		if err := node.Get(ctx); err != nil {
+			continue
+		}
+
+		networkNodes[node.NetworkID] = ApiHostNode{
+			ID:        node.ID,
+			Address:   node.Address,
+			Address6:  node.Address6,
+			Status:    node.Status,
+			Connected: node.Connected,
+		}
+	}
+	return networkNodes
 }
 
 // APIHost.ConvertAPIHostToNMHost - convert's a given apihost struct to
