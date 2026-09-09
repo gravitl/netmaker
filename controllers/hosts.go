@@ -487,7 +487,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(newHost)
+	apiHostData := models.NewApiHostFromSchemaHost(newHost, true)
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
@@ -820,7 +820,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(currHost)
+	apiHostData := models.NewApiHostFromSchemaHost(currHost, true)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
@@ -856,7 +856,7 @@ func getHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
 		return
 	}
-	apiHostData := models.NewApiHostFromSchemaHost(host)
+	apiHostData := models.NewApiHostFromSchemaHost(host, true)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "fetched host "+host.Name)
 }
 
