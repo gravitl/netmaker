@@ -187,8 +187,9 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 
 // UpsertViolations replaces stored violations for this node with the latest
 // evaluation cycle, then updates severity / cycle metadata on the node row.
-// Inserts the new cycle and updates the node first, then deletes older cycles,
-// so readers never observe a window with severity set and zero violation rows.
+// Inserts the new cycle and updates the node first, then deletes only the
+// cycle this writer is replacing (the node's previously persisted cycle),
+// so concurrent writers do not erase each other's current rows.
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
 	txCtx := db.BeginTx(ctx)
 	tx := db.FromContext(txCtx)
@@ -200,6 +201,14 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 	}()
 
 	cycleID := n.PostureCheckLastEvaluationCycleID
+
+	var previousCycleID string
+	if err := tx.Model(&Node{}).
+		Select("posture_check_last_evaluation_cycle_id").
+		Where("id = ?", n.ID).
+		Scan(&previousCycleID).Error; err != nil {
+		return err
+	}
 
 	if len(violations) > 0 {
 		for i := range violations {
@@ -228,16 +237,26 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 		return err
 	}
 
-	del := tx.Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
-	}
-	if cycleID != "" {
-		// Keep the cycle we just wrote; drop historical rows.
-		del = del.Where("evaluation_cycle_id <> ?", cycleID)
-	}
-	if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
-		return err
+	// Drop only the cycle we replaced. Deleting "all except new" would also
+	// remove rows from a concurrent writer's newer cycle.
+	if previousCycleID != "" && previousCycleID != cycleID {
+		del := tx.Model(&PostureCheckViolation{}).
+			Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, previousCycleID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	} else if cycleID == "" {
+		// Clean node with no new cycle — purge any leftover rows for this node.
+		del := tx.Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
