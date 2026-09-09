@@ -205,10 +205,11 @@ func (a *Event) HasAction(ctx context.Context, action Action) (bool, error) {
 
 // HasPostureFailureForSubjectType reports whether a POSTURE_CHECK_FAILED event
 // exists whose source JSON has the given subject_type (DEVICE or USER).
+// CAST(... AS TEXT) is required so LIKE works on Postgres jsonb and SQLite.
 func (a *Event) HasPostureFailureForSubjectType(ctx context.Context, subType SubjectType) (bool, error) {
 	query := db.FromContext(ctx).Model(&Event{}).
 		Where("action = ?", PostureCheckFailed).
-		Where("source LIKE ?", fmt.Sprintf(`%%"subject_type":"%s"%%`, subType))
+		Where("CAST(source AS TEXT) LIKE ?", fmt.Sprintf(`%%"subject_type":"%s"%%`, subType))
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}
