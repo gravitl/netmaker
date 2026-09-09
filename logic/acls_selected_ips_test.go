@@ -126,7 +126,7 @@ func TestAppendEgressPolicyRangeExpandsInternet(t *testing.T) {
 	}
 }
 
-func TestApplyInternetExitFromDeviceACL(t *testing.T) {
+func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	t.Cleanup(func() { getEgressByID = originalGetEgressByID })
 
@@ -138,6 +138,13 @@ func TestApplyInternetExitFromDeviceACL(t *testing.T) {
 			Network: "netmaker",
 		},
 	}
+	exitNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      exitID,
+			Network: "netmaker",
+			IsGw:    true,
+		},
+	}
 	eli := []schema.Egress{{
 		ID:      "inet-eg",
 		Network: "netmaker",
@@ -146,21 +153,41 @@ func TestApplyInternetExitFromDeviceACL(t *testing.T) {
 		Range:   "*",
 		Nodes:   datatypes.JSONMap{exitID.String(): json.Number("100")},
 	}}
-	acls := []models.Acl{{
-		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
-	}}
 	getEgressByID = func(id string) (schema.Egress, error) {
 		if id == "inet-eg" {
 			return eli[0], nil
 		}
 		return schema.Egress{}, errors.New("not found")
 	}
+	acls := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+	}}
 
-	applyInternetExitFromDeviceACL(&client, eli, acls)
-	if client.InternetGwID != exitID.String() {
-		t.Fatalf("expected InternetGwID %s from internet ACL, got %q", exitID, client.InternetGwID)
+	// ACL grants access to the internet egress, but the client did not select it.
+	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
+		if r == IPv4Network || r == IPv6Network {
+			t.Fatalf("ACL access alone must not attach default route %s; got %v", r, exitNode.EgressDetails.EgressGatewayRanges)
+		}
+	}
+	if InternetExitRoutingNodeID(&client) != "" {
+		t.Fatalf("client must not be treated as exit client without selection, got %q", InternetExitRoutingNodeID(&client))
+	}
+
+	// Explicit assignment (legacy InternetGwID) still attaches full-tunnel ranges.
+	client.InternetGwID = exitID.String()
+	exitNode.EgressDetails = models.EgressDetails{}
+	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	hasV4 := false
+	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
+		if r == IPv4Network {
+			hasV4 = true
+		}
+	}
+	if !hasV4 {
+		t.Fatalf("explicit exit assignment should attach 0.0.0.0/0, got %v", exitNode.EgressDetails.EgressGatewayRanges)
 	}
 }
 

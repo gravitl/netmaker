@@ -326,9 +326,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
-		if !defaultDevicePolicy.Enabled {
-			applyInternetExitFromDeviceACL(&node, eli, acls)
-		}
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)

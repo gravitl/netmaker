@@ -399,37 +399,6 @@ func ResolveInternetExitRoutingNode(node *models.Node) {
 	}
 }
 
-// applyInternetExitFromDeviceACL sets InternetGwID in-memory when a device ACL
-// grants this node access to a single internet egress and no exit is selected.
-// That attaches the exit node peer (0.0.0.0/0, default gw) the same way explicit
-// exit selection does. Multiple internet exits still require an explicit choice.
-func applyInternetExitFromDeviceACL(node *models.Node, eli []schema.Egress, acls []models.Acl) {
-	if node == nil || node.SelectedInternetEgressID != "" || node.InternetGwID != "" {
-		return
-	}
-	routingID := ""
-	for i := range eli {
-		e := eli[i]
-		if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(e) {
-			continue
-		}
-		if !DoesNodeHaveAccessToEgress(node, &e, acls) {
-			continue
-		}
-		id := FirstInternetEgressRoutingNodeID(e)
-		if id == "" || id == node.ID.String() {
-			continue
-		}
-		if routingID != "" && routingID != id {
-			return
-		}
-		routingID = id
-	}
-	if routingID != "" {
-		node.InternetGwID = routingID
-	}
-}
-
 // FirstInternetEgressRoutingNodeID returns a routing node ID from an internet egress.
 func FirstInternetEgressRoutingNodeID(e schema.Egress) string {
 	for nodeID := range e.Nodes {
@@ -1116,10 +1085,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) && isDefaultPolicyActive {
-			// Default-allow must not auto-full-tunnel every peer. Explicit exit
-			// selection or a specific ACL (handled below when default is off)
-			// is required to attach 0.0.0.0/0.
+		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) {
+			// Never auto-full-tunnel from ACL/gateway access alone. Full-tunnel
+			// (0.0.0.0/0, ::/0) requires explicit exit selection
+			// (SelectedInternetEgressID) or a legacy InternetGwID assignment.
 			continue
 		}
 		if !isDefaultPolicyActive {
