@@ -263,6 +263,15 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	}
 	eli, _ := listEgressByNetwork(ctx, node.Network)
 	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+	GetNodeEgressInfo(node, eli, acls)
+	bypass := SelectedInternetEgressBypasses(node)
+	viewerIsSpecificEgress := PeerAdvertisesSpecificEgress(node)
+	var defaultPolicy models.Acl
+	if bypass {
+		// Only needed for access-filtering when BypassEgressRoutes is on; skip the
+		// DB lookup otherwise so unit tests without a store still work.
+		defaultPolicy, _ = GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	}
 	excludeID := node.ID.String()
 	seen := map[string]struct{}{}
 	add := func(relayedNodeID string) {
@@ -278,6 +287,20 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			return
 		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
+		unfilteredSpecific := PeerAdvertisesSpecificEgress(&relayedNode)
+		if bypass {
+			// Access-filter before deciding whether this relayed node is a
+			// specific-egress peer that should stay direct (not via this relay).
+			AddEgressInfoToPeerByAccess(node, &relayedNode, eli, acls, defaultPolicy.Enabled)
+			if unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode) {
+				return
+			}
+		}
+		// Reverse of bypass: specific-egress GWs keep bypass clients as direct
+		// peers — do not also advertise those clients' overlays under the exit.
+		if viewerIsSpecificEgress && SelectedInternetEgressBypasses(&relayedNode) {
+			return
+		}
 		allowedIPs = append(allowedIPs, allowedIPsFromRelayedNode(&relayedNode)...)
 	}
 	for _, relayedNodeID := range peer.RelayedNodes {
@@ -335,6 +358,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
 	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
+	bypass := SelectedInternetEgressBypasses(relayed)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
@@ -342,7 +366,16 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		if !IsPeerAllowed(ctx, *relayed, peer, true) {
 			continue
 		}
+		GetNodeEgressInfo(&peer, eli, acls)
+		unfilteredSpecific := PeerAdvertisesSpecificEgress(&peer)
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
+		// When BypassEgressRoutes is on, specific-egress gateways are retained as
+		// direct WireGuard peers. Do not also advertise their AllowedIPs through the
+		// exit/relay — WireGuard AllowedIPs are unique across peers, so duplicating
+		// them on the exit steals routes from the direct peer (empty AllowedIPs).
+		if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&peer)) {
+			continue
+		}
 		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
 	}
 	return
@@ -366,16 +399,37 @@ func getRelayedAddresses(id string) []net.IPNet {
 	return addrs
 }
 
+// skipBypassClientOverlayOnExitPeer is true when viewer is a specific-egress
+// gateway and clientID is a bypass IGW client. Those clients are retained as
+// direct peers, so their overlay must not also appear under the exit peer.
+func skipBypassClientOverlayOnExitPeer(viewer *models.Node, clientID string) bool {
+	if viewer == nil || !PeerAdvertisesSpecificEgress(viewer) {
+		return false
+	}
+	client, err := GetNodeByID(clientID)
+	if err != nil {
+		return false
+	}
+	return SelectedInternetEgressBypasses(&client)
+}
+
 // ExitClientOverlayIPs returns /32 and /128 overlay addresses for clients in
-// peer.RelayedNodes and peer.InetNodeReq.InetNodeClientIDs, excluding excludeID.
-func ExitClientOverlayIPs(peer *models.Node, excludeID string) []net.IPNet {
+// peer.RelayedNodes and peer.InetNodeReq.InetNodeClientIDs, excluding viewer.
+func ExitClientOverlayIPs(peer, viewer *models.Node) []net.IPNet {
 	if peer == nil {
 		return nil
+	}
+	excludeID := ""
+	if viewer != nil {
+		excludeID = viewer.ID.String()
 	}
 	seen := map[string]struct{}{}
 	var out []net.IPNet
 	add := func(id string) {
 		if id == "" || id == excludeID {
+			return
+		}
+		if skipBypassClientOverlayOnExitPeer(viewer, id) {
 			return
 		}
 		if _, ok := seen[id]; ok {
@@ -395,9 +449,13 @@ func ExitClientOverlayIPs(peer *models.Node, excludeID string) []net.IPNet {
 
 // ExitClientOverlayIPsFromInetClients returns overlay IPs for InetNodeClientIDs
 // that are not already listed in RelayedNodes (RelayedAllowedIPs covers those).
-func ExitClientOverlayIPsFromInetClients(peer *models.Node, excludeID string) []net.IPNet {
+func ExitClientOverlayIPsFromInetClients(peer, viewer *models.Node) []net.IPNet {
 	if peer == nil || len(peer.InetNodeReq.InetNodeClientIDs) == 0 {
 		return nil
+	}
+	excludeID := ""
+	if viewer != nil {
+		excludeID = viewer.ID.String()
 	}
 	inRelayed := map[string]struct{}{}
 	for _, id := range peer.RelayedNodes {
@@ -409,6 +467,9 @@ func ExitClientOverlayIPsFromInetClients(peer *models.Node, excludeID string) []
 			continue
 		}
 		if _, ok := inRelayed[id]; ok {
+			continue
+		}
+		if skipBypassClientOverlayOnExitPeer(viewer, id) {
 			continue
 		}
 		out = append(out, getRelayedAddresses(id)...)

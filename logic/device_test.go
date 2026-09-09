@@ -114,6 +114,8 @@ func TestRegisterDevice(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, hostID, resp.RequestedHost.ID)
 	assert.Equal(t, owner, resp.RequestedHost.OwnerUsername)
+	assert.Equal(t, scope.ID(ctx), resp.RequestedHost.TenantID)
+	assert.Equal(t, scope.ID(ctx), resp.ServerConf.TenantID)
 
 	otherUser := &schema.User{Username: other, PlatformRoleID: schema.AdminRole}
 	require.NoError(t, otherUser.Create(ctx))
@@ -564,4 +566,58 @@ func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
 	_, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.Error(t, err)
 	assert.Equal(t, "operation not permitted", err.Error())
+}
+
+func TestRegisterDevice_requiresTenantScope(t *testing.T) {
+	user := &schema.User{Username: "reg-user-" + uuid.NewString()[:8]}
+	host := &schema.Host{
+		ID:               uuid.New(),
+		Name:             "reg-host",
+		Version:          "dev",
+		OS:               "linux",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		HostPass:         "pass",
+	}
+	_, err := RegisterDevice(context.TODO(), user, host)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant id is required")
+}
+
+func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
+	ctx := scopedTestContext(t)
+	tenantID := scope.ID(ctx)
+	require.NotEmpty(t, tenantID)
+
+	owner := "reg-xt-" + uuid.NewString()[:8]
+	user := &schema.User{Username: owner, PlatformRoleID: schema.AdminRole}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "cross-tenant-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-host-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		TenantID:         "should-be-overwritten",
+	}
+	resp, err := RegisterDevice(ctx, user, host)
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, resp.RequestedHost.TenantID)
+	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
+
+	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, "other-tenant-"+uuid.NewString())
+	dup := &schema.Host{
+		ID:               hostID,
+		Name:             "cross-tenant-host",
+		OS:               "linux",
+		Version:          "dev",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		HostPass:         "test-host-pass",
+	}
+	_, err = RegisterDevice(otherCtx, user, dup)
+	require.Error(t, err)
+	assert.Equal(t, "host already registered to another tenant", err.Error())
 }

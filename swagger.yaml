@@ -700,6 +700,9 @@ definitions:
     type: object
   models.EgressReq:
     properties:
+      bypass_egress_routes:
+        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match. Defaults to true when omitted on create.
+        type: boolean
       description:
         type: string
       domains:
@@ -2383,6 +2386,9 @@ definitions:
     - ClientLocation
   schema.Egress:
     properties:
+      bypass_egress_routes:
+        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match.
+        type: boolean
       created_at:
         type: string
       created_by:
