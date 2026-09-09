@@ -191,6 +191,86 @@ func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *tes
 	}
 }
 
+func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() { getEgressByID = originalGetEgressByID })
+
+	clientID := uuid.New()
+	exitID := uuid.New()
+	eli := []schema.Egress{{
+		ID:      "inet-eg",
+		Network: "netmaker",
+		Status:  true,
+		Type:    schema.EgressTypeInternet,
+		Range:   "*",
+		Nodes:   datatypes.JSONMap{exitID.String(): json.Number("100")},
+	}}
+	getEgressByID = func(id string) (schema.Egress, error) {
+		if id == "inet-eg" {
+			return eli[0], nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+
+	allowACL := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+	}}
+	denyACLs := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: exitID.String()}}, // gateway node only, not egress
+	}}
+
+	// Assigned exit + ACL grants egress access → keep exit.
+	client := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      clientID,
+			Network: "netmaker",
+		},
+		SelectedInternetEgressID: "inet-eg",
+		InternetGwID:             exitID.String(),
+	}
+	SuppressInternetExitIfNoACLAccess(&client, eli, allowACL, false)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when ACL allows egress, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Assigned exit but policy does not include exit egress → suppress for this update.
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, false)
+	if client.SelectedInternetEgressID != "" || client.InternetGwID != "" {
+		t.Fatalf("expected exit suppressed without egress ACL, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Default device policy on → do not suppress even without egress ACL.
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, true)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when default policy enabled, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Policy includes node with dst all-resources ("*") → keep assigned exit.
+	allResourcesACL := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+	}}
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, allResourcesACL, false)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when policy dst is all-resources, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+}
+
 func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork

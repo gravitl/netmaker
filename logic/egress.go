@@ -399,6 +399,62 @@ func ResolveInternetExitRoutingNode(node *models.Node) {
 	}
 }
 
+// assignedInternetEgress returns the active internet egress this node is configured to use
+// (SelectedInternetEgressID, or legacy InternetGwID matched against eli routing nodes).
+func assignedInternetEgress(node *models.Node, eli []schema.Egress) *schema.Egress {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		for i := range eli {
+			e := &eli[i]
+			if e.ID == node.SelectedInternetEgressID && e.Status && e.Network == node.Network && IsEgressInternetGateway(*e) {
+				return e
+			}
+		}
+		return nil
+	}
+	if node.InternetGwID == "" {
+		return nil
+	}
+	for i := range eli {
+		e := &eli[i]
+		if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(*e) {
+			continue
+		}
+		if _, ok := e.Nodes[node.InternetGwID]; ok {
+			return e
+		}
+	}
+	return nil
+}
+
+// SuppressInternetExitIfNoACLAccess clears the in-memory exit assignment for this peer
+// update when the node is not allowed to use its assigned internet egress. Sticky DB
+// selection is preserved; full-tunnel and default-gw changes are not applied.
+//
+// Exit is applied when the node is assigned an exit and any of:
+//   - the default device (all-resources) policy is enabled
+//   - an enabled policy that includes this node has dst all-resources ("*")
+//   - an enabled policy that includes this node has the exit egress in dst
+func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
+	if node == nil || defaultDevicePolicyEnabled {
+		return
+	}
+	if node.SelectedInternetEgressID == "" && node.InternetGwID == "" {
+		return
+	}
+	e := assignedInternetEgress(node, eli)
+	if e == nil {
+		return
+	}
+	if DoesNodeHaveAccessToEgress(node, e, acls) {
+		return
+	}
+	node.SelectedInternetEgressID = ""
+	node.InternetGwID = ""
+}
+
 // FirstInternetEgressRoutingNodeID returns a routing node ID from an internet egress.
 func FirstInternetEgressRoutingNodeID(e schema.Egress) string {
 	for nodeID := range e.Nodes {
