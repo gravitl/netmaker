@@ -77,6 +77,9 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 				}
 			}
 		}
+		if err := logic.ValidateWindowsEgressNATMode(*e); err != nil {
+			return err
+		}
 	}
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
@@ -88,6 +91,21 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		}
 		if logic.IsEgressInternetGateway(*e) {
 			return errors.New("internet egress must use explicit routing nodes, not tags")
+		}
+		// Tag-based egress clears e.Nodes above; resolve tag members and reject
+		// Windows + virtual NAT the same way as explicit routing nodes.
+		resolved := make(datatypes.JSONMap)
+		for tagID := range e.Tags {
+			for nodeID := range GetNodesWithTag(ctx, models.TagID(tagID)) {
+				resolved[nodeID] = true
+			}
+		}
+		if len(resolved) > 0 {
+			check := *e
+			check.Nodes = resolved
+			if err := logic.ValidateWindowsEgressNATMode(check); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
