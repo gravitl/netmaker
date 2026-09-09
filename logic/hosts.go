@@ -123,9 +123,9 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 
 // GetAllHostsAPI - get's all the hosts in an API usable format
 func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
-	apiHosts := []models.ApiHost{}
+	var apiHosts []models.ApiHost
 	for i := range hosts {
-		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i])
+		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i], true)
 		apiHosts = append(apiHosts, *newApiHost)
 	}
 	return apiHosts[:]
