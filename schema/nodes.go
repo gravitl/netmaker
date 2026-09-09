@@ -185,41 +185,117 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	return int(count), err
 }
 
+// UpsertViolations replaces stored violations for this node with the latest
+// evaluation cycle, then updates severity / cycle metadata on the node row.
+// Inserts the new cycle and updates the node first, then deletes only the
+// cycle this writer is replacing (the node's previously persisted cycle),
+// so concurrent writers do not erase each other's current rows.
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
+	txCtx := db.BeginTx(ctx)
+	tx := db.FromContext(txCtx)
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	cycleID := n.PostureCheckLastEvaluationCycleID
+
+	var previousCycleID string
+	if err := tx.Model(&Node{}).
+		Select("posture_check_last_evaluation_cycle_id").
+		Where("id = ?", n.ID).
+		Scan(&previousCycleID).Error; err != nil {
+		return err
+	}
+
 	if len(violations) > 0 {
 		for i := range violations {
 			if violations[i].TenantID == "" {
 				violations[i].TenantID = n.TenantID
 			}
+			if violations[i].NodeID == "" {
+				violations[i].NodeID = n.ID
+			}
+			if violations[i].EvaluationCycleID == "" {
+				violations[i].EvaluationCycleID = cycleID
+			}
 		}
-
-		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
-		if err != nil {
+		if err := tx.Model(&PostureCheckViolation{}).Create(&violations).Error; err != nil {
 			return err
 		}
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
+	if err := tx.Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("posture_check_severity", n.PostureCheckSeverity).
-		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
-		Update("posture_check_last_evaluated_at", n.PostureCheckLastEvaluatedAt).
-		Error
+		Updates(map[string]interface{}{
+			"posture_check_severity":                 n.PostureCheckSeverity,
+			"posture_check_last_evaluation_cycle_id": cycleID,
+			"posture_check_last_evaluated_at":        n.PostureCheckLastEvaluatedAt,
+		}).Error; err != nil {
+		return err
+	}
+
+	// Drop only the cycle we replaced. Deleting "all except new" would also
+	// remove rows from a concurrent writer's newer cycle.
+	if previousCycleID != "" && previousCycleID != cycleID {
+		del := tx.Model(&PostureCheckViolation{}).
+			Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, previousCycleID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	} else if cycleID == "" {
+		// Clean node with no new cycle — purge any leftover rows for this node.
+		del := tx.Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
-	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
 	}
-	err := query.Find(&violations).Error
+
+	if n.PostureCheckLastEvaluationCycleID != "" {
+		err := query.Where("evaluation_cycle_id = ?", n.PostureCheckLastEvaluationCycleID).Find(&violations).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(violations) > 0 || n.PostureCheckSeverity == SeverityUnknown {
+			return violations, nil
+		}
+	}
+
+	// Fallback when severity says violated but the stored cycle has no rows
+	// (partial upsert from older delete-first writers).
+	fallback := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		fallback = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(fallback)
+	}
+	err := fallback.Find(&violations).Error
 	return violations, err
 }
 
 // ListViolationsByNodeIDs fetches posture violations for many nodes in one query.
-// Callers should filter by each node's PostureCheckLastEvaluationCycleID in memory.
+// Prefer after UpsertViolations (which replaces cycles) so only current rows remain.
+// Callers should still filter by each node's PostureCheckLastEvaluationCycleID.
 func ListViolationsByNodeIDs(ctx context.Context, nodeIDs []string) ([]PostureCheckViolation, error) {
 	if len(nodeIDs) == 0 {
 		return nil, nil
