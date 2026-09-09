@@ -266,7 +266,12 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 	GetNodeEgressInfo(node, eli, acls)
 	bypass := SelectedInternetEgressBypasses(node)
 	viewerIsSpecificEgress := PeerAdvertisesSpecificEgress(node)
-	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	var defaultPolicy models.Acl
+	if bypass {
+		// Only needed for access-filtering when BypassEgressRoutes is on; skip the
+		// DB lookup otherwise so unit tests without a store still work.
+		defaultPolicy, _ = GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	}
 	excludeID := node.ID.String()
 	seen := map[string]struct{}{}
 	add := func(relayedNodeID string) {
