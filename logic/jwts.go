@@ -23,6 +23,15 @@ import (
 
 var jwtSecretKey []byte
 
+var ErrJWTSecretNotSet = errors.New("jwt secret not initialized")
+
+func jwtKeyFunc(_ *jwt.Token) (interface{}, error) {
+	if len(jwtSecretKey) == 0 {
+		return nil, ErrJWTSecretNotSet
+	}
+	return jwtSecretKey, nil
+}
+
 // SetJWTSecret - sets the jwt secret on server startup
 func SetJWTSecret() {
 	currentSecret, jwtErr := GetJwtSecretValue()
@@ -37,8 +46,23 @@ func SetJWTSecret() {
 	}
 }
 
+func LoadJWTSecret() error {
+	currentSecret, err := GetJwtSecretValue()
+	if err != nil {
+		return err
+	}
+	if currentSecret == "" {
+		return errors.New("jwt secret is empty")
+	}
+	jwtSecretKey = []byte(currentSecret)
+	return nil
+}
+
 // CreateJWT func will used to create the JWT while signing in and signing out
 func CreateJWT(uuid string, macAddress string, network string) (response string, err error) {
+	if len(jwtSecretKey) == 0 {
+		return "", ErrJWTSecretNotSet
+	}
 	expirationTime := time.Now().Add(15 * time.Minute)
 	claims := &models.Claims{
 		ID:         uuid,
@@ -62,6 +86,9 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time, tokenID string) (response string, err error) {
+	if len(jwtSecretKey) == 0 {
+		return "", ErrJWTSecretNotSet
+	}
 	claims := &models.UserClaims{
 		Scope:     scope.Level(ctx),
 		ScopeID:   scope.ID(ctx),
@@ -87,6 +114,9 @@ func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(ctx context.Context, username string, appName string) (response string, err error) {
+	if len(jwtSecretKey) == 0 {
+		return "", ErrJWTSecretNotSet
+	}
 	duration := time.Duration(12) * time.Hour
 	if scope.Level(ctx) == scope.TenantScope {
 		duration = GetJwtValidityDuration(ctx)
@@ -123,6 +153,9 @@ func CreateUserJWT(ctx context.Context, username string, appName string) (respon
 // that PreAuthCheck can confirm the token was issued for the scope it's
 // being redeemed in.
 func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
+	if len(jwtSecretKey) == 0 {
+		return "", ErrJWTSecretNotSet
+	}
 	claims := &models.UserClaims{
 		Scope:     scope.Level(ctx),
 		ScopeID:   scope.ID(ctx),
@@ -142,12 +175,19 @@ func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
 }
 
 func GenerateOTPAuthURLSignature(url string) string {
+	if len(jwtSecretKey) == 0 {
+		logger.Log(0, "jwt secret not initialized, refusing to sign otp auth url")
+		return ""
+	}
 	signer := hmac.New(sha256.New, jwtSecretKey)
 	signer.Write([]byte(url))
 	return hex.EncodeToString(signer.Sum(nil))
 }
 
 func VerifyOTPAuthURL(url, signature string) bool {
+	if len(jwtSecretKey) == 0 {
+		return false
+	}
 	signatureBytes, err := hex.DecodeString(signature)
 	if err != nil {
 		return false
@@ -173,9 +213,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		return MasterUser, nil
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecretKey, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, claims, jwtKeyFunc)
 	if err != nil {
 		logger.Log(4, "unauthorized: jwt parse/signature failed:", err.Error())
 		return "", Unauthorized_Err
@@ -238,9 +276,7 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 		return MasterUser, true, true, nil
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecretKey, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, claims, jwtKeyFunc)
 	if err != nil {
 		return "", false, false, err
 	}
@@ -375,9 +411,7 @@ func VerifyHostToken(ctx context.Context, tokenString string) (hostID string, ma
 		return MasterUser, "", "", nil
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecretKey, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, claims, jwtKeyFunc)
 
 	if token != nil && token.Valid {
 		if !strings.HasPrefix(claims.Subject, "node|") {
