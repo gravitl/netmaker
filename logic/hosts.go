@@ -595,6 +595,28 @@ func GetHostNetworks(ctx context.Context, hostID string) []string {
 	return nets
 }
 
+// HostsShareNetwork - returns true if the two hosts have at least one network in common
+func HostsShareNetwork(ctx context.Context, hostID1, hostID2 string) bool {
+	if hostID1 == hostID2 {
+		return true
+	}
+	networks1 := GetHostNetworks(ctx, hostID1)
+	if len(networks1) == 0 {
+		return false
+	}
+	networks2 := GetHostNetworks(ctx, hostID2)
+	shared := make(map[string]struct{}, len(networks1))
+	for _, n := range networks1 {
+		shared[n] = struct{}{}
+	}
+	for _, n := range networks2 {
+		if _, ok := shared[n]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // CheckHostPorts checks host endpoints to ensures that hosts on the same server
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
