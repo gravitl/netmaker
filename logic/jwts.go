@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -21,15 +22,31 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var jwtSecretKey []byte
+var (
+	jwtSecretKey   []byte
+	jwtSecretKeyMu sync.RWMutex
+)
 
 var ErrJWTSecretNotSet = errors.New("jwt secret not initialized")
 
+func getJWTSecretKey() []byte {
+	jwtSecretKeyMu.RLock()
+	defer jwtSecretKeyMu.RUnlock()
+	return jwtSecretKey
+}
+
+func setJWTSecretKey(key []byte) {
+	jwtSecretKeyMu.Lock()
+	defer jwtSecretKeyMu.Unlock()
+	jwtSecretKey = key
+}
+
 func jwtKeyFunc(_ *jwt.Token) (interface{}, error) {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return nil, ErrJWTSecretNotSet
 	}
-	return jwtSecretKey, nil
+	return key, nil
 }
 
 // SetJWTSecret - sets the jwt secret on server startup
@@ -37,12 +54,13 @@ func SetJWTSecret() {
 	currentSecret, jwtErr := GetJwtSecretValue()
 	if jwtErr != nil {
 		newValue := RandomString(64)
-		jwtSecretKey = []byte(newValue) // 512 bit random password
-		if err := StoreJWTSecret(string(jwtSecretKey)); err != nil {
+		key := []byte(newValue) // 512 bit random password
+		setJWTSecretKey(key)
+		if err := StoreJWTSecret(string(key)); err != nil {
 			logger.FatalLog("something went wrong when configuring JWT authentication")
 		}
 	} else {
-		jwtSecretKey = []byte(currentSecret)
+		setJWTSecretKey([]byte(currentSecret))
 	}
 }
 
@@ -54,13 +72,14 @@ func LoadJWTSecret() error {
 	if currentSecret == "" {
 		return errors.New("jwt secret is empty")
 	}
-	jwtSecretKey = []byte(currentSecret)
+	setJWTSecretKey([]byte(currentSecret))
 	return nil
 }
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func CreateJWT(uuid string, macAddress string, network string) (response string, err error) {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return "", ErrJWTSecretNotSet
 	}
 	expirationTime := time.Now().Add(15 * time.Minute)
@@ -77,7 +96,7 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecretKey)
+	tokenString, err := token.SignedString(key)
 	if err == nil {
 		return tokenString, nil
 	}
@@ -86,7 +105,8 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time, tokenID string) (response string, err error) {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return "", ErrJWTSecretNotSet
 	}
 	claims := &models.UserClaims{
@@ -105,7 +125,7 @@ func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecretKey)
+	tokenString, err := token.SignedString(key)
 	if err == nil {
 		return tokenString, nil
 	}
@@ -114,7 +134,8 @@ func CreateUserAccessJwtToken(ctx context.Context, username string, d time.Time,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(ctx context.Context, username string, appName string) (response string, err error) {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return "", ErrJWTSecretNotSet
 	}
 	duration := time.Duration(12) * time.Hour
@@ -140,7 +161,7 @@ func CreateUserJWT(ctx context.Context, username string, appName string) (respon
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecretKey)
+	tokenString, err := token.SignedString(key)
 	if err == nil {
 		return tokenString, nil
 	}
@@ -153,7 +174,8 @@ func CreateUserJWT(ctx context.Context, username string, appName string) (respon
 // that PreAuthCheck can confirm the token was issued for the scope it's
 // being redeemed in.
 func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return "", ErrJWTSecretNotSet
 	}
 	claims := &models.UserClaims{
@@ -171,21 +193,23 @@ func CreatePreAuthToken(ctx context.Context, username string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecretKey)
+	return token.SignedString(key)
 }
 
 func GenerateOTPAuthURLSignature(url string) string {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		logger.Log(0, "jwt secret not initialized, refusing to sign otp auth url")
 		return ""
 	}
-	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer := hmac.New(sha256.New, key)
 	signer.Write([]byte(url))
 	return hex.EncodeToString(signer.Sum(nil))
 }
 
 func VerifyOTPAuthURL(url, signature string) bool {
-	if len(jwtSecretKey) == 0 {
+	key := getJWTSecretKey()
+	if len(key) == 0 {
 		return false
 	}
 	signatureBytes, err := hex.DecodeString(signature)
@@ -193,7 +217,7 @@ func VerifyOTPAuthURL(url, signature string) bool {
 		return false
 	}
 
-	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer := hmac.New(sha256.New, key)
 	signer.Write([]byte(url))
 	return hmac.Equal(signatureBytes, signer.Sum(nil))
 }
