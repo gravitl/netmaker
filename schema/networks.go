@@ -167,8 +167,20 @@ func (n *Network) UpdateNodesUpdatedAt(ctx context.Context) error {
 	}
 
 	return query.
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"nodes_updated_at": n.NodesUpdatedAt,
 		}).
 		Error
+}
+
+func (n *Network) UpdateAutoRemoveTags(ctx context.Context) error {
+	query, err := n.baseIdentifierQuery(ctx)
+	if err != nil {
+		return err
+	}
+
+	return query.
+		Updates(map[string]any{
+			"auto_remove_tags": n.AutoRemoveTags,
+		}).Error
 }
