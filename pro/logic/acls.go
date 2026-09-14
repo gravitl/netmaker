@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"net"
 
@@ -570,6 +571,13 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 	if acl.AllowedDirection != models.TrafficDirectionBi &&
 		acl.AllowedDirection != models.TrafficDirectionUni {
 		return errors.New("invalid traffic direction")
+	}
+	if acl.ServiceType == models.ManagedSSH {
+		if acl.Proto != models.TCP || len(acl.Port) != 1 || acl.Port[0] != models.ManagedSSHPort {
+			return fmt.Errorf("a Managed SSH policy must use tcp/%s", models.ManagedSSHPort)
+		}
+	} else if len(acl.SSHUsers) > 0 {
+		return errors.New("ssh_users is only valid on a Managed SSH policy")
 	}
 	switch acl.RuleType {
 	case models.UserPolicy:
