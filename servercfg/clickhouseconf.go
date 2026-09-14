@@ -17,6 +17,10 @@ func GetClickHouseConfig() config.ClickHouseConfig {
 	}
 }
 
+func IsClickHouseConfigured() bool {
+	return os.Getenv("CLICKHOUSE_HOST") != ""
+}
+
 func GetClickHouseHost() string {
 	host := "localhost"
 	if os.Getenv("CLICKHOUSE_HOST") != "" {
