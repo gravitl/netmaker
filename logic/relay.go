@@ -359,6 +359,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
 	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
 	bypass := SelectedInternetEgressBypasses(relayed)
+	inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
@@ -369,10 +370,13 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		GetNodeEgressInfo(&peer, eli, acls)
 		unfilteredSpecific := PeerAdvertisesSpecificEgress(&peer)
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		// When BypassEgressRoutes is on, specific-egress gateways are retained as
-		// direct WireGuard peers. Do not also advertise their AllowedIPs through the
-		// exit/relay — WireGuard AllowedIPs are unique across peers, so duplicating
-		// them on the exit steals routes from the direct peer (empty AllowedIPs).
+		// Internet exit routing nodes (and bypass site-egress gateways) are retained
+		// as direct WireGuard peers. Do not also advertise their AllowedIPs through
+		// the exit/relay — WireGuard AllowedIPs are unique across peers, so
+		// duplicating them on the exit steals routes from the direct peer.
+		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
+			continue
+		}
 		if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&peer)) {
 			continue
 		}

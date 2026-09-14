@@ -326,6 +326,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
+		inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 		if !defaultDevicePolicy.Enabled {
 			applyInternetExitFromDeviceACL(&node, eli, acls)
 		}
@@ -472,7 +473,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// that carry those ranges) so site CIDRs do not hairpin through the exit.
 				// The reverse also applies: specific-egress gateways retain bypass
 				// clients as direct peers so return traffic is not forced via the exit.
-				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress) {
+				//
+				// Internet exit routing nodes are always retained as direct peers
+				// (same idea as bypass site-egress), including alternate exits.
+				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, inetExitRouterIDs) {
 					retainDespiteRelay = true
 					// fall through to normal peer config
 				} else {
@@ -1130,9 +1134,27 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 // should keep a WireGuard peer that would otherwise be removed (mesh via exit only).
 // unfilteredSpecific is true when peer advertised specific egress CIDRs before
 // access filtering (AddEgressInfoToPeerByAccess can clear EgressDetails).
-func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool) bool {
+// inetExitRouterIDs lists active internet-egress routing node IDs for the network.
+func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool, inetExitRouterIDs map[string]struct{}) bool {
 	if usesPeerAsInternetExit(node, peer) {
 		return true
+	}
+	// Always keep internet exit routing nodes as direct peers (same fashion as
+	// bypass retaining site-egress gateways) so clients can reach/probe every
+	// exit even while hairpinned through another exit. Default routes still only
+	// attach via usesPeerAsInternetExit.
+	if peer != nil {
+		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
+			return true
+		}
+	}
+	// Reverse: exit routers keep exit clients as direct peers so handshakes work.
+	if node != nil {
+		if _, ok := inetExitRouterIDs[node.ID.String()]; ok {
+			if peer != nil && (peer.SelectedInternetEgressID != "" || peer.InternetGwID != "") {
+				return true
+			}
+		}
 	}
 	// Bypass is bidirectional: the client must keep the specific-egress gateway,
 	// and the gateway must keep the bypass client as a direct peer (otherwise the

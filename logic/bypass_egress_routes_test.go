@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
 
 func TestInternetEgressBypassesEgressRoutes(t *testing.T) {
@@ -105,7 +106,7 @@ func TestShouldRetainPeerDespiteRelay_ExitPeerAlways(t *testing.T) {
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false))
+	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
@@ -131,7 +132,7 @@ func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
 		IsEgressGateway:     true,
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, nil),
 		"without selected internet egress, specific egress peers must not be retained via bypass")
 }
 
@@ -154,7 +155,7 @@ func TestShouldRetainPeerDespiteRelay_NonIGWRelayedStillRemoves(t *testing.T) {
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(meshPeer))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false))
+	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing.T) {
@@ -185,7 +186,7 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
 	require.True(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false),
+	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false, nil),
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
 }
 
@@ -208,8 +209,50 @@ func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, nil),
 		"unfiltered specific egress still requires BypassEgressRoutes on the selected internet egress")
+}
+
+func TestShouldRetainPeerDespiteRelay_AllInternetExitRouters(t *testing.T) {
+	selectedExitID := uuid.New()
+	otherExitID := uuid.New()
+	client := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+	}
+	client.IsRelayed = true
+	client.RelayedBy = selectedExitID.String()
+	client.InternetGwID = selectedExitID.String()
+	client.SelectedInternetEgressID = "inet-eg-1"
+
+	otherExit := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      otherExitID,
+			Network: "testnet",
+		},
+	}
+	inetExits := map[string]struct{}{
+		selectedExitID.String(): {},
+		otherExitID.String():    {},
+	}
+	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, inetExits),
+		"alternate internet exit routing nodes must stay as direct peers")
+	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, inetExits),
+		"exit routers must keep exit clients as direct peers for handshakes")
+}
+
+func TestInternetEgressRoutingNodeIDsFromList(t *testing.T) {
+	exitA := uuid.New().String()
+	exitB := uuid.New().String()
+	got := InternetEgressRoutingNodeIDsFromList([]schema.Egress{
+		{Status: true, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{exitA: true}},
+		{Status: false, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{exitB: true}},
+		{Status: true, Type: schema.EgressTypeCIDR, Range: "10.0.0.0/8", Nodes: datatypes.JSONMap{exitB: true}},
+		{Status: true, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{exitB: true}},
+	})
+	assert.Equal(t, map[string]struct{}{exitA: {}, exitB: {}}, got)
 }
 
 func TestFilterConflictingEgressRoutesKeepsSpecificWhenNotExit(t *testing.T) {

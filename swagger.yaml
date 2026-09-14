@@ -5852,6 +5852,17 @@ paths:
       - Traffic Logs
   /api/v1/host:
     get:
+      parameters:
+      - description: Bypass peer-update cache and recompute
+        in: query
+        name: refresh
+        required: false
+        type: boolean
+      - description: Reset auto-relay failover peers and refresh peer update
+        in: query
+        name: reset_failovered
+        required: false
+        type: boolean
       produces:
       - application/json
       responses:

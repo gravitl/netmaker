@@ -154,6 +154,23 @@ func InternetEgressBypassesEgressRoutes(e schema.Egress) bool {
 	return IsEgressInternetGateway(e) && e.BypassEgressRoutes
 }
 
+// InternetEgressRoutingNodeIDsFromList returns node IDs that route any active
+// internet egress in the given egress list.
+func InternetEgressRoutingNodeIDsFromList(eli []schema.Egress) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, e := range eli {
+		if !e.Status || !IsEgressInternetGateway(e) {
+			continue
+		}
+		for nodeID := range e.Nodes {
+			if nodeID != "" {
+				out[nodeID] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
 // ResolveBypassEgressRoutesForCreate returns the bypass flag for a new internet egress.
 // Defaults to true when the request omits the field.
 func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) bool {
