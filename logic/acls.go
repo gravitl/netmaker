@@ -58,8 +58,200 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 	return rules
 }
 
-var GetSshAuthorizedIdentitiesForNode = func(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
-	return map[string]models.SSHAuthorizedIdentity{}
+var GetUserGrpMap = func() map[schema.UserGroupID]map[string]struct{} {
+	return map[schema.UserGroupID]map[string]struct{}{}
+}
+
+func GetStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNodes []models.Node) {
+	extClients, err := GetAllExtClients(ctx)
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() && extI.RemoteAccessClientID != "" {
+			staticNodes = append(staticNodes, models.ConvertToStaticNode(extI))
+		}
+	}
+	return
+}
+
+func ValidateManagedSshAcl(acl models.Acl) error {
+	if acl.ServiceType == models.ManagedSSH {
+		if acl.Proto != models.TCP || len(acl.Port) != 1 || acl.Port[0] != models.ManagedSSHPort {
+			return fmt.Errorf("a Managed SSH policy must use tcp/%s", models.ManagedSSHPort)
+		}
+		return nil
+	}
+	if len(acl.SSHUsers) > 0 {
+		return errors.New("ssh_users is only valid on a Managed SSH policy")
+	}
+	return nil
+}
+
+// listManagedSshPolicies lists all enabled Managed SSH acl policies in a network.
+func listManagedSshPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	var result []models.Acl
+	for _, acl := range ListAcls(ctx) {
+		if acl.NetworkID == netID && acl.Enabled && acl.ServiceType == models.ManagedSSH {
+			result = append(result, acl)
+		}
+	}
+	return result
+}
+
+func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
+	osUsersByAddr := make(map[string]map[string]struct{})
+	netID := schema.NetworkID(targetnode.Network)
+	policies := listManagedSshPolicies(ctx, netID)
+	if len(policies) == 0 {
+		return map[string]models.SSHAuthorizedIdentity{}
+	}
+
+	var targetNodeTags map[models.TagID]struct{}
+	if targetnode.Mutex != nil {
+		targetnode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetnode.Tags)
+		targetnode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetnode.Tags)
+	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
+	}
+	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
+
+	grant := func(addr net.IP, osUsers map[string]struct{}) {
+		if addr == nil || addr.IsUnspecified() || len(osUsers) == 0 {
+			return
+		}
+		key := peerAddrKey(addr)
+		set, ok := osUsersByAddr[key]
+		if !ok {
+			set = make(map[string]struct{}, len(osUsers))
+			osUsersByAddr[key] = set
+		}
+		maps.Copy(set, osUsers)
+	}
+
+	var (
+		userGrpMap  map[schema.UserGroupID]map[string]struct{}
+		userNodes   []models.Node
+		tagNodesMap map[models.TagID][]models.Node
+	)
+
+	for _, acl := range policies {
+		dstTags := ConvAclTagToValueMap(acl.Dst)
+		if _, all := dstTags["*"]; !all {
+			matched := false
+			for nodeTag := range targetNodeTags {
+				if _, ok := dstTags[nodeTag.String()]; ok {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
+		sshUsers := make(map[string]struct{}, len(acl.SSHUsers))
+		for _, osUser := range acl.SSHUsers {
+			sshUsers[osUser] = struct{}{}
+		}
+		if len(sshUsers) == 0 {
+			sshUsers["*"] = struct{}{}
+		}
+
+		switch acl.RuleType {
+		case models.UserPolicy:
+			if userNodes == nil {
+				userNodes = GetStaticUserNodesByNetwork(ctx, netID)
+			}
+			allSrcUsers := false
+			allowedUsernames := make(map[string]struct{})
+			for _, src := range acl.Src {
+				switch src.ID {
+				case models.UserAclID:
+					if src.Value == "*" {
+						allSrcUsers = true
+						continue
+					}
+					allowedUsernames[src.Value] = struct{}{}
+				case models.UserGroupAclID:
+					if userGrpMap == nil {
+						userGrpMap = GetUserGrpMap()
+					}
+					if usersMap, ok := userGrpMap[schema.UserGroupID(src.Value)]; ok {
+						for userName := range usersMap {
+							allowedUsernames[userName] = struct{}{}
+						}
+					}
+				}
+			}
+			for _, userNode := range userNodes {
+				if !userNode.StaticNode.Enabled {
+					continue
+				}
+				if !allSrcUsers {
+					if _, ok := allowedUsernames[userNode.StaticNode.OwnerID]; !ok {
+						continue
+					}
+				}
+				grant(userNode.Address.IP, sshUsers)
+				grant(userNode.Address6.IP, sshUsers)
+			}
+		case models.DevicePolicy:
+			if tagNodesMap == nil {
+				tagNodesMap = GetTagMapWithNodesByNetwork(ctx, netID, true)
+			}
+			seen := make(map[string]struct{})
+			for _, src := range acl.Src {
+				if src.ID != models.NodeID && src.ID != models.NodeTagID {
+					continue
+				}
+				for _, n := range tagNodesMap[models.TagID(src.Value)] {
+					var dedupeKey string
+					if n.IsStatic {
+						dedupeKey = n.StaticNode.ClientID
+					} else {
+						dedupeKey = n.ID.String()
+					}
+					if _, ok := seen[dedupeKey]; ok {
+						continue
+					}
+					seen[dedupeKey] = struct{}{}
+					if n.IsStatic {
+						if !n.StaticNode.Enabled {
+							continue
+						}
+						grant(n.StaticNode.AddressIPNet4().IP, sshUsers)
+						grant(n.StaticNode.AddressIPNet6().IP, sshUsers)
+					} else {
+						grant(n.Address.IP, sshUsers)
+						grant(n.Address6.IP, sshUsers)
+					}
+				}
+			}
+		}
+	}
+
+	result := make(map[string]models.SSHAuthorizedIdentity, len(osUsersByAddr))
+	for addr, set := range osUsersByAddr {
+		osUsers := make([]string, 0, len(set))
+		for osUser := range set {
+			osUsers = append(osUsers, osUser)
+		}
+		result[addr] = models.SSHAuthorizedIdentity{OsUsers: osUsers}
+	}
+	return result
+}
+
+func peerAddrKey(addr net.IP) string {
+	bits := 32
+	if addr.To4() == nil {
+		bits = 128
+	}
+	return fmt.Sprintf("%s/%d", addr.String(), bits)
 }
 
 var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
@@ -2302,6 +2494,9 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 }
 
 var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
+	if err := ValidateManagedSshAcl(acl); err != nil {
+		return err
+	}
 
 	//check if src and dst are valid
 	if acl.AllowedDirection == models.TrafficDirectionUni {
