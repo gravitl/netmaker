@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"strconv"
@@ -320,6 +321,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			}
 		}
 
+		maps.Copy(hostPeerUpdate.SshAuthorizedIdentities, GetSshAuthorizedIdentitiesForNode(ctx, &node))
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)

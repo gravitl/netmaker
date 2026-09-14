@@ -58,6 +58,10 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 	return rules
 }
 
+var GetSshAuthorizedIdentitiesForNode = func(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
+	return map[string]models.SSHAuthorizedIdentity{}
+}
+
 var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
 
 func getEgressToEgressPoliciesForNode(ctx context.Context, targetnode models.Node) []models.Acl {
