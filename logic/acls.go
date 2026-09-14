@@ -88,21 +88,28 @@ func ValidateManagedSshAcl(acl models.Acl) error {
 	return nil
 }
 
-// listManagedSshPolicies lists all enabled Managed SSH acl policies in a network.
-func listManagedSshPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// listPoliciesAllowingManagedSSH lists all enabled acls policies in a network allowing Managed SSH.
+func listPoliciesAllowingManagedSSH(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	var result []models.Acl
 	for _, acl := range ListAcls(ctx) {
-		if acl.NetworkID == netID && acl.Enabled && acl.ServiceType == models.ManagedSSH {
+		if acl.NetworkID != netID || !acl.Enabled {
+			continue
+		}
+		if acl.ServiceType == models.ManagedSSH || allowsAllTraffic(acl) {
 			result = append(result, acl)
 		}
 	}
 	return result
 }
 
+func allowsAllTraffic(acl models.Acl) bool {
+	return acl.Proto == models.ALL && len(acl.Port) == 0
+}
+
 func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
 	osUsersByAddr := make(map[string]map[string]struct{})
 	netID := schema.NetworkID(targetnode.Network)
-	policies := listManagedSshPolicies(ctx, netID)
+	policies := listPoliciesAllowingManagedSSH(ctx, netID)
 	if len(policies) == 0 {
 		return map[string]models.SSHAuthorizedIdentity{}
 	}
