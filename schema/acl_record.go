@@ -76,6 +76,11 @@ type Acl struct {
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
 	CreatedAt        time.Time               `json:"created_at"`
+	// SSHUsers is only meaningful when ServiceType is ManagedSSH (must be
+	// empty for every other service type). It lists the OS login usernames
+	// this policy grants its Src. Empty means "any OS user", not "no
+	// grant" - see GetSshAuthorizedIdentitiesForNode.
+	SSHUsers []string `json:"ssh_users,omitempty"`
 }
 
 type AclRecord struct {
