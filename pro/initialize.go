@@ -204,6 +204,7 @@ func InitPro() {
 	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
 	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
+	logic.GetSshAuthorizedIdentitiesForNode = proLogic.GetSshAuthorizedIdentitiesForNode
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
