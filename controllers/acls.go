@@ -137,6 +137,14 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 				PortRange: "22",
 			},
 			{
+				Name: models.ManagedSSH,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange:        models.ManagedSSHPort,
+				AllowPortSetting: false,
+			},
+			{
 				Name: models.Custom,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
