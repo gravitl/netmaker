@@ -289,6 +289,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 // @Tags        Hosts
 // @Security    oauth
 // @Produce     json
+// @Param       refresh query bool false "Bypass peer-update cache and recompute"
+// @Param       reset_failovered query bool false "Reset auto-relay failover peers and refresh peer update"
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
@@ -321,6 +323,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
+	refresh := r.URL.Query().Get("refresh") == "true"
 	if resetFailovered {
 		for _, nodeID := range host.Nodes {
 			node, err := logic.GetNodeByID(nodeID)
@@ -334,7 +337,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
-	if !ok || resetFailovered {
+	if !ok || resetFailovered || refresh {
 		allNodes, err := logic.GetAllNodes(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())

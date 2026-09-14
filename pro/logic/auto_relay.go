@@ -236,6 +236,10 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls, _ := logic.ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	bypass := logic.SelectedInternetEgressBypasses(node)
+	viewerIsSpecificEgress := logic.PeerAdvertisesSpecificEgress(node)
+	inetExitRouterIDs := logic.InternetEgressRoutingNodeIDsFromList(eli)
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
@@ -243,6 +247,20 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
 		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
+			unfilteredSpecific := logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)
+			logic.AddEgressInfoToPeerByAccess(node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
+			// Internet exit routers and bypass site-egress gateways are direct peers;
+			// duplicating their AllowedIPs on the auto-relay steals routes.
+			if _, ok := inetExitRouterIDs[autoRelayedpeer.ID.String()]; ok {
+				continue
+			}
+			if bypass && (unfilteredSpecific || logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)) {
+				continue
+			}
+			// Reverse: specific-egress GWs keep bypass clients as direct peers.
+			if viewerIsSpecificEgress && logic.SelectedInternetEgressBypasses(&autoRelayedpeer) {
+				continue
+			}
 			if autoRelayedpeer.Address.IP != nil {
 				allowed := net.IPNet{
 					IP:   autoRelayedpeer.Address.IP,
@@ -263,11 +281,12 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 			// Advertise clients relayed by this auto-relayed peer (including exit-node
 			// clients on a non-gateway exit). Include their egress ranges so LAN
 			// routes remain reachable through the auto-relay; default routes are
-			// stripped by getNodeAllowedIPs.
+			// stripped by getNodeAllowedIPs. RelayedAllowedIPs also applies bypass
+			// filtering for specific-egress viewers/clients.
 			if autoRelayedpeer.IsRelay || len(autoRelayedpeer.RelayedNodes) > 0 ||
 				len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
 				allowedips = append(allowedips, logic.RelayedAllowedIPs(ctx, &autoRelayedpeer, node)...)
-				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node.ID.String())...)
+				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node)...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {

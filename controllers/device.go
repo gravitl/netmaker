@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -16,10 +17,11 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 )
 
 func deviceHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/device/register", logic.SecurityCheck(false, http.HandlerFunc(registerDevice))).
+	r.HandleFunc("/api/v1/device/register", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(registerDevice)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/device/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getDeviceNetworks)))).
 		Methods(http.MethodGet)
@@ -76,9 +78,11 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		errType := logic.Internal
 		switch {
 		case err.Error() == "host does not belong to user",
-			err.Error() == "host already registered to another user":
+			err.Error() == "host already registered to another user",
+			err.Error() == "host already registered to another tenant":
 			errType = logic.Forbidden
-		case err.Error() == "invalid host id", err.Error() == "missing traffic key":
+		case err.Error() == "invalid host id", err.Error() == "missing traffic key",
+			err.Error() == "tenant id is required":
 			errType = logic.BadReq
 		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
@@ -175,7 +179,12 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	if err := logic.LeaveDeviceNetwork(r.Context(), user, host, network); err != nil {
+	node, err := logic.LeaveDeviceNetwork(r.Context(), user, host, network)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logic.ReturnSuccessResponse(w, r, "left network already")
+			return
+		}
 		errType := logic.Internal
 		switch err.Error() {
 		case "user does not have access to network", "operation not permitted":
@@ -184,8 +193,9 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
+
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	go mq.PublishDeletedNodePeerUpdate(ctx, host, node)
 	logic.ReturnSuccessResponse(w, r, "left network")
 }
 
@@ -318,6 +328,9 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		msg = "exit node cleared"
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	go func() {
+		time.Sleep(time.Second * 2)
+		mq.PublishPeerUpdate(ctx, false)
+	}()
 	logic.ReturnSuccessResponseWithJson(w, r, selected, msg)
 }
