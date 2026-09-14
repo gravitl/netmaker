@@ -274,6 +274,11 @@ func isSupportedEgressFirewall(firewallInUse, osName string) bool {
 	}
 }
 
+// IsSupportedEgressFirewall is the exported wrapper for gateway validation.
+func IsSupportedEgressFirewall(firewallInUse, osName string) bool {
+	return isSupportedEgressFirewall(firewallInUse, osName)
+}
+
 // ValidateWindowsEgressNATMode rejects virtual NAT when any routing node is Windows.
 func ValidateWindowsEgressNATMode(e schema.Egress) error {
 	if e.Mode != schema.VirtualNAT {
