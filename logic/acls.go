@@ -58,7 +58,7 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 	return rules
 }
 
-var GetUserGrpMap = func() map[schema.UserGroupID]map[string]struct{} {
+var GetUserGrpMap = func(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	return map[schema.UserGroupID]map[string]struct{}{}
 }
 
@@ -186,7 +186,7 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 					allowedUsernames[src.Value] = struct{}{}
 				case models.UserGroupAclID:
 					if userGrpMap == nil {
-						userGrpMap = GetUserGrpMap()
+						userGrpMap = GetUserGrpMap(ctx)
 					}
 					if usersMap, ok := userGrpMap[schema.UserGroupID(src.Value)]; ok {
 						for userName := range usersMap {
