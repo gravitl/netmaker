@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
 )
 
@@ -19,8 +20,10 @@ import (
 // 2) creates internet-type egress resources for legacy IsInternetGateway nodes
 // 3) clears obsolete central relayed_igw_clients rosters on IGW routing nodes
 // 4) sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
-// 5) sets SelectedInternetEgressID on ext clients whose gateway was an internet gateway
-// 6) clears IsInternetGateway on routing nodes that were successfully migrated
+// 5) sets SelectedInternetEgressID on ext clients attached to those inet gws
+//    (enables "use gateway as exit node"); recovers configs if a prior run cleared
+//    IsInternetGateway before stamping selections
+// 6) clears IsInternetGateway only on routing nodes whose ext-client migration succeeded
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -85,16 +88,18 @@ func migrateInternetEgress() {
 
 		// Preserve access for previously assigned clients with an allow ACL when default policies are off.
 		if len(clientIDs) > 0 {
-			createMigrationInternetEgressACL(ctx, node.Network, e, clientIDs)
+			createMigrationInternetEgressACL(ctx, node, e, clientIDs)
 		}
 	}
 
 	// Clear obsolete central rosters only on routing nodes that mapped to an internet egress.
 	clearLegacyInetNodeClientLists(ctx, nodes, routingToEgress)
 	migrateNodeInternetEgressSelections(ctx, nodes, routingToEgress, legacyClientsByRoutingNode)
-	// Ext-client migration still uses in-memory IsInternetGateway; clear the DB flag after.
-	migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
-	clearLegacyIsInternetGateway(ctx, routingToEgress)
+	// Enable "use gateway as exit node" on configs that were attached to legacy inet gws.
+	// Only clear IsInternetGateway for gateways whose ext-client saves succeeded so a
+	// failed/partial run can retry while the legacy flag is still set.
+	clearable := migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
+	clearLegacyIsInternetGateway(ctx, clearable)
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {
@@ -144,37 +149,129 @@ func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Nod
 	}
 }
 
-func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) {
-	gatewayIsIGW := make(map[string]bool, len(nodes))
-	for _, node := range nodes {
-		if node.IsInternetGateway {
-			gatewayIsIGW[node.ID.String()] = true
-		}
+// migrateExtClientInternetEgressSelections sets SelectedInternetEgressID on config
+// files attached to legacy internet gateways (enables "use gateway as exit node").
+// Returns the subset of routingToEgress that is safe to clear IsInternetGateway on
+// (all attached configs for that gateway were migrated successfully or needed none).
+func migrateExtClientInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string) map[string]string {
+	clearable := make(map[string]string, len(routingToEgress))
+	for id, egressID := range routingToEgress {
+		clearable[id] = egressID
 	}
+
+	nodesByID := make(map[string]models.Node, len(nodes))
+	for _, node := range nodes {
+		nodesByID[node.ID.String()] = node
+	}
+
+	// Also recover configs when a prior run created the internet egress and cleared
+	// IsInternetGateway but failed to stamp SelectedInternetEgressID (e.g. missing
+	// tenant scope on SaveExtClient). Only when every attached config still has an
+	// empty selection — otherwise new opt-out configs would be force-enabled.
+	recoverRoutingToEgressForUnmigratedConfigs(ctx, nodesByID, routingToEgress)
 
 	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
 		logger.Log(0, "migration: failed to list ext clients for internet egress migrate:", err.Error())
-		return
+		// Do not clear any IsInternetGateway flags; retry next startup.
+		return nil
 	}
 
+	failedGateways := make(map[string]struct{})
 	for _, client := range extclients {
 		if client.SelectedInternetEgressID != "" {
 			continue
 		}
-		if !gatewayIsIGW[client.IngressGatewayID] {
+		egressID, ok := routingToEgress[client.IngressGatewayID]
+		if !ok {
 			continue
 		}
-		egressID := internetEgressIDForRoutingNode(ctx, client.IngressGatewayID, client.Network, routingToEgress)
-		if egressID == "" {
+
+		tenantID := ""
+		if gw, ok := nodesByID[client.IngressGatewayID]; ok {
+			tenantID = gw.TenantID
+			if tenantID == "" {
+				tenantID = getNodeTenantID(ctx, gw)
+			}
+		}
+		if tenantID == "" {
+			logger.Log(0, "migration: missing tenant for ext client", client.ClientID, "gateway", client.IngressGatewayID)
+			failedGateways[client.IngressGatewayID] = struct{}{}
 			continue
 		}
+
 		c := client
 		c.SelectedInternetEgressID = egressID
-		if err := logic.SaveExtClient(ctx, &c); err != nil {
+		clientCtx := scope.WithContext(ctx, scope.TenantScope, tenantID)
+		if err := logic.SaveExtClient(clientCtx, &c); err != nil {
 			logger.Log(0, "migration: failed to set selected internet egress on ext client", c.ClientID, err.Error())
+			failedGateways[client.IngressGatewayID] = struct{}{}
+			continue
+		}
+		logger.Log(1, fmt.Sprintf("migration: enabled use-gw-as-exit on config %s (egress %s)", c.ClientID, egressID))
+	}
+
+	for gwID := range failedGateways {
+		delete(clearable, gwID)
+	}
+	return clearable
+}
+
+// recoverRoutingToEgressForUnmigratedConfigs adds migration-created internet egresses
+// to routingToEgress when none of the gateway's configs have SelectedInternetEgressID
+// yet. That covers upgrades where IsInternetGateway was cleared before configs were stamped.
+func recoverRoutingToEgressForUnmigratedConfigs(ctx context.Context, nodesByID map[string]models.Node, routingToEgress map[string]string) {
+	egs, err := (&schema.Egress{}).ListAll(ctx)
+	if err != nil {
+		logger.Log(0, "migration: failed to list egresses for ext client recovery:", err.Error())
+		return
+	}
+
+	extclients, err := logic.GetAllExtClients(ctx)
+	if err != nil {
+		logger.Log(0, "migration: failed to list ext clients for recovery:", err.Error())
+		return
+	}
+
+	clientsByGateway := make(map[string][]models.ExtClient)
+	for _, client := range extclients {
+		if client.IngressGatewayID == "" {
+			continue
+		}
+		clientsByGateway[client.IngressGatewayID] = append(clientsByGateway[client.IngressGatewayID], client)
+	}
+
+	for _, eg := range egs {
+		if eg.CreatedBy != "migration" || !logic.IsEgressInternetGateway(eg) || !eg.Status {
+			continue
+		}
+		for routingNodeID := range eg.Nodes {
+			if _, already := routingToEgress[routingNodeID]; already {
+				continue
+			}
+			if _, ok := nodesByID[routingNodeID]; !ok {
+				continue
+			}
+			attached := clientsByGateway[routingNodeID]
+			if len(attached) == 0 {
+				continue
+			}
+			if !allExtClientsMissingInternetEgressSelection(attached) {
+				continue
+			}
+			routingToEgress[routingNodeID] = eg.ID
+			logger.Log(1, fmt.Sprintf("migration: recovering ext-client exit selection for gateway %s via egress %s", routingNodeID, eg.ID))
 		}
 	}
+}
+
+func allExtClientsMissingInternetEgressSelection(clients []models.ExtClient) bool {
+	for _, client := range clients {
+		if client.SelectedInternetEgressID != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // clearLegacyInetNodeClientLists clears RelayedIGWClients (source of InetNodeReq.InetNodeClientIDs)
@@ -292,9 +389,18 @@ func collectLegacyIGWClients(gw models.Node, all []models.Node) []string {
 	return out
 }
 
-func createMigrationInternetEgressACL(ctx context.Context, network string, e schema.Egress, clientNodeIDs []string) {
-	aclID := fmt.Sprintf("%s.inet-egress-%s", network, e.ID)
-	if _, err := logic.GetAcl(ctx, aclID); err == nil {
+func createMigrationInternetEgressACL(ctx context.Context, node models.Node, e schema.Egress, clientNodeIDs []string) {
+	tenantID := node.TenantID
+	if tenantID == "" {
+		tenantID = getNodeTenantID(ctx, node)
+	}
+	if tenantID == "" {
+		logger.Log(0, "migration: missing tenant for internet egress ACL on node", node.ID.String())
+		return
+	}
+	aclCtx := scope.WithContext(ctx, scope.TenantScope, tenantID)
+	aclID := fmt.Sprintf("%s.inet-egress-%s", node.Network, e.ID)
+	if _, err := logic.GetAcl(aclCtx, aclID); err == nil {
 		return
 	}
 	src := make([]models.AclPolicyTag, 0, len(clientNodeIDs))
@@ -304,7 +410,7 @@ func createMigrationInternetEgressACL(ctx context.Context, network string, e sch
 	acl := models.Acl{
 		ID:               aclID,
 		Name:             fmt.Sprintf("Internet egress %s (migrated)", e.Name),
-		NetworkID:        schema.NetworkID(network),
+		NetworkID:        schema.NetworkID(node.Network),
 		RuleType:         models.DevicePolicy,
 		Default:          false,
 		Enabled:          true,
@@ -313,7 +419,7 @@ func createMigrationInternetEgressACL(ctx context.Context, network string, e sch
 		Proto:            models.ALL,
 		AllowedDirection: models.TrafficDirectionBi,
 	}
-	if err := logic.InsertAcl(ctx, acl); err != nil {
+	if err := logic.InsertAcl(aclCtx, acl); err != nil {
 		logger.Log(0, "migration: failed to create internet egress ACL:", e.ID, err.Error())
 	}
 }

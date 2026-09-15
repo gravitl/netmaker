@@ -54,16 +54,6 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isEmailAllowed(r.Context(), userClaims.Email) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
-	}
-	// check if user approval is already pending
-	if logic.IsPendingUser(r.Context(), userClaims.getUserName()) {
-		handleOauthUserSignUpApprovalPending(w)
-		return
-	}
-
 	var user *schema.User
 	if p.Name() == azure_ad_provider_name {
 		user, err = GetMatchingUser(r.Context(), userClaims)
@@ -73,6 +63,16 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
+			if !isEmailAllowed(r.Context(), userClaims.Email) {
+				handleOauthUserNotAllowedToSignUp(w)
+				return
+			}
+			// check if user approval is already pending
+			if logic.IsPendingUser(r.Context(), userClaims.getUserName()) {
+				handleOauthUserSignUpApprovalPending(w)
+				return
+			}
+
 			pendingUser := &schema.PendingUser{
 				Scope:                      scope.Level(r.Context()),
 				ScopeID:                    scope.ID(r.Context()),

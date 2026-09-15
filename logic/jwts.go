@@ -164,6 +164,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 	var tokenString = ""
 
 	if len(tokenSplit) < 2 {
+		logger.Log(4, "unauthorized: malformed authorization header")
 		return "", Unauthorized_Err
 	} else {
 		tokenString = tokenSplit[1]
@@ -176,6 +177,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		return jwtSecretKey, nil
 	})
 	if err != nil {
+		logger.Log(4, "unauthorized: jwt parse/signature failed:", err.Error())
 		return "", Unauthorized_Err
 	}
 
@@ -183,6 +185,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		// token created for mfa cannot be used for
 		// anything else.
 		if aud == "auth:mfa" {
+			logger.Log(4, "unauthorized: mfa-only token used outside mfa flow")
 			return "", Unauthorized_Err
 		}
 	}
@@ -205,9 +208,14 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.GetWithMembership(ctx)
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
-			return "", err
+			logger.Log(4, fmt.Sprintf("unauthorized: user lookup failed (scope=%d id=%s): %s", scope.Level(ctx), scope.ID(ctx), err.Error()))
+			return "", Unauthorized_Err
 		}
 
 		err = checkUserAccess(ctx, user.ID, claims)
@@ -218,6 +226,7 @@ func GetUserNameFromToken(ctx context.Context, authtoken string) (username strin
 		return user.Username, nil
 	}
 
+	logger.Log(4, "unauthorized: token not valid")
 	return "", Unauthorized_Err
 }
 
@@ -232,6 +241,9 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
+	if err != nil {
+		return "", false, false, err
+	}
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
@@ -249,7 +261,11 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 	if token != nil && token.Valid {
 		// check that user exists
 		user := &schema.User{Username: claims.UserName}
-		err = user.GetWithMembership(ctx)
+		if scope.Level(ctx) == scope.GlobalScope {
+			err = user.Get(ctx)
+		} else {
+			err = user.GetWithMembership(ctx)
+		}
 		if err != nil {
 			return "", false, false, err
 		}
@@ -266,7 +282,9 @@ func VerifyUserToken(ctx context.Context, tokenString string) (username string, 
 }
 
 func checkUserAccess(ctx context.Context, userID string, claims *models.UserClaims) error {
-	if scope.Level(ctx) == scope.OrgScope {
+	if scope.Level(ctx) == scope.GlobalScope {
+		return nil
+	} else if scope.Level(ctx) == scope.OrgScope {
 		membership := &schema.OrgMembership{
 			OrganizationID: scope.ID(ctx),
 			UserID:         userID,
@@ -274,6 +292,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 		err := membership.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Log(4, fmt.Sprintf("unauthorized: no org membership for org=%s user=%s", scope.ID(ctx), userID))
 				return Unauthorized_Err
 			}
 
@@ -284,6 +303,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			return nil
 		}
 
+		logger.Log(4, fmt.Sprintf("unauthorized: org claim mismatch claims.scope=%d claims.scopeid=%s ctx.orgid=%s", claims.Scope, claims.ScopeID, scope.ID(ctx)))
 		return Unauthorized_Err
 	} else if scope.Level(ctx) == scope.TenantScope {
 		membership := &schema.TenantMembership{
@@ -293,6 +313,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 		err := membership.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Log(4, fmt.Sprintf("unauthorized: no tenant membership for tenant=%s user=%s", scope.ID(ctx), userID))
 				return Unauthorized_Err
 			}
 
@@ -306,6 +327,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			err = tenant.Get(ctx)
 			if err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
+					logger.Log(4, fmt.Sprintf("unauthorized: tenant not found for org-scoped claim, tenant=%s", scope.ID(ctx)))
 					return Unauthorized_Err
 				}
 
@@ -316,6 +338,7 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 				return nil
 			}
 
+			logger.Log(4, fmt.Sprintf("unauthorized: org-scoped claim org id %s != tenant's org id %s", claims.ScopeID, tenant.OrganizationID))
 			return Unauthorized_Err
 		} else if claims.Scope == scope.TenantScope && claims.ScopeID == scope.ID(ctx) {
 			return nil
@@ -324,15 +347,21 @@ func checkUserAccess(ctx context.Context, userID string, claims *models.UserClai
 			// the sole tenant that existed before multi-tenancy.
 			soleTenant, err := SoleTenant(ctx)
 			if err != nil {
+				logger.Log(4, "unauthorized: legacy token, SoleTenant lookup failed:", err.Error())
 				return Unauthorized_Err
 			}
 
 			if soleTenant.ID == scope.ID(ctx) {
 				return nil
 			}
+			logger.Log(4, fmt.Sprintf("unauthorized: legacy token, sole tenant %s != ctx tenant %s", soleTenant.ID, scope.ID(ctx)))
+			return Unauthorized_Err
 		}
+		logger.Log(4, fmt.Sprintf("unauthorized: tenant-scope claim mismatch claims.scope=%d claims.scopeid=%s ctx.tenantid=%s", claims.Scope, claims.ScopeID, scope.ID(ctx)))
+		return Unauthorized_Err
 	}
 
+	logger.Log(4, fmt.Sprintf("unauthorized: unhandled scope level %d", scope.Level(ctx)))
 	return Unauthorized_Err
 }
 

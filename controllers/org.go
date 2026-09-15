@@ -408,7 +408,7 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, tenant := range tenants {
-		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(dbctx, tenant.ID, &user)
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(dbctx, &tenant, &user)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return

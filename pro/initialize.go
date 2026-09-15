@@ -171,6 +171,7 @@ func InitPro() {
 
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
+	logic.RunPostureChecksForTenant = proLogic.RunPostureChecksForTenant
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.InitialiseNetworkRoles = proLogic.UserNetworkRolesInit
 	logic.IntialiseGroups = proLogic.UserGroupsInit
@@ -223,6 +224,7 @@ func InitPro() {
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.CheckPostureViolationsForHost = proLogic.CheckPostureViolationsForHost
+	logic.EmitNewPostureViolationEvents = proLogic.EmitNewPostureViolationEvents
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.SyncHostMDMState = mdmpkg.SyncHostMDMState
 	logic.SyncHostEDRState = edrpkg.SyncHostEDRState

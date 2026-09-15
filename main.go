@@ -38,10 +38,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.6.0"
+var version = "v1.7.0"
 
 //	@title			NetMaker
-//	@version		1.6.0
+//	@version		1.7.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -129,9 +129,9 @@ func initialize() { // Client Mode Prereq Check
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
 		if err != nil {
-			// we shouldn't allow user to use the product until the migration is successfully done.
-			panic(err)
+			logger.FatalLog("schema migration failed: ", err.Error())
 		}
+
 		migrate.Run()
 
 		err = setServerID()

@@ -138,10 +138,19 @@ type Host struct {
 	Debug               bool                        `json:"debug" yaml:"debug"`
 	ListenPort          int                         `json:"listenport" yaml:"listenport"`
 	WgPublicListenPort  int                         `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	// TcpProxyEnabled: host accepts TCP/TLS framed WG uplinks (gateway listen is host-level).
+	// TcpProxyEnabled: host accepts TCP/WSS framed WG uplinks (gateway listen is host-level).
 	TcpProxyEnabled bool `json:"tcp_proxy_enabled" yaml:"tcp_proxy_enabled"`
-	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
+	// TcpProxyListenPort: listen port when TcpProxyEnabled (default 443 if enabled with port 0).
 	TcpProxyListenPort int `json:"tcp_proxy_listen_port" yaml:"tcp_proxy_listen_port"`
+	// TcpProxyTLSMode: selfsigned (default) or proxy. Empty means selfsigned.
+	TcpProxyTLSMode string `json:"tcp_proxy_tls_mode" yaml:"tcp_proxy_tls_mode"`
+	// TcpProxyListenAddr: optional bind address (e.g. 127.0.0.1). Empty means all interfaces (:port).
+	TcpProxyListenAddr string `json:"tcp_proxy_listen_addr,omitempty" yaml:"tcp_proxy_listen_addr,omitempty"`
+	// TcpProxyPublicHostname: public DNS name clients dial when TLS mode is proxy
+	// (e.g. gateway.example.com). Empty falls back to EndpointIP.
+	TcpProxyPublicHostname string `json:"tcp_proxy_public_hostname,omitempty" yaml:"tcp_proxy_public_hostname,omitempty"`
+	// TcpProxyCertFingerprint: SHA-256 hex of the leaf cert when tls mode is selfsigned.
+	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
 	MTU                 int                         `json:"mtu" yaml:"mtu"`
 	PublicKey           WgKey                       `json:"publickey" yaml:"publickey"`
 	MacAddress          net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
@@ -236,8 +245,12 @@ func (h *Host) SetTcpProxy(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Host{}).
 		Where("id = ?", h.ID).
 		Updates(map[string]interface{}{
-			"tcp_proxy_enabled":     h.TcpProxyEnabled,
-			"tcp_proxy_listen_port": h.TcpProxyListenPort,
+			"tcp_proxy_enabled":          h.TcpProxyEnabled,
+			"tcp_proxy_listen_port":      h.TcpProxyListenPort,
+			"tcp_proxy_tls_mode":         h.TcpProxyTLSMode,
+			"tcp_proxy_listen_addr":      h.TcpProxyListenAddr,
+			"tcp_proxy_public_hostname":  h.TcpProxyPublicHostname,
+			"tcp_proxy_cert_fingerprint": h.TcpProxyCertFingerprint,
 		}).Error
 }
 

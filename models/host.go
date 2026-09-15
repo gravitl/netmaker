@@ -61,6 +61,10 @@ type Host struct {
 	WgPublicListenPort  int              `json:"wg_public_listen_port"   yaml:"wg_public_listen_port"`
 	TcpProxyEnabled     bool             `json:"tcp_proxy_enabled"       yaml:"tcp_proxy_enabled"`
 	TcpProxyListenPort  int              `json:"tcp_proxy_listen_port"   yaml:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode     string           `json:"tcp_proxy_tls_mode"      yaml:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr     string           `json:"tcp_proxy_listen_addr,omitempty" yaml:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string           `json:"tcp_proxy_public_hostname,omitempty" yaml:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string       `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
 	MTU                 int              `json:"mtu"                     yaml:"mtu"`
 	PublicKey           wgtypes.Key      `json:"publickey"               yaml:"publickey"`
 	MacAddress          net.HardwareAddr `json:"macaddress"              yaml:"macaddress"`

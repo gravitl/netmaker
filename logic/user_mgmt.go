@@ -50,6 +50,8 @@ var FilterNetworksByRole = func(ctx context.Context, allnetworks []schema.Networ
 
 var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *schema.User) {}
 
+var RunPostureChecksForTenant = func(ctx context.Context) error { return nil }
+
 var InitialiseRoles = userRolesInit
 var InitialiseNetworkRoles = func(ctx context.Context) {}
 var IntialiseGroups = func(ctx context.Context) {}

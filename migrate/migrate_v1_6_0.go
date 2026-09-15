@@ -141,10 +141,7 @@ func migrateNodes(ctx context.Context) error {
 			node.ExpirationDateTime = time.Now().AddDate(100, 1, 0)
 		}
 
-		network := &schema.Network{
-			Name: node.Network,
-		}
-		err = network.Get(ctx)
+		network, err := getNetworkByNameForMigration(ctx, node.Network)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				logger.Log(0, fmt.Sprintf("skipping orphaned node %s: referenced network %q not found", node.ID.String(), node.Network))

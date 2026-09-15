@@ -333,7 +333,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network)) &&
 		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
@@ -690,7 +690,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network)) &&
 		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,

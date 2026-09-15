@@ -18,8 +18,9 @@ type Context struct {
 	Current   bool   `yaml:"current,omitempty"`
 	AuthToken string `yaml:"auth_token,omitempty"`
 	SSO       bool   `yaml:"sso,omitempty"`
-	TenantId  string `yaml:"tenant_id,omitempty"`
-	Saas      bool   `yaml:"saas,omitempty"`
+	TenantId       string `yaml:"tenant_id,omitempty"`
+	OrganizationId string `yaml:"organization_id,omitempty"`
+	Saas           bool   `yaml:"saas,omitempty"`
 }
 
 var (
@@ -135,6 +136,15 @@ func DeleteContext(ctxName string) {
 func ListAll() {
 	for key, ctx := range contextMap {
 		fmt.Print("\n", key, " -> ", ctx.Endpoint)
+		if ctx.TenantId != "" {
+			fmt.Print(" tenant=", ctx.TenantId)
+		}
+		if ctx.OrganizationId != "" {
+			fmt.Print(" org=", ctx.OrganizationId)
+		}
+		if ctx.Saas {
+			fmt.Print(" (saas)")
+		}
 		if ctx.Current {
 			fmt.Print(" (current)")
 		}
