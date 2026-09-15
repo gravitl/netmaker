@@ -1335,9 +1335,10 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// confirm host exists
-	err = (&schema.Host{
+	senderHost := &schema.Host{
 		ID: hostID,
-	}).Get(r.Context())
+	}
+	err = senderHost.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1358,17 +1359,30 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	signal.IsPro = servercfg.IsPro
-	hostID, err = uuid.Parse(signal.ToHostID)
+	// bind the sender identity to the authenticated host rather than trusting the request body
+	signal.FromHostID = senderHost.ID.String()
+	signal.FromHostPubKey = senderHost.PublicKey.String()
+
+	toHostID, err := uuid.Parse(signal.ToHostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	peerHost := &schema.Host{
-		ID: hostID,
+		ID: toHostID,
 	}
 	err = peerHost.Get(r.Context())
 	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"),
+		)
+		return
+	}
+	// the target host must share a network with the authenticated sender
+	if !logic.HostsShareNetwork(r.Context(), senderHost.ID.String(), peerHost.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
