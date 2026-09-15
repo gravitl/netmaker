@@ -41,7 +41,10 @@ const (
 	ICMPService = "ICMP"
 	SSH         = "SSH"
 	Custom      = "Custom"
+	ManagedSSH  = "Managed SSH"
 	Any         = "Any"
+
+	ManagedSSHPort = "22022"
 )
 
 type UpdateAclRequest struct {

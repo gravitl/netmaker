@@ -137,6 +137,14 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 				PortRange: "22",
 			},
 			{
+				Name: models.ManagedSSH,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange:        models.ManagedSSHPort,
+				AllowPortSetting: false,
+			},
+			{
 				Name: models.Custom,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
@@ -306,6 +314,9 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	if acl.ServiceType == models.Any {
 		acl.Port = []string{}
 		acl.Proto = models.ALL
+	} else if acl.ServiceType == models.ManagedSSH {
+		acl.Port = []string{models.ManagedSSHPort}
+		acl.Proto = models.TCP
 	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
@@ -378,6 +389,10 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		action = schema.DisableAclPolicy
 	}
 
+	if updateAcl.Acl.ServiceType == models.ManagedSSH {
+		updateAcl.Acl.Port = []string{models.ManagedSSHPort}
+		updateAcl.Acl.Proto = models.TCP
+	}
 	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

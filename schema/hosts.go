@@ -120,24 +120,24 @@ func (a *AddrPort) UnmarshalJSON(data []byte) error {
 }
 
 type Host struct {
-	ID                  uuid.UUID                   `gorm:"primaryKey" json:"id" yaml:"id"`
-	TenantID            string                      `gorm:"default:'';index" json:"tenant_id"`
-	Verbosity           int                         `json:"verbosity" yaml:"verbosity"`
-	FirewallInUse       string                      `json:"firewallinuse" yaml:"firewallinuse"`
-	Version             string                      `json:"version" yaml:"version"`
-	IPForwarding        bool                        `json:"ipforwarding" yaml:"ipforwarding"`
-	DaemonInstalled     bool                        `json:"daemoninstalled" yaml:"daemoninstalled"`
-	AutoUpdate          bool                        `json:"autoupdate" yaml:"autoupdate"`
-	HostPass            string                      `json:"hostpass" yaml:"hostpass"`
-	Name                string                      `json:"name" yaml:"name"`
-	OS                  string                      `json:"os" yaml:"os"`
-	OSFamily            string                      `json:"os_family" yaml:"os_family"`
-	OSVersion           string                      `json:"os_version" yaml:"os_version"`
-	KernelVersion       string                      `json:"kernel_version" yaml:"kernel_version"`
-	Interface           string                      `json:"interface" yaml:"interface"`
-	Debug               bool                        `json:"debug" yaml:"debug"`
-	ListenPort          int                         `json:"listenport" yaml:"listenport"`
-	WgPublicListenPort  int                         `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	ID                 uuid.UUID `gorm:"primaryKey" json:"id" yaml:"id"`
+	TenantID           string    `gorm:"default:'';index" json:"tenant_id"`
+	Verbosity          int       `json:"verbosity" yaml:"verbosity"`
+	FirewallInUse      string    `json:"firewallinuse" yaml:"firewallinuse"`
+	Version            string    `json:"version" yaml:"version"`
+	IPForwarding       bool      `json:"ipforwarding" yaml:"ipforwarding"`
+	DaemonInstalled    bool      `json:"daemoninstalled" yaml:"daemoninstalled"`
+	AutoUpdate         bool      `json:"autoupdate" yaml:"autoupdate"`
+	HostPass           string    `json:"hostpass" yaml:"hostpass"`
+	Name               string    `json:"name" yaml:"name"`
+	OS                 string    `json:"os" yaml:"os"`
+	OSFamily           string    `json:"os_family" yaml:"os_family"`
+	OSVersion          string    `json:"os_version" yaml:"os_version"`
+	KernelVersion      string    `json:"kernel_version" yaml:"kernel_version"`
+	Interface          string    `json:"interface" yaml:"interface"`
+	Debug              bool      `json:"debug" yaml:"debug"`
+	ListenPort         int       `json:"listenport" yaml:"listenport"`
+	WgPublicListenPort int       `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
 	// TcpProxyEnabled: host accepts TCP/WSS framed WG uplinks (gateway listen is host-level).
 	TcpProxyEnabled bool `json:"tcp_proxy_enabled" yaml:"tcp_proxy_enabled"`
 	// TcpProxyListenPort: listen port when TcpProxyEnabled (default 443 if enabled with port 0).
@@ -150,28 +150,31 @@ type Host struct {
 	// (e.g. gateway.example.com). Empty falls back to EndpointIP.
 	TcpProxyPublicHostname string `json:"tcp_proxy_public_hostname,omitempty" yaml:"tcp_proxy_public_hostname,omitempty"`
 	// TcpProxyCertFingerprint: SHA-256 hex of the leaf cert when tls mode is selfsigned.
-	TcpProxyCertFingerprint string `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
-	MTU                 int                         `json:"mtu" yaml:"mtu"`
-	PublicKey           WgKey                       `json:"publickey" yaml:"publickey"`
-	MacAddress          net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
-	TrafficKeyPublic    datatypes.JSONSlice[byte]   `json:"traffickeypublic" yaml:"traffickeypublic"`
-	Nodes               datatypes.JSONSlice[string] `json:"nodes" yaml:"nodes"`
-	Interfaces          datatypes.JSONSlice[Iface]  `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface    string                      `json:"defaultinterface" yaml:"defaultinterface"`
-	EndpointIP          net.IP                      `json:"endpointip" yaml:"endpointip"`
-	EndpointIPv6        net.IP                      `json:"endpointipv6" yaml:"endpointipv6"`
-	IsDocker            bool                        `json:"isdocker" yaml:"isdocker"`
-	IsK8S               bool                        `json:"isk8s" yaml:"isk8s"`
-	IsStaticPort        bool                        `json:"isstaticport" yaml:"isstaticport"`
-	IsStatic            bool                        `json:"isstatic" yaml:"isstatic"`
-	IsDefault           bool                        `json:"isdefault" yaml:"isdefault"`
-	DNS                 string                      `json:"dns_status" yaml:"dns_status"`
-	NatType             string                      `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
-	TurnEndpoint        *AddrPort                   `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
-	PersistentKeepalive time.Duration               `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
-	Location            string                      `json:"location" yaml:"location"` // Format: "lat,lon"
-	CountryCode         string                      `json:"country_code" yaml:"country_code"`
-	EnableFlowLogs      bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	TcpProxyCertFingerprint string                      `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
+	MTU                     int                         `json:"mtu" yaml:"mtu"`
+	PublicKey               WgKey                       `json:"publickey" yaml:"publickey"`
+	MacAddress              net.HardwareAddr            `json:"macaddress" yaml:"macaddress"`
+	TrafficKeyPublic        datatypes.JSONSlice[byte]   `json:"traffickeypublic" yaml:"traffickeypublic"`
+	Nodes                   datatypes.JSONSlice[string] `json:"nodes" yaml:"nodes"`
+	Interfaces              datatypes.JSONSlice[Iface]  `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface        string                      `json:"defaultinterface" yaml:"defaultinterface"`
+	EndpointIP              net.IP                      `json:"endpointip" yaml:"endpointip"`
+	EndpointIPv6            net.IP                      `json:"endpointipv6" yaml:"endpointipv6"`
+	IsDocker                bool                        `json:"isdocker" yaml:"isdocker"`
+	IsK8S                   bool                        `json:"isk8s" yaml:"isk8s"`
+	IsStaticPort            bool                        `json:"isstaticport" yaml:"isstaticport"`
+	IsStatic                bool                        `json:"isstatic" yaml:"isstatic"`
+	IsDefault               bool                        `json:"isdefault" yaml:"isdefault"`
+	DNS                     string                      `json:"dns_status" yaml:"dns_status"`
+	NatType                 string                      `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
+	TurnEndpoint            *AddrPort                   `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+	PersistentKeepalive     time.Duration               `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
+	Location                string                      `json:"location" yaml:"location"` // Format: "lat,lon"
+	CountryCode             string                      `json:"country_code" yaml:"country_code"`
+	EnableFlowLogs          bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	// ManageSSH controls whether netclient runs its embedded SSH/SCP/SFTP
+	// server on this host.
+	ManageSSH bool `json:"manage_ssh" yaml:"manage_ssh"`
 
 	// MDM device-matching identifiers. Reported by netclient on host check-in
 	// and consumed by the MDM sync worker to match a Netmaker host to its
