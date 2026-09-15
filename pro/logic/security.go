@@ -128,9 +128,6 @@ func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRol
 	if err != nil {
 		return err
 	}
-	if networkPermissionScope.TenantGlobalAccess {
-		return nil
-	}
 	if networkPermissionScope.NetworkID != schema.AllNetworks && networkPermissionScope.NetworkID.String() != netID {
 		return errors.New("access denied")
 	}
