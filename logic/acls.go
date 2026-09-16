@@ -108,6 +108,9 @@ func allowsAllTcpTraffic(acl models.Acl) bool {
 }
 
 func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
+	if !GetManageSSH(ctx) {
+		return map[string]models.SSHAuthorizedIdentity{}
+	}
 	osUsersByAddr := make(map[string]map[string]struct{})
 	netID := schema.NetworkID(targetnode.Network)
 	policies := listPoliciesAllowingManagedSSH(ctx, netID)
