@@ -3124,6 +3124,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 		acl.Port = newAcl.Port
 		acl.Proto = newAcl.Proto
 		acl.ServiceType = newAcl.ServiceType
+		acl.SSHUsers = newAcl.SSHUsers
 	}
 	if newAcl.ServiceType == models.Any {
 		acl.Port = []string{}
