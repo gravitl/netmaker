@@ -95,15 +95,16 @@ func listPoliciesAllowingManagedSSH(ctx context.Context, netID schema.NetworkID)
 		if acl.NetworkID != netID || !acl.Enabled {
 			continue
 		}
-		if acl.ServiceType == models.ManagedSSH || allowsAllTraffic(acl) {
+		if acl.ServiceType == models.ManagedSSH || allowsAllTcpTraffic(acl) {
 			result = append(result, acl)
 		}
 	}
 	return result
 }
 
-func allowsAllTraffic(acl models.Acl) bool {
-	return acl.Proto == models.ALL && len(acl.Port) == 0
+// allowsAllTcpTraffic reports whether acl already permits every TCP port access.
+func allowsAllTcpTraffic(acl models.Acl) bool {
+	return len(acl.Port) == 0 && (acl.Proto == models.ALL || acl.Proto == models.TCP)
 }
 
 func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
