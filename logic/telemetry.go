@@ -104,7 +104,7 @@ func fetchTelemetryData(ctx context.Context) telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
-	data.ExtClients, _ = (&schema.ExtClientRecord{}).Count(ctx)
+	data.ExtClients, _ = (&schema.ExtClientV1{}).Count(ctx)
 	data.Users, _ = (&schema.User{}).Count(ctx)
 	data.Networks, _ = (&schema.Network{}).Count(ctx)
 	data.Hosts, _ = (&schema.Host{}).Count(ctx)
