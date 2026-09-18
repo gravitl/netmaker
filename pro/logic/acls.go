@@ -12,25 +12,9 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
-	extClients, err := logic.GetAllExtClients(ctx)
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := models.ConvertToStaticNode(extI)
-				staticNode = append(staticNode, n)
-			}
-		}
-	}
-	return
-}
-
 func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if !userNodeI.StaticNode.Enabled {
 			continue
@@ -566,6 +550,9 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
+	if err := logic.ValidateManagedSshAcl(acl); err != nil {
+		return err
+	}
 	//check if src and dst are valid
 	if acl.AllowedDirection != models.TrafficDirectionBi &&
 		acl.AllowedDirection != models.TrafficDirectionUni {
@@ -635,6 +622,14 @@ func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.Net
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
+			// TODO(nm-387): srcMap["*"] (a custom, non-default user-policy
+			// with a literal Src wildcard, e.g. {"id":"user","value":"*"})
+			// is never checked here, so such a policy silently matches no
+			// one - only the dedicated Default-policy mechanism
+			// (GetDefaultPolicy, checked separately in
+			// IsUserAllowedToCommunicate before this function is even
+			// called) currently grants "all users" access. Confirmed via
+			// the Managed SSH resolver hitting the identical gap.
 			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
 				continue
@@ -962,8 +957,8 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userGrpMap := GetUserGrpMap(ctx)
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1319,8 +1314,8 @@ func appendUserExtClientRemoteEgressFwdRules(
 
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userGrpMap := GetUserGrpMap(ctx)
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})

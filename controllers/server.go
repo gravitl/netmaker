@@ -346,9 +346,12 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	// On force FlowLogs enable, enable FlowLogs for all hosts.
 	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
 	// On NetclientAutoUpdate disable, forced or not, disable AutoUpdate for all hosts.
-	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
+	// On force ManageSSH enable, enable ManageSSH for all hosts.
+	// On ManageSSH disable, forced or not, disable ManageSSH for all hosts.
+	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate || !new.ManageSSH {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
-			curr.EnableFlowLogs != new.EnableFlowLogs {
+			curr.EnableFlowLogs != new.EnableFlowLogs ||
+			curr.ManageSSH != new.ManageSSH {
 			hosts, _ := (&schema.Host{}).ListAll(ctx)
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
@@ -356,6 +359,9 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 				}
 				if curr.EnableFlowLogs != new.EnableFlowLogs {
 					host.EnableFlowLogs = new.EnableFlowLogs
+				}
+				if curr.ManageSSH != new.ManageSSH {
+					host.ManageSSH = new.ManageSSH
 				}
 				_ = host.Upsert(ctx)
 				_ = mq.HostUpdate(&models.HostUpdate{
@@ -412,6 +418,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 	if old.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 		old.RacRestrictToSingleNetwork != new.RacRestrictToSingleNetwork ||
 		old.ManageDNS != new.ManageDNS ||
+		old.ManageSSH != new.ManageSSH ||
 		old.DefaultDomain != new.DefaultDomain ||
 		old.EndpointDetection != new.EndpointDetection {
 		return schema.UpdateClientSettings
