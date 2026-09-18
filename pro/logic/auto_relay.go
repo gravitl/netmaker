@@ -248,7 +248,7 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
 			unfilteredSpecific := logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)
-			logic.AddEgressInfoToPeerByAccess(node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
+			logic.AddEgressInfoToPeerByAccess(ctx, node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
 			// Internet exit routers and bypass site-egress gateways are direct peers;
 			// duplicating their AllowedIPs on the auto-relay steals routes.
 			if _, ok := inetExitRouterIDs[autoRelayedpeer.ID.String()]; ok {

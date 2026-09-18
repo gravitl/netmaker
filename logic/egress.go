@@ -531,7 +531,8 @@ func assignedInternetEgress(node *models.Node, eli []schema.Egress) *schema.Egre
 //   - the default device (all-resources) policy is enabled
 //   - an enabled policy that includes this node has dst all-resources ("*")
 //   - an enabled policy that includes this node has the exit egress in dst
-func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
+//   - for user-owned devices, the owner's user policies grant the egress
+func SuppressInternetExitIfNoACLAccess(ctx context.Context, node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
 	if node == nil || defaultDevicePolicyEnabled {
 		return
 	}
@@ -542,7 +543,7 @@ func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, a
 	if e == nil {
 		return
 	}
-	if DoesNodeHaveAccessToEgress(node, e, acls) {
+	if NodeHasEgressAccess(ctx, node, e, acls) {
 		return
 	}
 	node.SelectedInternetEgressID = ""
@@ -1222,7 +1223,7 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 	}
 }
 
-func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
+func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
 		NodeID:     targetNode.ID.String(),
@@ -1243,10 +1244,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) &&
+			if !NodeHasEgressAccess(ctx, node, &e, acls) &&
 				!doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
-					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
+					if !NodeHasEgressAccess(ctx, targetNode, &e, acls) {
 						continue
 					}
 				} else {
