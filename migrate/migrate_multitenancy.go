@@ -5,6 +5,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/middleware"
+	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -57,7 +58,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 func tenantScopedModels() []any {
 	return []any{
 		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
-		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
+		&schema.EnrollmentKey{}, &schema.Event{}, &types.ExtClientRecord{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
@@ -108,7 +109,7 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 	}
 
 	var extClientKeys []string
-	if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
+	if err := db.FromContext(ctx).Model(&types.ExtClientRecord{}).
 		Where("tenant_id = ?", oldID).
 		Pluck("key", &extClientKeys).Error; err != nil {
 		return err
@@ -118,7 +119,7 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		if newKey == key {
 			continue
 		}
-		if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
+		if err := db.FromContext(ctx).Model(&types.ExtClientRecord{}).
 			Where("key = ?", key).
 			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
 			return err

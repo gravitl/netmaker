@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
 )
@@ -15,11 +16,11 @@ func migrateV1_8_0(ctx context.Context) error {
 }
 
 func migrateExtClientsToSQLTable(ctx context.Context) error {
-	if !db.FromContext(ctx).Migrator().HasTable((&schema.ExtClientRecord{}).TableName()) {
+	if !db.FromContext(ctx).Migrator().HasTable(TableName_ExtClients) {
 		return nil
 	}
 
-	var records []schema.ExtClientRecord
+	var records []types.ExtClientRecord
 	if err := db.FromContext(ctx).Find(&records).Error; err != nil {
 		return err
 	}

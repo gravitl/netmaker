@@ -1,17 +1,9 @@
 package schema
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/gravitl/netmaker/db"
-	dbtypes "github.com/gravitl/netmaker/db/types"
-	"github.com/gravitl/netmaker/scope"
-	"gorm.io/datatypes"
-	"gorm.io/gorm/clause"
 )
 
 // Violation - posture check violation data
@@ -70,73 +62,4 @@ func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
 
 func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 	return net.IPNet{IP: net.ParseIP(extPeer.Address6), Mask: net.CIDRMask(128, 128)}
-}
-
-type ExtClientRecord struct {
-	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:''"`
-	NetworkID string
-	Value     datatypes.JSONType[ExtClient]
-}
-
-const extClientRecordsTable = "extclients"
-
-func (*ExtClientRecord) TableName() string { return extClientRecordsTable }
-
-func (r *ExtClientRecord) Get(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalKey := r.Key
-	r.Key = TenantScopedKey(tenantID, logicalKey)
-	err := db.FromContext(ctx).Where("key = ?", r.Key).First(r).Error
-	if err != nil {
-		r.Key = logicalKey
-		return err
-	}
-	r.Key = logicalKey
-	return nil
-}
-
-func (r *ExtClientRecord) Upsert(ctx context.Context) error {
-	r.TenantID = scope.ID(ctx)
-	rec := *r
-	rec.Key = TenantScopedKey(r.TenantID, r.Key)
-	return db.FromContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
-		DoUpdates: clause.AssignmentColumns([]string{"value"}),
-	}).Create(&rec).Error
-}
-
-func (r *ExtClientRecord) Delete(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&ExtClientRecord{}).Error
-}
-
-func (*ExtClientRecord) List(ctx context.Context) ([]ExtClientRecord, error) {
-	var records []ExtClientRecord
-	query := db.FromContext(ctx).Model(&ExtClientRecord{})
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientRecordsTable), tenantID)(query)
-	}
-	err := query.Find(&records).Error
-	for i := range records {
-		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
-	}
-	return records, err
-}
-
-func (*ExtClientRecord) DeleteAll(ctx context.Context) error {
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extClientRecordsTable), tenantID).Delete(&ExtClientRecord{}).Error
-	}
-	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extClientRecordsTable)).Error
-}
-
-func (*ExtClientRecord) Count(ctx context.Context) (int, error) {
-	var count int64
-	query := db.FromContext(ctx).Model(&ExtClientRecord{})
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientRecordsTable), tenantID)(query)
-	}
-	err := query.Count(&count).Error
-	return int(count), err
 }
