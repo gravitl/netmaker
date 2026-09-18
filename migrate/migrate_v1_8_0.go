@@ -28,7 +28,7 @@ func migrateExtClientsToSQLTable(ctx context.Context) error {
 	for _, record := range records {
 		extclient := record.Value.Data()
 
-		v1 := &schema.ExtClientV1{
+		v1 := &schema.Extclient{
 			ID:        uuid.NewString(),
 			TenantID:  record.TenantID,
 			NetworkID: record.NetworkID,
@@ -104,7 +104,7 @@ func migrateExtClientsToSQLTable(ctx context.Context) error {
 			}
 		}
 
-		if err := db.FromContext(ctx).Model(&schema.ExtClientV1{}).Create(v1).Error; err != nil {
+		if err := db.FromContext(ctx).Model(&schema.Extclient{}).Create(v1).Error; err != nil {
 			return err
 		}
 	}

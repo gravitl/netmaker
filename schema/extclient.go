@@ -2,16 +2,20 @@ package schema
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
-type ExtClientV1 struct {
+type Extclient struct {
 	ID        string `gorm:"primaryKey" json:"id"`
 	TenantID  string `gorm:"default:'';uniqueIndex:idx_extclients_v1_tenant_network_name" json:"tenant_id"`
 	NetworkID string `gorm:"uniqueIndex:idx_extclients_v1_tenant_network_name" json:"network_id"`
@@ -64,40 +68,90 @@ type ExtClientV1 struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-const extClientsV1Table = "extclients_v1"
+const extclientTable = "extclients_v1"
 
-func (*ExtClientV1) TableName() string { return extClientsV1Table }
+func (*Extclient) TableName() string { return extclientTable }
 
-func (e *ExtClientV1) Create(ctx context.Context) error {
-	e.TenantID = scope.ID(ctx)
-	return db.FromContext(ctx).Model(&ExtClientV1{}).Create(e).Error
+func (e *Extclient) AddressIPNet4() net.IPNet {
+	return net.IPNet{IP: net.ParseIP(e.Address), Mask: net.CIDRMask(32, 32)}
 }
 
-func (e *ExtClientV1) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&ExtClientV1{}).Where("id = ?", e.ID).First(e).Error
+func (e *Extclient) AddressIPNet6() net.IPNet {
+	return net.IPNet{IP: net.ParseIP(e.Address6), Mask: net.CIDRMask(128, 128)}
 }
 
-func (e *ExtClientV1) GetByName(ctx context.Context) error {
-	query := db.FromContext(ctx).Model(&ExtClientV1{}).Where("name = ? AND network_id = ?", e.Name, e.NetworkID)
-	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientsV1Table), tenantID)(query)
+func (e *Extclient) Create(ctx context.Context) error {
+	if e.ID == "" {
+		e.ID = uuid.NewString()
 	}
-	return query.First(e).Error
+	e.TenantID = scope.ID(ctx)
+	return db.FromContext(ctx).Model(&Extclient{}).Create(e).Error
 }
 
-func (e *ExtClientV1) Update(ctx context.Context) error {
+func (e *Extclient) Get(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Extclient{}).Where("id = ?", e.ID).First(e).Error
+}
+
+var (
+	ErrExtClientNameLookupRequiresNetworkID = errors.New("name lookup requires network_id")
+	ErrExtClientNameLookupRequiresTenant    = errors.New("name lookup requires a tenant scope")
+)
+
+func (e *Extclient) GetByName(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return ErrExtClientNameLookupRequiresTenant
+	}
+	if e.NetworkID == "" {
+		return ErrExtClientNameLookupRequiresNetworkID
+	}
+	return db.FromContext(ctx).Model(&Extclient{}).
+		Where("name = ? AND network_id = ? AND tenant_id = ?", e.Name, e.NetworkID, tenantID).
+		First(e).Error
+}
+
+func (e *Extclient) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Save(e).Error
 }
 
-func (e *ExtClientV1) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&ExtClientV1{}).Where("id = ?", e.ID).Delete(e).Error
+func (e *Extclient) Upsert(ctx context.Context) error {
+	existing := &Extclient{Name: e.Name, NetworkID: e.NetworkID}
+	err := existing.GetByName(ctx)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		return e.Create(ctx)
+	}
+
+	e.ID = existing.ID
+	e.TenantID = existing.TenantID
+	e.CreatedAt = existing.CreatedAt
+	return e.Update(ctx)
 }
 
-func (*ExtClientV1) ListAll(ctx context.Context, options ...dbtypes.Option) ([]ExtClientV1, error) {
-	var clients []ExtClientV1
-	query := db.FromContext(ctx).Model(&ExtClientV1{})
+func (e *Extclient) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Extclient{}).Where("id = ?", e.ID).Delete(e).Error
+}
+
+func (e *Extclient) DeleteByName(ctx context.Context) error {
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return ErrExtClientNameLookupRequiresTenant
+	}
+	if e.NetworkID == "" {
+		return ErrExtClientNameLookupRequiresNetworkID
+	}
+	query := db.FromContext(ctx).Where("name = ? AND network_id = ?", e.Name, e.NetworkID)
+	query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extclientTable), tenantID)(query)
+	return query.Delete(&Extclient{}).Error
+}
+
+func (*Extclient) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Extclient, error) {
+	var clients []Extclient
+	query := db.FromContext(ctx).Model(&Extclient{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientsV1Table), tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extclientTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)
@@ -106,18 +160,18 @@ func (*ExtClientV1) ListAll(ctx context.Context, options ...dbtypes.Option) ([]E
 	return clients, err
 }
 
-func (*ExtClientV1) DeleteAll(ctx context.Context) error {
+func (*Extclient) DeleteAll(ctx context.Context) error {
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extClientsV1Table), tenantID).Delete(&ExtClientV1{}).Error
+		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extclientTable), tenantID).Delete(&Extclient{}).Error
 	}
-	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extClientsV1Table)).Error
+	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extclientTable)).Error
 }
 
-func (*ExtClientV1) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
+func (*Extclient) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
-	query := db.FromContext(ctx).Model(&ExtClientV1{})
+	query := db.FromContext(ctx).Model(&Extclient{})
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extClientsV1Table), tenantID))
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", extclientTable), tenantID))
 	}
 	for _, opt := range options {
 		query = opt(query)

@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/goombaio/namegenerator"
@@ -17,10 +16,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -125,7 +122,7 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 	if err != nil {
 		return err
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(ctx); err != nil {
+	if err = (&schema.Extclient{Name: clientid, NetworkID: network}).DeleteByName(ctx); err != nil {
 		return err
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
@@ -174,11 +171,12 @@ a. check against each user node, if allowed add rule
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
-	records, err := (&schema.ExtClientRecord{}).List(ctx)
+	records, err := (&schema.Extclient{}).ListAll(ctx)
 	if err != nil {
 		return extclients, err
 	}
 	for _, r := range records {
+		extclient := models.ExtClientFromV1(&r)
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
 		}
@@ -189,8 +187,11 @@ func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClie
 // GetExtClient - gets a single ext client on a network
 func GetExtClient(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
 	var extclient models.ExtClient
+	r := &schema.Extclient{Name: clientid, NetworkID: network}
+	if err := r.GetByName(ctx); err != nil {
 		return extclient, err
 	}
+	extclient = models.ExtClientFromV1(r)
 	return extclient, nil
 }
 
@@ -220,8 +221,8 @@ func GenerateNodeName(ctx context.Context, network string) (string, error) {
 
 // SaveExtClient - saves an ext client to database
 func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
-	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-	if err != nil {
+	r := extclient.ToExtClientV1()
+	if err := r.Upsert(ctx); err != nil {
 		return err
 	}
 	return SetNetworkNodesLastModified(ctx, extclient.Network)

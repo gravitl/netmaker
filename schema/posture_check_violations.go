@@ -23,7 +23,7 @@ type PostureCheckViolation struct {
 	TenantID          string `gorm:"default:'';index" json:"tenant_id"`
 	CheckID           string `gorm:"primaryKey;column:check_id" json:"check_id"`
 	// NodeID is the violating subject's ID - a Node ID for SubjectType Device,
-	// or an ExtClientV1 ID for SubjectType ExtClient.
+	// or an Extclient ID for SubjectType ExtClient.
 	NodeID      string                  `gorm:"primaryKey;column:node_id" json:"node_id"`
 	SubjectType PostureCheckSubjectType `gorm:"default:'device'" json:"subject_type"`
 	Name        string                  `json:"name"`

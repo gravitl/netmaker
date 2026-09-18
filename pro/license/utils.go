@@ -82,7 +82,7 @@ func ClientLimitExceeded(ctx context.Context) bool {
 		return false
 	}
 	return limitExceeded(ctx, limits.Clients, func() (int, error) {
-		return (&schema.ExtClientV1{}).Count(ctx)
+		return (&schema.Extclient{}).Count(ctx)
 	})
 }
 
