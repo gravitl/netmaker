@@ -15,6 +15,8 @@ import (
 const (
 	migrationJobV160 = "migration-v1.6.0"
 	migrationJobV170 = "migration-v1.7.0"
+	migrationJobV180 = "migration-v1.8.0"
+	migrationJobInitializeTenants = "initialize-tenants"
 )
 
 func getNetworkByNameForMigration(ctx context.Context, name string) (*schema.Network, error) {

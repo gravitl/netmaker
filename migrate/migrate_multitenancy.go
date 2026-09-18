@@ -12,6 +12,10 @@ import (
 
 var SyncOrgAndTenants = CreateLocalDefaults
 
+func initializeTenants(ctx context.Context) error {
+	return SyncOrgAndTenants(ctx)
+}
+
 func CreateLocalDefaults(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
