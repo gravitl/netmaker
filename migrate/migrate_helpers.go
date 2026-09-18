@@ -6,16 +6,14 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/migrate/types"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 const (
-	migrationJobV160 = "migration-v1.6.0"
 	migrationJobV170 = "migration-v1.7.0"
 	migrationJobV180 = "migration-v1.8.0"
+
 	migrationJobInitializeTenants = "initialize-tenants"
 )
 
@@ -35,33 +33,6 @@ func ensureLegacyUserColumns(ctx context.Context) error {
 		return nil
 	}
 	return db.FromContext(ctx).AutoMigrate(&types.LegacyUser{})
-}
-
-func upsertLegacyUserAuth(
-	ctx context.Context,
-	userID string,
-	user models.User,
-	platformRoleID schema.UserRoleID,
-	groups datatypes.JSONType[map[schema.UserGroupID]struct{}],
-) error {
-	if err := ensureLegacyUserColumns(ctx); err != nil {
-		return err
-	}
-
-	legacy := types.LegacyUser{
-		ID:                         userID,
-		PlatformRoleID:             platformRoleID,
-		UserGroups:                 groups,
-		AuthType:                   user.AuthType,
-		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
-		Password:                   user.Password,
-		AccountDisabled:            user.AccountDisabled,
-		IsMFAEnabled:               user.IsMFAEnabled,
-		TOTPSecret:                 user.TOTPSecret,
-	}
-	return db.FromContext(ctx).Model(&types.LegacyUser{}).
-		Where("id = ?", userID).
-		Updates(&legacy).Error
 }
 
 func migrationJobCompleted(ctx context.Context, jobID string) (bool, error) {
