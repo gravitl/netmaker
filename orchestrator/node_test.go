@@ -158,9 +158,11 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		err := host.Upsert(c.ctx)
 		c.Require().NoError(err)
 
-		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
-		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
+		node, err := GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
+		c.Require().NoError(err)
+		c.Require().True(node.IsGateway)
 
+		testutils.DeleteNode(c.T(), c.ctx, node)
 		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
 
@@ -174,7 +176,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		c.Require().NoError(err)
 
 		_, err = GetRepository().NodeOrchestrator().CreateNode(c.ctx, host, network)
-		c.Require().ErrorContains(err, "gateway can only be created on linux based node")
+		c.Require().ErrorContains(err, "gateway can only be created on linux or windows based node")
 
 		testutils.DeleteHost(c.T(), c.ctx, host)
 	})
