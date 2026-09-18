@@ -11,16 +11,26 @@ import (
 
 const postureCheckViolationsTable = "posture_check_violations_v1"
 
+type PostureCheckSubjectType string
+
+const (
+	PostureCheckSubjectType_Device    PostureCheckSubjectType = "device"
+	PostureCheckSubjectType_ExtClient PostureCheckSubjectType = "extclient"
+)
+
 type PostureCheckViolation struct {
-	EvaluationCycleID string    `gorm:"primaryKey;column:evaluation_cycle_id" json:"evaluation_cycle_id"`
-	TenantID          string    `gorm:"default:'';index" json:"tenant_id"`
-	CheckID           string    `gorm:"primaryKey;column:check_id" json:"check_id"`
-	NodeID            string    `gorm:"primaryKey;column:node_id" json:"node_id"`
-	Name              string    `json:"name"`
-	Attribute         string    `json:"attribute"`
-	Message           string    `json:"message"`
-	Severity          Severity  `json:"severity"`
-	EvaluatedAt       time.Time `json:"evaluated_at"`
+	EvaluationCycleID string `gorm:"primaryKey;column:evaluation_cycle_id" json:"evaluation_cycle_id"`
+	TenantID          string `gorm:"default:'';index" json:"tenant_id"`
+	CheckID           string `gorm:"primaryKey;column:check_id" json:"check_id"`
+	// NodeID is the violating subject's ID - a Node ID for SubjectType Device,
+	// or an ExtClientV1 ID for SubjectType ExtClient.
+	NodeID      string                  `gorm:"primaryKey;column:node_id" json:"node_id"`
+	SubjectType PostureCheckSubjectType `gorm:"default:'device'" json:"subject_type"`
+	Name        string                  `json:"name"`
+	Attribute   string                  `json:"attribute"`
+	Message     string                  `json:"message"`
+	Severity    Severity                `json:"severity"`
+	EvaluatedAt time.Time               `json:"evaluated_at"`
 }
 
 func (v *PostureCheckViolation) TableName() string {
