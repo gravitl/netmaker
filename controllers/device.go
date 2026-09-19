@@ -48,7 +48,8 @@ func getDeviceUser(w http.ResponseWriter, r *http.Request) (*schema.User, bool) 
 		return nil, false
 	}
 	user := &schema.User{Username: username}
-	if err := user.Get(r.Context()); err != nil {
+	// Membership is required so group-based user policies apply to exit-node listing/selection.
+	if err := user.GetWithMembership(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return nil, false
 	}

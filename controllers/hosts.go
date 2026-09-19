@@ -420,6 +420,14 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
+	if logic.IsUserOwnedHost(currHost) && newHost.IsDefault && !currHost.IsDefault {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("user-registered devices cannot be marked as default hosts"),
+			logic.Forbidden,
+		))
+		return
+	}
+
 	logic.UpdateHost(r.Context(), newHost, currHost) // update the in memory struct values
 	if newHost.DNS != "yes" {
 		// check if any node is internet gw
@@ -1012,6 +1020,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.IsUserOwnedHost(host) {
+		err = errors.New("user-registered devices can only join networks from the user device dashboard")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 
@@ -1984,6 +1998,9 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 // existing network it is not already part of, applying the standard default
 // host operations for each network.
 func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
+	if logic.IsUserOwnedHost(host) {
+		return
+	}
 	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(0, "failed to get networks for default host ops:", err.Error())

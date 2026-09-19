@@ -5,8 +5,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestIsUserOwnedHost(t *testing.T) {
+	assert.False(t, IsUserOwnedHost(nil))
+	assert.False(t, IsUserOwnedHost(&schema.Host{Name: "server"}))
+	assert.True(t, IsUserOwnedHost(&schema.Host{Name: "laptop", OwnerUsername: "alice"}))
+}
 
 func TestNodeOwnerUsername(t *testing.T) {
 	assert.Equal(t, "", NodeOwnerUsername(nil))

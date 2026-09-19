@@ -7,6 +7,13 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+// IsUserOwnedHost reports whether the host was registered by an end user
+// (desktop/device flow). Admin dashboard must not link these into networks;
+// the owning user joins via device APIs instead.
+func IsUserOwnedHost(h *schema.Host) bool {
+	return h != nil && h.OwnerUsername != ""
+}
+
 // NodeOwnerUsername returns the Netmaker username that owns this node, if any.
 // Legacy ExtClient Active Users use StaticNode.OwnerID; registered desktop
 // devices use OwnerID populated from Host.OwnerUsername.
