@@ -14,16 +14,36 @@ import (
 
 func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
 	extClients, err := logic.GetAllExtClients(ctx)
+	if err == nil {
+		for _, extI := range extClients {
+			if extI.Network == network.String() && extI.RemoteAccessClientID != "" {
+				staticNode = append(staticNode, models.ConvertToStaticNode(extI))
+			}
+		}
+	}
+	// User-registered devices (Host.OwnerUsername) are also user-policy subjects.
+	// Metadata is attached during schema→models conversion; keep IsUserNode false.
+	nodes, err := logic.GetNetworkNodes(ctx, network.String())
 	if err != nil {
 		return
 	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := models.ConvertToStaticNode(extI)
-				staticNode = append(staticNode, n)
-			}
+	for _, n := range nodes {
+		if !logic.IsUserOwnedDevice(&n) {
+			continue
 		}
+		if n.StaticNode.OwnerID == "" {
+			n.StaticNode.OwnerID = logic.NodeOwnerUsername(&n)
+		}
+		if n.StaticNode.Address == "" && n.Address.IP != nil {
+			n.StaticNode.Address = n.Address.IP.String()
+		}
+		if n.StaticNode.Address6 == "" && n.Address6.IP != nil {
+			n.StaticNode.Address6 = n.Address6.IP.String()
+		}
+		if !n.StaticNode.Enabled {
+			n.StaticNode.Enabled = n.Connected
+		}
+		staticNode = append(staticNode, n)
 	}
 	return
 }
@@ -57,7 +77,7 @@ func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 			continue
 		}
 		for _, peer := range nodes {
-			if peer.IsUserNode {
+			if peer.IsUserNode || logic.IsUserOwnedDevice(&peer) {
 				continue
 			}
 

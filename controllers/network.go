@@ -407,6 +407,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		defaultHosts := logic.GetDefaultHosts(ctx)
 		for i := range defaultHosts {
 			host := &defaultHosts[i]
+			if logic.IsUserOwnedHost(host) {
+				continue
+			}
 			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network)
 			if err != nil {
 				logger.Log(

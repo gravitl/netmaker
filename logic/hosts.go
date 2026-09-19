@@ -571,7 +571,7 @@ func GetDefaultHosts(ctx context.Context) []schema.Host {
 		return defaultHostList
 	}
 	for i := range hosts {
-		if hosts[i].IsDefault {
+		if hosts[i].IsDefault && !IsUserOwnedHost(&hosts[i]) {
 			defaultHostList = append(defaultHostList, hosts[i])
 		}
 	}
