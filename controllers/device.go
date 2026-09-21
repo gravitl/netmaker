@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -166,7 +165,12 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	go func() {
+		if allNodes, err := logic.GetAllNodes(ctx); err == nil {
+			_ = mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
+		}
+		_ = mq.PublishPeerUpdate(ctx, false)
+	}()
 	logic.ReturnSuccessResponseWithJson(w, r, result, "joined network")
 }
 
@@ -196,7 +200,12 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishDeletedNodePeerUpdate(ctx, host, node)
+	go func() {
+		if allNodes, err := logic.GetAllNodes(ctx); err == nil {
+			_ = mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, host, node, nil, false, nil)
+		}
+		_ = mq.PublishDeletedNodePeerUpdate(ctx, host, node)
+	}()
 	logic.ReturnSuccessResponse(w, r, "left network")
 }
 
@@ -330,8 +339,10 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
-		time.Sleep(time.Second * 2)
-		mq.PublishPeerUpdate(ctx, false)
+		if allNodes, err := logic.GetAllNodes(ctx); err == nil {
+			_ = mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
+		}
+		_ = mq.PublishPeerUpdate(ctx, false)
 	}()
 	logic.ReturnSuccessResponseWithJson(w, r, selected, msg)
 }
