@@ -40,6 +40,33 @@ func orgHandlers(r *mux.Router) {
 
 var errOrgNotFound = errors.New("organization not found")
 
+func createOrgOwnerMembership(ctx context.Context, user *schema.User) error {
+	tenant := &schema.Tenant{ID: scope.ID(ctx)}
+	if err := tenant.Get(ctx); err != nil {
+		return err
+	}
+
+	owner := &schema.OrgMembership{OrganizationID: tenant.OrganizationID}
+	err := owner.GetOwner(ctx)
+	if err == nil {
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return (&schema.OrgMembership{
+		OrganizationID:             tenant.OrganizationID,
+		UserID:                     user.ID,
+		RoleID:                     schema.OrgOwner,
+		AuthType:                   user.AuthType,
+		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+		Password:                   user.Password,
+		AccountDisabled:            user.AccountDisabled,
+		IsMFAEnabled:               user.IsMFAEnabled,
+		TOTPSecret:                 user.TOTPSecret,
+	}).Create(ctx)
+}
+
 func resolveSoleOrg(ctx context.Context, orgID string) (*schema.Organization, error) {
 	o, err := logic.SoleOrganization(ctx)
 	if err != nil {
@@ -373,6 +400,25 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := scope.WithContext(dbctx, scope.TenantScope, tenant.ID)
+		exists, err := (&schema.User{}).SuperAdminExists(tenantCtx)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if exists {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization is already set up"), logic.BadReq))
+			return
+		}
+	}
+
 	var user schema.User
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -396,12 +442,6 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &user)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return

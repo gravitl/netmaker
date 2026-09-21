@@ -1319,12 +1319,35 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(dbctx, &user)
 	if err != nil {
 		slog.Error("failed to create superadmin", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
+
+	// on MSP the org owner is created via createOrgOwner instead, which also
+	// grants super admin on every tenant of the org.
+	if !logic.IsMSP(dbctx) {
+		err = createOrgOwnerMembership(dbctx, &user)
+		if err != nil {
+			slog.Error("failed to create org owner for superadmin", "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
+	commit = true
 
 	logger.Log(1, user.Username, "was made a super admin")
 	_ = json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
