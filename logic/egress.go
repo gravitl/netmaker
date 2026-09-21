@@ -84,6 +84,9 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 				}
 			}
 		}
+		if err := ValidateWindowsEgressNATMode(*e); err != nil {
+			return err
+		}
 	}
 	if IsEgressInternetGateway(*e) && len(e.Tags) > 0 {
 		return errors.New("internet egress must use explicit routing nodes, not tags")
@@ -238,10 +241,16 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
-	if host.OS != models.OS_Types.Linux {
-		return errors.New("only linux nodes can be internet egress routing nodes")
+	switch host.OS {
+	case models.OS_Types.Linux, models.OS_Types.Windows:
+		// supported
+	default:
+		return errors.New("only linux and windows nodes can be internet egress routing nodes")
 	}
-	if host.FirewallInUse == schema.FIREWALL_NONE {
+	if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+		if host.OS == models.OS_Types.Windows {
+			return errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return errors.New("iptables or nftables needs to be installed")
 	}
 	if InternetExitRoutingNodeID(node) != "" {
@@ -249,6 +258,44 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	}
 	if node.IsRelayed {
 		return fmt.Errorf("node %s is being relayed", host.Name)
+	}
+	return nil
+}
+
+// isSupportedEgressFirewall reports whether the host's reported firewall can do egress NAT.
+func isSupportedEgressFirewall(firewallInUse, osName string) bool {
+	switch firewallInUse {
+	case schema.FIREWALL_IPTABLES, schema.FIREWALL_NFTABLES:
+		return true
+	case schema.FIREWALL_NETNAT:
+		return osName == models.OS_Types.Windows
+	default:
+		return false
+	}
+}
+
+// IsSupportedEgressFirewall is the exported wrapper for gateway validation.
+func IsSupportedEgressFirewall(firewallInUse, osName string) bool {
+	return isSupportedEgressFirewall(firewallInUse, osName)
+}
+
+// ValidateWindowsEgressNATMode rejects virtual NAT when any routing node is Windows.
+func ValidateWindowsEgressNATMode(e schema.Egress) error {
+	if e.Mode != schema.VirtualNAT {
+		return nil
+	}
+	for nodeID := range e.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		host := &schema.Host{ID: node.HostID}
+		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+			continue
+		}
+		if host.OS == models.OS_Types.Windows {
+			return errors.New("virtual NAT is not supported on Windows routing nodes; use direct NAT")
+		}
 	}
 	return nil
 }
@@ -399,35 +446,60 @@ func ResolveInternetExitRoutingNode(node *models.Node) {
 	}
 }
 
-// applyInternetExitFromDeviceACL sets InternetGwID in-memory when a device ACL
-// grants this node access to a single internet egress and no exit is selected.
-// That attaches the exit node peer (0.0.0.0/0, default gw) the same way explicit
-// exit selection does. Multiple internet exits still require an explicit choice.
-func applyInternetExitFromDeviceACL(node *models.Node, eli []schema.Egress, acls []models.Acl) {
-	if node == nil || node.SelectedInternetEgressID != "" || node.InternetGwID != "" {
+// assignedInternetEgress returns the active internet egress this node is configured to use
+// (SelectedInternetEgressID, or legacy InternetGwID matched against eli routing nodes).
+func assignedInternetEgress(node *models.Node, eli []schema.Egress) *schema.Egress {
+	if node == nil {
+		return nil
+	}
+	if node.SelectedInternetEgressID != "" {
+		for i := range eli {
+			e := &eli[i]
+			if e.ID == node.SelectedInternetEgressID && e.Status && e.Network == node.Network && IsEgressInternetGateway(*e) {
+				return e
+			}
+		}
+		return nil
+	}
+	if node.InternetGwID == "" {
+		return nil
+	}
+	for i := range eli {
+		e := &eli[i]
+		if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(*e) {
+			continue
+		}
+		if _, ok := e.Nodes[node.InternetGwID]; ok {
+			return e
+		}
+	}
+	return nil
+}
+
+// SuppressInternetExitIfNoACLAccess clears the in-memory exit assignment for this peer
+// update when the node is not allowed to use its assigned internet egress. Sticky DB
+// selection is preserved; full-tunnel and default-gw changes are not applied.
+//
+// Exit is applied when the node is assigned an exit and any of:
+//   - the default device (all-resources) policy is enabled
+//   - an enabled policy that includes this node has dst all-resources ("*")
+//   - an enabled policy that includes this node has the exit egress in dst
+func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
+	if node == nil || defaultDevicePolicyEnabled {
 		return
 	}
-	routingID := ""
-	for i := range eli {
-		e := eli[i]
-		if !e.Status || e.Network != node.Network || !IsEgressInternetGateway(e) {
-			continue
-		}
-		if !DoesNodeHaveAccessToEgress(node, &e, acls) {
-			continue
-		}
-		id := FirstInternetEgressRoutingNodeID(e)
-		if id == "" || id == node.ID.String() {
-			continue
-		}
-		if routingID != "" && routingID != id {
-			return
-		}
-		routingID = id
+	if node.SelectedInternetEgressID == "" && node.InternetGwID == "" {
+		return
 	}
-	if routingID != "" {
-		node.InternetGwID = routingID
+	e := assignedInternetEgress(node, eli)
+	if e == nil {
+		return
 	}
+	if DoesNodeHaveAccessToEgress(node, e, acls) {
+		return
+	}
+	node.SelectedInternetEgressID = ""
+	node.InternetGwID = ""
 }
 
 // FirstInternetEgressRoutingNodeID returns a routing node ID from an internet egress.
@@ -1116,10 +1188,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) && isDefaultPolicyActive {
-			// Default-allow must not auto-full-tunnel every peer. Explicit exit
-			// selection or a specific ACL (handled below when default is off)
-			// is required to attach 0.0.0.0/0.
+		if IsEgressInternetGateway(e) && !usesPeerAsInternetExit(node, targetNode) {
+			// Never auto-full-tunnel from ACL/gateway access alone. Full-tunnel
+			// (0.0.0.0/0, ::/0) requires explicit exit selection
+			// (SelectedInternetEgressID) or a legacy InternetGwID assignment.
 			continue
 		}
 		if !isDefaultPolicyActive {
