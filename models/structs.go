@@ -14,7 +14,6 @@ type FeatureFlags struct {
 	EnableNetworkActivity         bool `json:"enable_network_activity"`
 	EnableOAuth                   bool `json:"enable_oauth"`
 	EnableIDPIntegration          bool `json:"enable_idp_integration"`
-	AllowMultiServerLicense       bool `json:"allow_multi_server_license"`
 	EnableGwsHA                   bool `json:"enable_gws_ha"`
 	EnableDeviceApproval          bool `json:"enable_device_approval"`
 	EnableFlowLogs                bool `json:"enable_flow_logs"`
@@ -22,6 +21,8 @@ type FeatureFlags struct {
 	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 	EnableSIEMIntegration         bool `json:"enable_siem_integration"`
+	EnableMDMIntegration          bool `json:"enable_mdm_integration"`
+	EnableEDRIntegration          bool `json:"enable_edr_integration"`
 }
 
 // AuthParams - struct for auth params
@@ -143,6 +144,12 @@ type PaginatedResponse struct {
 	TotalPages int         `json:"total_pages"`
 }
 
+// OnboardingStatus tells the UI whether to show the first-network onboarding flow.
+type OnboardingStatus struct {
+	ShowOnboarding bool `json:"show_onboarding"`
+	NetworkCount   int  `json:"network_count"`
+}
+
 // DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`
@@ -240,15 +247,6 @@ type InetNodeReq struct {
 	InetNodeClientIDs []string `json:"inet_node_client_ids"`
 }
 
-// Telemetry - contains UUID of the server and timestamp of last send to posthog
-// also contains assymetrical encryption pub/priv keys for any server traffic
-type Telemetry struct {
-	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend" swaggertype:"primitive,integer" format:"int64"`
-	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
-	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
-}
-
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
 type ServerAddr struct {
 	IsLeader bool   `json:"isleader" bson:"isleader" yaml:"isleader"`
@@ -273,6 +271,7 @@ type HostPull struct {
 	FwUpdate           FwUpdate                    `json:"fw_update"`
 	ChangeDefaultGw    bool                        `json:"change_default_gw"`
 	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
+	DefaultGwIp6       net.IP                      `json:"default_gw_ip6"`
 	IsInternetGw       bool                        `json:"is_inet_gw"`
 	EndpointDetection  bool                        `json:"endpoint_detection"`
 	NameServers        []string                    `json:"name_servers"`
@@ -304,6 +303,7 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
+	TenantID                    string `yaml:"tenant_id"`
 	CoreDNSAddr                 string `yaml:"corednsaddr"`
 	API                         string `yaml:"api"`
 	APIHost                     string `yaml:"apihost"`
@@ -470,15 +470,20 @@ type PostureCheckDeviceInfo struct {
 	Tags           map[TagID]struct{}
 	IsUser         bool
 	UserGroups     map[schema.UserGroupID]struct{}
+	// HostID is the Netmaker host's UUID; used to look up MDM state.
+	HostID string
+	// Username / ClientID identify Active User (extclient) posture subjects.
+	Username string
+	ClientID string
+	// MDMState is the most recent sync snapshot for the configured MDM
+	// provider; nil if MDM is not configured or the host hasn't synced yet.
+	MDMState *schema.DeviceMDMState
+	// EDRState is the most recent sync snapshot for the configured EDR
+	// provider; nil if EDR is not configured or the host hasn't synced yet.
+	EDRState *schema.DeviceEDRState
 }
 
-type Violation struct {
-	CheckID   string          `json:"check_id"`
-	Name      string          `json:"name"`
-	Attribute string          `json:"attribute"`
-	Message   string          `json:"message"`
-	Severity  schema.Severity `json:"severity"`
-}
+type Violation = schema.Violation
 
 type BulkDeleteRequest struct {
 	IDs []string `json:"ids"`

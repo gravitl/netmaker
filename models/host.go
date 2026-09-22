@@ -59,6 +59,12 @@ type Host struct {
 	Debug               bool             `json:"debug"                   yaml:"debug"`
 	ListenPort          int              `json:"listenport"              yaml:"listenport"`
 	WgPublicListenPort  int              `json:"wg_public_listen_port"   yaml:"wg_public_listen_port"`
+	TcpProxyEnabled     bool             `json:"tcp_proxy_enabled"       yaml:"tcp_proxy_enabled"`
+	TcpProxyListenPort  int              `json:"tcp_proxy_listen_port"   yaml:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode     string           `json:"tcp_proxy_tls_mode"      yaml:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr     string           `json:"tcp_proxy_listen_addr,omitempty" yaml:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname string           `json:"tcp_proxy_public_hostname,omitempty" yaml:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string       `json:"tcp_proxy_cert_fingerprint,omitempty" yaml:"tcp_proxy_cert_fingerprint,omitempty"`
 	MTU                 int              `json:"mtu"                     yaml:"mtu"`
 	PublicKey           wgtypes.Key      `json:"publickey"               yaml:"publickey"`
 	MacAddress          net.HardwareAddr `json:"macaddress"              yaml:"macaddress"`
@@ -80,6 +86,14 @@ type Host struct {
 	Location            string           `json:"location"` // Format: "lat,lon"
 	CountryCode         string           `json:"country_code"`
 	EnableFlowLogs      bool             `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+
+	// MDM device-matching identifiers. Reported by netclient on host check-in
+	// and consumed by the MDM sync worker to match a Netmaker host to its
+	// upstream MDM-managed device record.
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	OwnerUsername string `json:"owner_username" yaml:"owner_username"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

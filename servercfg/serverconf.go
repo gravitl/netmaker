@@ -1,6 +1,7 @@
 package servercfg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -21,12 +22,15 @@ const EmqxBrokerType = "emqx"
 type Emqxdeploy string
 
 var (
-	Version              = "dev"
-	IsPro                = false
-	ErrLicenseValidation error
-	EmqxCloudDeploy      Emqxdeploy = "cloud"
-	EmqxOnPremDeploy     Emqxdeploy = "on-prem"
+	Version                     = "dev"
+	IsPro                       = false
+	EmqxCloudDeploy  Emqxdeploy = "cloud"
+	EmqxOnPremDeploy Emqxdeploy = "on-prem"
 )
+
+// ErrLicenseValidation checks for errors during license validation
+// of tenant in ctx.
+var ErrLicenseValidation = func(ctx context.Context) error { return nil }
 
 // SetHost - sets the host ip
 func SetHost() error {
@@ -158,6 +162,22 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
+}
+
+// GetTcpProxyPublicPort returns the client-facing WSS port published for
+// external-termination (tls_mode=proxy) gateways. Defaults to 443.
+// Override with TCP_PROXY_PUBLIC_PORT (1–65535).
+func GetTcpProxyPublicPort() int {
+	defaultPort := 443 // keep in sync with schema.TcpProxyClientPortProxy
+	v := strings.TrimSpace(os.Getenv("TCP_PROXY_PUBLIC_PORT"))
+	if v == "" {
+		return defaultPort
+	}
+	port, err := strconv.Atoi(v)
+	if err != nil || port < 1 || port > 65535 {
+		return defaultPort
+	}
+	return port
 }
 
 // GetCoreDNSAddr - gets the core dns address
@@ -823,6 +843,16 @@ func GetAllowedEmailDomains() string {
 // GetNmBaseDomain - fetches nm base domain
 func GetNmBaseDomain() string {
 	return os.Getenv("NM_DOMAIN")
+}
+
+func GetGrpcEndpoint() string {
+	if os.Getenv("GRPC_ENDPOINT") != "" {
+		return os.Getenv("GRPC_ENDPOINT")
+	} else if config.Config.Server.GrpcEndpoint != "" {
+		return config.Config.Server.GrpcEndpoint
+	}
+
+	return fmt.Sprintf("grpc.%s", GetNmBaseDomain())
 }
 
 // IsHA - returns true if running in High Availability mode (multiple replicas)

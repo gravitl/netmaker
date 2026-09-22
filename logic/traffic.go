@@ -1,21 +1,35 @@
 package logic
 
-// RetrievePrivateTrafficKey - retrieves private key of server
+import (
+	"context"
+	"encoding/base64"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+)
+
+// RetrievePrivateTrafficKey retrieves private key of server
 func RetrievePrivateTrafficKey() ([]byte, error) {
-	var telRecord, err = FetchTelemetryRecord()
+	mqPrivateKey := &schema.Internal{
+		Key: schema.InternalKey_MqPrivateKey,
+	}
+	err := mqPrivateKey.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
 
-	return telRecord.TrafficKeyPriv, nil
+	return base64.StdEncoding.DecodeString(mqPrivateKey.Value)
 }
 
-// RetrievePublicTrafficKey - retrieves public key of server
+// RetrievePublicTrafficKey retrieves public key of server
 func RetrievePublicTrafficKey() ([]byte, error) {
-	var telRecord, err = FetchTelemetryRecord()
+	mqPublicKey := &schema.Internal{
+		Key: schema.InternalKey_MqPublicKey,
+	}
+	err := mqPublicKey.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
 
-	return telRecord.TrafficKeyPub, nil
+	return base64.StdEncoding.DecodeString(mqPublicKey.Value)
 }

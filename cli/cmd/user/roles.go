@@ -41,7 +41,7 @@ var userRoleListCmd = &cobra.Command{
 			}
 			table.SetHeader(h)
 			for _, d := range data {
-				e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
+				e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
 				if !platformRoles {
 					e = append(e, d.NetworkID.String())
 				}
@@ -59,19 +59,6 @@ var userRoleCreateCmd = &cobra.Command{
 	Long:  `create user role`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("CLI doesn't support creation of roles currently. Visit the dashboard to create one or refer to our api documentation https://docs.netmaker.io/api")
-	},
-}
-
-var userRoleDeleteCmd = &cobra.Command{
-	Use:   "delete [roleID]",
-	Args:  cobra.ExactArgs(1),
-	Short: "delete user role",
-	Long:  `delete user role`,
-	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.DeleteUserRole(args[0])
-		if resp != nil {
-			fmt.Println(resp.Message)
-		}
 	},
 }
 
@@ -93,7 +80,7 @@ var userRoleGetCmd = &cobra.Command{
 				h = append(h, "Network")
 			}
 			table.SetHeader(h)
-			e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
+			e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
 			if !platformRoles {
 				e = append(e, d.NetworkID.String())
 			}
@@ -112,9 +99,6 @@ func init() {
 
 	// create roles cmd
 	userRoleCmd.AddCommand(userRoleCreateCmd)
-
-	// delete role cmd
-	userRoleCmd.AddCommand(userRoleDeleteCmd)
 
 	// Get Role
 	userRoleCmd.AddCommand(userRoleGetCmd)

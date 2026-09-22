@@ -1,12 +1,15 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -14,6 +17,8 @@ import (
 type serverSyncMessage struct {
 	Sender   string               `json:"sender"`
 	SyncType logic.ServerSyncType `json:"sync_type"`
+	Scope    scope.Scope          `json:"scope"`
+	ScopeID  string               `json:"scope_id"`
 }
 
 // InitServerSync wires up the logic.PublishServerSync hook so that
@@ -23,13 +28,15 @@ func InitServerSync() {
 	logic.PublishServerSync = publishServerSync
 }
 
-func publishServerSync(syncType logic.ServerSyncType) {
+func publishServerSync(ctx context.Context, syncType logic.ServerSyncType) {
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return
 	}
 	msg := serverSyncMessage{
 		Sender:   servercfg.GetHostName(),
 		SyncType: syncType,
+		Scope:    scope.Level(ctx),
+		ScopeID:  scope.ID(ctx),
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {
@@ -56,23 +63,24 @@ func handleServerSync(_ mqtt.Client, msg mqtt.Message) {
 	}
 	slog.Info("serversync: received sync", "from", syncMsg.Sender, "type", syncMsg.SyncType)
 
+	ctx := scope.WithContext(db.WithContext(context.Background()), syncMsg.Scope, syncMsg.ScopeID)
 	switch syncMsg.SyncType {
 	case logic.SyncTypeSettings:
-		oldInterval := logic.GetMetricInterval()
-		logic.InvalidateServerSettingsCache()
-		if logic.GetMetricInterval() != oldInterval {
-			logic.NotifyMetricExportIntervalChanged()
+		oldInterval := logic.GetMetricInterval(ctx)
+		logic.InvalidateServerSettingsCache(ctx)
+		if logic.GetMetricInterval(ctx) != oldInterval {
+			logic.NotifyMetricExportIntervalChanged(ctx)
 		}
 	case logic.SyncTypePeerUpdate:
-		logic.InvalidateHostPeerCaches()
-		go warmPeerCaches()
+		logic.InvalidateHostPeerCaches(ctx)
+		go warmPeerCaches(ctx)
 	case logic.SyncTypeIDPReset:
 		if servercfg.IsMasterPod() {
-			logic.ResetIDPSyncHook()
+			logic.ResetIDPSyncHook(ctx)
 		}
 	case logic.SyncTypeIDPSync:
 		if servercfg.IsMasterPod() {
-			logic.SyncFromIDP()
+			_ = logic.SyncFromIDP(ctx)
 		}
 	}
 }

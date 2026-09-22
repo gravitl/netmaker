@@ -4,19 +4,22 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// egressPreset catalog is built once in init (see egress_presets_catalog.go).
+// egressPreset catalog is built once at package init (see egress_presets_catalog.go).
 var (
-	egressPresetList      []models.EgressPresetApp
-	egressPresetByID      map[string]models.EgressPresetApp
-	egressPresetIndexOnce sync.Once
+	egressPresetList []models.EgressPresetApp
+	egressPresetByID map[string]models.EgressPresetApp
 )
+
+func init() {
+	egressPresetList = buildEgressPresetCatalog()
+	buildEgressPresetIndex()
+}
 
 func buildEgressPresetIndex() {
 	egressPresetByID = make(map[string]models.EgressPresetApp, len(egressPresetList))
@@ -28,10 +31,6 @@ func buildEgressPresetIndex() {
 
 // ListEgressPresets returns the static egress preset catalog (defensive copy of slice header; entries are values).
 func ListEgressPresets() []models.EgressPresetApp {
-	egressPresetIndexOnce.Do(func() {
-		egressPresetList = buildEgressPresetCatalog()
-		buildEgressPresetIndex()
-	})
 	out := make([]models.EgressPresetApp, len(egressPresetList))
 	copy(out, egressPresetList)
 	return out
@@ -39,10 +38,6 @@ func ListEgressPresets() []models.EgressPresetApp {
 
 // GetEgressPresetByID returns a catalog entry by id.
 func GetEgressPresetByID(id string) (models.EgressPresetApp, bool) {
-	egressPresetIndexOnce.Do(func() {
-		egressPresetList = buildEgressPresetCatalog()
-		buildEgressPresetIndex()
-	})
 	if id == "" {
 		return models.EgressPresetApp{}, false
 	}

@@ -6,30 +6,33 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 func gwHandlers(r *mux.Router) {
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", logic.SecurityCheck(true, http.HandlerFunc(assignGw))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", logic.SecurityCheck(true, http.HandlerFunc(unassignGw))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(assignGw)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(unassignGw)))).Methods(http.MethodPost)
 	// old relay handlers
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteGateway)))).Methods(http.MethodDelete)
 }
 
 // @Summary     Create a gateway
@@ -93,6 +96,10 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		options = append(options, orchestrator.WithInternetGateway(req.InetNodeClientIDs))
 	}
 
+	if req.TcpProxyEnabled {
+		options = append(options, orchestrator.WithTcpProxy(true, req.TcpProxyListenPort, req.TcpProxyTLSMode, req.TcpProxyListenAddr, req.TcpProxyPublicHostname))
+	}
+
 	err = orchestrator.GetRepository().NodeOrchestrator().ValidateCreateGateway(r.Context(), node, options...)
 	if err != nil {
 		logger.Log(
@@ -106,9 +113,13 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 	err = orchestrator.GetRepository().NodeOrchestrator().CreateGateway(r.Context(), node, options...)
 	if err != nil {
-		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error creating gateway: %v", nodeID, networkName, err)
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrIngressLimitExceeded) {
+			errType = logic.Forbidden
+		}
+		err = fmt.Errorf("failed to create gateway on node (%s) in network (%s): error creating gateway: %w", nodeID, networkName, err)
 		logger.Log(0, r.Header.Get("user"), err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -121,7 +132,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	node.Status = logic.GetNodeCheckInStatus(node)
 	apiNode := logic.ConvertSchemaNodeToApiNode(node)
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -160,7 +171,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	node, removedClients, err := logic.DeleteIngressGateway(r.Context(), nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
@@ -169,11 +180,36 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture the internet exit-node clients (peers using this node as their
+	// internet exit node) before tearing down gateway/relay state. Removing the
+	// gateway role must not stop this node from acting as an internet exit node,
+	// so these clients must keep being relayed by it in the background.
+	exitClientSet := map[string]struct{}{}
+	preNode := &schema.Node{ID: nodeid}
+	if err := preNode.Get(r.Context()); err == nil {
+		for clientID := range preNode.RelayedIGWClients {
+			exitClientSet[clientID] = struct{}{}
+		}
+	}
+
 	updateNodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	// Don't push a "no longer relayed" node update to internet exit-node clients;
+	// they remain relayed by this node for their internet egress traffic.
+	if len(exitClientSet) > 0 {
+		keptUpdateNodes := make([]models.Node, 0, len(updateNodes))
+		for _, un := range updateNodes {
+			if _, ok := exitClientSet[un.ID.String()]; ok {
+				continue
+			}
+			keptUpdateNodes = append(keptUpdateNodes, un)
+		}
+		updateNodes = keptUpdateNodes
 	}
 	node, err = logic.GetNodeByID(node.ID.String())
 	if err != nil {
@@ -189,22 +225,87 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(r.Context(), &node)
+	// NOTE: intentionally do NOT delete internet egresses routed by this node.
+	// Removing the gateway role should keep the internet exit-node (egress)
+	// configuration intact so the node continues to serve as an exit node.
 	node.IsGw = false
 	if node.IsAutoRelay {
-		logic.ResetAutoRelay(&node)
+		logic.ResetAutoRelay(r.Context(), &node)
 	}
 	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
+
+	// TODO: currently only for cleanup, but later this should be used as the main function.
+	_node := &schema.Node{
+		ID: node.ID.String(),
+	}
+	err = _node.Get(r.Context())
+	if err == nil {
+		_node.IsGateway = false
+		_node.IsInternetGateway = false
+		_node.IsAutoRelay = "no"
+		_node.RelayedClients = make(datatypes.JSONMap)
+		_node.RelayedIGWClients = make(datatypes.JSONMap)
+		_node.AdditionalGatewayEndpoints = make(datatypes.JSONSlice[string], 0)
+		_ = _node.ResetGateway(r.Context())
+		// Clear host-level TCP proxy only if this was the last gateway on the host.
+		if _node.HostID != "" {
+			if hostID, err := uuid.Parse(_node.HostID); err == nil {
+				other := &schema.Node{}
+				others, listErr := other.ListAll(r.Context(),
+					dbtypes.WithFilter("host_id", _node.HostID),
+					dbtypes.WithFilter("is_gateway", true),
+				)
+				stillHasGateway := listErr == nil && len(others) > 0
+				if !stillHasGateway {
+					host := &schema.Host{ID: hostID}
+					if err := host.Get(r.Context()); err == nil {
+						host.TcpProxyEnabled = false
+						host.TcpProxyListenPort = 0
+						host.TcpProxyTLSMode = ""
+						host.TcpProxyListenAddr = ""
+						host.TcpProxyPublicHostname = ""
+						host.TcpProxyCertFingerprint = ""
+						_ = host.SetTcpProxy(r.Context())
+					}
+				}
+			}
+		}
+	}
+
+	// Re-establish the internet exit-node client relationships that the gateway
+	// teardown above cleared. These clients keep using this node as their
+	// internet exit node and must continue to be relayed by it in the background.
+	if len(exitClientSet) > 0 {
+		routingID := node.ID.String()
+		for clientID := range exitClientSet {
+			clientNode := &schema.Node{ID: clientID}
+			if err := clientNode.Get(r.Context()); err != nil {
+				continue
+			}
+			clientNode.RelayedByNodeID = &routingID
+			clientNode.IsIGWClient = true
+			if err := clientNode.AssignGateway(r.Context()); err != nil {
+				logger.Log(0, "failed to preserve internet exit-node client",
+					clientID, "for exit node", routingID, ":", err.Error())
+			}
+		}
+		if reloaded, err := logic.GetNodeByID(routingID); err == nil {
+			node = reloaded
+		}
+	}
+
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
 
-	go func() {
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
 		host := &schema.Host{
 			ID: node.HostID,
 		}
-		err = host.Get(db.WithContext(context.TODO()))
+		err = host.Get(ctx)
 		if err == nil {
-			allNodes, err := logic.GetAllNodes()
+			allNodes, err := logic.GetAllNodes(ctx)
 			if err != nil {
 				return
 			}
@@ -226,26 +327,26 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 				h := &schema.Host{
 					ID: relayedNode.HostID,
 				}
-				err = h.Get(db.WithContext(context.TODO()))
+				err = h.Get(ctx)
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
-						nodes, err := logic.GetAllNodes()
+						nodes, err := logic.GetAllNodes(ctx)
 						if err != nil {
 							return
 						}
 						node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-						if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false, nil); err != nil {
+						if err = mq.PublishSingleHostPeerUpdate(ctx, h, nodes, nil, &node, nil, false, nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}
 				}
 			}
 			if len(removedClients) > 0 {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 			}
-			mq.PublishPeerUpdate(false)
+			mq.PublishPeerUpdate(ctx, false)
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error(
 					"error publishing node update to node",
@@ -258,8 +359,8 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		}
 
 		logic.RemoveNodeFromEnrollmentKeys(&node)
-	}()
-	logic.LogEvent(&models.Event{
+	}(ctx)
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -293,108 +394,152 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 // @Param       nodeid path string true "Client node ID to assign to gateway"
 // @Param       gw_id query string true "Gateway node ID"
 // @Param       auto_assign_gw query bool false "Enable auto-assign gateway (Pro only)"
+// @Param       use_tcp_uplink query bool false "Opt into TCP uplink to the gateway (requires gateway tcp_proxy_enabled)"
 // @Success     200 {object} models.ApiNode
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func assignGw(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	gwid := r.URL.Query().Get("gw_id")
+	nodeID := params["nodeid"]
+	networkName := params["network"]
+	gatewayID := r.URL.Query().Get("gw_id")
 	autoAssignGw := r.URL.Query().Get("auto_assign_gw") == "true"
-	// Validate client node
-	node, err := logic.ValidateParams(nodeid, netid)
+	useTcpUplink := r.URL.Query().Get("use_tcp_uplink") == "true"
+
+	node := &schema.Node{
+		ID: nodeID,
+	}
+	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
+
+	if node.Network.Name != networkName {
+		err = fmt.Errorf("network url param does not match node network")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+
 	if !servercfg.IsPro {
 		autoAssignGw = false
 	}
-	if autoAssignGw {
-		if node.InternetGwID != "" {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("node is configured to route all traffic via an internet gateway; auto-assign gateway is not allowed"),
-				"badrequest"))
-			return
-		}
-		if node.RelayedBy != "" {
-			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
-			if err == nil {
-				// check if gw gateway Node has the relayed Node
-				if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
-					gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
-				}
-				newNodes := gatewayNode.RelayedNodes
-				newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
-				logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
-				// Unassign client nodes (set their InternetGwID to empty)
-				if node.InternetGwID != "" {
-					node.InternetGwID = ""
-					gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
-					logic.UpsertNode(&gatewayNode)
-				}
-			} else {
-				node.RelayedBy = ""
-				node.InternetGwID = ""
-			}
-			node, _ = logic.GetNodeByID(node.ID.String())
-		}
-		node.AutoAssignGateway = true
-		logic.UpsertNode(&node)
-		go func() {
-			if len(node.AutoRelayedPeers) > 0 {
-				logic.ResetAutoRelayedPeer(&node)
-			}
-			if err := mq.NodeUpdate(&node); err != nil {
-				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-			}
-			mq.PublishPeerUpdate(false)
-		}()
-		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "auto assigned gateway")
+
+	if err = logic.ErrExitNodeBlocksGatewayOps(logic.ConvertSchemaNodeToModelsNode(node)); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	if node.RelayedBy != "" {
+
+	if autoAssignGw {
+		if node.RelayedByNodeID != nil {
+			if node.IsIGWClient {
+				err = errors.New("node is configured to route all traffic via an internet gateway; auto-assign gateway is not allowed")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+				return
+			}
+
+			gateway := &schema.Node{
+				ID: *node.RelayedByNodeID,
+			}
+			err = gateway.Get(r.Context())
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				err = fmt.Errorf("failed to enable auto assign gateway for node (%s): error getting current gateway (%s): %v", node.ID, gateway.ID, err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+
+			node.RelayedByNodeID = nil
+			node.IsIGWClient = false
+			err = node.UnassignGateway(r.Context())
+			if err != nil {
+				err = fmt.Errorf("failed to enable auto assign gateway for node (%s): error unassigning current gateway(%s): %v", node.ID, gateway.ID, err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+		}
+
+		node.AutoAssignGateway = true
+		err = node.SetAutoAssignGateway(r.Context())
+		if err != nil {
+			err = fmt.Errorf("failed to enable auto assign gateway for node (%s): %v", node.ID, err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+
+		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go func(ctx context.Context) {
+			if len(node.AutoRelayedPeers.Data()) > 0 {
+				_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
+			}
+
+			if err := mq.NodeUpdate(modelsNode); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+
+			_ = mq.PublishPeerUpdate(ctx, false)
+		}(ctx)
+
+		logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "auto assigned gateway")
+		return
+	}
+
+	if node.RelayedByNodeID != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is already using a gw"), "badrequest"))
 		return
 	}
-	// Validate gateway node
-	gatewayNode, err := logic.ValidateParams(gwid, netid)
+
+	gateway := &schema.Node{
+		ID: gatewayID,
+	}
+	err = gateway.Get(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
-	// Check if node is a gateway
-	if !gatewayNode.IsGw {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
+	if gateway.NetworkID != node.NetworkID {
+		err = fmt.Errorf("gateway doesn't belong to the node network")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	newNodes := []string{node.ID.String()}
-	newNodes = append(newNodes, gatewayNode.RelayedNodes...)
-	newNodes = logic.UniqueStrings(newNodes)
-	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
 
-	node, err = logic.GetNodeByID(node.ID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	if !gateway.IsGateway {
+		err = fmt.Errorf("node %s is not a gateway", nodeID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
+
+	if useTcpUplink {
+		gwHost := &schema.Host{}
+		if gateway.HostID != "" {
+			if hostID, err := uuid.Parse(gateway.HostID); err == nil {
+				gwHost.ID = hostID
+				_ = gwHost.Get(r.Context())
+			}
+		}
+		if !gwHost.TcpProxyEnabled {
+			err = fmt.Errorf("gateway %s does not have TCP proxy enabled", gatewayID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
 	}
-	err = host.Get(r.Context())
+
+	node.RelayedByNodeID = &gatewayID
+	node.UseTcpUplink = useTcpUplink
+	err = node.AssignGateway(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		err = fmt.Errorf("failed to assign gateway (%s) to node (%s): %v", gatewayID, node.ID, err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
 	logger.Log(1, r.Header.Get("user"),
 		fmt.Sprintf("assigned nodes to gateway [%s] on network [%s]",
-			nodeid, netid))
+			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -403,26 +548,27 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   node.ID.String(),
-			Name: host.Name,
+			ID:   node.ID,
+			Name: node.Host.Name,
 			Type: schema.GatewaySub,
 		},
 		Origin: schema.Dashboard,
 	})
 
-	apiNode := node.ConvertToAPINode()
+	modelsNodes := logic.ConvertSchemaNodeToModelsNode(node)
 
-	go func() {
-		if len(node.AutoRelayedPeers) > 0 {
-			logic.ResetAutoRelayedPeer(&node)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if len(node.AutoRelayedPeers.Data()) > 0 {
+			_ = node.ResetAutoRelayedPeers(db.WithContext(context.TODO()))
 		}
-		if err := mq.NodeUpdate(&node); err != nil {
+		if err := mq.NodeUpdate(modelsNodes); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
+		mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
 
-	logic.ReturnSuccessResponseWithJson(w, r, apiNode, "assigned gateway")
+	logic.ReturnSuccessResponseWithJson(w, r, modelsNodes.ConvertToAPINode(), "assigned gateway")
 }
 
 // @Summary     Unassign client nodes from a gateway
@@ -436,90 +582,72 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func unassignGw(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	// Validate gateway node
-	node, err := logic.ValidateParams(nodeid, netid)
+	nodeID := params["nodeid"]
+	networkName := params["network"]
+
+	node := &schema.Node{
+		ID: nodeID,
+	}
+	err := node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+
+	if node.Network.Name != networkName {
+		err = fmt.Errorf("network url param does not match node network")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	gwid := node.RelayedBy
-	if node.AutoAssignGateway && gwid == "" {
+
+	// Exit clients cannot unrelay; RelayedBy is cleared only when the exit is cleared.
+	if node.SelectedInternetEgressID != "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("node is using an exit node; gateway assignment is managed by the exit node"),
+			logic.BadReq,
+		))
+		return
+	}
+
+	if node.AutoAssignGateway {
 		node.AutoAssignGateway = false
-		logic.UpsertNode(&node)
-		go func() {
-			if err := mq.NodeUpdate(&node); err != nil {
-				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-			}
-			mq.PublishPeerUpdate(false)
-		}()
-		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "unassigned gateway")
-		return
-	}
+		err = node.ResetAutoAssignGateway(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
 
-	// Validate gateway node
-	gatewayNode, err := logic.ValidateParams(gwid, netid)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+		if node.RelayedByNodeID == nil {
+			modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
 
-	// Unassign client nodes (set their InternetGwID to empty)
-	hadInternetGwID := node.InternetGwID != ""
-	if hadInternetGwID {
-		node.InternetGwID = ""
-	}
-	node.AutoAssignGateway = false
-	// Fetch gateway node fresh to avoid race conditions with concurrent updates
-	freshGatewayNode, err := logic.GetNodeByID(gatewayNode.ID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// Update InetNodeReq on fresh gateway node if needed
-	if hadInternetGwID {
-		freshGatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(freshGatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
-	}
-	// Unset Relayed node - ensure node is properly removed from gateway's RelayedNodes
-	// Use fresh gateway node's RelayedNodes to avoid race conditions
-	oldNodes := freshGatewayNode.RelayedNodes
-	if !slices.Contains(oldNodes, node.ID.String()) {
-		// If node is not in the list but has RelayedBy set, add it temporarily to oldNodes
-		// so UpdateRelayNodes can properly unset it
-		oldNodes = append(oldNodes, node.ID.String())
-	}
-	newNodes := logic.RemoveAllFromSlice(oldNodes, node.ID.String())
-	// Now update RelayedNodes - this will fetch and save the gateway node with updated RelayedNodes
-	logic.UpdateRelayNodes(gatewayNode.ID.String(), oldNodes, newNodes)
-	// Update InetNodeReq after UpdateRelayNodes to ensure it's not overwritten by stale data
-	if hadInternetGwID {
-		finalGatewayNode, err := logic.GetNodeByID(gatewayNode.ID.String())
-		if err == nil {
-			finalGatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(finalGatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
-			logic.UpsertNode(&finalGatewayNode)
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+			go func(ctx context.Context) {
+				if err := mq.NodeUpdate(modelsNode); err != nil {
+					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+				}
+				_ = mq.PublishPeerUpdate(ctx, false)
+			}(ctx)
+
+			logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
+			return
 		}
 	}
-	// Explicitly clear RelayedBy and IsRelayed to ensure complete unassignment
-	node.RelayedBy = ""
-	node.IsRelayed = false
-	logic.UpsertNode(&node)
-	node, _ = logic.GetNodeByID(node.ID.String())
+
+	node.RelayedByNodeID = nil
+	node.IsGateway = false
+	node.UseTcpUplink = false
+	err = node.UnassignGateway(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
 	logger.Log(1, r.Header.Get("user"),
 		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
-			nodeid, netid))
+			nodeID, networkName))
 
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.GatewayUnAssign,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -528,18 +656,22 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   node.ID.String(),
-			Name: host.Name,
+			ID:   node.ID,
+			Name: node.Host.Name,
 			Type: schema.GatewaySub,
 		},
 		Origin: schema.Dashboard,
 	})
 
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
+	modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context) {
+		if err := mq.NodeUpdate(modelsNode); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate(false)
-	}()
-	logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "unassigned gateway")
+		_ = mq.PublishPeerUpdate(ctx, false)
+	}(ctx)
+
+	logic.ReturnSuccessResponseWithJson(w, r, modelsNode.ConvertToAPINode(), "unassigned gateway")
 }

@@ -3,39 +3,45 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
-var (
-	metricsCacheMutex = &sync.RWMutex{}
-	metricsCacheMap   = make(map[string]models.Metrics)
-)
+// metricsCacheMap maps tenant ID -> *sync.Map of node ID -> models.Metrics
+var metricsCacheMap sync.Map
 
-func getMetricsFromCache(key string) (metrics models.Metrics, ok bool) {
-	metricsCacheMutex.RLock()
-	metrics, ok = metricsCacheMap[key]
-	metricsCacheMutex.RUnlock()
-	return
+// getTenantMetricsCache returns the metrics cache map for the given tenant, creating it if necessary
+func getTenantMetricsCache(tenantID string) *sync.Map {
+	v, _ := metricsCacheMap.LoadOrStore(tenantID, &sync.Map{})
+	return v.(*sync.Map)
 }
 
-func storeMetricsInCache(key string, metrics models.Metrics) {
-	metricsCacheMutex.Lock()
-	metricsCacheMap[key] = metrics
-	metricsCacheMutex.Unlock()
+func getMetricsFromCache(ctx context.Context, key string) (metrics models.Metrics, ok bool) {
+	v, ok := getTenantMetricsCache(scope.ID(ctx)).Load(key)
+	if !ok {
+		return metrics, false
+	}
+	return v.(models.Metrics), true
+}
+
+func storeMetricsInCache(ctx context.Context, key string, metrics models.Metrics) {
+	getTenantMetricsCache(scope.ID(ctx)).Store(key, metrics)
 }
 
 // metricsReadCopy returns a shallow copy of m with Connectivity deep-cloned so callers never
@@ -51,96 +57,75 @@ func metricsReadCopy(m *models.Metrics) *models.Metrics {
 	return &out
 }
 
-func deleteMetricsFromCache(key string) {
-	metricsCacheMutex.Lock()
-	delete(metricsCacheMap, key)
-	metricsCacheMutex.Unlock()
+func deleteMetricsFromCache(ctx context.Context, key string) {
+	getTenantMetricsCache(scope.ID(ctx)).Delete(key)
 }
 
-func LoadNodeMetricsToCache() error {
+func LoadNodeMetricsToCache(ctx context.Context) error {
 	slog.Info("loading metrics to cache")
-	if metricsCacheMap == nil {
-		metricsCacheMap = map[string]models.Metrics{}
-	}
-
-	collection, err := database.FetchRecords(database.METRICS_TABLE_NAME)
+	records, err := (&schema.MetricsRecord{}).List(ctx)
 	if err != nil {
 		return err
 	}
-
-	for key, value := range collection {
-		var metrics models.Metrics
-		if err := json.Unmarshal([]byte(value), &metrics); err != nil {
-			slog.Error("parse metric record error", "error", err.Error())
-			continue
-		}
+	for _, r := range records {
 		if servercfg.CacheEnabled() {
-			storeMetricsInCache(key, metrics)
+			storeMetricsInCache(ctx, r.Key, r.Value.Data())
 		}
 	}
-
 	slog.Info("metrics loading done")
 	return nil
 }
 
 // GetMetrics - gets the metrics
-func GetMetrics(nodeid string) (*models.Metrics, error) {
+func GetMetrics(ctx context.Context, nodeid string) (*models.Metrics, error) {
 	var metrics models.Metrics
 	if servercfg.CacheEnabled() {
-		if m, ok := getMetricsFromCache(nodeid); ok {
+		if m, ok := getMetricsFromCache(ctx, nodeid); ok {
 			return metricsReadCopy(&m), nil
 		}
 	}
-	record, err := database.FetchRecord(database.METRICS_TABLE_NAME, nodeid)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
+	r := &schema.MetricsRecord{Key: nodeid}
+	if err := r.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &metrics, nil
 		}
 		return &metrics, err
 	}
-	err = json.Unmarshal([]byte(record), &metrics)
-	if err != nil {
-		return &metrics, err
-	}
+	metrics = r.Value.Data()
 	if servercfg.CacheEnabled() {
-		storeMetricsInCache(nodeid, metrics)
+		storeMetricsInCache(ctx, nodeid, metrics)
 		return metricsReadCopy(&metrics), nil
 	}
 	return &metrics, nil
 }
 
 // UpdateMetrics - updates the metrics of a given client
-func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
+func UpdateMetrics(ctx context.Context, nodeid string, metrics *models.Metrics) error {
 	metrics.UpdatedAt = time.Now()
-	data, err := json.Marshal(metrics)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(nodeid, string(data), database.METRICS_TABLE_NAME)
-	if err != nil {
+	r := &schema.MetricsRecord{Key: nodeid, Value: datatypes.NewJSONType(*metrics)}
+	if err := r.Upsert(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
-		storeMetricsInCache(nodeid, *metrics)
+		storeMetricsInCache(ctx, nodeid, *metrics)
 	}
 	return nil
 }
 
 // DeleteMetrics - deletes metrics of a given node
-func DeleteMetrics(nodeid string) error {
-	err := database.DeleteRecord(database.METRICS_TABLE_NAME, nodeid)
-	if err != nil {
+func DeleteMetrics(ctx context.Context, nodeid string) error {
+	if err := (&schema.MetricsRecord{Key: nodeid}).Delete(ctx); err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
-		deleteMetricsFromCache(nodeid)
+		deleteMetricsFromCache(ctx, nodeid)
 	}
 	return nil
 }
 
 // DeleteNodeMetricsFromPeers - removes a deleted node's entry from all peers' connectivity maps
-func DeleteNodeMetricsFromPeers(nodeID string) {
-	peers, err := logic.GetAllNodes()
+func DeleteNodeMetricsFromPeers(ctx context.Context, nodeID string) {
+	peers, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to fetch nodes for peer metrics cleanup", "error", err)
 		return
@@ -150,13 +135,13 @@ func DeleteNodeMetricsFromPeers(nodeID string) {
 		if peerID == nodeID {
 			continue
 		}
-		peerMetrics, err := GetMetrics(peerID)
+		peerMetrics, err := GetMetrics(ctx, peerID)
 		if err != nil || peerMetrics.Connectivity == nil {
 			continue
 		}
 		if _, exists := peerMetrics.Connectivity[nodeID]; exists {
 			delete(peerMetrics.Connectivity, nodeID)
-			if err := UpdateMetrics(peerID, peerMetrics); err != nil {
+			if err := UpdateMetrics(ctx, peerID, peerMetrics); err != nil {
 				slog.Error("failed to update peer metrics after removing deleted node",
 					"peer", peerID, "deleted_node", nodeID, "error", err)
 			}
@@ -165,8 +150,8 @@ func DeleteNodeMetricsFromPeers(nodeID string) {
 }
 
 // SetPeerMetricsDisconnected - marks a node as disconnected in all peers' connectivity maps
-func SetPeerMetricsDisconnected(nodeID string) {
-	peers, err := logic.GetAllNodes()
+func SetPeerMetricsDisconnected(ctx context.Context, nodeID string) {
+	peers, err := logic.GetAllNodes(ctx)
 	if err != nil {
 		slog.Error("failed to fetch nodes for peer metrics disconnect update", "error", err)
 		return
@@ -174,7 +159,7 @@ func SetPeerMetricsDisconnected(nodeID string) {
 	for _, peer := range peers {
 		peerID := peer.ID.String()
 		if peerID == nodeID {
-			nodeMetrics, err := GetMetrics(nodeID)
+			nodeMetrics, err := GetMetrics(ctx, nodeID)
 			if err != nil || nodeMetrics.Connectivity == nil {
 				continue
 			}
@@ -184,14 +169,14 @@ func SetPeerMetricsDisconnected(nodeID string) {
 				nodeMetrics.Connectivity[peerID] = metric
 
 			}
-			if err := UpdateMetrics(nodeID, nodeMetrics); err != nil {
+			if err := UpdateMetrics(ctx, nodeID, nodeMetrics); err != nil {
 				slog.Error("failed to set peer metric disconnected",
 					"peer", peerID, "disconnected_node", nodeID, "error", err)
 			}
 
 			continue
 		}
-		peerMetrics, err := GetMetrics(peerID)
+		peerMetrics, err := GetMetrics(ctx, peerID)
 		if err != nil || peerMetrics.Connectivity == nil {
 			continue
 		}
@@ -199,7 +184,7 @@ func SetPeerMetricsDisconnected(nodeID string) {
 			metric.Connected = false
 			metric.Latency = 999
 			peerMetrics.Connectivity[nodeID] = metric
-			if err := UpdateMetrics(peerID, peerMetrics); err != nil {
+			if err := UpdateMetrics(ctx, peerID, peerMetrics); err != nil {
 				slog.Error("failed to set peer metric disconnected",
 					"peer", peerID, "disconnected_node", nodeID, "error", err)
 			}
@@ -208,7 +193,7 @@ func SetPeerMetricsDisconnected(nodeID string) {
 }
 
 // MQUpdateMetricsFallBack - called when mq fallback thread is triggered on client
-func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
+func MQUpdateMetricsFallBack(ctx context.Context, nodeid string, newMetrics models.Metrics) {
 
 	currentNode, err := logic.GetNodeByID(nodeid)
 	if err != nil {
@@ -218,8 +203,8 @@ func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
 	if !currentNode.Connected {
 		return
 	}
-	updateNodeMetrics(&currentNode, &newMetrics)
-	if err = logic.UpdateMetrics(nodeid, &newMetrics); err != nil {
+	updateNodeMetrics(ctx, &currentNode, &newMetrics)
+	if err = logic.UpdateMetrics(ctx, nodeid, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", nodeid, "error", err)
 		return
 	}
@@ -248,16 +233,17 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 		slog.Error("error unmarshaling payload", "error", err)
 		return
 	}
-	updateNodeMetrics(&currentNode, &newMetrics)
-	if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
+	updateNodeMetrics(ctx, &currentNode, &newMetrics)
+	if err = logic.UpdateMetrics(ctx, id, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", id, "error", err)
 		return
 	}
 	slog.Debug("updated node metrics", "id", id)
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
-	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
+func updateNodeMetrics(ctx context.Context, currentNode *models.Node, newMetrics *models.Metrics) {
+	oldMetrics, err := logic.GetMetrics(ctx, currentNode.ID.String())
 	if err != nil {
 		slog.Error("error finding old metrics for node", "id", currentNode.ID, "error", err)
 		return
@@ -265,7 +251,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 
 	var attachedClients []models.ExtClient
 	if currentNode.IsIngressGateway {
-		clients, err := logic.GetExtClientsByID(currentNode.ID.String(), currentNode.Network)
+		clients, err := logic.GetExtClientsByID(ctx, currentNode.ID.String(), currentNode.Network)
 		if err == nil {
 			attachedClients = clients
 		}

@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/require"
@@ -12,9 +11,6 @@ import (
 
 func InitSqlite(t *testing.T) {
 	err := db.InitializeDB(schema.ListModels()...)
-	require.Nil(t, err)
-
-	err = database.InitializeDatabase()
 	require.Nil(t, err)
 }
 
@@ -29,9 +25,6 @@ func InitPostgres(t *testing.T) {
 	_ = os.Setenv("DATABASE", "postgres")
 
 	err := db.InitializeDB(schema.ListModels()...)
-	require.Nil(t, err)
-
-	err = database.InitializeDatabase()
 	require.Nil(t, err)
 }
 

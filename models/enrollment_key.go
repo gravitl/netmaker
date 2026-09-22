@@ -35,8 +35,9 @@ func (k KeyType) String() string {
 // EnrollmentToken - the tokenized version of an enrollmentkey;
 // to be used for host registration
 type EnrollmentToken struct {
-	Server string `json:"server"`
-	Value  string `json:"value"`
+	Server   string `json:"server"`
+	TenantID string `json:"tenant_id"`
+	Value    string `json:"value"`
 }
 
 // EnrollmentKeyLength - the length of an enrollment key - 62^16 unique possibilities
@@ -57,6 +58,8 @@ type EnrollmentKey struct {
 	Default           bool      `json:"default"`
 	AutoEgress        bool      `json:"auto_egress"`
 	AutoAssignGateway bool      `json:"auto_assign_gw"`
+	// SkipDeviceApproval bypasses pending-host approval (device JWT API only; not serialized).
+	SkipDeviceApproval bool `json:"-"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API

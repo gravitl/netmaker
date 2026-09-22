@@ -5,14 +5,13 @@ import (
 
 	"context"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
-func CleanupGwsMigration() {
-	acls := logic.ListAcls()
+func CleanupGwsMigration(ctx context.Context) {
+	acls := logic.ListAcls(ctx)
 	for _, acl := range acls {
 		upsert := false
 		for i, srcI := range acl.Src {
@@ -30,11 +29,11 @@ func CleanupGwsMigration() {
 			}
 		}
 		if upsert {
-			logic.UpsertAcl(acl)
+			logic.UpsertAcl(ctx, acl)
 		}
 	}
-	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	nets, _ := (&schema.Network{}).ListAll(ctx)
 	for _, netI := range nets {
-		DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.Name, models.OldRemoteAccessTagName)), true)
+		DeleteTag(ctx, models.TagID(fmt.Sprintf("%s.%s", netI.Name, models.OldRemoteAccessTagName)), true)
 	}
 }

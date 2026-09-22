@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/grpc/options"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -38,7 +38,7 @@ func NewSIEMGrpcClient(serverAddr string, optFns ...func(*options.Options)) *Grp
 func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
 		defaultClient = NewSIEMGrpcClient(
-			fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain()),
+			servercfg.GetGrpcEndpoint(),
 			options.WithTLS(&tls.Config{}),
 		)
 	})
@@ -63,6 +63,7 @@ func (c *GrpcClient) Init(ctx context.Context, providerID string, config *struct
 	resp, err := client.InitSIEM(ctx, &InitSIEMRequest{
 		ProviderId: providerID,
 		Config:     config,
+		TenantId:   scope.ID(ctx),
 	})
 	if err != nil {
 		return fmt.Errorf("InitSIEM: %w", err)
@@ -82,7 +83,9 @@ func (c *GrpcClient) Terminate(ctx context.Context) error {
 	}
 	defer conn.Close()
 
-	resp, err := client.TerminateSIEM(ctx, &emptypb.Empty{})
+	resp, err := client.TerminateSIEM(ctx, &TerminateSIEMRequest{
+		TenantId: scope.ID(ctx),
+	})
 	if err != nil {
 		return fmt.Errorf("TerminateSIEM: %w", err)
 	}

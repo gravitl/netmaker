@@ -15,7 +15,9 @@ import (
 // models.LastCheckInThreshold.
 const StaleStatusCheckInterval = 5 * time.Minute
 
-var GetNodeStatus = getNodeCheckInStatus
+var GetNodeStatus = func(ctx context.Context, node *models.Node, t bool) {
+	getNodeCheckInStatus(node, t)
+}
 
 func getNodeCheckInStatus(node *models.Node, t bool) {
 	// On CE check only last check-in time

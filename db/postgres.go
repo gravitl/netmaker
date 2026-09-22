@@ -10,7 +10,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // postgresConnector for initializing and
@@ -32,7 +31,7 @@ func (pg *postgresConnector) connect() (*gorm.DB, error) {
 	)
 
 	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger: newGormLogger(),
 	})
 	if err != nil {
 		return nil, err

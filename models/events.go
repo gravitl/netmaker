@@ -15,6 +15,7 @@ type Diff struct {
 }
 
 type Event struct {
+	TenantID    string
 	Action      schema.Action
 	Source      Subject
 	Origin      schema.Origin

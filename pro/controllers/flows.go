@@ -10,19 +10,20 @@ import (
 
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/middleware"
+	"github.com/gravitl/netmaker/scope"
+	"gorm.io/gorm"
 )
 
 func FlowHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/flows", logic.SecurityCheck(true, http.HandlerFunc(handleListFlows))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/flows", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(handleListFlows)))).Methods(http.MethodGet)
 }
 
 const (
 	querySelect = `
 SELECT
-	flow_id, host_id, host_name, network_id,
+	flow_id, tenant_id, host_id, host_name, network_id,
 	protocol, src_port, dst_port,
 	icmp_type, icmp_code, direction,
 	src_ip, src_type, src_entity_id, src_entity_name,
@@ -40,6 +41,7 @@ LIMIT ? OFFSET ?`
 // FlowRow represents a single flow log entry
 type FlowRow struct {
 	FlowID        string    `ch:"flow_id" json:"flow_id"`
+	TenantID      string    `ch:"tenant_id" json:"tenant_id"`
 	HostID        string    `ch:"host_id" json:"host_id"`
 	HostName      string    `ch:"host_name" json:"host_name"`
 	NetworkID     string    `ch:"network_id" json:"network_id"`
@@ -88,7 +90,7 @@ type FlowRow struct {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func handleListFlows(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnableFlowLogs || !logic.GetServerSettings().EnableFlowLogs {
+	if !logic.GetFeatureFlags(r.Context()).EnableFlowLogs || !logic.GetServerSettings(r.Context()).EnableFlowLogs {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("flow logs not enabled"), logic.Forbidden))
 		return
 	}
@@ -107,6 +109,10 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		whereParts []string
 		args       []any
 	)
+
+	// -1. Tenant filter.
+	whereParts = append(whereParts, "tenant_id = ?")
+	args = append(args, scope.ID(r.Context()))
 
 	// 0. Network filter.
 	networkID := q.Get("network_id")
@@ -175,7 +181,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
 			errType := logic.Internal
-			if database.IsEmptyRecord(err) {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				errType = logic.BadReq
 			}
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error fetching node with id %s: %v", nodeID, err), errType))

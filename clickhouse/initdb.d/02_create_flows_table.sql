@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS flows (
     -- Identity
     flow_id            String,
+    tenant_id          String,
     host_id            String,
     host_name          String,
     network_id         String,

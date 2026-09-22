@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 )
 
@@ -23,12 +22,6 @@ func NewAzureEntraIDClient(clientID, clientSecret, tenantID string) *Client {
 		clientSecret: clientSecret,
 		tenantID:     tenantID,
 	}
-}
-
-func NewAzureEntraIDClientFromSettings() *Client {
-	settings := logic.GetServerSettings()
-
-	return NewAzureEntraIDClient(settings.ClientID, settings.ClientSecret, settings.AzureTenant)
 }
 
 func (a *Client) Verify() error {

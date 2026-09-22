@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -12,7 +13,9 @@ import (
 	"github.com/gravitl/netmaker/grpc/auditlogs"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/pro/integration"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 )
@@ -25,30 +28,63 @@ var allowUnexported = []any{
 	datatypes.JSONType[schema.NetworkRoles]{},
 }
 
-func LogEvent(a *models.Event) {
+var _siemMtx sync.Mutex
+var _pushToSiem bool
+
+func LogEvent(ctx context.Context, a *models.Event) {
+	a.TenantID = scope.ID(ctx)
 	EventActivityCh <- *a
 }
 
-func EventRententionHook() error {
-	settings := logic.GetServerSettings()
-	retentionPeriod := settings.AuditLogsRetentionPeriodInDays
+func EventRetentionHook() error {
+	retentionPeriod := logic.GetAuditLogsRetentionPeriodInDays(db.WithContext(context.TODO()))
 	if retentionPeriod <= 0 {
 		retentionPeriod = 30
 	}
-	err := (&schema.Event{}).DeleteOldEvents(db.WithContext(context.TODO()), retentionPeriod)
-	if err != nil {
-		slog.Warn("failed to delete old events pas retention period", "error", err)
-	}
-	return nil
 
+	tenants, err := (&schema.Tenant{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
+		if err := (&schema.Event{}).DeleteOldEvents(tenantCtx, retentionPeriod); err != nil {
+			slog.Warn("failed to delete old events past retention period", "error", err)
+		}
+	}
+
+	return nil
+}
+
+func PushToSIEM() {
+	_siemMtx.Lock()
+	defer _siemMtx.Unlock()
+	_pushToSiem = true
+}
+
+func SkipPushToSiem() {
+	_siemMtx.Lock()
+	defer _siemMtx.Unlock()
+	_pushToSiem = false
 }
 
 func EventWatcher() {
 	logic.HookManagerCh <- models.HookDetails{
 		ID:       "events-retention-hook",
-		Hook:     logic.WrapHook(EventRententionHook),
+		Hook:     logic.WrapHook(EventRetentionHook),
 		Interval: time.Hour * 24,
 	}
+
+	intgs, _ := (&schema.Integration{
+		Type: string(integration.TypeSIEM),
+	}).ListByType(db.WithContext(context.TODO()))
+	if len(intgs) == 0 {
+		SkipPushToSiem()
+	} else if len(intgs) == 1 {
+		PushToSIEM()
+	}
+
 	for e := range EventActivityCh {
 		if e.Action == schema.Update {
 			// check if diff
@@ -61,6 +97,7 @@ func EventWatcher() {
 		diff, _ := json.Marshal(e.Diff)
 		a := schema.Event{
 			ID:          uuid.New().String(),
+			TenantID:    e.TenantID,
 			Action:      e.Action,
 			Source:      sourceJson,
 			Target:      dstJson,
@@ -70,9 +107,25 @@ func EventWatcher() {
 			Diff:        diff,
 			TimeStamp:   time.Now().UTC(),
 		}
-		a.Create(db.WithContext(context.TODO()))
+		writeCtx := db.WithContext(context.TODO())
+		if e.TenantID != "" {
+			writeCtx = scope.WithContext(writeCtx, scope.TenantScope, e.TenantID)
+		}
+		if err := a.Create(writeCtx); err != nil {
+			slog.Error("failed to persist audit event",
+				"action", e.Action, "network", e.NetworkID, "tenant", e.TenantID, "error", err)
+			continue
+		}
 
-		if GetFeatureFlags().EnableSIEMIntegration {
+		_siemMtx.Lock()
+		if !_pushToSiem {
+			_siemMtx.Unlock()
+			continue
+		}
+		_siemMtx.Unlock()
+
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, e.TenantID)
+		if logic.GetFeatureFlags(ctx).EnableSIEMIntegration {
 			sourceMap := make(map[string]interface{})
 			dstMap := make(map[string]interface{})
 			diffMap := make(map[string]interface{})
@@ -95,6 +148,7 @@ func EventWatcher() {
 				Target:      dstStruct,
 				Diff:        diffStruct,
 				TsMs:        a.TimeStamp.UnixMilli(),
+				TenantId:    a.TenantID,
 			})
 		}
 	}

@@ -3,33 +3,38 @@ package logic
 import (
 	"context"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
-func GetCurrentServerUsage() (limits models.Usage) {
+func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
 	limits.SetDefaults()
-	hosts, hErr := GetAllHostsWithStatus(schema.OnlineSt)
+	hosts, hErr := GetAllHostsWithStatus(ctx, schema.OnlineSt)
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
-	clients, cErr := GetAllExtClientsWithStatus(schema.OnlineSt)
+	clients, cErr := GetAllExtClientsWithStatus(ctx, schema.OnlineSt)
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
-	limits.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
-	limits.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
-	limits.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
 
-	nodes, _ := GetAllNodes()
+	if scope.Level(ctx) == scope.TenantScope {
+		limits.Users, _ = (&schema.User{}).CountWithMembership(ctx)
+	} else {
+		limits.Users, _ = (&schema.User{}).Count(ctx)
+	}
+	limits.Networks, _ = (&schema.Network{}).Count(ctx)
+	limits.Egresses, _ = (&schema.Egress{}).Count(ctx)
+
+	nodes, _ := GetAllNodes(ctx)
 
 	for _, client := range clients {
-		nodes = append(nodes, client.ConvertToStaticNode())
+		nodes = append(nodes, models.ConvertToStaticNode(client))
 	}
 
 	limits.NetworkUsage = make(map[string]models.NetworkUsage)
-	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	networks, _ := (&schema.Network{}).ListAll(ctx)
 	for _, network := range networks {
 		limits.NetworkUsage[network.Name] = models.NetworkUsage{}
 	}
@@ -57,7 +62,7 @@ func GetCurrentServerUsage() (limits models.Usage) {
 			limits.Relays++
 			netUsage.Relays++
 		}
-		if node.IsInternetGateway {
+		if node.IsInternetGateway || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 			limits.InternetGateways++
 			netUsage.InternetGateways++
 		}

@@ -9,7 +9,6 @@ import (
 
 	"net/url"
 
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/googleapi"
@@ -69,12 +68,6 @@ func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
 	return &Client{
 		service: service,
 	}, nil
-}
-
-func NewGoogleWorkspaceClientFromSettings() (*Client, error) {
-	settings := logic.GetServerSettings()
-
-	return NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
 }
 
 func (g *Client) Verify() error {

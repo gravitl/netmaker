@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/hashicorp/go-retryablehttp"
 )
@@ -30,11 +29,6 @@ func NewOktaClient(oktaOrgURL, oktaAPIToken string) (*Client, error) {
 		apiToken: oktaAPIToken,
 		client:   client,
 	}, nil
-}
-
-func NewOktaClientFromSettings() (*Client, error) {
-	settings := logic.GetServerSettings()
-	return NewOktaClient(settings.OktaOrgURL, settings.OktaAPIToken)
 }
 
 type oktaUserProfile struct {

@@ -23,7 +23,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 				params["network"] = node.Network
 			}
 		}
-		r.Header.Set("IS_GLOBAL_ACCESS", "no")
+		r.Header.Set("IS_NETWORK_ACCESS", "yes")
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
 		r.Header.Set("TARGET_RSRC_ID", "")
@@ -35,7 +35,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.URL.Query().Get("network_id") != "" {
 			r.Header.Set("NET_ID", r.URL.Query().Get("network_id"))
 		}
-		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") || strings.Contains(route, "pending_hosts") {
+		if strings.Contains(route, "host") || strings.Contains(route, "nodes") || strings.Contains(route, "pending_hosts") {
 			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {
@@ -83,6 +83,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "posture_check") {
 			r.Header.Set("TARGET_RSRC", schema.PostureCheckRsrc.String())
 		}
+		if strings.Contains(route, "activity") {
+			r.Header.Set("TARGET_RSRC", schema.ActivityRsrc.String())
+		}
 		if strings.Contains(route, "/user/activity") {
 			r.Header.Set("TARGET_RSRC", schema.UserActivityRsrc.String())
 		}
@@ -97,6 +100,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if strings.Contains(route, "jit_user") {
 			r.Header.Set("TARGET_RSRC", schema.JitUserRsrc.String())
+		}
+		if strings.Contains(route, "device") {
+			r.Header.Set("TARGET_RSRC", schema.NetworkRsrc.String())
 		}
 		if strings.Contains(route, "metrics") {
 			r.Header.Set("TARGET_RSRC", schema.MetricRsrc.String())
@@ -141,8 +147,10 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == schema.EnrollmentKeysRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == schema.UserRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String()) {
-			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
+			r.Header.Get("TARGET_RSRC") == schema.UserActivityRsrc.String() ||
+			r.Header.Get("TARGET_RSRC") == schema.ActivityRsrc.String() ||
+			r.Header.Get("TARGET_RSRC") == schema.HostRsrc.String()) {
+			r.Header.Set("IS_NETWORK_ACCESS", "no")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))
 		handler.ServeHTTP(w, r)

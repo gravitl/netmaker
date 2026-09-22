@@ -6,6 +6,7 @@ import (
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 type TokenType string
@@ -23,8 +24,9 @@ func (t TokenType) String() string {
 }
 
 var (
-	UserIDTokenType TokenType = "user_id_token"
-	AccessTokenType TokenType = "access_token"
+	UserIDTokenType  TokenType = "user_id_token"
+	AccessTokenType  TokenType = "access_token"
+	PreAuthTokenType TokenType = "pre_auth_token"
 )
 
 // Pre-Defined User Roles
@@ -56,6 +58,7 @@ type ReturnUser struct {
 	UserName                   string                                              `json:"username"`
 	ExternalIdentityProviderID string                                              `json:"external_identity_provider_id"`
 	IsMFAEnabled               bool                                                `json:"is_mfa_enabled"`
+	EmailValidated             bool                                                `json:"email_validated"`
 	DisplayName                string                                              `json:"display_name"`
 	AccountDisabled            bool                                                `json:"account_disabled"`
 	IsAdmin                    bool                                                `json:"isadmin"`
@@ -89,6 +92,11 @@ type UserIdentityValidationRequest struct {
 	Password string `json:"password"`
 }
 
+// TransferOrgOwnerRequest - request struct for transferring org ownership
+type TransferOrgOwnerRequest struct {
+	Username string `json:"username"`
+}
+
 // UserIdentityValidationResponse - user identity validation response struct
 type UserIdentityValidationResponse struct {
 	IdentityValidated bool `json:"identity_validated"`
@@ -102,7 +110,8 @@ type UserTOTPVerificationParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	Role           schema.UserRoleID
+	Scope          scope.Scope
+	ScopeID        string
 	UserName       string
 	Api            string
 	TokenType      TokenType
@@ -136,4 +145,32 @@ type UserMapping struct {
 // UserIPMap maintains the mapping of IP addresses to users and groups
 type UserIPMap struct {
 	Mappings map[string]UserMapping `json:"mappings"`
+}
+
+type LoginMethodRequest struct {
+	Username string `json:"username"`
+}
+
+// LoginMethodsAvailable describes which auth methods are available for a login context.
+type LoginMethodsAvailable struct {
+	BasicAuth      bool   `json:"basic_auth"`
+	SSO            bool   `json:"sso"`
+	SSOProvider    string `json:"sso_provider,omitempty"`
+	OrgAuth        bool   `json:"org_auth,omitempty"`
+	OrganizationID string `json:"organization_id,omitempty"`
+}
+
+// LoginOption represents a single login scope (tenant or org) and its available methods.
+type LoginOption struct {
+	Scope         scope.Scope           `json:"scope"`
+	ScopeID       string                `json:"scope_id"`
+	ScopeName     string                `json:"scope_name"`
+	ScopeSlug     string                `json:"scope_slug"`
+	ScopeMetadata string                `json:"scope_metadata"`
+	Methods       LoginMethodsAvailable `json:"methods"`
+}
+
+// LoginMethodsResponse is the response payload for fetch user login methods.
+type LoginMethodsResponse struct {
+	Options []LoginOption `json:"login_options"`
 }

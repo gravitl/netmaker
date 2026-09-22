@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -12,25 +14,27 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func aclHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/egress", logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls))).
+	r.HandleFunc("/api/v1/acls/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
+	r.HandleFunc("/api/v1/acls/policy_types", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes)))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createAcl)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(updateAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAcl)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(deleteAcl))).
+	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAcl)))).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/acls/debug", logic.SecurityCheck(true, http.HandlerFunc(aclDebug))).
+	r.HandleFunc("/api/v1/acls/debug", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclDebug)))).
 		Methods(http.MethodGet)
 }
 
@@ -157,12 +161,12 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	}
 	var peer models.Node
 	if peerIsStatic == "true" {
-		extclient, err := logic.GetExtClient(peerID, node.Network)
+		extclient, err := logic.GetExtClient(r.Context(), peerID, node.Network)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		peer = extclient.ConvertToStaticNode()
+		peer = models.ConvertToStaticNode(extclient)
 
 	} else {
 		peer, err = logic.GetNodeByID(peerID)
@@ -180,8 +184,8 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		EgressNets    map[string]models.Node
 	}
 
-	allowed, ps := logic.IsNodeAllowedToCommunicate(node, peer, true)
-	isallowed := logic.IsPeerAllowed(node, peer, true)
+	allowed, ps := logic.IsNodeAllowedToCommunicate(r.Context(), node, peer, true)
+	isallowed := logic.IsPeerAllowed(r.Context(), node, peer, true)
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
@@ -190,7 +194,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	if peerIsStatic == "true" {
 		ingress, err := logic.GetNodeByID(peer.StaticNode.IngressGatewayID)
 		if err == nil {
-			re.IngressRules = logic.GetFwRulesOnIngressGateway(ingress)
+			re.IngressRules = logic.GetFwRulesOnIngressGateway(r.Context(), ingress)
 		}
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, re, "fetched all acls in the network ")
@@ -216,14 +220,14 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListAclsByNetwork(schema.NetworkID(netID))
+	acls, err := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.SortAclEntrys(acls[:])
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
@@ -243,19 +247,19 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 	}
 	e := schema.Egress{ID: eID}
 	// check if network exists
-	err := e.Get(db.WithContext(r.Context()))
+	err := e.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListEgressAcls(eID)
+	acls, err := logic.ListEgressAcls(r.Context(), eID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.SortAclEntrys(acls[:])
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched acls for egress"+e.Name)
 }
 
@@ -284,7 +288,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.ValidateCreateAclReq(req)
+	err = logic.ValidateCreateAclReq(r.Context(), req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -304,21 +308,21 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		acl.Proto = models.ALL
 	}
 	// validate create acl policy
-	if err := logic.IsAclPolicyValid(acl); err != nil {
+	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.InsertAcl(acl)
+	err = logic.InsertAcl(r.Context(), acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	acl, err = logic.GetAcl(acl.ID)
+	acl, err = logic.GetAcl(r.Context(), acl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Create,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -334,9 +338,10 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		NetworkID: acl.NetworkID,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(true)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
 	acls := []models.Acl{acl}
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "created acl successfully")
 }
 
@@ -360,7 +365,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl, err := logic.GetAcl(updateAcl.ID)
+	acl, err := logic.GetAcl(r.Context(), updateAcl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -377,7 +382,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.IsAclPolicyValid(updateAcl.Acl); err != nil {
+	if err := logic.IsAclPolicyValid(r.Context(), updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -389,12 +394,12 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		//check if policy exists with same name
 		updateAcl.Acl.Name = updateAcl.NewName
 	}
-	err = logic.UpdateAcl(updateAcl.Acl, acl)
+	err = logic.UpdateAcl(r.Context(), updateAcl.Acl, acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: action,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -414,14 +419,15 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		NetworkID: acl.NetworkID,
 		Origin:    schema.Dashboard,
 	})
-	go mq.PublishPeerUpdate(true)
-	updatedAcl, err := logic.GetAcl(acl.ID)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
+	updatedAcl, err := logic.GetAcl(r.Context(), acl.ID)
 	if err != nil {
 		logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 		return
 	}
 	acls := []models.Acl{updatedAcl}
-	logic.PopulateAclPolicyTagNames(acls)
+	logic.PopulateAclPolicyTagNames(r.Context(), acls)
 	logic.ReturnSuccessResponseWithJson(w, r, acls[0], "updated acl "+acl.Name)
 }
 
@@ -440,7 +446,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("acl id is required"), "badrequest"))
 		return
 	}
-	acl, err := logic.GetAcl(aclID)
+	acl, err := logic.GetAcl(r.Context(), aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -449,13 +455,13 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default policy"), "badrequest"))
 		return
 	}
-	err = logic.DeleteAcl(acl)
+	err = logic.DeleteAcl(r.Context(), acl)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r,
-			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
+		err = fmt.Errorf("failed to delete policy: %w", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.LogEvent(&models.Event{
+	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Delete,
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
@@ -475,6 +481,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go mq.PublishPeerUpdate(true)
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)
 }

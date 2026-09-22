@@ -9,7 +9,6 @@ package siem
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
@@ -31,7 +30,9 @@ type InitSIEMRequest struct {
 	// SIEM provider identifier (e.g. "splunk", "elastic", "datadog", "sentinel")
 	ProviderId string `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
 	// Provider-specific configuration (e.g. endpoint, token, index)
-	Config        *structpb.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	Config *structpb.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	// Tenant identifier scoping this SIEM export.
+	TenantId      string `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -80,6 +81,61 @@ func (x *InitSIEMRequest) GetConfig() *structpb.Struct {
 	return nil
 }
 
+func (x *InitSIEMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+// *
+// Sent by the netmaker server to instruct the exporter to stop
+// forwarding events.
+type TerminateSIEMRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tenant identifier scoping which export to terminate.
+	TenantId      string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TerminateSIEMRequest) Reset() {
+	*x = TerminateSIEMRequest{}
+	mi := &file_grpc_siem_siem_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TerminateSIEMRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TerminateSIEMRequest) ProtoMessage() {}
+
+func (x *TerminateSIEMRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_siem_siem_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TerminateSIEMRequest.ProtoReflect.Descriptor instead.
+func (*TerminateSIEMRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_siem_siem_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TerminateSIEMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
 // *
 // Shared response for both Init and Terminate RPCs.
 type SIEMResponse struct {
@@ -92,7 +148,7 @@ type SIEMResponse struct {
 
 func (x *SIEMResponse) Reset() {
 	*x = SIEMResponse{}
-	mi := &file_grpc_siem_siem_proto_msgTypes[1]
+	mi := &file_grpc_siem_siem_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +160,7 @@ func (x *SIEMResponse) String() string {
 func (*SIEMResponse) ProtoMessage() {}
 
 func (x *SIEMResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_siem_siem_proto_msgTypes[1]
+	mi := &file_grpc_siem_siem_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,7 +173,7 @@ func (x *SIEMResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SIEMResponse.ProtoReflect.Descriptor instead.
 func (*SIEMResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_siem_siem_proto_rawDescGZIP(), []int{1}
+	return file_grpc_siem_siem_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SIEMResponse) GetSuccess() bool {
@@ -138,17 +194,20 @@ var File_grpc_siem_siem_proto protoreflect.FileDescriptor
 
 const file_grpc_siem_siem_proto_rawDesc = "" +
 	"\n" +
-	"\x14grpc/siem/siem.proto\x12\rnetmaker.siem\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bgoogle/protobuf/empty.proto\"c\n" +
+	"\x14grpc/siem/siem.proto\x12\rnetmaker.siem\x1a\x1cgoogle/protobuf/struct.proto\"\x80\x01\n" +
 	"\x0fInitSIEMRequest\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12/\n" +
-	"\x06config\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06config\">\n" +
+	"\x06config\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1b\n" +
+	"\ttenant_id\x18\x03 \x01(\tR\btenantId\"3\n" +
+	"\x14TerminateSIEMRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\">\n" +
 	"\fSIEMResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\x9c\x01\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xa9\x01\n" +
 	"\vSIEMService\x12G\n" +
-	"\bInitSIEM\x12\x1e.netmaker.siem.InitSIEMRequest\x1a\x1b.netmaker.siem.SIEMResponse\x12D\n" +
-	"\rTerminateSIEM\x12\x16.google.protobuf.Empty\x1a\x1b.netmaker.siem.SIEMResponseB'Z%github.com/gravitl/netmaker/grpc/siemb\x06proto3"
+	"\bInitSIEM\x12\x1e.netmaker.siem.InitSIEMRequest\x1a\x1b.netmaker.siem.SIEMResponse\x12Q\n" +
+	"\rTerminateSIEM\x12#.netmaker.siem.TerminateSIEMRequest\x1a\x1b.netmaker.siem.SIEMResponseB'Z%github.com/gravitl/netmaker/grpc/siemb\x06proto3"
 
 var (
 	file_grpc_siem_siem_proto_rawDescOnce sync.Once
@@ -162,19 +221,19 @@ func file_grpc_siem_siem_proto_rawDescGZIP() []byte {
 	return file_grpc_siem_siem_proto_rawDescData
 }
 
-var file_grpc_siem_siem_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_grpc_siem_siem_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_grpc_siem_siem_proto_goTypes = []any{
-	(*InitSIEMRequest)(nil), // 0: netmaker.siem.InitSIEMRequest
-	(*SIEMResponse)(nil),    // 1: netmaker.siem.SIEMResponse
-	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
-	(*emptypb.Empty)(nil),   // 3: google.protobuf.Empty
+	(*InitSIEMRequest)(nil),      // 0: netmaker.siem.InitSIEMRequest
+	(*TerminateSIEMRequest)(nil), // 1: netmaker.siem.TerminateSIEMRequest
+	(*SIEMResponse)(nil),         // 2: netmaker.siem.SIEMResponse
+	(*structpb.Struct)(nil),      // 3: google.protobuf.Struct
 }
 var file_grpc_siem_siem_proto_depIdxs = []int32{
-	2, // 0: netmaker.siem.InitSIEMRequest.config:type_name -> google.protobuf.Struct
+	3, // 0: netmaker.siem.InitSIEMRequest.config:type_name -> google.protobuf.Struct
 	0, // 1: netmaker.siem.SIEMService.InitSIEM:input_type -> netmaker.siem.InitSIEMRequest
-	3, // 2: netmaker.siem.SIEMService.TerminateSIEM:input_type -> google.protobuf.Empty
-	1, // 3: netmaker.siem.SIEMService.InitSIEM:output_type -> netmaker.siem.SIEMResponse
-	1, // 4: netmaker.siem.SIEMService.TerminateSIEM:output_type -> netmaker.siem.SIEMResponse
+	1, // 2: netmaker.siem.SIEMService.TerminateSIEM:input_type -> netmaker.siem.TerminateSIEMRequest
+	2, // 3: netmaker.siem.SIEMService.InitSIEM:output_type -> netmaker.siem.SIEMResponse
+	2, // 4: netmaker.siem.SIEMService.TerminateSIEM:output_type -> netmaker.siem.SIEMResponse
 	3, // [3:5] is the sub-list for method output_type
 	1, // [1:3] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -193,7 +252,7 @@ func file_grpc_siem_siem_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_siem_siem_proto_rawDesc), len(file_grpc_siem_siem_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

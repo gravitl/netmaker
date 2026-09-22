@@ -28,7 +28,12 @@ func Initialize() error {
 		return nil
 	}
 
+	if !servercfg.IsClickHouseConfigured() {
+		return errors.New("missing clickhouse config")
+	}
+
 	config := servercfg.GetClickHouseConfig()
+
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", config.Host, config.Port)},
 		Auth: clickhouse.Auth{
@@ -51,6 +56,12 @@ func Initialize() error {
 
 	ch = chConn
 	return nil
+}
+
+// IsConnected returns whether a clickhouse connection
+// has been established via Initialize.
+func IsConnected() bool {
+	return ch != nil
 }
 
 // WithContext returns a new context with the clickhouse

@@ -8,13 +8,14 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
-	flowsCleanupHookID       = "flows-cleanup-hook"
+	flowsCleanupHookID       = "flows-cleanup-loop"
 	flowsCleanupHookInterval = 24 * time.Hour
 )
 
@@ -31,7 +32,13 @@ func StopFlowCleanupLoop() {
 }
 
 func CleanupFlows() error {
-	ctx := ch.WithContext(context.TODO())
+	ctx := ch.WithContext(context.Background())
+
+	retentionPeriod := logic.GetAuditLogsRetentionPeriodInDays(db.WithContext(context.Background()))
+	if retentionPeriod <= 0 {
+		retentionPeriod = 7
+	}
+
 	conn, err := ch.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("clickhouse connection not available: %w", err)
@@ -47,7 +54,7 @@ ORDER BY parts.partition ASC
 	}
 	defer rows.Close()
 
-	cutoff := time.Now().AddDate(0, 0, -1*logic.GetServerSettings().AuditLogsRetentionPeriodInDays)
+	cutoff := time.Now().AddDate(0, 0, -1*retentionPeriod)
 
 	var cleanErr error
 	for rows.Next() {

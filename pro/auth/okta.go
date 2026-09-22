@@ -1,9 +1,12 @@
 package auth
 
-var okta_functions = map[string]interface{}{
-	init_provider:   initOIDC,
-	get_user_info:   getOIDCUserInfo,
-	handle_callback: handleOIDCCallback,
-	handle_login:    handleOIDCLogin,
-	verify_user:     verifyOIDCUser,
+// NewOktaProvider constructs an OIDCProvider configured for Okta.
+// Okta uses standard OIDC discovery; this is a thin alias over NewOIDCProvider.
+func NewOktaProvider(redirectURL, clientID, clientSecret, issuer string) (*OIDCProvider, error) {
+	p, err := NewOIDCProvider(redirectURL, clientID, clientSecret, issuer)
+	if err != nil {
+		return nil, err
+	}
+	p.name = okta_provider_name
+	return p, nil
 }

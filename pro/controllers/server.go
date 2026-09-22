@@ -6,15 +6,17 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/pro/license"
+	"github.com/gravitl/netmaker/scope"
 )
 
 func ServerHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/server/license/validation", logic.SecurityCheck(true, http.HandlerFunc(triggerLicenseValidation))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/server/license/validation", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(triggerLicenseValidation)))).Methods(http.MethodPost)
 }
 
 func triggerLicenseValidation(w http.ResponseWriter, r *http.Request) {
-	err := license.ValidateLicense()
+	err := license.ValidateLicense(r.Context(), false)
 	if err != nil {
 		err = fmt.Errorf("error validating license: %v", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -26,8 +27,8 @@ var (
 )
 
 // GetNetworkNodes - gets the nodes of a network
-func GetNetworkNodes(network string) ([]models.Node, error) {
-	allnodes, err := GetAllNodes()
+func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error) {
+	allnodes, err := GetAllNodes(ctx)
 	if err != nil {
 		return []models.Node{}, err
 	}
@@ -84,6 +85,8 @@ func UpdateNodeCheckin(nodeID string) error {
 
 // FlushNodeCheckins - writes all buffered check-in updates to the DB in one batch.
 // Called periodically (e.g., every 30s) to avoid per-checkin write lock contention.
+// Uses a single transaction so SQLite (MaxOpenConns=1) holds the write lock once
+// instead of once per node, which previously made /api/server/status Ping time out.
 func FlushNodeCheckins() {
 	pendingCheckinsMu.Lock()
 	batch := pendingCheckins
@@ -92,19 +95,36 @@ func FlushNodeCheckins() {
 	if len(batch) == 0 {
 		return
 	}
-	var failed int
-	for id, checkin := range batch {
-		node := &schema.Node{
-			ID:          id,
-			LastCheckIn: checkin,
+
+	requeue := func() {
+		pendingCheckinsMu.Lock()
+		for id, checkin := range batch {
+			if existing, exists := pendingCheckins[id]; !exists || checkin.After(existing) {
+				pendingCheckins[id] = checkin
+			}
 		}
-		err := node.UpdateLastCheckIn(db.WithContext(context.TODO()))
-		if err != nil {
-			failed++
+		pendingCheckinsMu.Unlock()
+	}
+
+	ctx := db.WithContext(context.TODO())
+	tx := db.FromContext(ctx).Begin()
+	if tx.Error != nil {
+		slog.Error("FlushNodeCheckins: failed to begin transaction", "error", tx.Error, "total", len(batch))
+		requeue()
+		return
+	}
+
+	for id, checkin := range batch {
+		if err := tx.Model(&schema.Node{}).Where("id = ?", id).Update("last_check_in", checkin).Error; err != nil {
+			_ = tx.Rollback()
+			slog.Error("FlushNodeCheckins: failed to persist checkins", "error", err, "total", len(batch))
+			requeue()
+			return
 		}
 	}
-	if failed > 0 {
-		slog.Error("FlushNodeCheckins: failed to persist checkins", "failed", failed, "total", len(batch))
+	if err := tx.Commit().Error; err != nil {
+		slog.Error("FlushNodeCheckins: failed to commit checkins", "error", err, "total", len(batch))
+		requeue()
 	}
 }
 
@@ -114,15 +134,15 @@ func UpsertNode(newNode *models.Node) error {
 	if _node.ID == "" {
 		return errors.New("error converting models.Node to schema.Node")
 	}
-
 	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
+		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
 		network := &schema.Network{Name: newNode.Network}
-		if err := network.Get(db.WithContext(context.TODO())); err == nil {
+		if err := network.Get(ctx); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -144,7 +164,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if _node.ID == "" {
 			return errors.New("error converting models.Node to schema.Node")
 		}
-
 		return _node.Upsert(db.WithContext(context.TODO()))
 	}
 
@@ -155,9 +174,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // cleanupNodeReferences handles best-effort cleanup of all external references
 // to a node (relay, internet gw, failover, nameservers, ACL, egress, enrollment keys).
 // Errors are logged but do not prevent node deletion.
-func cleanupNodeReferences(node *models.Node) {
+func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+		if err := DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
@@ -175,14 +194,17 @@ func cleanupNodeReferences(node *models.Node) {
 			UpsertNode(&relayNode)
 		}
 	}
+	// Always scrub this node ID from every gateway RelayedClients map in the
+	// network. RelayedBy may already be cleared while orphan map keys remain.
+	RemoveNodeFromAllGatewayRelays(ctx, node.Network, node.ID.String())
 	if len(node.AutoRelayedPeers) > 0 {
-		ResetAutoRelayedPeer(node)
+		ResetAutoRelayedPeer(ctx, node)
 	}
 	if node.IsRelay {
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	if node.InternetGwID != "" {
-		inetNode, err := GetNodeByID(node.InternetGwID)
+	if routingID := InternetExitRoutingNodeID(node); routingID != "" {
+		inetNode, err := GetNodeByID(routingID)
 		if err == nil {
 			clientNodeIDs := []string{}
 			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
@@ -196,7 +218,7 @@ func cleanupNodeReferences(node *models.Node) {
 		}
 	}
 	if node.IsInternetGateway {
-		UnsetInternetGw(node)
+		UnsetInternetGw(ctx, node)
 	}
 
 	filters := make(map[string]bool)
@@ -208,22 +230,24 @@ func cleanupNodeReferences(node *models.Node) {
 	}
 	nameservers, _ := (&schema.Nameserver{
 		NetworkID: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
+	}).ListByNetwork(ctx)
 	for _, ns := range nameservers {
 		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		delete(ns.Nodes, node.ID.String())
 		if len(ns.Servers) > 0 {
-			_ = ns.Update(db.WithContext(context.TODO()))
+			_ = ns.Update(ctx)
 		} else {
-			_ = ns.Delete(db.WithContext(context.TODO()))
+			_ = ns.Delete(ctx)
 		}
 	}
 
-	go RemoveNodeFromAclPolicy(*node)
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go RemoveNodeFromAclPolicy(detachedCtx, *node)
 	go RemoveNodeFromEgress(*node)
 	go RemoveNodeFromEnrollmentKeys(node)
 }
 
-func DeleteNode(node *models.Node, purge bool) error {
+func DeleteNode(ctx context.Context, node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == schema.NODE_DELETE
 	node.Action = schema.NODE_DELETE
 
@@ -234,38 +258,43 @@ func DeleteNode(node *models.Node, purge bool) error {
 			Action:        schema.NODE_DELETE,
 			PendingDelete: true,
 		}
-		err := node.MarkForDeletion(db.WithContext(context.TODO()))
+		err := node.MarkForDeletion(ctx)
 		if err != nil {
 			return err
 		}
-		newZombie <- nodeID
+		zombieChan(scope.ID(ctx)) <- nodeID
 		return nil
 	}
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	cleanupNodeReferences(node)
+
+	// Before removing an exit routing node: fail-open its clients and detach from
+	// internet egress maps so sticky selections are not left pointing at a dead relay.
+	FailOpenAndDetachExitRoutingNode(ctx, node)
+
+	cleanupNodeReferences(ctx, node)
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+	if err := host.Get(ctx); err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
-		if delErr := DeleteNodeByID(node); delErr != nil {
+		if delErr := DeleteNodeByID(ctx, node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
 			return delErr
 		}
 		logger.Log(1, "deleted orphaned node (no host record found)", node.ID.String())
 		return nil
 	}
-	if err := DissasociateNodeFromHost(node, host); err != nil {
+	if err := DisassociateNodeFromHost(ctx, node, host); err != nil {
 		return err
 	}
 	return nil
 }
 
 // GetNodeByHostRef - gets the node by host id and network
-func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
-	nodes, err := GetNetworkNodes(network)
+func GetNodeByHostRef(ctx context.Context, hostid, network string) (node models.Node, err error) {
+	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -278,68 +307,145 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 }
 
 // DeleteNodeByID - deletes a node from database
-func DeleteNodeByID(node *models.Node) error {
+func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
-	err := _node.Delete(db.WithContext(context.TODO()))
+	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	err = _node.DeleteViolations(db.WithContext(context.TODO()))
+	err = _node.DeleteViolations(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = DeleteMetrics(node.ID.String()); err != nil {
+	if err = DeleteMetrics(ctx, node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	go DeleteNodeMetricsFromPeers(node.ID.String())
+	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
 }
 
-// GetAllNodes - returns all nodes in the DB
-func GetAllNodes() ([]models.Node, error) {
+// GetAllNodes - returns all nodes in the DB.
+// List/API responses use posture severity/cycle fields already on the node row
+// (written by the background posture hook). Full violation details are omitted
+// here — use GetAllNodesWithViolations or single-node convert / the dedicated
+// violations API when the detail array is required.
+func GetAllNodes(ctx context.Context) ([]models.Node, error) {
+	return getAllNodes(ctx, false)
+}
+
+// GetAllNodesWithViolations is like GetAllNodes but attaches current-cycle
+// posture_check_violations in one batch query. Intended for the posture hook
+// (event diffs), not for high-frequency list APIs.
+func GetAllNodesWithViolations(ctx context.Context) ([]models.Node, error) {
+	return getAllNodes(ctx, true)
+}
+
+func getAllNodes(ctx context.Context, withViolations bool) ([]models.Node, error) {
 	var nodes []models.Node
-	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()), dbtypes.WithAllPreloads())
+	_nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithAllPreloads())
 	if err != nil {
 		return nil, err
 	}
 
-	for _, _node := range _nodes {
-		node := ConvertSchemaNodeToModelsNode(&_node)
+	for i := range _nodes {
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i], SkipViolations())
 		ensureNodeMutex(node)
 		nodes = append(nodes, *node)
+	}
+	if withViolations {
+		attachPostureViolations(ctx, _nodes, nodes)
 	}
 
 	return nodes, nil
 }
 
-func AddStaticNodestoList(nodes []models.Node) []models.Node {
+// attachPostureViolations loads violations for all nodes in one query and
+// assigns each node's current-cycle violations onto the models.Node slice.
+// schemaNodes and modelsNodes must be the same length and aligned by index.
+// Used by GetAllNodesWithViolations (posture hook), not the high-frequency list API.
+func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, modelsNodes []models.Node) {
+	if len(schemaNodes) == 0 || len(schemaNodes) != len(modelsNodes) {
+		return
+	}
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		if schemaNodes[i].ID != "" && schemaNodes[i].PostureCheckLastEvaluationCycleID != "" {
+			ids = append(ids, schemaNodes[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load posture violations", "error", err, "nodes", len(ids))
+		return
+	}
+	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := byNodeCycle[v.NodeID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			byNodeCycle[v.NodeID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+	for i := range modelsNodes {
+		cycleID := schemaNodes[i].PostureCheckLastEvaluationCycleID
+		cycles := byNodeCycle[schemaNodes[i].ID]
+		if cycles == nil {
+			continue
+		}
+		if cycleID != "" {
+			if v, ok := cycles[cycleID]; ok {
+				modelsNodes[i].PostureChecksViolations = v
+				continue
+			}
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if schemaNodes[i].PostureCheckSeverity != schema.SeverityUnknown {
+			for _, v := range cycles {
+				modelsNodes[i].PostureChecksViolations = v
+				break
+			}
+		}
+	}
+}
+
+func AddStaticNodestoList(ctx context.Context, nodes []models.Node) []models.Node {
 	netMap := make(map[string]struct{})
 	for _, node := range nodes {
 		if _, ok := netMap[node.Network]; ok {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(schema.NetworkID(node.Network), false)...)
+			nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
 	return nodes
 }
 
-func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
+func AddStatusToNodes(ctx context.Context, nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
 			// check default policy if all allowed return true
-			defaultPolicy, _ := GetDefaultPolicy(schema.NetworkID(node.Network), models.DevicePolicy)
+			defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
 		if statusCall {
-			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+			GetNodeStatus(ctx, &node, aclDefaultPolicyStatusMap[node.Network])
 		} else {
 			getNodeCheckInStatus(&node, true)
 		}
@@ -402,55 +508,47 @@ func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]models.Node, len(_nodes))
+	ctx := db.WithContext(context.TODO())
+	if len(_nodes) > 0 {
+		ctx = scope.WithContext(ctx, scope.TenantScope, _nodes[0].TenantID)
+	}
+	modelsNodes := make([]models.Node, len(_nodes))
 	for i := range _nodes {
-		n := ConvertSchemaNodeToModelsNode(&_nodes[i])
+		n := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i], SkipViolations())
 		ensureNodeMutex(n)
-		result[_nodes[i].ID] = *n
+		modelsNodes[i] = *n
+	}
+
+	result := make(map[string]models.Node, len(modelsNodes))
+	for i := range modelsNodes {
+		result[_nodes[i].ID] = modelsNodes[i]
 	}
 	return result, nil
 }
 
-// GetAllNodesAPI - get all nodes for api usage
+// GetAllNodesAPI - get all nodes for api usage.
+// Location/CountryCode are already filled during schema→models conversion from
+// the preloaded Host; do not re-fetch hosts (N+1 on SQLite).
 func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
-	apiNodes := []models.ApiNode{}
+	apiNodes := make([]models.ApiNode, 0, len(nodes))
 	for i := range nodes {
-		node := nodes[i]
-		if !node.IsStatic {
-			h := &schema.Host{
-				ID: node.HostID,
-			}
-			err := h.Get(db.WithContext(context.TODO()))
-			if err == nil {
-				node.Location = h.Location
-				node.CountryCode = h.CountryCode
-			}
-		}
-		newApiNode := node.ConvertToAPINode()
-		apiNodes = append(apiNodes, *newApiNode)
+		apiNodes = append(apiNodes, *nodes[i].ConvertToAPINode())
 	}
-	return apiNodes[:]
+	return apiNodes
 }
 
-// GetAllNodesAPI - get all nodes for api usage
+// GetAllNodesAPIWithLocation - get all nodes for api usage with location.
+// Uses values already on the models.Node (from host preload / static node).
 func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
-	apiNodes := []models.ApiNode{}
+	apiNodes := make([]models.ApiNode, 0, len(nodes))
 	for i := range nodes {
-		node := nodes[i]
-		newApiNode := node.ConvertToAPINode()
-		if node.IsStatic {
-			newApiNode.Location = node.StaticNode.Location
-		} else {
-			host := &schema.Host{
-				ID: node.HostID,
-			}
-			_ = host.Get(db.WithContext(context.TODO()))
-			newApiNode.Location = host.Location
+		newApiNode := nodes[i].ConvertToAPINode()
+		if nodes[i].IsStatic {
+			newApiNode.Location = nodes[i].StaticNode.Location
 		}
-
 		apiNodes = append(apiNodes, *newApiNode)
 	}
-	return apiNodes[:]
+	return apiNodes
 }
 
 // GetNodesStatusAPI - gets nodes status
@@ -551,9 +649,9 @@ func ValidateEgressCIDR(network *schema.Network, cidr string) error {
 	return nil
 }
 
-func ValidateEgressRange(netID string, ranges []string) error {
+func ValidateEgressRange(ctx context.Context, netID string, ranges []string) error {
 	network := &schema.Network{Name: netID}
-	err := network.Get(db.WithContext(context.TODO()))
+	err := network.Get(ctx)
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
@@ -580,7 +678,31 @@ func ConvertSchemaNodeToApiNode(_node *schema.Node) *models.ApiNode {
 	return ConvertSchemaNodeToModelsNode(_node).ConvertToAPINode()
 }
 
-func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
+type nodeConvertOpts struct {
+	skipViolations bool
+}
+
+// NodeConvertOption customizes schema→models conversion.
+type NodeConvertOption func(*nodeConvertOpts)
+
+// SkipViolations skips the per-node posture_check_violations query.
+// Use on list paths: severity/cycle fields on the node row are enough;
+// violation details come from the dedicated violations API or single-node get.
+func SkipViolations() NodeConvertOption {
+	return func(o *nodeConvertOpts) { o.skipViolations = true }
+}
+
+func ConvertSchemaNodeToModelsNode(_node *schema.Node, opts ...NodeConvertOption) *models.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _node.TenantID)
+	return ConvertSchemaNodeToModelsNodeWithContext(ctx, _node, opts...)
+}
+
+func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema.Node, opts ...NodeConvertOption) *models.Node {
+	cfg := nodeConvertOpts{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	nodeID, err := uuid.Parse(_node.ID)
 	if err != nil {
 		return &models.Node{}
@@ -616,7 +738,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Host = &schema.Host{
 			ID: hostID,
 		}
-		err = _node.Host.Get(db.WithContext(context.TODO()))
+		err = _node.Host.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Host = &schema.Host{}
@@ -631,7 +753,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		_node.Network = &schema.Network{
 			ID: _node.NetworkID,
 		}
-		err = _node.Network.Get(db.WithContext(context.TODO()))
+		err = _node.Network.Get(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_node.Network = &schema.Network{}
@@ -660,22 +782,25 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 	}
 
 	var violations []models.Violation
-	_violations, err := _node.ListViolations(db.WithContext(context.TODO()))
-	if err == nil {
-		for _, _violation := range _violations {
-			violations = append(violations, models.Violation{
-				CheckID:   _violation.CheckID,
-				Name:      _violation.Name,
-				Attribute: _violation.Attribute,
-				Message:   _violation.Message,
-				Severity:  _violation.Severity,
-			})
+	if !cfg.skipViolations {
+		_violations, err := _node.ListViolations(ctx)
+		if err == nil {
+			for _, _violation := range _violations {
+				violations = append(violations, models.Violation{
+					CheckID:   _violation.CheckID,
+					Name:      _violation.Name,
+					Attribute: _violation.Attribute,
+					Message:   _violation.Message,
+					Severity:  _violation.Severity,
+				})
+			}
 		}
 	}
 
 	node := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:                nodeID,
+			TenantID:          _node.TenantID,
 			HostID:            hostID,
 			Network:           _node.Network.Name,
 			NetworkRange:      netAddrRange,
@@ -689,6 +814,42 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 			IsRelay:           _node.IsGateway,
 			IsGw:              _node.IsGateway,
 			AutoAssignGateway: _node.AutoAssignGateway,
+			// TCP proxy listen settings live on the host; surface on the node API for UI/clients.
+			TcpProxyEnabled: _node.Host != nil && _node.Host.TcpProxyEnabled,
+			TcpProxyListenPort: func() int {
+				if _node.Host == nil {
+					return 0
+				}
+				if _node.Host.TcpProxyListenPort > 0 {
+					return _node.Host.TcpProxyListenPort
+				}
+				if _node.Host.TcpProxyEnabled {
+					return schema.DefaultTcpProxyListenPort
+				}
+				return 0
+			}(),
+			TcpProxyTLSMode: func() string {
+				if _node.Host == nil || !_node.Host.TcpProxyEnabled {
+					return ""
+				}
+				if _node.Host.TcpProxyTLSMode != "" {
+					return _node.Host.TcpProxyTLSMode
+				}
+				return schema.TcpProxyTLSModeSelfSigned
+			}(),
+			TcpProxyListenAddr: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyListenAddr
+				}
+				return ""
+			}(),
+			TcpProxyPublicHostname: func() string {
+				if _node.Host != nil {
+					return _node.Host.TcpProxyPublicHostname
+				}
+				return ""
+			}(),
+			UseTcpUplink: _node.UseTcpUplink,
 		},
 		PendingDelete:                      _node.PendingDelete,
 		LastModified:                       _node.UpdatedAt,
@@ -698,6 +859,7 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 		IsAutoRelay:                        _node.IsAutoRelay == "yes",
 		AutoRelayedPeers:                   _node.AutoRelayedPeers.Data(),
 		IsInternetGateway:                  _node.IsInternetGateway,
+		SelectedInternetEgressID:           _node.SelectedInternetEgressID,
 		Tags:                               make(map[models.TagID]struct{}),
 		Status:                             _node.Status,
 		PostureChecksViolations:            violations,
@@ -725,12 +887,36 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 
 		for relayedIGWClientID := range _node.RelayedIGWClients {
 			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			// Keep RelayedNodes complete for AllowedIPs: exit clients must be
+			// advertised even if RelayedClients and RelayedIGWClients diverge.
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
+			}
 		}
 
 		for _, additionalEndpoint := range _node.AdditionalGatewayEndpoints {
 			endpointIP := net.ParseIP(additionalEndpoint)
 			if endpointIP != nil {
 				node.AdditionalRagIps = append(node.AdditionalRagIps, endpointIP)
+			}
+		}
+	} else if len(_node.RelayedClients) > 0 {
+		// A non-gateway node can still relay clients when it acts as an internet
+		// exit node: the peers using it as their exit node are relayed through it
+		// for overlay stability. Surface those relationships (previously only
+		// populated for gateways) so peer AllowedIPs and ACL/firewall rules
+		// account for them, and so a model->schema round-trip doesn't wipe them.
+		node.RelayedNodes = make([]string, 0, len(_node.RelayedClients))
+		for relayedClientID := range _node.RelayedClients {
+			node.RelayedNodes = append(node.RelayedNodes, relayedClientID)
+		}
+		node.InetNodeReq = models.InetNodeReq{
+			InetNodeClientIDs: make([]string, 0, len(_node.RelayedIGWClients)),
+		}
+		for relayedIGWClientID := range _node.RelayedIGWClients {
+			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, relayedIGWClientID)
+			if !StringSliceContains(node.RelayedNodes, relayedIGWClientID) {
+				node.RelayedNodes = append(node.RelayedNodes, relayedIGWClientID)
 			}
 		}
 	}
@@ -752,6 +938,8 @@ func ConvertSchemaNodeToModelsNode(_node *schema.Node) *models.Node {
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, node.TenantID)
+
 	var address, address6 string
 	if node.Address.IP != nil {
 		address = node.Address.String()
@@ -764,7 +952,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	host := &schema.Host{
 		ID: node.HostID,
 	}
-	err := host.Get(db.WithContext(context.TODO()))
+	err := host.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}
@@ -772,7 +960,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 	network := &schema.Network{
 		Name: node.Network,
 	}
-	err = network.Get(db.WithContext(context.TODO()))
+	err = network.Get(ctx)
 	if err != nil {
 		return &schema.Node{}
 	}
@@ -813,6 +1001,7 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 
 	return &schema.Node{
 		ID:                                node.ID.String(),
+		TenantID:                          node.TenantID,
 		HostID:                            host.ID.String(),
 		Host:                              host,
 		NetworkID:                         network.ID,
@@ -832,6 +1021,8 @@ func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {
 		RelayedIGWClients:                 relayedIGWClients,
 		RelayedByNodeID:                   relayingNodeID,
 		IsIGWClient:                       node.IsRelayed && node.InternetGwID != "",
+		UseTcpUplink:                      node.UseTcpUplink,
+		SelectedInternetEgressID:          node.SelectedInternetEgressID,
 		AutoRelayedPeers:                  datatypes.NewJSONType(node.AutoRelayedPeers),
 		Tags:                              tags,
 		PostureCheckSeverity:              node.PostureCheckViolationSeverityLevel,

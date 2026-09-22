@@ -32,6 +32,7 @@ type HostPeerUpdate struct {
 	Nodes              []Node                      `json:"nodes"`
 	ChangeDefaultGw    bool                        `json:"change_default_gw"`
 	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
+	DefaultGwIp6       net.IP                      `json:"default_gw_ip6"`
 	IsInternetGw       bool                        `json:"is_inet_gw"`
 	NodeAddrs          []net.IPNet                 `json:"nodes_addrs"`
 	Server             string                      `json:"server"`
