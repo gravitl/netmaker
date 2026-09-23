@@ -27,6 +27,7 @@ const (
 	TableName_ServerUUID     = "serveruuid"
 	TableName_EnrollmentKey  = "enrollmentkeys"
 	TableName_ServerSettings = "server_settings"
+	TableName_ExtClients     = "extclients"
 )
 
 const (
@@ -557,7 +558,7 @@ func setTenantID(ctx context.Context) error {
 		(&schema.AclRecord{}).TableName(),
 		(&schema.TagRecord{}).TableName(),
 		(&schema.DNSRecord{}).TableName(),
-		(&schema.ExtClientRecord{}).TableName(),
+		TableName_ExtClients,
 	}
 	prefix := schema.TenantScopedKey(defaultTenant.ID, "")
 	for _, table := range tenantScopedKeyTables {
@@ -687,7 +688,7 @@ func setNetworkID(ctx context.Context) error {
 		}
 	}
 
-	var extClientRecords []schema.ExtClientRecord
+	var extClientRecords []types.ExtClientRecord
 	err = db.FromContext(ctx).Find(&extClientRecords).Error
 	if err != nil {
 		return err
