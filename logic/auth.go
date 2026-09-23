@@ -404,6 +404,11 @@ func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bo
 		return err
 	}
 
+	if cleanup != nil {
+		cleanupCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, scope.ID(ctx))
+		go cleanup(cleanupCtx, user.Username, forceDeleteConfigs)
+	}
+
 	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
 	if err != nil {
 		return err
