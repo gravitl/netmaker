@@ -11,6 +11,8 @@ import (
 	"github.com/gravitl/netmaker/scope"
 )
 
+const TableName_Users = "users"
+
 var SyncOrgAndTenants = CreateLocalDefaults
 
 func initializeTenants(ctx context.Context) error {
