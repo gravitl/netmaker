@@ -6,7 +6,6 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // sqliteConnector for initializing and
@@ -49,9 +48,11 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		}
 	}
 
-	dsn := dbFilePath + "?_journal_mode=WAL&_busy_timeout=5000"
+	// WAL + immediate lock + longer busy wait reduce lock storms under scale.
+	// Keep MaxOpenConns(1): concurrent writers with go-sqlite3 still deadlock easily.
+	dsn := dbFilePath + "?_journal_mode=WAL&_busy_timeout=30000&_txlock=immediate&_synchronous=NORMAL"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger: newGormLogger(),
 	})
 	if err != nil {
 		return nil, err

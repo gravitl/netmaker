@@ -155,8 +155,11 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 
 	go func(ctx context.Context) {
 		modelsNode := logic.ConvertSchemaNodeToModelsNode(node)
+		deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, modelsNode)
+		oldViolations := modelsNode.PostureChecksViolations
 
-		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, logic.GetPostureCheckDeviceInfoByNode(ctx, modelsNode), schema.NetworkID(node.Network.Name))
+		modelsNode.PostureChecksViolations, modelsNode.PostureCheckViolationSeverityLevel = logic.CheckPostureViolations(ctx, deviceInfo, schema.NetworkID(node.Network.Name))
+		logic.EmitNewPostureViolationEvents(ctx, oldViolations, modelsNode.PostureChecksViolations, deviceInfo, schema.NetworkID(node.Network.Name))
 		node.PostureCheckSeverity = modelsNode.PostureCheckViolationSeverityLevel
 		node.PostureCheckLastEvaluationCycleID = uuid.NewString()
 		node.PostureCheckLastEvaluatedAt = time.Now().UTC()
@@ -388,8 +391,8 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
-	if node.Host.OS != "linux" {
-		return fmt.Errorf("gateway can only be created on linux based node")
+	if node.Host.OS != models.OS_Types.Linux && node.Host.OS != models.OS_Types.Windows {
+		return fmt.Errorf("gateway can only be created on linux or windows based node")
 	}
 
 	if node.AutoAssignGateway {
@@ -418,7 +421,10 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 	}
 
 	if ops.isInternetGateway {
-		if node.Host.FirewallInUse == schema.FIREWALL_NONE {
+		if !logic.IsSupportedEgressFirewall(node.Host.FirewallInUse, node.Host.OS) {
+			if node.Host.OS == models.OS_Types.Windows {
+				return fmt.Errorf("windows netclient must report NetNat firewall support (upgrade netclient)")
+			}
 			return fmt.Errorf("host must have iptables or nftables installed")
 		}
 

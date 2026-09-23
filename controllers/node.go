@@ -255,7 +255,14 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
-	filters = append(filters, dbtypes.WithJoin("Host", dbtypes.WithFilter("os", osFilters...)))
+	if len(osFilters) > 0 || q != "" {
+		filters = append(filters, func(db *gorm.DB) *gorm.DB {
+			return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+		})
+	}
+	if len(osFilters) > 0 {
+		filters = append(filters, dbtypes.WithFilter("hosts_v1.os", osFilters...))
+	}
 	filters = append(filters, dbtypes.WithFilter("status", statusFilters...))
 
 	if deviceType != "" {
@@ -283,13 +290,14 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	filters = append(filters, dbtypes.WithSearchQuery(
 		q,
 		fmt.Sprintf("%s.id", (&schema.Node{}).TableName()),
-		"name",
+		"hosts_v1.name",
 		"address",
 		"address6",
 		expr.ByteaField("endpoint_ip"),
 		expr.ByteaField("endpoint_ipv6"),
 	))
 	options = append(options, filters...)
+	options = append(options, dbtypes.WithPreloads("Host"))
 	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", (&schema.Node{}).TableName())))
 	options = append(options, dbtypes.WithPagination(page, pageSize))
 

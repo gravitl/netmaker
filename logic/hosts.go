@@ -44,6 +44,11 @@ var CheckPostureViolations = func(ctx context.Context, d models.PostureCheckDevi
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
+// EmitNewPostureViolationEvents records audit events for newly observed posture
+// failures. No-op in community; wired by pro.
+var EmitNewPostureViolationEvents = func(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+}
+
 var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown
@@ -588,6 +593,28 @@ func GetHostNetworks(ctx context.Context, hostID string) []string {
 		nets = append(nets, n.Network)
 	}
 	return nets
+}
+
+// HostsShareNetwork - returns true if the two hosts have at least one network in common
+func HostsShareNetwork(ctx context.Context, hostID1, hostID2 string) bool {
+	if hostID1 == hostID2 {
+		return true
+	}
+	networks1 := GetHostNetworks(ctx, hostID1)
+	if len(networks1) == 0 {
+		return false
+	}
+	networks2 := GetHostNetworks(ctx, hostID2)
+	shared := make(map[string]struct{}, len(networks1))
+	for _, n := range networks1 {
+		shared[n] = struct{}{}
+	}
+	for _, n := range networks2 {
+		if _, ok := shared[n]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckHostPorts checks host endpoints to ensures that hosts on the same server

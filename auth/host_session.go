@@ -271,6 +271,7 @@ func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *sch
 			true,
 		)
 		if len(violations) > 0 {
+			logic.EmitNewPostureViolationEvents(ctx, nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 			logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
 			continue
 		}
