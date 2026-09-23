@@ -153,9 +153,16 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	return ""
 }
 
-func userRolesInit() {
-	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+// userRolesInit seeds the tenant-scoped built-in roles for one tenant - ctx
+// must carry that tenant's scope (see schema.UserRole.Upsert).
+func userRolesInit(ctx context.Context) {
+	_ = SuperAdminPermissionTemplate.Upsert(ctx)
+	_ = AdminPermissionTemplate.Upsert(ctx)
+}
+
+// userOrgRolesInit seeds the org-scoped built-in roles for one organization -
+// ctx must carry that org's scope (see schema.UserRole.Upsert).
+func userOrgRolesInit(ctx context.Context) {
+	_ = OrgOwnerPermissionTemplate.Upsert(ctx)
+	_ = OrgAdminPermissionTemplate.Upsert(ctx)
 }

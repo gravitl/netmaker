@@ -142,14 +142,21 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 	}),
 }
 
-func UserRolesInit() {
-	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = PlatformUserUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = AuditorUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+// UserRolesInit seeds the tenant-scoped built-in roles for one tenant - ctx
+// must carry that tenant's scope (see schema.UserRole.Upsert).
+func UserRolesInit(ctx context.Context) {
+	_ = logic.SuperAdminPermissionTemplate.Upsert(ctx)
+	_ = logic.AdminPermissionTemplate.Upsert(ctx)
+	_ = ServiceUserPermissionTemplate.Upsert(ctx)
+	_ = PlatformUserUserPermissionTemplate.Upsert(ctx)
+	_ = AuditorUserPermissionTemplate.Upsert(ctx)
+}
+
+// UserOrgRolesInit seeds the org-scoped built-in roles for one organization -
+// ctx must carry that org's scope (see schema.UserRole.Upsert).
+func UserOrgRolesInit(ctx context.Context) {
+	_ = logic.OrgOwnerPermissionTemplate.Upsert(ctx)
+	_ = logic.OrgAdminPermissionTemplate.Upsert(ctx)
 }
 
 func UserNetworkRolesInit(ctx context.Context) {

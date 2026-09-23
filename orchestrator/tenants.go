@@ -57,6 +57,7 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 
 func (t *TenantOrchestrator) initTenantRoles(ctx context.Context, tenant *schema.Tenant) {
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+	logic.InitialiseRoles(tenantCtx)
 	logic.InitialiseNetworkRoles(tenantCtx)
 }
 
