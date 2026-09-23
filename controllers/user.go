@@ -1733,6 +1733,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if scope.Level(r.Context()) == scope.OrgScope {
+		if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+			slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+			return
+		}
+	}
+
 	if logic.IsOauthUser(r.Context(), user) == nil && userchange.Password != "" {
 		err := fmt.Errorf("cannot update password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
