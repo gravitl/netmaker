@@ -26,7 +26,6 @@ type OrganizationSettingsData struct {
 	OktaOrgURL                     string   `json:"okta_org_url"`
 	OktaAPIToken                   string   `json:"okta_api_token"`
 	UserFilters                    []string `json:"user_filters"`
-	GroupFilters                   []string `json:"group_filters"`
 	IDPSyncInterval                string   `json:"idp_sync_interval"`
 	EmailSenderAddr                string   `json:"email_sender_addr"`
 	EmailSenderUser                string   `json:"email_sender_user"`
