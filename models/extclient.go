@@ -11,6 +11,7 @@ import (
 
 // ExtClient - struct for external clients
 type ExtClient struct {
+	ID                     string   `json:"id,omitempty"`
 	ClientID               string   `json:"clientid" bson:"clientid"`
 	PrivateKey             string   `json:"privatekey" bson:"privatekey"`
 	PublicKey              string   `json:"publickey" bson:"publickey"`
@@ -64,6 +65,7 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 // keyed by the row's ID, not on the row itself.
 func ExtClientFromV1(v1 *schema.Extclient) ExtClient {
 	return ExtClient{
+		ID:                                v1.ID,
 		ClientID:                          v1.Name,
 		PrivateKey:                        v1.PrivateKey,
 		PublicKey:                         v1.PublicKey,
