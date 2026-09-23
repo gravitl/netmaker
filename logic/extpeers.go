@@ -195,6 +195,106 @@ func GetExtClient(ctx context.Context, clientid string, network string) (models.
 	return extclient, nil
 }
 
+func GetExtClientWithViolations(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
+	var extclient models.ExtClient
+	r := &schema.Extclient{Name: clientid, NetworkID: network}
+	if err := r.GetByName(ctx); err != nil {
+		return extclient, err
+	}
+	extclient = models.ExtClientFromV1(r)
+	if r.PostureCheckLastEvaluationCycleID == "" {
+		return extclient, nil
+	}
+	violations, err := r.ListViolations(ctx)
+	if err != nil {
+		slog.Warn("failed to load posture violations for ext client", "id", r.ID, "error", err)
+		return extclient, nil
+	}
+	extclient.PostureChecksViolations = make([]models.Violation, 0, len(violations))
+	for _, v := range violations {
+		extclient.PostureChecksViolations = append(extclient.PostureChecksViolations, models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+	return extclient, nil
+}
+
+func GetNetworkExtClientsWithViolations(ctx context.Context, network string) ([]models.ExtClient, error) {
+	records, err := (&schema.Extclient{}).ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var extclients []models.ExtClient
+	var withCycle []schema.Extclient
+	for i := range records {
+		if records[i].NetworkID != network {
+			continue
+		}
+		extclients = append(extclients, models.ExtClientFromV1(&records[i]))
+		withCycle = append(withCycle, records[i])
+	}
+
+	ids := make([]string, 0, len(withCycle))
+	for i := range withCycle {
+		if withCycle[i].ID != "" && withCycle[i].PostureCheckLastEvaluationCycleID != "" {
+			ids = append(ids, withCycle[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return extclients, nil
+	}
+
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load ext client posture violations", "error", err, "ext_clients", len(ids))
+		return extclients, nil
+	}
+
+	byIDCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := byIDCycle[v.NodeID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			byIDCycle[v.NodeID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+
+	for i := range extclients {
+		cycleID := withCycle[i].PostureCheckLastEvaluationCycleID
+		cycles := byIDCycle[withCycle[i].ID]
+		if cycles == nil {
+			continue
+		}
+		if cycleID != "" {
+			if v, ok := cycles[cycleID]; ok {
+				extclients[i].PostureChecksViolations = v
+				continue
+			}
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if withCycle[i].PostureCheckSeverity != schema.SeverityUnknown {
+			for _, v := range cycles {
+				extclients[i].PostureChecksViolations = v
+				break
+			}
+		}
+	}
+
+	return extclients, nil
+}
+
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
 	seed := time.Now().UTC().UnixNano()
 	nameGenerator := namegenerator.NewNameGenerator(seed)
