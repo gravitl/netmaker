@@ -171,18 +171,20 @@ func request[T any](method, route string, payload any) *T {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, false))
 	}
 	applyScopeHeaders(req, ctx)
-	retried := false
-retry:
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatalf("Client error making http request: %s", err)
-	}
-	// refresh JWT token
-	if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
-		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
-		retried = true
-		// TODO add a retry limit, drop goto
-		goto retry
+
+	const maxRetries = 1
+	var res *http.Response
+	for attempt := 0; ; attempt++ {
+		res, err = http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatalf("Client error making http request: %s", err)
+		}
+		// refresh JWT token
+		if res.StatusCode == http.StatusUnauthorized && attempt < maxRetries && ctx.MasterKey == "" {
+			req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
+			continue
+		}
+		break
 	}
 	resBodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
