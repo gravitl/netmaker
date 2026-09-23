@@ -355,13 +355,19 @@ func ValidateUser(user *schema.User) error {
 }
 
 func IsIDPUser(ctx context.Context, user *schema.User) bool {
-	if scope.Level(ctx) == scope.TenantScope {
-		if user.AuthType == schema.OAuth && IsSyncEnabled(ctx) {
-			return true
-		}
+	if user.AuthType != schema.OAuth {
+		return false
 	}
 
-	return false
+	if scope.Level(ctx) == scope.OrgScope {
+		os := &schema.OrganizationSettings{ID: scope.ID(ctx)}
+		if err := os.Get(ctx); err != nil {
+			return false
+		}
+		return os.Settings.Data().SyncEnabled
+	}
+
+	return IsSyncEnabled(ctx)
 }
 
 func DeleteTenantUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
