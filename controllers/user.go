@@ -42,6 +42,7 @@ var ListRoles = listRoles
 
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/auth/discover", discoverLoginMethods).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/auth/methods", middleware.InferScope(http.HandlerFunc(getAuthMethods))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/hassuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(hasSuperAdmin))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(createSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin)))).
@@ -475,6 +476,23 @@ func discoverLoginMethods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, models.LoginMethodsResponse{Options: options}, "login methods retrieved")
+}
+
+// @Summary     Get the login methods available for a tenant or organization
+// @Router      /api/v1/auth/methods [get]
+// @Tags        Auth
+// @Produce     json
+// @Param       X-Tenant-ID header string false "Tenant ID -- returns the tenant's login methods"
+// @Param       X-Organization-ID header string false "Organization ID -- returns the organization's login methods"
+// @Success     200 {object} models.LoginMethodsAvailable
+// @Failure     500 {object} models.ErrorResponse
+func getAuthMethods(w http.ResponseWriter, r *http.Request) {
+	methods, err := logic.GetScopeLoginMethods(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, methods, "fetched auth methods")
 }
 
 // @Summary     Validate a user's identity
@@ -1319,12 +1337,35 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(dbctx, &user)
 	if err != nil {
 		slog.Error("failed to create superadmin", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
+
+	// on MSP the org owner is created via createOrgOwner instead, which also
+	// grants super admin on every tenant of the org.
+	if !logic.IsMSP(dbctx) {
+		err = createOrgOwnerMembership(dbctx, &user)
+		if err != nil {
+			slog.Error("failed to create org owner for superadmin", "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
+	commit = true
 
 	logger.Log(1, user.Username, "was made a super admin")
 	_ = json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
