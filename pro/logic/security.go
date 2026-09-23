@@ -176,6 +176,20 @@ func OrgPermissionsCheck(username string, r *http.Request) error {
 	if user.PlatformRoleID == schema.OrgOwner || user.PlatformRoleID == schema.OrgAdmin {
 		return nil
 	}
+
+	if user.PlatformRoleID != schema.OrgUser {
+		return errors.New("access denied")
+	}
+
+	if targetUsername, ok := mux.Vars(r)["username"]; ok && targetUsername == username && r.Method != http.MethodDelete {
+		return nil
+	}
+
+	route, err := mux.CurrentRoute(r).GetPathTemplate()
+	if err == nil && route == "/api/v1/tenants" && r.Method == http.MethodGet {
+		return nil
+	}
+
 	return errors.New("access denied")
 }
 

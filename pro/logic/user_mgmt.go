@@ -145,6 +145,7 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 func UserRolesInit() {
 	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = logic.OrgUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
