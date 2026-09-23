@@ -167,6 +167,7 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ResetAuthProvider(r.Context())
+	logic.ResetIDPSyncHook(r.Context())
 	logic.EmailInit(scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, orgID))
 
 	if req.ClientSecret != "" {
