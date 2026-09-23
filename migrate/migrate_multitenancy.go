@@ -69,7 +69,7 @@ func tenantScopedModels() []any {
 }
 
 func scopedModels() []any {
-	return []any{&schema.PendingUser{}, &schema.UserInvite{}}
+	return []any{&schema.PendingUser{}, &schema.UserInvite{}, &schema.UserRole{}}
 }
 
 func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
@@ -168,29 +168,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		Where("key = ?", oldID).
 		Update("key", newID).Error; err != nil {
 		return err
-	}
-
-	roleQuery := db.FromContext(ctx).Model(&schema.UserRole{}).Where("network_id <> ''")
-	if oldID == "" {
-		roleQuery = roleQuery.Where("id NOT LIKE '%::%'")
-	} else {
-		roleQuery = roleQuery.Where("id LIKE ?", oldID+"::%")
-	}
-	var roleIDs []string
-	if err := roleQuery.Pluck("id", &roleIDs).Error; err != nil {
-		return err
-	}
-	for _, id := range roleIDs {
-		logicalID := schema.UnscopeUserRoleID(oldID, schema.UserRoleID(id))
-		newKey := schema.ScopeUserRoleID(newID, logicalID).String()
-		if newKey == id {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.UserRole{}).
-			Where("id = ?", id).
-			Update("id", newKey).Error; err != nil {
-			return err
-		}
 	}
 
 	return nil
