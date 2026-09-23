@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -13,25 +12,25 @@ import (
 // Pre-Define Permission Templates for default Roles
 
 var OrgOwnerPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgOwner,
+	Name:            schema.OrgOwner.String(),
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var OrgAdminPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgAdmin,
+	Name:            schema.OrgAdmin.String(),
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.SuperAdminRole,
+	Name:               schema.SuperAdminRole.String(),
 	Default:            true,
 	TenantGlobalAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.AdminRole,
+	Name:               schema.AdminRole.String(),
 	Default:            true,
 	TenantGlobalAccess: true,
 }
@@ -53,6 +52,7 @@ var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *sche
 var RunPostureChecksForTenant = func(ctx context.Context) error { return nil }
 
 var InitialiseRoles = userRolesInit
+var InitialiseOrgRoles = userOrgRolesInit
 var InitialiseNetworkRoles = func(ctx context.Context) {}
 var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(ctx context.Context, netID string) {}

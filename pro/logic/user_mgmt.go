@@ -27,20 +27,20 @@ var (
 )
 
 var ServiceUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.ServiceUser,
+	Name:                schema.ServiceUser.String(),
 	Default:             true,
 	TenantGlobalAccess:  false,
 	DenyDashboardAccess: true,
 }
 
 var PlatformUserUserPermissionTemplate = schema.UserRole{
-	ID:                 schema.PlatformUser,
+	Name:               schema.PlatformUser.String(),
 	Default:            true,
 	TenantGlobalAccess: false,
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.Auditor,
+	Name:                schema.Auditor.String(),
 	Default:             true,
 	DenyDashboardAccess: false,
 	TenantGlobalAccess:  false,
@@ -54,8 +54,7 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksAdminRoleID,
-	Name:               "Network Admins",
+	Name:               schema.NetworkRoleDisplayName(schema.AllNetworks, true),
 	MetaData:           "can manage configuration of all networks",
 	Default:            true,
 	TenantGlobalAccess: true,
@@ -63,8 +62,7 @@ var NetworkAdminAllPermissionTemplate = schema.UserRole{
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksUserRoleID,
-	Name:               "Network Users",
+	Name:               schema.NetworkRoleDisplayName(schema.AllNetworks, false),
 	MetaData:           "Can connect to nodes in your networks via Netmaker Desktop App.",
 	Default:            true,
 	TenantGlobalAccess: false,
@@ -202,8 +200,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		return
 	}
 	var NetworkAdminPermissionTemplate = schema.UserRole{
-		ID:                 GetDefaultNetworkAdminRoleID(netID),
-		Name:               fmt.Sprintf("%s Admin", netID),
+		Name:               schema.NetworkRoleDisplayName(netID, true),
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
@@ -212,8 +209,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
-		ID:                  GetDefaultNetworkUserRoleID(netID),
-		Name:                fmt.Sprintf("%s User", netID),
+		Name:                schema.NetworkRoleDisplayName(netID, false),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
 		TenantGlobalAccess:  false,
