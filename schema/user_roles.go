@@ -2,6 +2,9 @@ package schema
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -25,6 +28,61 @@ const (
 
 func (r UserRoleID) String() string {
 	return string(r)
+}
+
+const legacyAllNetworksIDPrefix = "global"
+
+const (
+	networkAdminIDSuffix = "-" + string(NetworkAdmin)
+	networkUserIDSuffix  = "-" + string(NetworkUser)
+)
+
+func NetworkRoleDisplayName(networkID NetworkID, admin bool) string {
+	if networkID == AllNetworks {
+		if admin {
+			return "Network Admins"
+		}
+		return "Network Users"
+	}
+	if admin {
+		return fmt.Sprintf("%s Admin", networkID)
+	}
+	return fmt.Sprintf("%s User", networkID)
+}
+
+var ErrInvalidNetworkRoleID = errors.New("invalid network role id")
+
+func NetworkRoleTypeFromLegacyID(id string) (admin bool, err error) {
+	switch {
+	case id == string(NetworkAdmin), strings.HasSuffix(id, networkAdminIDSuffix):
+		return true, nil
+	case id == string(NetworkUser), strings.HasSuffix(id, networkUserIDSuffix):
+		return false, nil
+	}
+	return false, fmt.Errorf("%w: %q", ErrInvalidNetworkRoleID, id)
+}
+
+func legacyNetworkRoleName(id string) (string, error) {
+	admin, err := NetworkRoleTypeFromLegacyID(id)
+	if err != nil {
+		return "", err
+	}
+	suffix := networkUserIDSuffix
+	if admin {
+		suffix = networkAdminIDSuffix
+	}
+	prefix := strings.TrimSuffix(id, suffix)
+	if prefix == id {
+		prefix = ""
+	}
+	return NetworkRoleDisplayName(networkIDFromLegacyPrefix(prefix), admin), nil
+}
+
+func networkIDFromLegacyPrefix(prefix string) NetworkID {
+	if prefix == legacyAllNetworksIDPrefix {
+		return AllNetworks
+	}
+	return NetworkID(prefix)
 }
 
 type RsrcType string
@@ -170,7 +228,10 @@ func (u *UserRole) GetNetworkRole(ctx context.Context) error {
 			First(u).
 			Error
 	}
-	name := u.ID.String()
+	name, err := legacyNetworkRoleName(u.ID.String())
+	if err != nil {
+		return err
+	}
 	return db.FromContext(ctx).Model(&UserRole{}).
 		Where("name = ? AND scope = ? AND scope_id = ? AND network_id <> ''", name, scope.TenantScope, tenantID).
 		First(u).
