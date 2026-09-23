@@ -579,7 +579,32 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 func listTenants(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
-	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	if err := caller.GetWithMembership(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	var tenants []schema.Tenant
+	var err error
+	if caller.PlatformRoleID == schema.OrgOwner || caller.PlatformRoleID == schema.OrgAdmin {
+		tenants, err = (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+	} else {
+		memberships, mErr := (&schema.TenantMembership{UserID: caller.ID}).ListByUserID(r.Context())
+		if mErr != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(mErr, logic.Internal))
+			return
+		}
+		if len(memberships) == 0 {
+			logic.ReturnSuccessResponseWithJson(w, r, []schema.Tenant{}, "fetched tenants")
+			return
+		}
+		tenantIDs := make([]interface{}, len(memberships))
+		for i, m := range memberships {
+			tenantIDs[i] = m.TenantID
+		}
+		tenants, err = (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID), dbtypes.WithFilter("id", tenantIDs...))
+	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
