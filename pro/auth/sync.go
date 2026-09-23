@@ -35,6 +35,65 @@ var (
 	idpSyncErrs     = make(map[string]error)
 )
 
+type idpSyncSettings struct {
+	AuthProvider      string
+	ClientID          string
+	ClientSecret      string
+	AzureTenant       string
+	GoogleAdminEmail  string
+	GoogleSACredsJson string
+	OktaOrgURL        string
+	OktaAPIToken      string
+	UserFilters       []string
+	GroupFilters      []string
+	SyncEnabled       bool
+	IDPSyncInterval   string
+}
+
+func loadIDPSyncSettings(ctx context.Context) (idpSyncSettings, error) {
+	if scope.Level(ctx) == scope.OrgScope {
+		settingsRecord := &schema.OrganizationSettings{ID: scope.ID(ctx)}
+		if err := settingsRecord.Get(ctx); err != nil {
+			return idpSyncSettings{}, err
+		}
+		settings := settingsRecord.Settings.Data()
+		return idpSyncSettings{
+			AuthProvider:      settings.AuthProvider,
+			ClientID:          settings.ClientID,
+			ClientSecret:      settings.ClientSecret,
+			AzureTenant:       settings.AzureTenant,
+			GoogleAdminEmail:  settings.GoogleAdminEmail,
+			GoogleSACredsJson: settings.GoogleSACredsJson,
+			OktaOrgURL:        settings.OktaOrgURL,
+			OktaAPIToken:      settings.OktaAPIToken,
+			UserFilters:       settings.UserFilters,
+			GroupFilters:      settings.GroupFilters,
+			SyncEnabled:       settings.SyncEnabled,
+			IDPSyncInterval:   settings.IDPSyncInterval,
+		}, nil
+	}
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	if err := settingsRecord.Get(ctx); err != nil {
+		return idpSyncSettings{}, err
+	}
+	settings := settingsRecord.Value.Data()
+	return idpSyncSettings{
+		AuthProvider:      settings.AuthProvider,
+		ClientID:          settings.ClientID,
+		ClientSecret:      settings.ClientSecret,
+		AzureTenant:       settings.AzureTenant,
+		GoogleAdminEmail:  settings.GoogleAdminEmail,
+		GoogleSACredsJson: settings.GoogleSACredsJson,
+		OktaOrgURL:        settings.OktaOrgURL,
+		OktaAPIToken:      settings.OktaAPIToken,
+		UserFilters:       settings.UserFilters,
+		GroupFilters:      settings.GroupFilters,
+		SyncEnabled:       settings.SyncEnabled,
+		IDPSyncInterval:   settings.IDPSyncInterval,
+	}, nil
+}
+
 func idpSyncHookID(ctx context.Context) string {
 	return fmt.Sprintf("idp-sync-%s", scope.ID(ctx))
 }
