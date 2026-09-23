@@ -179,3 +179,124 @@ func (*Extclient) Count(ctx context.Context, options ...dbtypes.Option) (int, er
 	err := query.Count(&count).Error
 	return int(count), err
 }
+
+// UpsertViolations replaces stored violations for this ext client with the
+// latest evaluation cycle, then updates severity / cycle metadata on the
+// row. Mirrors schema.Node.UpsertViolations - see that method for the
+// concurrent-writer rationale (only the previously persisted cycle is
+// deleted, so concurrent writers don't erase each other's current rows).
+func (e *Extclient) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
+	txCtx := db.BeginTx(ctx)
+	tx := db.FromContext(txCtx)
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	cycleID := e.PostureCheckLastEvaluationCycleID
+
+	var previousCycleID string
+	if err := tx.Model(&Extclient{}).
+		Select("posture_check_last_evaluation_cycle_id").
+		Where("id = ?", e.ID).
+		Scan(&previousCycleID).Error; err != nil {
+		return err
+	}
+
+	if len(violations) > 0 {
+		for i := range violations {
+			if violations[i].TenantID == "" {
+				violations[i].TenantID = e.TenantID
+			}
+			if violations[i].NodeID == "" {
+				violations[i].NodeID = e.ID
+			}
+			if violations[i].EvaluationCycleID == "" {
+				violations[i].EvaluationCycleID = cycleID
+			}
+			violations[i].SubjectType = PostureCheckSubjectType_ExtClient
+		}
+		if err := tx.Model(&PostureCheckViolation{}).Create(&violations).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Model(&Extclient{}).
+		Where("id = ?", e.ID).
+		Updates(map[string]interface{}{
+			"posture_check_severity":                 e.PostureCheckSeverity,
+			"posture_check_last_evaluation_cycle_id": cycleID,
+			"posture_check_last_evaluated_at":        e.PostureCheckLastEvaluatedAt,
+		}).Error; err != nil {
+		return err
+	}
+
+	// Drop only the cycle we replaced, same rationale as schema.Node.UpsertViolations.
+	if previousCycleID != "" && previousCycleID != cycleID {
+		del := tx.Model(&PostureCheckViolation{}).
+			Where("node_id = ? AND evaluation_cycle_id = ?", e.ID, previousCycleID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	} else if cycleID == "" {
+		del := tx.Model(&PostureCheckViolation{}).Where("node_id = ?", e.ID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// ListViolations returns this ext client's violations for its current
+// evaluation cycle, falling back to any stored rows if the cycle and
+// severity disagree (partial upsert from an older delete-first writer).
+// Mirrors schema.Node.ListViolations.
+func (e *Extclient) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
+	var violations []PostureCheckViolation
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", e.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+
+	if e.PostureCheckLastEvaluationCycleID != "" {
+		err := query.Where("evaluation_cycle_id = ?", e.PostureCheckLastEvaluationCycleID).Find(&violations).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(violations) > 0 || e.PostureCheckSeverity == SeverityUnknown {
+			return violations, nil
+		}
+	}
+
+	// Fallback when severity says violated but the stored cycle has no rows
+	// (partial upsert from older delete-first writers).
+	fallback := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", e.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		fallback = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(fallback)
+	}
+	err := fallback.Find(&violations).Error
+	return violations, err
+}
+
+// DeleteViolations removes all stored violations for this ext client.
+func (e *Extclient) DeleteViolations(ctx context.Context) error {
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
+		Where("node_id = ?", e.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+	return query.Delete(&PostureCheckViolation{}).Error
+}
