@@ -137,7 +137,7 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 				postureChecksViolations, postureCheckVolationSeverityLevel = GetPostureCheckViolations(ctx, pcLi, deviceInfo)
 			}
 			if nodeI.IsUserNode {
-				extclient, err := logic.GetExtClient(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
+				extclient, err := logic.GetExtClientWithViolations(ctx, nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
 					if noChecks && len(extclient.PostureChecksViolations) == 0 {
 						continue
@@ -147,10 +147,32 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						oldVi = nil
 					}
 					EmitNewPostureViolationEvents(ctx, oldVi, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-					extclient.PostureChecksViolations = postureChecksViolations
-					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
-					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(ctx, &extclient)
+
+					_extclient := &schema.Extclient{
+						ID:                                extclient.ID,
+						TenantID:                          nodeI.TenantID,
+						PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+						PostureCheckLastEvaluationCycleID: uuid.NewString(),
+						PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+					}
+					_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+					for _, violation := range postureChecksViolations {
+						_violations = append(_violations, schema.PostureCheckViolation{
+							EvaluationCycleID: _extclient.PostureCheckLastEvaluationCycleID,
+							TenantID:          nodeI.TenantID,
+							CheckID:           violation.CheckID,
+							NodeID:            _extclient.ID,
+							Name:              violation.Name,
+							Attribute:         violation.Attribute,
+							Message:           violation.Message,
+							Severity:          violation.Severity,
+							EvaluatedAt:       _extclient.PostureCheckLastEvaluatedAt,
+						})
+					}
+					if err := _extclient.UpsertViolations(ctx, _violations); err != nil {
+						slog.Error("failed to upsert ext client posture check violations",
+							"ext_client_id", _extclient.ID, "error", err)
+					}
 				}
 			} else {
 				// When no checks are configured and the node is already clean, skip
