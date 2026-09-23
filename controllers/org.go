@@ -82,6 +82,12 @@ func getOrgSettings(w http.ResponseWriter, r *http.Request) {
 	if data.ClientSecret != "" {
 		data.ClientSecret = logic.Mask()
 	}
+	if data.OktaAPIToken != "" {
+		data.OktaAPIToken = logic.Mask()
+	}
+	if data.GoogleSACredsJson != "" {
+		data.GoogleSACredsJson = logic.Mask()
+	}
 	if data.EmailSenderPassword != "" {
 		data.EmailSenderPassword = logic.Mask()
 	}
@@ -140,6 +146,12 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	if req.ClientSecret == logic.Mask() {
 		req.ClientSecret = existing.Settings.Data().ClientSecret
 	}
+	if req.OktaAPIToken == logic.Mask() {
+		req.OktaAPIToken = existing.Settings.Data().OktaAPIToken
+	}
+	if req.GoogleSACredsJson == logic.Mask() {
+		req.GoogleSACredsJson = existing.Settings.Data().GoogleSACredsJson
+	}
 	if req.EmailSenderPassword == logic.Mask() {
 		req.EmailSenderPassword = existing.Settings.Data().EmailSenderPassword
 	}
@@ -159,6 +171,12 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 
 	if req.ClientSecret != "" {
 		req.ClientSecret = logic.Mask()
+	}
+	if req.OktaAPIToken != "" {
+		req.OktaAPIToken = logic.Mask()
+	}
+	if req.GoogleSACredsJson != "" {
+		req.GoogleSACredsJson = logic.Mask()
 	}
 	if req.EmailSenderPassword != "" {
 		req.EmailSenderPassword = logic.Mask()
