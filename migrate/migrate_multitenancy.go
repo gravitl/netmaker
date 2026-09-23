@@ -58,7 +58,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 func tenantScopedModels() []any {
 	return []any{
 		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
-		&schema.EnrollmentKey{}, &schema.Event{}, &types.ExtClientRecord{},
+		&schema.EnrollmentKey{}, &schema.Event{}, &schema.Extclient{}, &types.ExtClientRecord{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
