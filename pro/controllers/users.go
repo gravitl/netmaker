@@ -80,10 +80,10 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/ingress/{ingress_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/network_ip", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/idp/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncIDP)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIDPSync)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/idp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/idp/sync", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(syncIDP)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/test", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(testIDPSync)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/idp", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration)))).Methods(http.MethodDelete)
 }
 
 // @Summary     User signup via invite
