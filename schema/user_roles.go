@@ -2,7 +2,11 @@ package schema
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -24,6 +28,61 @@ const (
 
 func (r UserRoleID) String() string {
 	return string(r)
+}
+
+const legacyAllNetworksIDPrefix = "global"
+
+const (
+	networkAdminIDSuffix = "-" + string(NetworkAdmin)
+	networkUserIDSuffix  = "-" + string(NetworkUser)
+)
+
+func NetworkRoleDisplayName(networkID NetworkID, admin bool) string {
+	if networkID == AllNetworks {
+		if admin {
+			return "Network Admins"
+		}
+		return "Network Users"
+	}
+	if admin {
+		return fmt.Sprintf("%s Admin", networkID)
+	}
+	return fmt.Sprintf("%s User", networkID)
+}
+
+var ErrInvalidNetworkRoleID = errors.New("invalid network role id")
+
+func NetworkRoleTypeFromLegacyID(id string) (admin bool, err error) {
+	switch {
+	case id == string(NetworkAdmin), strings.HasSuffix(id, networkAdminIDSuffix):
+		return true, nil
+	case id == string(NetworkUser), strings.HasSuffix(id, networkUserIDSuffix):
+		return false, nil
+	}
+	return false, fmt.Errorf("%w: %q", ErrInvalidNetworkRoleID, id)
+}
+
+func legacyNetworkRoleName(id string) (string, error) {
+	admin, err := NetworkRoleTypeFromLegacyID(id)
+	if err != nil {
+		return "", err
+	}
+	suffix := networkUserIDSuffix
+	if admin {
+		suffix = networkAdminIDSuffix
+	}
+	prefix := strings.TrimSuffix(id, suffix)
+	if prefix == id {
+		prefix = ""
+	}
+	return NetworkRoleDisplayName(networkIDFromLegacyPrefix(prefix), admin), nil
+}
+
+func networkIDFromLegacyPrefix(prefix string) NetworkID {
+	if prefix == legacyAllNetworksIDPrefix {
+		return AllNetworks
+	}
+	return NetworkID(prefix)
 }
 
 type RsrcType string
@@ -116,6 +175,8 @@ type ResourceAccess map[RsrcType]map[RsrcID]RsrcPermissionScope
 
 type UserRole struct {
 	ID                  UserRoleID                         `gorm:"primaryKey" json:"id"`
+	Scope               scope.Scope                        `json:"-"`
+	ScopeID             string                             `json:"-"`
 	Name                string                             `json:"name"`
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`
@@ -131,60 +192,59 @@ func (u *UserRole) TableName() string {
 	return "user_roles_v1"
 }
 
-func ScopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
-	if tenantID == "" || id == "" {
-		return id
-	}
-	return UserRoleID(TenantScopedKey(tenantID, id.String()))
-}
-
-func UnscopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
-	if tenantID == "" || id == "" {
-		return id
-	}
-	return UserRoleID(StripTenantKey(tenantID, id.String()))
+func isUUID(id string) bool {
+	_, err := uuid.Parse(id)
+	return err == nil
 }
 
 func (u *UserRole) Create(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	if u.NetworkID != "" {
-		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	if u.ID == "" {
+		u.ID = UserRoleID(uuid.NewString())
 	}
-	err := db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
-	u.ID = logicalID
-	return err
+	u.Scope = scope.Level(ctx)
+	u.ScopeID = scope.ID(ctx)
+	return db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
 }
 
 func (u *UserRole) GetPlatformRole(ctx context.Context) error {
+	if isUUID(u.ID.String()) {
+		return db.FromContext(ctx).Model(&UserRole{}).
+			Where("id = ? AND network_id = ''", u.ID).
+			First(u).
+			Error
+	}
+	name := u.ID.String()
 	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id = ''", u.ID).
+		Where("name = ? AND scope = ? AND scope_id = ? AND network_id = '' AND default = ?", name, scope.Level(ctx), scope.ID(ctx), true).
 		First(u).
 		Error
 }
 
 func (u *UserRole) GetNetworkRole(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	u.ID = ScopeUserRoleID(tenantID, logicalID)
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id <> ''", u.ID).
-		First(u).
-		Error
+	if isUUID(u.ID.String()) {
+		return db.FromContext(ctx).Model(&UserRole{}).
+			Where("id = ? AND scope = ? AND scope_id = ? AND network_id <> ''", u.ID, scope.TenantScope, tenantID).
+			First(u).
+			Error
+	}
+	name, err := legacyNetworkRoleName(u.ID.String())
 	if err != nil {
-		u.ID = logicalID
 		return err
 	}
-	u.ID = logicalID
-	return nil
+	return db.FromContext(ctx).Model(&UserRole{}).
+		Where("name = ? AND scope = ? AND scope_id = ? AND network_id <> ''", name, scope.TenantScope, tenantID).
+		First(u).
+		Error
 }
 
 func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
+	query := db.FromContext(ctx).Model(&UserRole{}).Where("network_id = ''")
+	if scopeID := scope.ID(ctx); scopeID != "" {
+		query = query.Where("scope_id = ?", scopeID)
+	}
 	var userRoles []UserRole
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id = ''").
-		Find(&userRoles).
-		Error
+	err := query.Find(&userRoles).Error
 	return userRoles, err
 }
 
@@ -192,37 +252,36 @@ func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
 	tenantID := scope.ID(ctx)
 	query := db.FromContext(ctx).Model(&UserRole{}).Where("network_id <> ''")
 	if tenantID != "" {
-		query = query.Where("id LIKE ?", TenantScopedKey(tenantID, "")+"%")
+		query = query.Where("scope = ? AND scope_id = ?", scope.TenantScope, tenantID)
 	}
 	var userRoles []UserRole
 	err := query.Find(&userRoles).Error
-	for i := range userRoles {
-		userRoles[i].ID = UnscopeUserRoleID(tenantID, userRoles[i].ID)
-	}
 	return userRoles, err
 }
 
 func (u *UserRole) Upsert(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	if u.NetworkID != "" {
-		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	u.Scope = scope.Level(ctx)
+	u.ScopeID = scope.ID(ctx)
+	if u.Default && u.Name != "" {
+		existing := &UserRole{Scope: u.Scope, ScopeID: u.ScopeID, Name: u.Name}
+		if err := db.FromContext(ctx).Model(&UserRole{}).
+			Where("scope = ? AND scope_id = ? AND name = ? AND default = ?", existing.Scope, existing.ScopeID, existing.Name, true).
+			First(existing).Error; err == nil {
+			u.ID = existing.ID
+		}
 	}
-	err := db.FromContext(ctx).Save(u).Error
-	u.ID = logicalID
-	return err
+	if u.ID == "" {
+		u.ID = UserRoleID(uuid.NewString())
+	}
+	return db.FromContext(ctx).Save(u).Error
 }
 
 func (u *UserRole) DeleteNetworkRole(ctx context.Context) error {
 	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	u.ID = ScopeUserRoleID(tenantID, logicalID)
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id <> ''", u.ID).
+	return db.FromContext(ctx).Model(&UserRole{}).
+		Where("id = ? AND scope = ? AND scope_id = ? AND network_id <> ''", u.ID, scope.TenantScope, tenantID).
 		Delete(u).
 		Error
-	u.ID = logicalID
-	return err
 }
 
 func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {

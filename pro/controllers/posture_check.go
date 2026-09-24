@@ -369,7 +369,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 	listViolatedusers := r.URL.Query().Get("users") == "true"
 	violatedNodes := []models.Node{}
 	if listViolatedusers {
-		extclients, err := logic.GetNetworkExtClients(r.Context(), networkName)
+		extclients, err := logic.GetNetworkExtClientsWithViolations(r.Context(), networkName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 			return

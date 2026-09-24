@@ -5,12 +5,17 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/middleware"
+	"github.com/gravitl/netmaker/migrate/types"
 	"github.com/gravitl/netmaker/orchestrator"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 )
 
 var MigrateOrgAndTenants = migrateOrgAndTenants
+
+func initializeTenants(ctx context.Context) error {
+	return MigrateOrgAndTenants(ctx)
+}
 
 func migrateOrgAndTenants(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
@@ -53,7 +58,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 func tenantScopedModels() []any {
 	return []any{
 		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
-		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
+		&schema.EnrollmentKey{}, &schema.Event{}, &schema.Extclient{}, &types.ExtClientRecord{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
@@ -62,7 +67,7 @@ func tenantScopedModels() []any {
 }
 
 func scopedModels() []any {
-	return []any{&schema.PendingUser{}, &schema.UserInvite{}}
+	return []any{&schema.PendingUser{}, &schema.UserInvite{}, &schema.UserRole{}}
 }
 
 func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
@@ -103,8 +108,9 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
+	// TODO: rekey extclient, not extclient record.
 	var extClientKeys []string
-	if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
+	if err := db.FromContext(ctx).Model(&types.ExtClientRecord{}).
 		Where("tenant_id = ?", oldID).
 		Pluck("key", &extClientKeys).Error; err != nil {
 		return err
@@ -114,7 +120,7 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		if newKey == key {
 			continue
 		}
-		if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
+		if err := db.FromContext(ctx).Model(&types.ExtClientRecord{}).
 			Where("key = ?", key).
 			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
 			return err
@@ -163,29 +169,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		return err
 	}
 
-	roleQuery := db.FromContext(ctx).Model(&schema.UserRole{}).Where("network_id <> ''")
-	if oldID == "" {
-		roleQuery = roleQuery.Where("id NOT LIKE '%::%'")
-	} else {
-		roleQuery = roleQuery.Where("id LIKE ?", oldID+"::%")
-	}
-	var roleIDs []string
-	if err := roleQuery.Pluck("id", &roleIDs).Error; err != nil {
-		return err
-	}
-	for _, id := range roleIDs {
-		logicalID := schema.UnscopeUserRoleID(oldID, schema.UserRoleID(id))
-		newKey := schema.ScopeUserRoleID(newID, logicalID).String()
-		if newKey == id {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.UserRole{}).
-			Where("id = ?", id).
-			Update("id", newKey).Error; err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -225,62 +208,14 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 	return nil
 }
 
-func RekeyOrganization(ctx context.Context, oldID, newID string) error {
-	if oldID == newID {
-		return nil
-	}
-
-	if err := db.FromContext(ctx).Model(&schema.Tenant{}).
-		Where("organization_id = ?", oldID).
-		Update("organization_id", newID).Error; err != nil {
-		return err
-	}
-
-	if err := db.FromContext(ctx).Model(&schema.OrgMembership{}).
-		Where("organization_id = ?", oldID).
-		Update("organization_id", newID).Error; err != nil {
-		return err
-	}
-
-	for _, model := range scopedModels() {
-		if err := db.FromContext(ctx).Model(model).
-			Where("scope = ? AND scope_id = ?", scope.OrgScope, oldID).
-			Update("scope_id", newID).Error; err != nil {
-			return err
-		}
-	}
-
-	return db.FromContext(ctx).Model(&schema.Organization{}).
-		Where("id = ?", oldID).
-		Update("id", newID).Error
-}
-
 func isNewDeployment(ctx context.Context) (bool, error) {
-	if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
-		numUsers, err := kvCount(ctx, TableName_Users)
-		if err != nil {
-			return false, err
-		}
+	numUsers, err := (&schema.User{}).Count(ctx)
+	if err != nil {
+		return false, err
+	}
 
-		if numUsers == 0 {
-			numUsers, err = (&schema.User{}).Count(ctx)
-			if err != nil {
-				return false, err
-			}
-
-			if numUsers == 0 {
-				return true, nil
-			}
-		}
-	} else {
-		numUsers, err := (&schema.User{}).Count(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		if numUsers == 0 {
-			return true, nil
-		}
+	if numUsers == 0 {
+		return true, nil
 	}
 
 	return false, nil

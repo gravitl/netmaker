@@ -600,7 +600,8 @@ func ExpireJITGrants() error {
 		}
 
 		// Remove user's ext clients and host nodes from the network.
-		if err := removeUserJITNetworkAccess(ctx, expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
+		tenantCtx := scope.WithContext(ctx, scope.TenantScope, expiredGrant.TenantID)
+		if err := removeUserJITNetworkAccess(tenantCtx, expiredGrant.NetworkID, expiredGrant.UserID); err != nil {
 			slog.Error("failed to remove network access for expired grant",
 				"grant_id", expiredGrant.ID, "user_id", expiredGrant.UserID, "error", err)
 		}
