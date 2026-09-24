@@ -80,9 +80,6 @@ func ValidateManagedSshAcl(acl models.Acl) error {
 		if acl.Proto != models.TCP || len(acl.Port) != 1 || acl.Port[0] != models.ManagedSSHPort {
 			return fmt.Errorf("a Managed SSH policy must use tcp/%s", models.ManagedSSHPort)
 		}
-		if acl.AllowedDirection != models.TrafficDirectionUni {
-			return errors.New("a Managed SSH policy must be unidirectional (source to destination only)")
-		}
 		return nil
 	}
 	if len(acl.SSHUsers) > 0 {
@@ -2513,7 +2510,7 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 	}
 
 	//check if src and dst are valid
-	if acl.AllowedDirection == models.TrafficDirectionUni && acl.ServiceType != models.ManagedSSH {
+	if acl.AllowedDirection == models.TrafficDirectionUni {
 		return errors.New("uni traffic flow not allowed on CE")
 	}
 	switch acl.RuleType {
