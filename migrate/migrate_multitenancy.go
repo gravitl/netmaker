@@ -208,62 +208,14 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 	return nil
 }
 
-func RekeyOrganization(ctx context.Context, oldID, newID string) error {
-	if oldID == newID {
-		return nil
-	}
-
-	if err := db.FromContext(ctx).Model(&schema.Tenant{}).
-		Where("organization_id = ?", oldID).
-		Update("organization_id", newID).Error; err != nil {
-		return err
-	}
-
-	if err := db.FromContext(ctx).Model(&schema.OrgMembership{}).
-		Where("organization_id = ?", oldID).
-		Update("organization_id", newID).Error; err != nil {
-		return err
-	}
-
-	for _, model := range scopedModels() {
-		if err := db.FromContext(ctx).Model(model).
-			Where("scope = ? AND scope_id = ?", scope.OrgScope, oldID).
-			Update("scope_id", newID).Error; err != nil {
-			return err
-		}
-	}
-
-	return db.FromContext(ctx).Model(&schema.Organization{}).
-		Where("id = ?", oldID).
-		Update("id", newID).Error
-}
-
 func isNewDeployment(ctx context.Context) (bool, error) {
-	if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
-		numUsers, err := kvCount(ctx, TableName_Users)
-		if err != nil {
-			return false, err
-		}
+	numUsers, err := (&schema.User{}).Count(ctx)
+	if err != nil {
+		return false, err
+	}
 
-		if numUsers == 0 {
-			numUsers, err = (&schema.User{}).Count(ctx)
-			if err != nil {
-				return false, err
-			}
-
-			if numUsers == 0 {
-				return true, nil
-			}
-		}
-	} else {
-		numUsers, err := (&schema.User{}).Count(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		if numUsers == 0 {
-			return true, nil
-		}
+	if numUsers == 0 {
+		return true, nil
 	}
 
 	return false, nil
