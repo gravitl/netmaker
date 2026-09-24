@@ -317,6 +317,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	} else if acl.ServiceType == models.ManagedSSH {
 		acl.Port = []string{models.ManagedSSHPort}
 		acl.Proto = models.TCP
+		acl.AllowedDirection = models.TrafficDirectionUni
 	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
@@ -392,6 +393,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 	if updateAcl.Acl.ServiceType == models.ManagedSSH {
 		updateAcl.Acl.Port = []string{models.ManagedSSHPort}
 		updateAcl.Acl.Proto = models.TCP
+		updateAcl.Acl.AllowedDirection = models.TrafficDirectionUni
 	}
 	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
