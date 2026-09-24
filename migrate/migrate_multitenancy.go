@@ -11,15 +11,13 @@ import (
 	"github.com/gravitl/netmaker/scope"
 )
 
-const TableName_Users = "users"
-
-var SyncOrgAndTenants = CreateLocalDefaults
+var MigrateOrgAndTenants = migrateOrgAndTenants
 
 func initializeTenants(ctx context.Context) error {
-	return SyncOrgAndTenants(ctx)
+	return MigrateOrgAndTenants(ctx)
 }
 
-func CreateLocalDefaults(ctx context.Context) error {
+func migrateOrgAndTenants(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
 		return err
@@ -110,6 +108,7 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
+	// TODO: rekey extclient, not extclient record.
 	var extClientKeys []string
 	if err := db.FromContext(ctx).Model(&types.ExtClientRecord{}).
 		Where("tenant_id = ?", oldID).
