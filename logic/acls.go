@@ -257,6 +257,19 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 	return result
 }
 
+func aclTagsMatchNode(tags []models.AclPolicyTag, nodeTags map[models.TagID]struct{}) bool {
+	values := ConvAclTagToValueMap(tags)
+	if _, all := values["*"]; all {
+		return true
+	}
+	for nodeTag := range nodeTags {
+		if _, ok := values[nodeTag.String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func peerAddrKey(addr net.IP) string {
 	bits := 32
 	if addr.To4() == nil {
