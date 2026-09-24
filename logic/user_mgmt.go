@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -13,25 +12,25 @@ import (
 // Pre-Define Permission Templates for default Roles
 
 var OrgOwnerPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgOwner,
+	Name:            schema.OrgOwner.String(),
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var OrgAdminPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgAdmin,
+	Name:            schema.OrgAdmin.String(),
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.SuperAdminRole,
+	Name:               schema.SuperAdminRole.String(),
 	Default:            true,
 	TenantGlobalAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.AdminRole,
+	Name:               schema.AdminRole.String(),
 	Default:            true,
 	TenantGlobalAccess: true,
 }
@@ -53,6 +52,7 @@ var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *sche
 var RunPostureChecksForTenant = func(ctx context.Context) error { return nil }
 
 var InitialiseRoles = userRolesInit
+var InitialiseOrgRoles = userOrgRolesInit
 var InitialiseNetworkRoles = func(ctx context.Context) {}
 var IntialiseGroups = func(ctx context.Context) {}
 var DeleteNetworkRoles = func(ctx context.Context, netID string) {}
@@ -153,9 +153,16 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 	return ""
 }
 
-func userRolesInit() {
-	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+// userRolesInit seeds the tenant-scoped built-in roles for one tenant - ctx
+// must carry that tenant's scope (see schema.UserRole.Upsert).
+func userRolesInit(ctx context.Context) {
+	_ = SuperAdminPermissionTemplate.Upsert(ctx)
+	_ = AdminPermissionTemplate.Upsert(ctx)
+}
+
+// userOrgRolesInit seeds the org-scoped built-in roles for one organization -
+// ctx must carry that org's scope (see schema.UserRole.Upsert).
+func userOrgRolesInit(ctx context.Context) {
+	_ = OrgOwnerPermissionTemplate.Upsert(ctx)
+	_ = OrgAdminPermissionTemplate.Upsert(ctx)
 }

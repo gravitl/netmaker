@@ -170,6 +170,7 @@ func InitPro() {
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 
 	logic.InitialiseRoles = proLogic.UserRolesInit
+	logic.InitialiseOrgRoles = proLogic.UserOrgRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.RunPostureChecksForTenant = proLogic.RunPostureChecksForTenant
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
