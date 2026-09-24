@@ -150,27 +150,61 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 		tagNodesMap map[models.TagID][]models.Node
 	)
 
-	for _, acl := range policies {
-		dstTags := ConvAclTagToValueMap(acl.Dst)
-		if _, all := dstTags["*"]; !all {
-			matched := false
-			for nodeTag := range targetNodeTags {
-				if _, ok := dstTags[nodeTag.String()]; ok {
-					matched = true
-					break
-				}
-			}
-			if !matched {
+	grantNodes := func(tags []models.AclPolicyTag, osUsers map[string]struct{}) {
+		if tagNodesMap == nil {
+			tagNodesMap = GetTagMapWithNodesByNetwork(ctx, netID, true)
+		}
+		seen := make(map[string]struct{})
+		for _, tag := range tags {
+			if tag.ID != models.NodeID && tag.ID != models.NodeTagID {
 				continue
 			}
+			for _, n := range tagNodesMap[models.TagID(tag.Value)] {
+				var dedupeKey string
+				if n.IsStatic {
+					dedupeKey = n.StaticNode.ClientID
+				} else {
+					dedupeKey = n.ID.String()
+				}
+				if _, ok := seen[dedupeKey]; ok {
+					continue
+				}
+				seen[dedupeKey] = struct{}{}
+				if n.IsStatic {
+					if !n.StaticNode.Enabled {
+						continue
+					}
+					grant(n.StaticNode.AddressIPNet4().IP, osUsers)
+					grant(n.StaticNode.AddressIPNet6().IP, osUsers)
+				} else {
+					grant(n.Address.IP, osUsers)
+					grant(n.Address6.IP, osUsers)
+				}
+			}
 		}
+	}
 
+	for _, acl := range policies {
 		sshUsers := make(map[string]struct{}, len(acl.SSHUsers))
 		for _, osUser := range acl.SSHUsers {
 			sshUsers[osUser] = struct{}{}
 		}
 		if len(sshUsers) == 0 {
 			sshUsers["*"] = struct{}{}
+		}
+
+		isDst := aclTagsMatchNode(acl.Dst, targetNodeTags)
+		isSrcOfBi := acl.AllowedDirection == models.TrafficDirectionBi &&
+			acl.RuleType == models.DevicePolicy &&
+			aclTagsMatchNode(acl.Src, targetNodeTags)
+		if !isDst && !isSrcOfBi {
+			continue
+		}
+		if isSrcOfBi {
+			grantNodes(acl.Dst, sshUsers)
+		}
+		if !isDst {
+			continue
 		}
 
 		switch acl.RuleType {
@@ -212,37 +246,7 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 				grant(userNode.Address6.IP, sshUsers)
 			}
 		case models.DevicePolicy:
-			if tagNodesMap == nil {
-				tagNodesMap = GetTagMapWithNodesByNetwork(ctx, netID, true)
-			}
-			seen := make(map[string]struct{})
-			for _, src := range acl.Src {
-				if src.ID != models.NodeID && src.ID != models.NodeTagID {
-					continue
-				}
-				for _, n := range tagNodesMap[models.TagID(src.Value)] {
-					var dedupeKey string
-					if n.IsStatic {
-						dedupeKey = n.StaticNode.ClientID
-					} else {
-						dedupeKey = n.ID.String()
-					}
-					if _, ok := seen[dedupeKey]; ok {
-						continue
-					}
-					seen[dedupeKey] = struct{}{}
-					if n.IsStatic {
-						if !n.StaticNode.Enabled {
-							continue
-						}
-						grant(n.StaticNode.AddressIPNet4().IP, sshUsers)
-						grant(n.StaticNode.AddressIPNet6().IP, sshUsers)
-					} else {
-						grant(n.Address.IP, sshUsers)
-						grant(n.Address6.IP, sshUsers)
-					}
-				}
-			}
+			grantNodes(acl.Src, sshUsers)
 		}
 	}
 
