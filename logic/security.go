@@ -97,9 +97,7 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 		if err != nil {
 			// if no, then check the user has a pre-auth token.
 			claims := &models.UserClaims{}
-			token, err := jwt.ParseWithClaims(authToken, claims, func(token *jwt.Token) (interface{}, error) {
-				return jwtSecretKey, nil
-			})
+			token, err := jwt.ParseWithClaims(authToken, claims, jwtKeyFunc)
 			if err != nil {
 				ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
 				return
