@@ -10,9 +10,9 @@ import (
 	"github.com/gravitl/netmaker/scope"
 )
 
-var SyncOrgAndTenants = CreateLocalDefaults
+var MigrateOrgAndTenants = migrateOrgAndTenants
 
-func CreateLocalDefaults(ctx context.Context) error {
+func migrateOrgAndTenants(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
 		return err
