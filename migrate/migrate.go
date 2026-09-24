@@ -31,6 +31,7 @@ func Run() {
 	for _, tenant := range tenants {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, tenant.ID)
 		migrateSettings(ctx)
+		logic.InitialiseRoles(ctx)
 		assignSuperAdmin(ctx)
 		logic.InitialiseNetworkRoles(ctx)
 		logic.IntialiseGroups(ctx)
@@ -48,6 +49,12 @@ func Run() {
 		deleteOldExtclients(ctx)
 	}
 
+	orgs, _ := (&schema.Organization{}).ListAll(db.WithContext(context.TODO()))
+	for _, org := range orgs {
+		orgCtx := scope.WithContext(db.WithContext(context.TODO()), scope.OrgScope, org.ID)
+		logic.InitialiseOrgRoles(orgCtx)
+	}
+
 	updateEnrollmentKeys()
 	syncUsers()
 	migrateEgressDomains()
@@ -56,8 +63,6 @@ func Run() {
 	migrateNameservers()
 	migrateEgressNatMode()
 	cleanUpDeleteNetworksRefs()
-
-	logic.InitialiseRoles()
 }
 
 func updateNetworks() {

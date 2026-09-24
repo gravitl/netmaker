@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/goombaio/namegenerator"
@@ -17,10 +16,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -28,50 +25,6 @@ var ErrClientLimitExceeded = errors.New("client limit reached for this tenant, p
 
 var ClientLimitExceeded = func(ctx context.Context) bool {
 	return false
-}
-
-// extClientCacheMap maps tenant ID -> *sync.Map of record key -> models.ExtClient
-var extClientCacheMap sync.Map
-
-// getTenantExtClientCache returns the ext client cache map for the given tenant, creating it if necessary
-func getTenantExtClientCache(tenantID string) *sync.Map {
-	v, _ := extClientCacheMap.LoadOrStore(tenantID, &sync.Map{})
-	return v.(*sync.Map)
-}
-
-func getAllExtClientsFromCache(ctx context.Context) (extClients []models.ExtClient) {
-	getTenantExtClientCache(scope.ID(ctx)).Range(func(_, v any) bool {
-		extclient := v.(models.ExtClient)
-		if extclient.Mutex == nil {
-			extclient.Mutex = &sync.Mutex{}
-		}
-		extClients = append(extClients, extclient)
-		return true
-	})
-	return
-}
-
-func deleteExtClientFromCache(ctx context.Context, key string) {
-	getTenantExtClientCache(scope.ID(ctx)).Delete(key)
-}
-
-func getExtClientFromCache(ctx context.Context, key string) (extclient models.ExtClient, ok bool) {
-	v, ok := getTenantExtClientCache(scope.ID(ctx)).Load(key)
-	if !ok {
-		return extclient, false
-	}
-	extclient = v.(models.ExtClient)
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	return extclient, true
-}
-
-func storeExtClientInCache(ctx context.Context, key string, extclient models.ExtClient) {
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	getTenantExtClientCache(scope.ID(ctx)).Store(key, extclient)
 }
 
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client.
@@ -165,19 +118,12 @@ func UniqueIPNetStrList(ipnets []string) []string {
 
 // DeleteExtClient - deletes an existing ext client
 func DeleteExtClient(ctx context.Context, network string, clientid string, isUpdate bool) error {
-	key, err := GetRecordKey(clientid, network)
-	if err != nil {
-		return err
-	}
 	extClient, err := GetExtClient(ctx, clientid, network)
 	if err != nil {
 		return err
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(ctx); err != nil {
+	if err = (&schema.Extclient{Name: clientid, NetworkID: network}).DeleteByName(ctx); err != nil {
 		return err
-	}
-	if servercfg.CacheEnabled() {
-		deleteExtClientFromCache(ctx, key)
 	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(ctx, &models.Event{
@@ -225,27 +171,12 @@ a. check against each user node, if allowed add rule
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
-	if servercfg.CacheEnabled() {
-		allextclients := getAllExtClientsFromCache(ctx)
-		if len(allextclients) != 0 {
-			for _, extclient := range allextclients {
-				if extclient.Network == network {
-					extclients = append(extclients, extclient)
-				}
-			}
-			return extclients, nil
-		}
-	}
-	records, err := (&schema.ExtClientRecord{}).List(ctx)
+	records, err := (&schema.Extclient{}).ListAll(ctx)
 	if err != nil {
 		return extclients, err
 	}
 	for _, r := range records {
-		extclient := r.Value.Data()
-		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-		if err == nil && servercfg.CacheEnabled() {
-			storeExtClientInCache(ctx, key, extclient)
-		}
+		extclient := models.ExtClientFromV1(&r)
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
 		}
@@ -256,24 +187,112 @@ func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClie
 // GetExtClient - gets a single ext client on a network
 func GetExtClient(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
 	var extclient models.ExtClient
-	key, err := GetRecordKey(clientid, network)
+	r := &schema.Extclient{Name: clientid, NetworkID: network}
+	if err := r.GetByName(ctx); err != nil {
+		return extclient, err
+	}
+	extclient = models.ExtClientFromV1(r)
+	return extclient, nil
+}
+
+func GetExtClientWithViolations(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
+	var extclient models.ExtClient
+	r := &schema.Extclient{Name: clientid, NetworkID: network}
+	if err := r.GetByName(ctx); err != nil {
+		return extclient, err
+	}
+	extclient = models.ExtClientFromV1(r)
+	if r.PostureCheckLastEvaluationCycleID == "" {
+		return extclient, nil
+	}
+	violations, err := r.ListViolations(ctx)
 	if err != nil {
-		return extclient, err
+		slog.Warn("failed to load posture violations for ext client", "id", r.ID, "error", err)
+		return extclient, nil
 	}
-	if servercfg.CacheEnabled() {
-		if extclient, ok := getExtClientFromCache(ctx, key); ok {
-			return extclient, nil
-		}
-	}
-	r := &schema.ExtClientRecord{Key: key}
-	if err = r.Get(ctx); err != nil {
-		return extclient, err
-	}
-	extclient = r.Value.Data()
-	if servercfg.CacheEnabled() {
-		storeExtClientInCache(ctx, key, extclient)
+	extclient.PostureChecksViolations = make([]models.Violation, 0, len(violations))
+	for _, v := range violations {
+		extclient.PostureChecksViolations = append(extclient.PostureChecksViolations, models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
 	}
 	return extclient, nil
+}
+
+func GetNetworkExtClientsWithViolations(ctx context.Context, network string) ([]models.ExtClient, error) {
+	records, err := (&schema.Extclient{}).ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var extclients []models.ExtClient
+	var withCycle []schema.Extclient
+	for i := range records {
+		if records[i].NetworkID != network {
+			continue
+		}
+		extclients = append(extclients, models.ExtClientFromV1(&records[i]))
+		withCycle = append(withCycle, records[i])
+	}
+
+	ids := make([]string, 0, len(withCycle))
+	for i := range withCycle {
+		if withCycle[i].ID != "" && withCycle[i].PostureCheckLastEvaluationCycleID != "" {
+			ids = append(ids, withCycle[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return extclients, nil
+	}
+
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load ext client posture violations", "error", err, "ext_clients", len(ids))
+		return extclients, nil
+	}
+
+	byIDCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := byIDCycle[v.NodeID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			byIDCycle[v.NodeID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+
+	for i := range extclients {
+		cycleID := withCycle[i].PostureCheckLastEvaluationCycleID
+		cycles := byIDCycle[withCycle[i].ID]
+		if cycles == nil {
+			continue
+		}
+		if cycleID != "" {
+			if v, ok := cycles[cycleID]; ok {
+				extclients[i].PostureChecksViolations = v
+				continue
+			}
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if withCycle[i].PostureCheckSeverity != schema.SeverityUnknown {
+			for _, v := range cycles {
+				extclients[i].PostureChecksViolations = v
+				break
+			}
+		}
+	}
+
+	return extclients, nil
 }
 
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
@@ -302,16 +321,9 @@ func GenerateNodeName(ctx context.Context, network string) (string, error) {
 
 // SaveExtClient - saves an ext client to database
 func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
-	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-	if err != nil {
+	r := extclient.ToExtClientV1()
+	if err := r.Upsert(ctx); err != nil {
 		return err
-	}
-	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
-	if err = r.Upsert(ctx); err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeExtClientInCache(ctx, key, *extclient)
 	}
 	return SetNetworkNodesLastModified(ctx, extclient.Network)
 }

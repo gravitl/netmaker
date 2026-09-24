@@ -27,20 +27,20 @@ var (
 )
 
 var ServiceUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.ServiceUser,
+	Name:                schema.ServiceUser.String(),
 	Default:             true,
 	TenantGlobalAccess:  false,
 	DenyDashboardAccess: true,
 }
 
 var PlatformUserUserPermissionTemplate = schema.UserRole{
-	ID:                 schema.PlatformUser,
+	Name:               schema.PlatformUser.String(),
 	Default:            true,
 	TenantGlobalAccess: false,
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.Auditor,
+	Name:                schema.Auditor.String(),
 	Default:             true,
 	DenyDashboardAccess: false,
 	TenantGlobalAccess:  false,
@@ -54,8 +54,7 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksAdminRoleID,
-	Name:               "Network Admins",
+	Name:               schema.NetworkRoleDisplayName(schema.AllNetworks, true),
 	MetaData:           "can manage configuration of all networks",
 	Default:            true,
 	TenantGlobalAccess: true,
@@ -63,8 +62,7 @@ var NetworkAdminAllPermissionTemplate = schema.UserRole{
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksUserRoleID,
-	Name:               "Network Users",
+	Name:               schema.NetworkRoleDisplayName(schema.AllNetworks, false),
 	MetaData:           "Can connect to nodes in your networks via Netmaker Desktop App.",
 	Default:            true,
 	TenantGlobalAccess: false,
@@ -142,14 +140,21 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 	}),
 }
 
-func UserRolesInit() {
-	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = PlatformUserUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
-	_ = AuditorUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+// UserRolesInit seeds the tenant-scoped built-in roles for one tenant - ctx
+// must carry that tenant's scope (see schema.UserRole.Upsert).
+func UserRolesInit(ctx context.Context) {
+	_ = logic.SuperAdminPermissionTemplate.Upsert(ctx)
+	_ = logic.AdminPermissionTemplate.Upsert(ctx)
+	_ = ServiceUserPermissionTemplate.Upsert(ctx)
+	_ = PlatformUserUserPermissionTemplate.Upsert(ctx)
+	_ = AuditorUserPermissionTemplate.Upsert(ctx)
+}
+
+// UserOrgRolesInit seeds the org-scoped built-in roles for one organization -
+// ctx must carry that org's scope (see schema.UserRole.Upsert).
+func UserOrgRolesInit(ctx context.Context) {
+	_ = logic.OrgOwnerPermissionTemplate.Upsert(ctx)
+	_ = logic.OrgAdminPermissionTemplate.Upsert(ctx)
 }
 
 func UserNetworkRolesInit(ctx context.Context) {
@@ -195,8 +200,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		return
 	}
 	var NetworkAdminPermissionTemplate = schema.UserRole{
-		ID:                 GetDefaultNetworkAdminRoleID(netID),
-		Name:               fmt.Sprintf("%s Admin", netID),
+		Name:               schema.NetworkRoleDisplayName(netID, true),
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
@@ -205,8 +209,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
-		ID:                  GetDefaultNetworkUserRoleID(netID),
-		Name:                fmt.Sprintf("%s User", netID),
+		Name:                schema.NetworkRoleDisplayName(netID, false),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
 		TenantGlobalAccess:  false,
