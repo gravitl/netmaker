@@ -2531,7 +2531,7 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 	}
 
 	//check if src and dst are valid
-	if acl.AllowedDirection == models.TrafficDirectionUni {
+	if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
 		return errors.New("uni traffic flow not allowed on CE")
 	}
 	switch acl.RuleType {
@@ -2755,7 +2755,7 @@ func MigrateAclPolicies(ctx context.Context) {
 			UpsertAcl(ctx, acl)
 		}
 		if !servercfg.IsPro {
-			if acl.AllowedDirection == models.TrafficDirectionUni {
+			if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
 				acl.AllowedDirection = models.TrafficDirectionBi
 				UpsertAcl(ctx, acl)
 			}
