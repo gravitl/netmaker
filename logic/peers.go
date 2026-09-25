@@ -323,7 +323,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 
 		maps.Copy(hostPeerUpdate.SshAuthorizedIdentities, GetSshAuthorizedIdentitiesForNode(ctx, &node))
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
-		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+		acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)

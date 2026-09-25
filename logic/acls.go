@@ -32,8 +32,8 @@ var getEgressByNetwork = func(network string) ([]schema.Egress, error) {
 	e := schema.Egress{Network: network}
 	return e.ListByNetwork(db.WithContext(context.Background()))
 }
-var getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
-	return ListDevicePolicies(ctx, netID)
+var getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	return ListNetworkAccessDevicePolicies(ctx, netID)
 }
 
 // listNetworkExtClients fetches all extclients in a network; tests may override.
@@ -285,7 +285,7 @@ func peerAddrKey(addr net.IP) string {
 var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
 
 func getEgressToEgressPoliciesForNode(ctx context.Context, targetnode models.Node) []models.Acl {
-	policies := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	policies := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	filtered := make([]models.Acl, 0)
 	for _, policy := range policies {
 		if !policy.Enabled {
@@ -1258,7 +1258,7 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 	} else {
 		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 	}
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
@@ -1597,7 +1597,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	}()
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
@@ -2006,7 +2006,7 @@ func getExtClientEgressFwRulesOnIngressGw(ctx context.Context, node models.Node)
 		return
 	}
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -2071,7 +2071,7 @@ func getDeviceEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (r
 		return
 	}
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -2607,7 +2607,7 @@ var IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefau
 
 	}
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -2793,7 +2793,7 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(ctx context.Context, node models.Nod
 		node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
 	}
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -2893,7 +2893,7 @@ func IsNodeAllowedToCommunicate(ctx context.Context, node, peer models.Node, che
 		allowedPolicies = UniquePolicies(allowedPolicies)
 	}()
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -3037,7 +3037,7 @@ func GetDefaultPolicy(ctx context.Context, netID schema.NetworkID, ruleType mode
 		srcMap = nil
 		dstMap = nil
 	}()
-	policies, _ := ListAclsByNetwork(ctx, netID)
+	policies := ListNetworkAccessAcls(ctx, netID)
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -3089,24 +3089,48 @@ func ListEgressAcls(ctx context.Context, egressID string) ([]models.Acl, error) 
 	return egressAcls, nil
 }
 
-// ListDevicePolicies - lists all device policies in a network
-func ListDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// ListNetworkAccessAcls lists the network access policies in a network.
+func ListNetworkAccessAcls(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	allAcls, _ := ListAclsByNetwork(ctx, netID)
+	var acls []models.Acl
+	for _, acl := range allAcls {
+		if acl.IsNetworkAccess() {
+			acls = append(acls, acl)
+		}
+	}
+	return acls
+}
+
+// ListManagedAccessAcls lists the managed access policies in a network.
+func ListManagedAccessAcls(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	allAcls, _ := ListAclsByNetwork(ctx, netID)
+	var acls []models.Acl
+	for _, acl := range allAcls {
+		if acl.IsManagedAccess() {
+			acls = append(acls, acl)
+		}
+	}
+	return acls
+}
+
+// ListNetworkAccessDevicePolicies - lists all network access device policies in a network
+func ListNetworkAccessDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
 	var deviceAcls []models.Acl
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.DevicePolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.DevicePolicy {
 			deviceAcls = append(deviceAcls, acl)
 		}
 	}
 	return deviceAcls
 }
 
-// ListUserPolicies - lists all user policies in a network
-func ListUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// ListNetworkAccessUserPolicies - lists all network access user policies in a network
+func ListNetworkAccessUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
 	var userAcls []models.Acl
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			userAcls = append(userAcls, acl)
 		}
 	}
