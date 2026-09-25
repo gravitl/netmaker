@@ -190,6 +190,10 @@ func OrgPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
+	if err == nil && route == "/api/v1/users" && r.Method == http.MethodGet && r.URL.Query().Get("username") == username {
+		return nil
+	}
+
 	return errors.New("access denied")
 }
 
