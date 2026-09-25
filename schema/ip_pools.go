@@ -10,7 +10,6 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/scope"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -130,18 +129,19 @@ func (n *Network) UsableIPRange(family IPFamily) (first, last netip.Addr, err er
 	return first.Unmap(), last.Unmap(), nil
 }
 
-// createNetworkIPPools creates the address pools of a newly created network.
-func createNetworkIPPools(tx *gorm.DB, network *Network) error {
-	for family, addressRange := range map[IPFamily]string{IPv4: network.AddressRange, IPv6: network.AddressRange6} {
-		if addressRange == "" {
+// CreateIPPools creates the address pools of the network's IPv4 and IPv6
+// ranges, if they do not exist yet.
+func (n *Network) CreateIPPools(ctx context.Context) error {
+	for _, family := range []IPFamily{IPv4, IPv6} {
+		if (family == IPv4 && n.AddressRange == "") || (family == IPv6 && n.AddressRange6 == "") {
 			continue
 		}
 		pool := &IPPool{
-			TenantID:  network.TenantID,
-			NetworkID: network.ID,
+			TenantID:  n.TenantID,
+			NetworkID: n.ID,
 			Family:    family,
 		}
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(pool).Error; err != nil {
+		if err := pool.Create(ctx); err != nil {
 			return err
 		}
 	}
