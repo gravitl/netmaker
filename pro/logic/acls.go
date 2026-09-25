@@ -550,7 +550,11 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
-	if err := logic.ValidateManagedSshAcl(acl); err != nil {
+	if acl.IsManagedAccess() {
+		if err := logic.ValidateManagedAccessAcl(acl); err != nil {
+			return err
+		}
+	} else if err := logic.ValidateNetworkAccessAcl(acl); err != nil {
 		return err
 	}
 	//check if src and dst are valid
