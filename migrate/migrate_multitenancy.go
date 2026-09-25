@@ -54,7 +54,8 @@ func tenantScopedModels() []any {
 	return []any{
 		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
 		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
-		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
+		&schema.Host{}, &schema.Integration{}, &schema.IPAllocation{}, &schema.IPPool{},
+		&schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
 		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{},
