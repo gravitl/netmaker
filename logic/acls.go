@@ -3411,6 +3411,9 @@ func getAclFromCache(ctx context.Context, aID string) (a models.Acl, ok bool) {
 
 // InsertAcl - creates acl policy
 func InsertAcl(ctx context.Context, a models.Acl) error {
+	if a.AccessType == "" {
+		a.AccessType = models.NetworkAccess
+	}
 	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
