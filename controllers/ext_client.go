@@ -712,8 +712,22 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TODO: allocate the addresses in the same transaction as the extclient,
+	// see orchestrator.NetworkOrchestrator.
 	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
 	var reservedIPv4, reservedIPv6 string
+	// releaseAddresses makes the allocated addresses available for
+	// reallocation when the extclient is not saved.
+	releaseAddresses := func() {
+		for _, address := range []string{reservedIPv4, reservedIPv6} {
+			if address == "" {
+				continue
+			}
+			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address); err != nil {
+				slog.Error("failed to release extclient address", "network", parentNetwork.Name, "address", address, "error", err)
+			}
+		}
+	}
 
 	if extclient.Address == "" {
 		if parentNetwork.AddressRange != "" {
@@ -740,9 +754,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		if parentNetwork.AddressRange6 != "" {
 			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork)
 			if err != nil {
-				if reservedIPv4 != "" {
-					networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-				}
+				releaseAddresses()
 				slog.Error(
 					"failed to create extclient",
 					"user",
@@ -762,19 +774,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	extclient.LastModified = time.Now().Unix()
 	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &extclient, nodeid, &customExtClient); err != nil {
+		releaseAddresses()
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	err = logic.SaveExtClient(r.Context(), &extclient)
-	// Reservations are freed regardless of outcome: on success the DB is authoritative,
-	// on failure the IPs must be available for reallocation.
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
-	}
 	if err != nil {
+		releaseAddresses()
 		slog.Error(
 			"failed to create extclient",
 			"user",
