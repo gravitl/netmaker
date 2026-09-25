@@ -99,12 +99,22 @@ func InitPro() {
 				flowLogsEnabled := false
 				for _, tenant := range tenants {
 					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
-					auth.StartIDPSyncHookForTenant(scopedCtx)
+					auth.StartIDPSyncHook(scopedCtx)
 					proLogic.AddPostureCheckHook(scopedCtx)
 					logic.GetMetricsMonitor(scopedCtx).Start()
 
 					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
 						flowLogsEnabled = true
+					}
+				}
+
+				orgs, err := (&schema.Organization{}).ListAll(db.WithContext(context.TODO()))
+				if err != nil {
+					logger.Log(0, "error fetching organizations while starting background tasks:", err.Error())
+				} else {
+					for _, org := range orgs {
+						scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, org.ID)
+						auth.StartIDPSyncHook(scopedCtx)
 					}
 				}
 
