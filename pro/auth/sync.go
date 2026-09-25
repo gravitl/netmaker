@@ -66,7 +66,7 @@ func loadIDPSyncSettings(ctx context.Context) (idpSyncSettings, error) {
 			GoogleSACredsJson: settings.GoogleSACredsJson,
 			OktaOrgURL:        settings.OktaOrgURL,
 			OktaAPIToken:      settings.OktaAPIToken,
-			UserFilters:       settings.UserFilters,
+			UserFilters:       cleanFilters(settings.UserFilters),
 			SyncEnabled:       settings.SyncEnabled,
 			IDPSyncInterval:   settings.IDPSyncInterval,
 		}, nil
@@ -86,11 +86,22 @@ func loadIDPSyncSettings(ctx context.Context) (idpSyncSettings, error) {
 		GoogleSACredsJson: settings.GoogleSACredsJson,
 		OktaOrgURL:        settings.OktaOrgURL,
 		OktaAPIToken:      settings.OktaAPIToken,
-		UserFilters:       settings.UserFilters,
-		GroupFilters:      settings.GroupFilters,
+		UserFilters:       cleanFilters(settings.UserFilters),
+		GroupFilters:      cleanFilters(settings.GroupFilters),
 		SyncEnabled:       settings.SyncEnabled,
 		IDPSyncInterval:   settings.IDPSyncInterval,
 	}, nil
+}
+
+func cleanFilters(filters []string) []string {
+	var cleaned []string
+	for _, filter := range filters {
+		filter = strings.TrimSpace(filter)
+		if filter != "" {
+			cleaned = append(cleaned, filter)
+		}
+	}
+	return cleaned
 }
 
 func idpSyncHookID(ctx context.Context) string {
@@ -222,6 +233,7 @@ func SyncFromIDP(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		logger.Log(0, "idp sync: fetched", fmt.Sprint(len(idpUsers)), "users from", settings.AuthProvider, "for", scope.ID(ctx), "with filters", fmt.Sprint(settings.UserFilters))
 
 		if scope.Level(ctx) != scope.OrgScope {
 			idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
