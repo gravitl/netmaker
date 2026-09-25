@@ -111,6 +111,10 @@ func initialize() { // Client Mode Prereq Check
 
 	// Log master/worker mode for K8s HA setup
 	if servercfg.IsHA() {
+		// replicas share state through the database, which requires postgres.
+		if servercfg.GetDB() != "postgres" {
+			logger.FatalLog("HA mode requires postgres as the database, found: " + servercfg.GetDB())
+		}
 		if servercfg.IsMasterPod() {
 			logger.Log(0, "HA mode: running as MASTER pod - will run migrations and singleton operations")
 		} else {
