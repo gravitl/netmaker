@@ -403,9 +403,21 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		action = schema.DisableAclPolicy
 	}
 
-	if updateAcl.Acl.ServiceType == models.ManagedSSH {
-		updateAcl.Acl.Port = []string{models.ManagedSSHPort}
-		updateAcl.Acl.Proto = models.TCP
+	if acl.IsManagedAccess() {
+		managed := acl
+		if updateAcl.Name != "" {
+			managed.Name = updateAcl.Name
+		}
+		managed.Src = updateAcl.Src
+		managed.Dst = updateAcl.Dst
+		managed.SSHUsers = updateAcl.SSHUsers
+		managed.Enabled = updateAcl.Enabled
+		// Keep the request's network id so the mismatch check below still applies.
+		managed.NetworkID = updateAcl.NetworkID
+		updateAcl.Acl = managed
+	} else {
+		// The access type of a policy cannot be changed, whatever the request carries.
+		updateAcl.Acl.AccessType = acl.AccessType
 	}
 	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
