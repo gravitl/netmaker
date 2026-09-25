@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -60,6 +62,25 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 
 var GetUserGrpMap = func(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	return map[schema.UserGroupID]map[string]struct{}{}
+}
+
+func NormalizeAndValidateAclAccessType(acl *models.Acl) error {
+	switch acl.AccessType {
+	case "":
+		acl.AccessType = models.NetworkAccess
+	case models.NetworkAccess:
+	case models.ManagedAccess:
+		if acl.ServiceType != models.ManagedSSH {
+			return fmt.Errorf("invalid service type %q for managed access policies", acl.ServiceType)
+		}
+		acl.Proto = models.TCP
+		acl.Port = []string{}
+		acl.AllowedDirection = models.TrafficDirectionUni
+	default:
+		return fmt.Errorf("invalid access_type %q (valid: %s, %s)",
+			acl.AccessType, models.NetworkAccess, models.ManagedAccess)
+	}
+	return nil
 }
 
 func GetStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNodes []models.Node) {
