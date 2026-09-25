@@ -83,6 +83,16 @@ func NormalizeAndValidateAclAccessType(acl *models.Acl) error {
 	return nil
 }
 
+func ValidateNetworkAccessAcl(acl models.Acl) error {
+	if acl.ServiceType == models.ManagedSSH {
+		return fmt.Errorf("service type %q requires managed access", acl.ServiceType)
+	}
+	if len(acl.SSHUsers) > 0 {
+		return errors.New("ssh_users is only valid on a managed access policy")
+	}
+	return nil
+}
+
 func GetStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNodes []models.Node) {
 	extClients, err := GetAllExtClients(ctx)
 	if err != nil {
@@ -96,15 +106,59 @@ func GetStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) 
 	return
 }
 
-func ValidateManagedSshAcl(acl models.Acl) error {
-	if acl.ServiceType == models.ManagedSSH {
-		if acl.Proto != models.TCP || len(acl.Port) != 1 || acl.Port[0] != models.ManagedSSHPort {
-			return fmt.Errorf("a Managed SSH policy must use tcp/%s", models.ManagedSSHPort)
-		}
-		return nil
+func ValidateManagedAccessAcl(acl models.Acl) error {
+	if acl.ServiceType != models.ManagedSSH {
+		return fmt.Errorf("invalid service type %q for managed access policies", acl.ServiceType)
 	}
-	if len(acl.SSHUsers) > 0 {
-		return errors.New("ssh_users is only valid on a Managed SSH policy")
+	if acl.Proto != models.TCP {
+		return errors.New("a managed access policy must use the tcp protocol")
+	}
+	if len(acl.Port) > 0 {
+		return errors.New("a managed access policy does not take ports")
+	}
+	if acl.AllowedDirection != models.TrafficDirectionUni {
+		return errors.New("a managed access policy must be unidirectional (source to destination only)")
+	}
+
+	for _, src := range acl.Src {
+		switch src.ID {
+		case models.UserAclID, models.UserGroupAclID, models.NodeTagID, models.NodeID:
+		default:
+			return fmt.Errorf("invalid source type %q for managed access policies", src.ID)
+		}
+	}
+	for _, dst := range acl.Dst {
+		switch dst.ID {
+		case models.NodeTagID, models.NodeID:
+		default:
+			return fmt.Errorf("invalid destination type %q for managed access policies", dst.ID)
+		}
+	}
+	return ValidateSSHUsers(acl.SSHUsers)
+}
+
+func ValidateSSHUsers(users []string) error {
+	if len(users) == 0 {
+		return errors.New("ssh_users is required on a managed access policy")
+	}
+	for _, u := range users {
+		if u == "" || u != strings.TrimSpace(u) {
+			return fmt.Errorf("ssh_users: invalid value %q", u)
+		}
+		if strings.HasPrefix(u, models.SSHUserNamespace) {
+			if !slices.Contains(models.SSHUserSpecials, u) {
+				return fmt.Errorf("ssh_users: %q is not a known special value (valid: %s)",
+					u, strings.Join(models.SSHUserSpecials, ", "))
+			}
+			if len(users) != 1 {
+				return fmt.Errorf("ssh_users: %q cannot be combined with other values", u)
+			}
+			continue
+		}
+
+		if strings.Contains(u, ":") {
+			return fmt.Errorf("ssh_users: %q is not a valid OS username", u)
+		}
 	}
 	return nil
 }
