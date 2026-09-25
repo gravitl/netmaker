@@ -311,9 +311,15 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
+	// fetch the node first, to release its addresses once it is deleted.
+	nodeExists := _node.Get(ctx) == nil
 	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
+	}
+
+	if nodeExists {
+		releaseNodeAddresses(ctx, _node)
 	}
 
 	err = _node.DeleteViolations(ctx)
@@ -326,6 +332,25 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	}
 	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
+}
+
+// releaseNodeAddresses releases the addresses of a deleted node, so that they
+// can be reallocated.
+func releaseNodeAddresses(ctx context.Context, node *schema.Node) {
+	for _, address := range []string{node.Address, node.Address6} {
+		ip, _, err := net.ParseCIDR(address)
+		if err != nil {
+			continue
+		}
+		allocation := &schema.IPAllocation{
+			TenantID:  node.TenantID,
+			NetworkID: node.NetworkID,
+			Address:   ip.String(),
+		}
+		if err := allocation.Release(ctx); err != nil {
+			slog.Error("failed to release node address", "node", node.ID, "address", address, "error", err)
+		}
+	}
 }
 
 // GetAllNodes - returns all nodes in the DB.
