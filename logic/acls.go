@@ -3165,7 +3165,12 @@ func UniqueAclPolicyTags(tags []models.AclPolicyTag) []models.AclPolicyTag {
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
 func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
-	if !acl.Default {
+	if acl.IsManagedAccess() {
+		acl.Name = newAcl.Name
+		acl.Src = newAcl.Src
+		acl.Dst = newAcl.Dst
+		acl.SSHUsers = newAcl.SSHUsers
+	} else if !acl.Default {
 		acl.Name = newAcl.Name
 		acl.Src = newAcl.Src
 		acl.Dst = newAcl.Dst
@@ -3173,7 +3178,6 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 		acl.Port = newAcl.Port
 		acl.Proto = newAcl.Proto
 		acl.ServiceType = newAcl.ServiceType
-		acl.SSHUsers = newAcl.SSHUsers
 	}
 	if newAcl.ServiceType == models.Any {
 		acl.Port = []string{}
