@@ -179,6 +179,10 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(ctx, key)
 	}
+	// on update the extclient is saved again with the same addresses.
+	if !isUpdate {
+		releaseExtClientAddresses(ctx, extClient)
+	}
 	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(ctx, &models.Event{
 			Action: schema.Disconnect,
@@ -201,6 +205,30 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
 	return nil
+}
+
+// releaseExtClientAddresses releases the addresses of a deleted extclient, so
+// that they can be reallocated.
+func releaseExtClientAddresses(ctx context.Context, extClient models.ExtClient) {
+	network := &schema.Network{Name: extClient.Network}
+	if err := network.Get(ctx); err != nil {
+		slog.Error("failed to release extclient addresses", "extclient", extClient.ClientID, "network", extClient.Network, "error", err)
+		return
+	}
+	for _, address := range []string{extClient.Address, extClient.Address6} {
+		ip := net.ParseIP(address)
+		if ip == nil {
+			continue
+		}
+		allocation := &schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Address:   ip.String(),
+		}
+		if err := allocation.Release(ctx); err != nil {
+			slog.Error("failed to release extclient address", "extclient", extClient.ClientID, "address", address, "error", err)
+		}
+	}
 }
 
 // DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
