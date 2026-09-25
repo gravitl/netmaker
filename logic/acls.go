@@ -2522,7 +2522,11 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 }
 
 var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
-	if err := ValidateManagedSshAcl(acl); err != nil {
+	if acl.IsManagedAccess() {
+		if err := ValidateManagedAccessAcl(acl); err != nil {
+			return err
+		}
+	} else if err := ValidateNetworkAccessAcl(acl); err != nil {
 		return err
 	}
 
