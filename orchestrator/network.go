@@ -21,19 +21,19 @@ type NetworkOrchestrator struct {
 }
 
 func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv4(ctx, network, false)
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerNode)
 }
 
 func (n *NetworkOrchestrator) AllocateExtclientIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv4(ctx, network, true)
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerExtClient)
 }
 
 func (n *NetworkOrchestrator) AllocateNodeIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv6(ctx, network, false)
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerNode)
 }
 
 func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv6(ctx, network, true)
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerExtClient)
 }
 
 func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
