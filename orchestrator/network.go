@@ -36,30 +36,51 @@ func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network
 	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerExtClient)
 }
 
-func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	n.addressLock.Lock()
-	defer n.addressLock.Unlock()
+// ClaimIP allocates the given address (plain or in CIDR notation) on the
+// network, e.g. when a custom address is set on a node.
+//
+// Returns ErrIPAlreadyAllocated if the address is in use.
+func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType) error {
+	addr, err := n.parseAddr(ip)
+	if err != nil {
+		return err
+	}
+	family := n.addrFamily(addr)
+	first, last, err := network.UsableIPRange(family)
+	if err != nil {
+		return err
+	}
+	if addr.Less(first) || last.Less(addr) {
+		return fmt.Errorf("IP address %s is not in the range of network %s", addr, network.Name)
+	}
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := db.WithDB(ctx, tx)
 
-	if network.AddressRange == "" {
-		return nil, fmt.Errorf("IPv4 not configured on network %s", network.Name)
-	}
-	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
-		return nil, err
-	}
-	return n.findUniqueIPv4DB(ctx, network, reverse)
-}
+		// lock the pool, so that the address is not allocated concurrently.
+		if err := n.lockPool(txCtx, network, family); err != nil {
+			return err
+		}
 
-func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	n.address6Lock.Lock()
-	defer n.address6Lock.Unlock()
-
-	if network.AddressRange6 == "" {
-		return nil, fmt.Errorf("IPv6 not configured on network %s", network.Name)
-	}
-	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
-		return nil, err
-	}
-	return n.findUniqueIPv6DB(ctx, network, reverse)
+		allocation := &schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+		}
+		allocation.SetAddress(addr)
+		err := allocation.Get(txCtx)
+		switch {
+		case err == nil && allocation.State == schema.IPAttached:
+			return ErrIPAlreadyAllocated
+		case err == nil:
+			return allocation.Attach(txCtx, ownerType)
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			allocation.Family = family
+			allocation.State = schema.IPAttached
+			allocation.OwnerType = ownerType
+			return allocation.Create(txCtx)
+		default:
+			return err
+		}
+	})
 }
 
 // ReleaseIP releases the given address (plain or in CIDR notation) on the
