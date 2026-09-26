@@ -186,6 +186,10 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 	return addr.AsSlice(), nil
 }
 
+// ipAllocationWindow is how many allocated addresses allocateFromCursor
+// fetches at a time, while looking for the next address that isn't allocated.
+const ipAllocationWindow = 256
+
 // allocateFromCursor allocates the next address after the node cursor (or
 // before the extclient cursor), skipping addresses that are already allocated
 // (e.g. claimed custom addresses). The cursors never cross each other.
@@ -241,25 +245,45 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 	}
 
 	var skipped netip.Addr
-	for addr := start; withinBound(addr); addr = step(addr) {
-		allocation := &schema.IPAllocation{
+	addr := start
+	for withinBound(addr) {
+		// fetch the allocated addresses from addr onwards, a window at a time.
+		allocated, err := (&schema.IPAllocation{
 			TenantID:  pool.TenantID,
 			NetworkID: pool.NetworkID,
-		}
-		allocation.SetAddress(addr)
-		exists, err := allocation.Exists(ctx)
+			Family:    pool.Family,
+		}).ListAddressesBetween(ctx, addr, bound, ipAllocationWindow)
 		if err != nil {
 			return netip.Addr{}, err
 		}
-		if exists {
+
+		// skip the run of allocated addresses starting at addr.
+		run := 0
+		for ; run < ipAllocationWindow; run++ {
+			if _, ok := allocated[addr]; !ok {
+				break
+			}
 			skipped = addr
+			addr = step(addr)
+		}
+		if run == ipAllocationWindow {
+			// the whole window is allocated, look at the next one.
 			continue
 		}
+		if !withinBound(addr) {
+			break
+		}
 
-		allocation.Family = pool.Family
-		allocation.State = schema.IPAttached
-		allocation.OwnerType = ownerType
-		allocation.OwnerID = ownerID
+		// addr is not allocated.
+		allocation := &schema.IPAllocation{
+			TenantID:  pool.TenantID,
+			NetworkID: pool.NetworkID,
+			Family:    pool.Family,
+			State:     schema.IPAttached,
+			OwnerType: ownerType,
+			OwnerID:   ownerID,
+		}
+		allocation.SetAddress(addr)
 		if err := allocation.Create(ctx); err != nil {
 			return netip.Addr{}, err
 		}

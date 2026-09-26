@@ -175,6 +175,87 @@ func (c *CENodeOrchestratorTestSuite) TestReleaseIPOwner() {
 	})
 }
 
+// allocateIPRun allocates count consecutive IPv4 addresses on the network,
+// from start onwards (or downwards if down is set), bypassing the cursors.
+func (c *CENodeOrchestratorTestSuite) allocateIPRun(network *schema.Network, start string, count int, down bool) {
+	addr := netip.MustParseAddr(start)
+	allocations := make([]schema.IPAllocation, 0, count)
+	for i := 0; i < count; i++ {
+		allocation := schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Family:    schema.IPv4,
+			State:     schema.IPAttached,
+			OwnerType: schema.IPOwnerNode,
+			OwnerID:   uuid.NewString(),
+		}
+		allocation.SetAddress(addr)
+		allocations = append(allocations, allocation)
+		if down {
+			addr = addr.Prev()
+		} else {
+			addr = addr.Next()
+		}
+	}
+	c.Require().NoError((&schema.IPAllocation{}).CreateAll(c.ctx, allocations))
+}
+
+func (c *CENodeOrchestratorTestSuite) TestAllocateSkipsAllocatedIPs() {
+	orch := GetRepository().NetworkOrchestrator()
+
+	c.Run("Runs Longer Than A Window", func() {
+		// usable addresses: 10.13.0.1 - 10.13.3.254.
+		network := c.createNetwork("network-alloc-skip-runs", "10.13.0.0/22", "")
+		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+
+		// 300 allocated addresses from each end of the range.
+		c.allocateIPRun(network, "10.13.0.1", 300, false)
+		c.allocateIPRun(network, "10.13.3.254", 300, true)
+
+		ip, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().Equal("10.13.1.45", ip.String())
+
+		ip, err = orch.AllocateExtclientIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().Equal("10.13.2.210", ip.String())
+
+		// the cursors moved past the runs.
+		ip, err = orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().Equal("10.13.1.46", ip.String())
+	})
+
+	c.Run("Gaps", func() {
+		network := c.createNetwork("network-alloc-skip-gaps", "10.14.0.0/24", "")
+		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+
+		// .1 - .5 and .7 are allocated.
+		c.allocateIPRun(network, "10.14.0.1", 5, false)
+		c.allocateIPRun(network, "10.14.0.7", 1, false)
+
+		ip, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().Equal("10.14.0.6", ip.String())
+
+		ip, err = orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().Equal("10.14.0.8", ip.String())
+	})
+
+	c.Run("Exhausted", func() {
+		// usable addresses: 10.15.0.1 - 10.15.0.6, all allocated.
+		network := c.createNetwork("network-alloc-skip-full", "10.15.0.0/29", "")
+		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+		c.allocateIPRun(network, "10.15.0.1", 6, false)
+
+		_, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().ErrorIs(err, ErrIPPoolExhausted)
+		_, err = orch.AllocateExtclientIP(c.ctx, network, uuid.NewString())
+		c.Require().ErrorIs(err, ErrIPPoolExhausted)
+	})
+}
+
 func (c *CENodeOrchestratorTestSuite) TestAllocateIPv6() {
 	network := c.createNetwork("network-alloc-ipv6", "", "fd00:10::/64")
 	defer testutils.DeleteNetwork(c.T(), c.ctx, network)

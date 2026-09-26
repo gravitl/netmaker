@@ -113,14 +113,38 @@ func (a *IPAllocation) Get(ctx context.Context) error {
 		Error
 }
 
-// Exists reports whether the address has been allocated, in any state.
-func (a *IPAllocation) Exists(ctx context.Context) (bool, error) {
-	var count int64
+// ListAddressesBetween lists the allocated addresses (in any state) of the
+// network and family between from and to (both included), at most limit of
+// them, the ones nearest to from first.
+func (a *IPAllocation) ListAddressesBetween(ctx context.Context, from, to netip.Addr, limit int) (map[netip.Addr]struct{}, error) {
+	low, high, order := from, to, "address ASC"
+	if to.Less(from) {
+		low, high, order = to, from, "address DESC"
+	}
+
+	var rawAddresses [][]byte
 	err := db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.RawAddress).
-		Count(&count).
+		Where(
+			"tenant_id = ? AND network_id = ? AND family = ? AND address BETWEEN ? AND ?",
+			a.TenantID, a.NetworkID, a.Family, low.AsSlice(), high.AsSlice(),
+		).
+		Order(order).
+		Limit(limit).
+		Pluck("address", &rawAddresses).
 		Error
-	return count > 0, err
+	if err != nil {
+		return nil, err
+	}
+
+	addresses := make(map[netip.Addr]struct{}, len(rawAddresses))
+	for _, rawAddress := range rawAddresses {
+		addr, ok := netip.AddrFromSlice(rawAddress)
+		if !ok {
+			return nil, fmt.Errorf("invalid IP allocation address %v", rawAddress)
+		}
+		addresses[addr] = struct{}{}
+	}
+	return addresses, nil
 }
 
 // GetFirstOrphaned fetches the orphaned address of the network and family
