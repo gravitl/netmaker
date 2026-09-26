@@ -6,9 +6,15 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"sort"
+	"time"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
@@ -38,6 +44,11 @@ var (
 // from its end. Released (orphaned) addresses are reused first, the one nearest
 // to the peer's end of the range; otherwise addresses are allocated by cursors,
 // nodes upwards and extclients downwards.
+//
+// Addresses must be allocated (or claimed) before the node or extclient using
+// them is saved, and released when it is deleted, so that every address in use
+// is attached. Attached addresses left unused, e.g. by a failed save, are
+// orphaned by ReconcileIPAllocations.
 type NetworkOrchestrator struct{}
 
 func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
@@ -286,6 +297,164 @@ func (n *NetworkOrchestrator) lockPool(ctx context.Context, network *schema.Netw
 		return ErrIPPoolNotFound
 	}
 	return err
+}
+
+// ipAllocationGracePeriod is how long an attached address can go without a
+// node or extclient using it before ReconcileIPAllocations orphans it. It
+// covers the time between allocating an address and saving the peer using it.
+const ipAllocationGracePeriod = 10 * time.Minute
+
+// ipAllocationReconcileInterval is how often the address allocations are
+// reconciled. Unused attached addresses only occur when a node or extclient
+// fails to save and its address can't be released, and allocations keep
+// working as long as the network has addresses left, so it can be long.
+const ipAllocationReconcileInterval = 6 * time.Hour
+
+// IPOwner is the node or extclient using an address.
+type IPOwner struct {
+	Type schema.IPOwnerType
+	ID   string
+}
+
+func (o IPOwner) String() string {
+	return fmt.Sprintf("%s %s", o.Type, o.ID)
+}
+
+// ListIPOwners lists the addresses used by the network's nodes and
+// extclients. Addresses used more than once are reported in duplicates.
+func (n *NetworkOrchestrator) ListIPOwners(ctx context.Context, network *schema.Network) (owners map[netip.Addr]IPOwner, duplicates []string, err error) {
+	owners = make(map[netip.Addr]IPOwner)
+	add := func(address string, owner IPOwner) {
+		addr, err := n.parseAddr(address)
+		if err != nil {
+			return
+		}
+		if existing, ok := owners[addr]; ok {
+			duplicates = append(duplicates, fmt.Sprintf("%s is used by %s and %s", addr, existing, owner))
+			return
+		}
+		owners[addr] = owner
+	}
+
+	nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithFilter("nodes_v1.network_id", network.ID))
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, node := range nodes {
+		owner := IPOwner{Type: schema.IPOwnerNode, ID: node.ID}
+		add(node.Address, owner)
+		add(node.Address6, owner)
+	}
+
+	// extclient records only hold the network's name, within their tenant.
+	records, err := (&schema.ExtClientRecord{TenantID: network.TenantID}).ListByNetwork(ctx, network.Name)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, record := range records {
+		extClient := record.Value.Data()
+		owner := IPOwner{Type: schema.IPOwnerExtClient, ID: extClient.ClientID}
+		add(extClient.Address, owner)
+		add(extClient.Address6, owner)
+	}
+
+	sort.Strings(duplicates)
+	return owners, duplicates, nil
+}
+
+// hasUnusedIPAllocations reports whether the network has more attached
+// addresses than its nodes and extclients use. Each node and extclient has an
+// address from each of the network's ranges.
+func (n *NetworkOrchestrator) hasUnusedIPAllocations(ctx context.Context, network *schema.Network) (bool, error) {
+	nodes, err := (&schema.Node{}).Count(ctx, dbtypes.WithFilter("nodes_v1.network_id", network.ID))
+	if err != nil {
+		return false, err
+	}
+	extClients, err := (&schema.ExtClientRecord{TenantID: network.TenantID}).CountByNetwork(ctx, network.Name)
+	if err != nil {
+		return false, err
+	}
+	attached, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).CountAttached(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	families := 0
+	if network.AddressRange != "" {
+		families++
+	}
+	if network.AddressRange6 != "" {
+		families++
+	}
+	return attached > (nodes+extClients)*families, nil
+}
+
+// ReconcileIPAllocations orphans the network's attached addresses that are not
+// used by any node or extclient, once they are older than
+// ipAllocationGracePeriod, so that they can be reallocated.
+//
+// An address is always allocated before the node or extclient using it is
+// saved, so a node or extclient never uses an address that is not attached.
+// But if saving the node or extclient fails (and the address is not released),
+// the address is left attached without being used.
+func (n *NetworkOrchestrator) ReconcileIPAllocations(ctx context.Context, network *schema.Network) error {
+	unused, err := n.hasUnusedIPAllocations(ctx, network)
+	if err != nil {
+		return err
+	}
+	if !unused {
+		return nil
+	}
+
+	owners, _, err := n.ListIPOwners(ctx, network)
+	if err != nil {
+		return err
+	}
+	allocations, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+
+	staleBefore := time.Now().Add(-ipAllocationGracePeriod)
+	for _, allocation := range allocations {
+		if allocation.State != schema.IPAttached || !allocation.UpdatedAt.Before(staleBefore) {
+			continue
+		}
+		addr := allocation.Address()
+		if _, used := owners[addr]; used {
+			continue
+		}
+		if err := allocation.ReleaseStale(ctx, staleBefore); err != nil {
+			slog.Error("failed to orphan unused IP address", "network", network.Name, "address", addr, "error", err)
+		}
+	}
+	return nil
+}
+
+// StartIPAllocationHook starts reconciling the address allocations of all
+// networks periodically.
+func (n *NetworkOrchestrator) StartIPAllocationHook() {
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       "ip-allocation-hook",
+		Hook:     logic.WrapHook(n.reconcileAllIPAllocations),
+		Interval: ipAllocationReconcileInterval,
+	}
+}
+
+// reconcileAllIPAllocations reconciles the address allocations of the
+// networks of all tenants.
+func (n *NetworkOrchestrator) reconcileAllIPAllocations() error {
+	ctx := db.WithContext(context.TODO())
+	networks, err := (&schema.Network{}).ListAll(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range networks {
+		if err := n.ReconcileIPAllocations(ctx, &networks[i]); err != nil {
+			slog.Error("failed to reconcile IP allocations", "network", networks[i].Name, "tenant", networks[i].TenantID, "error", err)
+		}
+	}
+	return nil
 }
 
 // parseAddr parses an address given either as a plain IP or in CIDR notation.

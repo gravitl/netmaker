@@ -173,6 +173,16 @@ func (a *IPAllocation) ReleaseStale(ctx context.Context, updatedBefore time.Time
 		Error
 }
 
+// CountAttached counts the attached addresses of the network.
+func (a *IPAllocation) CountAttached(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&IPAllocation{}).
+		Where("tenant_id = ? AND network_id = ? AND state = ?", a.TenantID, a.NetworkID, IPAttached).
+		Count(&count).
+		Error
+	return int(count), err
+}
+
 // ListByNetwork lists the allocations of the network, in any state.
 func (a *IPAllocation) ListByNetwork(ctx context.Context) ([]IPAllocation, error) {
 	var allocations []IPAllocation

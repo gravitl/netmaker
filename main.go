@@ -246,6 +246,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 
+		orchestrator.GetRepository().NetworkOrchestrator().StartIPAllocationHook()
 	}
 	logic.AddSSOStateCleanupHook()
 }
