@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,8 +34,8 @@ var getEgressByNetwork = func(network string) ([]schema.Egress, error) {
 	e := schema.Egress{Network: network}
 	return e.ListByNetwork(db.WithContext(context.Background()))
 }
-var getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
-	return ListDevicePolicies(ctx, netID)
+var getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	return ListNetworkAccessDevicePolicies(ctx, netID)
 }
 
 // listNetworkExtClients fetches all extclients in a network; tests may override.
@@ -58,10 +60,274 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 	return rules
 }
 
+var GetUserGrpMap = func(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
+	return map[schema.UserGroupID]map[string]struct{}{}
+}
+
+func NormalizeAndValidateAclAccessType(acl *models.Acl) error {
+	switch acl.AccessType {
+	case "":
+		acl.AccessType = models.NetworkAccess
+	case models.NetworkAccess:
+	case models.ManagedAccess:
+		if acl.ServiceType != models.ManagedSSH {
+			return fmt.Errorf("invalid service type %q for managed access policies", acl.ServiceType)
+		}
+		acl.Proto = models.TCP
+		acl.Port = []string{}
+		acl.AllowedDirection = models.TrafficDirectionUni
+	default:
+		return fmt.Errorf("invalid access_type %q (valid: %s, %s)",
+			acl.AccessType, models.NetworkAccess, models.ManagedAccess)
+	}
+	return nil
+}
+
+func ValidateNetworkAccessAcl(acl models.Acl) error {
+	if acl.ServiceType == models.ManagedSSH {
+		return fmt.Errorf("service type %q requires managed access", acl.ServiceType)
+	}
+	if len(acl.SSHUsers) > 0 {
+		return errors.New("ssh_users is only valid on a managed access policy")
+	}
+	return nil
+}
+
+func GetStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNodes []models.Node) {
+	extClients, err := GetAllExtClients(ctx)
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() && extI.RemoteAccessClientID != "" {
+			staticNodes = append(staticNodes, models.ConvertToStaticNode(extI))
+		}
+	}
+	return
+}
+
+func ValidateManagedAccessAcl(acl models.Acl) error {
+	if acl.ServiceType != models.ManagedSSH {
+		return fmt.Errorf("invalid service type %q for managed access policies", acl.ServiceType)
+	}
+	if acl.Proto != models.TCP {
+		return errors.New("a managed access policy must use the tcp protocol")
+	}
+	if len(acl.Port) > 0 {
+		return errors.New("a managed access policy does not take ports")
+	}
+	if acl.AllowedDirection != models.TrafficDirectionUni {
+		return errors.New("a managed access policy must be unidirectional (source to destination only)")
+	}
+
+	for _, src := range acl.Src {
+		switch src.ID {
+		case models.UserAclID, models.UserGroupAclID, models.NodeTagID, models.NodeID:
+		default:
+			return fmt.Errorf("invalid source type %q for managed access policies", src.ID)
+		}
+	}
+	for _, dst := range acl.Dst {
+		switch dst.ID {
+		case models.NodeTagID, models.NodeID:
+		default:
+			return fmt.Errorf("invalid destination type %q for managed access policies", dst.ID)
+		}
+	}
+	return ValidateSSHUsers(acl.SSHUsers)
+}
+
+func ValidateSSHUsers(users []string) error {
+	if len(users) == 0 {
+		return errors.New("ssh_users is required on a managed access policy")
+	}
+	for _, u := range users {
+		if u == "" || u != strings.TrimSpace(u) {
+			return fmt.Errorf("ssh_users: invalid value %q", u)
+		}
+		if strings.HasPrefix(u, models.SSHUserNamespace) {
+			if !slices.Contains(models.SSHUserSpecials, u) {
+				return fmt.Errorf("ssh_users: %q is not a known special value (valid: %s)",
+					u, strings.Join(models.SSHUserSpecials, ", "))
+			}
+			if len(users) != 1 {
+				return fmt.Errorf("ssh_users: %q cannot be combined with other values", u)
+			}
+			continue
+		}
+
+		if strings.Contains(u, ":") {
+			return fmt.Errorf("ssh_users: %q is not a valid OS username", u)
+		}
+	}
+	return nil
+}
+
+func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.Node) map[string]models.SSHAuthorizedIdentity {
+	if !GetManageSSH(ctx) {
+		return map[string]models.SSHAuthorizedIdentity{}
+	}
+	osUsersByAddr := make(map[string]map[string]struct{})
+	netID := schema.NetworkID(targetnode.Network)
+	policies := ListManagedAccessAcls(ctx, netID)
+	if len(policies) == 0 {
+		return map[string]models.SSHAuthorizedIdentity{}
+	}
+
+	var targetNodeTags map[models.TagID]struct{}
+	if targetnode.Mutex != nil {
+		targetnode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetnode.Tags)
+		targetnode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetnode.Tags)
+	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
+	}
+	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
+
+	grant := func(addr net.IP, osUsers map[string]struct{}) {
+		if addr == nil || addr.IsUnspecified() || len(osUsers) == 0 {
+			return
+		}
+		key := peerAddrKey(addr)
+		set, ok := osUsersByAddr[key]
+		if !ok {
+			set = make(map[string]struct{}, len(osUsers))
+			osUsersByAddr[key] = set
+		}
+		maps.Copy(set, osUsers)
+	}
+
+	var (
+		userGrpMap  map[schema.UserGroupID]map[string]struct{}
+		userNodes   []models.Node
+		tagNodesMap map[models.TagID][]models.Node
+	)
+
+	for _, acl := range policies {
+		if !acl.Enabled || acl.ServiceType != models.ManagedSSH {
+			continue
+		}
+		if !aclTagsMatchNode(acl.Dst, targetNodeTags) {
+			continue
+		}
+		// An empty ssh_users grants nothing.
+		sshUsers := make(map[string]struct{}, len(acl.SSHUsers))
+		for _, osUser := range acl.SSHUsers {
+			sshUsers[osUser] = struct{}{}
+		}
+
+		switch acl.RuleType {
+		case models.UserPolicy:
+			if userNodes == nil {
+				userNodes = GetStaticUserNodesByNetwork(ctx, netID)
+			}
+			allSrcUsers := false
+			allowedUsernames := make(map[string]struct{})
+			for _, src := range acl.Src {
+				switch src.ID {
+				case models.UserAclID:
+					if src.Value == "*" {
+						allSrcUsers = true
+						continue
+					}
+					allowedUsernames[src.Value] = struct{}{}
+				case models.UserGroupAclID:
+					if userGrpMap == nil {
+						userGrpMap = GetUserGrpMap(ctx)
+					}
+					if usersMap, ok := userGrpMap[schema.UserGroupID(src.Value)]; ok {
+						for userName := range usersMap {
+							allowedUsernames[userName] = struct{}{}
+						}
+					}
+				}
+			}
+			for _, userNode := range userNodes {
+				if !userNode.StaticNode.Enabled {
+					continue
+				}
+				if !allSrcUsers {
+					if _, ok := allowedUsernames[userNode.StaticNode.OwnerID]; !ok {
+						continue
+					}
+				}
+				grant(userNode.Address.IP, sshUsers)
+				grant(userNode.Address6.IP, sshUsers)
+			}
+		case models.DevicePolicy:
+			if tagNodesMap == nil {
+				tagNodesMap = GetTagMapWithNodesByNetwork(ctx, netID, true)
+			}
+			seen := make(map[string]struct{})
+			for _, src := range acl.Src {
+				if src.ID != models.NodeID && src.ID != models.NodeTagID {
+					continue
+				}
+				for _, n := range tagNodesMap[models.TagID(src.Value)] {
+					var dedupeKey string
+					if n.IsStatic {
+						dedupeKey = n.StaticNode.ClientID
+					} else {
+						dedupeKey = n.ID.String()
+					}
+					if _, ok := seen[dedupeKey]; ok {
+						continue
+					}
+					seen[dedupeKey] = struct{}{}
+					if n.IsStatic {
+						if !n.StaticNode.Enabled {
+							continue
+						}
+						grant(n.StaticNode.AddressIPNet4().IP, sshUsers)
+						grant(n.StaticNode.AddressIPNet6().IP, sshUsers)
+					} else {
+						grant(n.Address.IP, sshUsers)
+						grant(n.Address6.IP, sshUsers)
+					}
+				}
+			}
+		}
+	}
+
+	result := make(map[string]models.SSHAuthorizedIdentity, len(osUsersByAddr))
+	for addr, set := range osUsersByAddr {
+		osUsers := make([]string, 0, len(set))
+		for osUser := range set {
+			osUsers = append(osUsers, osUser)
+		}
+		result[addr] = models.SSHAuthorizedIdentity{OsUsers: osUsers}
+	}
+	return result
+}
+
+func aclTagsMatchNode(tags []models.AclPolicyTag, nodeTags map[models.TagID]struct{}) bool {
+	values := ConvAclTagToValueMap(tags)
+	if _, all := values["*"]; all {
+		return true
+	}
+	for nodeTag := range nodeTags {
+		if _, ok := values[nodeTag.String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func peerAddrKey(addr net.IP) string {
+	bits := 32
+	if addr.To4() == nil {
+		bits = 128
+	}
+	return fmt.Sprintf("%s/%d", addr.String(), bits)
+}
+
 var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
 
 func getEgressToEgressPoliciesForNode(ctx context.Context, targetnode models.Node) []models.Acl {
-	policies := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	policies := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	filtered := make([]models.Acl, 0)
 	for _, policy := range policies {
 		if !policy.Enabled {
@@ -1034,7 +1300,7 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 	} else {
 		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 	}
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
@@ -1373,7 +1639,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	}()
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
@@ -1782,7 +2048,7 @@ func getExtClientEgressFwRulesOnIngressGw(ctx context.Context, node models.Node)
 		return
 	}
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -1847,7 +2113,7 @@ func getDeviceEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (r
 		return
 	}
 
-	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -2298,9 +2564,16 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 }
 
 var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
+	if acl.IsManagedAccess() {
+		if err := ValidateManagedAccessAcl(acl); err != nil {
+			return err
+		}
+	} else if err := ValidateNetworkAccessAcl(acl); err != nil {
+		return err
+	}
 
 	//check if src and dst are valid
-	if acl.AllowedDirection == models.TrafficDirectionUni {
+	if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
 		return errors.New("uni traffic flow not allowed on CE")
 	}
 	switch acl.RuleType {
@@ -2380,7 +2653,7 @@ var IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefau
 
 	}
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -2524,7 +2797,7 @@ func MigrateAclPolicies(ctx context.Context) {
 			UpsertAcl(ctx, acl)
 		}
 		if !servercfg.IsPro {
-			if acl.AllowedDirection == models.TrafficDirectionUni {
+			if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
 				acl.AllowedDirection = models.TrafficDirectionBi
 				UpsertAcl(ctx, acl)
 			}
@@ -2566,7 +2839,7 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(ctx context.Context, node models.Nod
 		node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
 	}
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -2666,7 +2939,7 @@ func IsNodeAllowedToCommunicate(ctx context.Context, node, peer models.Node, che
 		allowedPolicies = UniquePolicies(allowedPolicies)
 	}()
 	// list device policies
-	policies := ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -2810,7 +3083,7 @@ func GetDefaultPolicy(ctx context.Context, netID schema.NetworkID, ruleType mode
 		srcMap = nil
 		dstMap = nil
 	}()
-	policies, _ := ListAclsByNetwork(ctx, netID)
+	policies := ListNetworkAccessAcls(ctx, netID)
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -2862,24 +3135,48 @@ func ListEgressAcls(ctx context.Context, egressID string) ([]models.Acl, error) 
 	return egressAcls, nil
 }
 
-// ListDevicePolicies - lists all device policies in a network
-func ListDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// ListNetworkAccessAcls lists the network access policies in a network.
+func ListNetworkAccessAcls(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	allAcls, _ := ListAclsByNetwork(ctx, netID)
+	var acls []models.Acl
+	for _, acl := range allAcls {
+		if acl.IsNetworkAccess() {
+			acls = append(acls, acl)
+		}
+	}
+	return acls
+}
+
+// ListManagedAccessAcls lists the managed access policies in a network.
+func ListManagedAccessAcls(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	allAcls, _ := ListAclsByNetwork(ctx, netID)
+	var acls []models.Acl
+	for _, acl := range allAcls {
+		if acl.IsManagedAccess() {
+			acls = append(acls, acl)
+		}
+	}
+	return acls
+}
+
+// ListNetworkAccessDevicePolicies - lists all network access device policies in a network
+func ListNetworkAccessDevicePolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
 	var deviceAcls []models.Acl
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.DevicePolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.DevicePolicy {
 			deviceAcls = append(deviceAcls, acl)
 		}
 	}
 	return deviceAcls
 }
 
-// ListUserPolicies - lists all user policies in a network
-func ListUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// ListNetworkAccessUserPolicies - lists all network access user policies in a network
+func ListNetworkAccessUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := ListAcls(ctx)
 	var userAcls []models.Acl
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			userAcls = append(userAcls, acl)
 		}
 	}
@@ -2910,7 +3207,12 @@ func UniqueAclPolicyTags(tags []models.AclPolicyTag) []models.AclPolicyTag {
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
 func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
-	if !acl.Default {
+	if acl.IsManagedAccess() {
+		acl.Name = newAcl.Name
+		acl.Src = newAcl.Src
+		acl.Dst = newAcl.Dst
+		acl.SSHUsers = newAcl.SSHUsers
+	} else if !acl.Default {
 		acl.Name = newAcl.Name
 		acl.Src = newAcl.Src
 		acl.Dst = newAcl.Dst
@@ -3159,6 +3461,9 @@ func getAclFromCache(ctx context.Context, aID string) (a models.Acl, ok bool) {
 
 // InsertAcl - creates acl policy
 func InsertAcl(ctx context.Context, a models.Acl) error {
+	if a.AccessType == "" {
+		a.AccessType = models.NetworkAccess
+	}
 	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {

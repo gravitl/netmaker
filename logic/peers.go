@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"strconv"
@@ -246,15 +247,16 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			IngressInfo: make(map[string]models.IngressInfo),
 			AclRules:    make(map[string]models.AclRule),
 		},
-		PeerIDs:            make(models.PeerMap, 0),
-		Peers:              []wgtypes.PeerConfig{},
-		NodePeers:          []wgtypes.PeerConfig{},
-		HostNetworkInfo:    models.HostInfoMap{},
-		ServerConfig:       GetServerInfo(ctx),
-		DnsNameservers:     GetNameserversForHost(ctx, host),
-		AutoRelayNodes:     make(map[schema.NetworkID][]models.Node),
-		GwNodes:            make(map[schema.NetworkID][]models.Node),
-		AddressIdentityMap: make(map[string]models.PeerIdentity),
+		PeerIDs:                 make(models.PeerMap, 0),
+		Peers:                   []wgtypes.PeerConfig{},
+		NodePeers:               []wgtypes.PeerConfig{},
+		HostNetworkInfo:         models.HostInfoMap{},
+		ServerConfig:            GetServerInfo(ctx),
+		DnsNameservers:          GetNameserversForHost(ctx, host),
+		AutoRelayNodes:          make(map[schema.NetworkID][]models.Node),
+		GwNodes:                 make(map[schema.NetworkID][]models.Node),
+		AddressIdentityMap:      make(map[string]models.PeerIdentity),
+		SshAuthorizedIdentities: make(map[string]models.SSHAuthorizedIdentity),
 	}
 	defer func() {
 		hostPeerUpdate.EgressRoutes = deduplicateEgressRoutes(hostPeerUpdate.EgressRoutes)
@@ -319,8 +321,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			}
 		}
 
+		maps.Copy(hostPeerUpdate.SshAuthorizedIdentities, GetSshAuthorizedIdentitiesForNode(ctx, &node))
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
-		acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+		acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
