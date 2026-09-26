@@ -42,7 +42,7 @@ func dnsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/dns/{network}/{domain}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteDNS)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNs)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNs)))).Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateNs)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/nameserver", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteNs)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/nameserver/global", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs)))).Methods(http.MethodGet)

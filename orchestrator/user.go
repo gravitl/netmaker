@@ -21,21 +21,6 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
-// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
-var ValidTenantRoles = map[schema.UserRoleID]bool{
-	schema.SuperAdminRole: true,
-	schema.AdminRole:      true,
-	schema.PlatformUser:   true,
-	schema.ServiceUser:    true,
-	schema.Auditor:        true,
-}
-
-// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
-var ValidOrgRoles = map[schema.UserRoleID]bool{
-	schema.OrgOwner: true,
-	schema.OrgAdmin: true,
-}
-
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
 	ops := applyOptions(opts...)
 
@@ -175,7 +160,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidTenantRoles[user.PlatformRoleID]
+			_, ok := schema.ValidTenantRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}
@@ -205,7 +190,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidOrgRoles[user.PlatformRoleID]
+			_, ok := schema.ValidOrgRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}

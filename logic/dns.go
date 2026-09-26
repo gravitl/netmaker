@@ -26,6 +26,32 @@ const (
 	GooglePublicNameserverName = "Google Public DNS"
 )
 
+var (
+	invalidDNSChars = regexp.MustCompile(`[^a-z0-9-]+`)
+	multipleHyphens = regexp.MustCompile(`-+`)
+)
+
+func ToDNSLabel(input string) string {
+	s := strings.ToLower(strings.TrimSpace(input))
+
+	// Replace anything that isn't explicitly DNS-safe.
+	s = invalidDNSChars.ReplaceAllString(s, "-")
+
+	// Collapse repeated hyphens.
+	s = multipleHyphens.ReplaceAllString(s, "-")
+
+	// DNS labels cannot begin or end with '-'.
+	s = strings.Trim(s, "-")
+
+	// A DNS label is limited to 63 octets.
+	if len(s) > 63 {
+		s = s[:63]
+		s = strings.TrimRight(s, "-")
+	}
+
+	return s
+}
+
 var GetNameserversForNode = getNameserversForNode
 var GetNameserversForHost = getNameserversForHost
 var ValidateNameserverReq = validateNameserverReq

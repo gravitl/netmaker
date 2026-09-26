@@ -25,12 +25,12 @@ import (
 
 func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet).Queries("network", "{network}")
 }
 
 // @Summary     List Posture Checks Available Attributes
