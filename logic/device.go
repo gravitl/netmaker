@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -330,28 +331,29 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 }
 
 // LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.
-func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
+func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) (*models.Node, error) {
 	if !UserHasAccessToNetwork(ctx, user, networkID) {
-		return errors.New("user does not have access to network")
+		return nil, errors.New("user does not have access to network")
 	}
 	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
-		return errors.New("operation not permitted")
+		return nil, errors.New("operation not permitted")
 	}
 	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
-		return pending.Delete(ctx)
+		return nil, pending.Delete(ctx)
 	}
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return err
+		return nil, err
 	}
 	node, err := GetNodeByID(nodeSchema.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return DeleteNode(ctx, &node, true)
+	err = DeleteNode(ctx, &node, true)
+	if err != nil {
+		return nil, err
+	}
+	return &node, nil
 }
 
 // CancelDeviceNetworkJoin removes a pending join approval request without leaving a joined network.
@@ -378,6 +380,7 @@ func SyncDevice(host *schema.Host) error {
 }
 
 // RegisterDevice registers or updates a host on behalf of an authenticated user (Desktop/netclient JWT flow).
+// ctx must carry tenant scope (middleware.Scope TenantScope) so the host is bound to X-Tenant-ID.
 func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host) (models.RegisterResponse, error) {
 	var empty models.RegisterResponse
 	if user == nil || user.Username == "" {
@@ -392,6 +395,13 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 	if newHost.TrafficKeyPublic == nil && newHost.OS != models.OS_Types.IoT {
 		return empty, errors.New("missing traffic key")
 	}
+
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return empty, errors.New("tenant id is required")
+	}
+	// Prefer request-scoped tenant over any client-supplied value.
+	newHost.TenantID = tenantID
 
 	trafficKey, err := RetrievePublicTrafficKey()
 	if err != nil {
@@ -415,11 +425,17 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 		if err := existing.Get(ctx); err != nil {
 			return empty, err
 		}
+		if existing.TenantID != "" && existing.TenantID != tenantID {
+			return empty, errors.New("host already registered to another tenant")
+		}
 		if existing.OwnerUsername == "" {
 			EnsureHostOwner(existing, user.Username)
 		}
 		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
 			return empty, errors.New("host already registered to another user")
+		}
+		if existing.TenantID == "" {
+			existing.TenantID = tenantID
 		}
 		endpointChanged, _ := UpdateHostFromClient(ctx, newHost, existing)
 		if endpointChanged {

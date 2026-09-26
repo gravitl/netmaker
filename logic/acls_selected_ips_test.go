@@ -166,7 +166,7 @@ func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *tes
 	}}
 
 	// ACL grants access to the internet egress, but the client did not select it.
-	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	AddEgressInfoToPeerByAccess(context.TODO(), &client, &exitNode, eli, acls, false)
 	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
 		if r == IPv4Network || r == IPv6Network {
 			t.Fatalf("ACL access alone must not attach default route %s; got %v", r, exitNode.EgressDetails.EgressGatewayRanges)
@@ -179,7 +179,7 @@ func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *tes
 	// Explicit assignment (legacy InternetGwID) still attaches full-tunnel ranges.
 	client.InternetGwID = exitID.String()
 	exitNode.EgressDetails = models.EgressDetails{}
-	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	AddEgressInfoToPeerByAccess(context.TODO(), &client, &exitNode, eli, acls, false)
 	hasV4 := false
 	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
 		if r == IPv4Network {
@@ -232,7 +232,7 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 		SelectedInternetEgressID: "inet-eg",
 		InternetGwID:             exitID.String(),
 	}
-	SuppressInternetExitIfNoACLAccess(&client, eli, allowACL, false)
+	SuppressInternetExitIfNoACLAccess(context.TODO(), &client, eli, allowACL, false)
 	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
 		t.Fatalf("expected exit kept when ACL allows egress, got selection=%q gw=%q",
 			client.SelectedInternetEgressID, client.InternetGwID)
@@ -241,7 +241,7 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 	// Assigned exit but policy does not include exit egress → suppress for this update.
 	client.SelectedInternetEgressID = "inet-eg"
 	client.InternetGwID = exitID.String()
-	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, false)
+	SuppressInternetExitIfNoACLAccess(context.TODO(), &client, eli, denyACLs, false)
 	if client.SelectedInternetEgressID != "" || client.InternetGwID != "" {
 		t.Fatalf("expected exit suppressed without egress ACL, got selection=%q gw=%q",
 			client.SelectedInternetEgressID, client.InternetGwID)
@@ -250,7 +250,7 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 	// Default device policy on → do not suppress even without egress ACL.
 	client.SelectedInternetEgressID = "inet-eg"
 	client.InternetGwID = exitID.String()
-	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, true)
+	SuppressInternetExitIfNoACLAccess(context.TODO(), &client, eli, denyACLs, true)
 	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
 		t.Fatalf("expected exit kept when default policy enabled, got selection=%q gw=%q",
 			client.SelectedInternetEgressID, client.InternetGwID)
@@ -264,7 +264,7 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 	}}
 	client.SelectedInternetEgressID = "inet-eg"
 	client.InternetGwID = exitID.String()
-	SuppressInternetExitIfNoACLAccess(&client, eli, allResourcesACL, false)
+	SuppressInternetExitIfNoACLAccess(context.TODO(), &client, eli, allResourcesACL, false)
 	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
 		t.Fatalf("expected exit kept when policy dst is all-resources, got selection=%q gw=%q",
 			client.SelectedInternetEgressID, client.InternetGwID)
@@ -905,7 +905,7 @@ func TestAddEgressInfoToPeerByAccess_AllowsViaEgressRoutingPolicy(t *testing.T) 
 		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
 		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
 	}}
-	AddEgressInfoToPeerByAccess(&node, &target, []schema.Egress{dstEgress}, acls, false)
+	AddEgressInfoToPeerByAccess(context.TODO(), &node, &target, []schema.Egress{dstEgress}, acls, false)
 
 	if !target.EgressDetails.IsEgressGateway {
 		t.Fatal("expected target to receive egress info via egress-to-egress routing policy")
@@ -970,7 +970,7 @@ func TestAddEgressInfoToPeerByAccess_DeniesUniReverseRouting(t *testing.T) {
 		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
 		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
 	}}
-	AddEgressInfoToPeerByAccess(&node, &target, []schema.Egress{srcEgress}, acls, false)
+	AddEgressInfoToPeerByAccess(context.TODO(), &node, &target, []schema.Egress{srcEgress}, acls, false)
 
 	if target.EgressDetails.IsEgressGateway {
 		t.Fatalf("expected no egress info for uni reverse-only routing, got %+v", target.EgressDetails)
