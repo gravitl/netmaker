@@ -54,18 +54,29 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
+	// TODO: allocate the addresses in the same transaction as the node, see
+	// NetworkOrchestrator.
 	networkOrch := GetRepository().NetworkOrchestrator()
-	var reservedIPv4, reservedIPv6 string
+	releaseAddresses := func() {
+		for _, address := range []string{node.Address, node.Address6} {
+			if address == "" {
+				continue
+			}
+			if err := networkOrch.ReleaseIP(ctx, network, address, schema.IPOwnerNode, node.ID); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to release address %s on network %s: %v", address, network.Name, err))
+			}
+		}
+	}
 
 	if network.AddressRange != "" {
-		ip, err := networkOrch.AllocateNodeIP(ctx, network)
+		ip, err := networkOrch.AllocateNodeIP(ctx, network, node.ID)
 		if err != nil {
 			return nil, err
 		}
-		reservedIPv4 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
-			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			node.Address = ip.String()
+			releaseAddresses()
 			return nil, err
 		}
 		cidr.IP = ip
@@ -73,18 +84,15 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if network.AddressRange6 != "" {
-		ip, err := networkOrch.AllocateNodeIPv6(ctx, network)
+		ip, err := networkOrch.AllocateNodeIPv6(ctx, network, node.ID)
 		if err != nil {
-			if reservedIPv4 != "" {
-				networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-			}
+			releaseAddresses()
 			return nil, err
 		}
-		reservedIPv6 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
-			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+			node.Address6 = ip.String()
+			releaseAddresses()
 			return nil, err
 		}
 		cidr.IP = ip
@@ -92,15 +100,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	err := node.Create(ctx)
-	// Reservations are freed regardless of outcome: on success the DB is authoritative,
-	// on failure the IPs must be available for reallocation.
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
-	}
 	if err != nil {
+		releaseAddresses()
 		return nil, err
 	}
 

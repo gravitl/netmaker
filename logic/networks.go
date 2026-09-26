@@ -320,7 +320,12 @@ func CreateNetwork(ctx context.Context, _network *schema.Network) error {
 		return ErrNetworkLimitExceeded
 	}
 
-	return _network.Create(ctx)
+	err = _network.Create(ctx)
+	if err != nil {
+		return err
+	}
+
+	return _network.CreateIPPools(ctx)
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
