@@ -5,20 +5,40 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sync"
+	"net/netip"
 
-	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/gorm"
 )
 
-type NetworkOrchestrator struct {
-	addressLock  sync.RWMutex
-	address6Lock sync.RWMutex
-	pendingIPv4  map[string]map[string]struct{}
-	pendingIPv6  map[string]map[string]struct{}
-}
+var (
+	// ErrIPPoolExhausted is returned when a network has no address left to
+	// allocate.
+	ErrIPPoolExhausted = errors.New("no IP addresses available in the network")
+	// ErrNoOrphanedIP is returned when a network has no orphaned address to
+	// reallocate.
+	ErrNoOrphanedIP = errors.New("no orphaned IP addresses in the network")
+	// ErrIPAlreadyAllocated is returned when claiming an address that is in
+	// use.
+	ErrIPAlreadyAllocated = errors.New("IP address is already allocated")
+	// ErrIPPoolNotFound is returned when a network has no address pool, e.g.
+	// if the IP allocations migration has not run yet.
+	ErrIPPoolNotFound = errors.New("IP address pool not found for the network")
+)
+
+// NetworkOrchestrator allocates the addresses of nodes and extclients.
+//
+// Allocations are tracked in the DB (ip_pools_v1, ip_allocations_v1), so they
+// are consistent across server replicas: every allocation locks the network's
+// pool row, and the allocations table's unique index guarantees that an address
+// is never handed out twice.
+//
+// Nodes are allocated from the start of the network's range and extclients
+// from its end. Released (orphaned) addresses are reused first, the one nearest
+// to the peer's end of the range; otherwise addresses are allocated by cursors,
+// nodes upwards and extclients downwards.
+type NetworkOrchestrator struct{}
 
 func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
 	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerNode)
