@@ -62,48 +62,63 @@ func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.
 	return n.findUniqueIPv6DB(ctx, network, reverse)
 }
 
-func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	net4 := iplib.Net4FromStr(network.AddressRange)
-	addr := net4.FirstAddress()
-	if reverse {
-		addr = net4.LastAddress()
+// ReleaseIP releases the given address (plain or in CIDR notation) on the
+// network, so that it can be reallocated.
+func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Network, ip string) error {
+	addr, err := n.parseAddr(ip)
+	if err != nil {
+		return err
 	}
-
-	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv4PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv4UniqueInDB(ctx, network, addr.String()) {
-			if !servercfg.IsHA() {
-				n.reserveIPv4(network.ID, addr.String())
-			}
-			return addr, nil
-		}
-		var err error
-		if reverse {
-			addr, err = net4.PreviousIP(addr)
-		} else {
-			addr, err = net4.NextIP(addr)
-		}
-		if err != nil {
-			return nil, errors.New("no unique IPv4 addresses available")
-		}
+	allocation := &schema.IPAllocation{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
 	}
+	allocation.SetAddress(addr)
+	return allocation.Release(ctx)
 }
 
-func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	net6 := iplib.Net6FromStr(network.AddressRange6)
+// allocate allocates an address of the given family on the network, in its own
+// transaction.
+//
+// TODO: allocations should share the transaction of the node or extclient
+// being created, so that a failed or interrupted create does not leave the
+// address attached (until the reconciler orphans it). Until then, callers
+// release the address if the create fails.
+func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Network, family schema.IPFamily, ownerType schema.IPOwnerType) (ip net.IP, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("failed to allocate IPv%d address on network %s: %w", family, network.Name, err)
+		}
+	}()
 
-	var (
-		addr net.IP
-		err  error
-	)
-	if reverse {
-		addr, err = net6.PreviousIP(net6.LastAddress())
-	} else {
-		addr, err = net6.NextIP(net6.FirstAddress())
-	}
+	var addr netip.Addr
+	err = db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := db.WithDB(ctx, tx)
+
+		pool := &schema.IPPool{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Family:    family,
+		}
+		if err := pool.GetForUpdate(txCtx); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrIPPoolNotFound
+			}
+			return err
+		}
+
+		var err error
+		addr, err = n.allocateOrphaned(txCtx, pool, ownerType)
+		if errors.Is(err, ErrNoOrphanedIP) {
+			addr, err = n.allocateFromCursor(txCtx, network, pool, ownerType)
+		}
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
+	return addr.AsSlice(), nil
+}
 
 // allocateFromCursor allocates the next address after the node cursor (or
 // before the extclient cursor), skipping addresses that are already allocated
