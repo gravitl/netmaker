@@ -9,7 +9,12 @@ import (
 	"gorm.io/datatypes"
 )
 
-// TODO: wire this up. It needs a migrationJobV180 ("migration-v1.8.0") in
+func migrateV1_8_0(ctx context.Context) error {
+	return migrateAclAccessType(ctx)
+}
+
+// migrateAclAccessType sets network access on every acl saved before
+// access_type existed. None of them were managed access policies.
 func migrateAclAccessType(ctx context.Context) error {
 	var aclRecords []schema.AclRecord
 	if err := db.FromContext(ctx).Find(&aclRecords).Error; err != nil {
