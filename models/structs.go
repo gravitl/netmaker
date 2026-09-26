@@ -499,6 +499,25 @@ type BulkDeleteResponse struct {
 	Failed  []BulkDeleteError `json:"failed,omitempty"`
 }
 
+// BulkCreateExtClientRequest is the body for POST /api/v1/extclients/{network}/bulk.
+type BulkCreateExtClientRequest struct {
+	IngressGatewayID string            `json:"ingress_gateway_id"`
+	Clients          []CustomExtClient `json:"clients"`
+}
+
+// BulkCreateExtClientError reports a single failed item in a bulk create.
+type BulkCreateExtClientError struct {
+	Index  int    `json:"index"`
+	Client string `json:"client,omitempty"`
+	Error  string `json:"error"`
+}
+
+// BulkCreateExtClientResponse is returned by bulk extclient create.
+type BulkCreateExtClientResponse struct {
+	Created []ExtClient                `json:"created"`
+	Failed  []BulkCreateExtClientError `json:"failed,omitempty"`
+}
+
 type BulkUserStatusUpdate struct {
 	IDs     []string `json:"ids"`
 	Disable bool     `json:"disable"`

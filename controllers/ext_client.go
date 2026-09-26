@@ -48,6 +48,8 @@ func extClientHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/extclients/{network}/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteExtClients)))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/extclients/{network}/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkCreateExtClients)))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/extclients/{network}/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateExtClientStatus)))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(createExtClient)))).
@@ -455,6 +457,135 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
+var errPostureCheckViolations = errors.New("posture check violations")
+
+const maxBulkExtClientCreate = 500
+
+// persistNewExtClient builds and saves a new extclient for an ingress gateway.
+// Caller handles auth, duplicate DeviceID/RAC checks, and peer publishing.
+func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Host, userName string, custom models.CustomExtClient, jitExpiresAt *time.Time) (models.ExtClient, error) {
+	extclient := logic.UpdateExtClient(&models.ExtClient{}, &custom)
+	extclient.OwnerID = userName
+	extclient.RemoteAccessClientID = custom.RemoteAccessClientID
+	extclient.IngressGatewayID = node.ID.String()
+	extclient.Network = node.Network
+	extclient.Tags = make(map[models.TagID]struct{})
+
+	gwDNS := logic.GetGwDNS(&node)
+	if extclient.DNS == "" && gwDNS != "" {
+		extclient.DNS = gwDNS
+	}
+
+	listenPort := logic.GetPeerListenPort(host)
+	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
+	extclient.Enabled = true
+	extclient.DeviceID = custom.DeviceID
+	extclient.DeviceName = custom.DeviceName
+	if custom.IsAlreadyConnectedToInetGw {
+		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", custom.PublicEndpoint)
+	}
+	extclient.PublicEndpoint = custom.PublicEndpoint
+	extclient.Country = custom.Country
+	extclient.Location = custom.Location
+	if jitExpiresAt != nil {
+		extclient.JITExpiresAt = jitExpiresAt
+	}
+
+	if extclient.DeviceID != "" {
+		staticNode := models.ConvertToStaticNode(extclient)
+		deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, &staticNode)
+		violations, _ := logic.CheckPostureViolations(ctx, deviceInfo, schema.NetworkID(extclient.Network))
+		if len(violations) > 0 {
+			logic.EmitNewPostureViolationEvents(ctx, nil, violations, deviceInfo, schema.NetworkID(extclient.Network))
+			return extclient, errPostureCheckViolations
+		}
+	}
+
+	if len(extclient.PublicKey) == 0 {
+		privateKey, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			return extclient, err
+		}
+		extclient.PrivateKey = privateKey.String()
+		extclient.PublicKey = privateKey.PublicKey().String()
+	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
+		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
+	}
+	if extclient.ExtraAllowedIPs == nil {
+		extclient.ExtraAllowedIPs = []string{}
+	}
+
+	parentNetwork := &schema.Network{Name: extclient.Network}
+	if err := parentNetwork.Get(ctx); err != nil {
+		return extclient, err
+	}
+
+	var err error
+	if extclient.ClientID == "" {
+		extclient.ClientID, err = logic.GenerateNodeName(ctx, extclient.Network)
+		if err != nil {
+			return extclient, err
+		}
+	}
+
+	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	var reservedIPv4, reservedIPv6 string
+
+	if extclient.Address == "" && parentNetwork.AddressRange != "" {
+		newAddress, err := networkOrch.AllocateExtclientIP(ctx, parentNetwork)
+		if err != nil {
+			return extclient, err
+		}
+		reservedIPv4 = newAddress.String()
+		extclient.Address = reservedIPv4
+	}
+
+	if extclient.Address6 == "" && parentNetwork.AddressRange6 != "" {
+		addr6, err := networkOrch.AllocateExtclientIPv6(ctx, parentNetwork)
+		if err != nil {
+			if reservedIPv4 != "" {
+				networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
+			}
+			return extclient, err
+		}
+		reservedIPv6 = addr6.String()
+		extclient.Address6 = reservedIPv6
+	}
+
+	extclient.LastModified = time.Now().Unix()
+	if err := logic.ApplyExtClientInternetEgressSelection(ctx, &extclient, node.ID.String(), &custom); err != nil {
+		if reservedIPv4 != "" {
+			networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
+		}
+		if reservedIPv6 != "" {
+			networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
+		}
+		return extclient, err
+	}
+
+	err = logic.SaveExtClient(ctx, &extclient)
+	if reservedIPv4 != "" {
+		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
+	}
+	if reservedIPv6 != "" {
+		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
+	}
+	if err != nil {
+		return extclient, err
+	}
+	return extclient, nil
+}
+
+// publishExtClientCreatePeerUpdate signals the debounced peer-update worker.
+// The worker coalesces rapid creates into one broadcast. Computing a peer
+// update inline here stacks one full recompute per client; with hundreds of
+// nodes that exhausts the server and the next create never returns.
+func publishExtClientCreatePeerUpdate(ctx context.Context) {
+	extUpdateMutex.Lock()
+	mq.PublishPeerUpdate(ctx, false)
+	extUpdateMutex.Unlock()
+}
+
 // @Summary     Create a config file
 // @Router      /api/extclients/{network}/{nodeid} [post]
 // @Tags        Config Files
@@ -514,6 +645,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	var userName string
 	var caller *schema.User
+	var jitExpiresAt *time.Time
 	isMaster := r.Header.Get("ismaster") == "yes"
 	if isMaster {
 		userName = logic.MasterUser
@@ -546,6 +678,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			jitGrant = grant
+			if grant != nil {
+				jitExpiresAt = &grant.ExpiresAt
+			}
 		}
 		// if device id is sent, we don't want to create another extclient for the same user
 		// and gw, with the same device id.
@@ -589,24 +724,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
-
-	extclient.OwnerID = userName
-	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
-	extclient.IngressGatewayID = nodeid
-	extclient.Network = node.Network
-	extclient.Tags = make(map[models.TagID]struct{})
-	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
-	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly
-	gwDNS := logic.GetGwDNS(&node)
-	if (extclient.DNS == "") && (gwDNS != "") {
-		dns := gwDNS
-		extclient.DNS = dns
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
+	host := &schema.Host{ID: node.HostID}
 	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -614,177 +732,17 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	listenPort := logic.GetPeerListenPort(host)
-	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
-	extclient.Enabled = true
-	extclient.DeviceID = customExtClient.DeviceID
-	extclient.DeviceName = customExtClient.DeviceName
-	if customExtClient.IsAlreadyConnectedToInetGw {
-		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", customExtClient.PublicEndpoint)
-	}
-	extclient.PublicEndpoint = customExtClient.PublicEndpoint
-	extclient.Country = customExtClient.Country
-	extclient.Location = customExtClient.Location
-	if extClientCreateRequiresJIT(r.Context(), isMaster, caller, extclient.Network, customExtClient) {
-		hasAccess, grant, err := logic.CheckJITAccess(r.Context(), extclient.Network, userName)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-		if !hasAccess {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("JIT access required: please request access from network admin"),
-				"forbidden"))
-			return
-		}
-		// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
-		if grant != nil {
-			extclient.JITExpiresAt = &grant.ExpiresAt
-		}
-	}
 
-	if extclient.DeviceID != "" {
-		// check for violations connecting from desktop app
-		staticNode := models.ConvertToStaticNode(extclient)
-		deviceInfo := logic.GetPostureCheckDeviceInfoByNode(r.Context(), &staticNode)
-		violations, _ := logic.CheckPostureViolations(r.Context(), deviceInfo, schema.NetworkID(extclient.Network))
-		if len(violations) > 0 {
-			logic.EmitNewPostureViolationEvents(r.Context(), nil, violations, deviceInfo, schema.NetworkID(extclient.Network))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
-			return
-		}
-	}
-
-	if len(extclient.PublicKey) == 0 {
-		privateKey, err := wgtypes.GeneratePrivateKey()
-		if err != nil {
-			slog.Error(
-				"failed to create extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				node.Network,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
-		}
-		extclient.PrivateKey = privateKey.String()
-		extclient.PublicKey = privateKey.PublicKey().String()
-	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
-		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
-	}
-	if extclient.ExtraAllowedIPs == nil {
-		extclient.ExtraAllowedIPs = []string{}
-	}
-
-	parentNetwork := &schema.Network{Name: extclient.Network}
-	err = parentNetwork.Get(r.Context())
+	extclient, err := persistNewExtClient(r.Context(), node, host, userName, customExtClient, jitExpiresAt)
 	if err != nil {
-		slog.Error(
-			"failed to create extclient",
-			"user",
-			r.Header.Get("user"),
-			"network",
-			node.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	if extclient.ClientID == "" {
-		extclient.ClientID, err = logic.GenerateNodeName(r.Context(), extclient.Network)
-		if err != nil {
-			slog.Error(
-				"failed to create extclient",
-				"user",
-				r.Header.Get("user"),
-				"network",
-				node.Network,
-				"error",
-				err,
-			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-			return
+		errType := logic.Internal
+		if errors.Is(err, errPostureCheckViolations) {
+			errType = logic.Forbidden
+		} else if strings.Contains(err.Error(), "egress") || strings.Contains(err.Error(), "internet") {
+			errType = logic.BadReq
 		}
-	}
-
-	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
-	var reservedIPv4, reservedIPv6 string
-
-	if extclient.Address == "" {
-		if parentNetwork.AddressRange != "" {
-			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork)
-			if err != nil {
-				slog.Error(
-					"failed to create extclient",
-					"user",
-					r.Header.Get("user"),
-					"network",
-					node.Network,
-					"error",
-					err,
-				)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-				return
-			}
-			reservedIPv4 = newAddress.String()
-			extclient.Address = reservedIPv4
-		}
-	}
-
-	if extclient.Address6 == "" {
-		if parentNetwork.AddressRange6 != "" {
-			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork)
-			if err != nil {
-				if reservedIPv4 != "" {
-					networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-				}
-				slog.Error(
-					"failed to create extclient",
-					"user",
-					r.Header.Get("user"),
-					"network",
-					node.Network,
-					"error",
-					err,
-				)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-				return
-			}
-			reservedIPv6 = addr6.String()
-			extclient.Address6 = reservedIPv6
-		}
-	}
-
-	extclient.LastModified = time.Now().Unix()
-	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &extclient, nodeid, &customExtClient); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-		return
-	}
-	err = logic.SaveExtClient(r.Context(), &extclient)
-	// Reservations are freed regardless of outcome: on success the DB is authoritative,
-	// on failure the IPs must be available for reallocation.
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
-	}
-	if err != nil {
-		slog.Error(
-			"failed to create extclient",
-			"user",
-			r.Header.Get("user"),
-			"network",
-			node.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		slog.Error("failed to create extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -842,11 +800,127 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclient)
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		extUpdateMutex.Lock()
-		mq.PublishPeerUpdate(ctx, false)
-		extUpdateMutex.Unlock()
-	}(ctx)
+	go publishExtClientCreatePeerUpdate(ctx)
+}
+
+// @Summary     Bulk create config files on an ingress gateway
+// @Router      /api/v1/extclients/{network}/bulk [post]
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.BulkCreateExtClientRequest true "Ingress gateway and clients to create"
+// @Success     200 {object} models.BulkCreateExtClientResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func bulkCreateExtClients(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	networkName := mux.Vars(r)["network"]
+	var req models.BulkCreateExtClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid request body: %w", err), logic.BadReq))
+		return
+	}
+	if req.IngressGatewayID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("ingress_gateway_id is required"), logic.BadReq))
+		return
+	}
+	if len(req.Clients) == 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no clients provided"), logic.BadReq))
+		return
+	}
+	if len(req.Clients) > maxBulkExtClientCreate {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			fmt.Errorf("bulk create limited to %d clients per request", maxBulkExtClientCreate), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: networkName}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", networkName), logic.BadReq))
+		return
+	}
+	if !checkIngressExists(req.IngressGatewayID) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("ingress does not exist"), logic.BadReq))
+		return
+	}
+
+	node, err := logic.GetNodeByID(req.IngressGatewayID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if node.Network != networkName {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("ingress gateway is not on the specified network"), logic.BadReq))
+		return
+	}
+
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	userName := r.Header.Get("user")
+	if r.Header.Get("ismaster") == "yes" {
+		userName = logic.MasterUser
+	}
+
+	resp := models.BulkCreateExtClientResponse{
+		Created: make([]models.ExtClient, 0, len(req.Clients)),
+	}
+
+	for i, custom := range req.Clients {
+		if logic.ClientLimitExceeded(r.Context()) {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  logic.ErrClientLimitExceeded.Error(),
+			})
+			continue
+		}
+		if err := validateCustomExtClient(r.Context(), &custom, true); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+		if err := logic.ValidateEgressRange(r.Context(), networkName, custom.ExtraAllowedIPs); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+
+		extclient, err := persistNewExtClient(r.Context(), node, host, userName, custom, nil)
+		if err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+		extclient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extclient)
+		resp.Created = append(resp.Created, extclient)
+	}
+
+	if len(resp.Created) > 0 {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go publishExtClientCreatePeerUpdate(ctx)
+	}
+
+	slog.Info("bulk extclient create completed",
+		"created", len(resp.Created), "failed", len(resp.Failed), "total", len(req.Clients))
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
 }
 
 // @Summary     Update a config file

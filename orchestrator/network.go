@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/c-robinson/iplib"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -63,6 +64,11 @@ func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.
 }
 
 func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
+	used, err := n.loadUsedIPv4s(ctx, network)
+	if err != nil {
+		return nil, err
+	}
+
 	net4 := iplib.Net4FromStr(network.AddressRange)
 	addr := net4.FirstAddress()
 	if reverse {
@@ -70,58 +76,143 @@ func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *sch
 	}
 
 	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv4PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv4UniqueInDB(ctx, network, addr.String()) {
+		if _, taken := used[addr.String()]; !taken {
 			if !servercfg.IsHA() {
 				n.reserveIPv4(network.ID, addr.String())
 			}
 			return addr, nil
 		}
-		var err error
+		var stepErr error
 		if reverse {
-			addr, err = net4.PreviousIP(addr)
+			addr, stepErr = net4.PreviousIP(addr)
 		} else {
-			addr, err = net4.NextIP(addr)
+			addr, stepErr = net4.NextIP(addr)
 		}
-		if err != nil {
+		if stepErr != nil {
 			return nil, errors.New("no unique IPv4 addresses available")
 		}
 	}
 }
 
 func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	net6 := iplib.Net6FromStr(network.AddressRange6)
-
-	var (
-		addr net.IP
-		err  error
-	)
-	if reverse {
-		addr, err = net6.PreviousIP(net6.LastAddress())
-	} else {
-		addr, err = net6.NextIP(net6.FirstAddress())
-	}
+	used, err := n.loadUsedIPv6s(ctx, network)
 	if err != nil {
 		return nil, err
 	}
 
+	net6 := iplib.Net6FromStr(network.AddressRange6)
+
+	var (
+		addr    net.IP
+		stepErr error
+	)
+	if reverse {
+		addr, stepErr = net6.PreviousIP(net6.LastAddress())
+	} else {
+		addr, stepErr = net6.NextIP(net6.FirstAddress())
+	}
+	if stepErr != nil {
+		return nil, stepErr
+	}
+
 	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv6PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv6UniqueInDB(ctx, network, addr.String()) {
+		if _, taken := used[addr.String()]; !taken {
 			if !servercfg.IsHA() {
 				n.reserveIPv6(network.ID, addr.String())
 			}
 			return addr, nil
 		}
 		if reverse {
-			addr, err = net6.PreviousIP(addr)
+			addr, stepErr = net6.PreviousIP(addr)
 		} else {
-			addr, err = net6.NextIP(addr)
+			addr, stepErr = net6.NextIP(addr)
 		}
-		if err != nil {
+		if stepErr != nil {
 			return nil, errors.New("no unique IPv6 addresses available")
 		}
 	}
+}
+
+// loadUsedIPv4s returns the set of IPv4 addresses already taken by nodes,
+// extclients, or pending reservations on the network. Caller must hold addressLock.
+func (n *NetworkOrchestrator) loadUsedIPv4s(ctx context.Context, network *schema.Network) (map[string]struct{}, error) {
+	used := make(map[string]struct{})
+
+	if !servercfg.IsHA() {
+		if pending, ok := n.pendingIPv4[network.ID]; ok {
+			for ip := range pending {
+				used[ip] = struct{}{}
+			}
+		}
+	}
+
+	nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithFilter("network_id", network.ID))
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		if node.Address == "" {
+			continue
+		}
+		if ip, _, err := net.ParseCIDR(node.Address); err == nil && ip != nil {
+			used[ip.String()] = struct{}{}
+		} else if ip := net.ParseIP(node.Address); ip != nil {
+			used[ip.String()] = struct{}{}
+		}
+	}
+
+	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, ec := range extClients {
+		if ec.Address != "" {
+			used[ec.Address] = struct{}{}
+		}
+	}
+
+	return used, nil
+}
+
+// loadUsedIPv6s returns the set of IPv6 addresses already taken by nodes,
+// extclients, or pending reservations on the network. Caller must hold address6Lock.
+func (n *NetworkOrchestrator) loadUsedIPv6s(ctx context.Context, network *schema.Network) (map[string]struct{}, error) {
+	used := make(map[string]struct{})
+
+	if !servercfg.IsHA() {
+		if pending, ok := n.pendingIPv6[network.ID]; ok {
+			for ip := range pending {
+				used[ip] = struct{}{}
+			}
+		}
+	}
+
+	nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithFilter("network_id", network.ID))
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		if node.Address6 == "" {
+			continue
+		}
+		if ip, _, err := net.ParseCIDR(node.Address6); err == nil && ip != nil {
+			used[ip.String()] = struct{}{}
+		} else if ip := net.ParseIP(node.Address6); ip != nil {
+			used[ip.String()] = struct{}{}
+		}
+	}
+
+	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, ec := range extClients {
+		if ec.Address6 != "" {
+			used[ec.Address6] = struct{}{}
+		}
+	}
+
+	return used, nil
 }
 
 // isIPv4PendingReserved reports whether ip is reserved in pendingIPv4.

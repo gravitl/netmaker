@@ -673,18 +673,16 @@ func GetExtclientAllowedIPs(ctx context.Context, client models.ExtClient) (allow
 }
 
 func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, onlyWg bool) (staticNode []models.Node) {
-	extClients, err := GetAllExtClients(ctx)
+	extClients, err := GetNetworkExtClients(ctx, network.String())
 	if err != nil {
 		return
 	}
 	SortExtClient(extClients[:])
 	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if onlyWg && extI.RemoteAccessClientID != "" {
-				continue
-			}
-			staticNode = append(staticNode, models.ConvertToStaticNode(extI))
+		if onlyWg && extI.RemoteAccessClientID != "" {
+			continue
 		}
+		staticNode = append(staticNode, models.ConvertToStaticNode(extI))
 	}
 
 	return
