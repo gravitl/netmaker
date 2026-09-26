@@ -105,100 +105,94 @@ func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *sch
 		return nil, err
 	}
 
-	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv6PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv6UniqueInDB(ctx, network, addr.String()) {
-			if !servercfg.IsHA() {
-				n.reserveIPv6(network.ID, addr.String())
-			}
-			return addr, nil
-		}
-		if reverse {
-			addr, err = net6.PreviousIP(addr)
-		} else {
-			addr, err = net6.NextIP(addr)
-		}
+// allocateFromCursor allocates the next address after the node cursor (or
+// before the extclient cursor), skipping addresses that are already allocated
+// (e.g. claimed custom addresses). The cursors never cross each other.
+// Caller must hold the pool lock.
+func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType) (netip.Addr, error) {
+	first, last, err := network.UsableIPRange(pool.Family)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+	isNode := ownerType == schema.IPOwnerNode
+
+	// nodes go from the node cursor up to the extclient cursor, extclients
+	// from the extclient cursor down to the node cursor.
+	start, bound := first, last
+	cursor, otherCursor := pool.NodeCursor, pool.ExtCursor
+	step, stepBack := netip.Addr.Next, netip.Addr.Prev
+	if !isNode {
+		start, bound = last, first
+		cursor, otherCursor = pool.ExtCursor, pool.NodeCursor
+		step, stepBack = netip.Addr.Prev, netip.Addr.Next
+	}
+	if cursor != "" {
+		addr, err := n.parseCursor(cursor)
 		if err != nil {
-			return nil, errors.New("no unique IPv6 addresses available")
+			return netip.Addr{}, err
 		}
+		start = step(addr)
 	}
-}
-
-// isIPv4PendingReserved reports whether ip is reserved in pendingIPv4.
-// Caller must hold addressLock (read or write).
-func (n *NetworkOrchestrator) isIPv4PendingReserved(networkID, ip string) bool {
-	if pending, ok := n.pendingIPv4[networkID]; ok {
-		if _, reserved := pending[ip]; reserved {
-			return true
+	if otherCursor != "" {
+		addr, err := n.parseCursor(otherCursor)
+		if err != nil {
+			return netip.Addr{}, err
 		}
+		bound = stepBack(addr)
 	}
-	return false
-}
 
-// isIPv6PendingReserved reports whether ip is reserved in pendingIPv6.
-// Caller must hold address6Lock (read or write).
-func (n *NetworkOrchestrator) isIPv6PendingReserved(networkID, ip string) bool {
-	if pending, ok := n.pendingIPv6[networkID]; ok {
-		if _, reserved := pending[ip]; reserved {
-			return true
-		}
-	}
-	return false
-}
-
-func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	if !servercfg.IsHA() {
-		n.addressLock.RLock()
-		pendingReserved := n.isIPv4PendingReserved(network.ID, ip)
-		n.addressLock.RUnlock()
-		if pendingReserved {
+	// withinBound reports whether addr has not gone past bound.
+	withinBound := func(addr netip.Addr) bool {
+		if !addr.IsValid() {
 			return false
 		}
+		if isNode {
+			return !bound.Less(addr)
+		}
+		return !addr.Less(bound)
 	}
-	return n.isIPv4UniqueInDB(ctx, network, ip)
-}
-
-func (n *NetworkOrchestrator) isIPv4UniqueInDB(ctx context.Context, network *schema.Network, ip string) bool {
-	_, cidr, err := net.ParseCIDR(network.AddressRange)
-	if err != nil {
-		return true
-	}
-	cidr.IP = net.ParseIP(ip)
-	node := &schema.Node{NetworkID: network.ID, Address: cidr.String()}
-	if err := node.GetByNetworkAndAddress(ctx); err == nil {
-		return false
-	}
-
-	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
-	if err != nil {
-		return true
-	}
-	for _, ec := range extClients {
-		if ec.Address == ip {
-			return false
+	moveCursor := func(addr netip.Addr) {
+		if isNode {
+			pool.NodeCursor = addr.String()
+		} else {
+			pool.ExtCursor = addr.String()
 		}
 	}
-	return true
-}
 
-func (n *NetworkOrchestrator) reserveIPv4(networkID, ip string) {
-	if n.pendingIPv4 == nil {
-		n.pendingIPv4 = make(map[string]map[string]struct{})
-	}
-	if n.pendingIPv4[networkID] == nil {
-		n.pendingIPv4[networkID] = make(map[string]struct{})
-	}
-	n.pendingIPv4[networkID][ip] = struct{}{}
-}
+	var skipped netip.Addr
+	for addr := start; withinBound(addr); addr = step(addr) {
+		allocation := &schema.IPAllocation{
+			TenantID:  pool.TenantID,
+			NetworkID: pool.NetworkID,
+		}
+		allocation.SetAddress(addr)
+		exists, err := allocation.Exists(ctx)
+		if err != nil {
+			return netip.Addr{}, err
+		}
+		if exists {
+			skipped = addr
+			continue
+		}
 
-func (n *NetworkOrchestrator) reserveIPv6(networkID, ip string) {
-	if n.pendingIPv6 == nil {
-		n.pendingIPv6 = make(map[string]map[string]struct{})
+		allocation.Family = pool.Family
+		allocation.State = schema.IPAttached
+		allocation.OwnerType = ownerType
+		if err := allocation.Create(ctx); err != nil {
+			return netip.Addr{}, err
+		}
+		moveCursor(addr)
+		return addr, pool.UpdateCursors(ctx)
 	}
-	if n.pendingIPv6[networkID] == nil {
-		n.pendingIPv6[networkID] = make(map[string]struct{})
+
+	// don't walk over the skipped addresses again on the next allocation.
+	if skipped.IsValid() {
+		moveCursor(skipped)
+		if err := pool.UpdateCursors(ctx); err != nil {
+			return netip.Addr{}, err
+		}
 	}
-	n.pendingIPv6[networkID][ip] = struct{}{}
+	return netip.Addr{}, ErrIPPoolExhausted
 }
 
 // allocateOrphaned reallocates the orphaned address nearest to the start of
