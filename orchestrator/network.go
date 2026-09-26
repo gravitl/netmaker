@@ -201,26 +201,26 @@ func (n *NetworkOrchestrator) reserveIPv6(networkID, ip string) {
 	n.pendingIPv6[networkID][ip] = struct{}{}
 }
 
-func (n *NetworkOrchestrator) FreeIPv4Reservation(networkID, ip string) {
-	if servercfg.IsHA() {
-		return
+// allocateOrphaned reallocates the orphaned address nearest to the start of
+// the range for a node, or to its end for an extclient.
+// Caller must hold the pool lock.
+func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType) (netip.Addr, error) {
+	allocation := &schema.IPAllocation{
+		TenantID:  pool.TenantID,
+		NetworkID: pool.NetworkID,
+		Family:    pool.Family,
 	}
-	n.addressLock.Lock()
-	defer n.addressLock.Unlock()
-	if n.pendingIPv4 != nil {
-		delete(n.pendingIPv4[networkID], ip)
+	if err := allocation.GetFirstOrphaned(ctx, ownerType == schema.IPOwnerExtClient); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return netip.Addr{}, ErrNoOrphanedIP
+		}
+		return netip.Addr{}, err
 	}
-}
-
-func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
-	if servercfg.IsHA() {
-		return
+	addr := allocation.Address()
+	if !addr.IsValid() {
+		return netip.Addr{}, fmt.Errorf("invalid orphaned IP address %v", allocation.RawAddress)
 	}
-	n.address6Lock.Lock()
-	defer n.address6Lock.Unlock()
-	if n.pendingIPv6 != nil {
-		delete(n.pendingIPv6[networkID], ip)
-	}
+	return addr, allocation.Attach(ctx, ownerType)
 }
 
 // lockPool locks the network's pool of the given family until the end of the
