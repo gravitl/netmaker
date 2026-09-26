@@ -223,37 +223,44 @@ func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
 	}
 }
 
-func (n *NetworkOrchestrator) IsIPv6Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	if !servercfg.IsHA() {
-		n.address6Lock.RLock()
-		pendingReserved := n.isIPv6PendingReserved(network.ID, ip)
-		n.address6Lock.RUnlock()
-		if pendingReserved {
-			return false
-		}
+// lockPool locks the network's pool of the given family until the end of the
+// transaction in ctx.
+func (n *NetworkOrchestrator) lockPool(ctx context.Context, network *schema.Network, family schema.IPFamily) error {
+	pool := &schema.IPPool{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
+		Family:    family,
 	}
-	return n.isIPv6UniqueInDB(ctx, network, ip)
+	err := pool.GetForUpdate(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrIPPoolNotFound
+	}
+	return err
 }
 
-func (n *NetworkOrchestrator) isIPv6UniqueInDB(ctx context.Context, network *schema.Network, ip string) bool {
-	_, cidr, err := net.ParseCIDR(network.AddressRange6)
+// parseAddr parses an address given either as a plain IP or in CIDR notation.
+func (n *NetworkOrchestrator) parseAddr(address string) (netip.Addr, error) {
+	if prefix, err := netip.ParsePrefix(address); err == nil {
+		return prefix.Addr().Unmap(), nil
+	}
+	addr, err := netip.ParseAddr(address)
 	if err != nil {
-		return true
+		return netip.Addr{}, fmt.Errorf("invalid IP address %q", address)
 	}
-	cidr.IP = net.ParseIP(ip)
-	node := &schema.Node{NetworkID: network.ID, Address6: cidr.String()}
-	if err := node.GetByNetworkAndAddress6(ctx); err == nil {
-		return false
-	}
+	return addr.Unmap(), nil
+}
 
-	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
+func (n *NetworkOrchestrator) parseCursor(cursor string) (netip.Addr, error) {
+	addr, err := netip.ParseAddr(cursor)
 	if err != nil {
-		return true
+		return netip.Addr{}, fmt.Errorf("invalid IP pool cursor %q: %w", cursor, err)
 	}
-	for _, ec := range extClients {
-		if ec.Address6 == ip {
-			return false
-		}
+	return addr, nil
+}
+
+func (n *NetworkOrchestrator) addrFamily(addr netip.Addr) schema.IPFamily {
+	if addr.Is4() {
+		return schema.IPv4
 	}
-	return true
+	return schema.IPv6
 }
