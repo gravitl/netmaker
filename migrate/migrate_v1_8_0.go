@@ -75,6 +75,7 @@ func migrateIPAllocations(ctx context.Context) error {
 					Family:    family,
 					State:     schema.IPAttached,
 					OwnerType: owner.Type,
+					OwnerID:   owner.ID,
 				}
 				allocation.SetAddress(addr)
 				allocations = append(allocations, allocation)

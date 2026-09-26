@@ -1521,6 +1521,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		// TODO: allocate the addresses in the same transaction as the
 		// extclient, see orchestrator.NetworkOrchestrator.
 		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		// TODO(nm-360): use the extclient's ID as the owner of its addresses.
+		ownerID := userConf.ClientID
 		var reservedIPv4, reservedIPv6 string
 		// releaseAddresses makes the allocated addresses available for
 		// reallocation when the extclient is not saved.
@@ -1529,7 +1531,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 				if address == "" {
 					continue
 				}
-				if err := networkOrch.ReleaseIP(r.Context(), network, address); err != nil {
+				if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerExtClient, ownerID); err != nil {
 					slog.Error("failed to release extclient address", "network", network.Name, "address", address, "error", err)
 				}
 			}
@@ -1537,7 +1539,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 
 		if userConf.Address == "" {
 			if network.AddressRange != "" {
-				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network)
+				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network, ownerID)
 				if err != nil {
 					slog.Error(
 						"failed to create extclient",
@@ -1558,7 +1560,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 
 		if userConf.Address6 == "" {
 			if network.AddressRange6 != "" {
-				addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), network)
+				addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), network, ownerID)
 				if err != nil {
 					releaseAddresses()
 					slog.Error(

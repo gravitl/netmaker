@@ -224,6 +224,9 @@ func releaseExtClientAddresses(ctx context.Context, extClient models.ExtClient) 
 		allocation := &schema.IPAllocation{
 			TenantID:  network.TenantID,
 			NetworkID: network.ID,
+			OwnerType: schema.IPOwnerExtClient,
+			// TODO(nm-360): use the extclient's ID as the owner of its addresses.
+			OwnerID: extClient.ClientID,
 		}
 		allocation.SetAddress(addr)
 		if err := allocation.Release(ctx); err != nil {

@@ -715,6 +715,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	// TODO: allocate the addresses in the same transaction as the extclient,
 	// see orchestrator.NetworkOrchestrator.
 	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	// TODO(nm-360): use the extclient's ID as the owner of its addresses.
+	ownerID := extclient.ClientID
 	var reservedIPv4, reservedIPv6 string
 	// releaseAddresses makes the allocated addresses available for
 	// reallocation when the extclient is not saved.
@@ -723,7 +725,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			if address == "" {
 				continue
 			}
-			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address); err != nil {
+			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address, schema.IPOwnerExtClient, ownerID); err != nil {
 				slog.Error("failed to release extclient address", "network", parentNetwork.Name, "address", address, "error", err)
 			}
 		}
@@ -731,7 +733,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address == "" {
 		if parentNetwork.AddressRange != "" {
-			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork)
+			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork, ownerID)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -752,7 +754,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address6 == "" {
 		if parentNetwork.AddressRange6 != "" {
-			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork)
+			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork, ownerID)
 			if err != nil {
 				releaseAddresses()
 				slog.Error(

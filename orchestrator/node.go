@@ -62,14 +62,14 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 			if address == "" {
 				continue
 			}
-			if err := networkOrch.ReleaseIP(ctx, network, address); err != nil {
+			if err := networkOrch.ReleaseIP(ctx, network, address, schema.IPOwnerNode, node.ID); err != nil {
 				logger.Log(0, fmt.Sprintf("failed to release address %s on network %s: %v", address, network.Name, err))
 			}
 		}
 	}
 
 	if network.AddressRange != "" {
-		ip, err := networkOrch.AllocateNodeIP(ctx, network)
+		ip, err := networkOrch.AllocateNodeIP(ctx, network, node.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +84,7 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if network.AddressRange6 != "" {
-		ip, err := networkOrch.AllocateNodeIPv6(ctx, network)
+		ip, err := networkOrch.AllocateNodeIPv6(ctx, network, node.ID)
 		if err != nil {
 			releaseAddresses()
 			return nil, err

@@ -346,6 +346,8 @@ func releaseNodeAddresses(ctx context.Context, node *schema.Node) {
 		allocation := &schema.IPAllocation{
 			TenantID:  node.TenantID,
 			NetworkID: node.NetworkID,
+			OwnerType: schema.IPOwnerNode,
+			OwnerID:   node.ID,
 		}
 		allocation.SetAddress(prefix.Addr())
 		if err := allocation.Release(ctx); err != nil {

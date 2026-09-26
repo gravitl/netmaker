@@ -51,27 +51,35 @@ var (
 // orphaned by ReconcileIPAllocations.
 type NetworkOrchestrator struct{}
 
-func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerNode)
+// AllocateNodeIP allocates an IPv4 address on the network to the node with
+// the given ID.
+func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network, nodeID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerNode, nodeID)
 }
 
-func (n *NetworkOrchestrator) AllocateExtclientIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerExtClient)
+// AllocateExtclientIP allocates an IPv4 address on the network to the
+// extclient with the given ID.
+func (n *NetworkOrchestrator) AllocateExtclientIP(ctx context.Context, network *schema.Network, extClientID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerExtClient, extClientID)
 }
 
-func (n *NetworkOrchestrator) AllocateNodeIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerNode)
+// AllocateNodeIPv6 allocates an IPv6 address on the network to the node with
+// the given ID.
+func (n *NetworkOrchestrator) AllocateNodeIPv6(ctx context.Context, network *schema.Network, nodeID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerNode, nodeID)
 }
 
-func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerExtClient)
+// AllocateExtclientIPv6 allocates an IPv6 address on the network to the
+// extclient with the given ID.
+func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network *schema.Network, extClientID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerExtClient, extClientID)
 }
 
 // ClaimIP allocates the given address (plain or in CIDR notation) on the
-// network, e.g. when a custom address is set on a node.
+// network to the given owner, e.g. when a custom address is set on a node.
 //
 // Returns ErrIPAlreadyAllocated if the address is in use.
-func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType) error {
+func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
 	addr, err := n.parseAddr(ip)
 	if err != nil {
 		return err
@@ -102,11 +110,14 @@ func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Netwo
 		case err == nil && allocation.State == schema.IPAttached:
 			return ErrIPAlreadyAllocated
 		case err == nil:
-			return allocation.Attach(txCtx, ownerType)
+			allocation.OwnerType = ownerType
+			allocation.OwnerID = ownerID
+			return allocation.Attach(txCtx)
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			allocation.Family = family
 			allocation.State = schema.IPAttached
 			allocation.OwnerType = ownerType
+			allocation.OwnerID = ownerID
 			return allocation.Create(txCtx)
 		default:
 			return err
@@ -115,8 +126,9 @@ func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Netwo
 }
 
 // ReleaseIP releases the given address (plain or in CIDR notation) on the
-// network, so that it can be reallocated.
-func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Network, ip string) error {
+// network, so that it can be reallocated. The address is only released if it
+// is allocated to the given owner.
+func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
 	addr, err := n.parseAddr(ip)
 	if err != nil {
 		return err
@@ -124,19 +136,21 @@ func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Net
 	allocation := &schema.IPAllocation{
 		TenantID:  network.TenantID,
 		NetworkID: network.ID,
+		OwnerType: ownerType,
+		OwnerID:   ownerID,
 	}
 	allocation.SetAddress(addr)
 	return allocation.Release(ctx)
 }
 
-// allocate allocates an address of the given family on the network, in its own
-// transaction.
+// allocate allocates an address of the given family on the network to the
+// given owner, in its own transaction.
 //
 // TODO: allocations should share the transaction of the node or extclient
 // being created, so that a failed or interrupted create does not leave the
 // address attached (until the reconciler orphans it). Until then, callers
 // release the address if the create fails.
-func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Network, family schema.IPFamily, ownerType schema.IPOwnerType) (ip net.IP, err error) {
+func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Network, family schema.IPFamily, ownerType schema.IPOwnerType, ownerID string) (ip net.IP, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to allocate IPv%d address on network %s: %w", family, network.Name, err)
@@ -160,9 +174,9 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 		}
 
 		var err error
-		addr, err = n.allocateOrphaned(txCtx, pool, ownerType)
+		addr, err = n.allocateOrphaned(txCtx, pool, ownerType, ownerID)
 		if errors.Is(err, ErrNoOrphanedIP) {
-			addr, err = n.allocateFromCursor(txCtx, network, pool, ownerType)
+			addr, err = n.allocateFromCursor(txCtx, network, pool, ownerType, ownerID)
 		}
 		return err
 	})
@@ -176,7 +190,7 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 // before the extclient cursor), skipping addresses that are already allocated
 // (e.g. claimed custom addresses). The cursors never cross each other.
 // Caller must hold the pool lock.
-func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType) (netip.Addr, error) {
+func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
 	first, last, err := network.UsableIPRange(pool.Family)
 	if err != nil {
 		return netip.Addr{}, err
@@ -245,6 +259,7 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 		allocation.Family = pool.Family
 		allocation.State = schema.IPAttached
 		allocation.OwnerType = ownerType
+		allocation.OwnerID = ownerID
 		if err := allocation.Create(ctx); err != nil {
 			return netip.Addr{}, err
 		}
@@ -265,7 +280,7 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 // allocateOrphaned reallocates the orphaned address nearest to the start of
 // the range for a node, or to its end for an extclient.
 // Caller must hold the pool lock.
-func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType) (netip.Addr, error) {
+func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
 	allocation := &schema.IPAllocation{
 		TenantID:  pool.TenantID,
 		NetworkID: pool.NetworkID,
@@ -281,7 +296,9 @@ func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema
 	if !addr.IsValid() {
 		return netip.Addr{}, fmt.Errorf("invalid orphaned IP address %v", allocation.RawAddress)
 	}
-	return addr, allocation.Attach(ctx, ownerType)
+	allocation.OwnerType = ownerType
+	allocation.OwnerID = ownerID
+	return addr, allocation.Attach(ctx)
 }
 
 // lockPool locks the network's pool of the given family until the end of the
@@ -353,6 +370,7 @@ func (n *NetworkOrchestrator) ListIPOwners(ctx context.Context, network *schema.
 	}
 	for _, record := range records {
 		extClient := record.Value.Data()
+		// TODO(nm-360): use the extclient's ID as the owner of its addresses.
 		owner := IPOwner{Type: schema.IPOwnerExtClient, ID: extClient.ClientID}
 		add(extClient.Address, owner)
 		add(extClient.Address6, owner)

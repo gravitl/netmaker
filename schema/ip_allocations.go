@@ -47,8 +47,10 @@ type IPAllocation struct {
 	Family     IPFamily          `gorm:"index:idx_ip_allocation_orphaned,priority:3" json:"family"`
 	State      IPAllocationState `gorm:"index:idx_ip_allocation_orphaned,priority:4" json:"state"`
 	OwnerType  IPOwnerType       `json:"owner_type"`
-	CreatedAt  time.Time         `json:"created_at"`
-	UpdatedAt  time.Time         `json:"updated_at"`
+	// OwnerID is the ID of the node or extclient the address is allocated to.
+	OwnerID   string    `json:"owner_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (a *IPAllocation) TableName() string {
@@ -135,39 +137,50 @@ func (a *IPAllocation) GetFirstOrphaned(ctx context.Context, fromEnd bool) error
 		Error
 }
 
-// Attach marks the address as in use by the given kind of peer.
-func (a *IPAllocation) Attach(ctx context.Context, ownerType IPOwnerType) error {
+// Attach marks the address as in use by the allocation's owner.
+func (a *IPAllocation) Attach(ctx context.Context) error {
 	a.State = IPAttached
-	a.OwnerType = ownerType
 	a.UpdatedAt = time.Now()
 	return db.FromContext(ctx).Model(&IPAllocation{}).
 		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.RawAddress).
 		Updates(map[string]any{
 			"state":      a.State,
 			"owner_type": a.OwnerType,
+			"owner_id":   a.OwnerID,
 			"updated_at": a.UpdatedAt,
 		}).
 		Error
 }
 
-// Release marks the address as orphaned, so that it can be reallocated.
+// Release marks the address as orphaned and clears its owner, so that it can
+// be reallocated. The address is only released if it is attached to the
+// allocation's owner, so that a stale release can't release an address
+// reallocated to another peer.
 func (a *IPAllocation) Release(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ?", a.TenantID, a.NetworkID, a.RawAddress, IPAttached).
+		Where(
+			"tenant_id = ? AND network_id = ? AND address = ? AND state = ? AND owner_type = ? AND owner_id = ?",
+			a.TenantID, a.NetworkID, a.RawAddress, IPAttached, a.OwnerType, a.OwnerID,
+		).
 		Updates(map[string]any{
 			"state":      IPOrphaned,
+			"owner_type": "",
+			"owner_id":   "",
 			"updated_at": time.Now(),
 		}).
 		Error
 }
 
-// ReleaseStale is like Release, but only releases the address if it has not
-// been updated since the given time, e.g. reattached concurrently.
+// ReleaseStale marks the address as orphaned and clears its owner, whoever the
+// owner is, but only if it has not been updated since the given time, e.g.
+// reattached concurrently.
 func (a *IPAllocation) ReleaseStale(ctx context.Context, updatedBefore time.Time) error {
 	return db.FromContext(ctx).Model(&IPAllocation{}).
 		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ? AND updated_at < ?", a.TenantID, a.NetworkID, a.RawAddress, IPAttached, updatedBefore).
 		Updates(map[string]any{
 			"state":      IPOrphaned,
+			"owner_type": "",
+			"owner_id":   "",
 			"updated_at": time.Now(),
 		}).
 		Error

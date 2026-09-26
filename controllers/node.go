@@ -685,7 +685,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, address := range claimedAddrs {
-			if err := networkOrch.ReleaseIP(r.Context(), network, address); err != nil {
+			if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
 				slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
 			}
 		}
@@ -704,7 +704,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err != nil || ip.Equal(change.current.IP) {
 			continue
 		}
-		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode)
+		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode, currentNode.ID.String())
 		if err != nil {
 			if errors.Is(err, orchestrator.ErrIPAlreadyAllocated) {
 				err = errors.New("ip specified is already allocated: " + change.requested)
@@ -863,7 +863,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	updated = true
 	for _, address := range replacedAddrs {
-		if err := networkOrch.ReleaseIP(r.Context(), network, address); err != nil {
+		if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
 			slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
 		}
 	}

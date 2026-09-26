@@ -69,17 +69,26 @@ func TestMigrateIPAllocations(t *testing.T) {
 	allocations, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).ListByNetwork(ctx)
 	require.NoError(t, err)
 	assert.Len(t, allocations, 4)
+	for _, allocation := range allocations {
+		assert.Equal(t, schema.IPAttached, allocation.State)
+		assert.NotEmpty(t, allocation.OwnerID, "address %s has no owner", allocation.Address())
+		if allocation.Address().String() == "10.50.0.254" {
+			assert.Equal(t, schema.IPOwnerExtClient, allocation.OwnerType)
+		} else {
+			assert.Equal(t, schema.IPOwnerNode, allocation.OwnerType)
+		}
+	}
 
 	// allocation continues after the backfilled addresses, skipping the ones in
 	// use beyond the cursors.
 	orch := orchestrator.GetRepository().NetworkOrchestrator()
-	ip, err := orch.AllocateNodeIP(ctx, network)
+	ip, err := orch.AllocateNodeIP(ctx, network, uuid.NewString())
 	require.NoError(t, err)
 	assert.Equal(t, "10.50.0.3", ip.String())
-	ip, err = orch.AllocateNodeIP(ctx, network)
+	ip, err = orch.AllocateNodeIP(ctx, network, uuid.NewString())
 	require.NoError(t, err)
 	assert.Equal(t, "10.50.0.5", ip.String())
-	ip, err = orch.AllocateExtclientIP(ctx, network)
+	ip, err = orch.AllocateExtclientIP(ctx, network, uuid.NewString())
 	require.NoError(t, err)
 	assert.Equal(t, "10.50.0.253", ip.String())
 }
@@ -121,7 +130,7 @@ func TestRekeyTenant_IPAllocations(t *testing.T) {
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, "tenant-2")
 	network = &schema.Network{ID: network.ID}
 	require.NoError(t, network.Get(tenantCtx))
-	ip, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateNodeIP(tenantCtx, network)
+	ip, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateNodeIP(tenantCtx, network, uuid.NewString())
 	require.NoError(t, err)
 	assert.Equal(t, "10.50.0.2", ip.String())
 }
