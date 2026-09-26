@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -674,19 +675,45 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newData.Address {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv4Unique(r.Context(), network, newData.Address) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address)
+	// claim the node's new addresses; they are released again if the update
+	// does not go through, otherwise the replaced addresses are released.
+	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	var claimedAddrs, replacedAddrs []string
+	updated := false
+	defer func() {
+		if updated {
+			return
+		}
+		for _, address := range claimedAddrs {
+			if err := networkOrch.ReleaseIP(r.Context(), network, address); err != nil {
+				slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+			}
+		}
+	}()
+	for _, change := range []struct {
+		current   net.IPNet
+		requested string
+	}{
+		{currentNode.Address, newData.Address},
+		{currentNode.Address6, newData.Address6},
+	} {
+		if change.current.IP == nil || change.requested == "" {
+			continue
+		}
+		ip, _, err := net.ParseCIDR(change.requested)
+		if err != nil || ip.Equal(change.current.IP) {
+			continue
+		}
+		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode)
+		if err != nil {
+			if errors.Is(err, orchestrator.ErrIPAlreadyAllocated) {
+				err = errors.New("ip specified is already allocated: " + change.requested)
+			}
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newData.Address6 {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv6Unique(r.Context(), network, newData.Address6) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address6)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		claimedAddrs = append(claimedAddrs, change.requested)
+		replacedAddrs = append(replacedAddrs, change.current.IP.String())
 	}
 
 	if !servercfg.IsPro {
@@ -833,6 +860,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	updated = true
+	for _, address := range replacedAddrs {
+		if err := networkOrch.ReleaseIP(r.Context(), network, address); err != nil {
+			slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+		}
 	}
 	if relayUpdate {
 		logic.UpdateRelayed(r.Context(), &currentNode, newNode)
