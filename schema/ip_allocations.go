@@ -3,8 +3,10 @@ package schema
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm/clause"
@@ -34,22 +36,55 @@ const (
 // Released addresses are kept as orphaned, so that they can be reallocated
 // without searching the range for free addresses.
 type IPAllocation struct {
-	TenantID  string            `gorm:"primaryKey" json:"tenant_id"`
-	NetworkID string            `gorm:"primaryKey" json:"network_id"`
-	Network   *Network          `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
-	Address   string            `gorm:"primaryKey" json:"address"`
-	Family    IPFamily          `gorm:"index:idx_ip_allocations_state,priority:1" json:"family"`
-	State     IPAllocationState `gorm:"index:idx_ip_allocations_state,priority:2" json:"state"`
-	OwnerType IPOwnerType       `json:"owner_type"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedAt time.Time         `gorm:"index:idx_ip_allocations_state,priority:3" json:"updated_at"`
+	ID        string   `gorm:"primaryKey" json:"id"`
+	TenantID  string   `gorm:"uniqueIndex:udx_ip_allocation_tenant_network_address,priority:1;index:idx_ip_allocation_orphaned,priority:1" json:"tenant_id"`
+	NetworkID string   `gorm:"uniqueIndex:udx_ip_allocation_tenant_network_address,priority:2;index:idx_ip_allocation_orphaned,priority:2" json:"network_id"`
+	Network   *Network `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
+	// RawAddress is the address in its 4 or 16 byte form, so that the
+	// addresses of a family are ordered numerically. Use Address and
+	// SetAddress to access it.
+	RawAddress []byte            `gorm:"column:address;uniqueIndex:udx_ip_allocation_tenant_network_address,priority:3;index:idx_ip_allocation_orphaned,priority:5" json:"-"`
+	Family     IPFamily          `gorm:"index:idx_ip_allocation_orphaned,priority:3" json:"family"`
+	State      IPAllocationState `gorm:"index:idx_ip_allocation_orphaned,priority:4" json:"state"`
+	OwnerType  IPOwnerType       `json:"owner_type"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
 }
 
 func (a *IPAllocation) TableName() string {
 	return ipAllocationsTable
 }
 
+// Address returns the allocated address, or the zero address if it is not
+// set or malformed.
+func (a *IPAllocation) Address() netip.Addr {
+	addr, ok := netip.AddrFromSlice(a.RawAddress)
+	if !ok {
+		return netip.Addr{}
+	}
+	return addr
+}
+
+// SetAddress sets the allocated address.
+func (a *IPAllocation) SetAddress(addr netip.Addr) {
+	a.RawAddress = addr.Unmap().AsSlice()
+}
+
+// validate sets the ID of a new allocation, and checks its address.
+func (a *IPAllocation) validate() error {
+	if a.ID == "" {
+		a.ID = uuid.NewString()
+	}
+	if !a.Address().IsValid() {
+		return fmt.Errorf("invalid IP allocation address %v", a.RawAddress)
+	}
+	return nil
+}
+
 func (a *IPAllocation) Create(ctx context.Context) error {
+	if err := a.validate(); err != nil {
+		return err
+	}
 	return db.FromContext(ctx).Create(a).Error
 }
 
@@ -58,12 +93,20 @@ func (a *IPAllocation) CreateAll(ctx context.Context, allocations []IPAllocation
 	if len(allocations) == 0 {
 		return nil
 	}
-	return db.FromContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(allocations, 500).Error
+	for i := range allocations {
+		if err := allocations[i].validate(); err != nil {
+			return err
+		}
+	}
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "network_id"}, {Name: "address"}},
+		DoNothing: true,
+	}).CreateInBatches(allocations, 500).Error
 }
 
 func (a *IPAllocation) Get(ctx context.Context) error {
 	return db.FromContext(ctx).
-		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.Address).
+		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.RawAddress).
 		First(a).
 		Error
 }
@@ -72,19 +115,22 @@ func (a *IPAllocation) Get(ctx context.Context) error {
 func (a *IPAllocation) Exists(ctx context.Context) (bool, error) {
 	var count int64
 	err := db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.Address).
+		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.RawAddress).
 		Count(&count).
 		Error
 	return count > 0, err
 }
 
-// GetOldestOrphaned fetches the address of the network and family that has
-// been orphaned the longest, so that released addresses are reused as late
-// as possible.
-func (a *IPAllocation) GetOldestOrphaned(ctx context.Context) error {
+// GetFirstOrphaned fetches the orphaned address of the network and family
+// that is nearest to the start of the range, or to its end if fromEnd is set.
+func (a *IPAllocation) GetFirstOrphaned(ctx context.Context, fromEnd bool) error {
+	order := "address ASC"
+	if fromEnd {
+		order = "address DESC"
+	}
 	return db.FromContext(ctx).
 		Where("tenant_id = ? AND network_id = ? AND family = ? AND state = ?", a.TenantID, a.NetworkID, a.Family, IPOrphaned).
-		Order("updated_at ASC, address ASC").
+		Order(order).
 		First(a).
 		Error
 }
@@ -95,7 +141,7 @@ func (a *IPAllocation) Attach(ctx context.Context, ownerType IPOwnerType) error 
 	a.OwnerType = ownerType
 	a.UpdatedAt = time.Now()
 	return db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.Address).
+		Where("tenant_id = ? AND network_id = ? AND address = ?", a.TenantID, a.NetworkID, a.RawAddress).
 		Updates(map[string]any{
 			"state":      a.State,
 			"owner_type": a.OwnerType,
@@ -107,22 +153,7 @@ func (a *IPAllocation) Attach(ctx context.Context, ownerType IPOwnerType) error 
 // Release marks the address as orphaned, so that it can be reallocated.
 func (a *IPAllocation) Release(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ?", a.TenantID, a.NetworkID, a.Address, IPAttached).
-		Updates(map[string]any{
-			"state":      IPOrphaned,
-			"updated_at": time.Now(),
-		}).
-		Error
-}
-
-// ReleaseByNetworkName is like Release, but identifies the network by its
-// name within the allocation's tenant.
-func (a *IPAllocation) ReleaseByNetworkName(ctx context.Context, networkName string) error {
-	networkIDs := db.FromContext(ctx).Model(&Network{}).
-		Select("id").
-		Where("name = ? AND tenant_id = ?", networkName, a.TenantID)
-	return db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id IN (?) AND address = ? AND state = ?", a.TenantID, networkIDs, a.Address, IPAttached).
+		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ?", a.TenantID, a.NetworkID, a.RawAddress, IPAttached).
 		Updates(map[string]any{
 			"state":      IPOrphaned,
 			"updated_at": time.Now(),
@@ -134,7 +165,7 @@ func (a *IPAllocation) ReleaseByNetworkName(ctx context.Context, networkName str
 // been updated since the given time, e.g. reattached concurrently.
 func (a *IPAllocation) ReleaseStale(ctx context.Context, updatedBefore time.Time) error {
 	return db.FromContext(ctx).Model(&IPAllocation{}).
-		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ? AND updated_at < ?", a.TenantID, a.NetworkID, a.Address, IPAttached, updatedBefore).
+		Where("tenant_id = ? AND network_id = ? AND address = ? AND state = ? AND updated_at < ?", a.TenantID, a.NetworkID, a.RawAddress, IPAttached, updatedBefore).
 		Updates(map[string]any{
 			"state":      IPOrphaned,
 			"updated_at": time.Now(),

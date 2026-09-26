@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/gorm/clause"
@@ -30,10 +31,11 @@ const (
 // The pool row is locked for the duration of an allocation, which serializes
 // allocations on a network across all server replicas.
 type IPPool struct {
-	TenantID  string   `gorm:"primaryKey" json:"tenant_id"`
-	NetworkID string   `gorm:"primaryKey" json:"network_id"`
+	ID        string   `gorm:"primaryKey" json:"id"`
+	TenantID  string   `gorm:"uniqueIndex:udx_ip_pool_tenant_network_family,priority:1" json:"tenant_id"`
+	NetworkID string   `gorm:"uniqueIndex:udx_ip_pool_tenant_network_family,priority:2" json:"network_id"`
 	Network   *Network `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
-	Family    IPFamily `gorm:"primaryKey" json:"family"`
+	Family    IPFamily `gorm:"uniqueIndex:udx_ip_pool_tenant_network_family,priority:3" json:"family"`
 	// NodeCursor is the last address allocated to a node by the cursor, empty
 	// if none has been allocated yet.
 	NodeCursor string `json:"node_cursor"`
@@ -50,11 +52,20 @@ func (p *IPPool) TableName() string {
 
 // Create inserts the pool if it does not exist yet.
 func (p *IPPool) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(p).Error
+	if p.ID == "" {
+		p.ID = uuid.NewString()
+	}
+	return db.FromContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "network_id"}, {Name: "family"}},
+		DoNothing: true,
+	}).Create(p).Error
 }
 
 // Upsert inserts the pool, or updates its cursors if it exists.
 func (p *IPPool) Upsert(ctx context.Context) error {
+	if p.ID == "" {
+		p.ID = uuid.NewString()
+	}
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "network_id"}, {Name: "family"}},
 		DoUpdates: clause.AssignmentColumns([]string{"node_cursor", "ext_cursor", "updated_at"}),
