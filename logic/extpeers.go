@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"sort"
 	"strings"
@@ -216,15 +217,15 @@ func releaseExtClientAddresses(ctx context.Context, extClient models.ExtClient) 
 		return
 	}
 	for _, address := range []string{extClient.Address, extClient.Address6} {
-		ip := net.ParseIP(address)
-		if ip == nil {
+		addr, err := netip.ParseAddr(address)
+		if err != nil {
 			continue
 		}
 		allocation := &schema.IPAllocation{
 			TenantID:  network.TenantID,
 			NetworkID: network.ID,
-			Address:   ip.String(),
 		}
+		allocation.SetAddress(addr)
 		if err := allocation.Release(ctx); err != nil {
 			slog.Error("failed to release extclient address", "extclient", extClient.ClientID, "address", address, "error", err)
 		}

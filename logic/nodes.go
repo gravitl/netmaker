@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"sync"
 	"time"
@@ -338,15 +339,15 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 // can be reallocated.
 func releaseNodeAddresses(ctx context.Context, node *schema.Node) {
 	for _, address := range []string{node.Address, node.Address6} {
-		ip, _, err := net.ParseCIDR(address)
+		prefix, err := netip.ParsePrefix(address)
 		if err != nil {
 			continue
 		}
 		allocation := &schema.IPAllocation{
 			TenantID:  node.TenantID,
 			NetworkID: node.NetworkID,
-			Address:   ip.String(),
 		}
+		allocation.SetAddress(prefix.Addr())
 		if err := allocation.Release(ctx); err != nil {
 			slog.Error("failed to release node address", "node", node.ID, "address", address, "error", err)
 		}
