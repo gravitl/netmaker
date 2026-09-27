@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
-	"gorm.io/gorm"
 )
 
 var (
@@ -176,15 +175,15 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	clients, err := GetExtClientsByID(ctx, nodeid, node.Network)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	clients, err := GetGatewayExtClients(ctx, nodeid)
+	if err != nil {
 		return models.Node{}, removedClients, err
 	}
 
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
+	if err = DeleteGatewayExtClients(ctx, node.ID.String()); err != nil {
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
@@ -201,21 +200,16 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	return node, removedClients, err
 }
 
-// DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
-func DeleteGatewayExtClients(ctx context.Context, gatewayID string, networkName string) error {
-	currentExtClients, err := GetNetworkExtClients(ctx, networkName)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil
-	}
+// DeleteGatewayExtClients - deletes the ext clients attached to the gateway
+func DeleteGatewayExtClients(ctx context.Context, gatewayID string) error {
+	extClients, err := GetGatewayExtClients(ctx, gatewayID)
 	if err != nil {
 		return err
 	}
-	for _, extClient := range currentExtClients {
-		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(ctx, networkName, extClient.ClientID, false); err != nil {
-				logger.Log(1, "failed to remove ext client", extClient.ClientID)
-				continue
-			}
+	for _, extClient := range extClients {
+		if err = DeleteExtClient(ctx, extClient); err != nil {
+			logger.Log(1, "failed to remove ext client", extClient.ClientID)
+			continue
 		}
 	}
 	return nil

@@ -61,7 +61,7 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 				}
 				if node.IsGw {
 					// delete ext clients belonging to gateway
-					DeleteGatewayExtClients(ctx, node.ID.String(), node.Network)
+					DeleteGatewayExtClients(ctx, node.ID.String())
 				}
 				DisassociateNodeFromHost(ctx, &node, host)
 			}

@@ -296,3 +296,45 @@ func TestRenameExtClientInAclPolicies(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "client-old", got.Src[0].Value, "policies of other networks are untouched")
 }
+
+func TestGatewayAndStatusExtClients(t *testing.T) {
+	ctx := extClientTestCtx("tenant-gw")
+	network := createExtClientTestNetwork(t, ctx, "extclient-gw-net")
+	gatewayID := uuid.NewString()
+
+	attached := newTestExtClient("client-attached", network.Name)
+	attached.IngressGatewayID = gatewayID
+	attached.Status = schema.OnlineSt
+	require.NoError(t, SaveExtClient(ctx, attached))
+	offline := newTestExtClient("client-offline", network.Name)
+	offline.IngressGatewayID = gatewayID
+	offline.Status = schema.OfflineSt
+	require.NoError(t, SaveExtClient(ctx, offline))
+	other := newTestExtClient("client-other-gw", network.Name)
+	other.Status = schema.OnlineSt
+	require.NoError(t, SaveExtClient(ctx, other))
+
+	extclients, err := GetGatewayExtClients(ctx, gatewayID)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"client-attached", "client-offline"}, extClientNames(extclients))
+	for _, extclient := range extclients {
+		assert.Equal(t, network.Name, extclient.Network)
+	}
+
+	online, err := GetAllExtClientsWithStatus(ctx, schema.OnlineSt)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"client-attached", "client-other-gw"}, extClientNames(online))
+
+	require.NoError(t, DeleteGatewayExtClients(ctx, gatewayID))
+	remaining, err := GetNetworkExtClients(ctx, network.Name)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"client-other-gw"}, extClientNames(remaining))
+}
+
+func extClientNames(extclients []models.ExtClient) []string {
+	names := make([]string, 0, len(extclients))
+	for _, extclient := range extclients {
+		names = append(names, extclient.ClientID)
+	}
+	return names
+}
