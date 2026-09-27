@@ -16,7 +16,9 @@ type ExtClientRecord struct {
 	Value     datatypes.JSONType[ExtClient]
 }
 
-func (*ExtClientRecord) TableName() string { return "extclients" }
+func (*ExtClientRecord) TableName() string {
+	return "extclients"
+}
 
 // ExtClient is the json value of an ExtClientRecord.
 type ExtClient struct {
