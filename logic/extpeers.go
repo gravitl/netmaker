@@ -30,50 +30,6 @@ var ClientLimitExceeded = func(ctx context.Context) bool {
 	return false
 }
 
-// extClientCacheMap maps tenant ID -> *sync.Map of record key -> models.ExtClient
-var extClientCacheMap sync.Map
-
-// getTenantExtClientCache returns the ext client cache map for the given tenant, creating it if necessary
-func getTenantExtClientCache(tenantID string) *sync.Map {
-	v, _ := extClientCacheMap.LoadOrStore(tenantID, &sync.Map{})
-	return v.(*sync.Map)
-}
-
-func getAllExtClientsFromCache(ctx context.Context) (extClients []models.ExtClient) {
-	getTenantExtClientCache(scope.ID(ctx)).Range(func(_, v any) bool {
-		extclient := v.(models.ExtClient)
-		if extclient.Mutex == nil {
-			extclient.Mutex = &sync.Mutex{}
-		}
-		extClients = append(extClients, extclient)
-		return true
-	})
-	return
-}
-
-func deleteExtClientFromCache(ctx context.Context, key string) {
-	getTenantExtClientCache(scope.ID(ctx)).Delete(key)
-}
-
-func getExtClientFromCache(ctx context.Context, key string) (extclient models.ExtClient, ok bool) {
-	v, ok := getTenantExtClientCache(scope.ID(ctx)).Load(key)
-	if !ok {
-		return extclient, false
-	}
-	extclient = v.(models.ExtClient)
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	return extclient, true
-}
-
-func storeExtClientInCache(ctx context.Context, key string, extclient models.ExtClient) {
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	getTenantExtClientCache(scope.ID(ctx)).Store(key, extclient)
-}
-
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client.
 // Internet egress (0.0.0.0/0, ::/0) is excluded here: full-tunnel is opt-in via
 // SelectedInternetEgressID and is applied only by ExtClientUsesInternetEgress /
