@@ -278,55 +278,40 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	return new
 }
 
-// GetExtClientsByID - gets the clients of attached gateway
-func GetExtClientsByID(ctx context.Context, nodeid, network string) ([]models.ExtClient, error) {
-	var result []models.ExtClient
-	currentClients, err := GetNetworkExtClients(ctx, network)
-	if err != nil {
-		return result, err
-	}
-	for i := range currentClients {
-		if currentClients[i].IngressGatewayID == nodeid {
-			result = append(result, currentClients[i])
-		}
-	}
-	return result, nil
+// GetGatewayExtClients - gets the ext clients attached to the gateway
+func GetGatewayExtClients(ctx context.Context, gatewayID string) ([]models.ExtClient, error) {
+	return listExtClients(ctx, dbtypes.WithFilter(fmt.Sprintf("%s.ingress_gateway_id", (&schema.Extclient{}).TableName()), gatewayID))
 }
 
 // GetAllExtClients - gets all ext clients from DB
 func GetAllExtClients(ctx context.Context) ([]models.ExtClient, error) {
-	// the inner join skips the ext clients of deleted networks, and populates
-	// the network of the rest for the conversion.
-	_extclients, err := (&schema.Extclient{}).ListAll(ctx, func(db *gorm.DB) *gorm.DB {
-		return db.InnerJoins("Network")
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	clients := make([]models.ExtClient, 0, len(_extclients))
-	for i := range _extclients {
-		clients = append(clients, *ConvertSchemaExtclientToModelsExtClientWithContext(ctx, &_extclients[i], SkipViolations()))
-	}
-	return clients, nil
+	return listExtClients(ctx)
 }
 
 // GetAllExtClientsWithStatus - returns all external clients with
 // given status.
 func GetAllExtClientsWithStatus(ctx context.Context, status schema.NodeStatus) ([]models.ExtClient, error) {
-	extClients, err := GetAllExtClients(ctx)
+	return listExtClients(ctx, dbtypes.WithFilter(fmt.Sprintf("%s.status", (&schema.Extclient{}).TableName()), status))
+}
+
+// listExtClients lists the ext clients of the tenant in the context matching
+// the options, without their posture check violations.
+func listExtClients(ctx context.Context, options ...dbtypes.Option) ([]models.ExtClient, error) {
+	// the inner join skips the ext clients of deleted networks, and populates
+	// the network of the rest for the conversion.
+	options = append(options, func(db *gorm.DB) *gorm.DB {
+		return db.InnerJoins("Network")
+	})
+	_extclients, err := (&schema.Extclient{}).ListAll(ctx, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var validExtClients []models.ExtClient
-	for _, extClient := range extClients {
-		if extClient.Status == status {
-			validExtClients = append(validExtClients, extClient)
-		}
+	extclients := make([]models.ExtClient, 0, len(_extclients))
+	for i := range _extclients {
+		extclients = append(extclients, *ConvertSchemaExtclientToModelsExtClientWithContext(ctx, &_extclients[i], SkipViolations()))
 	}
-
-	return validExtClients, nil
+	return extclients, nil
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
