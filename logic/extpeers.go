@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -25,6 +26,10 @@ import (
 )
 
 var ErrClientLimitExceeded = errors.New("client limit reached for this tenant, please upgrade your license")
+
+// ErrExtClientNameIsID is returned when an ext client's name is a uuid, which
+// would be indistinguishable from an ext client id.
+var ErrExtClientNameIsID = errors.New("ext client name cannot be a uuid")
 
 var ClientLimitExceeded = func(ctx context.Context) bool {
 	return false
@@ -173,16 +178,31 @@ func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClie
 	return extclients, nil
 }
 
-// GetExtClient - gets a single ext client on a network
+// GetExtClient - gets a single ext client on a network by its id or its name
 func GetExtClient(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
 	_extclient := &schema.Extclient{
-		Name:    clientid,
 		Network: &schema.Network{Name: network},
+	}
+	if IsExtClientID(clientid) {
+		_extclient.ID = clientid
+	} else {
+		_extclient.Name = clientid
 	}
 	if err := _extclient.Get(ctx); err != nil {
 		return models.ExtClient{}, err
 	}
-	return *ConvertSchemaExtclientToModelsExtClientWithContext(ctx, _extclient), nil
+
+	extclient := ConvertSchemaExtclientToModelsExtClientWithContext(ctx, _extclient)
+	if extclient.Network != network {
+		return models.ExtClient{}, gorm.ErrRecordNotFound
+	}
+	return *extclient, nil
+}
+
+// IsExtClientID reports whether the ext client identifier is an id, as
+// opposed to a name. Names can't be uuids, see SaveExtClient.
+func IsExtClientID(clientid string) bool {
+	return len(clientid) == 36 && uuid.Validate(clientid) == nil
 }
 
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
@@ -212,6 +232,9 @@ func GenerateNodeName(ctx context.Context, network string) (string, error) {
 // SaveExtClient creates the ext client if it has no ID, else updates it.
 // Posture check violations are not saved, use Extclient.UpsertViolations.
 func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
+	if IsExtClientID(extclient.ClientID) {
+		return ErrExtClientNameIsID
+	}
 	if extclient.TenantID == "" {
 		extclient.TenantID = scope.ID(ctx)
 	}

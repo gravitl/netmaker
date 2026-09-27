@@ -153,7 +153,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -194,7 +194,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Param       type path string true "Config type (qr or file)"
 // @Param       preferredip query string false "Preferred endpoint IP"
 // @Success     200 {object} models.ExtClient
@@ -856,7 +856,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Param       body body models.CustomExtClient true "Custom ext client update"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -1026,7 +1026,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1095,7 +1095,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       body body models.BulkDeleteRequest true "List of ext client IDs to delete"
+// @Param       body body models.BulkDeleteRequest true "List of ext client IDs (uuids) or names to delete"
 // @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
