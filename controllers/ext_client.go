@@ -953,21 +953,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
-		slog.Error(
-			"failed to delete ext client",
-			"user",
-			r.Header.Get("user"),
-			"id",
-			oldExtClient.ClientID,
-			"network",
-			oldExtClient.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
 			"failed to save ext client",
@@ -984,6 +969,20 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
+
+	if oldExtClient.ClientID != newclient.ClientID {
+		// acl policies refer to ext clients by name.
+		if err := logic.RenameExtClientInAclPolicies(r.Context(), newclient.Network, oldExtClient.ClientID, newclient.ClientID); err != nil {
+			slog.Error(
+				"failed to rename ext client in acl policies",
+				"user", r.Header.Get("user"),
+				"network", newclient.Network,
+				"old_name", oldExtClient.ClientID,
+				"new_name", newclient.ClientID,
+				"error", err,
+			)
+		}
+	}
 
 	if newclient.DeviceID != "" && update.Enabled {
 		// user wants to enable this extclient, so delete all the other extclients.

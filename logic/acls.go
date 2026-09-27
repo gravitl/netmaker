@@ -3194,6 +3194,36 @@ func IsAclExists(ctx context.Context, aclID string) bool {
 	return err == nil
 }
 
+// RenameExtClientInAclPolicies updates the policies of the network that refer
+// to the ext client by its old name to refer to it by its new name.
+func RenameExtClientInAclPolicies(ctx context.Context, network, oldName, newName string) error {
+	acls, err := ListAclsByNetwork(ctx, schema.NetworkID(network))
+	if err != nil {
+		return err
+	}
+	for _, acl := range acls {
+		// copy the tags, the policies can be shared with the acl cache.
+		acl.Src = append([]models.AclPolicyTag(nil), acl.Src...)
+		acl.Dst = append([]models.AclPolicyTag(nil), acl.Dst...)
+		update := false
+		for _, tags := range [][]models.AclPolicyTag{acl.Src, acl.Dst} {
+			for i := range tags {
+				if tags[i].ID == models.NodeID && tags[i].Value == oldName {
+					tags[i].Value = newName
+					update = true
+				}
+			}
+		}
+		if !update {
+			continue
+		}
+		if err := UpsertAcl(ctx, acl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func RemoveNodeFromAclPolicy(ctx context.Context, node models.Node) {
 	var nodeID string
 	if node.IsStatic {

@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
@@ -359,10 +358,6 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 
 	// update in DB
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(ctx, client.Network, client.ClientID, true); err != nil {
-		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
-		return newClient, err
-	}
 	if err := SaveExtClient(ctx, &newClient); err != nil {
 		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
 		return newClient, err
