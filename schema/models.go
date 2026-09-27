@@ -36,6 +36,7 @@ func ListModels() []interface{} {
 		&CacheRecord{},
 		&DNSRecord{},
 		&ExtClientRecord{},
+		&Extclient{},
 		&MetricsRecord{},
 		&SsoStateRecord{},
 		&TagRecord{},
