@@ -708,3 +708,142 @@ func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) er
 
 	return nil
 }
+
+func ConvertSchemaExtclientToModelsExtClient(_extclient *schema.Extclient, opts ...NodeConvertOption) *models.ExtClient {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _extclient.TenantID)
+	return ConvertSchemaExtclientToModelsExtClientWithContext(ctx, _extclient, opts...)
+}
+
+func ConvertSchemaExtclientToModelsExtClientWithContext(ctx context.Context, _extclient *schema.Extclient, opts ...NodeConvertOption) *models.ExtClient {
+	cfg := nodeConvertOpts{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	if _extclient.Network == nil {
+		_extclient.Network = &schema.Network{
+			ID: _extclient.NetworkID,
+		}
+		err := _extclient.Network.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				_extclient.Network = &schema.Network{}
+			} else {
+				return &models.ExtClient{}
+			}
+		}
+	}
+
+	var violations []models.Violation
+	if !cfg.skipViolations {
+		_violations, err := _extclient.ListViolations(ctx)
+		if err == nil {
+			for _, _violation := range _violations {
+				violations = append(violations, models.Violation{
+					CheckID:   _violation.CheckID,
+					Name:      _violation.Name,
+					Attribute: _violation.Attribute,
+					Message:   _violation.Message,
+					Severity:  _violation.Severity,
+				})
+			}
+		}
+	}
+
+	return &models.ExtClient{
+		ID:                                _extclient.ID,
+		TenantID:                          _extclient.TenantID,
+		ClientID:                          _extclient.Name,
+		PrivateKey:                        _extclient.PrivateKey,
+		PublicKey:                         _extclient.PublicKey,
+		Network:                           _extclient.Network.Name,
+		DNS:                               _extclient.DNS,
+		Address:                           _extclient.Address,
+		Address6:                          _extclient.Address6,
+		ExtraAllowedIPs:                   _extclient.ExtraAllowedIPs,
+		AllowedIPs:                        _extclient.AllowedIPs,
+		IngressGatewayID:                  _extclient.IngressGatewayID,
+		IngressGatewayEndpoint:            _extclient.IngressGatewayEndpoint,
+		SelectedInternetEgressID:          _extclient.SelectedInternetEgressID,
+		LastModified:                      _extclient.UpdatedAt.Unix(),
+		Enabled:                           _extclient.Enabled,
+		OwnerID:                           _extclient.OwnerID,
+		DeniedACLs:                        _extclient.DeniedACLs.Data(),
+		RemoteAccessClientID:              _extclient.RemoteAccessClientID,
+		PostUp:                            _extclient.PostUp,
+		PostDown:                          _extclient.PostDown,
+		Tags:                              _extclient.Tags.Data(),
+		OS:                                _extclient.OS,
+		OSFamily:                          _extclient.OSFamily,
+		OSVersion:                         _extclient.OSVersion,
+		KernelVersion:                     _extclient.KernelVersion,
+		ClientVersion:                     _extclient.ClientVersion,
+		DeviceID:                          _extclient.DeviceID,
+		DeviceName:                        _extclient.DeviceName,
+		PublicEndpoint:                    _extclient.PublicEndpoint,
+		Country:                           _extclient.Country,
+		Location:                          _extclient.Location,
+		PostureChecksViolations:           violations,
+		PostureCheckVolationSeverityLevel: _extclient.PostureCheckSeverity,
+		LastEvaluationCycleID:             _extclient.PostureCheckLastEvaluationCycleID,
+		LastEvaluatedAt:                   _extclient.PostureCheckLastEvaluatedAt,
+		JITExpiresAt:                      _extclient.JITExpiresAt,
+		Status:                            _extclient.Status,
+		Mutex:                             &sync.Mutex{},
+	}
+}
+
+// ConvertModelsExtClientToSchemaExtclient converts the ext client, resolving
+// its network by name within its tenant. Posture check violations are not
+// converted.
+func ConvertModelsExtClientToSchemaExtclient(extclient *models.ExtClient) (*schema.Extclient, error) {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, extclient.TenantID)
+
+	network := &schema.Network{
+		Name: extclient.Network,
+	}
+	err := network.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.Extclient{
+		ID:                                extclient.ID,
+		TenantID:                          extclient.TenantID,
+		NetworkID:                         network.ID,
+		Network:                           network,
+		Name:                              extclient.ClientID,
+		PrivateKey:                        extclient.PrivateKey,
+		PublicKey:                         extclient.PublicKey,
+		DNS:                               extclient.DNS,
+		Address:                           extclient.Address,
+		Address6:                          extclient.Address6,
+		IngressGatewayID:                  extclient.IngressGatewayID,
+		IngressGatewayEndpoint:            extclient.IngressGatewayEndpoint,
+		AllowedIPs:                        extclient.AllowedIPs,
+		ExtraAllowedIPs:                   extclient.ExtraAllowedIPs,
+		PostUp:                            extclient.PostUp,
+		PostDown:                          extclient.PostDown,
+		SelectedInternetEgressID:          extclient.SelectedInternetEgressID,
+		Enabled:                           extclient.Enabled,
+		OwnerID:                           extclient.OwnerID,
+		Status:                            extclient.Status,
+		PostureCheckSeverity:              extclient.PostureCheckVolationSeverityLevel,
+		PostureCheckLastEvaluationCycleID: extclient.LastEvaluationCycleID,
+		PostureCheckLastEvaluatedAt:       extclient.LastEvaluatedAt,
+		DeniedACLs:                        datatypes.NewJSONType(extclient.DeniedACLs),
+		RemoteAccessClientID:              extclient.RemoteAccessClientID,
+		Tags:                              datatypes.NewJSONType(extclient.Tags),
+		OS:                                extclient.OS,
+		OSFamily:                          extclient.OSFamily,
+		OSVersion:                         extclient.OSVersion,
+		KernelVersion:                     extclient.KernelVersion,
+		ClientVersion:                     extclient.ClientVersion,
+		DeviceID:                          extclient.DeviceID,
+		DeviceName:                        extclient.DeviceName,
+		PublicEndpoint:                    extclient.PublicEndpoint,
+		Country:                           extclient.Country,
+		Location:                          extclient.Location,
+		JITExpiresAt:                      extclient.JITExpiresAt,
+	}, nil
+}

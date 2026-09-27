@@ -483,7 +483,14 @@ type PostureCheckDeviceInfo struct {
 	EDRState *schema.DeviceEDRState
 }
 
-type Violation = schema.Violation
+// Violation - posture check violation data
+type Violation struct {
+	CheckID   string          `json:"check_id"`
+	Name      string          `json:"name"`
+	Attribute string          `json:"attribute"`
+	Message   string          `json:"message"`
+	Severity  schema.Severity `json:"severity"`
+}
 
 type BulkDeleteRequest struct {
 	IDs []string `json:"ids"`
