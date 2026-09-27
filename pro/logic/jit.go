@@ -763,7 +763,7 @@ func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schem
 			continue
 		}
 
-		if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
+		if err := logic.DeleteExtClient(ctx, client); err != nil {
 			slog.Warn("failed to delete client-app ext client when enabling JIT",
 				"client_id", client.ClientID, "network", network.Name, "error", err)
 			continue
@@ -869,7 +869,7 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 		// Ext clients have OwnerID field that should match userID
 		if client.OwnerID == userID {
 			clientCopy := client
-			if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
+			if err := logic.DeleteExtClient(ctx, client); err != nil {
 				slog.Warn("failed to delete ext client after JIT ended",
 					"client_id", client.ClientID, "error", err)
 				continue

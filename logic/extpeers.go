@@ -13,6 +13,7 @@ import (
 
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -118,20 +119,17 @@ func UniqueIPNetStrList(ipnets []string) []string {
 	return uniqueList
 }
 
-// DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(ctx context.Context, network string, clientid string, isUpdate bool) error {
-	extClient, err := GetExtClient(ctx, clientid, network)
-	if err != nil {
-		return err
-	}
+// DeleteExtClient deletes an existing ext client, its posture check
+// violations and its references in acl policies.
+func DeleteExtClient(ctx context.Context, extClient models.ExtClient) error {
 	_extClient := &schema.Extclient{ID: extClient.ID}
-	if err = _extClient.Delete(ctx); err != nil {
+	if err := _extClient.Delete(ctx); err != nil {
 		return err
 	}
-	if err = _extClient.DeleteViolations(ctx); err != nil {
+	if err := _extClient.DeleteViolations(ctx); err != nil {
 		slog.Error("failed to delete ext client posture check violations", "id", extClient.ID, "error", err)
 	}
-	if !isUpdate && extClient.RemoteAccessClientID != "" {
+	if extClient.RemoteAccessClientID != "" {
 		LogEvent(ctx, &models.Event{
 			Action: schema.Disconnect,
 			Source: models.Subject{
@@ -152,19 +150,6 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 	}
 	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
-	return nil
-}
-
-// DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
-func DeleteExtClientAndCleanup(ctx context.Context, extClient models.ExtClient) error {
-
-	//delete extClient record
-	err := DeleteExtClient(ctx, extClient.Network, extClient.ClientID, false)
-	if err != nil {
-		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
-		return err
-	}
-
 	return nil
 }
 
@@ -620,7 +605,7 @@ func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) er
 
 	for _, extI := range extclients {
 		if extI.ClientID != extclient.ClientID && extI.DeviceID == extclient.DeviceID && extI.OwnerID == extclient.OwnerID {
-			err = DeleteExtClient(ctx, extI.Network, extI.ClientID, false)
+			err = DeleteExtClient(ctx, extI)
 			if err != nil {
 				return err
 			}

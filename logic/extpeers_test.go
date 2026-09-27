@@ -191,13 +191,15 @@ func TestDeleteExtClient(t *testing.T) {
 		{CheckID: "check-1", Severity: schema.SeverityHigh},
 	}))
 
-	require.NoError(t, DeleteExtClient(ctx, network.Name, "client-delete", false))
+	require.NoError(t, DeleteExtClient(ctx, *extclient))
 
 	_, err := GetExtClient(ctx, "client-delete", network.Name)
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	violations, err := _extclient.ListViolations(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, violations)
+
+	assert.ErrorIs(t, DeleteExtClient(ctx, *extclient), gorm.ErrRecordNotFound, "deleting a deleted ext client fails")
 }
 
 func TestConvertExtClient(t *testing.T) {

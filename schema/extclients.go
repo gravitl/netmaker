@@ -199,13 +199,22 @@ func (e *Extclient) Update(ctx context.Context) error {
 	return nil
 }
 
+// Delete deletes the extclient. It returns gorm.ErrRecordNotFound if the
+// extclient does not exist.
 func (e *Extclient) Delete(ctx context.Context) error {
 	query, err := e.baseIdentifierQuery(ctx)
 	if err != nil {
 		return err
 	}
 
-	return query.Delete(&Extclient{}).Error
+	result := query.Delete(&Extclient{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // ListByNetwork lists the extclients of the network identified by NetworkID,

@@ -1857,7 +1857,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
-				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+				err = logic.DeleteExtClient(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -2038,7 +2038,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 				// only delete wireguard configs on force
 				continue
 			}
-			if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+			if err := logic.DeleteExtClient(ctx, extclient); err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", username, "error", err)
 				continue

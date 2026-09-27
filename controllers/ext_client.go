@@ -1068,7 +1068,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+	err = logic.DeleteExtClient(r.Context(), extclient)
 	if err != nil {
 		slog.Error("deleteExtClient: ", "Error", err.Error())
 		err = errors.New("Could not delete extclient " + params["clientid"])
@@ -1126,7 +1126,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
 				continue
 			}
-			if err = logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+			if err = logic.DeleteExtClient(ctx, extclient); err != nil {
 				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
 				continue
 			}

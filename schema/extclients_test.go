@@ -181,7 +181,7 @@ func TestExtclient_Delete(t *testing.T) {
 	assert.ErrorIs(t, (&schema.Extclient{NetworkID: network.ID, Name: "client-2"}).Get(ctx), gorm.ErrRecordNotFound)
 
 	otherTenant := createExtclient(t, ctx, network, "client-3")
-	require.NoError(t, (&schema.Extclient{ID: otherTenant.ID}).Delete(tenantCtx("tenant-2")))
+	assert.ErrorIs(t, (&schema.Extclient{ID: otherTenant.ID}).Delete(tenantCtx("tenant-2")), gorm.ErrRecordNotFound)
 	assert.NoError(t, (&schema.Extclient{ID: otherTenant.ID}).Get(ctx), "delete is tenant scoped")
 }
 

@@ -1287,7 +1287,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
-				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+				err = logic.DeleteExtClient(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)

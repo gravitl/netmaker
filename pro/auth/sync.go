@@ -520,7 +520,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 	}
 	for _, extclient := range extclients {
 		if extclient.OwnerID == username {
-			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+			err = logic.DeleteExtClient(ctx, extclient)
 			if err == nil {
 				_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 			}

@@ -804,7 +804,7 @@ func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+				err = logic.DeleteExtClient(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -821,7 +821,7 @@ func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+				err = logic.DeleteExtClient(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -872,7 +872,7 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 		}
 
 		if shouldDelete {
-			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+			err = logic.DeleteExtClient(ctx, extclient)
 			if err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -920,7 +920,7 @@ func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.Use
 	for _, extclient := range extclients {
 		if extclient.OwnerID == currentUser.Username {
 			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+				err = logic.DeleteExtClient(ctx, extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
