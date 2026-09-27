@@ -387,10 +387,10 @@ func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, mod
 	}
 	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
 	for _, v := range all {
-		cycles := byNodeCycle[v.NodeID]
+		cycles := byNodeCycle[v.SubjectID]
 		if cycles == nil {
 			cycles = make(map[string][]models.Violation)
-			byNodeCycle[v.NodeID] = cycles
+			byNodeCycle[v.SubjectID] = cycles
 		}
 		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
 			CheckID:   v.CheckID,
