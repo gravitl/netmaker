@@ -172,19 +172,31 @@ func (e *Extclient) Get(ctx context.Context) error {
 	return nil
 }
 
-// Update overwrites all the fields of the extclient, except the tenant and
-// the creation time, identified by its ID.
+// Update overwrites all the fields of the extclient identified by its ID,
+// except the tenant, the creation time and the posture check fields, which
+// are owned by UpsertViolations. It returns gorm.ErrRecordNotFound if the
+// extclient does not exist.
 func (e *Extclient) Update(ctx context.Context) error {
 	if e.ID == "" {
 		return ErrExtclientIdentifiersNotProvided
 	}
 
-	return db.FromContext(ctx).Model(&Extclient{}).
+	result := db.FromContext(ctx).Model(&Extclient{}).
 		Where(fmt.Sprintf("%s.id = ?", extclientsTable), e.ID).
 		Select("*").
-		Omit("id", "tenant_id", "created_at", clause.Associations).
-		Updates(e).
-		Error
+		Omit(
+			"id", "tenant_id", "created_at",
+			"posture_check_severity", "posture_check_last_evaluation_cycle_id", "posture_check_last_evaluated_at",
+			clause.Associations,
+		).
+		Updates(e)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (e *Extclient) Delete(ctx context.Context) error {
