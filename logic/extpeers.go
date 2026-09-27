@@ -761,3 +761,54 @@ func ConvertModelsExtClientToSchemaExtclient(extclient *models.ExtClient) (*sche
 		JITExpiresAt:                      extclient.JITExpiresAt,
 	}, nil
 }
+
+// AttachExtClientViolations loads the current-cycle posture check violations
+// of the ext clients in one query, and assigns them to the ext clients.
+func AttachExtClientViolations(ctx context.Context, extclients []models.ExtClient) {
+	ids := make([]string, 0, len(extclients))
+	for i := range extclients {
+		if extclients[i].ID != "" && extclients[i].LastEvaluationCycleID != "" {
+			ids = append(ids, extclients[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load ext client posture violations", "error", err, "extclients", len(ids))
+		return
+	}
+	bySubjectCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := bySubjectCycle[v.SubjectID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			bySubjectCycle[v.SubjectID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+	for i := range extclients {
+		cycles := bySubjectCycle[extclients[i].ID]
+		if cycles == nil {
+			continue
+		}
+		if v, ok := cycles[extclients[i].LastEvaluationCycleID]; ok {
+			extclients[i].PostureChecksViolations = v
+			continue
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if extclients[i].PostureCheckVolationSeverityLevel != schema.SeverityUnknown {
+			for _, v := range cycles {
+				extclients[i].PostureChecksViolations = v
+				break
+			}
+		}
+	}
+}

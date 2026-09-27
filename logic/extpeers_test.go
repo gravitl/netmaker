@@ -338,3 +338,70 @@ func extClientNames(extclients []models.ExtClient) []string {
 	}
 	return names
 }
+
+func TestIsExtClientID(t *testing.T) {
+	assert.True(t, IsExtClientID(uuid.NewString()))
+	assert.False(t, IsExtClientID("client-1"))
+	// uuid.Parse accepts these, but they are valid names.
+	assert.False(t, IsExtClientID("0123456789abcdef0123456789abcdef"))
+	assert.False(t, IsExtClientID("{"+uuid.NewString()+"}"))
+}
+
+func TestGetExtClientByID(t *testing.T) {
+	ctx := extClientTestCtx("tenant-id-lookup")
+	network := createExtClientTestNetwork(t, ctx, "extclient-id-net")
+	other := createExtClientTestNetwork(t, ctx, "extclient-id-net-2")
+
+	extclient := newTestExtClient("client-by-id", network.Name)
+	require.NoError(t, SaveExtClient(ctx, extclient))
+
+	got, err := GetExtClient(ctx, extclient.ID, network.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "client-by-id", got.ClientID)
+	assert.Equal(t, network.Name, got.Network)
+
+	_, err = GetExtClient(ctx, extclient.ID, other.Name)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "the id must belong to the network")
+
+	_, err = GetExtClient(extClientTestCtx("tenant-id-lookup-other"), extclient.ID, network.Name)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "the id must belong to the tenant")
+
+	t.Run("RejectsIDAsName", func(t *testing.T) {
+		assert.ErrorIs(t, SaveExtClient(ctx, newTestExtClient(uuid.NewString(), network.Name)), ErrExtClientNameIsID)
+
+		got.ClientID = uuid.NewString()
+		assert.ErrorIs(t, SaveExtClient(ctx, &got), ErrExtClientNameIsID)
+	})
+}
+
+func TestAttachExtClientViolations(t *testing.T) {
+	ctx := extClientTestCtx("tenant-attach")
+	network := createExtClientTestNetwork(t, ctx, "extclient-attach-net")
+
+	withViolations := newTestExtClient("client-violations", network.Name)
+	require.NoError(t, SaveExtClient(ctx, withViolations))
+	require.NoError(t, SaveExtClient(ctx, newTestExtClient("client-clean", network.Name)))
+
+	_extclient := &schema.Extclient{
+		ID:                                withViolations.ID,
+		TenantID:                          withViolations.TenantID,
+		PostureCheckSeverity:              schema.SeverityHigh,
+		PostureCheckLastEvaluationCycleID: uuid.NewString(),
+	}
+	require.NoError(t, _extclient.UpsertViolations(ctx, []schema.PostureCheckViolation{
+		{CheckID: "check-1", Severity: schema.SeverityHigh},
+		{CheckID: "check-2", Severity: schema.SeverityLow},
+	}))
+
+	extclients, err := GetNetworkExtClients(ctx, network.Name)
+	require.NoError(t, err)
+	AttachExtClientViolations(ctx, extclients)
+
+	for _, extclient := range extclients {
+		if extclient.ID == withViolations.ID {
+			assert.Len(t, extclient.PostureChecksViolations, 2)
+		} else {
+			assert.Empty(t, extclient.PostureChecksViolations)
+		}
+	}
+}

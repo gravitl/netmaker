@@ -114,6 +114,7 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	logic.AttachExtClientViolations(r.Context(), extclients)
 	for i := range extclients {
 		extclients[i].PrivateKey = ""
 	}
@@ -139,6 +140,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.AttachExtClientViolations(r.Context(), clients)
 	for i := range clients {
 		clients[i].PrivateKey = ""
 	}
