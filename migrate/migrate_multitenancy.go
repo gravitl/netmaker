@@ -66,21 +66,7 @@ func tenantScopedModels() []any {
 }
 
 func scopedModels() []any {
-	return []any{&schema.PendingUser{}, &schema.UserInvite{}}
-}
-
-func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
-	if err := db.FromContext(ctx).Model(&schema.TenantSettingsRecord{}).
-		Where("key = ?", oldID).
-		Update("key", newID).Error; err != nil {
-		return err
-	}
-
-	// only network roles are scoped to a tenant, org and platform roles are
-	// shared by all the orgs and tenants.
-	return db.FromContext(ctx).Model(&schema.UserRole{}).
-		Where("network_id <> '' AND scope = ? AND scope_id = ?", scope.TenantScope, oldID).
-		Update("scope_id", newID).Error
+	return []any{&schema.PendingUser{}, &schema.UserInvite{}, &schema.UserRole{}}
 }
 
 func RekeyTenant(ctx context.Context, oldID, newID string) error {
@@ -88,7 +74,9 @@ func RekeyTenant(ctx context.Context, oldID, newID string) error {
 		return nil
 	}
 
-	if err := rekeyTenantScopedKeys(ctx, oldID, newID); err != nil {
+	if err := db.FromContext(ctx).Model(&schema.TenantSettingsRecord{}).
+		Where("key = ?", oldID).
+		Update("key", newID).Error; err != nil {
 		return err
 	}
 
