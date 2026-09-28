@@ -803,6 +803,52 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	go publishExtClientCreatePeerUpdate(ctx)
 }
 
+// createExtClientsInBulk saves each client. Failures are recorded and skipped.
+// AllowedIPs are filled by the read APIs; this path does not recompute them.
+func createExtClientsInBulk(ctx context.Context, networkName string, node models.Node, host *schema.Host, userName string, clients []models.CustomExtClient) models.BulkCreateExtClientResponse {
+	resp := models.BulkCreateExtClientResponse{
+		Created: make([]models.ExtClient, 0, len(clients)),
+	}
+	for i, custom := range clients {
+		if logic.ClientLimitExceeded(ctx) {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  logic.ErrClientLimitExceeded.Error(),
+			})
+			continue
+		}
+		if err := validateCustomExtClient(ctx, &custom, true); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+		if err := logic.ValidateEgressRange(ctx, networkName, custom.ExtraAllowedIPs); err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+
+		extclient, err := persistNewExtClient(ctx, node, host, userName, custom, nil)
+		if err != nil {
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index:  i,
+				Client: custom.ClientID,
+				Error:  err.Error(),
+			})
+			continue
+		}
+		resp.Created = append(resp.Created, extclient)
+	}
+	return resp
+}
+
 // @Summary     Bulk create config files on an ingress gateway
 // @Router      /api/v1/extclients/{network}/bulk [post]
 // @Tags        Config Files
@@ -811,7 +857,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       body body models.BulkCreateExtClientRequest true "Ingress gateway and clients to create"
-// @Success     200 {object} models.BulkCreateExtClientResponse
+// @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -825,14 +871,27 @@ func bulkCreateExtClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.IngressGatewayID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("ingress_gateway_id is required"), logic.BadReq))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("gateway_id is required"), logic.BadReq))
 		return
 	}
-	if len(req.Clients) == 0 {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no clients provided"), logic.BadReq))
+
+	clients := req.Clients
+	switch {
+	case req.Count > 0 && len(req.Clients) > 0:
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("specify either count or clients, not both"), logic.BadReq))
 		return
-	}
-	if len(req.Clients) > maxBulkExtClientCreate {
+	case req.Count > 0:
+		if req.Count > maxBulkExtClientCreate {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				fmt.Errorf("bulk create limited to %d clients per request", maxBulkExtClientCreate), logic.BadReq))
+			return
+		}
+		clients = make([]models.CustomExtClient, req.Count)
+	case len(req.Clients) == 0:
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("count or clients is required"), logic.BadReq))
+		return
+	case len(req.Clients) > maxBulkExtClientCreate:
 		logic.ReturnErrorResponse(w, r, logic.FormatError(
 			fmt.Errorf("bulk create limited to %d clients per request", maxBulkExtClientCreate), logic.BadReq))
 		return
@@ -868,59 +927,18 @@ func bulkCreateExtClients(w http.ResponseWriter, r *http.Request) {
 		userName = logic.MasterUser
 	}
 
-	resp := models.BulkCreateExtClientResponse{
-		Created: make([]models.ExtClient, 0, len(req.Clients)),
-	}
-
-	for i, custom := range req.Clients {
-		if logic.ClientLimitExceeded(r.Context()) {
-			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  logic.ErrClientLimitExceeded.Error(),
-			})
-			continue
+	gwHost := *host
+	bgCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, clients []models.CustomExtClient, node models.Node, gwHost schema.Host) {
+		resp := createExtClientsInBulk(ctx, networkName, node, &gwHost, userName, clients)
+		if len(resp.Created) > 0 {
+			publishExtClientCreatePeerUpdate(ctx)
 		}
-		if err := validateCustomExtClient(r.Context(), &custom, true); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
-			})
-			continue
-		}
-		if err := logic.ValidateEgressRange(r.Context(), networkName, custom.ExtraAllowedIPs); err != nil {
-			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
-			})
-			continue
-		}
+		slog.Info("bulk extclient create completed",
+			"created", len(resp.Created), "failed", len(resp.Failed), "total", len(clients))
+	}(bgCtx, clients, node, gwHost)
 
-		extclient, err := persistNewExtClient(r.Context(), node, host, userName, custom, nil)
-		if err != nil {
-			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
-			})
-			continue
-		}
-		extclient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extclient)
-		resp.Created = append(resp.Created, extclient)
-	}
-
-	if len(resp.Created) > 0 {
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		go publishExtClientCreatePeerUpdate(ctx)
-	}
-
-	slog.Info("bulk extclient create completed",
-		"created", len(resp.Created), "failed", len(resp.Failed), "total", len(req.Clients))
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk create of %d ext client(s) accepted", len(clients)))
 }
 
 // @Summary     Update a config file

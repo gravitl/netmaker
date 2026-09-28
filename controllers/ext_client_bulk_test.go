@@ -76,26 +76,9 @@ func TestBulkCreateExtClients(t *testing.T) {
 			ClientID: fmt.Sprintf("bulk-%d", i),
 		}
 	}
-	body, err := json.Marshal(models.BulkCreateExtClientRequest{
-		IngressGatewayID: node.ID,
-		Clients:          clients,
-	})
+	nodeModel, err := logic.GetNodeByID(node.ID)
 	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/extclients/"+network.Name+"/bulk", bytes.NewReader(body))
-	req = req.WithContext(ctx)
-	req = mux.SetURLVars(req, map[string]string{"network": network.Name})
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("user", "admin")
-	req.Header.Set("ismaster", "yes")
-
-	rec := httptest.NewRecorder()
-	bulkCreateExtClients(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	var resp models.BulkCreateExtClientResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	resp := createExtClientsInBulk(ctx, network.Name, nodeModel, host, logic.MasterUser, clients)
 	assert.Len(t, resp.Created, count)
 	assert.Empty(t, resp.Failed)
 
@@ -128,6 +111,81 @@ func TestBulkCreateExtClients_RejectsOverLimit(t *testing.T) {
 	body, err := json.Marshal(models.BulkCreateExtClientRequest{
 		IngressGatewayID: node.ID,
 		Clients:          clients,
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/extclients/"+network.Name+"/bulk", bytes.NewReader(body))
+	req = req.WithContext(ctx)
+	req = mux.SetURLVars(req, map[string]string{"network": network.Name})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("user", "admin")
+	req.Header.Set("ismaster", "yes")
+
+	rec := httptest.NewRecorder()
+	bulkCreateExtClients(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestBulkCreateExtClients_ReturnsAccepted(t *testing.T) {
+	ctx := tenantCtx()
+	network, _, node := createIngressFixture(t, ctx, "bulk-accepted-net", "10.208.0.0/24")
+
+	body, err := json.Marshal(models.BulkCreateExtClientRequest{
+		IngressGatewayID: node.ID,
+		Count:            2,
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/extclients/"+network.Name+"/bulk", bytes.NewReader(body))
+	req = req.WithContext(ctx)
+	req = mux.SetURLVars(req, map[string]string{"network": network.Name})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("user", "admin")
+	req.Header.Set("ismaster", "yes")
+
+	rec := httptest.NewRecorder()
+	bulkCreateExtClients(rec, req)
+	require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		stored, err := logic.GetNetworkExtClients(ctx, network.Name)
+		require.NoError(t, err)
+		if len(stored) >= 2 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("bulk create did not finish in the background")
+}
+
+func TestBulkCreateExtClientsByCount(t *testing.T) {
+	ctx := tenantCtx()
+	network, host, node := createIngressFixture(t, ctx, "bulk-count-net", "10.206.0.0/24")
+
+	nodeModel, err := logic.GetNodeByID(node.ID)
+	require.NoError(t, err)
+	resp := createExtClientsInBulk(ctx, network.Name, nodeModel, host, logic.MasterUser, make([]models.CustomExtClient, 3))
+	assert.Len(t, resp.Created, 3)
+	assert.Empty(t, resp.Failed)
+	seen := map[string]struct{}{}
+	for _, c := range resp.Created {
+		assert.NotEmpty(t, c.ClientID)
+		assert.NotEmpty(t, c.Address)
+		_, dup := seen[c.ClientID]
+		assert.False(t, dup)
+		seen[c.ClientID] = struct{}{}
+	}
+}
+
+func TestBulkCreateExtClients_RejectsCountAndClients(t *testing.T) {
+	ctx := tenantCtx()
+	network, _, node := createIngressFixture(t, ctx, "bulk-both-net", "10.207.0.0/24")
+
+	body, err := json.Marshal(models.BulkCreateExtClientRequest{
+		IngressGatewayID: node.ID,
+		Count:            2,
+		Clients:          []models.CustomExtClient{{ClientID: "named-0"}},
 	})
 	require.NoError(t, err)
 
