@@ -277,6 +277,18 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 						continue
 					}
 					seen[dedupeKey] = struct{}{}
+					// Never grant a node SSH access to itself, however the
+					// match happened (wildcard, a shared tag, an explicit
+					// same-node Src). A node connecting to its own address
+					// doesn't prove it's really a remote WireGuard peer -
+					// unlike every other peer, any local, unprivileged
+					// process on the target can reach the target's own
+					// address directly, without ever going through
+					// WireGuard, bypassing the source-IP trust Managed SSH
+					// otherwise relies on entirely.
+					if !n.IsStatic && n.ID.String() == targetnode.ID.String() {
+						continue
+					}
 					if n.IsStatic {
 						if !n.StaticNode.Enabled {
 							continue
