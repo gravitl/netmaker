@@ -551,6 +551,36 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
+	// node, egress and signal identifiers come from the request body, so they
+	// must be bound to the authenticated host before acting on them.
+	switch hostUpdate.Action {
+	case models.UpdateNode, models.UpdateMetrics:
+		if _, errResp := ensureHostOwnsNode(r, currentHost, hostUpdate.Node.ID.String()); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+	case models.EgressUpdate:
+		if _, errResp := ensureHostOwnsNode(r, currentHost, hostUpdate.Node.ID.String()); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
+		if err := e.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		if r.Header.Get(hostIDHeader) != logic.MasterUser {
+			if _, ok := e.Nodes[hostUpdate.Node.ID.String()]; !ok {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not a routing node of the egress"), logic.Forbidden))
+				return
+			}
+		}
+	case models.SignalHost:
+		if _, errResp := bindSignalToHost(r, currentHost, &hostUpdate.Signal); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+	}
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		var endpointChanged, versionChanged bool
@@ -718,6 +748,29 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}(ctx)
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func ensureHostOwnsNode(r *http.Request, host *schema.Host, nodeID string) (models.Node, *models.ErrorResponse) {
+	node, err := logic.GetNodeByID(nodeID)
+	if err != nil {
+		errResp := logic.FormatError(fmt.Errorf("failed to get node: %w", err), logic.BadReq)
+		return models.Node{}, &errResp
+	}
+	if r.Header.Get(hostIDHeader) != logic.MasterUser && node.HostID != host.ID {
+		errResp := logic.FormatError(errors.New(logic.Forbidden_Msg), logic.Forbidden)
+		return models.Node{}, &errResp
+	}
+	return node, nil
+}
+
+func bindSignalToHost(r *http.Request, host *schema.Host, signal *models.Signal) (models.Node, *models.ErrorResponse) {
+	fromNode, errResp := ensureHostOwnsNode(r, host, signal.FromNodeID)
+	if errResp != nil {
+		return models.Node{}, errResp
+	}
+	signal.FromHostID = host.ID.String()
+	signal.FromHostPubKey = host.PublicKey.String()
+	return fromNode, nil
 }
 
 func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
@@ -1335,9 +1388,10 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// confirm host exists
-	err = (&schema.Host{
+	currentHost := &schema.Host{
 		ID: hostID,
-	}).Get(r.Context())
+	}
+	err = currentHost.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1355,6 +1409,16 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, r.Header.Get("user"), msg)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
+		return
+	}
+	fromNode, errResp := bindSignalToHost(r, currentHost, &signal)
+	if errResp != nil {
+		logic.ReturnErrorResponse(w, r, *errResp)
+		return
+	}
+	toNode, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil || toNode.Network != fromNode.Network || toNode.HostID.String() != signal.ToHostID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is not reachable from the signalling node"), logic.Forbidden))
 		return
 	}
 	signal.IsPro = servercfg.IsPro
