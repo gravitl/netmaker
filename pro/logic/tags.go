@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,36 +14,92 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
-	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 var tagMutex = &sync.RWMutex{}
 
 // GetTag - fetches tag info
 func GetTag(ctx context.Context, tagID models.TagID) (models.Tag, error) {
-	r := &schema.TagRecord{Key: tagID.String()}
-	if err := r.Get(ctx); err != nil {
+	network, name, ok := strings.Cut(tagID.String(), ".")
+	if !ok {
+		return models.Tag{}, gorm.ErrRecordNotFound
+	}
+	_tag := &schema.Tag{
+		Name:    name,
+		Network: &schema.Network{Name: network},
+	}
+	if err := _tag.Get(ctx); err != nil {
 		return models.Tag{}, err
 	}
-	return r.Value.Data(), nil
+	return ConvertSchemaTagToModelsTag(_tag), nil
 }
 
+// UpsertTag - updates the tag, creating it if it does not exist
 func UpsertTag(ctx context.Context, tag models.Tag) error {
-	r := &schema.TagRecord{Key: tag.ID.String(), Value: datatypes.NewJSONType(tag)}
-	return r.Upsert(ctx)
+	_tag, err := ConvertModelsTagToSchemaTag(ctx, tag)
+	if err != nil {
+		return err
+	}
+	existing := &schema.Tag{NetworkID: _tag.NetworkID, Name: _tag.Name}
+	if err := existing.Get(ctx); err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		return _tag.Create(ctx)
+	}
+	_tag.ID = existing.ID
+	return _tag.Update(ctx)
 }
 
 // InsertTag - creates new tag
 func InsertTag(ctx context.Context, tag models.Tag) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	r := &schema.TagRecord{Key: tag.ID.String()}
-	if err := r.Get(ctx); err == nil {
+	if _, err := GetTag(ctx, tag.ID); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
-	r.Value = datatypes.NewJSONType(tag)
-	return r.Upsert(ctx)
+	_tag, err := ConvertModelsTagToSchemaTag(ctx, tag)
+	if err != nil {
+		return err
+	}
+	return _tag.Create(ctx)
+}
+
+// ConvertSchemaTagToModelsTag - converts the tag, its Network must be set
+func ConvertSchemaTagToModelsTag(_tag *schema.Tag) models.Tag {
+	var network string
+	if _tag.Network != nil {
+		network = _tag.Network.Name
+	}
+	return models.Tag{
+		ID:        models.TagID(fmt.Sprintf("%s.%s", network, _tag.Name)),
+		TagName:   _tag.Name,
+		Network:   schema.NetworkID(network),
+		ColorCode: _tag.ColorCode,
+		CreatedBy: _tag.CreatedBy,
+		CreatedAt: _tag.CreatedAt,
+	}
+}
+
+// ConvertModelsTagToSchemaTag - converts the tag, resolving its network by
+// name within the tenant in the context
+func ConvertModelsTagToSchemaTag(ctx context.Context, tag models.Tag) (*schema.Tag, error) {
+	network := &schema.Network{Name: tag.Network.String()}
+	if err := network.Get(ctx); err != nil {
+		return nil, err
+	}
+	return &schema.Tag{
+		TenantID:  scope.ID(ctx),
+		NetworkID: network.ID,
+		Network:   network,
+		Name:      tag.TagName,
+		ColorCode: tag.ColorCode,
+		CreatedBy: tag.CreatedBy,
+		CreatedAt: tag.CreatedAt,
+	}, nil
 }
 
 // DeleteTag - delete tag, will also untag hosts
@@ -80,7 +137,7 @@ func DeleteTag(ctx context.Context, tagID models.TagID, removeFromPolicy bool) e
 			logic.SaveExtClient(ctx, &extclient)
 		}
 	}
-	return (&schema.TagRecord{Key: tagID.String()}).Delete(ctx)
+	return (&schema.Tag{NetworkID: network.ID, Name: tag.TagName}).Delete(ctx)
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
@@ -112,16 +169,13 @@ func DeleteAllNetworkTags(ctx context.Context, networkID schema.NetworkID) {
 func ListNetworkTags(ctx context.Context, netID schema.NetworkID) ([]models.Tag, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	records, err := (&schema.TagRecord{}).List(ctx)
+	_tags, err := (&schema.Tag{Network: &schema.Network{Name: netID.String()}}).ListByNetwork(ctx)
 	if err != nil {
 		return []models.Tag{}, err
 	}
-	tags := []models.Tag{}
-	for _, r := range records {
-		tag := r.Value.Data()
-		if tag.Network == netID {
-			tags = append(tags, tag)
-		}
+	tags := make([]models.Tag, 0, len(_tags))
+	for i := range _tags {
+		tags = append(tags, ConvertSchemaTagToModelsTag(&_tags[i]))
 	}
 	return tags, nil
 }

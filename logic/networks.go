@@ -27,6 +27,16 @@ var NetworkLimitExceeded = func(ctx context.Context) bool {
 
 // DeleteNetwork - deletes a network
 func DeleteNetwork(ctx context.Context, network string, force bool, done chan struct{}) error {
+	// loaded upfront, the resources referring to the network are cleaned up by
+	// its id after it's deleted.
+	_network := &schema.Network{Name: network}
+	if err := _network.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
 	defer func(ctx context.Context) {
 		// Delete default network enrollment key
 		keys, _ := GetAllEnrollmentKeys(ctx)
@@ -37,14 +47,11 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 			}
 		}
 
-		_ = DeleteNetworkDNS(ctx, network)
+		_ = DeleteNetworkDNS(ctx, _network.ID)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx)))
 
 	nodeCount, err := GetNetworkNonServerNodeCount(ctx, network)
 	if nodeCount == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
-		_network := &schema.Network{
-			Name: network,
-		}
 		// delete server nodes first then db records
 		return _network.Delete(ctx)
 	}
@@ -67,9 +74,6 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 			}
 		}
 		// delete server nodes first then db records
-		_network := &schema.Network{
-			Name: network,
-		}
 		err = _network.Delete(ctx)
 		if err != nil {
 			return

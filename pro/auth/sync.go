@@ -377,18 +377,18 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 
 		for _, user := range dbUsers {
 			// use dbGroup.Name because the group name may have been changed on idp.
-			_, inNetmakerGroup := user.UserGroups.Data()[dbGroup.ID]
+			_, inNetmakerGroup := user.UserGroups.Data()[dbGroup.Slug]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data(), dbGroup.ID)
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data(), dbGroup.Slug)
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data()[dbGroup.ID] = struct{}{}
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data()[dbGroup.Slug] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
