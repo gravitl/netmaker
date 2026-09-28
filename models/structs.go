@@ -501,7 +501,7 @@ type BulkDeleteResponse struct {
 
 // BulkCreateExtClientRequest is the body for POST /api/v1/extclients/{network}/bulk.
 type BulkCreateExtClientRequest struct {
-	IngressGatewayID string            `json:"ingress_gateway_id"`
+	IngressGatewayID string            `json:"gateway_id"`
 	Clients          []CustomExtClient `json:"clients"`
 }
 
