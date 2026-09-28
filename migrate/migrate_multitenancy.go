@@ -125,24 +125,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		}
 	}
 
-	var aclKeys []string
-	if err := db.FromContext(ctx).Model(&schema.AclRecord{}).
-		Where("tenant_id = ?", oldID).
-		Pluck("key", &aclKeys).Error; err != nil {
-		return err
-	}
-	for _, key := range aclKeys {
-		newKey := schema.TenantScopedKey(newID, schema.StripTenantKey(oldID, key))
-		if newKey == key {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.AclRecord{}).
-			Where("key = ?", key).
-			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
-			return err
-		}
-	}
-
 	if err := db.FromContext(ctx).Model(&schema.TenantSettingsRecord{}).
 		Where("key = ?", oldID).
 		Update("key", newID).Error; err != nil {
