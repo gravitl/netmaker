@@ -83,7 +83,7 @@ func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(ctx)
 	staticNode := models.ConvertToStaticNode(*client)
-	userPolicies := ListUserPolicies(ctx, schema.NetworkID(client.Network))
+	userPolicies := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(client.Network))
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(client.Network), models.UserPolicy)
 
 	for _, eI := range eli {
