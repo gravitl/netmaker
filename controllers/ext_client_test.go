@@ -188,3 +188,61 @@ func TestGetNetworkExtClients_IncludesViolations(t *testing.T) {
 		}
 	}
 }
+
+func TestListNetworkExtClients(t *testing.T) {
+	env := setupExtClientTest(t, "ec-page-net")
+	for _, name := range []string{"ec-page-client-1", "ec-page-client-2", "ec-page-client-3"} {
+		env.createExtClient(t, name)
+	}
+	disabled := env.createExtClient(t, "ec-page-disabled")
+	disabled.Enabled = false
+	require.NoError(t, logic.SaveExtClient(env.ctx, &disabled))
+
+	_extclient := &schema.Extclient{
+		ID:                                disabled.ID,
+		TenantID:                          defaultTenantID,
+		PostureCheckSeverity:              schema.SeverityHigh,
+		PostureCheckLastEvaluationCycleID: uuid.NewString(),
+	}
+	require.NoError(t, _extclient.UpsertViolations(env.ctx, []schema.PostureCheckViolation{
+		{CheckID: "check-1", Severity: schema.SeverityHigh},
+	}))
+
+	list := func(t *testing.T, query string) (models.PaginatedResponse, []models.ExtClient) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/?"+query, nil).WithContext(env.ctx)
+		req.Header.Set("ismaster", "yes")
+		req = mux.SetURLVars(req, map[string]string{"network": env.network.Name})
+		rec := httptest.NewRecorder()
+		listNetworkExtClients(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		var body struct {
+			Response struct {
+				models.PaginatedResponse
+				Data []models.ExtClient `json:"data"`
+			} `json:"Response"`
+		}
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+		return body.Response.PaginatedResponse, body.Response.Data
+	}
+
+	page, extclients := list(t, "page=2&per_page=3")
+	assert.Equal(t, 4, page.Total)
+	assert.Equal(t, 2, page.TotalPages)
+	require.Len(t, extclients, 1, "second page")
+	assert.Equal(t, disabled.ID, extclients[0].ID, "ordered by creation")
+	assert.Empty(t, extclients[0].PrivateKey)
+	assert.Equal(t, env.network.Name, extclients[0].Network)
+	require.Len(t, extclients[0].PostureChecksViolations, 1)
+
+	page, extclients = list(t, "enabled=false")
+	assert.Equal(t, 1, page.Total)
+	require.Len(t, extclients, 1)
+	assert.Equal(t, "ec-page-disabled", extclients[0].ClientID)
+
+	page, extclients = list(t, "q=CLIENT-2")
+	assert.Equal(t, 1, page.Total)
+	require.Len(t, extclients, 1)
+	assert.Equal(t, "ec-page-client-2", extclients[0].ClientID)
+}
