@@ -269,7 +269,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check platform role
-	roleCheck := &schema.UserRole{ID: schema.UserRoleID(inviteReq.PlatformRoleID)}
+	roleCheck := &schema.UserRole{Slug: schema.UserRoleID(inviteReq.PlatformRoleID)}
 	err = roleCheck.GetPlatformRole(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -279,8 +279,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	if orgScoped {
 		validRoles = orchestrator.ValidOrgRoles
 	}
-	if !validRoles[roleCheck.ID] {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
+	if !validRoles[roleCheck.Slug] {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.Slug), "badrequest"))
 		return
 	}
 

@@ -27,20 +27,20 @@ var (
 )
 
 var ServiceUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.ServiceUser,
+	Slug:                schema.ServiceUser,
 	Default:             true,
 	TenantGlobalAccess:  false,
 	DenyDashboardAccess: true,
 }
 
 var PlatformUserUserPermissionTemplate = schema.UserRole{
-	ID:                 schema.PlatformUser,
+	Slug:               schema.PlatformUser,
 	Default:            true,
 	TenantGlobalAccess: false,
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{
-	ID:                  schema.Auditor,
+	Slug:                schema.Auditor,
 	Default:             true,
 	DenyDashboardAccess: false,
 	TenantGlobalAccess:  false,
@@ -54,7 +54,7 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksAdminRoleID,
+	Slug:               globalNetworksAdminRoleID,
 	Name:               "Network Admins",
 	MetaData:           "can manage configuration of all networks",
 	Default:            true,
@@ -63,7 +63,7 @@ var NetworkAdminAllPermissionTemplate = schema.UserRole{
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
-	ID:                 globalNetworksUserRoleID,
+	Slug:               globalNetworksUserRoleID,
 	Name:               "Network Users",
 	MetaData:           "Can connect to nodes in your networks via Netmaker Desktop App.",
 	Default:            true,
@@ -195,7 +195,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		return
 	}
 	var NetworkAdminPermissionTemplate = schema.UserRole{
-		ID:                 GetDefaultNetworkAdminRoleID(netID),
+		Slug:               GetDefaultNetworkAdminRoleID(netID),
 		Name:               fmt.Sprintf("%s Admin", netID),
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
@@ -205,7 +205,7 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
-		ID:                  GetDefaultNetworkUserRoleID(netID),
+		Slug:                GetDefaultNetworkUserRoleID(netID),
 		Name:                fmt.Sprintf("%s User", netID),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
@@ -382,11 +382,11 @@ func DeleteNetworkRoles(ctx context.Context, netID string) {
 }
 
 func GetAnyRole(ctx context.Context, id schema.UserRoleID) (*schema.UserRole, error) {
-	role := &schema.UserRole{ID: id}
+	role := &schema.UserRole{Slug: id}
 	if err := role.GetNetworkRole(ctx); err == nil {
 		return role, nil
 	}
-	role = &schema.UserRole{ID: id}
+	role = &schema.UserRole{Slug: id}
 	if err := role.GetPlatformRole(ctx); err != nil {
 		return nil, err
 	}
@@ -443,7 +443,7 @@ func DeleteRole(ctx context.Context, rid schema.UserRoleID, force bool) error {
 		}
 	}
 	return (&schema.UserRole{
-		ID: rid,
+		Slug: rid,
 	}).DeleteNetworkRole(ctx)
 }
 
@@ -452,7 +452,7 @@ func ValidateCreateGroupReq(ctx context.Context, g schema.UserGroup) error {
 	// check if network roles are valid
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
-			role := &schema.UserRole{ID: roleID}
+			role := &schema.UserRole{Slug: roleID}
 			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
 			}
@@ -471,7 +471,7 @@ func ValidateUpdateGroupReq(ctx context.Context, new schema.UserGroup) error {
 
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
-			netRole := &schema.UserRole{ID: roleID}
+			netRole := &schema.UserRole{Slug: roleID}
 			if err := netRole.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("invalid network role")
 			}
@@ -657,7 +657,7 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 }
 
 func FilterNetworksByRole(ctx context.Context, allnetworks []schema.Network, user *schema.User) []schema.Network {
-	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
+	platformRole := &schema.UserRole{Slug: user.PlatformRoleID}
 	err := platformRole.GetPlatformRole(ctx)
 	if err != nil {
 		return []schema.Network{}
@@ -732,7 +732,7 @@ func IsNetworkRolesValid(ctx context.Context, networkRoles map[schema.NetworkID]
 			}
 		}
 		for netRoleID := range netRoles {
-			role := &schema.UserRole{ID: netRoleID}
+			role := &schema.UserRole{Slug: netRoleID}
 			if err := role.GetNetworkRole(ctx); err != nil {
 				return fmt.Errorf("failed to fetch role %s ", netRoleID)
 			}
@@ -1318,7 +1318,7 @@ func CanUserCreateNetwork(ctx context.Context, username string) bool {
 	if err := user.Get(db.WithContext(ctx)); err != nil {
 		return false
 	}
-	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	userRole := &schema.UserRole{Slug: user.PlatformRoleID}
 	if err := userRole.GetPlatformRole(db.WithContext(ctx)); err != nil {
 		return false
 	}

@@ -2,10 +2,14 @@ package schema
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type UserRoleID string
@@ -115,7 +119,17 @@ type RsrcPermissionScope struct {
 type ResourceAccess map[RsrcType]map[RsrcID]RsrcPermissionScope
 
 type UserRole struct {
-	ID                  UserRoleID                         `gorm:"primaryKey" json:"id"`
+	ID string `gorm:"primaryKey" json:"-"`
+	// Scope is global for org and platform roles, which are shared by all the
+	// orgs and tenants, and tenant for network roles.
+	Scope scope.Scope `gorm:"default:0;uniqueIndex:udx_user_role_scope_slug" json:"-"`
+	// ScopeID is the tenant of network roles, empty for global roles.
+	ScopeID string `gorm:"default:'';index;uniqueIndex:udx_user_role_scope_slug" json:"-"`
+	// Slug is the id the role is referred to by, e.g. super-admin for platform
+	// roles, or <network>-network-admin for default network roles. It's
+	// nullable in the database, since it's added to existing tables before
+	// being populated by the v1.8.0 migration.
+	Slug                UserRoleID                         `gorm:"uniqueIndex:udx_user_role_scope_slug" json:"id"`
 	Name                string                             `json:"name"`
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`
@@ -127,117 +141,183 @@ type UserRole struct {
 	GlobalLevelAccess   datatypes.JSONType[ResourceAccess] `json:"global_level_access"`
 }
 
+const userRolesTable = "user_roles_v1"
+
+var ErrUserRoleIdentifiersNotProvided = errors.New("user role identifiers not provided")
+
 func (u *UserRole) TableName() string {
-	return "user_roles_v1"
+	return userRolesTable
 }
 
-func ScopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
-	if tenantID == "" || id == "" {
-		return id
-	}
-	return UserRoleID(TenantScopedKey(tenantID, id.String()))
-}
-
-func UnscopeUserRoleID(tenantID string, id UserRoleID) UserRoleID {
-	if tenantID == "" || id == "" {
-		return id
-	}
-	return UserRoleID(StripTenantKey(tenantID, id.String()))
-}
-
-func (u *UserRole) Create(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
+// setScope scopes network roles to the tenant in the context, and org and
+// platform roles globally.
+func (u *UserRole) setScope(ctx context.Context) {
 	if u.NetworkID != "" {
-		u.ID = ScopeUserRoleID(tenantID, logicalID)
+		u.Scope = scope.TenantScope
+		u.ScopeID = scope.ID(ctx)
+		return
 	}
-	err := db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
-	u.ID = logicalID
-	return err
+	u.Scope = scope.GlobalScope
+	u.ScopeID = ""
 }
 
-func (u *UserRole) GetPlatformRole(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id = ''", u.ID).
-		First(u).
-		Error
+// platformRoleQuery scopes the query to the org or platform role identified
+// by its ID, or by its slug.
+func (u *UserRole) platformRoleQuery(ctx context.Context) (*gorm.DB, error) {
+	query := db.FromContext(ctx).Model(&UserRole{}).
+		Where(fmt.Sprintf("%s.network_id = '' AND %s.scope = ? AND %s.scope_id = ''", userRolesTable, userRolesTable, userRolesTable), scope.GlobalScope)
+	if u.ID != "" {
+		return query.Where(fmt.Sprintf("%s.id = ?", userRolesTable), u.ID), nil
+	}
+	if u.Slug == "" {
+		return nil, ErrUserRoleIdentifiersNotProvided
+	}
+	return query.Where(fmt.Sprintf("%s.slug = ?", userRolesTable), u.Slug), nil
 }
 
-func (u *UserRole) GetNetworkRole(ctx context.Context) error {
+// networkRoleQuery scopes the query to the network role identified by its
+// ID, or by its slug within the tenant in the context.
+func (u *UserRole) networkRoleQuery(ctx context.Context) (*gorm.DB, error) {
 	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	u.ID = ScopeUserRoleID(tenantID, logicalID)
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id <> ''", u.ID).
-		First(u).
-		Error
+	query := db.FromContext(ctx).Model(&UserRole{}).
+		Where(fmt.Sprintf("%s.network_id <> '' AND %s.scope = ?", userRolesTable, userRolesTable), scope.TenantScope)
+	if u.ID != "" {
+		query = query.Where(fmt.Sprintf("%s.id = ?", userRolesTable), u.ID)
+		if tenantID != "" {
+			query = query.Where(fmt.Sprintf("%s.scope_id = ?", userRolesTable), tenantID)
+		}
+		return query, nil
+	}
+	if u.Slug == "" {
+		return nil, ErrUserRoleIdentifiersNotProvided
+	}
+	return query.Where(fmt.Sprintf("%s.scope_id = ? AND %s.slug = ?", userRolesTable, userRolesTable), tenantID, u.Slug), nil
+}
+
+// Create creates the role, scoped to the tenant in the context if it's a
+// network role. The ID defaults to a new uuid, and the slug to the ID.
+func (u *UserRole) Create(ctx context.Context) error {
+	if u.ID == "" {
+		u.ID = uuid.NewString()
+	}
+	if u.Slug == "" {
+		u.Slug = UserRoleID(u.ID)
+	}
+	u.setScope(ctx)
+	return db.FromContext(ctx).Model(&UserRole{}).Create(u).Error
+}
+
+// GetPlatformRole fetches the platform role by its ID, or by its slug.
+func (u *UserRole) GetPlatformRole(ctx context.Context) error {
+	query, err := u.platformRoleQuery(ctx)
 	if err != nil {
-		u.ID = logicalID
 		return err
 	}
-	u.ID = logicalID
+
+	var role UserRole
+	if err := query.First(&role).Error; err != nil {
+		return err
+	}
+
+	*u = role
+	return nil
+}
+
+// GetNetworkRole fetches the network role by its ID, or by its slug within
+// the tenant in the context.
+func (u *UserRole) GetNetworkRole(ctx context.Context) error {
+	query, err := u.networkRoleQuery(ctx)
+	if err != nil {
+		return err
+	}
+
+	var role UserRole
+	if err := query.First(&role).Error; err != nil {
+		return err
+	}
+
+	*u = role
 	return nil
 }
 
 func (u *UserRole) ListPlatformRoles(ctx context.Context) ([]UserRole, error) {
 	var userRoles []UserRole
 	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id = ''").
+		Where(fmt.Sprintf("%s.network_id = ''", userRolesTable)).
 		Find(&userRoles).
 		Error
 	return userRoles, err
 }
 
+// ListNetworkRoles lists the network roles of the tenant in the context, or
+// of all the tenants if there's none.
 func (u *UserRole) ListNetworkRoles(ctx context.Context) ([]UserRole, error) {
-	tenantID := scope.ID(ctx)
-	query := db.FromContext(ctx).Model(&UserRole{}).Where("network_id <> ''")
-	if tenantID != "" {
-		query = query.Where("id LIKE ?", TenantScopedKey(tenantID, "")+"%")
+	query := db.FromContext(ctx).Model(&UserRole{}).Where(fmt.Sprintf("%s.network_id <> ''", userRolesTable))
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where(fmt.Sprintf("%s.scope_id = ?", userRolesTable), tenantID)
 	}
 	var userRoles []UserRole
 	err := query.Find(&userRoles).Error
-	for i := range userRoles {
-		userRoles[i].ID = UnscopeUserRoleID(tenantID, userRoles[i].ID)
-	}
 	return userRoles, err
 }
 
+// Upsert overwrites the role identified by its ID, or by its slug (within
+// the tenant in the context for network roles), creating it if it does not
+// exist.
 func (u *UserRole) Upsert(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	if u.NetworkID != "" {
-		u.ID = ScopeUserRoleID(tenantID, logicalID)
+	if u.ID == "" {
+		existing := &UserRole{Slug: u.Slug, NetworkID: u.NetworkID}
+		var err error
+		if u.NetworkID == "" {
+			err = existing.GetPlatformRole(ctx)
+		} else {
+			err = existing.GetNetworkRole(ctx)
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err != nil {
+			return u.Create(ctx)
+		}
+		u.ID = existing.ID
 	}
-	err := db.FromContext(ctx).Save(u).Error
-	u.ID = logicalID
-	return err
+	if u.Slug == "" {
+		u.Slug = UserRoleID(u.ID)
+	}
+	u.setScope(ctx)
+	return db.FromContext(ctx).Save(u).Error
 }
 
+// DeleteNetworkRole deletes the network role identified by its ID, or by its
+// slug within the tenant in the context.
 func (u *UserRole) DeleteNetworkRole(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	logicalID := u.ID
-	u.ID = ScopeUserRoleID(tenantID, logicalID)
-	err := db.FromContext(ctx).Model(&UserRole{}).
-		Where("id = ? AND network_id <> ''", u.ID).
-		Delete(u).
-		Error
-	u.ID = logicalID
-	return err
+	query, err := u.networkRoleQuery(ctx)
+	if err != nil {
+		return err
+	}
+	return query.Delete(&UserRole{}).Error
 }
 
+// DeleteNetworkRoles deletes the roles of the network, within the tenant in
+// the context.
 func (u *UserRole) DeleteNetworkRoles(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id <> '' AND network_id = ?", u.NetworkID).
-		Delete(u).
-		Error
+	query := db.FromContext(ctx).Model(&UserRole{}).
+		Where(fmt.Sprintf("%s.network_id <> '' AND %s.network_id = ?", userRolesTable, userRolesTable), u.NetworkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where(fmt.Sprintf("%s.scope_id = ?", userRolesTable), tenantID)
+	}
+	return query.Delete(&UserRole{}).Error
 }
 
+// DeleteAllForNetworks deletes the roles of the networks, within the tenant
+// in the context.
 func (u *UserRole) DeleteAllForNetworks(ctx context.Context, networkIDs []string) error {
 	if len(networkIDs) == 0 {
 		return nil
 	}
-	return db.FromContext(ctx).Model(&UserRole{}).
-		Where("network_id IN ?", networkIDs).
-		Delete(&UserRole{}).
-		Error
+	query := db.FromContext(ctx).Model(&UserRole{}).Where(fmt.Sprintf("%s.network_id IN ?", userRolesTable), networkIDs)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where(fmt.Sprintf("%s.scope_id = ?", userRolesTable), tenantID)
+	}
+	return query.Delete(&UserRole{}).Error
 }
