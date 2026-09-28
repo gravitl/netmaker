@@ -70,25 +70,6 @@ func scopedModels() []any {
 }
 
 func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
-	var userGroupIDs []string
-	if err := db.FromContext(ctx).Model(&schema.UserGroup{}).
-		Where("tenant_id = ?", oldID).
-		Pluck("id", &userGroupIDs).Error; err != nil {
-		return err
-	}
-	for _, id := range userGroupIDs {
-		logicalID := schema.UnscopeUserGroupID(oldID, schema.UserGroupID(id))
-		newKey := schema.ScopeUserGroupID(newID, logicalID).String()
-		if newKey == id {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.UserGroup{}).
-			Where("id = ?", id).
-			Updates(map[string]any{"id": newKey, "tenant_id": newID}).Error; err != nil {
-			return err
-		}
-	}
-
 	if err := db.FromContext(ctx).Model(&schema.TenantSettingsRecord{}).
 		Where("key = ?", oldID).
 		Update("key", newID).Error; err != nil {

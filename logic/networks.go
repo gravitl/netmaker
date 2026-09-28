@@ -31,6 +31,9 @@ func DeleteNetwork(ctx context.Context, network string, force bool, done chan st
 	// its id after it's deleted.
 	_network := &schema.Network{Name: network}
 	if err := _network.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
 		return err
 	}
 

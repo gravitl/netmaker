@@ -686,7 +686,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		if len(tm.Groups.Data()) == 0 {
 			tm.Groups = datatypes.NewJSONType(make(map[schema.UserGroupID]struct{}))
 		}
-		tm.Groups.Data()[userGroupReq.Group.ID] = struct{}{}
+		tm.Groups.Data()[userGroupReq.Group.Slug] = struct{}{}
 		_ = tm.UpdateGroups(r.Context())
 	}
 	logic.LogEvent(r.Context(), &models.Event{
@@ -698,7 +698,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   userGroupReq.Group.ID.String(),
+			ID:   userGroupReq.Group.Slug.String(),
 			Name: userGroupReq.Group.Name,
 			Type: schema.UserGroupSub,
 		},
@@ -732,7 +732,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// fetch curr group
-	currUserG, err := proLogic.GetUserGroup(r.Context(), userGroup.ID)
+	currUserG, err := proLogic.GetUserGroup(r.Context(), userGroup.Slug)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -763,7 +763,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   userGroup.ID.String(),
+			ID:   userGroup.Slug.String(),
 			Name: userGroup.Name,
 			Type: schema.UserGroupSub,
 		},
@@ -778,7 +778,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go proLogic.EnsureDefaultUserGroupNetworkPolicies(ctx, &currUserG, &userGroup)
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(ctx, userGroup.Slug, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(ctx, replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -944,7 +944,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	oldUser := *user
-	tm.Groups.Data()[proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID))] = struct{}{}
+	tm.Groups.Data()[proLogic.GetDefaultNetworkUserGroupSlug(schema.NetworkID(netID))] = struct{}{}
 	user.UserGroups = tm.Groups
 	_ = tm.Upsert(r.Context())
 	logic.LogEvent(r.Context(), &models.Event{
@@ -1013,8 +1013,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	oldUser := *user
-	delete(tm.Groups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
-	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(schema.NetworkID(netID)))
+	delete(tm.Groups.Data(), proLogic.GetDefaultNetworkUserGroupSlug(schema.NetworkID(netID)))
+	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupSlug(schema.NetworkID(netID)))
 	_ = tm.Upsert(r.Context())
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.Update,
@@ -1081,7 +1081,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   userG.ID.String(),
+			ID:   userG.Slug.String(),
 			Name: userG.Name,
 			Type: schema.UserGroupSub,
 		},
