@@ -34,7 +34,7 @@ func ListModels() []interface{} {
 		&TenantSettingsRecord{},
 		&AclRecord{},
 		&CacheRecord{},
-		&DNSRecord{},
+		&DNSEntry{},
 		&Extclient{},
 		&MetricsRecord{},
 		&SsoStateRecord{},

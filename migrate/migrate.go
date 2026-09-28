@@ -674,16 +674,17 @@ func migrateEgressNatMode() {
 
 func cleanUpDeleteNetworksRefs() {
 	networksMap := make(map[string]bool)
+	networkIDs := make(map[string]bool)
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
 		networksMap[network.Name] = true
+		networkIDs[network.ID] = true
 	}
 
-	dnsRecords, _ := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
-	for _, r := range dnsRecords {
-		_, ok := networksMap[r.Value.Data().Network]
-		if !ok {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
+	dnsEntries, _ := (&schema.DNSEntry{}).ListAll(db.WithContext(context.TODO()))
+	for _, entry := range dnsEntries {
+		if !networkIDs[entry.NetworkID] {
+			_ = (&schema.DNSEntry{ID: entry.ID}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 

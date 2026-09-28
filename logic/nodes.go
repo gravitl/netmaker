@@ -466,15 +466,6 @@ func ensureNodeMutex(node *models.Node) {
 	}
 }
 
-// GetRecordKey - get record key
-// depricated
-func GetRecordKey(id string, network string) (string, error) {
-	if id == "" || network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return id + "###" + network, nil
-}
-
 func GetNodeByID(nodeID string) (models.Node, error) {
 	_node := &schema.Node{
 		ID: nodeID,

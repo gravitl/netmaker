@@ -56,7 +56,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 
 func tenantScopedModels() []any {
 	return []any{
-		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
+		&schema.AclRecord{}, &schema.DNSEntry{}, &schema.Nameserver{}, &schema.Egress{},
 		&schema.EnrollmentKey{}, &schema.Event{}, &schema.Extclient{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
@@ -85,24 +85,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		if err := db.FromContext(ctx).Model(&schema.UserGroup{}).
 			Where("id = ?", id).
 			Updates(map[string]any{"id": newKey, "tenant_id": newID}).Error; err != nil {
-			return err
-		}
-	}
-
-	var dnsKeys []string
-	if err := db.FromContext(ctx).Model(&schema.DNSRecord{}).
-		Where("tenant_id = ?", oldID).
-		Pluck("key", &dnsKeys).Error; err != nil {
-		return err
-	}
-	for _, key := range dnsKeys {
-		newKey := schema.TenantScopedKey(newID, schema.StripTenantKey(oldID, key))
-		if newKey == key {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.DNSRecord{}).
-			Where("key = ?", key).
-			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
 			return err
 		}
 	}

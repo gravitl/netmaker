@@ -18,7 +18,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -247,35 +246,24 @@ func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
 // GetCustomDNS - gets the custom DNS of a network
 func GetCustomDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	records, err := (&schema.DNSRecord{}).List(ctx)
+	_entries, err := (&schema.DNSEntry{Network: &schema.Network{Name: network}}).ListByNetwork(ctx)
 	if err != nil {
 		return dns, err
 	}
 	defaultDomain := GetDefaultDomain(ctx)
-	for _, r := range records {
-		entry := r.Value.Data()
-		if entry.Network == network {
-			if defaultDomain != "" {
-				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
-			}
-			entry.Type = models.DNSEntryType_Custom
-			dns = append(dns, entry)
+	for i := range _entries {
+		entry := ConvertSchemaDNSEntryToModelsDNSEntry(&_entries[i])
+		if defaultDomain != "" {
+			entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
 		}
+		dns = append(dns, entry)
 	}
 	return dns, nil
 }
 
-func DeleteNetworkDNS(ctx context.Context, network string) error {
-	records, err := (&schema.DNSRecord{}).List(ctx)
-	if err != nil {
-		return err
-	}
-	for _, r := range records {
-		if r.Value.Data().Network == network {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(ctx)
-		}
-	}
-	return nil
+// DeleteNetworkDNS - deletes the custom dns entries of the network
+func DeleteNetworkDNS(ctx context.Context, networkID string) error {
+	return (&schema.DNSEntry{NetworkID: networkID}).DeleteByNetwork(ctx)
 }
 
 // GetAllDNS - gets all dns entries
@@ -392,24 +380,73 @@ func ValidateDNSUpdate(ctx context.Context, change models.DNSEntry, entry models
 	return err
 }
 
-// DeleteDNS - deletes a DNS entry
+// DeleteDNS - deletes a DNS entry, if it exists
 func DeleteDNS(ctx context.Context, domain string, network string) error {
-	key, err := GetRecordKey(domain, network)
-	if err != nil {
+	_entry := &schema.DNSEntry{
+		Name:    domain,
+		Network: &schema.Network{Name: network},
+	}
+	if err := _entry.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
 		return err
 	}
-	return (&schema.DNSRecord{Key: key}).Delete(ctx)
+	if err := (&schema.DNSEntry{ID: _entry.ID}).Delete(ctx); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return nil
 }
 
-// CreateDNS - creates a DNS entry
+// CreateDNS - creates a DNS entry, or updates it if it exists
 func CreateDNS(ctx context.Context, entry models.DNSEntry) (models.DNSEntry, error) {
 	entry.Type = models.DNSEntryType_Custom
-	k, err := GetRecordKey(entry.Name, entry.Network)
+	_entry, err := ConvertModelsDNSEntryToSchemaDNSEntry(ctx, entry)
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
-	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
-	return entry, r.Upsert(ctx)
+	existing := &schema.DNSEntry{NetworkID: _entry.NetworkID, Name: _entry.Name}
+	if err := existing.Get(ctx); err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.DNSEntry{}, err
+		}
+		return entry, _entry.Create(ctx)
+	}
+	_entry.ID = existing.ID
+	return entry, _entry.Update(ctx)
+}
+
+// ConvertSchemaDNSEntryToModelsDNSEntry - converts the custom dns entry, its
+// Network must be set
+func ConvertSchemaDNSEntryToModelsDNSEntry(_entry *schema.DNSEntry) models.DNSEntry {
+	var network string
+	if _entry.Network != nil {
+		network = _entry.Network.Name
+	}
+	return models.DNSEntry{
+		Type:     models.DNSEntryType_Custom,
+		Address:  _entry.Address,
+		Address6: _entry.Address6,
+		Name:     _entry.Name,
+		Network:  network,
+	}
+}
+
+// ConvertModelsDNSEntryToSchemaDNSEntry - converts the custom dns entry,
+// resolving its network by name within the tenant in the context
+func ConvertModelsDNSEntryToSchemaDNSEntry(ctx context.Context, entry models.DNSEntry) (*schema.DNSEntry, error) {
+	network := &schema.Network{Name: entry.Network}
+	if err := network.Get(ctx); err != nil {
+		return nil, err
+	}
+	return &schema.DNSEntry{
+		TenantID:  scope.ID(ctx),
+		NetworkID: network.ID,
+		Network:   network,
+		Name:      entry.Name,
+		Address:   entry.Address,
+		Address6:  entry.Address6,
+	}, nil
 }
 
 func validateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
