@@ -108,7 +108,7 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		{"nameservers", func(ctx context.Context) error { return (&schema.Nameserver{}).Delete(ctx) }},
 		{"dns_records", (&schema.DNSRecord{}).DeleteAll},
 		{"extclients", (&schema.Extclient{}).DeleteAll},
-		{"tag_records", (&schema.TagRecord{}).DeleteAll},
+		{"tags", (&schema.Tag{}).DeleteAll},
 		{"acl_records", (&schema.AclRecord{}).DeleteAll},
 		{"enrollment_keys", (&schema.EnrollmentKey{}).DeleteAll},
 		{"posture_checks", func(ctx context.Context) error { return (&schema.PostureCheck{}).Delete(ctx) }},

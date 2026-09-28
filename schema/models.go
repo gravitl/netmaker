@@ -38,6 +38,6 @@ func ListModels() []interface{} {
 		&Extclient{},
 		&MetricsRecord{},
 		&SsoStateRecord{},
-		&TagRecord{},
+		&Tag{},
 	}
 }

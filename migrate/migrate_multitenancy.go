@@ -61,7 +61,7 @@ func tenantScopedModels() []any {
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
-		&schema.TagRecord{}, &schema.UserAccessToken{}, &schema.UserGroup{},
+		&schema.Tag{}, &schema.UserAccessToken{}, &schema.UserGroup{},
 	}
 }
 
@@ -85,24 +85,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 		if err := db.FromContext(ctx).Model(&schema.UserGroup{}).
 			Where("id = ?", id).
 			Updates(map[string]any{"id": newKey, "tenant_id": newID}).Error; err != nil {
-			return err
-		}
-	}
-
-	var tagKeys []string
-	if err := db.FromContext(ctx).Model(&schema.TagRecord{}).
-		Where("tenant_id = ?", oldID).
-		Pluck("key", &tagKeys).Error; err != nil {
-		return err
-	}
-	for _, key := range tagKeys {
-		newKey := schema.TenantScopedKey(newID, schema.StripTenantKey(oldID, key))
-		if newKey == key {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.TagRecord{}).
-			Where("key = ?", key).
-			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
 			return err
 		}
 	}
