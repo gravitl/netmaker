@@ -96,6 +96,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
+	targetRsrcID = extClientRsrcName(r.Context(), targetRsrc, targetRsrcID, netID)
 
 	for groupID := range user.UserGroups.Data() {
 
@@ -228,6 +229,7 @@ func TenantPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
+	targetRsrcID = extClientRsrcName(r.Context(), targetRsrc, targetRsrcID, r.Header.Get("NET_ID"))
 	if targetRsrc == schema.MetricRsrc.String() {
 		return nil
 	}
@@ -441,4 +443,18 @@ func CheckUIHostReadAccess(r *http.Request, host *schema.Host) error {
 	}
 
 	return errors.New("access denied")
+}
+
+// extClientRsrcName returns the name of the ext client if the target resource
+// is an ext client identified by its id, since resource permissions refer to
+// ext clients by name. Otherwise it returns the target resource id as is.
+func extClientRsrcName(ctx context.Context, targetRsrc, targetRsrcID, netID string) string {
+	if schema.RsrcType(targetRsrc) != schema.ExtClientsRsrc || !logic.IsExtClientID(targetRsrcID) {
+		return targetRsrcID
+	}
+	extclient, err := logic.GetExtClient(ctx, targetRsrcID, netID)
+	if err != nil {
+		return targetRsrcID
+	}
+	return extclient.ClientID
 }

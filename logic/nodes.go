@@ -176,7 +176,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // Errors are logged but do not prevent node deletion.
 func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
+		if err := DeleteGatewayExtClients(ctx, node.ID.String()); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
@@ -387,10 +387,10 @@ func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, mod
 	}
 	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
 	for _, v := range all {
-		cycles := byNodeCycle[v.NodeID]
+		cycles := byNodeCycle[v.SubjectID]
 		if cycles == nil {
 			cycles = make(map[string][]models.Violation)
-			byNodeCycle[v.NodeID] = cycles
+			byNodeCycle[v.SubjectID] = cycles
 		}
 		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
 			CheckID:   v.CheckID,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -37,6 +39,8 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAllExtClients)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/extclients/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtClients)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/extclients/{network}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkExtClients)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, http.HandlerFunc(getExtClient)))).
 		Methods(http.MethodGet)
@@ -88,38 +92,160 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") != "yes" {
-		user := &schema.User{
-			Username: username,
-		}
-		err := user.GetWithMembership(r.Context())
-		if err == nil {
-			if user.PlatformRoleID != schema.Auditor {
-				userRole := &schema.UserRole{
-					ID: user.PlatformRoleID,
-				}
-				err := userRole.GetPlatformRole(r.Context())
-				if err != nil || !userRole.TenantGlobalAccess {
-					if (user.PlatformRoleID == schema.PlatformUser && !logic.IsNetworkAdmin(r.Context(), user, network)) ||
-						user.PlatformRoleID != schema.PlatformUser {
-						var filtered []models.ExtClient
-						for _, ec := range extclients {
-							if logic.IsUserAllowedAccessToExtClient(username, ec) {
-								filtered = append(filtered, ec)
-							}
-						}
-						extclients = filtered
-					}
-				}
+	if onlyOwnExtClients(r, network) {
+		var filtered []models.ExtClient
+		for _, ec := range extclients {
+			if logic.IsUserAllowedAccessToExtClient(username, ec) {
+				filtered = append(filtered, ec)
 			}
 		}
+		extclients = filtered
 	}
+	logic.AttachExtClientViolations(r.Context(), extclients)
 	for i := range extclients {
 		extclients[i].PrivateKey = ""
 	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclients)
+}
+
+// onlyOwnExtClients reports whether the requesting user can only see the ext
+// clients they own in the network.
+func onlyOwnExtClients(r *http.Request, network string) bool {
+	if r.Header.Get("ismaster") == "yes" {
+		return false
+	}
+	user := &schema.User{
+		Username: r.Header.Get("user"),
+	}
+	if err := user.GetWithMembership(r.Context()); err != nil {
+		return false
+	}
+	if user.PlatformRoleID == schema.Auditor {
+		return false
+	}
+	userRole := &schema.UserRole{
+		ID: user.PlatformRoleID,
+	}
+	if err := userRole.GetPlatformRole(r.Context()); err == nil && userRole.TenantGlobalAccess {
+		return false
+	}
+	return user.PlatformRoleID != schema.PlatformUser || !logic.IsNetworkAdmin(r.Context(), user, network)
+}
+
+// @Summary     Get a paginated list of config files associated with network
+// @Router      /api/v1/extclients/{network} [get]
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Page size"
+// @Param       enabled query bool false "Filter by enabled state"
+// @Param       q query string false "Free text search"
+// @Success     200 {object} models.PaginatedResponse{data=[]models.ExtClient}
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkExtClients(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	networkName := mux.Vars(r)["network"]
+
+	q := r.URL.Query().Get("q")
+
+	var page, pageSize int
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page == 0 {
+		page = 1
+	}
+
+	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	network := &schema.Network{Name: networkName}
+	if err := network.Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.BadReq
+		}
+
+		err = fmt.Errorf("failed to fetch extclients in network %s: error fetching network: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+
+	table := (&schema.Extclient{}).TableName()
+
+	var filters, options []dbtypes.Option
+	filters = append(filters, dbtypes.WithFilter(fmt.Sprintf("%s.network_id", table), network.ID))
+	if onlyOwnExtClients(r, networkName) {
+		filters = append(filters, dbtypes.WithFilter(fmt.Sprintf("%s.owner_id", table), r.Header.Get("user")))
+	}
+	if enabledStr := r.URL.Query().Get("enabled"); enabledStr != "" {
+		if enabled, err := strconv.ParseBool(enabledStr); err == nil {
+			filters = append(filters, dbtypes.WithFilter(fmt.Sprintf("%s.enabled", table), enabled))
+		}
+	}
+	filters = append(filters, dbtypes.WithSearchQuery(
+		q,
+		fmt.Sprintf("%s.id", table),
+		fmt.Sprintf("%s.name", table),
+		fmt.Sprintf("%s.address", table),
+		fmt.Sprintf("%s.address6", table),
+		fmt.Sprintf("%s.device_name", table),
+		fmt.Sprintf("%s.owner_id", table),
+	))
+
+	options = append(options, filters...)
+	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", table)))
+	options = append(options, dbtypes.WithPagination(page, pageSize))
+
+	_extclients, err := (&schema.Extclient{}).ListAll(r.Context(), options...)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch extclients in network %s: error fetching extclients: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	extclients := make([]models.ExtClient, 0, len(_extclients))
+	for i := range _extclients {
+		_extclients[i].Network = network
+		extclients = append(extclients, *logic.ConvertSchemaExtclientToModelsExtClientWithContext(r.Context(), &_extclients[i], logic.SkipViolations()))
+	}
+	logic.AttachExtClientViolations(r.Context(), extclients)
+	for i := range extclients {
+		extclients[i].PrivateKey = ""
+	}
+
+	logger.Log(2, r.Header.Get("user"), "fetched extclients in network", networkName)
+
+	total, err := (&schema.Extclient{}).Count(r.Context(), filters...)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch extclients in network %s: error constructing page: %v", networkName, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := models.PaginatedResponse{
+		Data:       extclients,
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched network extclients")
 }
 
 // @Summary     Fetch all config files across all networks
@@ -139,6 +265,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.AttachExtClientViolations(r.Context(), clients)
 	for i := range clients {
 		clients[i].PrivateKey = ""
 	}
@@ -153,7 +280,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -194,7 +321,7 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Param       type path string true "Config type (qr or file)"
 // @Param       preferredip query string false "Preferred endpoint IP"
 // @Success     200 {object} models.ExtClient
@@ -856,7 +983,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Param       body body models.CustomExtClient true "Custom ext client update"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -878,7 +1005,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientid := params["clientid"]
-	oldExtClient, err := logic.GetExtClientByName(r.Context(), clientid)
+	oldExtClient, err := logic.GetExtClient(r.Context(), clientid, params["network"])
 	if err != nil {
 		slog.Error(
 			"failed to retrieve extclient",
@@ -953,21 +1080,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
-		slog.Error(
-			"failed to delete ext client",
-			"user",
-			r.Header.Get("user"),
-			"id",
-			oldExtClient.ClientID,
-			"network",
-			oldExtClient.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
 			"failed to save ext client",
@@ -984,6 +1096,20 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
+
+	if oldExtClient.ClientID != newclient.ClientID {
+		// acl policies refer to ext clients by name.
+		if err := logic.RenameExtClientInAclPolicies(r.Context(), newclient.Network, oldExtClient.ClientID, newclient.ClientID); err != nil {
+			slog.Error(
+				"failed to rename ext client in acl policies",
+				"user", r.Header.Get("user"),
+				"network", newclient.Network,
+				"old_name", oldExtClient.ClientID,
+				"new_name", newclient.ClientID,
+				"error", err,
+			)
+		}
+	}
 
 	if newclient.DeviceID != "" && update.Enabled {
 		// user wants to enable this extclient, so delete all the other extclients.
@@ -1027,7 +1153,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       clientid path string true "Client ID"
+// @Param       clientid path string true "Client ID (uuid) or name"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -1069,7 +1195,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+	err = logic.DeleteExtClient(r.Context(), extclient)
 	if err != nil {
 		slog.Error("deleteExtClient: ", "Error", err.Error())
 		err = errors.New("Could not delete extclient " + params["clientid"])
@@ -1096,7 +1222,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Param       body body models.BulkDeleteRequest true "List of ext client IDs to delete"
+// @Param       body body models.BulkDeleteRequest true "List of ext client IDs (uuids) or names to delete"
 // @Success     202 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
@@ -1127,7 +1253,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 				slog.Error("bulk extclient delete: client not found", "client_id", clientID, "network", network, "error", err)
 				continue
 			}
-			if err = logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+			if err = logic.DeleteExtClient(ctx, extclient); err != nil {
 				slog.Error("bulk extclient delete: failed to delete", "client_id", clientID, "error", err)
 				continue
 			}

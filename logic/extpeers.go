@@ -11,13 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
@@ -26,52 +27,12 @@ import (
 
 var ErrClientLimitExceeded = errors.New("client limit reached for this tenant, please upgrade your license")
 
+// ErrExtClientNameIsID is returned when an ext client's name is a uuid, which
+// would be indistinguishable from an ext client id.
+var ErrExtClientNameIsID = errors.New("ext client name cannot be a uuid")
+
 var ClientLimitExceeded = func(ctx context.Context) bool {
 	return false
-}
-
-// extClientCacheMap maps tenant ID -> *sync.Map of record key -> models.ExtClient
-var extClientCacheMap sync.Map
-
-// getTenantExtClientCache returns the ext client cache map for the given tenant, creating it if necessary
-func getTenantExtClientCache(tenantID string) *sync.Map {
-	v, _ := extClientCacheMap.LoadOrStore(tenantID, &sync.Map{})
-	return v.(*sync.Map)
-}
-
-func getAllExtClientsFromCache(ctx context.Context) (extClients []models.ExtClient) {
-	getTenantExtClientCache(scope.ID(ctx)).Range(func(_, v any) bool {
-		extclient := v.(models.ExtClient)
-		if extclient.Mutex == nil {
-			extclient.Mutex = &sync.Mutex{}
-		}
-		extClients = append(extClients, extclient)
-		return true
-	})
-	return
-}
-
-func deleteExtClientFromCache(ctx context.Context, key string) {
-	getTenantExtClientCache(scope.ID(ctx)).Delete(key)
-}
-
-func getExtClientFromCache(ctx context.Context, key string) (extclient models.ExtClient, ok bool) {
-	v, ok := getTenantExtClientCache(scope.ID(ctx)).Load(key)
-	if !ok {
-		return extclient, false
-	}
-	extclient = v.(models.ExtClient)
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	return extclient, true
-}
-
-func storeExtClientInCache(ctx context.Context, key string, extclient models.ExtClient) {
-	if extclient.Mutex == nil {
-		extclient.Mutex = &sync.Mutex{}
-	}
-	getTenantExtClientCache(scope.ID(ctx)).Store(key, extclient)
 }
 
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client.
@@ -163,23 +124,17 @@ func UniqueIPNetStrList(ipnets []string) []string {
 	return uniqueList
 }
 
-// DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(ctx context.Context, network string, clientid string, isUpdate bool) error {
-	key, err := GetRecordKey(clientid, network)
-	if err != nil {
+// DeleteExtClient deletes an existing ext client, its posture check
+// violations and its references in acl policies.
+func DeleteExtClient(ctx context.Context, extClient models.ExtClient) error {
+	_extClient := &schema.Extclient{ID: extClient.ID}
+	if err := _extClient.Delete(ctx); err != nil {
 		return err
 	}
-	extClient, err := GetExtClient(ctx, clientid, network)
-	if err != nil {
-		return err
+	if err := _extClient.DeleteViolations(ctx); err != nil {
+		slog.Error("failed to delete ext client posture check violations", "id", extClient.ID, "error", err)
 	}
-	if err = (&schema.ExtClientRecord{Key: key}).Delete(ctx); err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		deleteExtClientFromCache(ctx, key)
-	}
-	if !isUpdate && extClient.RemoteAccessClientID != "" {
+	if extClient.RemoteAccessClientID != "" {
 		LogEvent(ctx, &models.Event{
 			Action: schema.Disconnect,
 			Source: models.Subject{
@@ -203,19 +158,6 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 	return nil
 }
 
-// DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
-func DeleteExtClientAndCleanup(ctx context.Context, extClient models.ExtClient) error {
-
-	//delete extClient record
-	err := DeleteExtClient(ctx, extClient.Network, extClient.ClientID, false)
-	if err != nil {
-		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
-		return err
-	}
-
-	return nil
-}
-
 //TODO - enforce extclient-to-extclient on ingress gw
 /* 1. fetch all non-user static nodes
 a. check against each user node, if allowed add rule
@@ -224,56 +166,43 @@ a. check against each user node, if allowed add rule
 
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(ctx context.Context, network string) ([]models.ExtClient, error) {
-	var extclients []models.ExtClient
-	if servercfg.CacheEnabled() {
-		allextclients := getAllExtClientsFromCache(ctx)
-		if len(allextclients) != 0 {
-			for _, extclient := range allextclients {
-				if extclient.Network == network {
-					extclients = append(extclients, extclient)
-				}
-			}
-			return extclients, nil
-		}
-	}
-	records, err := (&schema.ExtClientRecord{}).List(ctx)
+	_extclients, err := (&schema.Extclient{Network: &schema.Network{Name: network}}).ListByNetwork(ctx)
 	if err != nil {
-		return extclients, err
+		return nil, err
 	}
-	for _, r := range records {
-		extclient := r.Value.Data()
-		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
-		if err == nil && servercfg.CacheEnabled() {
-			storeExtClientInCache(ctx, key, extclient)
-		}
-		if extclient.Network == network {
-			extclients = append(extclients, extclient)
-		}
+
+	extclients := make([]models.ExtClient, 0, len(_extclients))
+	for i := range _extclients {
+		extclients = append(extclients, *ConvertSchemaExtclientToModelsExtClientWithContext(ctx, &_extclients[i], SkipViolations()))
 	}
 	return extclients, nil
 }
 
-// GetExtClient - gets a single ext client on a network
+// GetExtClient - gets a single ext client on a network by its id or its name
 func GetExtClient(ctx context.Context, clientid string, network string) (models.ExtClient, error) {
-	var extclient models.ExtClient
-	key, err := GetRecordKey(clientid, network)
-	if err != nil {
-		return extclient, err
+	_extclient := &schema.Extclient{
+		Network: &schema.Network{Name: network},
 	}
-	if servercfg.CacheEnabled() {
-		if extclient, ok := getExtClientFromCache(ctx, key); ok {
-			return extclient, nil
-		}
+	if IsExtClientID(clientid) {
+		_extclient.ID = clientid
+	} else {
+		_extclient.Name = clientid
 	}
-	r := &schema.ExtClientRecord{Key: key}
-	if err = r.Get(ctx); err != nil {
-		return extclient, err
+	if err := _extclient.Get(ctx); err != nil {
+		return models.ExtClient{}, err
 	}
-	extclient = r.Value.Data()
-	if servercfg.CacheEnabled() {
-		storeExtClientInCache(ctx, key, extclient)
+
+	extclient := ConvertSchemaExtclientToModelsExtClientWithContext(ctx, _extclient)
+	if extclient.Network != network {
+		return models.ExtClient{}, gorm.ErrRecordNotFound
 	}
-	return extclient, nil
+	return *extclient, nil
+}
+
+// IsExtClientID reports whether the ext client identifier is an id, as
+// opposed to a name. Names can't be uuids, see SaveExtClient.
+func IsExtClientID(clientid string) bool {
+	return len(clientid) == 36 && uuid.Validate(clientid) == nil
 }
 
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
@@ -300,18 +229,26 @@ func GenerateNodeName(ctx context.Context, network string) (string, error) {
 	return name, nil
 }
 
-// SaveExtClient - saves an ext client to database
+// SaveExtClient creates the ext client if it has no ID, else updates it.
+// Posture check violations are not saved, use Extclient.UpsertViolations.
 func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
-	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
+	if IsExtClientID(extclient.ClientID) {
+		return ErrExtClientNameIsID
+	}
+	if extclient.TenantID == "" {
+		extclient.TenantID = scope.ID(ctx)
+	}
+	_extclient, err := ConvertModelsExtClientToSchemaExtclient(extclient)
 	if err != nil {
 		return err
 	}
-	r := &schema.ExtClientRecord{Key: key, Value: datatypes.NewJSONType(*extclient)}
-	if err = r.Upsert(ctx); err != nil {
+	if extclient.ID == "" {
+		if err = _extclient.Create(ctx); err != nil {
+			return err
+		}
+		extclient.ID = _extclient.ID
+	} else if err = _extclient.Update(ctx); err != nil {
 		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeExtClientInCache(ctx, key, *extclient)
 	}
 	return SetNetworkNodesLastModified(ctx, extclient.Network)
 }
@@ -364,59 +301,40 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	return new
 }
 
-// GetExtClientsByID - gets the clients of attached gateway
-func GetExtClientsByID(ctx context.Context, nodeid, network string) ([]models.ExtClient, error) {
-	var result []models.ExtClient
-	currentClients, err := GetNetworkExtClients(ctx, network)
-	if err != nil {
-		return result, err
-	}
-	for i := range currentClients {
-		if currentClients[i].IngressGatewayID == nodeid {
-			result = append(result, currentClients[i])
-		}
-	}
-	return result, nil
+// GetGatewayExtClients - gets the ext clients attached to the gateway
+func GetGatewayExtClients(ctx context.Context, gatewayID string) ([]models.ExtClient, error) {
+	return listExtClients(ctx, dbtypes.WithFilter(fmt.Sprintf("%s.ingress_gateway_id", (&schema.Extclient{}).TableName()), gatewayID))
 }
 
 // GetAllExtClients - gets all ext clients from DB
 func GetAllExtClients(ctx context.Context) ([]models.ExtClient, error) {
-	var clients = []models.ExtClient{}
-	currentNetworks, err := (&schema.Network{}).ListAll(ctx)
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return clients, nil
-	} else if err != nil {
-		return clients, err
-	}
-
-	for i := range currentNetworks {
-		netName := currentNetworks[i].Name
-		netClients, err := GetNetworkExtClients(ctx, netName)
-		if err != nil {
-			continue
-		}
-		clients = append(clients, netClients...)
-	}
-
-	return clients, nil
+	return listExtClients(ctx)
 }
 
 // GetAllExtClientsWithStatus - returns all external clients with
 // given status.
 func GetAllExtClientsWithStatus(ctx context.Context, status schema.NodeStatus) ([]models.ExtClient, error) {
-	extClients, err := GetAllExtClients(ctx)
+	return listExtClients(ctx, dbtypes.WithFilter(fmt.Sprintf("%s.status", (&schema.Extclient{}).TableName()), status))
+}
+
+// listExtClients lists the ext clients of the tenant in the context matching
+// the options, without their posture check violations.
+func listExtClients(ctx context.Context, options ...dbtypes.Option) ([]models.ExtClient, error) {
+	// the inner join skips the ext clients of deleted networks, and populates
+	// the network of the rest for the conversion.
+	options = append(options, func(db *gorm.DB) *gorm.DB {
+		return db.InnerJoins("Network")
+	})
+	_extclients, err := (&schema.Extclient{}).ListAll(ctx, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	var validExtClients []models.ExtClient
-	for _, extClient := range extClients {
-		if extClient.Status == status {
-			validExtClients = append(validExtClients, extClient)
-		}
+	extclients := make([]models.ExtClient, 0, len(_extclients))
+	for i := range _extclients {
+		extclients = append(extclients, *ConvertSchemaExtclientToModelsExtClientWithContext(ctx, &_extclients[i], SkipViolations()))
 	}
-
-	return validExtClients, nil
+	return extclients, nil
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
@@ -433,10 +351,6 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 
 	// update in DB
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(ctx, client.Network, client.ClientID, true); err != nil {
-		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
-		return newClient, err
-	}
 	if err := SaveExtClient(ctx, &newClient); err != nil {
 		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
 		return newClient, err
@@ -699,7 +613,7 @@ func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) er
 
 	for _, extI := range extclients {
 		if extI.ClientID != extclient.ClientID && extI.DeviceID == extclient.DeviceID && extI.OwnerID == extclient.OwnerID {
-			err = DeleteExtClient(ctx, extI.Network, extI.ClientID, false)
+			err = DeleteExtClient(ctx, extI)
 			if err != nil {
 				return err
 			}
@@ -707,4 +621,194 @@ func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) er
 	}
 
 	return nil
+}
+
+func ConvertSchemaExtclientToModelsExtClient(_extclient *schema.Extclient, opts ...NodeConvertOption) *models.ExtClient {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, _extclient.TenantID)
+	return ConvertSchemaExtclientToModelsExtClientWithContext(ctx, _extclient, opts...)
+}
+
+func ConvertSchemaExtclientToModelsExtClientWithContext(ctx context.Context, _extclient *schema.Extclient, opts ...NodeConvertOption) *models.ExtClient {
+	cfg := nodeConvertOpts{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	if _extclient.Network == nil {
+		_extclient.Network = &schema.Network{
+			ID: _extclient.NetworkID,
+		}
+		err := _extclient.Network.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				_extclient.Network = &schema.Network{}
+			} else {
+				return &models.ExtClient{}
+			}
+		}
+	}
+
+	var violations []models.Violation
+	if !cfg.skipViolations {
+		_violations, err := _extclient.ListViolations(ctx)
+		if err == nil {
+			for _, _violation := range _violations {
+				violations = append(violations, models.Violation{
+					CheckID:   _violation.CheckID,
+					Name:      _violation.Name,
+					Attribute: _violation.Attribute,
+					Message:   _violation.Message,
+					Severity:  _violation.Severity,
+				})
+			}
+		}
+	}
+
+	return &models.ExtClient{
+		ID:                                _extclient.ID,
+		TenantID:                          _extclient.TenantID,
+		ClientID:                          _extclient.Name,
+		PrivateKey:                        _extclient.PrivateKey,
+		PublicKey:                         _extclient.PublicKey,
+		Network:                           _extclient.Network.Name,
+		DNS:                               _extclient.DNS,
+		Address:                           _extclient.Address,
+		Address6:                          _extclient.Address6,
+		ExtraAllowedIPs:                   _extclient.ExtraAllowedIPs,
+		AllowedIPs:                        _extclient.AllowedIPs,
+		IngressGatewayID:                  _extclient.IngressGatewayID,
+		IngressGatewayEndpoint:            _extclient.IngressGatewayEndpoint,
+		SelectedInternetEgressID:          _extclient.SelectedInternetEgressID,
+		LastModified:                      _extclient.UpdatedAt.Unix(),
+		Enabled:                           _extclient.Enabled,
+		OwnerID:                           _extclient.OwnerID,
+		DeniedACLs:                        _extclient.DeniedACLs.Data(),
+		RemoteAccessClientID:              _extclient.RemoteAccessClientID,
+		PostUp:                            _extclient.PostUp,
+		PostDown:                          _extclient.PostDown,
+		Tags:                              _extclient.Tags.Data(),
+		OS:                                _extclient.OS,
+		OSFamily:                          _extclient.OSFamily,
+		OSVersion:                         _extclient.OSVersion,
+		KernelVersion:                     _extclient.KernelVersion,
+		ClientVersion:                     _extclient.ClientVersion,
+		DeviceID:                          _extclient.DeviceID,
+		DeviceName:                        _extclient.DeviceName,
+		PublicEndpoint:                    _extclient.PublicEndpoint,
+		Country:                           _extclient.Country,
+		Location:                          _extclient.Location,
+		PostureChecksViolations:           violations,
+		PostureCheckVolationSeverityLevel: _extclient.PostureCheckSeverity,
+		LastEvaluationCycleID:             _extclient.PostureCheckLastEvaluationCycleID,
+		LastEvaluatedAt:                   _extclient.PostureCheckLastEvaluatedAt,
+		JITExpiresAt:                      _extclient.JITExpiresAt,
+		Status:                            _extclient.Status,
+		Mutex:                             &sync.Mutex{},
+	}
+}
+
+// ConvertModelsExtClientToSchemaExtclient converts the ext client, resolving
+// its network by name within its tenant. Posture check violations are not
+// converted.
+func ConvertModelsExtClientToSchemaExtclient(extclient *models.ExtClient) (*schema.Extclient, error) {
+	ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, extclient.TenantID)
+
+	network := &schema.Network{
+		Name: extclient.Network,
+	}
+	err := network.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &schema.Extclient{
+		ID:                                extclient.ID,
+		TenantID:                          extclient.TenantID,
+		NetworkID:                         network.ID,
+		Network:                           network,
+		Name:                              extclient.ClientID,
+		PrivateKey:                        extclient.PrivateKey,
+		PublicKey:                         extclient.PublicKey,
+		DNS:                               extclient.DNS,
+		Address:                           extclient.Address,
+		Address6:                          extclient.Address6,
+		IngressGatewayID:                  extclient.IngressGatewayID,
+		IngressGatewayEndpoint:            extclient.IngressGatewayEndpoint,
+		AllowedIPs:                        extclient.AllowedIPs,
+		ExtraAllowedIPs:                   extclient.ExtraAllowedIPs,
+		PostUp:                            extclient.PostUp,
+		PostDown:                          extclient.PostDown,
+		SelectedInternetEgressID:          extclient.SelectedInternetEgressID,
+		Enabled:                           extclient.Enabled,
+		OwnerID:                           extclient.OwnerID,
+		Status:                            extclient.Status,
+		PostureCheckSeverity:              extclient.PostureCheckVolationSeverityLevel,
+		PostureCheckLastEvaluationCycleID: extclient.LastEvaluationCycleID,
+		PostureCheckLastEvaluatedAt:       extclient.LastEvaluatedAt,
+		DeniedACLs:                        datatypes.NewJSONType(extclient.DeniedACLs),
+		RemoteAccessClientID:              extclient.RemoteAccessClientID,
+		Tags:                              datatypes.NewJSONType(extclient.Tags),
+		OS:                                extclient.OS,
+		OSFamily:                          extclient.OSFamily,
+		OSVersion:                         extclient.OSVersion,
+		KernelVersion:                     extclient.KernelVersion,
+		ClientVersion:                     extclient.ClientVersion,
+		DeviceID:                          extclient.DeviceID,
+		DeviceName:                        extclient.DeviceName,
+		PublicEndpoint:                    extclient.PublicEndpoint,
+		Country:                           extclient.Country,
+		Location:                          extclient.Location,
+		JITExpiresAt:                      extclient.JITExpiresAt,
+	}, nil
+}
+
+// AttachExtClientViolations loads the current-cycle posture check violations
+// of the ext clients in one query, and assigns them to the ext clients.
+func AttachExtClientViolations(ctx context.Context, extclients []models.ExtClient) {
+	ids := make([]string, 0, len(extclients))
+	for i := range extclients {
+		if extclients[i].ID != "" && extclients[i].LastEvaluationCycleID != "" {
+			ids = append(ids, extclients[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	all, err := schema.ListViolationsByNodeIDs(ctx, ids)
+	if err != nil {
+		slog.Warn("failed to batch-load ext client posture violations", "error", err, "extclients", len(ids))
+		return
+	}
+	bySubjectCycle := make(map[string]map[string][]models.Violation, len(ids))
+	for _, v := range all {
+		cycles := bySubjectCycle[v.SubjectID]
+		if cycles == nil {
+			cycles = make(map[string][]models.Violation)
+			bySubjectCycle[v.SubjectID] = cycles
+		}
+		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
+			CheckID:   v.CheckID,
+			Name:      v.Name,
+			Attribute: v.Attribute,
+			Message:   v.Message,
+			Severity:  v.Severity,
+		})
+	}
+	for i := range extclients {
+		cycles := bySubjectCycle[extclients[i].ID]
+		if cycles == nil {
+			continue
+		}
+		if v, ok := cycles[extclients[i].LastEvaluationCycleID]; ok {
+			extclients[i].PostureChecksViolations = v
+			continue
+		}
+		// Fallback when cycle metadata and rows disagree after a partial upsert.
+		if extclients[i].PostureCheckVolationSeverityLevel != schema.SeverityUnknown {
+			for _, v := range cycles {
+				extclients[i].PostureChecksViolations = v
+				break
+			}
+		}
+	}
 }

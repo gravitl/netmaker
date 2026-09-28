@@ -487,7 +487,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(newHost)
+	apiHostData := models.NewApiHostFromSchemaHost(newHost, true)
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
@@ -615,7 +615,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-			extclients, err := logic.GetExtClientsByID(ctx, nodeID, node.Network)
+			extclients, err := logic.GetGatewayExtClients(ctx, nodeID)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
@@ -693,7 +693,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
 						TenantID:          _node.TenantID,
 						CheckID:           violation.CheckID,
-						NodeID:            _node.ID,
+						SubjectID:         _node.ID,
+						SubjectType:       schema.PostureCheckSubjectTypeDevice,
 						Name:              violation.Name,
 						Attribute:         violation.Attribute,
 						Message:           violation.Message,
@@ -823,7 +824,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(currHost)
+	apiHostData := models.NewApiHostFromSchemaHost(currHost, true)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
@@ -859,7 +860,7 @@ func getHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
 		return
 	}
-	apiHostData := models.NewApiHostFromSchemaHost(host)
+	apiHostData := models.NewApiHostFromSchemaHost(host, true)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "fetched host "+host.Name)
 }
 

@@ -12,6 +12,10 @@ import (
 
 var MigrateOrgAndTenants = migrateOrgAndTenants
 
+func initializeTenants(ctx context.Context) error {
+	return MigrateOrgAndTenants(ctx)
+}
+
 func migrateOrgAndTenants(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
@@ -53,7 +57,7 @@ func EnsureLocalTenant(ctx context.Context, orgID string) (*schema.Tenant, error
 func tenantScopedModels() []any {
 	return []any{
 		&schema.AclRecord{}, &schema.DNSRecord{}, &schema.Nameserver{}, &schema.Egress{},
-		&schema.EnrollmentKey{}, &schema.Event{}, &schema.ExtClientRecord{},
+		&schema.EnrollmentKey{}, &schema.Event{}, &schema.Extclient{},
 		&schema.Host{}, &schema.Integration{}, &schema.JITGrant{}, &schema.JITRequest{},
 		&schema.MetricsRecord{}, &schema.Network{}, &schema.Node{}, &schema.PendingHost{},
 		&schema.PostureCheck{}, &schema.PostureCheckViolation{},
@@ -97,24 +101,6 @@ func rekeyTenantScopedKeys(ctx context.Context, oldID, newID string) error {
 			continue
 		}
 		if err := db.FromContext(ctx).Model(&schema.TagRecord{}).
-			Where("key = ?", key).
-			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
-			return err
-		}
-	}
-
-	var extClientKeys []string
-	if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
-		Where("tenant_id = ?", oldID).
-		Pluck("key", &extClientKeys).Error; err != nil {
-		return err
-	}
-	for _, key := range extClientKeys {
-		newKey := schema.TenantScopedKey(newID, schema.StripTenantKey(oldID, key))
-		if newKey == key {
-			continue
-		}
-		if err := db.FromContext(ctx).Model(&schema.ExtClientRecord{}).
 			Where("key = ?", key).
 			Updates(map[string]any{"key": newKey, "tenant_id": newID}).Error; err != nil {
 			return err
@@ -256,31 +242,13 @@ func RekeyOrganization(ctx context.Context, oldID, newID string) error {
 }
 
 func isNewDeployment(ctx context.Context) (bool, error) {
-	if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
-		numUsers, err := kvCount(ctx, TableName_Users)
-		if err != nil {
-			return false, err
-		}
+	numUsers, err := (&schema.User{}).Count(ctx)
+	if err != nil {
+		return false, err
+	}
 
-		if numUsers == 0 {
-			numUsers, err = (&schema.User{}).Count(ctx)
-			if err != nil {
-				return false, err
-			}
-
-			if numUsers == 0 {
-				return true, nil
-			}
-		}
-	} else {
-		numUsers, err := (&schema.User{}).Count(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		if numUsers == 0 {
-			return true, nil
-		}
+	if numUsers == 0 {
+		return true, nil
 	}
 
 	return false, nil
