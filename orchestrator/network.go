@@ -37,6 +37,97 @@ func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network
 	return n.allocateIPv6(ctx, network, true)
 }
 
+// AllocateExtclientIPs reserves count IPv4 addresses from the high end of the
+// network, loading the used set once.
+func (n *NetworkOrchestrator) AllocateExtclientIPs(ctx context.Context, network *schema.Network, count int) ([]net.IP, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+	n.addressLock.Lock()
+	defer n.addressLock.Unlock()
+
+	if network.AddressRange == "" {
+		return nil, fmt.Errorf("IPv4 not configured on network %s", network.Name)
+	}
+	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
+		return nil, err
+	}
+
+	used, err := n.loadUsedIPv4s(ctx, network)
+	if err != nil {
+		return nil, err
+	}
+
+	net4 := iplib.Net4FromStr(network.AddressRange)
+	addr := net4.LastAddress()
+	out := make([]net.IP, 0, count)
+	for len(out) < count {
+		if _, taken := used[addr.String()]; !taken {
+			used[addr.String()] = struct{}{}
+			if !servercfg.IsHA() {
+				n.reserveIPv4(network.ID, addr.String())
+			}
+			out = append(out, copyIP(addr))
+		}
+		next, stepErr := net4.PreviousIP(addr)
+		if stepErr != nil {
+			return nil, errors.New("no unique IPv4 addresses available")
+		}
+		addr = next
+	}
+	return out, nil
+}
+
+// AllocateExtclientIPv6s reserves count IPv6 addresses from the high end of the
+// network, loading the used set once.
+func (n *NetworkOrchestrator) AllocateExtclientIPv6s(ctx context.Context, network *schema.Network, count int) ([]net.IP, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+	n.address6Lock.Lock()
+	defer n.address6Lock.Unlock()
+
+	if network.AddressRange6 == "" {
+		return nil, fmt.Errorf("IPv6 not configured on network %s", network.Name)
+	}
+	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
+		return nil, err
+	}
+
+	used, err := n.loadUsedIPv6s(ctx, network)
+	if err != nil {
+		return nil, err
+	}
+
+	net6 := iplib.Net6FromStr(network.AddressRange6)
+	addr, stepErr := net6.PreviousIP(net6.LastAddress())
+	if stepErr != nil {
+		return nil, stepErr
+	}
+	out := make([]net.IP, 0, count)
+	for len(out) < count {
+		if _, taken := used[addr.String()]; !taken {
+			used[addr.String()] = struct{}{}
+			if !servercfg.IsHA() {
+				n.reserveIPv6(network.ID, addr.String())
+			}
+			out = append(out, copyIP(addr))
+		}
+		next, stepErr := net6.PreviousIP(addr)
+		if stepErr != nil {
+			return nil, errors.New("no unique IPv6 addresses available")
+		}
+		addr = next
+	}
+	return out, nil
+}
+
+func copyIP(ip net.IP) net.IP {
+	out := make(net.IP, len(ip))
+	copy(out, ip)
+	return out
+}
+
 func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
 	n.addressLock.Lock()
 	defer n.addressLock.Unlock()

@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -458,18 +460,33 @@ Endpoint = %s
 }
 
 var errPostureCheckViolations = errors.New("posture check violations")
+var errExtClientTag = errors.New("tag does not exist on this network")
 
 const maxBulkExtClientCreate = 500
 
 // persistNewExtClient builds and saves a new extclient for an ingress gateway.
 // Caller handles auth, duplicate DeviceID/RAC checks, and peer publishing.
-func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Host, userName string, custom models.CustomExtClient, jitExpiresAt *time.Time) (models.ExtClient, error) {
+func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Host, userName string, custom models.CustomExtClient, jitExpiresAt *time.Time, preassignedIPv4, preassignedIPv6 string) (models.ExtClient, error) {
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &custom)
+	if preassignedIPv4 != "" {
+		extclient.Address = preassignedIPv4
+	}
+	if preassignedIPv6 != "" {
+		extclient.Address6 = preassignedIPv6
+	}
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = custom.RemoteAccessClientID
 	extclient.IngressGatewayID = node.ID.String()
 	extclient.Network = node.Network
-	extclient.Tags = make(map[models.TagID]struct{})
+	if len(custom.Tags) > 0 {
+		resolved, err := resolveExtClientTags(ctx, node.Network, custom.Tags.Map())
+		if err != nil {
+			return extclient, err
+		}
+		extclient.Tags = resolved
+	} else if extclient.Tags == nil {
+		extclient.Tags = make(map[models.TagID]struct{})
+	}
 
 	gwDNS := logic.GetGwDNS(&node)
 	if extclient.DNS == "" && gwDNS != "" {
@@ -733,12 +750,12 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	extclient, err := persistNewExtClient(r.Context(), node, host, userName, customExtClient, jitExpiresAt)
+	extclient, err := persistNewExtClient(r.Context(), node, host, userName, customExtClient, jitExpiresAt, "", "")
 	if err != nil {
 		errType := logic.Internal
 		if errors.Is(err, errPostureCheckViolations) {
 			errType = logic.Forbidden
-		} else if strings.Contains(err.Error(), "egress") || strings.Contains(err.Error(), "internet") {
+		} else if errors.Is(err, errExtClientTag) || strings.Contains(err.Error(), "egress") || strings.Contains(err.Error(), "internet") {
 			errType = logic.BadReq
 		}
 		slog.Error("failed to create extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
@@ -805,48 +822,216 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 // createExtClientsInBulk saves each client. Failures are recorded and skipped.
 // AllowedIPs are filled by the read APIs; this path does not recompute them.
+// Empty client IDs are minted locally, and addresses are reserved in one pass
+// so each save does not reload the network.
 func createExtClientsInBulk(ctx context.Context, networkName string, node models.Node, host *schema.Host, userName string, clients []models.CustomExtClient) models.BulkCreateExtClientResponse {
 	resp := models.BulkCreateExtClientResponse{
 		Created: make([]models.ExtClient, 0, len(clients)),
 	}
-	for i, custom := range clients {
-		if logic.ClientLimitExceeded(ctx) {
+	if len(clients) == 0 {
+		return resp
+	}
+
+	parentNetwork := &schema.Network{Name: networkName}
+	if err := parentNetwork.Get(ctx); err != nil {
+		for i := range clients {
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  logic.ErrClientLimitExceeded.Error(),
+				Index: i, Client: clients[i].ClientID, Error: err.Error(),
+			})
+		}
+		return resp
+	}
+
+	orch := orchestrator.GetRepository().NetworkOrchestrator()
+	var ipv4s, ipv6s []net.IP
+	if parentNetwork.AddressRange != "" {
+		var err error
+		ipv4s, err = orch.AllocateExtclientIPs(ctx, parentNetwork, len(clients))
+		if err != nil {
+			for i := range clients {
+				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+					Index: i, Client: clients[i].ClientID, Error: err.Error(),
+				})
+			}
+			return resp
+		}
+	}
+	if parentNetwork.AddressRange6 != "" {
+		var err error
+		ipv6s, err = orch.AllocateExtclientIPv6s(ctx, parentNetwork, len(clients))
+		if err != nil {
+			freeBulkIPReservations(orch, parentNetwork.ID, ipv4s, nil)
+			for i := range clients {
+				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+					Index: i, Client: clients[i].ClientID, Error: err.Error(),
+				})
+			}
+			return resp
+		}
+	}
+
+	usedIDs := map[string]struct{}{}
+	if existing, err := logic.GetNetworkExtClients(ctx, networkName); err == nil {
+		for _, ec := range existing {
+			if ec.ClientID != "" {
+				usedIDs[ec.ClientID] = struct{}{}
+			}
+		}
+	}
+	for _, custom := range clients {
+		if custom.ClientID != "" {
+			usedIDs[custom.ClientID] = struct{}{}
+		}
+	}
+
+	for i, custom := range clients {
+		assigned4, assigned6 := "", ""
+		if i < len(ipv4s) {
+			assigned4 = ipv4s[i].String()
+		}
+		if i < len(ipv6s) {
+			assigned6 = ipv6s[i].String()
+		}
+		freeAssigned := func() {
+			if assigned4 != "" {
+				orch.FreeIPv4Reservation(parentNetwork.ID, assigned4)
+			}
+			if assigned6 != "" {
+				orch.FreeIPv6Reservation(parentNetwork.ID, assigned6)
+			}
+		}
+
+		if logic.ClientLimitExceeded(ctx) {
+			freeAssigned()
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index: i, Client: custom.ClientID, Error: logic.ErrClientLimitExceeded.Error(),
 			})
 			continue
 		}
+		if custom.ClientID == "" {
+			id, err := mintBulkExtClientID(usedIDs)
+			if err != nil {
+				freeAssigned()
+				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+					Index: i, Error: err.Error(),
+				})
+				continue
+			}
+			custom.ClientID = id
+		}
 		if err := validateCustomExtClient(ctx, &custom, true); err != nil {
+			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
+				Index: i, Client: custom.ClientID, Error: err.Error(),
 			})
 			continue
 		}
 		if err := logic.ValidateEgressRange(ctx, networkName, custom.ExtraAllowedIPs); err != nil {
+			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
+				Index: i, Client: custom.ClientID, Error: err.Error(),
 			})
 			continue
 		}
 
-		extclient, err := persistNewExtClient(ctx, node, host, userName, custom, nil)
+		extclient, err := persistNewExtClient(ctx, node, host, userName, custom, nil, assigned4, assigned6)
+		freeAssigned()
 		if err != nil {
+			slog.Error("bulk extclient create failed", "index", i, "client", custom.ClientID, "network", networkName, "error", err)
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-				Index:  i,
-				Client: custom.ClientID,
-				Error:  err.Error(),
+				Index: i, Client: custom.ClientID, Error: err.Error(),
 			})
 			continue
 		}
 		resp.Created = append(resp.Created, extclient)
 	}
 	return resp
+}
+
+func applyBulkCreateTags(clients []models.CustomExtClient, tags []string) {
+	if len(tags) == 0 {
+		return
+	}
+	for i := range clients {
+		if clients[i].Tags == nil {
+			clients[i].Tags = make(models.ExtClientTags, len(tags))
+		}
+		for _, id := range tags {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			clients[i].Tags[models.TagID(id)] = struct{}{}
+		}
+	}
+}
+
+// resolveExtClientTags maps tag names (or full network.tag IDs) to the tag IDs stored on the network.
+func resolveExtClientTags(ctx context.Context, network string, tags map[models.TagID]struct{}) (map[models.TagID]struct{}, error) {
+	if len(tags) == 0 {
+		return nil, nil
+	}
+	resolved := make(map[models.TagID]struct{}, len(tags))
+	for id := range tags {
+		name := strings.TrimSpace(id.String())
+		if name == "" {
+			continue
+		}
+		canonical, err := resolveExtClientTag(ctx, network, name)
+		if err != nil {
+			return nil, err
+		}
+		resolved[canonical] = struct{}{}
+	}
+	return resolved, nil
+}
+
+func resolveExtClientTag(ctx context.Context, network, name string) (models.TagID, error) {
+	prefixed := network + "." + name
+	keys := []string{prefixed}
+	if name != prefixed {
+		keys = append(keys, name)
+	}
+	for _, key := range keys {
+		rec := &schema.TagRecord{Key: key}
+		if err := rec.Get(ctx); err != nil {
+			continue
+		}
+		tag := rec.Value.Data()
+		if string(tag.Network) != network {
+			continue
+		}
+		if tag.ID != "" {
+			return tag.ID, nil
+		}
+		return models.TagID(key), nil
+	}
+	return "", fmt.Errorf("%w: %s", errExtClientTag, name)
+}
+
+func mintBulkExtClientID(used map[string]struct{}) (string, error) {
+	buf := make([]byte, 4)
+	for attempt := 0; attempt < 20; attempt++ {
+		if _, err := rand.Read(buf); err != nil {
+			return "", err
+		}
+		id := "ec-" + hex.EncodeToString(buf)
+		if _, taken := used[id]; taken {
+			continue
+		}
+		used[id] = struct{}{}
+		return id, nil
+	}
+	return "", errors.New("couldn't allocate a client id")
+}
+
+func freeBulkIPReservations(orch *orchestrator.NetworkOrchestrator, networkID string, ipv4s, ipv6s []net.IP) {
+	for _, ip := range ipv4s {
+		orch.FreeIPv4Reservation(networkID, ip.String())
+	}
+	for _, ip := range ipv6s {
+		orch.FreeIPv6Reservation(networkID, ip.String())
+	}
 }
 
 // @Summary     Bulk create config files on an ingress gateway
@@ -895,6 +1080,15 @@ func bulkCreateExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(
 			fmt.Errorf("bulk create limited to %d clients per request", maxBulkExtClientCreate), logic.BadReq))
 		return
+	}
+	applyBulkCreateTags(clients, req.Tags)
+	for i := range clients {
+		resolved, err := resolveExtClientTags(r.Context(), networkName, clients[i].Tags.Map())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		clients[i].Tags = models.ExtClientTags(resolved)
 	}
 	if err := (&schema.Network{Name: networkName}).Get(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", networkName), logic.BadReq))

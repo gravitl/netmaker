@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
 
 func tenantCtx() context.Context {
@@ -83,6 +85,7 @@ func TestBulkCreateExtClients(t *testing.T) {
 	assert.Empty(t, resp.Failed)
 
 	seen := make(map[string]struct{}, count)
+	ids := make(map[string]struct{}, count)
 	for _, c := range resp.Created {
 		assert.Equal(t, network.Name, c.Network)
 		assert.Equal(t, node.ID, c.IngressGatewayID)
@@ -91,6 +94,11 @@ func TestBulkCreateExtClients(t *testing.T) {
 		_, dup := seen[c.Address]
 		assert.False(t, dup, "duplicate address %s", c.Address)
 		seen[c.Address] = struct{}{}
+		ids[c.ClientID] = struct{}{}
+	}
+	for i := 0; i < count; i++ {
+		_, ok := ids[fmt.Sprintf("bulk-%d", i)]
+		assert.True(t, ok, "caller client id bulk-%d was replaced", i)
 	}
 
 	stored, err := logic.GetNetworkExtClients(ctx, network.Name)
@@ -165,17 +173,82 @@ func TestBulkCreateExtClientsByCount(t *testing.T) {
 
 	nodeModel, err := logic.GetNodeByID(node.ID)
 	require.NoError(t, err)
+	nodeIP := nodeModel.Address.IP
+
 	resp := createExtClientsInBulk(ctx, network.Name, nodeModel, host, logic.MasterUser, make([]models.CustomExtClient, 3))
 	assert.Len(t, resp.Created, 3)
 	assert.Empty(t, resp.Failed)
-	seen := map[string]struct{}{}
+	idRe := regexp.MustCompile(`^ec-[0-9a-f]{8}$`)
+	seenID := map[string]struct{}{}
+	seenAddr := map[string]struct{}{}
 	for _, c := range resp.Created {
-		assert.NotEmpty(t, c.ClientID)
+		assert.Regexp(t, idRe, c.ClientID)
 		assert.NotEmpty(t, c.Address)
-		_, dup := seen[c.ClientID]
-		assert.False(t, dup)
-		seen[c.ClientID] = struct{}{}
+		assert.NotEqual(t, nodeIP.String(), c.Address)
+		_, dupID := seenID[c.ClientID]
+		assert.False(t, dupID)
+		seenID[c.ClientID] = struct{}{}
+		_, dupAddr := seenAddr[c.Address]
+		assert.False(t, dupAddr)
+		seenAddr[c.Address] = struct{}{}
 	}
+
+	again, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(ctx, network)
+	require.NoError(t, err)
+	_, reused := seenAddr[again.String()]
+	assert.False(t, reused, "second allocation reused %s", again.String())
+	orchestrator.GetRepository().NetworkOrchestrator().FreeIPv4Reservation(network.ID, again.String())
+}
+
+func TestBulkCreateExtClients_AssignsTags(t *testing.T) {
+	ctx := tenantCtx()
+	network, host, node := createIngressFixture(t, ctx, "bulk-tag-net", "10.209.0.0/24")
+	tagID := models.TagID(network.Name + ".sales")
+	require.NoError(t, (&schema.TagRecord{
+		Key: tagID.String(),
+		Value: datatypes.NewJSONType(schema.Tag{
+			ID:      tagID,
+			TagName: "sales",
+			Network: schema.NetworkID(network.Name),
+		}),
+	}).Upsert(ctx))
+	t.Cleanup(func() {
+		_ = (&schema.TagRecord{Key: tagID.String()}).Delete(ctx)
+	})
+
+	nodeModel, err := logic.GetNodeByID(node.ID)
+	require.NoError(t, err)
+	var tagged models.CustomExtClient
+	require.NoError(t, json.Unmarshal([]byte(`{"clientid":"tagged-0","tags":["sales"]}`), &tagged))
+	resp := createExtClientsInBulk(ctx, network.Name, nodeModel, host, logic.MasterUser, []models.CustomExtClient{tagged})
+	require.Empty(t, resp.Failed)
+	require.Len(t, resp.Created, 1)
+	_, ok := resp.Created[0].Tags[tagID]
+	assert.True(t, ok)
+
+	countClients := make([]models.CustomExtClient, 1)
+	applyBulkCreateTags(countClients, []string{"sales"})
+	resp = createExtClientsInBulk(ctx, network.Name, nodeModel, host, logic.MasterUser, countClients)
+	require.Empty(t, resp.Failed)
+	require.Len(t, resp.Created, 1)
+	_, ok = resp.Created[0].Tags[tagID]
+	assert.True(t, ok)
+
+	body, err := json.Marshal(models.BulkCreateExtClientRequest{
+		IngressGatewayID: node.ID,
+		Count:            1,
+		Tags:             []string{"missing-tag"},
+	})
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/extclients/"+network.Name+"/bulk", bytes.NewReader(body))
+	req = req.WithContext(ctx)
+	req = mux.SetURLVars(req, map[string]string{"network": network.Name})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("user", "admin")
+	req.Header.Set("ismaster", "yes")
+	rec := httptest.NewRecorder()
+	bulkCreateExtClients(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestBulkCreateExtClients_RejectsCountAndClients(t *testing.T) {

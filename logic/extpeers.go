@@ -277,27 +277,22 @@ func GetExtClient(ctx context.Context, clientid string, network string) (models.
 }
 
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
-	seed := time.Now().UTC().UnixNano()
-	nameGenerator := namegenerator.NewNameGenerator(seed)
-	var name string
-	cnt := 0
-	for {
-		if cnt > 10 {
-			return "", errors.New("couldn't generate random name, try again")
-		}
-		cnt += 1
-		name = nameGenerator.Generate()
+	nameGenerator := namegenerator.NewNameGenerator(time.Now().UTC().UnixNano())
+	// Most generated names are longer than the 15 character client-id limit.
+	// Those must not count as failed attempts, or a bulk create drops clients
+	// once ten long names come up in a row.
+	for attempt := 0; attempt < 200; attempt++ {
+		name := nameGenerator.Generate()
 		if len(name) > 15 {
 			continue
 		}
 		_, err := GetExtClient(ctx, name, network)
 		if err == nil {
-			// config exists with same name
 			continue
 		}
-		break
+		return name, nil
 	}
-	return name, nil
+	return "", errors.New("couldn't generate random name, try again")
 }
 
 // SaveExtClient - saves an ext client to database
@@ -336,7 +331,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
-	new.Tags = update.Tags
+	new.Tags = update.Tags.Map()
 	if update.Location != "" && update.Location != old.Location {
 		new.Location = update.Location
 	}

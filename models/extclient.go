@@ -1,6 +1,12 @@
 package models
 
-import "github.com/gravitl/netmaker/schema"
+import (
+	"bytes"
+	"encoding/json"
+	"strings"
+
+	"github.com/gravitl/netmaker/schema"
+)
 
 type ExtClient = schema.ExtClient
 
@@ -15,7 +21,7 @@ type CustomExtClient struct {
 	RemoteAccessClientID       string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`
 	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
-	Tags                       map[TagID]struct{}  `json:"tags"`
+	Tags                       ExtClientTags       `json:"tags,omitempty"`
 	DeviceID                   string              `json:"device_id"`
 	DeviceName                 string              `json:"device_name"`
 	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
@@ -29,6 +35,45 @@ type CustomExtClient struct {
 	Location                   string              `json:"location"` //format: lat,long
 	UseInternetEgress          *bool               `json:"use_internet_egress,omitempty"`
 	SelectedInternetEgressID   string              `json:"selected_internet_egress_id,omitempty"`
+}
+
+// ExtClientTags is the tag set stored on an extclient. JSON requests send a list of tag IDs.
+type ExtClientTags map[TagID]struct{}
+
+func (t *ExtClientTags) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '[' {
+		var ids []string
+		if err := json.Unmarshal(data, &ids); err != nil {
+			return err
+		}
+		set := make(ExtClientTags, len(ids))
+		for _, id := range ids {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			set[TagID(id)] = struct{}{}
+		}
+		*t = set
+		return nil
+	}
+	var set map[TagID]struct{}
+	if err := json.Unmarshal(data, &set); err != nil {
+		return err
+	}
+	*t = set
+	return nil
+}
+
+func (t ExtClientTags) Map() map[TagID]struct{} {
+	if t == nil {
+		return nil
+	}
+	return map[TagID]struct{}(t)
 }
 
 func ConvertToStaticNode(ext ExtClient) Node {

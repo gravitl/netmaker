@@ -503,9 +503,10 @@ type BulkDeleteResponse struct {
 // Set Count to create that many clients with generated IDs, or set Clients to
 // create those specific configs. Exactly one of the two is required.
 type BulkCreateExtClientRequest struct {
-	IngressGatewayID string            `json:"gateway_id"`
-	Count            int               `json:"count,omitempty"`
-	Clients          []CustomExtClient `json:"clients,omitempty"`
+	IngressGatewayID string             `json:"gateway_id"`
+	Count            int                `json:"count,omitempty"`
+	Clients          []CustomExtClient  `json:"clients,omitempty"`
+	Tags             []string           `json:"tags,omitempty"`
 }
 
 // BulkCreateExtClientError reports a single failed item in a bulk create.
