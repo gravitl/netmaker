@@ -334,7 +334,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
-	if !ok || resetFailovered {
+	if !ok {
 		allNodes, err := logic.GetAllNodes(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
