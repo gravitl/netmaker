@@ -34,6 +34,7 @@ var ValidTenantRoles = map[schema.UserRoleID]bool{
 var ValidOrgRoles = map[schema.UserRoleID]bool{
 	schema.OrgOwner: true,
 	schema.OrgAdmin: true,
+	schema.OrgUser:  true,
 }
 
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
