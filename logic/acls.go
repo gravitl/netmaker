@@ -1122,19 +1122,6 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 	return
 }
 
-func getUniquePolicies(policies1, policies2 []models.Acl) []models.Acl {
-	policies1Map := make(map[string]struct{})
-	for _, policy1I := range policies1 {
-		policies1Map[policy1I.ID] = struct{}{}
-	}
-	for i := len(policies2) - 1; i >= 0; i-- {
-		if _, ok := policies1Map[policies2[i].ID]; ok {
-			policies2 = append(policies2[:i], policies2[i+1:]...)
-		}
-	}
-	return policies2
-}
-
 var CleanupGwsMigration = func(ctx context.Context) {}
 
 var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []models.Acl) bool {
