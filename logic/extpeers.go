@@ -459,10 +459,16 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
+		if host.PublicKey.String() == extPeer.PublicKey ||
+			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
+			continue
+		}
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(ctx, models.ConvertToStaticNode(extPeer), *peer, true); !ok {
+			if !extclientAllowed(devicePolicies, extPeer, *peer, defaultDevicePolicy.Enabled) {
 				continue
 			}
 		} else {
@@ -474,11 +480,6 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())
-			continue
-		}
-
-		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
 			continue
 		}
 
@@ -595,11 +596,13 @@ func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, rang
 	if err != nil {
 		return
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extclientAllowed(devicePolicies, extPeer, node, defaultDevicePolicy.Enabled) {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -622,11 +625,13 @@ func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes
 	if err != nil {
 		return
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extclientAllowed(devicePolicies, extPeer, node, defaultDevicePolicy.Enabled) {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)

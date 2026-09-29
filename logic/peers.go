@@ -597,13 +597,15 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, &node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
-				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+				// When the network resolved to allow-all the gateway's ACL chains are
+				// set to ACCEPT, so per-client rules are redundant. Sending them anyway
+				// also blackholes every extclient while netclient installs them.
+				if !networkAllowAll {
 					ingFwUpdate := models.IngressInfo{
-						IngressID:     node.ID.String(),
-						Network:       node.NetworkRange,
-						Network6:      node.NetworkRange6,
-						StaticNodeIps: GetStaticNodeIps(ctx, node),
-						Rules:         GetFwRulesOnIngressGateway(ctx, node),
+						IngressID: node.ID.String(),
+						Network:   node.NetworkRange,
+						Network6:  node.NetworkRange6,
+						Rules:     GetFwRulesOnIngressGateway(ctx, node),
 					}
 					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
