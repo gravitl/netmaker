@@ -218,6 +218,9 @@ func CheckPeerStatus(ctx context.Context, node *models.Node, defaultAclPolicy bo
 		if !ok {
 			continue
 		}
+		if logic.IsUserOwnedDevice(node) && logic.IsUserOwnedDevice(&peer) {
+			continue
+		}
 
 		if !defaultAclPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, peer, false)
@@ -254,6 +257,9 @@ func checkPeerConnectivity(ctx context.Context, node *models.Node, metrics *mode
 	for peerID, metric := range metrics.Connectivity {
 		peer, ok := peers[peerID]
 		if !ok {
+			continue
+		}
+		if logic.IsUserOwnedDevice(node) && logic.IsUserOwnedDevice(&peer) {
 			continue
 		}
 

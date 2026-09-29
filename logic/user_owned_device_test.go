@@ -15,6 +15,16 @@ func TestIsUserOwnedHost(t *testing.T) {
 	assert.True(t, IsUserOwnedHost(&schema.Host{Name: "laptop", OwnerUsername: "alice"}))
 }
 
+func TestUserDevicesAreNotPeers(t *testing.T) {
+	alice := &schema.Host{ID: uuid.New(), OwnerUsername: "alice"}
+	bob := &schema.Host{ID: uuid.New(), OwnerUsername: "bob"}
+	gateway := &schema.Host{ID: uuid.New()}
+	assert.True(t, UserDevicesAreNotPeers(alice, bob))
+	assert.False(t, UserDevicesAreNotPeers(alice, gateway))
+	assert.False(t, UserDevicesAreNotPeers(alice, alice))
+	assert.False(t, UserDevicesAreNotPeers(gateway, nil))
+}
+
 func TestNodeOwnerUsername(t *testing.T) {
 	assert.Equal(t, "", NodeOwnerUsername(nil))
 

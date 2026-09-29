@@ -188,6 +188,9 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
 			}
+			if UserDevicesAreNotPeers(host, peerHost) {
+				continue
+			}
 
 			var allowedToComm bool
 			if defaultDevicePolicy.Enabled {
@@ -379,6 +382,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			err := peerHost.Get(ctx)
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
+				continue
+			}
+			// User devices do not peer with each other.
+			if UserDevicesAreNotPeers(host, peerHost) {
 				continue
 			}
 			peerConfig := wgtypes.PeerConfig{

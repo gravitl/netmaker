@@ -14,6 +14,15 @@ func IsUserOwnedHost(h *schema.Host) bool {
 	return h != nil && h.OwnerUsername != ""
 }
 
+// UserDevicesAreNotPeers reports whether two hosts must not form a WireGuard peer.
+// User-registered devices mesh with infrastructure, not with other user devices.
+func UserDevicesAreNotPeers(a, b *schema.Host) bool {
+	if a == nil || b == nil || a.ID == b.ID {
+		return false
+	}
+	return IsUserOwnedHost(a) && IsUserOwnedHost(b)
+}
+
 // NodeOwnerUsername returns the Netmaker username that owns this node, if any.
 // Legacy ExtClient Active Users use StaticNode.OwnerID; registered desktop
 // devices use OwnerID populated from Host.OwnerUsername.
