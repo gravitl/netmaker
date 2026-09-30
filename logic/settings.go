@@ -21,9 +21,15 @@ import (
 )
 
 var (
-	ErrInvalidJwtValidityDuration = errors.New("invalid jwt validity duration")
-	ErrFlowLogsNotSupported       = errors.New("flow logs not supported")
-	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
+	ErrInvalidJwtValidityDuration        = errors.New("invalid jwt validity duration")
+	ErrInvalidJwtValidityDurationClients = errors.New("invalid jwt validity duration for clients")
+	ErrFlowLogsNotSupported              = errors.New("flow logs not supported")
+	ErrInvalidIPDetectionInterval        = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
+	ErrInvalidVerbosity                  = errors.New("invalid verbosity (must be between 0 and 4)")
+	ErrInvalidMetricsPort                = errors.New("invalid metrics port (must be between 1 and 65535)")
+	ErrInvalidSmtpPort                   = errors.New("invalid smtp port (must be between 1 and 65535)")
+	ErrInvalidCleanUpInterval            = errors.New("invalid clean up interval (must be greater than 0)")
+	ErrInvalidAuditLogsRetentionPeriod   = errors.New("invalid audit logs retention period (must not be negative)")
 )
 
 var SettingsMutex = &sync.RWMutex{}
@@ -208,9 +214,12 @@ func UpsertUserSettings(username string, userSettings models.UserSettings) error
 }
 
 func ValidateNewSettings(ctx context.Context, req models.ServerSettings) error {
-	// TODO: add checks for different fields
 	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
 		return ErrInvalidJwtValidityDuration
+	}
+
+	if req.JwtValidityDurationClients > 525600 || req.JwtValidityDurationClients < 5 {
+		return ErrInvalidJwtValidityDurationClients
 	}
 
 	if req.EnableFlowLogs && !GetFeatureFlags(ctx).EnableFlowLogs {
@@ -219,6 +228,26 @@ func ValidateNewSettings(ctx context.Context, req models.ServerSettings) error {
 
 	if req.IPDetectionInterval < 15 {
 		return ErrInvalidIPDetectionInterval
+	}
+
+	if req.Verbosity < 0 || req.Verbosity > 4 {
+		return ErrInvalidVerbosity
+	}
+
+	if req.MetricsPort < 1 || req.MetricsPort > 65535 {
+		return ErrInvalidMetricsPort
+	}
+
+	if req.SmtpHost != "" && (req.SmtpPort < 1 || req.SmtpPort > 65535) {
+		return ErrInvalidSmtpPort
+	}
+
+	if req.CleanUpInterval < 1 {
+		return ErrInvalidCleanUpInterval
+	}
+
+	if req.AuditLogsRetentionPeriodInDays < 0 {
+		return ErrInvalidAuditLogsRetentionPeriod
 	}
 
 	return nil
