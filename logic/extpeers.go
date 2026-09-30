@@ -129,6 +129,9 @@ func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]
 		}
 
 	}
+	// Routing only: these ranges go in the config regardless of policy, because the
+	// config is a static file and cannot be re-issued when policies change. Whether
+	// the traffic is permitted is enforced by the ACL rules on the gateway.
 	extclients, _ := GetNetworkExtClients(ctx, client.Network)
 	for _, extclient := range extclients {
 		if extclient.ClientID == client.ClientID {

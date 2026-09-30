@@ -227,6 +227,41 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 	return peerInfo, nil
 }
 
+// defaultsAllowAllTraffic is true only when an enabled device policy and an
+// enabled user policy are both open on every side (source and destination *).
+// That is the only state in which the host accepts the whole network. A
+// tag-scoped policy does not count, even when it is bidirectional and
+// unrestricted in protocol and ports. The loaded ACL list is checked as well
+// as the policies returned by GetDefaultPolicy, so an enabled All Nodes and
+// All Users pair is not missed when the default-policy lookup disagrees.
+func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
+	deviceOn := device.Enabled && aclOpenBothSides(device)
+	userOn := user.Enabled && aclOpenBothSides(user)
+	if !servercfg.IsPro {
+		userOn = true
+	}
+	for _, acl := range acls {
+		if !acl.Enabled || !aclOpenBothSides(acl) {
+			continue
+		}
+		switch acl.RuleType {
+		case models.DevicePolicy:
+			deviceOn = true
+		case models.UserPolicy:
+			userOn = true
+		}
+	}
+	return deviceOn && userOn
+}
+
+func aclOpenBothSides(acl models.Acl) bool {
+	src := ConvAclTagToValueMap(acl.Src)
+	dst := ConvAclTagToValueMap(acl.Dst)
+	_, srcAll := src["*"]
+	_, dstAll := dst["*"]
+	return srcAll && dstAll
+}
+
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
@@ -336,9 +371,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
-				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
+		// The chain tail accepts the whole network only when both default policies
+		// are enabled. A tag-scoped policy does not, so the tail stays DROP and
+		// the per-client rules carry the permits. Any node that is not fully
+		// open clears the host-wide flag; it is not set back to true.
+		if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -346,10 +383,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				Allowed:         true,
 				IPList:          []net.IPNet{node.NetworkRange},
 				IP6List:         []net.IPNet{node.NetworkRange6},
-			}
-			if !(defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) {
-				aclRule.Dst = []net.IPNet{node.NetworkRange}
-				aclRule.Dst6 = []net.IPNet{node.NetworkRange6}
 			}
 			hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, aclRule)
 		} else {
@@ -365,6 +398,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			}
 		}
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
+		addedExtpeersExtraRoutes := false
 		for _, peer := range currentPeers {
 			if peer.ID.String() == node.ID.String() {
 				// skip yourself
@@ -437,8 +471,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 					Network:                peer.Network,
 				})
 			}
-			if peer.IsIngressGateway {
+			// getExtpeersExtraRoutes only reads node, so every gateway peer produced
+			// the same routes: one full extclient scan and policy prepare each, all
+			// but the first collapsed again by deduplicateEgressRoutes.
+			if peer.IsIngressGateway && !addedExtpeersExtraRoutes {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
+				addedExtpeersExtraRoutes = true
 			}
 			var allowedToComm bool
 			if defaultDevicePolicy.Enabled {

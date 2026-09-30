@@ -811,8 +811,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	extclient.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), extclient)
-
+	// AllowedIPs are filled by the read APIs, as in the bulk create path. Computing
+	// them here scans every client on the network, which is a needless cost per
+	// create once a network holds thousands of them.
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclient)
 

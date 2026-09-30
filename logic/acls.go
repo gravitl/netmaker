@@ -768,10 +768,19 @@ func appendStaticPeerFwRules(gw models.Node, nodes []models.Node, policies []pre
 				if srcKey == dstKey {
 					continue
 				}
-				if policy.acl.AllowedDirection == models.TrafficDirectionBi && srcKey > dstKey {
-					continue
-				}
+				// getFwRulesForNodeAndPeerOnGw expands a Bi policy into both legs, so a
+				// pair only needs emitting once. Dedupe on the unordered pair rather
+				// than skipping the orientation with the larger key: an asymmetric
+				// policy such as gateways -> all resources matches each pair in one
+				// orientation only, and skipping it drops the pair entirely.
 				key := policy.acl.ID + "|" + srcKey + ">" + dstKey
+				if policy.acl.AllowedDirection == models.TrafficDirectionBi {
+					lo, hi := srcKey, dstKey
+					if lo > hi {
+						lo, hi = hi, lo
+					}
+					key = policy.acl.ID + "|bi|" + lo + "|" + hi
+				}
 				if _, ok := seen[key]; ok {
 					continue
 				}
