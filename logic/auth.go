@@ -629,6 +629,29 @@ func GetLoginMethodsForUser(ctx context.Context, username string) ([]models.Logi
 	return options, nil
 }
 
+func GetScopeLoginMethods(ctx context.Context) (models.LoginMethodsAvailable, error) {
+	switch scope.Level(ctx) {
+	case scope.TenantScope:
+		settings := GetServerSettings(ctx)
+		methods := models.LoginMethodsAvailable{BasicAuth: settings.BasicAuth}
+		if settings.AuthProvider != "" {
+			methods.SSO = true
+			methods.SSOProvider = settings.AuthProvider
+		}
+		return methods, nil
+	case scope.OrgScope:
+		data := GetOrgSettings(ctx)
+		methods := models.LoginMethodsAvailable{BasicAuth: true}
+		if data.AuthProvider != "" {
+			methods.SSO = true
+			methods.SSOProvider = data.AuthProvider
+		}
+		return methods, nil
+	default:
+		return models.LoginMethodsAvailable{}, errors.New("tenant or organization scope required")
+	}
+}
+
 // IsStateValid - checks if given state is valid or not
 // deletes state after call is made to clean up, should only be called once per sign-in
 func IsStateValid(state string) (string, bool) {

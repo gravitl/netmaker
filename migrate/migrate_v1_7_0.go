@@ -35,10 +35,10 @@ const (
 
 func migrateV1_7_0(ctx context.Context) error {
 	// Step 0: bootstrap org/tenants (was migration-multitenancy).
-	// Goes through SyncOrgAndTenants so EE/MSP can sync from license validation
+	// Goes through MigrateOrgAndTenants so EE/MSP can sync from license validation
 	// instead of always creating a local UUID default tenant. CE keeps the
-	// CreateLocalDefaults default; idempotent when org/tenant already exist.
-	if err := SyncOrgAndTenants(ctx); err != nil {
+	// migrateOrgAndTenants default; idempotent when org/tenant already exist.
+	if err := MigrateOrgAndTenants(ctx); err != nil {
 		return err
 	}
 

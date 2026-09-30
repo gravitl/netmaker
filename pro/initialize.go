@@ -70,7 +70,7 @@ func InitPro() {
 		proControllers.IntegrationHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
-	migrate.SyncOrgAndTenants = license.SyncOrgAndTenants
+	migrate.MigrateOrgAndTenants = license.MigrateOrgAndTenants
 	servercfg.ErrLicenseValidation = license.ErrLicenseValidation
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")

@@ -42,21 +42,22 @@ func AddLicenseHooks() {
 	}
 }
 
-func SyncOrgAndTenants(ctx context.Context) error {
-	licenseResponse, isCachedResp, err := fetchValidatedLicense(ctx)
+func MigrateOrgAndTenants(ctx context.Context) error {
+	if err := clearCachedResponse(ctx); err != nil {
+		return err
+	}
+
+	// the cache was just cleared, so the response is never a cached one.
+	licenseResponse, _, err := fetchValidatedLicense(ctx)
 	if err != nil {
 		return err
 	}
 
-	if isCachedResp {
-		return nil
-	}
-
-	return syncOrgAndTenantsFromResponse(ctx, licenseResponse, false)
+	return syncOrgAndTenantsFromResponse(ctx, licenseResponse)
 }
 
-func syncOrgAndTenantsFromResponse(ctx context.Context, licenseResponse ValidatedLicense, hadCache bool) error {
-	if hadCache {
+func syncOrgAndTenantsFromResponse(ctx context.Context, licenseResponse ValidatedLicense) error {
+	if licenseResponse.Organization.ID != "" {
 		return upsertOrgAndTenants(ctx, licenseResponse)
 	}
 	return reconcileOrgAndTenants(ctx, licenseResponse)
@@ -84,15 +85,6 @@ func upsertOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) 
 }
 
 func upsertOrganization(ctx context.Context, licenseOrg LicenseOrg) (string, error) {
-	if licenseOrg.ID == "" {
-		// single-tenant PRO: the license carries no organization.
-		org, err := migrate.EnsureLocalOrganization(ctx)
-		if err != nil {
-			return "", err
-		}
-		return org.ID, nil
-	}
-
 	org := &schema.Organization{ID: licenseOrg.ID}
 	err := org.Get(ctx)
 	if err != nil {
@@ -160,62 +152,20 @@ func teardownDeletedTenant(ctx context.Context, tenantID string) error {
 }
 
 func reconcileOrgAndTenants(ctx context.Context, licenseResponse ValidatedLicense) error {
-	orgID, err := reconcileOrganization(ctx, licenseResponse.Organization)
+	// non-MSP: the license carries no organization, so the local one is used.
+	org, err := migrate.EnsureLocalOrganization(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile organization: %w", err)
 	}
 
-	if err := reconcileTenants(ctx, licenseResponse.Tenants, orgID); err != nil {
+	if err := reconcileTenants(ctx, licenseResponse.Tenants, org.ID); err != nil {
 		return fmt.Errorf("failed to reconcile tenants: %w", err)
 	}
 
 	return nil
 }
 
-func reconcileOrganization(ctx context.Context, licenseOrg LicenseOrg) (string, error) {
-	if licenseOrg.ID == "" {
-		org, err := migrate.EnsureLocalOrganization(ctx)
-		if err != nil {
-			return "", err
-		}
-		return org.ID, nil
-	}
-
-	orgs, err := (&schema.Organization{}).ListAll(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	switch len(orgs) {
-	case 0:
-		org := &schema.Organization{ID: licenseOrg.ID, Name: licenseOrg.Name, Metadata: licenseOrg.Metadata}
-		if err := org.Create(ctx); err != nil {
-			return "", err
-		}
-		return org.ID, nil
-	case 1:
-		existing := orgs[0]
-		if existing.ID != licenseOrg.ID {
-			if err := migrate.RekeyOrganization(ctx, existing.ID, licenseOrg.ID); err != nil {
-				return "", err
-			}
-		}
-		org := &schema.Organization{ID: licenseOrg.ID, Name: licenseOrg.Name, Metadata: licenseOrg.Metadata}
-		if err := org.Update(ctx); err != nil {
-			return "", err
-		}
-		return licenseOrg.ID, nil
-	default:
-		return "", fmt.Errorf("cannot reconcile license organization: %d local organizations already exist", len(orgs))
-	}
-}
-
 func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID string) error {
-	existing, err := (&schema.Tenant{}).List(ctx)
-	if err != nil {
-		return err
-	}
-
 	activeTenants := make([]LicenseTenant, 0, len(licenseTenants))
 	for _, licenseTenant := range licenseTenants {
 		if licenseTenant.Status == TenantStatusDeleted {
@@ -225,6 +175,12 @@ func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID
 			continue
 		}
 		activeTenants = append(activeTenants, licenseTenant)
+	}
+
+	// list after teardown so a tenant that was just removed isn't counted.
+	existing, err := (&schema.Tenant{}).List(ctx)
+	if err != nil {
+		return err
 	}
 
 	switch len(existing) {
@@ -333,13 +289,15 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 // if license is free_tier and limits exceeds, then function should error
 // if license is not valid, function should error
 func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
+	var isCachedResp bool
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %s", errValidation, err.Error())
+			setLicenseInvalidErr(err)
+		} else if !isCachedResp {
+			licenseInvalidErr.Store(nil)
 		}
 	}()
-
-	hadCache := hasCachedResponse(ctx)
 
 	if clearCache {
 		err = clearCachedResponse(ctx)
@@ -356,7 +314,7 @@ func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 		return
 	}
 
-	if err = syncOrgAndTenantsFromResponse(ctx, licenseResponse, hadCache); err != nil {
+	if err = syncOrgAndTenantsFromResponse(ctx, licenseResponse); err != nil {
 		err = fmt.Errorf("failed to sync organization/tenants from license: %w", err)
 		return err
 	}
@@ -381,6 +339,14 @@ func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 }
 
 func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicense, isCachedResp bool, err error) {
+	defer func() {
+		if err != nil {
+			setLicenseInvalidErr(err)
+		} else if !isCachedResp {
+			licenseInvalidErr.Store(nil)
+		}
+	}()
+
 	licenseKeyValue := servercfg.GetLicenseKey()
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	slog.Info("proceeding with Netmaker license validation...")
@@ -430,6 +396,11 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 	validationResponse, apiErr := callLicenseValidationApi(ctx, encryptedData, tempPubKey)
 	if apiErr != nil {
 		slog.Warn("failed to validate license key, falling back to cached response", "error", apiErr)
+		var rejected *licenseRejectedError
+		if errors.As(apiErr, &rejected) {
+			// a rejected license stays invalid even if a cached response exists.
+			setLicenseInvalidErr(rejected)
+		}
 		validationResponse, err = getCachedResponseFromDB(ctx)
 		if err != nil {
 			return licenseResponse, false, fmt.Errorf("failed to validate license key: %w", apiErr)
@@ -483,7 +454,20 @@ type licenseErrorResponse struct {
 	Message string `json:"message"`
 }
 
+// licenseRejectedError is returned when the validation backend rejects the license.
+type licenseRejectedError struct {
+	message string
+}
+
+func (e *licenseRejectedError) Error() string {
+	return e.message
+}
+
 var licenseInvalidErr atomic.Pointer[error]
+
+func setLicenseInvalidErr(err error) {
+	licenseInvalidErr.Store(&err)
+}
 
 func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
@@ -537,14 +521,11 @@ func callLicenseValidationApi(ctx context.Context, encryptedData []byte, publicK
 			var errResp licenseErrorResponse
 			jsonErr := json.Unmarshal(body, &errResp)
 			if jsonErr == nil && errResp.Code == http.StatusUnauthorized {
-				invalidErr := errors.New(errResp.Message)
-				licenseInvalidErr.Store(&invalidErr)
+				return nil, &licenseRejectedError{message: errResp.Message}
 			}
 		}
 		return nil, fmt.Errorf("could not validate license with validation backend (status={%d})", resp.StatusCode)
 	}
-
-	licenseInvalidErr.Store(nil)
 
 	return body, nil
 }

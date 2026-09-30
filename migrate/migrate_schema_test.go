@@ -122,7 +122,7 @@ func TestToSQLSchema_StuckServerCompletesV160AndV170(t *testing.T) {
 	ctx := setupMigrationTest(t)
 	networkName, nodeID := seedLegacyKVData(t, ctx)
 
-	require.NoError(t, CreateLocalDefaults(ctx))
+	require.NoError(t, migrateOrgAndTenants(ctx))
 	markMigrationJobComplete(t, ctx, "migration-multitenancy")
 	markMigrationJobComplete(t, ctx, "migration-v1.5.1")
 
@@ -179,7 +179,7 @@ func TestToSQLSchema_StuckServerCompletesV160AndV170(t *testing.T) {
 func TestToSQLSchema_SkipsCompletedPreMTJobs(t *testing.T) {
 	ctx := setupMigrationTest(t)
 
-	require.NoError(t, CreateLocalDefaults(ctx))
+	require.NoError(t, migrateOrgAndTenants(ctx))
 	markMigrationJobComplete(t, ctx, "migration-multitenancy")
 	markMigrationJobComplete(t, ctx, "migration-v1.5.1")
 	markMigrationJobComplete(t, ctx, "migration-v1.6.0")
@@ -200,19 +200,19 @@ func TestToSQLSchema_SkipsCompletedPreMTJobs(t *testing.T) {
 	require.Len(t, tenants, 1)
 }
 
-// TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook ensures v1.7.0 step 0 goes through
-// SyncOrgAndTenants (EE overrides this with license sync) rather than always
-// calling CreateLocalDefaults, which breaks MSP installs that need multiple
+// TestMigrateV1_7_0_UsesMigrateOrgAndTenantsHook ensures v1.7.0 step 0 goes through
+// MigrateOrgAndTenants (EE overrides this with license sync) rather than always
+// calling migrateOrgAndTenants, which breaks MSP installs that need multiple
 // tenants from the account server.
-func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
+func TestMigrateV1_7_0_UsesMigrateOrgAndTenantsHook(t *testing.T) {
 	ctx := setupMigrationTest(t)
 	markMigrationJobComplete(t, ctx, migrationJobV160)
 
-	orig := SyncOrgAndTenants
-	t.Cleanup(func() { SyncOrgAndTenants = orig })
+	orig := MigrateOrgAndTenants
+	t.Cleanup(func() { MigrateOrgAndTenants = orig })
 
 	called := false
-	SyncOrgAndTenants = func(ctx context.Context) error {
+	MigrateOrgAndTenants = func(ctx context.Context) error {
 		called = true
 		org := &schema.Organization{
 			ID:   "license-org-id",
@@ -231,7 +231,7 @@ func TestMigrateV1_7_0_UsesSyncOrgAndTenantsHook(t *testing.T) {
 	}
 
 	require.NoError(t, migrateV1_7_0(ctx))
-	assert.True(t, called, "expected SyncOrgAndTenants hook to run")
+	assert.True(t, called, "expected MigrateOrgAndTenants hook to run")
 
 	tenants, err := (&schema.Tenant{}).List(ctx)
 	require.NoError(t, err)
