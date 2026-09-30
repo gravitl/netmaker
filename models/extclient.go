@@ -12,11 +12,14 @@ type ExtClient = schema.ExtClient
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID                   string              `json:"clientid,omitempty"`
-	PublicKey                  string              `json:"publickey,omitempty"`
-	DNS                        string              `json:"dns,omitempty"`
-	ExtraAllowedIPs            []string            `json:"extraallowedips,omitempty"`
-	Enabled                    bool                `json:"enabled,omitempty"`
+	ClientID        string   `json:"clientid,omitempty"`
+	PublicKey       string   `json:"publickey,omitempty"`
+	DNS             string   `json:"dns,omitempty"`
+	ExtraAllowedIPs []string `json:"extraallowedips,omitempty"`
+	Enabled         bool     `json:"enabled,omitempty"`
+	// IncludeNetworkEgressRanges, when set, is stored on the client. Nil leaves
+	// the stored value unchanged. False skips network egress ranges in the config.
+	IncludeNetworkEgressRanges *bool               `json:"include_network_egress_ranges,omitempty"`
 	DeniedACLs                 map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 	RemoteAccessClientID       string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`

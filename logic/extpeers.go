@@ -328,6 +328,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 		new.Enabled = update.Enabled
 	}
 	new.ExtraAllowedIPs = update.ExtraAllowedIPs
+	if update.IncludeNetworkEgressRanges != nil {
+		new.IncludeNetworkEgressRanges = update.IncludeNetworkEgressRanges
+	}
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
@@ -668,8 +671,10 @@ func GetExtclientAllowedIPs(ctx context.Context, client models.ExtClient) (allow
 		if network.AddressRange6 != "" {
 			allowedIPs = append(allowedIPs, network.AddressRange6)
 		}
-		if egressGatewayRanges, err := GetEgressRangesOnNetwork(ctx, &client); err == nil {
-			allowedIPs = append(allowedIPs, egressGatewayRanges...)
+		if client.IncludesNetworkEgressRanges() {
+			if egressGatewayRanges, err := GetEgressRangesOnNetwork(ctx, &client); err == nil {
+				allowedIPs = append(allowedIPs, egressGatewayRanges...)
+			}
 		}
 	}
 	return

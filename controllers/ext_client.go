@@ -360,9 +360,11 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		if network.AddressRange6 != "" {
 			newAllowedIPs += network.AddressRange6
 		}
-		if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(r.Context(), &client); err == nil {
-			for _, egressGatewayRange := range egressGatewayRanges {
-				newAllowedIPs += "," + egressGatewayRange
+		if client.IncludesNetworkEgressRanges() {
+			if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(r.Context(), &client); err == nil {
+				for _, egressGatewayRange := range egressGatewayRanges {
+					newAllowedIPs += "," + egressGatewayRange
+				}
 			}
 		}
 	}
