@@ -48,7 +48,7 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 }
 
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
-// RegisterDevice does not call this; any API that exposes transfer must enforce admin authorization.
+// RegisterDevice calls this when a different user logs in on the same machine.
 func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
 	if host == nil || newOwner == "" {
 		return errors.New("host and new owner are required")
@@ -432,7 +432,11 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 			EnsureHostOwner(existing, user.Username)
 		}
 		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			return empty, errors.New("host already registered to another user")
+			// Same machine, next person at the keyboard. Re-bind the host
+			// instead of leaving it owned by whoever logged in first.
+			if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+				return empty, err
+			}
 		}
 		if existing.TenantID == "" {
 			existing.TenantID = tenantID

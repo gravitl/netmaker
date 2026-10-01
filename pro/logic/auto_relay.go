@@ -311,6 +311,12 @@ func CreateAutoRelay(node models.Node) error {
 	if err != nil {
 		return err
 	}
+	if err := logic.ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+		return err
+	}
+	if err := logic.ErrUserOwnedHostInfrastructureRole(host); err != nil {
+		return err
+	}
 	if host.OS != models.OS_Types.Linux {
 		return errors.New("only linux nodes are allowed to be set as autoRelay")
 	}

@@ -53,6 +53,12 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
+	if err := ErrUserOwnedHostInfrastructureRole(host); err != nil {
+		return models.Node{}, err
+	}
+	if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+		return models.Node{}, err
+	}
 	if host.OS != models.OS_Types.Linux && host.OS != models.OS_Types.Windows {
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
@@ -241,6 +247,9 @@ func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNo
 	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
 	if node.Host == nil {
 		return errors.New("host is required")
+	}
+	if err := ErrUserOwnedHostInfrastructureRole(node.Host); err != nil {
+		return err
 	}
 	if !isSupportedEgressFirewall(node.Host.FirewallInUse, node.Host.OS) {
 		if node.Host.OS == models.OS_Types.Windows {

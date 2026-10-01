@@ -122,15 +122,15 @@ func TestRegisterDevice(t *testing.T) {
 	t.Cleanup(func() { _ = otherUser.Delete(ctx) })
 
 	dup := &schema.Host{ID: hostID, Name: "device-reg-host", OS: "linux", Version: "dev", TrafficKeyPublic: []byte{1, 2, 3}}
-	_, err = RegisterDevice(ctx, otherUser, dup)
-	require.Error(t, err)
-	assert.Equal(t, "host already registered to another user", err.Error())
-
-	got, err := VerifyDeviceHostAccess(ctx, owner, hostID.String())
+	resp, err = RegisterDevice(ctx, otherUser, dup)
 	require.NoError(t, err)
-	assert.Equal(t, owner, got.OwnerUsername)
+	assert.Equal(t, other, resp.RequestedHost.OwnerUsername)
 
-	_, err = VerifyDeviceHostAccess(ctx, other, hostID.String())
+	got, err := VerifyDeviceHostAccess(ctx, other, hostID.String())
+	require.NoError(t, err)
+	assert.Equal(t, other, got.OwnerUsername)
+
+	_, err = VerifyDeviceHostAccess(ctx, owner, hostID.String())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not belong")
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
