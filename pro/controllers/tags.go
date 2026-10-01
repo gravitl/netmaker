@@ -208,6 +208,10 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.ErrTaggingUserDevicesAsEgressRouters(r.Context(), updateTag.ID, string(tag.Network), updateTag.TaggedNodes); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	e := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{

@@ -391,6 +391,10 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
+	if err := logic.ErrUserOwnedHostInfrastructureRole(node.Host); err != nil {
+		return err
+	}
+
 	if node.Host.OS != models.OS_Types.Linux && node.Host.OS != models.OS_Types.Windows {
 		return fmt.Errorf("gateway can only be created on linux or windows based node")
 	}

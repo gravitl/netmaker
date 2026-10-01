@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -60,4 +61,52 @@ func TestIsUserOwnedDevice_requiresHostBackedOwner(t *testing.T) {
 	n.IsUserNode = true
 	n.IsStatic = true
 	assert.False(t, IsUserOwnedDevice(n))
+}
+
+func TestErrUserOwnedInfrastructureRole(t *testing.T) {
+	assert.NoError(t, ErrUserOwnedNodeInfrastructureRole(nil))
+	assert.NoError(t, ErrUserOwnedHostInfrastructureRole(nil))
+	assert.NoError(t, ErrUserOwnedNodeInfrastructureRole(&models.Node{}))
+	assert.NoError(t, ErrUserOwnedHostInfrastructureRole(&schema.Host{Name: "gw"}))
+
+	err := ErrUserOwnedNodeInfrastructureRole(&models.Node{OwnerID: "alice"})
+	assert.ErrorIs(t, err, ErrUserDeviceInfrastructureRole)
+	err = ErrUserOwnedHostInfrastructureRole(&schema.Host{OwnerUsername: "alice"})
+	assert.ErrorIs(t, err, ErrUserDeviceInfrastructureRole)
+
+	legacy := &models.Node{IsStatic: true, IsUserNode: true, OwnerID: "bob"}
+	assert.NoError(t, ErrUserOwnedNodeInfrastructureRole(legacy))
+}
+
+func TestErrUserDeviceGainingInfrastructureRole(t *testing.T) {
+	ctx := context.Background()
+	current := &models.Node{OwnerID: "alice"}
+
+	cases := make([]*models.Node, 6)
+	for i := range cases {
+		cases[i] = &models.Node{OwnerID: "alice"}
+	}
+	cases[0].IsGw = true
+	cases[1].IsIngressGateway = true
+	cases[2].IsRelay = true
+	cases[3].IsInternetGateway = true
+	cases[4].IsAutoRelay = true
+	cases[5].EgressDetails.IsEgressGateway = true
+	for _, next := range cases {
+		assert.ErrorIs(t, ErrUserDeviceGainingInfrastructureRole(ctx, current, next), ErrUserDeviceInfrastructureRole)
+	}
+
+	unchanged := &models.Node{OwnerID: "alice"}
+	assert.NoError(t, ErrUserDeviceGainingInfrastructureRole(ctx, current, unchanged))
+
+	alreadyGateway := &models.Node{OwnerID: "alice"}
+	alreadyGateway.IsGw = true
+	stillGateway := &models.Node{OwnerID: "alice"}
+	stillGateway.IsGw = true
+	assert.NoError(t, ErrUserDeviceGainingInfrastructureRole(ctx, alreadyGateway, stillGateway))
+
+	infra := &models.Node{}
+	gateway := &models.Node{}
+	gateway.IsGw = true
+	assert.NoError(t, ErrUserDeviceGainingInfrastructureRole(ctx, infra, gateway))
 }

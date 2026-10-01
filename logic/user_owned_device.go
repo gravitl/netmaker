@@ -2,10 +2,16 @@ package logic
 
 import (
 	"context"
+	"errors"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
+
+// ErrUserDeviceInfrastructureRole is returned when a user-registered device is
+// assigned a gateway, relay, auto-relay, or egress routing role.
+var ErrUserDeviceInfrastructureRole = errors.New("user-registered devices cannot be set as gateways, relays, or egress routing nodes")
 
 // IsUserOwnedHost reports whether the host was registered by an end user
 // (desktop/device flow). Admin dashboard must not link these into networks;
@@ -44,6 +50,133 @@ func NodeOwnerUsername(n *models.Node) string {
 // device paths remain intact; ownership is the user-policy subject signal.
 func IsUserOwnedDevice(n *models.Node) bool {
 	return n != nil && !n.IsStatic && !n.IsUserNode && NodeOwnerUsername(n) != ""
+}
+
+// ErrUserOwnedNodeInfrastructureRole rejects infrastructure roles on a
+// host-backed user device. Legacy ExtClient user nodes are not included.
+func ErrUserOwnedNodeInfrastructureRole(n *models.Node) error {
+	if IsUserOwnedDevice(n) {
+		return ErrUserDeviceInfrastructureRole
+	}
+	return nil
+}
+
+// ErrUserOwnedHostInfrastructureRole rejects infrastructure roles on a
+// user-registered host.
+func ErrUserOwnedHostInfrastructureRole(h *schema.Host) error {
+	if IsUserOwnedHost(h) {
+		return ErrUserDeviceInfrastructureRole
+	}
+	return nil
+}
+
+// ErrUserDeviceGainingInfrastructureRole rejects a node update that promotes a
+// user-registered device into a gateway, relay, auto-relay, or egress role,
+// including membership in a tag that already routes egress.
+func ErrUserDeviceGainingInfrastructureRole(ctx context.Context, current, next *models.Node) error {
+	if next == nil || (!IsUserOwnedDevice(current) && !IsUserOwnedDevice(next)) {
+		return nil
+	}
+	if userDeviceInfrastructureRoleTurnedOn(current, next) {
+		return ErrUserDeviceInfrastructureRole
+	}
+	if current != nil && !sameTagSet(current.Tags, next.Tags) {
+		return errIfUserDeviceAssignedEgressTags(ctx, next.Network, next.Tags)
+	}
+	return nil
+}
+
+// ErrTaggingUserDevicesAsEgressRouters rejects adding user-registered devices
+// to a tag that is already used as an egress routing set.
+func ErrTaggingUserDevicesAsEgressRouters(ctx context.Context, tagID models.TagID, network string, nodes []models.ApiNode) error {
+	if tagID == "" || network == "" || len(nodes) == 0 {
+		return nil
+	}
+	hasUserDevice := false
+	for i := range nodes {
+		if nodes[i].IsStatic || nodes[i].ID == "" {
+			continue
+		}
+		node, err := GetNodeByID(nodes[i].ID)
+		if err != nil {
+			continue
+		}
+		if IsUserOwnedDevice(&node) {
+			hasUserDevice = true
+			break
+		}
+	}
+	if !hasUserDevice {
+		return nil
+	}
+	return errIfEgressUsesTag(ctx, network, tagID)
+}
+
+func userDeviceInfrastructureRoleTurnedOn(current, next *models.Node) bool {
+	curGw := current != nil && (current.IsGw || current.IsIngressGateway)
+	curRelay := current != nil && current.IsRelay
+	curInet := current != nil && current.IsInternetGateway
+	curAuto := current != nil && current.IsAutoRelay
+	curEgress := current != nil && current.EgressDetails.IsEgressGateway
+	if !curGw && (next.IsGw || next.IsIngressGateway) {
+		return true
+	}
+	if !curRelay && next.IsRelay {
+		return true
+	}
+	if !curInet && next.IsInternetGateway {
+		return true
+	}
+	if !curAuto && next.IsAutoRelay {
+		return true
+	}
+	if !curEgress && next.EgressDetails.IsEgressGateway {
+		return true
+	}
+	return false
+}
+
+func sameTagSet(a, b map[models.TagID]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for id := range a {
+		if _, ok := b[id]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func errIfUserDeviceAssignedEgressTags(ctx context.Context, network string, tags map[models.TagID]struct{}) error {
+	if network == "" || len(tags) == 0 {
+		return nil
+	}
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	for _, e := range eli {
+		for tagID := range tags {
+			if _, ok := e.Tags[tagID.String()]; ok {
+				return ErrUserDeviceInfrastructureRole
+			}
+		}
+	}
+	return nil
+}
+
+func errIfEgressUsesTag(ctx context.Context, network string, tagID models.TagID) error {
+	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	for _, e := range eli {
+		if _, ok := e.Tags[tagID.String()]; ok {
+			return ErrUserDeviceInfrastructureRole
+		}
+	}
+	return nil
 }
 
 // isAllowedViaUserOwnership is true when either side is a user-owned subject

@@ -62,6 +62,9 @@ func ValidateRelay(ctx context.Context, relay models.RelayRequest, update bool) 
 	if err != nil {
 		return err
 	}
+	if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+		return err
+	}
 	if !update && node.IsRelay {
 		return errors.New("node is already acting as a relay")
 	}

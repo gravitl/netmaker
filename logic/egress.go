@@ -78,6 +78,9 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+				return err
+			}
 			if IsEgressInternetGateway(*e) {
 				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
@@ -284,8 +287,14 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	if node == nil {
 		return errors.New("routing node is required")
 	}
+	if err := ErrUserOwnedNodeInfrastructureRole(node); err != nil {
+		return err
+	}
 	host := &schema.Host{ID: node.HostID}
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		return err
+	}
+	if err := ErrUserOwnedHostInfrastructureRole(host); err != nil {
 		return err
 	}
 	switch host.OS {

@@ -563,7 +563,11 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
 				gateway.NodeID, gateway.NetID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserDeviceInfrastructureRole) {
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -700,6 +704,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
+		return
+	}
+	if err := logic.ErrUserDeviceGainingInfrastructureRole(r.Context(), &currentNode, newNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
