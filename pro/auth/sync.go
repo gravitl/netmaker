@@ -531,5 +531,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		Email: username,
 	}).DeleteByEmail(ctx)
 
+	_ = logic.RemoveUserFromNameservers(ctx, username)
+
 	_ = mq.PublishPeerUpdate(ctx, false)
 }

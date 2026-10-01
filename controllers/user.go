@@ -2012,6 +2012,10 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		Email: username,
 	}).DeleteByEmail(ctx)
 
+	if err := logic.RemoveUserFromNameservers(ctx, username); err != nil {
+		slog.Error("failed to remove user from nameservers", "user", username, "error", err)
+	}
+
 	if err := mq.PublishPeerUpdate(ctx, false); err != nil {
 		slog.Error("error publishing peer update", "error", err)
 	}

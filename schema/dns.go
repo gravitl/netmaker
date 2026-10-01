@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -88,6 +89,27 @@ func (ns *Nameserver) Delete(ctx context.Context, options ...dbtypes.Option) err
 		query = query.Where("id = ?", ns.ID)
 	}
 	return query.Delete(&Nameserver{}).Error
+}
+
+// RemoveUser removes username from the users of every nameserver in the tenant.
+func (ns *Nameserver) RemoveUser(ctx context.Context, username string) error {
+	return ns.removeKey(ctx, "users", username)
+}
+
+// RemoveUserGroup removes groupID from the user groups of every nameserver in the tenant.
+func (ns *Nameserver) RemoveUserGroup(ctx context.Context, groupID string) error {
+	return ns.removeKey(ctx, "user_groups", groupID)
+}
+
+func (ns *Nameserver) removeKey(ctx context.Context, col, key string) error {
+	query := db.FromContext(ctx).Model(&Nameserver{})
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nameserversTable), tenantID)(query)
+	}
+	return query.
+		Where(expr.WhereHasKey(col, key)).
+		UpdateColumn(col, expr.Remove(col, key)).
+		Error
 }
 
 func (ns *Nameserver) UpdateStatus(ctx context.Context) error {
