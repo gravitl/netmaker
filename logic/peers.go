@@ -306,20 +306,13 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			}
 		}
 		if host.EnableFlowLogs {
+			nodeIdentity := nodeFlowIdentity(&node, host)
 			if node.Address.IP != nil {
-				hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
-					ID:   node.ID.String(),
-					Type: models.PeerType_Node,
-					Name: host.Name,
-				}
+				hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = nodeIdentity
 			}
 
 			if node.Address6.IP != nil {
-				hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
-					ID:   node.ID.String(),
-					Type: models.PeerType_Node,
-					Name: host.Name,
-				}
+				hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = nodeIdentity
 			}
 		}
 
@@ -605,19 +598,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
 			if host.EnableFlowLogs {
+				peerIdentity := nodeFlowIdentity(&peer, peerHost)
 				if peer.Address.IP != nil {
-					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
-						ID:   peer.ID.String(),
-						Type: models.PeerType_Node,
-						Name: peerHost.Name,
-					}
+					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = peerIdentity
 				}
 				if peer.Address6.IP != nil {
-					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
-						ID:   peer.ID.String(),
-						Type: models.PeerType_Node,
-						Name: peerHost.Name,
-					}
+					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = peerIdentity
 				}
 			}
 		}
