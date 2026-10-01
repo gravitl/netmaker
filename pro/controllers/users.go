@@ -1038,7 +1038,10 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go proLogic.RunPostureChecksForTenant(ctx)
-	go mq.PublishPeerUpdate(ctx, false)
+	go func() {
+		mq.PublishDeletedUserDeviceNodes(ctx, logic.DeleteUserDeviceNodesWithoutAccess(ctx, user))
+		mq.PublishPeerUpdate(ctx, false)
+	}()
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 

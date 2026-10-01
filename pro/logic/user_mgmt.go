@@ -849,6 +849,9 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 			networkRemovedMap[netID] = struct{}{}
 		}
 	}
+	if len(networkRemovedMap) > 0 {
+		removeUserDeviceNodesOnGrpUpdates(ctx, networkRemovedMap)
+	}
 
 	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
@@ -887,6 +890,28 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 				}
 			}
 		}
+	}
+}
+
+// removeUserDeviceNodesOnGrpUpdates deletes user device nodes in networks a
+// group lost access to, for users with no remaining access. All users are
+// checked since a deleted group has already been removed from its members.
+func removeUserDeviceNodesOnGrpUpdates(ctx context.Context, networkRemovedMap map[schema.NetworkID]struct{}) {
+	users, err := (&schema.User{}).ListAllWithMembership(ctx)
+	if err != nil {
+		slog.Error("failed to list users", "error", err)
+		return
+	}
+	_, allNetworksRemoved := networkRemovedMap[schema.AllNetworks]
+	for i := range users {
+		user := &users[i]
+		deleted := logic.DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
+			if _, ok := networkRemovedMap[schema.NetworkID(network)]; !ok && !allNetworksRemoved {
+				return false
+			}
+			return !logic.UserHasAccessToNetwork(ctx, user, network)
+		})
+		mq.PublishDeletedUserDeviceNodes(ctx, deleted)
 	}
 }
 

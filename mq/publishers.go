@@ -550,3 +550,20 @@ func PublishIntegrationDelete(id string) error {
 
 	return nil
 }
+
+// PublishDeletedUserDeviceNodes notifies peers about deleted user device nodes
+// and asks each affected device to pull its new state.
+func PublishDeletedUserDeviceNodes(ctx context.Context, deleted []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	for i := range deleted {
+		d := deleted[i]
+		PublishMqUpdatesForDeletedNode(ctx, &d.Host, d.Node, true)
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+}

@@ -5,8 +5,10 @@ import (
 	"errors"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
 )
 
 // ErrUserDeviceInfrastructureRole is returned when a user-registered device is
@@ -235,4 +237,48 @@ func NodeHasEgressAccess(ctx context.Context, node *models.Node, e *schema.Egres
 		return false
 	}
 	return DoesUserHaveAccessToEgress(user, e, ListUserPolicies(ctx, schema.NetworkID(node.Network)))
+}
+
+// UserDeviceNode is a network node of a user-registered device.
+type UserDeviceNode struct {
+	Node models.Node
+	Host schema.Host
+}
+
+// DeleteUserDeviceNodes deletes the network nodes of devices registered by
+// username, limited to networks for which shouldDelete returns true (all
+// networks when nil). It returns the deleted nodes so callers can publish them.
+func DeleteUserDeviceNodes(ctx context.Context, username string, shouldDelete func(network string) bool) []UserDeviceNode {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices", "user", username, "error", err)
+		return nil
+	}
+	var deleted []UserDeviceNode
+	for _, host := range hosts {
+		for _, nodeID := range host.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			if shouldDelete != nil && !shouldDelete(node.Network) {
+				continue
+			}
+			if err := DeleteNode(ctx, &node, true); err != nil {
+				slog.Error("failed to delete user device node",
+					"node", node.ID.String(), "user", username, "network", node.Network, "error", err)
+				continue
+			}
+			deleted = append(deleted, UserDeviceNode{Node: node, Host: host})
+		}
+	}
+	return deleted
+}
+
+// DeleteUserDeviceNodesWithoutAccess deletes the user's device nodes in
+// networks the user can no longer access.
+func DeleteUserDeviceNodesWithoutAccess(ctx context.Context, user *schema.User) []UserDeviceNode {
+	return DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
+		return !UserHasAccessToNetwork(ctx, user, network)
+	})
 }

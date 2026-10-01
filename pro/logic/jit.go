@@ -846,18 +846,6 @@ func removeUserJITNetworkAccess(ctx context.Context, networkID, userID string) e
 	return firstErr
 }
 
-func lookupHostByNodeHostID(hostByID map[string]schema.Host, hostID string) (schema.Host, bool) {
-	if h, ok := hostByID[hostID]; ok {
-		return h, true
-	}
-	parsed, err := uuid.Parse(hostID)
-	if err != nil {
-		return schema.Host{}, false
-	}
-	h, ok := hostByID[parsed.String()]
-	return h, ok
-}
-
 func disconnectUserExtClients(ctx context.Context, networkID, userID string) error {
 	extClients, err := logic.GetNetworkExtClients(ctx, networkID)
 	if err != nil {
@@ -890,69 +878,8 @@ func disconnectUserHostNodes(ctx context.Context, networkID, userID string) erro
 		return fmt.Errorf("failed to get network %s: %w", networkID, err)
 	}
 
-	var hosts []schema.Host
-	if err := db.FromContext(ctx).Where("owner_username = ?", userID).Find(&hosts).Error; err != nil {
-		return err
-	}
-	if len(hosts) == 0 {
-		return nil
-	}
-
-	hostByID := make(map[string]schema.Host, len(hosts))
-	hostIDs := make([]string, 0, len(hosts))
-	for _, h := range hosts {
-		id := h.ID.String()
-		hostIDs = append(hostIDs, id)
-		hostByID[id] = h
-	}
-
-	var schemaNodes []schema.Node
-	if err := db.FromContext(ctx).
-		Where("network_id = ? AND host_id IN ?", network.ID, hostIDs).
-		Find(&schemaNodes).Error; err != nil {
-		return err
-	}
-	if len(schemaNodes) == 0 {
-		return nil
-	}
-
-	pullRequested := make(map[string]struct{})
-	for _, schemaNode := range schemaNodes {
-		host, ok := lookupHostByNodeHostID(hostByID, schemaNode.HostID)
-		if !ok {
-			slog.Warn("skipping JIT host node removal: host not found for node",
-				"node_id", schemaNode.ID, "host_id", schemaNode.HostID, "user_id", userID)
-			continue
-		}
-
-		nodePtr := logic.ConvertSchemaNodeToModelsNode(&schemaNode)
-		if nodePtr == nil || nodePtr.ID == uuid.Nil {
-			slog.Warn("skipping JIT host node removal: invalid node model",
-				"node_id", schemaNode.ID, "user_id", userID, "network", networkID)
-			continue
-		}
-		node := *nodePtr
-
-		if err := logic.DeleteNode(ctx, &node, true); err != nil {
-			slog.Warn("failed to remove host node for JIT revoke",
-				"node_id", node.ID.String(), "user_id", userID, "network", networkID, "error", err)
-			continue
-		}
-
-		hostCopy := host
-		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-		go mq.PublishMqUpdatesForDeletedNode(detachedCtx, &hostCopy, node, true)
-		if _, ok := pullRequested[host.ID.String()]; !ok {
-			if err := mq.HostUpdate(&models.HostUpdate{
-				Action: models.RequestPull,
-				Host:   hostCopy,
-			}); err != nil {
-				slog.Warn("failed to request host pull after JIT host removal",
-					"host_id", host.ID.String(), "error", err)
-			}
-			pullRequested[host.ID.String()] = struct{}{}
-		}
-	}
-
+	deleted := logic.DeleteUserDeviceNodes(ctx, userID, func(n string) bool { return n == network.Name })
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go mq.PublishDeletedUserDeviceNodes(detachedCtx, deleted)
 	return nil
 }
