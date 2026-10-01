@@ -544,7 +544,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		Email: username,
 	}).DeleteByEmail(ctx)
 
-	mq.PublishDeletedUserDeviceNodes(ctx, logic.DeleteUserDeviceNodes(ctx, username, nil))
+	mq.PublishDeletedUserDevices(ctx, logic.DeleteUserDevices(ctx, username))
 
 	_ = logic.RemoveUserFromNameservers(ctx, username)
 

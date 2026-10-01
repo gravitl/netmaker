@@ -567,3 +567,22 @@ func PublishDeletedUserDeviceNodes(ctx context.Context, deleted []logic.UserDevi
 		}
 	}
 }
+
+// PublishDeletedUserDevices notifies peers about deleted user devices and
+// tells each device it has been deleted.
+func PublishDeletedUserDevices(ctx context.Context, devices []logic.UserDevice) {
+	for i := range devices {
+		d := devices[i]
+		for _, node := range d.Nodes {
+			PublishMqUpdatesForDeletedNode(ctx, &d.Host, node, false)
+		}
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			if err := GetEmqxHandler().DeleteEmqxUser(d.Host.ID.String()); err != nil {
+				slog.Error("failed to remove host credentials from EMQX", "id", d.Host.ID, "error", err)
+			}
+		}
+		if err := HostUpdate(&models.HostUpdate{Action: models.DeleteHost, Host: d.Host}); err != nil {
+			slog.Error("failed to send delete host update", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+}

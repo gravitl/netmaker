@@ -245,9 +245,42 @@ type UserDeviceNode struct {
 	Host schema.Host
 }
 
+// UserDevice is a deleted user-registered host along with its deleted nodes.
+type UserDevice struct {
+	Host  schema.Host
+	Nodes []models.Node
+}
+
+// DeleteUserDevices deletes the hosts registered by username, along with their
+// nodes. It returns the deleted hosts so callers can publish them.
+func DeleteUserDevices(ctx context.Context, username string) []UserDevice {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices", "user", username, "error", err)
+		return nil
+	}
+	var deleted []UserDevice
+	for i := range hosts {
+		host := &hosts[i]
+		device := UserDevice{Host: *host}
+		for _, nodeID := range host.Nodes {
+			if node, err := GetNodeByID(nodeID); err == nil {
+				device.Nodes = append(device.Nodes, node)
+			}
+		}
+		if err := RemoveHost(ctx, host, true); err != nil {
+			slog.Error("failed to delete user device", "host", host.ID.String(), "user", username, "error", err)
+			continue
+		}
+		_ = (&schema.PendingHost{HostID: host.ID.String()}).DeleteAllPendingHosts(ctx)
+		deleted = append(deleted, device)
+	}
+	return deleted
+}
+
 // DeleteUserDeviceNodes deletes the network nodes of devices registered by
-// username, limited to networks for which shouldDelete returns true (all
-// networks when nil). It returns the deleted nodes so callers can publish them.
+// username in networks for which shouldDelete returns true. It returns the
+// deleted nodes so callers can publish them.
 func DeleteUserDeviceNodes(ctx context.Context, username string, shouldDelete func(network string) bool) []UserDeviceNode {
 	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
 	if err != nil {
@@ -261,7 +294,7 @@ func DeleteUserDeviceNodes(ctx context.Context, username string, shouldDelete fu
 			if err != nil {
 				continue
 			}
-			if shouldDelete != nil && !shouldDelete(node.Network) {
+			if !shouldDelete(node.Network) {
 				continue
 			}
 			if err := DeleteNode(ctx, &node, true); err != nil {
