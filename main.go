@@ -133,7 +133,12 @@ func initialize() { // Client Mode Prereq Check
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
-		if err != nil {
+		if errors.Is(err, migrate.ErrMigrationV170Required) {
+			logger.FatalLog(
+				"Only v1.7.0 can upgrade directly to v1.8.0.\n" +
+					"Upgrade your Netmaker server first to v1.7.0 before upgrading to v1.8.0",
+			)
+		} else if err != nil {
 			logger.FatalLog("schema migration failed: ", err.Error())
 		}
 
