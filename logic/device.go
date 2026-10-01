@@ -167,10 +167,11 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
-			NetworkID:    network.Name,
-			DisplayName:  network.Name,
-			Status:       models.DeviceNetworkStatusAvailable,
-			HasJITAccess: true,
+			NetworkID:          network.Name,
+			DisplayName:        network.Name,
+			Status:             models.DeviceNetworkStatusAvailable,
+			HasJITAccess:       true,
+			AutoSelectExitNode: network.AutoSelectExitNode,
 		}
 		applyDeviceNetworkApprovalPolicy(ctx, network, user, featureFlags, &dn)
 		if host != nil {

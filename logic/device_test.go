@@ -22,6 +22,37 @@ func scopedTestContext(t *testing.T) context.Context {
 	return scope.WithContext(ctx, scope.TenantScope, defaultTenant.ID)
 }
 
+func TestGetDeviceNetworksIncludesAutoSelectExitNode(t *testing.T) {
+	ctx := scopedTestContext(t)
+	username := "auto-exit-user-" + uuid.NewString()[:8]
+	user := &schema.User{Username: username, PlatformRoleID: schema.PlatformUser}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	origFilter := FilterNetworksByRole
+	t.Cleanup(func() { FilterNetworksByRole = origFilter })
+	FilterNetworksByRole = func(context.Context, []schema.Network, *schema.User) []schema.Network {
+		return []schema.Network{
+			{Name: "enforced", AutoSelectExitNode: true},
+			{Name: "optional"},
+		}
+	}
+	origJIT := CheckJITAccess
+	t.Cleanup(func() { CheckJITAccess = origJIT })
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
+		return true, nil, nil
+	}
+
+	networks, err := GetDeviceNetworks(ctx, user, nil)
+	require.NoError(t, err)
+	got := map[string]bool{}
+	for _, n := range networks {
+		got[n.NetworkID] = n.AutoSelectExitNode
+	}
+	assert.True(t, got["enforced"])
+	assert.False(t, got["optional"])
+}
+
 func TestEnsureHostOwner(t *testing.T) {
 	ctx := scopedTestContext(t)
 	host := &schema.Host{ID: uuid.New(), Name: "ensure-owner-host", OwnerUsername: ""}

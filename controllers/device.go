@@ -317,13 +317,14 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		case "user does not have access to network", "user does not have access to this exit node",
 			"operation not permitted":
 			errType = logic.Forbidden
-		case "device is not joined to network", "network is required", "exit node not found",
+		case "device is not joined to network", "network is required", "network not found", "exit node not found",
 			"egress is not an active internet exit node in this network",
 			"exit node cannot use another exit node",
 			"routing node cannot select itself as exit node",
 			"gateway nodes cannot be assigned an exit node",
 			"node is relayed by a different gateway",
-			"internet egress has no routing node":
+			"internet egress has no routing node",
+			"exit node selection is required":
 			errType = logic.BadReq
 		default:
 			if strings.Contains(err.Error(), "does not have TCP proxy enabled") {

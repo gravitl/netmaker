@@ -36,11 +36,14 @@ type Network struct {
 	AddressRange  string `json:"addressrange"`
 	AddressRange6 string `json:"addressrange6"`
 	// in seconds.
-	DefaultKeepAlive int                         `gorm:"default:20" json:"defaultkeepalive"`
-	DefaultMTU       int32                       `gorm:"default:1280" json:"defaultmtu"`
-	AutoJoin         bool                        `json:"auto_join"`
-	AutoRemove       bool                        `json:"auto_remove"`
-	AutoRemoveTags   datatypes.JSONSlice[string] `json:"auto_remove_tags"`
+	DefaultKeepAlive int   `gorm:"default:20" json:"defaultkeepalive"`
+	DefaultMTU       int32 `gorm:"default:1280" json:"defaultmtu"`
+	AutoJoin         bool  `json:"auto_join"`
+	// AutoSelectExitNode forces user devices to use an exit node. The nearest
+	// allowed exit is chosen when they connect.
+	AutoSelectExitNode bool                        `json:"auto_select_exit_node"`
+	AutoRemove         bool                        `json:"auto_remove"`
+	AutoRemoveTags     datatypes.JSONSlice[string] `json:"auto_remove_tags"`
 	// in minutes
 	AutoRemoveThreshold         int                              `json:"auto_remove_threshold"`
 	JITEnabled                  bool                             `json:"jit_enabled"`
@@ -132,6 +135,7 @@ func (n *Network) Update(ctx context.Context) error {
 			"default_keep_alive":               n.DefaultKeepAlive,
 			"default_mtu":                      n.DefaultMTU,
 			"auto_join":                        n.AutoJoin,
+			"auto_select_exit_node":            n.AutoSelectExitNode,
 			"auto_remove":                      n.AutoRemove,
 			"auto_remove_tags":                 n.AutoRemoveTags,
 			"auto_remove_threshold":            n.AutoRemoveThreshold,

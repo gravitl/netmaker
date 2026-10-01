@@ -19,6 +19,10 @@ type DeviceNetwork struct {
 	JITGrant          any    `json:"jit_grant,omitempty"`
 	JITRequest        any    `json:"jit_request,omitempty"`
 	JITExpiresAt      *int64 `json:"jit_expires_at,omitempty"`
+
+	// AutoSelectExitNode is set by admins. User devices must use an exit node;
+	// the nearest allowed exit is chosen when they connect.
+	AutoSelectExitNode bool `json:"auto_select_exit_node"`
 }
 
 // DeviceJoinResult is returned from the device join API.

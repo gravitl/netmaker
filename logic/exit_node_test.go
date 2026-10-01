@@ -45,6 +45,34 @@ func TestAssignNodeExitNode_Validation(t *testing.T) {
 	}
 }
 
+func TestPickFallbackExitNode(t *testing.T) {
+	exits := []models.DeviceExitNode{
+		{EgressID: "b", Name: "bravo", Status: true},
+		{EgressID: "a", Name: "alpha", Status: true},
+		{EgressID: "off", Name: "aaa", Status: false},
+	}
+	if _, ok := pickFallbackExitNode("a", exits); ok {
+		t.Fatal("valid selection must be kept")
+	}
+	pick, ok := pickFallbackExitNode("", exits)
+	if !ok || pick.EgressID != "a" {
+		t.Fatalf("expected alpha, got %+v ok=%v", pick, ok)
+	}
+	pick, ok = pickFallbackExitNode("missing", exits)
+	if !ok || pick.EgressID != "a" {
+		t.Fatalf("expected fallback alpha, got %+v ok=%v", pick, ok)
+	}
+	if _, ok := pickFallbackExitNode("", nil); ok {
+		t.Fatal("no exits must not assign")
+	}
+}
+
+func TestErrExitNodeSelectionRequired(t *testing.T) {
+	if ErrExitNodeSelectionRequired.Error() != "exit node selection is required" {
+		t.Fatalf("unexpected error %v", ErrExitNodeSelectionRequired)
+	}
+}
+
 func TestValidateInternetEgressSelection_ExitNodeCannotUseAnotherExitNode(t *testing.T) {
 	node := &models.Node{}
 	node.ID = uuid.New()
