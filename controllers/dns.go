@@ -93,6 +93,12 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	if req.Nodes == nil {
 		req.Nodes = make(datatypes.JSONMap)
 	}
+	if req.Users == nil {
+		req.Users = make(datatypes.JSONMap)
+	}
+	if req.UserGroups == nil {
+		req.UserGroups = make(datatypes.JSONMap)
+	}
 	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
 		req.Servers = gNs.IPs
 	}
@@ -100,6 +106,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		req.Tags = datatypes.JSONMap{
 			"*": struct{}{},
 		}
+		req.Users = make(datatypes.JSONMap)
+		req.UserGroups = make(datatypes.JSONMap)
 	}
 	if req.MatchAll {
 		req.Domains = []schema.NameserverDomain{
@@ -128,6 +136,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		Domains:     req.Domains,
 		Tags:        req.Tags,
 		Nodes:       req.Nodes,
+		Users:       req.Users,
+		UserGroups:  req.UserGroups,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
@@ -234,6 +244,12 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	if updateNs.Nodes == nil {
 		updateNs.Nodes = make(datatypes.JSONMap)
 	}
+	if updateNs.Users == nil || !servercfg.IsPro {
+		updateNs.Users = make(datatypes.JSONMap)
+	}
+	if updateNs.UserGroups == nil || !servercfg.IsPro {
+		updateNs.UserGroups = make(datatypes.JSONMap)
+	}
 
 	ns := schema.Nameserver{ID: updateNs.ID}
 	err = ns.Get(db.WithContext(r.Context()))
@@ -288,6 +304,8 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Description = updateNs.Description
 		ns.Name = updateNs.Name
 		ns.Nodes = updateNs.Nodes
+		ns.Users = updateNs.Users
+		ns.UserGroups = updateNs.UserGroups
 		ns.UpdatedAt = time.Now().UTC()
 
 		err = ns.Update(r.Context())
