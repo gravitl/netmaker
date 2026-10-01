@@ -31,6 +31,23 @@ func ValidateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 			}
 		}
 	}
+	if _, ok := ns.Users["*"]; ok && len(ns.Users) > 1 {
+		return errors.New("all users (*) cannot be combined with specific users")
+	}
+	for username := range ns.Users {
+		if username == "*" {
+			continue
+		}
+		user := &schema.User{Username: username}
+		if err := user.GetWithMembership(ctx); err != nil {
+			return errors.New("invalid user " + username)
+		}
+	}
+	for groupID := range ns.UserGroups {
+		if _, err := GetUserGroup(ctx, schema.UserGroupID(groupID)); err != nil {
+			return errors.New("invalid user group " + groupID)
+		}
+	}
 	if ns.Fallback {
 		ns.Domains = []schema.NameserverDomain{}
 		ns.MatchAll = false
