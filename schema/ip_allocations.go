@@ -148,14 +148,21 @@ func (a *IPAllocation) ListAddressesBetween(ctx context.Context, from, to netip.
 }
 
 // GetFirstOrphaned fetches the orphaned address of the network and family
-// that is nearest to the start of the range, or to its end if fromEnd is set.
-func (a *IPAllocation) GetFirstOrphaned(ctx context.Context, fromEnd bool) error {
-	order := "address ASC"
+// that is nearest to the start of the range, or to its end if fromEnd is
+// set, without crossing bound - the same boundary the cursor allocator
+// stops at, so an address freed from the other owner type's side of the
+// range (e.g. a node's old address, after the node claims a custom one
+// further down) is never handed to this owner type instead.
+func (a *IPAllocation) GetFirstOrphaned(ctx context.Context, fromEnd bool, bound netip.Addr) error {
+	order, boundOp := "address ASC", "<="
 	if fromEnd {
-		order = "address DESC"
+		order, boundOp = "address DESC", ">="
 	}
 	return db.FromContext(ctx).
-		Where("tenant_id = ? AND network_id = ? AND family = ? AND state = ?", a.TenantID, a.NetworkID, a.Family, IPOrphaned).
+		Where(
+			fmt.Sprintf("tenant_id = ? AND network_id = ? AND family = ? AND state = ? AND address %s ?", boundOp),
+			a.TenantID, a.NetworkID, a.Family, IPOrphaned, bound.Unmap().AsSlice(),
+		).
 		Order(order).
 		First(a).
 		Error

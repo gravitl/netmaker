@@ -174,7 +174,7 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 		}
 
 		var err error
-		addr, err = n.allocateOrphaned(txCtx, pool, ownerType, ownerID)
+		addr, err = n.allocateOrphaned(txCtx, network, pool, ownerType, ownerID)
 		if errors.Is(err, ErrNoOrphanedIP) {
 			addr, err = n.allocateFromCursor(txCtx, network, pool, ownerType, ownerID)
 		}
@@ -190,22 +190,25 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 // fetches at a time, while looking for the next address that isn't allocated.
 const ipAllocationWindow = 256
 
-// allocateFromCursor allocates the next address after the node cursor (or
-// before the extclient cursor), skipping addresses that are already allocated
-// (e.g. claimed custom addresses). The cursors never cross each other.
-// Caller must hold the pool lock.
-func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+// allocationRange returns, for allocating ownerType's next address: start,
+// where the cursor walk begins (just after ownerType's own cursor, or the
+// range's own end if it has none yet), and bound, the innermost address
+// ownerType may use - just before the other owner type's cursor, or the
+// range's other end if that cursor is empty too. The cursors never cross
+// each other, and bound is also where orphan reuse (GetFirstOrphaned) stops,
+// so an address freed from the other owner type's side is never handed back
+// out on this side.
+func (n *NetworkOrchestrator) allocationRange(network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType) (start, bound netip.Addr, step func(netip.Addr) netip.Addr, err error) {
 	first, last, err := network.UsableIPRange(pool.Family)
 	if err != nil {
-		return netip.Addr{}, err
+		return netip.Addr{}, netip.Addr{}, nil, err
 	}
-	isNode := ownerType == schema.IPOwnerNode
 
-	// nodes go from the node cursor up to the extclient cursor, extclients
-	// from the extclient cursor down to the node cursor.
-	start, bound := first, last
+	isNode := ownerType == schema.IPOwnerNode
+	start, bound = first, last
 	cursor, otherCursor := pool.NodeCursor, pool.ExtCursor
-	step, stepBack := netip.Addr.Next, netip.Addr.Prev
+	var stepBack func(netip.Addr) netip.Addr
+	step, stepBack = netip.Addr.Next, netip.Addr.Prev
 	if !isNode {
 		start, bound = last, first
 		cursor, otherCursor = pool.ExtCursor, pool.NodeCursor
@@ -214,16 +217,29 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 	if cursor != "" {
 		addr, err := n.parseCursor(cursor)
 		if err != nil {
-			return netip.Addr{}, err
+			return netip.Addr{}, netip.Addr{}, nil, err
 		}
 		start = step(addr)
 	}
 	if otherCursor != "" {
 		addr, err := n.parseCursor(otherCursor)
 		if err != nil {
-			return netip.Addr{}, err
+			return netip.Addr{}, netip.Addr{}, nil, err
 		}
 		bound = stepBack(addr)
+	}
+	return start, bound, step, nil
+}
+
+// allocateFromCursor allocates the next address after the node cursor (or
+// before the extclient cursor), skipping addresses that are already allocated
+// (e.g. claimed custom addresses). The cursors never cross each other.
+// Caller must hold the pool lock.
+func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+	isNode := ownerType == schema.IPOwnerNode
+	start, bound, step, err := n.allocationRange(network, pool, ownerType)
+	if err != nil {
+		return netip.Addr{}, err
 	}
 
 	// withinBound reports whether addr has not gone past bound.
@@ -302,15 +318,23 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 }
 
 // allocateOrphaned reallocates the orphaned address nearest to the start of
-// the range for a node, or to its end for an extclient.
+// the range for a node, or to its end for an extclient - never crossing into
+// the other owner type's side of the range (see allocationRange), so an
+// address freed from there (e.g. a node's old address, after the node claims
+// a custom one further down) isn't handed to this owner type instead.
 // Caller must hold the pool lock.
-func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+	_, bound, _, err := n.allocationRange(network, pool, ownerType)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+
 	allocation := &schema.IPAllocation{
 		TenantID:  pool.TenantID,
 		NetworkID: pool.NetworkID,
 		Family:    pool.Family,
 	}
-	if err := allocation.GetFirstOrphaned(ctx, ownerType == schema.IPOwnerExtClient); err != nil {
+	if err := allocation.GetFirstOrphaned(ctx, ownerType == schema.IPOwnerExtClient, bound); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return netip.Addr{}, ErrNoOrphanedIP
 		}
