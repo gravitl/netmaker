@@ -13,20 +13,27 @@ import (
 
 type migrationFunc func(ctx context.Context) error
 
-// ErrMigrationV160Required is returned when v1.7.0 migration is attempted before
-// migration-v1.6.0 completed on a prior v1.6.0 deployment.
-var ErrMigrationV160Required = errors.New(
-	"migration-v1.6.0 must complete on Netmaker v1.6.0 before upgrading to v1.7.0; " +
-		"deploy v1.6.0, restart the server successfully, then upgrade to v1.7.0",
+// ErrMigrationV170Required is returned when v1.8.0 migration is attempted before
+// migration-v1.7.0 completed on a prior v1.7.0 deployment.
+var ErrMigrationV170Required = errors.New(
+	"migration-v1.7.0 must complete on Netmaker v1.7.0 before upgrading to v1.8.0; " +
+		"deploy v1.7.0, restart the server successfully, then upgrade to v1.8.0",
 )
 
 func ToSQLSchema() error {
-	migratedToV170, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV170)
+	// Bootstraps the default org/tenant independent of any version-gated
+	// migration, so a fresh deployment gets one even if no migration job
+	// below ever runs for it.
+	if err := ensureMigrationCompleted(db.WithContext(context.TODO()), migrationJobInitializeTenants, initializeTenants); err != nil {
+		return err
+	}
+
+	migratedToV180, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV180)
 	if err != nil {
 		return err
 	}
 
-	if migratedToV170 {
+	if migratedToV180 {
 		return nil
 	}
 
@@ -36,17 +43,17 @@ func ToSQLSchema() error {
 	}
 
 	if !newDeployment {
-		migratedToV160, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV160)
+		migratedToV170, err := migrationJobCompleted(db.WithContext(context.TODO()), migrationJobV170)
 		if err != nil {
 			return err
 		}
 
-		if !migratedToV160 {
-			return ErrMigrationV160Required
+		if !migratedToV170 {
+			return ErrMigrationV170Required
 		}
 	}
 
-	return ensureMigrationCompleted(db.WithContext(context.TODO()), migrationJobV170, migrateV1_7_0)
+	return ensureMigrationCompleted(db.WithContext(context.TODO()), migrationJobV180, migrateV1_8_0)
 }
 
 func ensureMigrationCompleted(ctx context.Context, version string, migrate migrationFunc) error {

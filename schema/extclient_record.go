@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -129,6 +130,33 @@ func (*ExtClientRecord) DeleteAll(ctx context.Context) error {
 		return db.FromContext(ctx).Where(fmt.Sprintf("%s.tenant_id = ?", extClientRecordsTable), tenantID).Delete(&ExtClientRecord{}).Error
 	}
 	return db.FromContext(ctx).Exec(fmt.Sprintf("DELETE FROM %s", extClientRecordsTable)).Error
+}
+
+// ListByNetwork lists the extclients of the given network, within the
+// record's tenant.
+func (r *ExtClientRecord) ListByNetwork(ctx context.Context, network string) ([]ExtClientRecord, error) {
+	var records []ExtClientRecord
+	err := db.FromContext(ctx).Model(&ExtClientRecord{}).
+		Where("tenant_id = ?", r.TenantID).
+		Where(expr.Where("value", "network", expr.Eq, network)).
+		Find(&records).
+		Error
+	for i := range records {
+		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
+	}
+	return records, err
+}
+
+// CountByNetwork counts the extclients of the given network, within the
+// record's tenant.
+func (r *ExtClientRecord) CountByNetwork(ctx context.Context, network string) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&ExtClientRecord{}).
+		Where("tenant_id = ?", r.TenantID).
+		Where(expr.Where("value", "network", expr.Eq, network)).
+		Count(&count).
+		Error
+	return int(count), err
 }
 
 func (*ExtClientRecord) Count(ctx context.Context) (int, error) {

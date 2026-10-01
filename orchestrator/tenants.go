@@ -122,6 +122,8 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		{"pending_users", (&schema.PendingUser{}).DeleteAll},
 		{"user_invites", (&schema.UserInvite{}).DeleteAll},
 		{"network_user_roles", func(ctx context.Context) error { return (&schema.UserRole{}).DeleteAllForNetworks(ctx, networkIDs) }},
+		{"ip_allocations", (&schema.IPAllocation{}).DeleteAll},
+		{"ip_pools", (&schema.IPPool{}).DeleteAll},
 		{"networks", (&schema.Network{}).DeleteAll},
 	}
 

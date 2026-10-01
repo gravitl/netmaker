@@ -22,6 +22,8 @@ func CreateIPv4Network(t *testing.T, ctx context.Context, name string) *schema.N
 	}
 	err = network.Create(ctx)
 	require.NoError(t, err)
+	err = network.CreateIPPools(ctx)
+	require.NoError(t, err)
 
 	return network
 }
@@ -37,6 +39,8 @@ func CreateIPv6Network(t *testing.T, ctx context.Context, name string) *schema.N
 		AddressRange6: addressRange6.String(),
 	}
 	err = network.Create(ctx)
+	require.NoError(t, err)
+	err = network.CreateIPPools(ctx)
 	require.NoError(t, err)
 
 	return network
@@ -56,6 +60,8 @@ func CreateIPv10Network(t *testing.T, ctx context.Context, name string) *schema.
 		AddressRange6: addressRange6.String(),
 	}
 	err = network.Create(ctx)
+	require.NoError(t, err)
+	err = network.CreateIPPools(ctx)
 	require.NoError(t, err)
 
 	return network
