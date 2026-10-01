@@ -604,6 +604,11 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		return err
 	}
 
+	if err := logic.RemoveUserGroupFromNameservers(ctx, group.ID); err != nil {
+		slog.Warn("failed to clean up nameservers for deleted user group",
+			"group_id", group.ID, "error", err)
+	}
+
 	go UpdatesUserGwAccessOnGrpUpdates(ctx, group.ID, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 
 	networksMap, err := GetGroupNetworksMap(ctx, group)

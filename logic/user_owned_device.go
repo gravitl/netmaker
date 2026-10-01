@@ -29,6 +29,24 @@ func UserDevicesAreNotPeers(a, b *schema.Host) bool {
 	return IsUserOwnedHost(a) && IsUserOwnedHost(b)
 }
 
+// nodeFlowIdentity returns the flow-log identity for a node's addresses.
+// User-registered devices are attributed to their owner, matching how
+// Remote Access Client ExtClients are reported.
+func nodeFlowIdentity(node *models.Node, host *schema.Host) models.PeerIdentity {
+	if IsUserOwnedHost(host) {
+		return models.PeerIdentity{
+			ID:   host.OwnerUsername,
+			Type: models.PeerType_User,
+			Name: host.OwnerUsername,
+		}
+	}
+	return models.PeerIdentity{
+		ID:   node.ID.String(),
+		Type: models.PeerType_Node,
+		Name: host.Name,
+	}
+}
+
 // NodeOwnerUsername returns the Netmaker username that owns this node, if any.
 // Legacy ExtClient Active Users use StaticNode.OwnerID; registered desktop
 // devices use OwnerID populated from Host.OwnerUsername.

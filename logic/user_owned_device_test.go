@@ -63,6 +63,24 @@ func TestIsUserOwnedDevice_requiresHostBackedOwner(t *testing.T) {
 	assert.False(t, IsUserOwnedDevice(n))
 }
 
+func TestNodeFlowIdentity(t *testing.T) {
+	node := &models.Node{CommonNode: models.CommonNode{ID: uuid.New()}}
+
+	server := &schema.Host{Name: "server"}
+	assert.Equal(t, models.PeerIdentity{
+		ID:   node.ID.String(),
+		Type: models.PeerType_Node,
+		Name: "server",
+	}, nodeFlowIdentity(node, server))
+
+	laptop := &schema.Host{Name: "laptop", OwnerUsername: "alice"}
+	assert.Equal(t, models.PeerIdentity{
+		ID:   "alice",
+		Type: models.PeerType_User,
+		Name: "alice",
+	}, nodeFlowIdentity(node, laptop))
+}
+
 func TestErrUserOwnedInfrastructureRole(t *testing.T) {
 	assert.NoError(t, ErrUserOwnedNodeInfrastructureRole(nil))
 	assert.NoError(t, ErrUserOwnedHostInfrastructureRole(nil))
