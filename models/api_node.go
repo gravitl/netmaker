@@ -21,29 +21,29 @@ type ApiNodeStatus struct {
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	TenantID           string            `json:"tenant_id"`
-	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address            string            `json:"address" validate:"omitempty,cidrv4"`
-	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress       string            `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs         []string          `json:"allowedips"`
-	LastModified       int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn        int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate     int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network            string            `json:"network"`
-	NetworkRange       string            `json:"networkrange"`
-	NetworkRange6      string            `json:"networkrange6"`
-	IsRelayed          bool              `json:"isrelayed"`
-	IsRelay            bool              `json:"isrelay"`
-	IsGw               bool              `json:"is_gw"`
-	IsAutoRelay        bool              `json:"is_auto_relay"`
-	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
-	AutoAssignGateway  bool              `json:"auto_assign_gw"`
-	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
-	TcpProxyTLSMode    string            `json:"tcp_proxy_tls_mode"`
+	ID                     string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	TenantID               string            `json:"tenant_id"`
+	HostID                 string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                string            `json:"address" validate:"omitempty,cidrv4"`
+	Address6               string            `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress           string            `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs             []string          `json:"allowedips"`
+	LastModified           int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime     int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn            int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate         int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network                string            `json:"network"`
+	NetworkRange           string            `json:"networkrange"`
+	NetworkRange6          string            `json:"networkrange6"`
+	IsRelayed              bool              `json:"isrelayed"`
+	IsRelay                bool              `json:"isrelay"`
+	IsGw                   bool              `json:"is_gw"`
+	IsAutoRelay            bool              `json:"is_auto_relay"`
+	AutoRelayedPeers       map[string]string `json:"auto_relayed_peers"`
+	AutoAssignGateway      bool              `json:"auto_assign_gw"`
+	TcpProxyEnabled        bool              `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort     int               `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode        string            `json:"tcp_proxy_tls_mode"`
 	TcpProxyListenAddr     string            `json:"tcp_proxy_listen_addr,omitempty"`
 	TcpProxyPublicHostname string            `json:"tcp_proxy_public_hostname,omitempty"`
 	UseTcpUplink           bool              `json:"use_tcp_uplink"`
@@ -141,15 +141,17 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
 		convertedNode.LocalAddress = currentNode.LocalAddress
 	}
-	ip, addr, err := net.ParseCIDR(a.Address)
-	if err == nil {
+	if ip, addr, err := net.ParseCIDR(a.Address); err == nil {
 		convertedNode.Address = *addr
 		convertedNode.Address.IP = ip
+	} else {
+		convertedNode.Address = currentNode.Address
 	}
-	ip6, addr6, err := net.ParseCIDR(a.Address6)
-	if err == nil {
+	if ip6, addr6, err := net.ParseCIDR(a.Address6); err == nil {
 		convertedNode.Address6 = *addr6
 		convertedNode.Address6.IP = ip6
+	} else {
+		convertedNode.Address6 = currentNode.Address6
 	}
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)

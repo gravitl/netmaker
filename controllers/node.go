@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -700,8 +701,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if change.current.IP == nil || change.requested == "" {
 			continue
 		}
-		ip, _, err := net.ParseCIDR(change.requested)
-		if err != nil || ip.Equal(change.current.IP) {
+		addr, err := networkOrch.ParseAddr(change.requested)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				fmt.Errorf("invalid address %q: must be a plain IP or CIDR address within the network's range", change.requested),
+				"badrequest"))
+			return
+		}
+		if currentAddr, ok := netip.AddrFromSlice(change.current.IP); ok && addr == currentAddr.Unmap() {
 			continue
 		}
 		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode, currentNode.ID.String())

@@ -80,7 +80,7 @@ func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network
 //
 // Returns ErrIPAlreadyAllocated if the address is in use.
 func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
-	addr, err := n.parseAddr(ip)
+	addr, err := n.ParseAddr(ip)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Netwo
 // network, so that it can be reallocated. The address is only released if it
 // is allocated to the given owner.
 func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
-	addr, err := n.parseAddr(ip)
+	addr, err := n.ParseAddr(ip)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func (o IPOwner) String() string {
 func (n *NetworkOrchestrator) ListIPOwners(ctx context.Context, network *schema.Network) (owners map[netip.Addr]IPOwner, duplicates []string, err error) {
 	owners = make(map[netip.Addr]IPOwner)
 	add := func(address string, owner IPOwner) {
-		addr, err := n.parseAddr(address)
+		addr, err := n.ParseAddr(address)
 		if err != nil {
 			return
 		}
@@ -523,8 +523,8 @@ func (n *NetworkOrchestrator) reconcileAllIPAllocations() error {
 	return nil
 }
 
-// parseAddr parses an address given either as a plain IP or in CIDR notation.
-func (n *NetworkOrchestrator) parseAddr(address string) (netip.Addr, error) {
+// ParseAddr parses an address given either as a plain IP or in CIDR notation.
+func (n *NetworkOrchestrator) ParseAddr(address string) (netip.Addr, error) {
 	if prefix, err := netip.ParsePrefix(address); err == nil {
 		return prefix.Addr().Unmap(), nil
 	}
