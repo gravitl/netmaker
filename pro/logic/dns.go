@@ -67,6 +67,32 @@ func ValidateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 }
 
 func GetNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
+	return getNameserversForNode(ctx, node, logic.NodeOwnerUsername(node))
+}
+
+func GetNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
+	if h.DNS != "yes" {
+		return
+	}
+
+	for _, nodeID := range h.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		owner := logic.NodeOwnerUsername(&node)
+		if owner == "" {
+			owner = h.OwnerUsername
+		}
+		returnNsLi = append(returnNsLi, getNameserversForNode(ctx, &node, owner)...)
+	}
+	return
+}
+
+// getNameserversForNode returns the nameservers in the node's network that
+// target the node, either via all ("*"), the node's tags, the owning user or
+// one of the owner's user groups, or the node itself.
+func getNameserversForNode(ctx context.Context, node *models.Node, owner string) (returnNsLi []models.Nameserver) {
 	filters := make(map[string]bool)
 	if node.Address.IP != nil {
 		filters[node.Address.IP.String()] = true
@@ -80,6 +106,15 @@ func GetNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi [
 		NetworkID: node.Network,
 	}
 	nsLi, _ := ns.ListByNetwork(ctx)
+
+	var ownerGroups map[schema.UserGroupID]struct{}
+	if owner != "" {
+		user := &schema.User{Username: owner}
+		if err := user.GetWithMembership(ctx); err == nil {
+			ownerGroups = user.UserGroups.Data()
+		}
+	}
+
 	for _, nsI := range nsLi {
 		if !nsI.Status {
 			continue
@@ -90,174 +125,56 @@ func GetNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi [
 			continue
 		}
 
-		_, all := nsI.Tags["*"]
-		if all {
-			if nsI.Fallback {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:        filteredIps,
-					IsFallback: true,
-				})
-			} else {
-				for _, domain := range nsI.Domains {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsADDomain:     domain.IsADDomain,
-					})
-				}
-			}
+		if !nameserverTargetsNode(&nsI, node, owner, ownerGroups) {
 			continue
 		}
-		foundTag := false
-		for tagI := range node.Tags {
-			if _, ok := nsI.Tags[tagI.String()]; ok {
-				if nsI.Fallback {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:        filteredIps,
-						IsFallback: true,
-					})
-				} else {
-					for _, domain := range nsI.Domains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:            filteredIps,
-							MatchDomain:    domain.Domain,
-							IsSearchDomain: domain.IsSearchDomain,
-							IsADDomain:     domain.IsADDomain,
-						})
-					}
-				}
-				foundTag = true
-			}
-			if foundTag {
-				break
-			}
-		}
-		if foundTag {
+
+		if nsI.Fallback {
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:        filteredIps,
+				IsFallback: true,
+			})
 			continue
 		}
-		if _, ok := nsI.Nodes[node.ID.String()]; ok {
-			if nsI.Fallback {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:        filteredIps,
-					IsFallback: true,
-				})
-			} else {
-				for _, domain := range nsI.Domains {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            nsI.Servers,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsADDomain:     domain.IsADDomain,
-					})
-				}
-			}
+		for _, domain := range nsI.Domains {
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:            filteredIps,
+				MatchDomain:    domain.Domain,
+				IsSearchDomain: domain.IsSearchDomain,
+				IsADDomain:     domain.IsADDomain,
+			})
 		}
 	}
 	return
 }
 
-func GetNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
-	if h.DNS != "yes" {
-		return
+// nameserverTargetsNode reports whether ns applies to node, either via all
+// ("*"), one of the node's tags, the owning user (or all users via "*"), one
+// of the owner's user groups, or the node itself.
+func nameserverTargetsNode(ns *schema.Nameserver, node *models.Node, owner string, ownerGroups map[schema.UserGroupID]struct{}) bool {
+	if _, ok := ns.Tags["*"]; ok {
+		return true
 	}
-
-	for _, nodeID := range h.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
-
-		filters := make(map[string]bool)
-		if node.Address.IP != nil {
-			filters[node.Address.IP.String()] = true
-		}
-
-		if node.Address6.IP != nil {
-			filters[node.Address6.IP.String()] = true
-		}
-
-		ns := &schema.Nameserver{
-			NetworkID: node.Network,
-		}
-		nsLi, _ := ns.ListByNetwork(ctx)
-		for _, nsI := range nsLi {
-			if !nsI.Status {
-				continue
-			}
-
-			filteredIps := logic.FilterOutIPs(nsI.Servers, filters)
-			if len(filteredIps) == 0 {
-				continue
-			}
-
-			_, all := nsI.Tags["*"]
-			if all {
-				if nsI.Fallback {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:        filteredIps,
-						IsFallback: true,
-					})
-				} else {
-					for _, domain := range nsI.Domains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:            filteredIps,
-							MatchDomain:    domain.Domain,
-							IsSearchDomain: domain.IsSearchDomain,
-							IsADDomain:     domain.IsADDomain,
-						})
-					}
-				}
-				continue
-			}
-			foundTag := false
-			for tagI := range node.Tags {
-				if _, ok := nsI.Tags[tagI.String()]; ok {
-					if nsI.Fallback {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:        filteredIps,
-							IsFallback: true,
-						})
-					} else {
-						for _, domain := range nsI.Domains {
-							returnNsLi = append(returnNsLi, models.Nameserver{
-								IPs:            filteredIps,
-								MatchDomain:    domain.Domain,
-								IsSearchDomain: domain.IsSearchDomain,
-								IsADDomain:     domain.IsADDomain,
-							})
-						}
-					}
-					foundTag = true
-				}
-				if foundTag {
-					break
-				}
-			}
-			if foundTag {
-				continue
-			}
-			if _, ok := nsI.Nodes[node.ID.String()]; ok {
-				if nsI.Fallback {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:        filteredIps,
-						IsFallback: true,
-					})
-				} else {
-					for _, domain := range nsI.Domains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:            nsI.Servers,
-							MatchDomain:    domain.Domain,
-							IsSearchDomain: domain.IsSearchDomain,
-							IsADDomain:     domain.IsADDomain,
-						})
-					}
-				}
-			}
-
+	for tagI := range node.Tags {
+		if _, ok := ns.Tags[tagI.String()]; ok {
+			return true
 		}
 	}
-	return
+	if owner != "" {
+		if _, ok := ns.Users["*"]; ok {
+			return true
+		}
+		if _, ok := ns.Users[owner]; ok {
+			return true
+		}
+		for groupID := range ownerGroups {
+			if _, ok := ns.UserGroups[groupID.String()]; ok {
+				return true
+			}
+		}
+	}
+	_, ok := ns.Nodes[node.ID.String()]
+	return ok
 }
 
 func RemoveTagFromNameservers(tagID models.TagID, netID schema.NetworkID) error {

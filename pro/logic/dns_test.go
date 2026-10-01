@@ -16,35 +16,29 @@ func TestNameserverTargetsNode(t *testing.T) {
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "net"},
 		Tags:       map[models.TagID]struct{}{"net.dev": {}},
 	}
-	groups := func() map[schema.UserGroupID]struct{} {
-		return map[schema.UserGroupID]struct{}{"eng": {}}
-	}
-	noGroupsCalled := func() map[schema.UserGroupID]struct{} {
-		t.Fatal("owner groups should not be loaded")
-		return nil
-	}
+	groups := map[schema.UserGroupID]struct{}{"eng": {}}
 
 	tests := []struct {
 		name   string
 		ns     schema.Nameserver
 		owner  string
-		groups func() map[schema.UserGroupID]struct{}
+		groups map[schema.UserGroupID]struct{}
 		want   bool
 	}{
-		{"all", schema.Nameserver{Tags: datatypes.JSONMap{"*": ""}}, "", noGroupsCalled, true},
-		{"tag", schema.Nameserver{Tags: datatypes.JSONMap{"net.dev": ""}}, "", noGroupsCalled, true},
-		{"node", schema.Nameserver{Nodes: datatypes.JSONMap{node.ID.String(): ""}}, "", noGroupsCalled, true},
-		{"owner user", schema.Nameserver{Users: datatypes.JSONMap{"alice": ""}}, "alice", noGroupsCalled, true},
-		{"all users", schema.Nameserver{Users: datatypes.JSONMap{"*": ""}}, "alice", noGroupsCalled, true},
-		{"all users skips unowned node", schema.Nameserver{Users: datatypes.JSONMap{"*": ""}}, "", noGroupsCalled, false},
-		{"other user", schema.Nameserver{Users: datatypes.JSONMap{"bob": ""}}, "alice", noGroupsCalled, false},
+		{"all", schema.Nameserver{Tags: datatypes.JSONMap{"*": ""}}, "", nil, true},
+		{"tag", schema.Nameserver{Tags: datatypes.JSONMap{"net.dev": ""}}, "", nil, true},
+		{"node", schema.Nameserver{Nodes: datatypes.JSONMap{node.ID.String(): ""}}, "", nil, true},
+		{"owner user", schema.Nameserver{Users: datatypes.JSONMap{"alice": ""}}, "alice", nil, true},
+		{"all users", schema.Nameserver{Users: datatypes.JSONMap{"*": ""}}, "alice", nil, true},
+		{"all users skips unowned node", schema.Nameserver{Users: datatypes.JSONMap{"*": ""}}, "", nil, false},
+		{"other user", schema.Nameserver{Users: datatypes.JSONMap{"bob": ""}}, "alice", nil, false},
 		{"owner group", schema.Nameserver{UserGroups: datatypes.JSONMap{"eng": ""}}, "alice", groups, true},
 		{"other group", schema.Nameserver{UserGroups: datatypes.JSONMap{"ops": ""}}, "alice", groups, false},
 		{"unowned node ignores users and groups", schema.Nameserver{
 			Users:      datatypes.JSONMap{"alice": ""},
 			UserGroups: datatypes.JSONMap{"eng": ""},
-		}, "", noGroupsCalled, false},
-		{"no targets", schema.Nameserver{}, "alice", noGroupsCalled, false},
+		}, "", nil, false},
+		{"no targets", schema.Nameserver{}, "alice", nil, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
