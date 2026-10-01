@@ -542,7 +542,7 @@ func assignedInternetEgress(node *models.Node, eli []schema.Egress) *schema.Egre
 //   - an enabled policy that includes this node has the exit egress in dst
 //   - for user-owned devices, the owner's user policies grant the egress
 func SuppressInternetExitIfNoACLAccess(ctx context.Context, node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
-	if node == nil || defaultDevicePolicyEnabled {
+	if node == nil || (defaultDevicePolicyEnabled && !IsUserOwnedDevice(node)) {
 		return
 	}
 	if node.SelectedInternetEgressID == "" && node.InternetGwID == "" {
@@ -1339,13 +1339,13 @@ func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsL
 	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	isDefaultPolicyActive := defaultDevicePolicy.Enabled
+	isDefaultPolicyActive := defaultDevicePolicy.Enabled && !IsUserOwnedDevice(node)
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			if !NodeHasEgressAccess(ctx, node, &e, acls) {
 				continue
 			}
 		}

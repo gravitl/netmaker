@@ -779,6 +779,9 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
+	if logic.IsUserOwnedDevice(&node) || logic.IsUserOwnedDevice(&peer) {
+		return false
+	}
 	var nodeId, peerId string
 	// if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
 	// 	return true

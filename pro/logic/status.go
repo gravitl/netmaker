@@ -222,11 +222,8 @@ func CheckPeerStatus(ctx context.Context, node *models.Node, defaultAclPolicy bo
 			continue
 		}
 
-		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, peer, false)
-			if !allowed {
-				continue
-			}
+		if !logic.PeerAllowed(ctx, *node, peer, defaultAclPolicy) {
+			continue
 		}
 
 		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
@@ -263,11 +260,8 @@ func checkPeerConnectivity(ctx context.Context, node *models.Node, metrics *mode
 			continue
 		}
 
-		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, peer, false)
-			if !allowed {
-				continue
-			}
+		if !logic.PeerAllowed(ctx, *node, peer, defaultAclPolicy) {
+			continue
 		}
 
 		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {

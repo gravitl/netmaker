@@ -192,13 +192,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 				continue
 			}
 
-			var allowedToComm bool
-			if defaultDevicePolicy.Enabled {
-				allowedToComm = true
-			} else {
-				allowedToComm = IsPeerAllowed(ctx, node, peer, false) ||
-					isAllowedViaUserOwnership(ctx, node, peer)
-			}
+			allowedToComm := PeerAllowed(ctx, node, peer, defaultDevicePolicy.Enabled)
 			if peer.Action != schema.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
@@ -334,9 +328,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
+		if !IsUserOwnedDevice(&node) && ((defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
-				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
+				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0))) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -393,7 +387,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			unfilteredSpecificEgress := PeerAdvertisesSpecificEgress(&peer)
 			unfilteredEgressDetails := peer.EgressDetails
 			if peer.EgressDetails.IsEgressGateway {
-				AddEgressInfoToPeerByAccess(ctx, &node, &peer, eli, acls, defaultDevicePolicy.Enabled)
+				AddEgressInfoToPeerByAccess(ctx, &node, &peer, eli, acls, defaultDevicePolicy.Enabled && !IsUserOwnedDevice(&node))
 			}
 			if SelectedInternetEgressBypasses(&node) && unfilteredSpecificEgress && !PeerAdvertisesSpecificEgress(&peer) {
 				peer.EgressDetails = unfilteredEgressDetails
@@ -452,13 +446,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			if peer.IsIngressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
 			}
-			var allowedToComm bool
-			if defaultDevicePolicy.Enabled {
-				allowedToComm = true
-			} else {
-				allowedToComm = IsPeerAllowed(ctx, node, peer, false) ||
-					isAllowedViaUserOwnership(ctx, node, peer)
-			}
+			allowedToComm := PeerAllowed(ctx, node, peer, defaultDevicePolicy.Enabled)
 
 			retainDespiteRelay := false
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
@@ -1115,7 +1103,7 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 		acls, _ := ListAclsByNetwork(db.WithContext(context.TODO()), schema.NetworkID(node.Network))
 		defaultDevicePolicy, _ := GetDefaultPolicy(db.WithContext(context.TODO()), schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&egPeer, eli, acls)
-		AddEgressInfoToPeerByAccess(db.WithContext(context.TODO()), node, &egPeer, eli, acls, defaultDevicePolicy.Enabled)
+		AddEgressInfoToPeerByAccess(db.WithContext(context.TODO()), node, &egPeer, eli, acls, defaultDevicePolicy.Enabled && !IsUserOwnedDevice(node))
 		if PeerAdvertisesSpecificEgress(&egPeer) {
 			return true
 		}
