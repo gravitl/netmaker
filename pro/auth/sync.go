@@ -411,6 +411,7 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 	if len(modifiedUsers) > 0 {
 		postureCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 		go proLogic.RunPostureChecksForTenant(postureCtx)
+		go mq.PublishPeerUpdate(postureCtx, false)
 	}
 
 	for _, group := range dbGroups {
