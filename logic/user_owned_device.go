@@ -270,6 +270,19 @@ type UserDevice struct {
 	Nodes []models.Node
 }
 
+func listUserDeviceNodes(ctx context.Context, username string) (map[string][]models.Node, error) {
+	_nodes, err := (&schema.Node{}).ListByOwnerUsername(ctx, username, dbtypes.WithAllPreloads())
+	if err != nil {
+		return nil, err
+	}
+	byHost := make(map[string][]models.Node)
+	for i := range _nodes {
+		node := ConvertSchemaNodeToModelsNode(&_nodes[i])
+		byHost[_nodes[i].HostID] = append(byHost[_nodes[i].HostID], *node)
+	}
+	return byHost, nil
+}
+
 // DeleteUserDevices deletes the hosts registered by username, along with their
 // nodes. It returns the deleted hosts so callers can publish them.
 func DeleteUserDevices(ctx context.Context, username string) []UserDevice {
@@ -278,15 +291,16 @@ func DeleteUserDevices(ctx context.Context, username string) []UserDevice {
 		slog.Error("failed to list user devices", "user", username, "error", err)
 		return nil
 	}
+	// Without the node list, RemoveHost would delete nodes that peers are never told about.
+	nodesByHost, err := listUserDeviceNodes(ctx, username)
+	if err != nil {
+		slog.Error("failed to list user device nodes", "user", username, "error", err)
+		return nil
+	}
 	var deleted []UserDevice
 	for i := range hosts {
 		host := &hosts[i]
-		device := UserDevice{Host: *host}
-		for _, nodeID := range host.Nodes {
-			if node, err := GetNodeByID(nodeID); err == nil {
-				device.Nodes = append(device.Nodes, node)
-			}
-		}
+		device := UserDevice{Host: *host, Nodes: nodesByHost[host.ID.String()]}
 		if err := RemoveHost(ctx, host, true); err != nil {
 			slog.Error("failed to delete user device", "host", host.ID.String(), "user", username, "error", err)
 			continue
@@ -306,13 +320,14 @@ func DeleteUserDeviceNodes(ctx context.Context, username string, shouldDelete fu
 		slog.Error("failed to list user devices", "user", username, "error", err)
 		return nil
 	}
+	nodesByHost, err := listUserDeviceNodes(ctx, username)
+	if err != nil {
+		slog.Error("failed to list user device nodes", "user", username, "error", err)
+		return nil
+	}
 	var deleted []UserDeviceNode
 	for _, host := range hosts {
-		for _, nodeID := range host.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err != nil {
-				continue
-			}
+		for _, node := range nodesByHost[host.ID.String()] {
 			if !shouldDelete(node.Network) {
 				continue
 			}
