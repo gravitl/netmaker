@@ -381,16 +381,16 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				ReplaceAllowedIPs:           true,
 			}
 			GetNodeEgressInfo(&peer, eli, acls)
-			// Snapshot before access filtering: AddEgressInfoToPeerByAccess can
-			// clear EgressDetails (e.g. ACL miss) and would then fail bypass retain,
-			// leaving site CIDRs only matching the exit's 0.0.0.0/0.
+			// Snapshot before access filtering so bypass retain can still see that this
+			// peer had specific egress. The snapshot itself is not applied: restoring
+			// it would reintroduce ranges AddEgressInfoToPeerByAccess cleared.
 			unfilteredSpecificEgress := PeerAdvertisesSpecificEgress(&peer)
 			unfilteredEgressDetails := peer.EgressDetails
 			if peer.EgressDetails.IsEgressGateway {
 				AddEgressInfoToPeerByAccess(ctx, &node, &peer, eli, acls, defaultDevicePolicy.Enabled && !IsUserOwnedDevice(&node))
 			}
 			if SelectedInternetEgressBypasses(&node) && unfilteredSpecificEgress && !PeerAdvertisesSpecificEgress(&peer) {
-				peer.EgressDetails = unfilteredEgressDetails
+				peer.EgressDetails = authorizedEgressDetails(ctx, &node, &peer, eli, acls, unfilteredEgressDetails)
 			}
 			if node.Mutex != nil {
 				node.Mutex.Lock()
@@ -1041,6 +1041,84 @@ func usesPeerAsInternetExit(node, peer *models.Node) bool {
 	}
 	routingNodeID := InternetExitRoutingNodeID(node)
 	return routingNodeID != "" && routingNodeID == peer.ID.String()
+}
+
+// authorizedEgressDetails keeps only snapshot ranges whose egress the node may use.
+// Ranges cleared by AddEgressInfoToPeerByAccess stay cleared.
+func authorizedEgressDetails(ctx context.Context, node, peer *models.Node, eli []schema.Egress, acls []models.Acl, details models.EgressDetails) models.EgressDetails {
+	if node == nil || peer == nil || !details.IsEgressGateway {
+		return models.EgressDetails{}
+	}
+	allowed := make(map[string]struct{})
+	for i := range eli {
+		e := &eli[i]
+		if !e.Status || e.Network != peer.Network {
+			continue
+		}
+		if _, routed := e.Nodes[peer.ID.String()]; !routed && !peerTagRoutesEgress(peer, e) {
+			continue
+		}
+		if !NodeHasEgressAccess(ctx, node, e, acls) {
+			continue
+		}
+		allowed[e.ID] = struct{}{}
+	}
+	return filterEgressDetailsByEgressIDs(details, allowed)
+}
+
+func peerTagRoutesEgress(peer *models.Node, e *schema.Egress) bool {
+	if peer == nil || e == nil || len(peer.Tags) == 0 || len(e.Tags) == 0 {
+		return false
+	}
+	for tagID := range peer.Tags {
+		if _, ok := e.Tags[tagID.String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func filterEgressDetailsByEgressIDs(details models.EgressDetails, allowed map[string]struct{}) models.EgressDetails {
+	if len(allowed) == 0 {
+		return models.EgressDetails{}
+	}
+	keep := make(map[string]struct{})
+	var metrics []models.EgressRangeMetric
+	for _, m := range details.EgressGatewayRequest.RangesWithMetric {
+		if m.EgressID == "" {
+			continue
+		}
+		if _, ok := allowed[m.EgressID]; !ok {
+			continue
+		}
+		if m.Network == IPv4Network || m.Network == IPv6Network || m.Network == "" {
+			continue
+		}
+		metrics = append(metrics, m)
+		advertised := m.Network
+		if m.Nat && m.VirtualNetwork != "" {
+			advertised = m.VirtualNetwork
+		}
+		keep[advertised] = struct{}{}
+	}
+	if len(metrics) == 0 {
+		return models.EgressDetails{}
+	}
+	ranges := make([]string, 0, len(details.EgressGatewayRanges))
+	for _, r := range details.EgressGatewayRanges {
+		if _, ok := keep[r]; ok {
+			ranges = append(ranges, r)
+		}
+	}
+	req := details.EgressGatewayRequest
+	req.Ranges = ranges
+	req.RangesWithMetric = metrics
+	return models.EgressDetails{
+		EgressGatewayNatEnabled: details.EgressGatewayNatEnabled,
+		EgressGatewayRequest:    req,
+		IsEgressGateway:         true,
+		EgressGatewayRanges:     ranges,
+	}
 }
 
 // SelectedInternetEgressBypasses reports whether the node's selected internet egress

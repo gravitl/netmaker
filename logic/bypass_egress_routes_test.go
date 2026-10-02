@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -188,6 +189,51 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 	require.True(t, PeerAdvertisesSpecificEgress(site))
 	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false, nil),
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
+}
+
+func TestFilterEgressDetailsByEgressIDsKeepsOnlyAllowed(t *testing.T) {
+	details := models.EgressDetails{
+		IsEgressGateway:     true,
+		EgressGatewayRanges: []string{"10.1.0.0/16", "10.2.0.0/16", "0.0.0.0/0"},
+		EgressGatewayRequest: models.EgressGatewayRequest{
+			RangesWithMetric: []models.EgressRangeMetric{
+				{EgressID: "allowed", Network: "10.1.0.0/16"},
+				{EgressID: "denied", Network: "10.2.0.0/16"},
+				{EgressID: "allowed", Network: "0.0.0.0/0"},
+			},
+		},
+	}
+	got := filterEgressDetailsByEgressIDs(details, map[string]struct{}{"allowed": {}})
+	require.True(t, got.IsEgressGateway)
+	assert.Equal(t, []string{"10.1.0.0/16"}, got.EgressGatewayRanges)
+	require.Len(t, got.EgressGatewayRequest.RangesWithMetric, 1)
+	assert.Equal(t, "allowed", got.EgressGatewayRequest.RangesWithMetric[0].EgressID)
+
+	assert.False(t, filterEgressDetailsByEgressIDs(details, nil).IsEgressGateway)
+}
+
+func TestAuthorizedEgressDetailsDropsUnauthorizedRanges(t *testing.T) {
+	nodeID := uuid.New()
+	peerID := uuid.New()
+	node := &models.Node{CommonNode: models.CommonNode{ID: nodeID, Network: "testnet"}}
+	peer := &models.Node{CommonNode: models.CommonNode{ID: peerID, Network: "testnet"}}
+	eli := []schema.Egress{
+		{ID: "allowed", Network: "testnet", Status: true, Range: "10.1.0.0/16", Nodes: datatypes.JSONMap{peerID.String(): float64(256)}},
+		{ID: "denied", Network: "testnet", Status: true, Range: "10.2.0.0/16", Nodes: datatypes.JSONMap{peerID.String(): float64(256)}},
+	}
+	details := models.EgressDetails{
+		IsEgressGateway:     true,
+		EgressGatewayRanges: []string{"10.1.0.0/16", "10.2.0.0/16"},
+		EgressGatewayRequest: models.EgressGatewayRequest{
+			RangesWithMetric: []models.EgressRangeMetric{
+				{EgressID: "allowed", Network: "10.1.0.0/16"},
+				{EgressID: "denied", Network: "10.2.0.0/16"},
+			},
+		},
+	}
+	got := authorizedEgressDetails(context.Background(), node, peer, eli, nil, details)
+	assert.False(t, got.IsEgressGateway, "ranges without egress access must not be restored")
+	assert.Empty(t, got.EgressGatewayRanges)
 }
 
 func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T) {
