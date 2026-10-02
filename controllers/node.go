@@ -203,7 +203,7 @@ func AuthorizeHost(
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
-// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned, user, server)
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -255,11 +255,19 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
-	// Devices list excludes user-registered hosts; those appear under Active Users
-	// (is_user_node) via GET /api/nodes/{network} alongside legacy ExtClient RAC nodes.
+	// Join hosts so OS search and user/server filters can use owner_username.
+	// "user" is a host registered by a user; "server" is every other host.
+	// No device_type (or gw/igw/...) includes both.
 	filters = append(filters, func(db *gorm.DB) *gorm.DB {
-		return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id").
-			Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
+		q := db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+		switch deviceType {
+		case "user":
+			return q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+		case "server":
+			return q.Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
+		default:
+			return q
+		}
 	})
 	if len(osFilters) > 0 {
 		filters = append(filters, dbtypes.WithFilter("hosts_v1.os", osFilters...))

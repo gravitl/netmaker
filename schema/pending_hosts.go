@@ -25,6 +25,8 @@ type PendingHost struct {
 	Version       string         `gorm:"version" json:"version"`
 	Location      string         `gorm:"location" json:"location"` // Format: "lat,lon"
 	RequestedAt   time.Time      `gorm:"requested_at" json:"requested_at"`
+	// OwnerUsername is the user who registered the host, when this is a user device.
+	OwnerUsername string `gorm:"-" json:"owner_username,omitempty"`
 }
 
 func (p *PendingHost) TableName() string {
@@ -41,8 +43,15 @@ func (p *PendingHost) Create(ctx context.Context) error {
 
 func (p *PendingHost) List(ctx context.Context) (pendingHosts []PendingHost, err error) {
 	query := db.FromContext(ctx).Model(&PendingHost{})
+	if p.Network != "" {
+		query = query.Where(fmt.Sprintf("%s.network = ?", pendingHostsTable), p.Network)
+	}
 	if tenantID := scope.ID(ctx); tenantID != "" {
-		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", pendingHostsTable), tenantID)(query)
+		// Include rows saved before user-device joins set tenant_id.
+		query = query.Where(
+			fmt.Sprintf("(%s.tenant_id = ? OR %s.tenant_id = '' OR %s.tenant_id IS NULL)", pendingHostsTable, pendingHostsTable, pendingHostsTable),
+			tenantID,
+		)
 	}
 	err = query.Find(&pendingHosts).Error
 	return

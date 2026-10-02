@@ -297,6 +297,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		keyB, _ := json.Marshal(models.EnrollmentKey{Networks: []string{networkID}})
 		pending := schema.PendingHost{
 			ID:            uuid.NewString(),
+			TenantID:      scope.ID(ctx),
 			HostID:        host.ID.String(),
 			Hostname:      host.Name,
 			Network:       networkID,

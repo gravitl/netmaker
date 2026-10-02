@@ -1860,8 +1860,25 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	tenantID := scope.ID(r.Context())
+	visible := make([]schema.PendingHost, 0, len(pendingHosts))
+	for i := range pendingHosts {
+		hostID, parseErr := uuid.Parse(pendingHosts[i].HostID)
+		if parseErr != nil {
+			visible = append(visible, pendingHosts[i])
+			continue
+		}
+		host := &schema.Host{ID: hostID}
+		if err := host.Get(r.Context()); err == nil {
+			if pendingHosts[i].TenantID == "" && host.TenantID != "" && tenantID != "" && host.TenantID != tenantID {
+				continue
+			}
+			pendingHosts[i].OwnerUsername = host.OwnerUsername
+		}
+		visible = append(visible, pendingHosts[i])
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.ReturnSuccessResponseWithJson(w, r, pendingHosts, "returned pending hosts in "+netID)
+	logic.ReturnSuccessResponseWithJson(w, r, visible, "returned pending hosts in "+netID)
 }
 
 // @Summary     Approve pending host in a network
