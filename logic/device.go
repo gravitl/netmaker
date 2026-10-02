@@ -184,16 +184,9 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 
 // deviceJoinRequiresApproval reports whether a user-owned device join should enter
 // pending-host approval instead of joining immediately.
-func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, user *schema.User) bool {
+func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, _ *schema.User) bool {
 	featureFlags := GetFeatureFlags(ctx)
 	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
-		return false
-	}
-	if user != nil && IsNetworkAdmin(ctx, user, network.Name) {
-		return false
-	}
-	// When JIT gates this user, admin approval happens via the JIT grant flow.
-	if network.JITEnabled && UserSubjectToNetworkJIT(ctx, network.Name, user) {
 		return false
 	}
 	return true

@@ -341,7 +341,7 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
-func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
+func TestDeviceJoinRequiresApprovalWhenJITEnabledForUser(t *testing.T) {
 	ctx := scopedTestContext(t)
 	netName := "jit-skip-approval-" + uuid.NewString()[:8]
 	username := "jit-skip-user-" + uuid.NewString()[:8]
@@ -398,15 +398,6 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
-	stalePending := schema.PendingHost{
-		ID:          uuid.NewString(),
-		TenantID:    scope.ID(ctx),
-		HostID:      hostID.String(),
-		Network:     netName,
-		RequestedAt: time.Now().UTC(),
-	}
-	require.NoError(t, stalePending.Create(ctx))
-
 	networks, err := GetDeviceNetworks(ctx, user, host)
 	require.NoError(t, err)
 	var found models.DeviceNetwork
@@ -417,30 +408,21 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 		}
 	}
 	require.Equal(t, netName, found.NetworkID)
-	assert.False(t, found.ApprovalRequired)
-	assert.False(t, found.Pending)
-	assert.Equal(t, models.DeviceNetworkStatusAvailable, found.Status)
-
-	var joinKey models.EnrollmentKey
-	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
-		joinKey = key
-	}
-	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	assert.True(t, found.ApprovalRequired)
+	assert.Equal(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
 
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
-	assert.True(t, joinKey.SkipDeviceApproval)
+	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
 
 	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
-	require.Error(t, check.CheckIfPendingHostExists(ctx))
+	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
-func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
+func TestDeviceJoinRequiresApprovalForNetworkAdmin(t *testing.T) {
 	ctx := scopedTestContext(t)
-	netName := "admin-skip-approval-" + uuid.NewString()[:8]
-	username := "admin-skip-user-" + uuid.NewString()[:8]
+	netName := "admin-approval-" + uuid.NewString()[:8]
+	username := "admin-approval-user-" + uuid.NewString()[:8]
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
@@ -471,7 +453,7 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 	hostID := uuid.New()
 	host := &schema.Host{
 		ID:               hostID,
-		Name:             "admin-skip-host",
+		Name:             "admin-approval-host",
 		OS:               "linux",
 		Version:          "dev",
 		HostPass:         "test-pass",
@@ -493,17 +475,12 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 		return true, nil, nil
 	}
 
-	var joinKey models.EnrollmentKey
-	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
-		joinKey = key
-	}
-	t.Cleanup(func() { JoinHostToNetworks = origJoin })
-
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
-	assert.True(t, joinKey.SkipDeviceApproval)
+	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
+
+	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
+	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
 func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {

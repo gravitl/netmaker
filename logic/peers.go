@@ -387,7 +387,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			unfilteredSpecificEgress := PeerAdvertisesSpecificEgress(&peer)
 			unfilteredEgressDetails := peer.EgressDetails
 			if peer.EgressDetails.IsEgressGateway {
-				AddEgressInfoToPeerByAccess(ctx, &node, &peer, eli, acls, defaultDevicePolicy.Enabled && !IsUserOwnedDevice(&node))
+				AddEgressInfoToPeerByAccess(ctx, &node, &peer, eli, acls, defaultDevicePolicy.Enabled)
 			}
 			if SelectedInternetEgressBypasses(&node) && unfilteredSpecificEgress && !PeerAdvertisesSpecificEgress(&peer) {
 				peer.EgressDetails = authorizedEgressDetails(ctx, &node, &peer, eli, acls, unfilteredEgressDetails)
@@ -1181,7 +1181,7 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 		acls, _ := ListAclsByNetwork(db.WithContext(context.TODO()), schema.NetworkID(node.Network))
 		defaultDevicePolicy, _ := GetDefaultPolicy(db.WithContext(context.TODO()), schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&egPeer, eli, acls)
-		AddEgressInfoToPeerByAccess(db.WithContext(context.TODO()), node, &egPeer, eli, acls, defaultDevicePolicy.Enabled && !IsUserOwnedDevice(node))
+		AddEgressInfoToPeerByAccess(db.WithContext(context.TODO()), node, &egPeer, eli, acls, defaultDevicePolicy.Enabled)
 		if PeerAdvertisesSpecificEgress(&egPeer) {
 			return true
 		}

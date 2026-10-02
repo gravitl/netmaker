@@ -101,6 +101,9 @@ func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
 	if !PeerAllowed(context.Background(), userDev, infra, true) {
 		t.Fatal("user policy should allow the user device")
 	}
+	if !extClientEgressAllowed(context.Background(), userDev, infra) {
+		t.Fatal("user policy should still publish extclient egress ranges")
+	}
 	if !PeerAllowed(context.Background(), infra, infra, true) {
 		t.Fatal("resource default policy should still allow infrastructure peers")
 	}

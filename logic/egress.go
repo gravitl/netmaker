@@ -1339,7 +1339,7 @@ func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsL
 	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	isDefaultPolicyActive := defaultDevicePolicy.Enabled && !IsUserOwnedDevice(node)
+	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {
 			continue
