@@ -129,6 +129,9 @@ func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]
 		}
 
 	}
+	// Routing only: these ranges go in the config regardless of policy, because the
+	// config is a static file and cannot be re-issued when policies change. Whether
+	// the traffic is permitted is enforced by the ACL rules on the gateway.
 	extclients, _ := GetNetworkExtClients(ctx, client.Network)
 	for _, extclient := range extclients {
 		if extclient.ClientID == client.ClientID {
@@ -277,27 +280,22 @@ func GetExtClient(ctx context.Context, clientid string, network string) (models.
 }
 
 func GenerateNodeName(ctx context.Context, network string) (string, error) {
-	seed := time.Now().UTC().UnixNano()
-	nameGenerator := namegenerator.NewNameGenerator(seed)
-	var name string
-	cnt := 0
-	for {
-		if cnt > 10 {
-			return "", errors.New("couldn't generate random name, try again")
-		}
-		cnt += 1
-		name = nameGenerator.Generate()
+	nameGenerator := namegenerator.NewNameGenerator(time.Now().UTC().UnixNano())
+	// Most generated names are longer than the 15 character client-id limit.
+	// Those must not count as failed attempts, or a bulk create drops clients
+	// once ten long names come up in a row.
+	for attempt := 0; attempt < 200; attempt++ {
+		name := nameGenerator.Generate()
 		if len(name) > 15 {
 			continue
 		}
 		_, err := GetExtClient(ctx, name, network)
 		if err == nil {
-			// config exists with same name
 			continue
 		}
-		break
+		return name, nil
 	}
-	return name, nil
+	return "", errors.New("couldn't generate random name, try again")
 }
 
 // SaveExtClient - saves an ext client to database
@@ -330,13 +328,16 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 		new.Enabled = update.Enabled
 	}
 	new.ExtraAllowedIPs = update.ExtraAllowedIPs
+	if update.IncludeNetworkEgressRanges != nil {
+		new.IncludeNetworkEgressRanges = update.IncludeNetworkEgressRanges
+	}
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
-	new.Tags = update.Tags
+	new.Tags = update.Tags.Map()
 	if update.Location != "" && update.Location != old.Location {
 		new.Location = update.Location
 	}
@@ -464,10 +465,16 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
+		if host.PublicKey.String() == extPeer.PublicKey ||
+			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
+			continue
+		}
 		if extPeer.RemoteAccessClientID == "" {
-			if ok := IsPeerAllowed(ctx, models.ConvertToStaticNode(extPeer), *peer, true); !ok {
+			if !extclientAllowed(devicePolicies, extPeer, *peer, defaultDevicePolicy.Enabled) {
 				continue
 			}
 		} else {
@@ -479,11 +486,6 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())
-			continue
-		}
-
-		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
 			continue
 		}
 
@@ -600,11 +602,13 @@ func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, rang
 	if err != nil {
 		return
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extclientAllowed(devicePolicies, extPeer, node, defaultDevicePolicy.Enabled) {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -627,11 +631,13 @@ func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes
 	if err != nil {
 		return
 	}
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	devicePolicies := prepareDevicePolicies(ctx, ListDevicePolicies(ctx, schema.NetworkID(node.Network)))
 	for _, extPeer := range extPeers {
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extclientAllowed(devicePolicies, extPeer, node, defaultDevicePolicy.Enabled) {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
@@ -665,26 +671,26 @@ func GetExtclientAllowedIPs(ctx context.Context, client models.ExtClient) (allow
 		if network.AddressRange6 != "" {
 			allowedIPs = append(allowedIPs, network.AddressRange6)
 		}
-		if egressGatewayRanges, err := GetEgressRangesOnNetwork(ctx, &client); err == nil {
-			allowedIPs = append(allowedIPs, egressGatewayRanges...)
+		if client.IncludesNetworkEgressRanges() {
+			if egressGatewayRanges, err := GetEgressRangesOnNetwork(ctx, &client); err == nil {
+				allowedIPs = append(allowedIPs, egressGatewayRanges...)
+			}
 		}
 	}
 	return
 }
 
 func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, onlyWg bool) (staticNode []models.Node) {
-	extClients, err := GetAllExtClients(ctx)
+	extClients, err := GetNetworkExtClients(ctx, network.String())
 	if err != nil {
 		return
 	}
 	SortExtClient(extClients[:])
 	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if onlyWg && extI.RemoteAccessClientID != "" {
-				continue
-			}
-			staticNode = append(staticNode, models.ConvertToStaticNode(extI))
+		if onlyWg && extI.RemoteAccessClientID != "" {
+			continue
 		}
+		staticNode = append(staticNode, models.ConvertToStaticNode(extI))
 	}
 
 	return
