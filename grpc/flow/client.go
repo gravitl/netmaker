@@ -2,6 +2,7 @@ package flow
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"sync"
@@ -47,7 +48,10 @@ func NewGrpcClient(serverAddr string, optFns ...func(*options.Options)) *GrpcCli
 
 func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
-		defaultClient = NewGrpcClient(servercfg.GetGrpcEndpoint())
+		defaultClient = NewGrpcClient(
+			servercfg.GetGrpcEndpoint(),
+			options.WithTLSIf(servercfg.IsGrpcTLSEnabled(), &tls.Config{}),
+		)
 	})
 	return defaultClient
 }

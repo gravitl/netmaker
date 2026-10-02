@@ -39,7 +39,7 @@ func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
 		defaultClient = NewSIEMGrpcClient(
 			servercfg.GetGrpcEndpoint(),
-			options.WithTLS(&tls.Config{}),
+			options.WithTLSIf(servercfg.IsGrpcTLSEnabled(), &tls.Config{}),
 		)
 	})
 	return defaultClient
