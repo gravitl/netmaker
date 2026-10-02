@@ -81,6 +81,31 @@ func TestNodeFlowIdentity(t *testing.T) {
 	}, nodeFlowIdentity(node, laptop))
 }
 
+func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
+	orig := IsUserAllowedToCommunicate
+	t.Cleanup(func() { IsUserAllowedToCommunicate = orig })
+
+	userDev := models.Node{OwnerID: "alice"}
+	infra := models.Node{}
+
+	IsUserAllowedToCommunicate = func(context.Context, string, models.Node) (bool, []models.Acl) {
+		return false, nil
+	}
+	if PeerAllowed(context.Background(), userDev, infra, true) {
+		t.Fatal("default resource policy must not permit a user device")
+	}
+
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, _ models.Node) (bool, []models.Acl) {
+		return userName == "alice", nil
+	}
+	if !PeerAllowed(context.Background(), userDev, infra, true) {
+		t.Fatal("user policy should allow the user device")
+	}
+	if !PeerAllowed(context.Background(), infra, infra, true) {
+		t.Fatal("resource default policy should still allow infrastructure peers")
+	}
+}
+
 func TestErrUserOwnedInfrastructureRole(t *testing.T) {
 	assert.NoError(t, ErrUserOwnedNodeInfrastructureRole(nil))
 	assert.NoError(t, ErrUserOwnedHostInfrastructureRole(nil))

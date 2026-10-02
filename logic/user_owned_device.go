@@ -199,6 +199,24 @@ func errIfEgressUsesTag(ctx context.Context, network string, tagID models.TagID)
 	return nil
 }
 
+// skipResourcePolicyForUserDevices reports whether resource (device) ACL
+// policies must not decide this pair. User policies are the access control.
+func skipResourcePolicyForUserDevices(a, b *models.Node) bool {
+	return IsUserOwnedDevice(a) || IsUserOwnedDevice(b)
+}
+
+// PeerAllowed reports whether node may peer with peer. User devices are not
+// subject to resource ACL policies, including the default allow-all.
+func PeerAllowed(ctx context.Context, node, peer models.Node, defaultDevicePolicy bool) bool {
+	if skipResourcePolicyForUserDevices(&node, &peer) {
+		return isAllowedViaUserOwnership(ctx, node, peer)
+	}
+	if defaultDevicePolicy {
+		return true
+	}
+	return IsPeerAllowed(ctx, node, peer, false) || isAllowedViaUserOwnership(ctx, node, peer)
+}
+
 // isAllowedViaUserOwnership is true when either side is a user-owned subject
 // whose user policies allow communication with the other peer.
 func isAllowedViaUserOwnership(ctx context.Context, node, peer models.Node) bool {
@@ -221,7 +239,8 @@ func NodeHasEgressAccess(ctx context.Context, node *models.Node, e *schema.Egres
 	if node == nil || e == nil {
 		return false
 	}
-	if DoesNodeHaveAccessToEgress(node, e, deviceAcls) {
+	// Resource policies do not grant egress to user devices.
+	if !IsUserOwnedDevice(node) && DoesNodeHaveAccessToEgress(node, e, deviceAcls) {
 		return true
 	}
 	owner := NodeOwnerUsername(node)
