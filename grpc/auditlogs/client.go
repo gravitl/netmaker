@@ -54,7 +54,7 @@ func Client() *GrpcClient {
 	defaultClientOnce.Do(func() {
 		defaultClient = NewAuditLogsGrpcClient(
 			servercfg.GetGrpcEndpoint(),
-			options.WithTLS(&tls.Config{}),
+			options.WithTLSIf(servercfg.IsGrpcTLSEnabled(), &tls.Config{}),
 		)
 
 		// The default client is lazy. It connects only when an export is requested.
