@@ -1412,9 +1412,17 @@ func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[
 func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
 
-func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
+func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	grpUsersMap := make(map[schema.UserGroupID]map[string]struct{})
-	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	if ctx == nil {
+		ctx = db.WithContext(context.TODO())
+	}
+	// Groups live on tenant membership, not the user row. An unscoped ListAll
+	// leaves UserGroups empty, so group policies never match those users.
+	users, err := (&schema.User{}).ListAllWithMembership(ctx)
+	if err != nil {
+		users, _ = (&schema.User{}).ListAll(ctx)
+	}
 	for _, user := range users {
 		for gID := range user.UserGroups.Data() {
 			if grpUsers, ok := grpUsersMap[gID]; ok {
@@ -1428,6 +1436,30 @@ func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
 	}
 
 	return grpUsersMap
+}
+
+// userGroupsForNetwork includes members of the global admin and user groups in
+// the network's default groups, matching listPoliciesOfUser.
+func userGroupsForNetwork(ctx context.Context, netID schema.NetworkID) map[schema.UserGroupID]map[string]struct{} {
+	grp := GetUserGrpMap(ctx)
+	copyGroupMembers(grp, globalNetworksAdminGroupID, GetDefaultNetworkAdminGroupID(netID))
+	copyGroupMembers(grp, globalNetworksUserGroupID, GetDefaultNetworkUserGroupID(netID))
+	return grp
+}
+
+func copyGroupMembers(grp map[schema.UserGroupID]map[string]struct{}, from, to schema.UserGroupID) {
+	src, ok := grp[from]
+	if !ok || from == to {
+		return
+	}
+	dst := grp[to]
+	if dst == nil {
+		dst = make(map[string]struct{})
+	}
+	for userName := range src {
+		dst[userName] = struct{}{}
+	}
+	grp[to] = dst
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.

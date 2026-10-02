@@ -986,7 +986,7 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1343,7 +1343,7 @@ func appendUserExtClientRemoteEgressFwdRules(
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
