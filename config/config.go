@@ -108,6 +108,7 @@ type ServerConfig struct {
 	DefaultDomain              string        `yaml:"default_domain"`
 	PublicIp                   string        `yaml:"public_ip"`
 	GrpcEndpoint               string        `yaml:"grpc_endpoint"`
+	GrpcTLS                    string        `yaml:"grpc_tls"`
 }
 
 // SQLConfig - Generic SQL Config
