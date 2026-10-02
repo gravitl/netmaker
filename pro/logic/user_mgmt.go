@@ -894,25 +894,32 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 }
 
 // removeUserDeviceNodesOnGrpUpdates deletes user device nodes in networks a
-// group lost access to, for users with no remaining access. All users are
-// checked since a deleted group has already been removed from its members.
+// group lost access to, for users with no remaining access. Every user that
+// owns a device is checked, not just the group's members, since a deleted
+// group has already been removed from its members.
 func removeUserDeviceNodesOnGrpUpdates(ctx context.Context, networkRemovedMap map[schema.NetworkID]struct{}) {
-	users, err := (&schema.User{}).ListAllWithMembership(ctx)
+	owners, err := (&schema.Host{}).ListOwnerUsernames(ctx)
 	if err != nil {
-		slog.Error("failed to list users", "error", err)
+		slog.Error("failed to list user device owners", "error", err)
 		return
 	}
 	_, allNetworksRemoved := networkRemovedMap[schema.AllNetworks]
-	for i := range users {
-		user := &users[i]
-		deleted := logic.DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
+	var deleted []logic.UserDeviceNode
+	for _, owner := range owners {
+		user := &schema.User{Username: owner}
+		if err := user.GetWithMembership(ctx); err != nil {
+			slog.Error("failed to get user device owner", "user", owner, "error", err)
+			continue
+		}
+		deleted = append(deleted, logic.DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
 			if _, ok := networkRemovedMap[schema.NetworkID(network)]; !ok && !allNetworksRemoved {
 				return false
 			}
 			return !logic.UserHasAccessToNetwork(ctx, user, network)
-		})
-		mq.PublishDeletedUserDeviceNodes(ctx, deleted)
+		})...)
 	}
+	// One publish for the whole group update.
+	mq.PublishDeletedUserDeviceNodes(ctx, deleted)
 }
 
 func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.User) {
