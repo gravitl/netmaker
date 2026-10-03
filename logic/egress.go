@@ -1242,6 +1242,10 @@ func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.N
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	// For internet egress, ::/0 is gated on the exit host's public IPv6 endpoint.
 	includeIPv6 := exitHostHasEndpointIPv6(targetNode)
+	// Resource (device) default must not grant egress to user devices; user default does.
+	if IsUserOwnedDevice(node) {
+		isDefaultPolicyActive = userDeviceEgressDefaultActive(ctx, node.Network)
+	}
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue

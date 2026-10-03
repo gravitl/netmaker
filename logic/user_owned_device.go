@@ -22,6 +22,20 @@ func IsUserOwnedHost(h *schema.Host) bool {
 	return h != nil && h.OwnerUsername != ""
 }
 
+// skipPeerUpdateAclCalc reports whether GetPeerUpdateForHost should skip
+// FwUpdate ACL calculation. User policies are unidirectional to servers and
+// are emitted on the server host's peer update instead.
+func skipPeerUpdateAclCalc(h *schema.Host) bool {
+	return IsUserOwnedHost(h)
+}
+
+// userDeviceEgressDefaultActive reports whether the network's default user
+// policy grants all egress to user devices. Device default must not.
+var userDeviceEgressDefaultActive = func(ctx context.Context, network string) bool {
+	userDefault, err := GetDefaultPolicy(ctx, schema.NetworkID(network), models.UserPolicy)
+	return err == nil && userDefault.Enabled
+}
+
 // UserDevicesAreNotPeers reports whether two hosts must not form a WireGuard peer.
 // User-registered devices mesh with infrastructure, not with other user devices.
 func UserDevicesAreNotPeers(a, b *schema.Host) bool {
@@ -247,8 +261,7 @@ func NodeHasEgressAccess(ctx context.Context, node *models.Node, e *schema.Egres
 	if owner == "" {
 		return false
 	}
-	userDefault, err := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-	if err == nil && userDefault.Enabled {
+	if userDeviceEgressDefaultActive(ctx, node.Network) {
 		return true
 	}
 	user := &schema.User{Username: owner}

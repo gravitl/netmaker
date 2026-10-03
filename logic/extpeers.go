@@ -466,7 +466,12 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
-		if extPeer.RemoteAccessClientID == "" {
+		// Host-backed user devices use user policies; leave ExtClient RAC/non-RAC as-is.
+		if IsUserOwnedDevice(peer) {
+			if !PeerAllowed(ctx, *peer, models.ConvertToStaticNode(extPeer), false) {
+				continue
+			}
+		} else if extPeer.RemoteAccessClientID == "" {
 			if ok := IsPeerAllowed(ctx, models.ConvertToStaticNode(extPeer), *peer, true); !ok {
 				continue
 			}

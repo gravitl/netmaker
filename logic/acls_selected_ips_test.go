@@ -126,6 +126,52 @@ func TestAppendEgressPolicyRangeExpandsInternet(t *testing.T) {
 	}
 }
 
+func TestAddEgressInfoToPeerByAccess_UserDeviceIgnoresDeviceDefault(t *testing.T) {
+	orig := userDeviceEgressDefaultActive
+	userDeviceEgressDefaultActive = func(context.Context, string) bool { return false }
+	t.Cleanup(func() { userDeviceEgressDefaultActive = orig })
+
+	clientID := uuid.New()
+	egressNodeID := uuid.New()
+	client := models.Node{
+		OwnerID: "alice",
+		CommonNode: models.CommonNode{
+			ID:      clientID,
+			Network: "netmaker",
+		},
+	}
+	egressPeer := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressNodeID,
+			Network: "netmaker",
+			IsGw:    true,
+		},
+	}
+	eli := []schema.Egress{{
+		ID:      "eg-site",
+		Network: "netmaker",
+		Status:  true,
+		Range:   "10.20.5.0/24",
+		Nodes:   datatypes.JSONMap{egressNodeID.String(): json.Number("100")},
+	}}
+
+	// Device default on must not auto-grant full site egress to a user device
+	// when the user default is off.
+	AddEgressInfoToPeerByAccess(context.TODO(), &client, &egressPeer, eli, nil, true)
+	if egressPeer.EgressDetails.IsEgressGateway {
+		t.Fatalf("user device must not get egress ranges from device default alone, got %v",
+			egressPeer.EgressDetails.EgressGatewayRanges)
+	}
+
+	// Infra node with device default still gets the range.
+	infra := models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
+	egressPeer.EgressDetails = models.EgressDetails{}
+	AddEgressInfoToPeerByAccess(context.TODO(), &infra, &egressPeer, eli, nil, true)
+	if !egressPeer.EgressDetails.IsEgressGateway {
+		t.Fatal("infra node with device default should receive egress ranges")
+	}
+}
+
 func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	t.Cleanup(func() { getEgressByID = originalGetEgressByID })

@@ -317,7 +317,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
-		inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 		SuppressInternetExitIfNoACLAccess(ctx, &node, eli, acls, defaultDevicePolicy.Enabled)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
@@ -328,31 +327,35 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node) || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network)
 		}
 		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(ctx, &node)...)
-		if !IsUserOwnedDevice(&node) && ((defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
-				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0))) {
-			aclRule := models.AclRule{
-				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
-				AllowedProtocol: models.ALL,
-				Direction:       models.TrafficDirectionBi,
-				Allowed:         true,
-				IPList:          []net.IPNet{node.NetworkRange},
-				IP6List:         []net.IPNet{node.NetworkRange6},
-			}
-			if !(defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) {
-				aclRule.Dst = []net.IPNet{node.NetworkRange}
-				aclRule.Dst6 = []net.IPNet{node.NetworkRange6}
-			}
-			hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, aclRule)
-		} else {
-			networkAllowAll = false
-			hostPeerUpdate.FwUpdate.AllowAll = false
-			rules := GetAclRulesForNode(ctx, &node)
-			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
-				hostPeerUpdate.FwUpdate.AclRules = rules
+		// User hosts skip ACL/FwUpdate calc: user policies are uni user→server and
+		// are emitted on the server's peer update via GetUserAclRulesForNode.
+		if !skipPeerUpdateAclCalc(host) {
+			if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
+				(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
+					!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {
+				aclRule := models.AclRule{
+					ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
+					AllowedProtocol: models.ALL,
+					Direction:       models.TrafficDirectionBi,
+					Allowed:         true,
+					IPList:          []net.IPNet{node.NetworkRange},
+					IP6List:         []net.IPNet{node.NetworkRange6},
+				}
+				if !(defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) {
+					aclRule.Dst = []net.IPNet{node.NetworkRange}
+					aclRule.Dst6 = []net.IPNet{node.NetworkRange6}
+				}
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, aclRule)
 			} else {
-				for aclID, rule := range rules {
-					hostPeerUpdate.FwUpdate.AclRules[aclID] = rule
+				networkAllowAll = false
+				hostPeerUpdate.FwUpdate.AllowAll = false
+				rules := GetAclRulesForNode(ctx, &node)
+				if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
+					hostPeerUpdate.FwUpdate.AclRules = rules
+				} else {
+					for aclID, rule := range rules {
+						hostPeerUpdate.FwUpdate.AclRules[aclID] = rule
+					}
 				}
 			}
 		}
@@ -461,10 +464,8 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// that carry those ranges) so site CIDRs do not hairpin through the exit.
 				// The reverse also applies: specific-egress gateways retain bypass
 				// clients as direct peers so return traffic is not forced via the exit.
-				//
-				// Internet exit routing nodes are always retained as direct peers
-				// (same idea as bypass site-egress), including alternate exits.
-				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, inetExitRouterIDs) {
+				// Alternate internet exits are not auto-retained; they need PeerAllowed.
+				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress) {
 					retainDespiteRelay = true
 					// fall through to normal peer config
 				} else {
@@ -1193,27 +1194,11 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 // should keep a WireGuard peer that would otherwise be removed (mesh via exit only).
 // unfilteredSpecific is true when peer advertised specific egress CIDRs before
 // access filtering (AddEgressInfoToPeerByAccess can clear EgressDetails).
-// inetExitRouterIDs lists active internet-egress routing node IDs for the network.
-func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool, inetExitRouterIDs map[string]struct{}) bool {
-	if usesPeerAsInternetExit(node, peer) {
+func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool) bool {
+	// Only the client's selected exit (and the reverse leg). Alternate exits must
+	// still satisfy PeerAllowed — do not retain every internet egress router.
+	if usesPeerAsInternetExit(node, peer) || usesPeerAsInternetExit(peer, node) {
 		return true
-	}
-	// Always keep internet exit routing nodes as direct peers (same fashion as
-	// bypass retaining site-egress gateways) so clients can reach/probe every
-	// exit even while hairpinned through another exit. Default routes still only
-	// attach via usesPeerAsInternetExit.
-	if peer != nil {
-		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
-			return true
-		}
-	}
-	// Reverse: exit routers keep exit clients as direct peers so handshakes work.
-	if node != nil {
-		if _, ok := inetExitRouterIDs[node.ID.String()]; ok {
-			if peer != nil && (peer.SelectedInternetEgressID != "" || peer.InternetGwID != "") {
-				return true
-			}
-		}
 	}
 	// Bypass is bidirectional: the client must keep the specific-egress gateway,
 	// and the gateway must keep the bypass client as a direct peer (otherwise the

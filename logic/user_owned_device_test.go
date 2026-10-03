@@ -81,6 +81,12 @@ func TestNodeFlowIdentity(t *testing.T) {
 	}, nodeFlowIdentity(node, laptop))
 }
 
+func TestSkipPeerUpdateAclCalc_userHost(t *testing.T) {
+	assert.True(t, skipPeerUpdateAclCalc(&schema.Host{OwnerUsername: "alice"}))
+	assert.False(t, skipPeerUpdateAclCalc(&schema.Host{Name: "server"}))
+	assert.False(t, skipPeerUpdateAclCalc(nil))
+}
+
 func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
 	orig := IsUserAllowedToCommunicate
 	t.Cleanup(func() { IsUserAllowedToCommunicate = orig })
@@ -107,6 +113,11 @@ func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
 	if !PeerAllowed(context.Background(), infra, infra, true) {
 		t.Fatal("resource default policy should still allow infrastructure peers")
 	}
+	IsUserAllowedToCommunicate = func(context.Context, string, models.Node) (bool, []models.Acl) {
+		return false, nil
+	}
+	assert.False(t, PeerAllowed(context.Background(), userDev, infra, false),
+		"user device must not fall through to device default when default is off")
 }
 
 func TestErrUserOwnedInfrastructureRole(t *testing.T) {

@@ -996,10 +996,6 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 		//}
 	}()
 	rules = make(map[string]models.AclRule)
-	// User devices are governed by user policies, not resource policies.
-	if IsUserOwnedDevice(&targetnode) {
-		return
-	}
 	if IsNodeAllowedToCommunicateWithAllRsrcs(ctx, targetnode) {
 		aclRule := models.AclRule{
 			ID:              fmt.Sprintf("%s-all-allowed-node-rule", targetnode.ID.String()),
@@ -2343,9 +2339,6 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 }
 
 var IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
-	if skipResourcePolicyForUserDevices(&node, &peer) {
-		return false
-	}
 	var nodeId, peerId string
 	// if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
 	// 	return true
@@ -2610,9 +2603,6 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(ctx context.Context, node models.Nod
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
 func IsNodeAllowedToCommunicate(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
-	if skipResourcePolicyForUserDevices(&node, &peer) {
-		return false, nil
-	}
 	var nodeId, peerId string
 	// if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
 	// 	return true, []models.Acl{}
