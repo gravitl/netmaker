@@ -341,7 +341,7 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
-func TestDeviceJoinRequiresApprovalWhenJITEnabledForUser(t *testing.T) {
+func TestDeviceJoinSkipsApprovalWhenJITAppliesToUser(t *testing.T) {
 	ctx := scopedTestContext(t)
 	netName := "jit-skip-approval-" + uuid.NewString()[:8]
 	username := "jit-skip-user-" + uuid.NewString()[:8]
@@ -398,6 +398,13 @@ func TestDeviceJoinRequiresApprovalWhenJITEnabledForUser(t *testing.T) {
 		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
+	joined := false
+	origJoin := JoinHostToNetworks
+	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+		joined = true
+	}
+
 	networks, err := GetDeviceNetworks(ctx, user, host)
 	require.NoError(t, err)
 	var found models.DeviceNetwork
@@ -408,15 +415,16 @@ func TestDeviceJoinRequiresApprovalWhenJITEnabledForUser(t *testing.T) {
 		}
 	}
 	require.Equal(t, netName, found.NetworkID)
-	assert.True(t, found.ApprovalRequired)
-	assert.Equal(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
+	assert.False(t, found.ApprovalRequired, "JIT-scoped users skip pending-host approval")
+	assert.NotEqual(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
 
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
+	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
+	assert.True(t, joined, "expected immediate join when JIT applies")
 
 	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
-	require.NoError(t, check.CheckIfPendingHostExists(ctx))
+	assert.Error(t, check.CheckIfPendingHostExists(ctx), "must not create pending host for JIT users")
 }
 
 func TestDeviceJoinRequiresApprovalForNetworkAdmin(t *testing.T) {

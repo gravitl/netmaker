@@ -324,6 +324,46 @@ func DeleteUserDevices(ctx context.Context, username string) []UserDevice {
 	return deleted
 }
 
+// DisconnectUserDeviceNodes sets Connected=false on the user's device nodes in
+// networks matching shouldDisconnect. Nodes stay enrolled so a later JIT grant
+// can reconnect without re-approval. Returns affected nodes for peer publish.
+func DisconnectUserDeviceNodes(ctx context.Context, username string, shouldDisconnect func(network string) bool) []UserDeviceNode {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices", "user", username, "error", err)
+		return nil
+	}
+	nodesByHost, err := listUserDeviceNodes(ctx, username)
+	if err != nil {
+		slog.Error("failed to list user device nodes", "user", username, "error", err)
+		return nil
+	}
+	var disconnected []UserDeviceNode
+	for _, host := range hosts {
+		for _, node := range nodesByHost[host.ID.String()] {
+			if !shouldDisconnect(node.Network) {
+				continue
+			}
+			if !node.Connected {
+				continue
+			}
+			if _, err := ClearExitNodeForDisconnect(&node); err != nil {
+				slog.Error("failed to clear exit node on JIT disconnect",
+					"node", node.ID.String(), "user", username, "network", node.Network, "error", err)
+			}
+			node.Connected = false
+			node.Status = schema.Disconnected
+			if err := UpsertNode(&node); err != nil {
+				slog.Error("failed to disconnect user device node",
+					"node", node.ID.String(), "user", username, "network", node.Network, "error", err)
+				continue
+			}
+			disconnected = append(disconnected, UserDeviceNode{Node: node, Host: host})
+		}
+	}
+	return disconnected
+}
+
 // DeleteUserDeviceNodes deletes the network nodes of devices registered by
 // username in networks for which shouldDelete returns true. It returns the
 // deleted nodes so callers can publish them.

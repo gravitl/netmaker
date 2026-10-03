@@ -820,7 +820,8 @@ func DeactivateUserGrantsOnNetwork(ctx context.Context, networkID, userID string
 	return nil
 }
 
-// RemoveUserJITNetworkAccess deletes a user's host nodes and ext clients from a network after JIT ends.
+// RemoveUserJITNetworkAccess removes a user's network presence after JIT ends:
+// ExtClients are deleted; host-backed user device nodes are disconnected.
 func RemoveUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
 	return removeUserJITNetworkAccess(ctx, networkID, userID)
 }
@@ -830,16 +831,20 @@ func DisconnectUserExtClientsFromNetwork(ctx context.Context, networkID, userID 
 	return disconnectUserExtClients(ctx, networkID, userID)
 }
 
-// DisconnectUserHostNodesFromNetwork removes full-mesh host nodes for a user on a network.
+// DisconnectUserHostNodesFromNetwork disconnects (does not delete) full-mesh
+// host nodes for a user on a network after JIT ends.
 func DisconnectUserHostNodesFromNetwork(ctx context.Context, networkID, userID string) error {
 	return disconnectUserHostNodes(ctx, networkID, userID)
 }
 
 func removeUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
 	var firstErr error
+	// ExtClients remain session-scoped: delete on JIT end.
 	if err := disconnectUserExtClients(ctx, networkID, userID); err != nil && firstErr == nil {
 		firstErr = err
 	}
+	// Host-backed user devices stay enrolled; disconnect so they can reconnect
+	// on the next grant without device re-approval.
 	if err := disconnectUserHostNodes(ctx, networkID, userID); err != nil && firstErr == nil {
 		firstErr = err
 	}
@@ -878,8 +883,11 @@ func disconnectUserHostNodes(ctx context.Context, networkID, userID string) erro
 		return fmt.Errorf("failed to get network %s: %w", networkID, err)
 	}
 
-	deleted := logic.DeleteUserDeviceNodes(ctx, userID, func(n string) bool { return n == network.Name })
+	disconnected := logic.DisconnectUserDeviceNodes(ctx, userID, func(n string) bool { return n == network.Name })
+	if len(disconnected) == 0 {
+		return nil
+	}
 	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-	go mq.PublishDeletedUserDeviceNodes(detachedCtx, deleted)
+	go mq.PublishDisconnectedUserDeviceNodes(detachedCtx, disconnected)
 	return nil
 }

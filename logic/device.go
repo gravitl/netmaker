@@ -184,9 +184,13 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 
 // deviceJoinRequiresApproval reports whether a user-owned device join should enter
 // pending-host approval instead of joining immediately.
-func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, _ *schema.User) bool {
+// Users subject to JIT are gated by temporary grants instead of pending-host enrollment.
+func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, user *schema.User) bool {
 	featureFlags := GetFeatureFlags(ctx)
 	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
+		return false
+	}
+	if UserSubjectToNetworkJIT(ctx, network.Name, user) {
 		return false
 	}
 	return true
@@ -281,6 +285,10 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		return empty, fmt.Errorf("network not found: %w", err)
 	}
 	if DoesHostExistInTheNetworkAlready(host, network) {
+		// Node may already exist but be disconnected after JIT expiry — reconnect.
+		if err := reconnectUserDeviceNode(ctx, host, networkID); err != nil {
+			return empty, err
+		}
 		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
@@ -323,6 +331,33 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		SkipDeviceApproval: true,
 	}, host, user.Username)
 	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
+}
+
+// reconnectUserDeviceNode sets Connected=true on an existing host node after a
+// new JIT grant (node was left enrolled but disconnected when the prior grant ended).
+func reconnectUserDeviceNode(ctx context.Context, host *schema.Host, networkID string) error {
+	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
+	if err != nil {
+		return nil
+	}
+	node, err := GetNodeByID(nodeSchema.ID)
+	if err != nil {
+		return err
+	}
+	if node.Connected {
+		return nil
+	}
+	node.Connected = true
+	node.Status = schema.OnlineSt
+	node.SetLastCheckIn()
+	if err := UpsertNode(&node); err != nil {
+		return err
+	}
+	if err := EnsureAutoExitNode(ctx, host, &node); err != nil {
+		slog.Warn("auto exit node assignment failed on JIT reconnect",
+			"node", node.ID.String(), "network", networkID, "error", err)
+	}
+	return nil
 }
 
 // LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.

@@ -588,6 +588,30 @@ func PublishIntegrationDelete(id string) error {
 	return nil
 }
 
+// PublishDisconnectedUserDeviceNodes notifies peers that user device nodes are
+// offline (JIT ended) and asks each device to pull its new state. Nodes remain enrolled.
+func PublishDisconnectedUserDeviceNodes(ctx context.Context, disconnected []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	for i := range disconnected {
+		d := disconnected[i]
+		if err := NodeUpdate(&d.Node); err != nil {
+			slog.Error("failed to publish node update for disconnected user device",
+				"node", d.Node.ID.String(), "error", err)
+		}
+		go logic.SetPeerMetricsDisconnected(ctx, d.Node.ID.String())
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from disconnected user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	if err := PublishPeerUpdate(ctx, false); err != nil {
+		slog.Error("failed to publish peer update for disconnected user devices", "error", err)
+	}
+}
+
 // PublishDeletedUserDeviceNodes notifies peers about deleted user device nodes
 // and asks each affected device to pull its new state.
 func PublishDeletedUserDeviceNodes(ctx context.Context, deleted []logic.UserDeviceNode) {
