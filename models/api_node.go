@@ -198,7 +198,7 @@ func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
 		apiNode.ID = nm.ID.String()
 	}
 	apiNode.IsStatic = nm.IsStatic
-	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.IsUserNode = nm.IsUserNode || (!nm.IsStatic && nm.OwnerID != "")
 	apiNode.Status = nm.Status
 	return &apiNode
 }
@@ -278,6 +278,14 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
 	apiNode.Location = nm.Location
 	apiNode.Country = nm.CountryCode
+	// User-registered hosts (desktop/device flow) surface on Active Users like
+	// legacy ExtClient RAC nodes, without changing internal mesh/ACL classification.
+	if !nm.IsStatic && nm.OwnerID != "" {
+		apiNode.IsUserNode = true
+		if apiNode.StaticNode.OwnerID == "" {
+			apiNode.StaticNode.OwnerID = nm.OwnerID
+		}
+	}
 	return &apiNode
 }
 

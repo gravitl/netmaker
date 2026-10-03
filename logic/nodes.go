@@ -870,6 +870,12 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 		CountryCode:                        _node.Host.CountryCode,
 	}
 
+	// User-registered devices: attach owner metadata for API Active Users listing.
+	// Do not set IsUserNode here — that would divert posture/ACL away from the host path.
+	if _node.Host != nil && _node.Host.OwnerUsername != "" {
+		attachUserOwnedDeviceMetadata(node, _node.Host)
+	}
+
 	if _node.IsGateway {
 		node.IngressGatewayRange = _node.Network.AddressRange
 		node.IngressGatewayRange6 = _node.Network.AddressRange6
@@ -935,6 +941,57 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 	}
 
 	return node
+}
+
+// attachUserOwnedDeviceMetadata copies host owner identity into node fields used by
+// ConvertToAPINode so registered desktop devices appear under Active Users alongside
+// legacy ExtClient RAC nodes. IsUserNode stays false on the models.Node so posture
+// and ACL keep using the host/device path.
+func attachUserOwnedDeviceMetadata(node *models.Node, host *schema.Host) {
+	if node == nil || host == nil || host.OwnerUsername == "" {
+		return
+	}
+	node.OwnerID = host.OwnerUsername
+	addr := ""
+	if node.Address.IP != nil {
+		addr = node.Address.IP.String()
+	}
+	addr6 := ""
+	if node.Address6.IP != nil {
+		addr6 = node.Address6.IP.String()
+	}
+	pubKey := host.PublicKey.String()
+	endpoint := host.EndpointIP.String()
+	if endpoint == "<nil>" {
+		endpoint = ""
+	}
+	if endpoint == "" {
+		endpoint = host.EndpointIPv6.String()
+		if endpoint == "<nil>" {
+			endpoint = ""
+		}
+	}
+	node.StaticNode = models.ExtClient{
+		ClientID:                 host.Name,
+		Network:                  node.Network,
+		Address:                  addr,
+		Address6:                 addr6,
+		Enabled:                  node.Connected,
+		OwnerID:                  host.OwnerUsername,
+		OS:                       host.OS,
+		OSFamily:                 host.OSFamily,
+		OSVersion:                host.OSVersion,
+		KernelVersion:            host.KernelVersion,
+		ClientVersion:            host.Version,
+		DeviceID:                 host.ID.String(),
+		DeviceName:               host.Name,
+		PublicKey:                pubKey,
+		PublicEndpoint:           endpoint,
+		Country:                  host.CountryCode,
+		Location:                 host.Location,
+		Status:                   node.Status,
+		SelectedInternetEgressID: node.SelectedInternetEgressID,
+	}
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {

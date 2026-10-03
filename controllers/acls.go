@@ -185,7 +185,15 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicate(r.Context(), node, peer, true)
-	isallowed := logic.IsPeerAllowed(r.Context(), node, peer, true)
+	isallowed := logic.PeerAllowed(r.Context(), node, peer, true)
+	if logic.IsUserOwnedDevice(&node) || logic.IsUserOwnedDevice(&peer) {
+		allowed = isallowed
+		if owner := logic.NodeOwnerUsername(&node); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, peer)
+		} else if owner := logic.NodeOwnerUsername(&peer); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, node)
+		}
+	}
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,

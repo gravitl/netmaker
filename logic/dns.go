@@ -606,6 +606,18 @@ func getNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []mo
 	return
 }
 
+// RemoveUserFromNameservers drops a deleted user from every nameserver in the
+// tenant scoped by ctx.
+func RemoveUserFromNameservers(ctx context.Context, username string) error {
+	return (&schema.Nameserver{}).RemoveUser(ctx, username)
+}
+
+// RemoveUserGroupFromNameservers drops a deleted user group from every
+// nameserver in the tenant scoped by ctx.
+func RemoveUserGroupFromNameservers(ctx context.Context, groupID schema.UserGroupID) error {
+	return (&schema.Nameserver{}).RemoveUserGroup(ctx, groupID.String())
+}
+
 // IsValidMatchDomain reports whether s is a valid "match domain".
 // Rules (simple/ASCII):
 //   - "~." is allowed (match all).

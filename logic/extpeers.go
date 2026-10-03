@@ -466,7 +466,12 @@ func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMa
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
-		if extPeer.RemoteAccessClientID == "" {
+		// Host-backed user devices use user policies; leave ExtClient RAC/non-RAC as-is.
+		if IsUserOwnedDevice(peer) {
+			if !PeerAllowed(ctx, *peer, models.ConvertToStaticNode(extPeer), false) {
+				continue
+			}
+		} else if extPeer.RemoteAccessClientID == "" {
 			if ok := IsPeerAllowed(ctx, models.ConvertToStaticNode(extPeer), *peer, true); !ok {
 				continue
 			}
@@ -595,6 +600,21 @@ func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRo
 	return
 }
 
+// extClientEgressAllowed reports whether node should receive an extclient's
+// extra allowed IPs. User devices are not dropped by the resource-policy
+// short-circuit: user policies and an allow-all resource policy still apply.
+func extClientEgressAllowed(ctx context.Context, node, extNode models.Node) bool {
+	if IsUserOwnedDevice(&node) {
+		if PeerAllowed(ctx, node, extNode, false) {
+			return true
+		}
+		def, err := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+		return err == nil && def.Enabled
+	}
+	ok, _ := IsNodeAllowedToCommunicate(ctx, extNode, node, true)
+	return ok
+}
+
 func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, ranges6 []net.IPNet) {
 	extPeers, err := GetNetworkExtClients(ctx, node.Network)
 	if err != nil {
@@ -604,7 +624,7 @@ func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, rang
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extClientEgressAllowed(ctx, node, models.ConvertToStaticNode(extPeer)) {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -631,7 +651,7 @@ func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes
 		if len(extPeer.ExtraAllowedIPs) == 0 || !extPeer.Enabled {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(ctx, models.ConvertToStaticNode(extPeer), node, true); !ok {
+		if !extClientEgressAllowed(ctx, node, models.ConvertToStaticNode(extPeer)) {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)

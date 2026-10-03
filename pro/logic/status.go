@@ -218,12 +218,12 @@ func CheckPeerStatus(ctx context.Context, node *models.Node, defaultAclPolicy bo
 		if !ok {
 			continue
 		}
+		if logic.IsUserOwnedDevice(node) && logic.IsUserOwnedDevice(&peer) {
+			continue
+		}
 
-		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, peer, false)
-			if !allowed {
-				continue
-			}
+		if !logic.PeerAllowed(ctx, *node, peer, defaultAclPolicy) {
+			continue
 		}
 
 		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
@@ -256,12 +256,12 @@ func checkPeerConnectivity(ctx context.Context, node *models.Node, metrics *mode
 		if !ok {
 			continue
 		}
+		if logic.IsUserOwnedDevice(node) && logic.IsUserOwnedDevice(&peer) {
+			continue
+		}
 
-		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, peer, false)
-			if !allowed {
-				continue
-			}
+		if !logic.PeerAllowed(ctx, *node, peer, defaultAclPolicy) {
+			continue
 		}
 
 		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {

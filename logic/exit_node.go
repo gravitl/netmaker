@@ -3,11 +3,17 @@ package logic
 import (
 	"context"
 	"errors"
+	"net"
+	"sort"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
+
+// ErrExitNodeSelectionRequired is returned when a user tries to clear the exit
+// node on a network that requires one.
+var ErrExitNodeSelectionRequired = errors.New("exit node selection is required")
 
 // PublishPeerUpdateAfterExitNodeChange notifies peers after exit-node selection changes (wired from mq).
 var PublishPeerUpdateAfterExitNodeChange = func(ctx context.Context) {}
@@ -25,11 +31,20 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 	}
 	if routingNodeID != "" {
 		if rn, err := GetNodeByID(routingNodeID); err == nil {
+			item.TcpProxyEnabled = rn.TcpProxyEnabled
+			item.TcpProxyListenPort = rn.TcpProxyListenPort
 			rh := &schema.Host{ID: rn.HostID}
 			if err := rh.Get(db.WithContext(ctx)); err == nil {
 				item.RoutingHostName = rh.Name
-				item.TcpProxyEnabled = rh.TcpProxyEnabled
-				item.TcpProxyListenPort = rh.TcpProxyListenPort
+				item.CountryCode = rh.CountryCode
+				item.Location = rh.Location
+				item.AllowedEndpoints = exitNodeAllowedEndpoints(rh)
+				if rh.TcpProxyEnabled {
+					item.TcpProxyEnabled = true
+				}
+				if rh.TcpProxyListenPort > 0 {
+					item.TcpProxyListenPort = rh.TcpProxyListenPort
+				}
 			}
 			if item.TcpProxyEnabled && item.TcpProxyListenPort <= 0 {
 				item.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
@@ -213,6 +228,13 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 			return nil, errors.New("routing node cannot select itself as exit node")
 		}
 	} else {
+		nw := &schema.Network{Name: networkID}
+		if err := nw.Get(ctx); err != nil {
+			return nil, errors.New("network not found")
+		}
+		if nw.AutoSelectExitNode {
+			return nil, ErrExitNodeSelectionRequired
+		}
 		useTcpUplink = false
 	}
 
@@ -225,4 +247,103 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		return nil, nil
 	}
 	return GetDeviceSelectedExitNode(ctx, user, host, networkID)
+}
+
+// pickFallbackExitNode returns the exit to assign when auto-select is required
+// and the node does not already have an allowed selection. The choice is the
+// first allowed exit by name, then id. ok is false when the current selection
+// should be kept or when nothing is available.
+func pickFallbackExitNode(currentID string, nodes []models.DeviceExitNode) (models.DeviceExitNode, bool) {
+	allowed := make([]models.DeviceExitNode, 0, len(nodes))
+	for _, n := range nodes {
+		if !n.Status || n.EgressID == "" {
+			continue
+		}
+		allowed = append(allowed, n)
+	}
+	sort.Slice(allowed, func(i, j int) bool {
+		if allowed[i].Name != allowed[j].Name {
+			return allowed[i].Name < allowed[j].Name
+		}
+		return allowed[i].EgressID < allowed[j].EgressID
+	})
+	if currentID != "" {
+		for _, n := range allowed {
+			if n.EgressID == currentID {
+				return models.DeviceExitNode{}, false
+			}
+		}
+	}
+	if len(allowed) == 0 {
+		return models.DeviceExitNode{}, false
+	}
+	return allowed[0], true
+}
+
+// EnsureAutoExitNode assigns an allowed internet exit when a user device is on
+// a network that requires one and none is selected. A still-valid selection is
+// left unchanged so a client that already picked the nearest exit is not replaced.
+func EnsureAutoExitNode(ctx context.Context, host *schema.Host, node *models.Node) error {
+	if host == nil || node == nil || node.Network == "" {
+		return nil
+	}
+	if !IsUserOwnedHost(host) && !IsUserOwnedDevice(node) {
+		return nil
+	}
+	nw := &schema.Network{Name: node.Network}
+	if err := nw.Get(ctx); err != nil {
+		return err
+	}
+	if !nw.AutoSelectExitNode {
+		return nil
+	}
+	username := host.OwnerUsername
+	if username == "" {
+		username = NodeOwnerUsername(node)
+	}
+	if username == "" {
+		return nil
+	}
+	user := &schema.User{Username: username}
+	if err := user.GetWithMembership(ctx); err != nil {
+		return err
+	}
+	exits, err := ListDeviceExitNodes(ctx, user, host, node.Network)
+	if err != nil {
+		return err
+	}
+	pick, ok := pickFallbackExitNode(node.SelectedInternetEgressID, exits)
+	if !ok {
+		return nil
+	}
+	if err := SetNodeSelectedInternetEgress(node, pick.EgressID, false); err != nil {
+		return err
+	}
+	PublishPeerUpdateAfterExitNodeChange(ctx)
+	return nil
+}
+
+// exitNodeAllowedEndpoints returns the routing host public IPs (EndpointIP, EndpointIPv6).
+func exitNodeAllowedEndpoints(host *schema.Host) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(ip net.IP) {
+		if len(ip) == 0 || ip.IsUnspecified() || ip.IsLoopback() {
+			return
+		}
+		s := ip.String()
+		if s == "" || s == "<nil>" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	if host != nil {
+		add(host.EndpointIP)
+		add(host.EndpointIPv6)
+	}
+	return out
 }

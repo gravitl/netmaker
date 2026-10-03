@@ -399,6 +399,7 @@ func UpdateNetwork(ctx context.Context, currentNetwork, newNetwork *schema.Netwo
 	currentNetwork.AutoRemove = newNetwork.AutoRemove
 	currentNetwork.AutoRemoveThreshold = newNetwork.AutoRemoveThreshold
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
+	currentNetwork.AutoSelectExitNode = newNetwork.AutoSelectExitNode
 
 	// Validate and update Virtual NAT IPv4 settings
 	if newNetwork.VirtualNATPoolIPv4 != "" {
