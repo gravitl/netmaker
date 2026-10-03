@@ -411,6 +411,19 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 	if len(modifiedUsers) > 0 {
 		postureCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 		go proLogic.RunPostureChecksForTenant(postureCtx)
+		go mq.PublishPeerUpdate(postureCtx, false)
+
+		var users []*schema.User
+		for userID := range modifiedUsers {
+			if user, ok := dbUsersMap[userID]; ok {
+				users = append(users, user)
+			}
+		}
+		go func() {
+			for _, user := range users {
+				mq.PublishDeletedUserDeviceNodes(postureCtx, logic.DeleteUserDeviceNodesWithoutAccess(postureCtx, user))
+			}
+		}()
 	}
 
 	for _, group := range dbGroups {
@@ -530,6 +543,8 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 	_ = (&schema.UserInvite{
 		Email: username,
 	}).DeleteByEmail(ctx)
+
+	mq.PublishDeletedUserDevices(ctx, logic.DeleteUserDevices(ctx, username))
 
 	_ = logic.RemoveUserFromNameservers(ctx, username)
 

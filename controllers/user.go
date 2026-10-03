@@ -1845,6 +1845,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		mq.PublishDeletedUserDeviceNodes(ctx, logic.DeleteUserDeviceNodesWithoutAccess(ctx, user))
+
 		extclients, err := logic.GetAllExtClients(ctx)
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
@@ -2052,6 +2054,8 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 	_ = (&schema.UserInvite{
 		Email: username,
 	}).DeleteByEmail(ctx)
+
+	mq.PublishDeletedUserDevices(ctx, logic.DeleteUserDevices(ctx, username))
 
 	if err := logic.RemoveUserFromNameservers(ctx, username); err != nil {
 		slog.Error("failed to remove user from nameservers", "user", username, "error", err)

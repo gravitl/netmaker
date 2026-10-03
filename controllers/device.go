@@ -202,7 +202,7 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
 		if allNodes, err := logic.GetAllNodes(ctx); err == nil {
-			_ = mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, host, node, nil, false, nil)
+			_ = mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, []schema.Host{*host}, node, nil, false, nil)
 		}
 		_ = mq.PublishDeletedNodePeerUpdate(ctx, host, node)
 	}()

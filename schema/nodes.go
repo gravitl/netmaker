@@ -39,27 +39,27 @@ const (
 )
 
 type Node struct {
-	ID                                string                                `gorm:"primaryKey" json:"id"`
-	TenantID                          string                                `gorm:"default:'';index" json:"tenant_id"`
-	HostID                            string                                `gorm:"not null;index" json:"host_id"`
-	Host                              *Host                                 `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
-	NetworkID                         string                                `gorm:"not null;index" json:"network_id"`
-	Network                           *Network                              `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
-	Address                           string                                `json:"address"`
-	Address6                          string                                `json:"address6"`
-	Connected                         bool                                  `json:"connected"`
-	Action                            string                                `json:"action"`
-	Status                            NodeStatus                            `json:"status"`
-	PendingDelete                     bool                                  `json:"pending_delete"`
-	AutoAssignGateway                 bool                                  `json:"auto_assign_gateway"`
-	IsGateway                         bool                                  `json:"is_gateway"`
-	IsAutoRelay                       string                                `json:"is_auto_relay"`
-	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
-	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
-	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
-	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
-	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
-	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	ID                         string                      `gorm:"primaryKey" json:"id"`
+	TenantID                   string                      `gorm:"default:'';index" json:"tenant_id"`
+	HostID                     string                      `gorm:"not null;index" json:"host_id"`
+	Host                       *Host                       `gorm:"foreignKey:HostID;constraint:OnDelete:CASCADE" json:"host,omitempty"`
+	NetworkID                  string                      `gorm:"not null;index" json:"network_id"`
+	Network                    *Network                    `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
+	Address                    string                      `json:"address"`
+	Address6                   string                      `json:"address6"`
+	Connected                  bool                        `json:"connected"`
+	Action                     string                      `json:"action"`
+	Status                     NodeStatus                  `json:"status"`
+	PendingDelete              bool                        `json:"pending_delete"`
+	AutoAssignGateway          bool                        `json:"auto_assign_gateway"`
+	IsGateway                  bool                        `json:"is_gateway"`
+	IsAutoRelay                string                      `json:"is_auto_relay"`
+	IsInternetGateway          bool                        `json:"is_internet_gateway"`
+	AdditionalGatewayEndpoints datatypes.JSONSlice[string] `json:"additional_gateway_endpoints"`
+	RelayedClients             datatypes.JSONMap           `json:"relayed_clients"`
+	RelayedIGWClients          datatypes.JSONMap           `json:"relayed_igw_clients"`
+	RelayedByNodeID            *string                     `json:"relayed_by_node_id"`
+	IsIGWClient                bool                        `json:"is_igw_client"`
 	// UseTcpUplink: assigned/relayed node opts into TCP uplink to its gateway (requires host TcpProxyEnabled).
 	UseTcpUplink bool `json:"use_tcp_uplink"`
 	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
@@ -169,6 +169,24 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	}
 	var nodes []Node
 	err := query.Where("id IN ?", ids).Find(&nodes).Error
+	return nodes, err
+}
+
+// ListByOwnerUsername lists the nodes of all hosts registered by username,
+// matched on each node's host_id.
+func (n *Node) ListByOwnerUsername(ctx context.Context, username string, options ...dbtypes.Option) ([]Node, error) {
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select(fmt.Sprintf("%s.*", nodesTable)).
+		Joins(fmt.Sprintf("INNER JOIN %s ON %s.id = %s.host_id", hostsTable, hostsTable, nodesTable)).
+		Where(fmt.Sprintf("%s.owner_username = ?", hostsTable), username)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Find(&nodes).Error
 	return nodes, err
 }
 

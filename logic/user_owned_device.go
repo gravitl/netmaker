@@ -5,8 +5,10 @@ import (
 	"errors"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
 )
 
 // ErrUserDeviceInfrastructureRole is returned when a user-registered device is
@@ -254,4 +256,96 @@ func NodeHasEgressAccess(ctx context.Context, node *models.Node, e *schema.Egres
 		return false
 	}
 	return DoesUserHaveAccessToEgress(user, e, ListUserPolicies(ctx, schema.NetworkID(node.Network)))
+}
+
+// UserDeviceNode is a network node of a user-registered device.
+type UserDeviceNode struct {
+	Node models.Node
+	Host schema.Host
+}
+
+// UserDevice is a deleted user-registered host along with its deleted nodes.
+type UserDevice struct {
+	Host  schema.Host
+	Nodes []models.Node
+}
+
+func listUserDeviceNodes(ctx context.Context, username string) (map[string][]models.Node, error) {
+	_nodes, err := (&schema.Node{}).ListByOwnerUsername(ctx, username, dbtypes.WithAllPreloads())
+	if err != nil {
+		return nil, err
+	}
+	byHost := make(map[string][]models.Node)
+	for i := range _nodes {
+		node := ConvertSchemaNodeToModelsNode(&_nodes[i])
+		byHost[_nodes[i].HostID] = append(byHost[_nodes[i].HostID], *node)
+	}
+	return byHost, nil
+}
+
+// DeleteUserDevices deletes the hosts registered by username, along with their
+// nodes. It returns the deleted hosts so callers can publish them.
+func DeleteUserDevices(ctx context.Context, username string) []UserDevice {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices", "user", username, "error", err)
+		return nil
+	}
+	// Without the node list, RemoveHost would delete nodes that peers are never told about.
+	nodesByHost, err := listUserDeviceNodes(ctx, username)
+	if err != nil {
+		slog.Error("failed to list user device nodes", "user", username, "error", err)
+		return nil
+	}
+	var deleted []UserDevice
+	for i := range hosts {
+		host := &hosts[i]
+		device := UserDevice{Host: *host, Nodes: nodesByHost[host.ID.String()]}
+		if err := RemoveHost(ctx, host, true); err != nil {
+			slog.Error("failed to delete user device", "host", host.ID.String(), "user", username, "error", err)
+			continue
+		}
+		_ = (&schema.PendingHost{HostID: host.ID.String()}).DeleteAllPendingHosts(ctx)
+		deleted = append(deleted, device)
+	}
+	return deleted
+}
+
+// DeleteUserDeviceNodes deletes the network nodes of devices registered by
+// username in networks for which shouldDelete returns true. It returns the
+// deleted nodes so callers can publish them.
+func DeleteUserDeviceNodes(ctx context.Context, username string, shouldDelete func(network string) bool) []UserDeviceNode {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices", "user", username, "error", err)
+		return nil
+	}
+	nodesByHost, err := listUserDeviceNodes(ctx, username)
+	if err != nil {
+		slog.Error("failed to list user device nodes", "user", username, "error", err)
+		return nil
+	}
+	var deleted []UserDeviceNode
+	for _, host := range hosts {
+		for _, node := range nodesByHost[host.ID.String()] {
+			if !shouldDelete(node.Network) {
+				continue
+			}
+			if err := DeleteNode(ctx, &node, true); err != nil {
+				slog.Error("failed to delete user device node",
+					"node", node.ID.String(), "user", username, "network", node.Network, "error", err)
+				continue
+			}
+			deleted = append(deleted, UserDeviceNode{Node: node, Host: host})
+		}
+	}
+	return deleted
+}
+
+// DeleteUserDeviceNodesWithoutAccess deletes the user's device nodes in
+// networks the user can no longer access.
+func DeleteUserDeviceNodesWithoutAccess(ctx context.Context, user *schema.User) []UserDeviceNode {
+	return DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
+		return !UserHasAccessToNetwork(ctx, user, network)
+	})
 }

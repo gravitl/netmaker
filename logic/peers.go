@@ -226,7 +226,7 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -776,26 +776,26 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		}
 		hostPeerUpdate.Peers[i] = peer
 	}
-	if deletedNode != nil && host.OS != models.OS_Types.IoT {
-		var deletedNodeHost *schema.Host
-		var err error
-		if deletedHost == nil {
-			deletedNodeHost = &schema.Host{
-				ID: deletedNode.HostID,
-			}
-			err = deletedNodeHost.Get(ctx)
-		} else {
-			deletedNodeHost = deletedHost
-		}
-		if err == nil && host.ID != deletedNodeHost.ID {
-			if _, ok := peerIndexMap[deletedNodeHost.PublicKey.String()]; !ok {
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
-					PublicKey: deletedNodeHost.PublicKey.Key,
-					Remove:    true,
-				})
+	if host.OS != models.OS_Types.IoT {
+		if deletedNode != nil && len(deletedHosts) == 0 {
+			deletedNodeHost := schema.Host{ID: deletedNode.HostID}
+			if err := deletedNodeHost.Get(ctx); err == nil {
+				deletedHosts = []schema.Host{deletedNodeHost}
 			}
 		}
-
+		for i := range deletedHosts {
+			deleted := &deletedHosts[i]
+			if host.ID == deleted.ID {
+				continue
+			}
+			if _, ok := peerIndexMap[deleted.PublicKey.String()]; ok {
+				continue
+			}
+			hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
+				PublicKey: deleted.PublicKey.Key,
+				Remove:    true,
+			})
+		}
 	}
 
 	for i := range hostPeerUpdate.NodePeers {
