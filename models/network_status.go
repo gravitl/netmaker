@@ -11,10 +11,11 @@ const (
 	NetworkNodeKindExtClient = NetworkNodeKind("extclient")
 )
 
-const (
-	PeerConnectionDirect  = "direct"
-	PeerConnectionRelayed = "relayed"
-)
+// NetworkNodeRef identifies a node by ID and name.
+type NetworkNodeRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 
 // NetworkStatusDstType selects which destination details the network status includes.
 type NetworkStatusDstType string
@@ -89,27 +90,26 @@ type NetworkEgressStatus struct {
 	// IsInternet marks the internet egress (exit node) the entry routes all traffic through.
 	IsInternet bool `json:"is_internet"`
 
-	RoutingNodeID         string `json:"routing_node_id,omitempty"` // routing node in use: lowest metric among connected routers
-	RoutingNodeName       string `json:"routing_node_name,omitempty"`
-	RoutingNodesTotal     int    `json:"routing_nodes_total"`
-	RoutingNodesConnected int    `json:"routing_nodes_connected"`
+	RoutingNode           *NetworkNodeRef `json:"routing_node,omitempty"` // in use: preferred exit, else lowest metric among connected routers
+	RoutingNodesTotal     int             `json:"routing_nodes_total"`
+	RoutingNodesConnected int             `json:"routing_nodes_connected"`
 
-	Connected      bool    `json:"connected"`
-	LatencyMs      int64   `json:"latency_ms"`
-	ConnectionType string  `json:"connection_type"`         // direct | relayed
-	RelayNodeID    string  `json:"relay_node_id,omitempty"` // set when relayed
-	PercentUp      float64 `json:"percent_up"`
+	Connected bool            `json:"connected"`
+	LatencyMs int64           `json:"latency_ms"`
+	IsRelayed bool            `json:"is_relayed"`
+	Via       *NetworkNodeRef `json:"via,omitempty"` // relay, set when relayed
+	PercentUp float64         `json:"percent_up"`
 }
 
 // NetworkPeerStatus is a node's link to one peer, as reported in its metrics.
 type NetworkPeerStatus struct {
-	PeerID         string  `json:"peer_id"`
-	Name           string  `json:"name"`
-	Connected      bool    `json:"connected"`
-	LatencyMs      int64   `json:"latency_ms"`
-	ConnectionType string  `json:"connection_type"`         // direct | relayed
-	RelayNodeID    string  `json:"relay_node_id,omitempty"` // set when relayed
-	PercentUp      float64 `json:"percent_up"`
-	BytesSent      int64   `json:"bytes_sent"`
-	BytesReceived  int64   `json:"bytes_received"`
+	PeerID        string          `json:"peer_id"`
+	Name          string          `json:"name"`
+	Connected     bool            `json:"connected"`
+	LatencyMs     int64           `json:"latency_ms"`
+	IsRelayed     bool            `json:"is_relayed"`
+	Via           *NetworkNodeRef `json:"via,omitempty"` // relay, set when relayed
+	PercentUp     float64         `json:"percent_up"`
+	BytesSent     int64           `json:"bytes_sent"`
+	BytesReceived int64           `json:"bytes_received"`
 }

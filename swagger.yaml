@@ -1619,9 +1619,6 @@ definitions:
     properties:
       connected:
         type: boolean
-      connection_type:
-        description: direct | relayed
-        type: string
       domains:
         items:
           type: string
@@ -1631,6 +1628,8 @@ definitions:
       is_internet:
         description: the internet egress (exit node) the entry routes all traffic
           through
+        type: boolean
+      is_relayed:
         type: boolean
       latency_ms:
         type: integer
@@ -1644,18 +1643,24 @@ definitions:
         items:
           type: string
         type: array
-      relay_node_id:
-        description: set when relayed
-        type: string
-      routing_node_id:
-        description: 'routing node in use: lowest metric among connected routers'
-        type: string
-      routing_node_name:
-        type: string
+      routing_node:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: 'routing node in use: preferred exit, else lowest metric among
+          connected routers'
       routing_nodes_connected:
         type: integer
       routing_nodes_total:
         type: integer
+      via:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: relay, set when relayed
+    type: object
+  models.NetworkNodeRef:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
     type: object
   models.NetworkPeerStatus:
     properties:
@@ -1665,9 +1670,8 @@ definitions:
         type: integer
       connected:
         type: boolean
-      connection_type:
-        description: direct | relayed
-        type: string
+      is_relayed:
+        type: boolean
       latency_ms:
         type: integer
       name:
@@ -1676,9 +1680,9 @@ definitions:
         type: string
       percent_up:
         type: number
-      relay_node_id:
-        description: set when relayed
-        type: string
+      via:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: relay, set when relayed
     type: object
   models.NetworkStatus:
     properties:

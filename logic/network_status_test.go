@@ -193,10 +193,10 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		if e.EgressID != "lan" || e.Name != "office" || len(e.Ranges) != 1 || e.Ranges[0] != "10.0.0.0/24" {
 			t.Fatalf("egress identity = %+v", e)
 		}
-		if e.RoutingNodeID != backup.ID.String() || e.RoutingNodesTotal != 2 || e.RoutingNodesConnected != 1 {
-			t.Fatalf("routing = %s %d/%d, want backup 1/2", e.RoutingNodeID, e.RoutingNodesConnected, e.RoutingNodesTotal)
+		if e.RoutingNode.ID != backup.ID.String() || e.RoutingNodesTotal != 2 || e.RoutingNodesConnected != 1 {
+			t.Fatalf("routing = %s %d/%d, want backup 1/2", e.RoutingNode.ID, e.RoutingNodesConnected, e.RoutingNodesTotal)
 		}
-		if !e.Connected || e.LatencyMs != 12 || e.PercentUp != 99.5 || e.ConnectionType != models.PeerConnectionDirect {
+		if !e.Connected || e.LatencyMs != 12 || e.PercentUp != 99.5 || e.IsRelayed {
 			t.Fatalf("link = %+v", e)
 		}
 	})
@@ -213,7 +213,7 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		relayed.IsRelayed, relayed.RelayedBy = true, gw.ID.String()
 		b := newTestStatusBuilder(eli, NetworkStatusOptions{IncludeEgress: true}, &relayed, primary, backup, gw)
 		e := b.nodeNetworkStatus(&relayed).Egresses[0]
-		if e.ConnectionType != models.PeerConnectionRelayed || e.RelayNodeID != gw.ID.String() {
+		if !e.IsRelayed || (e.Via == nil || e.Via.ID != gw.ID.String()) {
 			t.Fatalf("link = %+v, want relayed via gateway", e)
 		}
 	})
@@ -242,10 +242,10 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 
 		b := newTestStatusBuilder(eli, NetworkStatusOptions{IncludeEgress: true}, &exitClient, primary, backup, exit, gw)
 		e := b.nodeNetworkStatus(&exitClient).Egresses[0]
-		if e.ConnectionType != models.PeerConnectionRelayed || e.RelayNodeID != exit.ID.String() {
+		if !e.IsRelayed || (e.Via == nil || e.Via.ID != exit.ID.String()) {
 			t.Fatalf("without bypass: link = %+v, want relayed via exit", e)
 		}
-		if e.RoutingNodeID != primary.ID.String() || e.RoutingNodesConnected != 2 || !e.Connected ||
+		if e.RoutingNode.ID != primary.ID.String() || e.RoutingNodesConnected != 2 || !e.Connected ||
 			e.LatencyMs != 34 || e.PercentUp != 95 {
 			t.Fatalf("without bypass: path = %+v, want primary via exit at 34ms", e)
 		}
@@ -255,14 +255,14 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		b = newTestStatusBuilder(bypassing, NetworkStatusOptions{IncludeEgress: true}, &exitClient, primary, backup, exit, gw)
 		got := b.nodeNetworkStatus(&exitClient)
 		e = got.Egresses[0]
-		if e.ConnectionType != models.PeerConnectionDirect || e.RelayNodeID != "" {
+		if e.IsRelayed || e.Via != nil {
 			t.Fatalf("with bypass: link = %+v, want direct", e)
 		}
-		if e.RoutingNodeID != backup.ID.String() || !e.Connected || e.LatencyMs != 12 {
+		if e.RoutingNode.ID != backup.ID.String() || !e.Connected || e.LatencyMs != 12 {
 			t.Fatalf("with bypass: path = %+v, want backup direct at 12ms", e)
 		}
 		// The exit itself is still reached directly for internet traffic.
-		if inet := got.Egresses[1]; !inet.IsInternet || inet.ConnectionType != models.PeerConnectionDirect || inet.LatencyMs != 30 {
+		if inet := got.Egresses[1]; !inet.IsInternet || inet.IsRelayed || inet.LatencyMs != 30 {
 			t.Fatalf("with bypass: internet egress = %+v, want direct to exit at 30ms", inet)
 		}
 	})
@@ -280,7 +280,7 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		})
 		b := newTestStatusBuilder(eli, NetworkStatusOptions{IncludeEgress: true}, &autoRelayed, primary, backup, gw)
 		e := b.nodeNetworkStatus(&autoRelayed).Egresses[0]
-		if e.RoutingNodeID != backup.ID.String() || e.RoutingNodesConnected != 1 || e.RelayNodeID != gw.ID.String() ||
+		if e.RoutingNode.ID != backup.ID.String() || e.RoutingNodesConnected != 1 || (e.Via == nil || e.Via.ID != gw.ID.String()) ||
 			!e.Connected || e.LatencyMs != 14 || e.PercentUp != 90 {
 			t.Fatalf("path = %+v, want backup via auto-relay at 14ms", e)
 		}
@@ -304,7 +304,7 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		if e.EgressID != "inet" || !e.IsInternet || len(e.Ranges) != 1 || e.Ranges[0] != IPv4Network {
 			t.Fatalf("internet egress identity = %+v", e)
 		}
-		if e.RoutingNodeID != exit.ID.String() || !e.Connected || e.LatencyMs != 30 || e.ConnectionType != models.PeerConnectionDirect {
+		if e.RoutingNode.ID != exit.ID.String() || !e.Connected || e.LatencyMs != 30 || e.IsRelayed {
 			t.Fatalf("internet egress link = %+v, want direct to exit at 30ms", e)
 		}
 
@@ -373,10 +373,10 @@ func TestExtClientNetworkStatusEgresses(t *testing.T) {
 	for _, e := range got.Egresses {
 		byID[e.EgressID] = e
 	}
-	if e := byID["via-gw"]; e.ConnectionType != models.PeerConnectionDirect || e.LatencyMs != 20 || e.RoutingNodeID != gw.ID.String() {
+	if e := byID["via-gw"]; e.IsRelayed || e.LatencyMs != 20 || e.RoutingNode.ID != gw.ID.String() {
 		t.Fatalf("via-gw = %+v, want direct at 20ms", e)
 	}
-	if e := byID["via-router"]; e.ConnectionType != models.PeerConnectionRelayed || e.RelayNodeID != gw.ID.String() ||
+	if e := byID["via-router"]; !e.IsRelayed || (e.Via == nil || e.Via.ID != gw.ID.String()) ||
 		e.LatencyMs != 23 || e.PercentUp != 90 {
 		t.Fatalf("via-router = %+v, want relayed via gateway at 23ms", e)
 	}
@@ -393,8 +393,8 @@ func TestExtClientNetworkStatusEgresses(t *testing.T) {
 	if got.InternetGatewayNodeID != gw.ID.String() || got.TotalEgresses != 3 {
 		t.Fatalf("internet gateway = %s, egresses = %d; want %s, 3", got.InternetGatewayNodeID, got.TotalEgresses, gw.ID)
 	}
-	if e := got.Egresses[2]; e.EgressID != "inet-gw" || !e.IsInternet || e.RoutingNodeID != gw.ID.String() ||
-		e.ConnectionType != models.PeerConnectionDirect || e.LatencyMs != 20 {
+	if e := got.Egresses[2]; e.EgressID != "inet-gw" || !e.IsInternet || e.RoutingNode.ID != gw.ID.String() ||
+		e.IsRelayed || e.LatencyMs != 20 {
 		t.Fatalf("internet egress = %+v, want direct to gateway at 20ms", e)
 	}
 

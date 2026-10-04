@@ -267,8 +267,8 @@ func (b *networkStatusBuilder) nodeNetworkStatus(node *models.Node) models.Netwo
 		}
 		peerStatus := peerNetworkStatus(peerID, metric, b.names)
 		if relayID := peerRelayNodeID(node, b.nodesByID[peerID]); relayID != "" {
-			peerStatus.ConnectionType = models.PeerConnectionRelayed
-			peerStatus.RelayNodeID = relayID
+			peerStatus.IsRelayed = true
+			peerStatus.Via = b.nodeRef(relayID)
 		}
 		nodeStatus.Peers = append(nodeStatus.Peers, peerStatus)
 	}
@@ -424,16 +424,23 @@ func relayedEgressPath(routers []egressRouter, preferred, relayID string, toRela
 }
 
 func (b *networkStatusBuilder) applyEgressPath(egressStatus *models.NetworkEgressStatus, path egressPath) {
-	egressStatus.RoutingNodeID = path.routerID
-	egressStatus.RoutingNodeName = b.names[path.routerID]
+	egressStatus.RoutingNode = b.nodeRef(path.routerID)
 	egressStatus.RoutingNodesConnected = path.connectedCnt
 	egressStatus.Connected = path.connected
 	egressStatus.LatencyMs = path.latencyMs
 	egressStatus.PercentUp = path.percentUp
 	if path.relayID != "" {
-		egressStatus.ConnectionType = models.PeerConnectionRelayed
-		egressStatus.RelayNodeID = path.relayID
+		egressStatus.IsRelayed = true
+		egressStatus.Via = b.nodeRef(path.relayID)
 	}
+}
+
+// nodeRef returns the ID and host name of a node, or nil for an empty ID.
+func (b *networkStatusBuilder) nodeRef(nodeID string) *models.NetworkNodeRef {
+	if nodeID == "" {
+		return nil
+	}
+	return &models.NetworkNodeRef{ID: nodeID, Name: b.names[nodeID]}
 }
 
 // connectivity returns a node's reported links, cached per request.
@@ -567,7 +574,6 @@ func (b *networkStatusBuilder) newEgressStatus(e *schema.Egress, routers []egres
 		Domains:           ConfiguredDomainsForEgress(*e),
 		IsInternet:        isInternet,
 		RoutingNodesTotal: len(routers),
-		ConnectionType:    models.PeerConnectionDirect,
 	}, true
 }
 
@@ -608,14 +614,13 @@ func peerNetworkStatus(peerID string, metric models.Metric, names map[string]str
 		name = metric.NodeName
 	}
 	return models.NetworkPeerStatus{
-		PeerID:         peerID,
-		Name:           name,
-		Connected:      metric.Connected,
-		LatencyMs:      metric.Latency,
-		ConnectionType: models.PeerConnectionDirect,
-		PercentUp:      metric.PercentUp,
-		BytesSent:      metric.TotalSent,
-		BytesReceived:  metric.TotalReceived,
+		PeerID:        peerID,
+		Name:          name,
+		Connected:     metric.Connected,
+		LatencyMs:     metric.Latency,
+		PercentUp:     metric.PercentUp,
+		BytesSent:     metric.TotalSent,
+		BytesReceived: metric.TotalReceived,
 	}
 }
 
