@@ -127,6 +127,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	e := schema.Egress{
 		ID:                 uuid.New().String(),
 		TenantID:           scope.ID(r.Context()),
@@ -318,6 +322,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	var egressRange string
@@ -564,6 +572,10 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	err := e.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	err = e.Delete(db.WithContext(r.Context()))
