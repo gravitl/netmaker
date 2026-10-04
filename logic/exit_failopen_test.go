@@ -9,7 +9,7 @@ import (
 
 func TestFailOpenExitClientsKeepSelectionEmpty(t *testing.T) {
 	got := FailOpenExitClientsKeepSelection(context.Background(), nil)
-	if got != nil && len(got) != 0 {
+	if len(got) != 0 {
 		t.Fatalf("nil/empty input: got %#v", got)
 	}
 	got = FailOpenExitClientsKeepSelection(context.Background(), []models.Node{})
