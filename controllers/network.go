@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -29,6 +30,8 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworks)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkStatus)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
@@ -120,6 +123,44 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
+}
+
+// @Summary     Get the status of every node and extclient in a network
+// @Router      /api/v1/networks/{network}/status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Param       peers query bool false "Include per-peer details (default true)"
+// @Produce     json
+// @Success     200 {object} models.NetworkStatus
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkStatus(w http.ResponseWriter, r *http.Request) {
+	netname := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	includePeers := true
+	if v := r.URL.Query().Get("peers"); v != "" {
+		parsed, err := strconv.ParseBool(v)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid value for peers"), logic.BadReq))
+			return
+		}
+		includePeers = parsed
+	}
+	status, err := logic.GetNetworkStatus(r.Context(), netname, includePeers)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, status, "fetched network status")
 }
 
 // @Summary     Get a network
