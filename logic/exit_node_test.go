@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"testing"
 
@@ -75,6 +76,18 @@ func TestPickFallbackExitNode(t *testing.T) {
 func TestErrExitNodeSelectionRequired(t *testing.T) {
 	if ErrExitNodeSelectionRequired.Error() != "exit node selection is required" {
 		t.Fatalf("unexpected error %v", ErrExitNodeSelectionRequired)
+	}
+}
+
+func TestDeviceExitNodeSelectionReqForceJSON(t *testing.T) {
+	// Ensure the force flag is part of the public device API contract.
+	raw := []byte(`{"egress_id":"","force":true}`)
+	var req models.DeviceExitNodeSelectionReq
+	if err := json.Unmarshal(raw, &req); err != nil {
+		t.Fatal(err)
+	}
+	if !req.Force || req.EgressID != "" {
+		t.Fatalf("unexpected req %+v", req)
 	}
 }
 

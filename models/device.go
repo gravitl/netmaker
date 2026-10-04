@@ -78,6 +78,9 @@ type DeviceExitNode struct {
 type DeviceExitNodeSelectionReq struct {
 	EgressID     string `json:"egress_id"`
 	UseTcpUplink bool   `json:"use_tcp_uplink"`
+	// Force allows clearing the exit on networks that require auto_select_exit_node
+	// so clients can clear-then-switch during auto failover without a 400.
+	Force bool `json:"force,omitempty"`
 }
 
 // NodeExitNodeSelectionReq selects or clears the exit node for a node (admin API).

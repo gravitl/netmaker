@@ -203,7 +203,9 @@ func GetDeviceSelectedExitNode(ctx context.Context, user *schema.User, host *sch
 
 // SelectDeviceExitNode sets or clears the selected internet egress for the device's node on the network.
 // useTcpUplink opts into TCP uplink when the exit routing gateway has TCP proxy enabled.
-func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.Host, networkID, egressID string, useTcpUplink bool) (*models.DeviceExitNode, error) {
+// force allows clearing the exit even when the network requires auto_select_exit_node
+// (used for clear-then-switch during auto failover).
+func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.Host, networkID, egressID string, useTcpUplink, force bool) (*models.DeviceExitNode, error) {
 	if user == nil || host == nil {
 		return nil, errors.New("user and host are required")
 	}
@@ -247,7 +249,7 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		if err := nw.Get(ctx); err != nil {
 			return nil, errors.New("network not found")
 		}
-		if nw.AutoSelectExitNode {
+		if nw.AutoSelectExitNode && !force {
 			return nil, ErrExitNodeSelectionRequired
 		}
 		useTcpUplink = false

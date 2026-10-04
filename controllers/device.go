@@ -310,7 +310,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	selected, err := logic.SelectDeviceExitNode(r.Context(), user, host, network, req.EgressID, req.UseTcpUplink)
+	selected, err := logic.SelectDeviceExitNode(r.Context(), user, host, network, req.EgressID, req.UseTcpUplink, req.Force)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
