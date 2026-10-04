@@ -62,6 +62,11 @@ func TestPickFallbackExitNode(t *testing.T) {
 	if !ok || pick.EgressID != "a" {
 		t.Fatalf("expected fallback alpha, got %+v ok=%v", pick, ok)
 	}
+	// Current selection Status=false (disconnected routing) → reassign.
+	pick, ok = pickFallbackExitNode("off", exits)
+	if !ok || pick.EgressID != "a" {
+		t.Fatalf("expected reassign from down exit to alpha, got %+v ok=%v", pick, ok)
+	}
 	if _, ok := pickFallbackExitNode("", nil); ok {
 		t.Fatal("no exits must not assign")
 	}
