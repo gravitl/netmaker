@@ -52,6 +52,11 @@ type DeviceExitNode struct {
 	Network         string `json:"network"`
 	RoutingNodeID   string `json:"routing_node_id,omitempty"`
 	RoutingHostName string `json:"routing_host_name,omitempty"`
+	// Address / Address6 are the routing node's WireGuard overlay IPs. Clients
+	// probe these on the metrics port for latency and reachability (same path
+	// as mesh metrics collection), not the public AllowedEndpoints.
+	Address  string `json:"address,omitempty"`
+	Address6 string `json:"address6,omitempty"`
 	// AllowedEndpoints are the routing host public IPs (EndpointIP, EndpointIPv6).
 	AllowedEndpoints []string `json:"allowed_endpoints,omitempty"`
 	// CountryCode is the ISO 3166-1 alpha-2 code of the routing host (for flags).
@@ -63,7 +68,7 @@ type DeviceExitNode struct {
 	TcpProxyListenPort int  `json:"tcp_proxy_listen_port,omitempty"`
 	Selected           bool `json:"selected"`
 	Status             bool `json:"status"`
-	// LatencyMs is filled by netclient from public-endpoint probes; not set by the server.
+	// LatencyMs is filled by netclient from overlay metrics-port probes; not set by the server.
 	LatencyMs int64 `json:"latency_ms,omitempty"`
 	// Nearest is filled by netclient for the closest exit; not set by the server.
 	Nearest bool `json:"nearest,omitempty"`

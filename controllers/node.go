@@ -980,6 +980,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
 			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
+			// Disconnect: detach clients from this routing node before publish so
+			// peer calc does not mark the whole mesh Remove (still RelayedBy dead exit).
+			if !newNode.Connected && len(exitClients) > 0 {
+				exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
+			}
 			if len(exitClients) > 0 {
 				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
@@ -1250,6 +1255,9 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				seenClient[c.ID.String()] = struct{}{}
 				exitClients = append(exitClients, c)
 			}
+		}
+		if !req.Connected && len(exitClients) > 0 {
+			exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
 		}
 		if len(exitClients) > 0 {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)

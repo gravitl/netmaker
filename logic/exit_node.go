@@ -31,6 +31,17 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 	}
 	if routingNodeID != "" {
 		if rn, err := GetNodeByID(routingNodeID); err == nil {
+			// Egress resource may still be enabled while the routing node is
+			// disconnected — treat the exit as unavailable for selection/auto-pick.
+			if !rn.Connected {
+				item.Status = false
+			}
+			if rn.Address.IP != nil {
+				item.Address = rn.Address.IP.String()
+			}
+			if rn.Address6.IP != nil {
+				item.Address6 = rn.Address6.IP.String()
+			}
 			item.TcpProxyEnabled = rn.TcpProxyEnabled
 			item.TcpProxyListenPort = rn.TcpProxyListenPort
 			rh := &schema.Host{ID: rn.HostID}
@@ -49,7 +60,11 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 			if item.TcpProxyEnabled && item.TcpProxyListenPort <= 0 {
 				item.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
 			}
+		} else {
+			item.Status = false
 		}
+	} else if e.Status {
+		item.Status = false
 	}
 	return item
 }

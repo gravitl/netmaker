@@ -318,6 +318,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
 		SuppressInternetExitIfNoACLAccess(ctx, &node, eli, acls, defaultDevicePolicy.Enabled)
+		inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
@@ -464,8 +465,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// that carry those ranges) so site CIDRs do not hairpin through the exit.
 				// The reverse also applies: specific-egress gateways retain bypass
 				// clients as direct peers so return traffic is not forced via the exit.
-				// Alternate internet exits are not auto-retained; they need PeerAllowed.
-				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress) {
+				// ACL-allowed internet exit routers stay as direct peers so clients can
+				// reach/probe alternate exits (default routes still only on the selected exit).
+				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, allowedToComm, inetExitRouterIDs) {
 					retainDespiteRelay = true
 					// fall through to normal peer config
 				} else {
@@ -1194,11 +1196,29 @@ func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) boo
 // should keep a WireGuard peer that would otherwise be removed (mesh via exit only).
 // unfilteredSpecific is true when peer advertised specific egress CIDRs before
 // access filtering (AddEgressInfoToPeerByAccess can clear EgressDetails).
-func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool) bool {
-	// Only the client's selected exit (and the reverse leg). Alternate exits must
-	// still satisfy PeerAllowed — do not retain every internet egress router.
+// allowedToComm is PeerAllowed for this node/peer pair; inetExitRouterIDs lists
+// active internet-egress routing node IDs. ACL-denied exits are never retained.
+func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, unfilteredSpecific bool, allowedToComm bool, inetExitRouterIDs map[string]struct{}) bool {
+	// Selected exit (and reverse leg) always stays — clients need 0.0.0.0/0 even
+	// when RelayedBy is stale after gateway teardown.
 	if usesPeerAsInternetExit(node, peer) || usesPeerAsInternetExit(peer, node) {
 		return true
+	}
+	// ACL-allowed internet exit routers stay as direct peers so clients can
+	// reach/probe every permitted exit. Default routes still only attach via
+	// usesPeerAsInternetExit.
+	if allowedToComm && peer != nil {
+		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
+			return true
+		}
+	}
+	// Reverse: exit routers keep ACL-allowed clients that use an exit so handshakes work.
+	if allowedToComm && node != nil && peer != nil {
+		if _, ok := inetExitRouterIDs[node.ID.String()]; ok {
+			if peer.SelectedInternetEgressID != "" || peer.InternetGwID != "" {
+				return true
+			}
+		}
 	}
 	// Bypass is bidirectional: the client must keep the specific-egress gateway,
 	// and the gateway must keep the bypass client as a direct peer (otherwise the

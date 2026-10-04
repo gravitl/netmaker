@@ -107,7 +107,7 @@ func TestShouldRetainPeerDespiteRelay_ExitPeerAlways(t *testing.T) {
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false))
+	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
@@ -133,7 +133,7 @@ func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
 		IsEgressGateway:     true,
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, false, nil),
 		"without selected internet egress, specific egress peers must not be retained via bypass")
 }
 
@@ -156,7 +156,7 @@ func TestShouldRetainPeerDespiteRelay_NonIGWRelayedStillRemoves(t *testing.T) {
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(meshPeer))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false))
+	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing.T) {
@@ -187,7 +187,7 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
 	require.True(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false),
+	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false, false, nil),
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
 }
 
@@ -255,7 +255,7 @@ func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, false, nil),
 		"unfiltered specific egress still requires BypassEgressRoutes on the selected internet egress")
 }
 
@@ -284,14 +284,22 @@ func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, selectedExit, false, false),
-		"selected exit must stay as a direct peer")
-	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, client, false, false),
+	exitIDs := map[string]struct{}{
+		selectedExitID.String(): {},
+		otherExitID.String():    {},
+	}
+	assert.True(t, shouldRetainPeerDespiteRelay(client, selectedExit, false, false, false, exitIDs),
+		"selected exit must stay as a direct peer even without PeerAllowed")
+	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, client, false, false, false, exitIDs),
 		"selected exit must keep its client as a direct peer")
-	assert.False(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false),
-		"alternate exits must not bypass PeerAllowed")
-	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false),
-		"alternate exits must not keep unrelated clients without ACL")
+	assert.False(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, false, exitIDs),
+		"ACL-denied alternate exits must not be retained")
+	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, false, exitIDs),
+		"exit must not keep unrelated clients without ACL")
+	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, true, exitIDs),
+		"ACL-allowed alternate exits stay as separate direct peers")
+	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, true, exitIDs),
+		"ACL-allowed exit keeps exit clients as direct peers")
 }
 
 func TestInternetEgressRoutingNodeIDsFromList(t *testing.T) {

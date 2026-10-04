@@ -795,6 +795,45 @@ func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, sch
 	return nil
 }
 
+// FailOpenExitClientsKeepSelection fails open exit clients (drops RelayedBy /
+// IsIGWClient) and clears SelectedInternetEgressID so the dashboard/API no
+// longer show a dead exit as the device's routing selection. When the network
+// has AutoSelectExitNode, assigns another available exit. Call before publishing
+// peer updates on routing-node disconnect or internet egress disable.
+func FailOpenExitClientsKeepSelection(ctx context.Context, clients []models.Node) []models.Node {
+	if len(clients) == 0 {
+		return clients
+	}
+	out := make([]models.Node, 0, len(clients))
+	for i := range clients {
+		c := clients[i]
+		// Clear selection + relay attachment (not sticky): UI "ROUTING" reads
+		// SelectedInternetEgressID and must not keep pointing at a disconnected exit.
+		if err := SetNodeSelectedInternetEgress(&c, "", false); err != nil {
+			slog.Error("FailOpenExitClientsKeepSelection: clear selection failed",
+				"node", clients[i].ID, "error", err)
+			if err2 := failOpenExitClientKeepSelection(ctx, &c); err2 != nil {
+				slog.Error("FailOpenExitClientsKeepSelection: fail-open failed",
+					"node", clients[i].ID, "error", err2)
+				out = append(out, clients[i])
+				continue
+			}
+		}
+		host := &schema.Host{ID: c.HostID}
+		if err := host.Get(ctx); err == nil {
+			if err := EnsureAutoExitNode(ctx, host, &c); err != nil {
+				slog.Error("FailOpenExitClientsKeepSelection: auto-exit reassign failed",
+					"node", c.ID, "error", err)
+			}
+		}
+		if n, err := GetNodeByID(c.ID.String()); err == nil {
+			c = n
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 // failOpenExitClientKeepSelection clears RelayedBy / IsIGWClient so full-tunnel
 // routes fail open, while keeping SelectedInternetEgressID for sticky reassignment.
 func failOpenExitClientKeepSelection(ctx context.Context, node *models.Node) error {

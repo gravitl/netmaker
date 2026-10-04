@@ -445,21 +445,21 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Build update map with all fields including zero values
 	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
 	updateMap := map[string]any{
-		"name":                   e.Name,
-		"description":            e.Description,
-		"egress_type":            e.Type,
-		"range":                  e.Range,
-		"domains":                e.Domains,
-		"nat":                    e.Nat,
-		"mode":                   e.Mode,
-		"bypass_egress_routes":   e.BypassEgressRoutes,
-		"status":                 e.Status,
-		"nodes":                  e.Nodes,
-		"tags":                   e.Tags,
-		"domain_ans_by_domain":   e.DomainAnsByDomain,
-		"virtual_range":          e.VirtualRange,
-		"preset_id":              e.PresetID,
-		"updated_at":             e.UpdatedAt,
+		"name":                 e.Name,
+		"description":          e.Description,
+		"egress_type":          e.Type,
+		"range":                e.Range,
+		"domains":              e.Domains,
+		"nat":                  e.Nat,
+		"mode":                 e.Mode,
+		"bypass_egress_routes": e.BypassEgressRoutes,
+		"status":               e.Status,
+		"nodes":                e.Nodes,
+		"tags":                 e.Tags,
+		"domain_ans_by_domain": e.DomainAnsByDomain,
+		"virtual_range":        e.VirtualRange,
+		"preset_id":            e.PresetID,
+		"updated_at":           e.UpdatedAt,
 	}
 
 	// Perform single update with all fields including zero values
@@ -528,12 +528,13 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Internet egress disabled: keep sticky selection, but push exit clients first so
-	// they fail open (drop full tunnel) before the global peer update.
+	// Internet egress disabled: detach clients from the exit relay, keep sticky
+	// selection, then push peer updates so the mesh is not wiped (Remove-all).
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	if oldStatus && !e.Status && logic.IsEgressInternetGateway(e) {
 		clients := logic.ListNodesBySelectedInternetEgress(r.Context(), e.Network, e.ID)
 		go func(clients []models.Node) {
+			clients = logic.FailOpenExitClientsKeepSelection(ctx, clients)
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, clients)
 		}(clients)
 	} else if !internetRoutingChanged {
