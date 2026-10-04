@@ -1541,8 +1541,14 @@ definitions:
       connected:
         description: admin connect/enable toggle
         type: boolean
+      connected_egresses:
+        type: integer
       connected_peers:
         type: integer
+      egresses:
+        items:
+          $ref: '#/definitions/models.NetworkEgressStatus'
+        type: array
       endpoint_ip:
         description: public IP
         type: string
@@ -1555,7 +1561,7 @@ definitions:
         description: node ID, or client ID for extclients
         type: string
       internet_gateway_node_id:
-        description: node currently used as internet gateway
+        description: exit node the entry routes all traffic through; empty when no exit is active
         type: string
       is_egress:
         description: routes an active non-internet egress
@@ -1602,10 +1608,54 @@ definitions:
         - unknown
         - disconnected
         type: string
+      total_egresses:
+        type: integer
       total_peers:
         type: integer
       version:
         type: string
+    type: object
+  models.NetworkEgressStatus:
+    properties:
+      connected:
+        type: boolean
+      connection_type:
+        description: direct | relayed
+        type: string
+      domains:
+        items:
+          type: string
+        type: array
+      egress_id:
+        type: string
+      is_internet:
+        description: the internet egress (exit node) the entry routes all traffic
+          through
+        type: boolean
+      latency_ms:
+        type: integer
+      name:
+        type: string
+      percent_up:
+        type: number
+      ranges:
+        description: 'routed CIDRs: virtual NAT range when enabled, resolved CIDRs
+          for domain egress'
+        items:
+          type: string
+        type: array
+      relay_node_id:
+        description: set when relayed
+        type: string
+      routing_node_id:
+        description: 'routing node in use: lowest metric among connected routers'
+        type: string
+      routing_node_name:
+        type: string
+      routing_nodes_connected:
+        type: integer
+      routing_nodes_total:
+        type: integer
     type: object
   models.NetworkPeerStatus:
     properties:
@@ -6647,10 +6697,16 @@ paths:
         name: network
         required: true
         type: string
-      - description: Include per-peer details (default true)
+      - description: 'Comma-separated kinds to include: node, user, extclient (default
+          all)'
         in: query
-        name: peers
-        type: boolean
+        name: src_type
+        type: string
+      - description: 'Comma-separated details to include: peers, egress (default
+          all)'
+        in: query
+        name: dst_type
+        type: string
       produces:
       - application/json
       responses:

@@ -16,6 +16,14 @@ const (
 	PeerConnectionRelayed = "relayed"
 )
 
+// NetworkStatusDstType selects which destination details the network status includes.
+type NetworkStatusDstType string
+
+const (
+	NetworkStatusDstPeers  = NetworkStatusDstType("peers")
+	NetworkStatusDstEgress = NetworkStatusDstType("egress")
+)
+
 // NetworkStatus is a monitoring snapshot of every node and extclient in a network.
 type NetworkStatus struct {
 	Network     string               `json:"network"`
@@ -59,11 +67,38 @@ type NetworkNodeStatus struct {
 	MetricsUpdatedAt int64             `json:"metrics_updated_at"` // unix seconds, 0 = no metrics
 
 	GatewayNodeID         string `json:"gateway_node_id,omitempty"`          // gateway the node or extclient connects through
-	InternetGatewayNodeID string `json:"internet_gateway_node_id,omitempty"` // node currently used as internet gateway
+	InternetGatewayNodeID string `json:"internet_gateway_node_id,omitempty"` // exit node the entry routes all traffic through
 
 	ConnectedPeers int                 `json:"connected_peers"`
 	TotalPeers     int                 `json:"total_peers"`
 	Peers          []NetworkPeerStatus `json:"peers,omitempty"`
+
+	ConnectedEgresses int                   `json:"connected_egresses"`
+	TotalEgresses     int                   `json:"total_egresses"`
+	Egresses          []NetworkEgressStatus `json:"egresses,omitempty"`
+}
+
+// NetworkEgressStatus is a node's path to an egress site it has access to.
+// Netclient probes peers, not egress ranges, so link fields describe the path
+// to the egress routing node.
+type NetworkEgressStatus struct {
+	EgressID string   `json:"egress_id"`
+	Name     string   `json:"name"`
+	Ranges   []string `json:"ranges"` // routed CIDRs: virtual NAT range when enabled, resolved CIDRs for domain egress
+	Domains  []string `json:"domains,omitempty"`
+	// IsInternet marks the internet egress (exit node) the entry routes all traffic through.
+	IsInternet bool `json:"is_internet"`
+
+	RoutingNodeID         string `json:"routing_node_id,omitempty"` // routing node in use: lowest metric among connected routers
+	RoutingNodeName       string `json:"routing_node_name,omitempty"`
+	RoutingNodesTotal     int    `json:"routing_nodes_total"`
+	RoutingNodesConnected int    `json:"routing_nodes_connected"`
+
+	Connected      bool    `json:"connected"`
+	LatencyMs      int64   `json:"latency_ms"`
+	ConnectionType string  `json:"connection_type"`         // direct | relayed
+	RelayNodeID    string  `json:"relay_node_id,omitempty"` // set when relayed
+	PercentUp      float64 `json:"percent_up"`
 }
 
 // NetworkPeerStatus is a node's link to one peer, as reported in its metrics.
