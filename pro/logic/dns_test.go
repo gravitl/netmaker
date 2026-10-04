@@ -25,7 +25,9 @@ func TestNameserverTargetsNode(t *testing.T) {
 		groups map[schema.UserGroupID]struct{}
 		want   bool
 	}{
-		{"all", schema.Nameserver{Tags: datatypes.JSONMap{"*": ""}}, "", nil, true},
+		{"all resources", schema.Nameserver{Tags: datatypes.JSONMap{"*": ""}}, "", nil, true},
+		{"all resources skips user device", schema.Nameserver{Tags: datatypes.JSONMap{"*": ""}}, "alice", nil, false},
+		{"user device keeps its tags", schema.Nameserver{Tags: datatypes.JSONMap{"*": "", "net.dev": ""}}, "alice", nil, true},
 		{"tag", schema.Nameserver{Tags: datatypes.JSONMap{"net.dev": ""}}, "", nil, true},
 		{"node", schema.Nameserver{Nodes: datatypes.JSONMap{node.ID.String(): ""}}, "", nil, true},
 		{"owner user", schema.Nameserver{Users: datatypes.JSONMap{"alice": ""}}, "alice", nil, true},
