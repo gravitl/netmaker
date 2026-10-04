@@ -2,18 +2,16 @@ package models
 
 import "github.com/gravitl/netmaker/schema"
 
-const (
-	NetworkStatusKindNode      = "node"
-	NetworkStatusKindExtClient = "extclient"
-)
+// NetworkNodeRole is the role a node or extclient plays in the network.
+type NetworkNodeRole string
 
 const (
-	NodeRoleGateway         = "gateway"
-	NodeRoleRelay           = "relay"
-	NodeRoleAutoRelay       = "auto_relay"
-	NodeRoleInternetGateway = "internet_gateway"
-	NodeRoleEgress          = "egress"
-	NodeRoleUserDevice      = "user_device"
+	NetworkNodeRoleNode            = NetworkNodeRole("node")
+	NetworkNodeRoleUser            = NetworkNodeRole("user") // user-registered device or user extclient
+	NetworkNodeRoleExtClient       = NetworkNodeRole("extclient")
+	NetworkNodeRoleGateway         = NetworkNodeRole("gateway")
+	NetworkNodeRoleInternetGateway = NetworkNodeRole("internet_gateway")
+	NetworkNodeRoleEgress          = NetworkNodeRole("egress")
 )
 
 const (
@@ -42,25 +40,24 @@ type NetworkStatusSummary struct {
 
 // NetworkNodeStatus is the status of a node or extclient in a network.
 type NetworkNodeStatus struct {
-	ID         string   `json:"id"`   // node ID, or client ID for extclients
-	Kind       string   `json:"kind"` // node | extclient
-	Name       string   `json:"name"` // host name, or client ID for extclients
-	HostID     string   `json:"host_id,omitempty"`
-	MacAddress string   `json:"mac_address,omitempty"` // host MAC; RemoteAccessClientID for RAC clients
-	Owner      string   `json:"owner,omitempty"`       // username for user devices and user extclients
-	Address    string   `json:"address,omitempty"`     // overlay IPv4
-	Address6   string   `json:"address6,omitempty"`    // overlay IPv6
-	EndpointIP string   `json:"endpoint_ip,omitempty"` // public IP
-	OS         string   `json:"os,omitempty"`
-	Version    string   `json:"version,omitempty"`
-	Roles      []string `json:"roles"` // gateway | relay | auto_relay | internet_gateway | egress | user_device
+	ID         string          `json:"id"`   // node ID, or client ID for extclients
+	Role       NetworkNodeRole `json:"role"` // node | user | extclient | gateway | internet_gateway | egress
+	Name       string          `json:"name"` // host name, or client ID for extclients
+	HostID     string          `json:"host_id,omitempty"`
+	MacAddress string          `json:"mac_address,omitempty"` // host MAC; RemoteAccessClientID for RAC clients
+	Owner      string          `json:"owner,omitempty"`       // username for user devices and user extclients
+	Address    string          `json:"address,omitempty"`     // overlay IPv4
+	Address6   string          `json:"address6,omitempty"`    // overlay IPv6
+	EndpointIP string          `json:"endpoint_ip,omitempty"` // public IP
+	OS         string          `json:"os,omitempty"`
+	Version    string          `json:"version,omitempty"`
 
 	Status           schema.NodeStatus `json:"status"`
 	Connected        bool              `json:"connected"`          // admin connect/enable toggle
 	LastCheckIn      int64             `json:"last_check_in"`      // unix seconds, 0 = never
 	MetricsUpdatedAt int64             `json:"metrics_updated_at"` // unix seconds, 0 = no metrics
 
-	RelayNodeID           string `json:"relay_node_id,omitempty"`            // static relay, or ingress gateway for extclients
+	GatewayNodeID         string `json:"gateway_node_id,omitempty"`          // gateway the node or extclient connects through
 	InternetGatewayNodeID string `json:"internet_gateway_node_id,omitempty"` // node currently used as internet gateway
 
 	ConnectedPeers int                 `json:"connected_peers"`

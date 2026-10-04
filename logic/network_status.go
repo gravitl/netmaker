@@ -106,7 +106,7 @@ func nodeNetworkStatus(
 	nodeID := node.ID.String()
 	nodeStatus := models.NetworkNodeStatus{
 		ID:          nodeID,
-		Kind:        models.NetworkStatusKindNode,
+		Role:        nodeRole(node, eli, inetRouters),
 		Name:        host.Name,
 		HostID:      node.HostID.String(),
 		MacAddress:  host.MacAddress.String(),
@@ -115,7 +115,6 @@ func nodeNetworkStatus(
 		Address6:    ipNetAddr(node.Address6),
 		OS:          host.OS,
 		Version:     host.Version,
-		Roles:       nodeRoles(node, eli, inetRouters),
 		Status:      node.Status,
 		Connected:   node.Connected,
 		LastCheckIn: unixOrZero(node.LastCheckIn),
@@ -126,7 +125,7 @@ func nodeNetworkStatus(
 		nodeStatus.EndpointIP = host.EndpointIPv6.String()
 	}
 	if node.IsRelayed {
-		nodeStatus.RelayNodeID = node.RelayedBy
+		nodeStatus.GatewayNodeID = node.RelayedBy
 	}
 	if e := assignedInternetEgress(node, eli); e != nil {
 		nodeStatus.InternetGatewayNodeID = FirstInternetEgressRoutingNodeID(*e)
@@ -166,23 +165,22 @@ func extClientNetworkStatus(
 ) models.NetworkNodeStatus {
 	ext := node.StaticNode
 	nodeStatus := models.NetworkNodeStatus{
-		ID:          ext.ClientID,
-		Kind:        models.NetworkStatusKindExtClient,
-		Name:        ext.ClientID,
-		MacAddress:  ext.RemoteAccessClientID,
-		Owner:       ext.OwnerID,
-		Address:     ext.Address,
-		Address6:    ext.Address6,
-		EndpointIP:  ext.PublicEndpoint,
-		OS:          ext.OS,
-		Version:     ext.ClientVersion,
-		Roles:       []string{},
-		Status:      node.Status,
-		Connected:   ext.Enabled,
-		RelayNodeID: ext.IngressGatewayID,
+		ID:            ext.ClientID,
+		Role:          models.NetworkNodeRoleExtClient,
+		Name:          ext.ClientID,
+		MacAddress:    ext.RemoteAccessClientID,
+		Owner:         ext.OwnerID,
+		Address:       ext.Address,
+		Address6:      ext.Address6,
+		EndpointIP:    ext.PublicEndpoint,
+		OS:            ext.OS,
+		Version:       ext.ClientVersion,
+		Status:        node.Status,
+		Connected:     ext.Enabled,
+		GatewayNodeID: ext.IngressGatewayID,
 	}
 	if node.IsUserNode {
-		nodeStatus.Roles = append(nodeStatus.Roles, models.NodeRoleUserDevice)
+		nodeStatus.Role = models.NetworkNodeRoleUser
 	}
 	if e := assignedInternetEgress(node, eli); e != nil {
 		nodeStatus.InternetGatewayNodeID = FirstInternetEgressRoutingNodeID(*e)
@@ -248,28 +246,22 @@ func peerRelayNodeID(node, peer *models.Node) string {
 	return ""
 }
 
-func nodeRoles(node *models.Node, eli []schema.Egress, inetRouters map[string]struct{}) []string {
-	roles := []string{}
-	nodeID := node.ID.String()
-	if node.IsGw || node.IsIngressGateway {
-		roles = append(roles, models.NodeRoleGateway)
+// nodeRole returns the role of a (non-static) node. A node with several roles reports
+// the most significant one: internet gateway, then gateway, then egress.
+func nodeRole(node *models.Node, eli []schema.Egress, inetRouters map[string]struct{}) models.NetworkNodeRole {
+	if _, ok := inetRouters[node.ID.String()]; ok || node.IsInternetGateway {
+		return models.NetworkNodeRoleInternetGateway
 	}
-	if node.IsRelay {
-		roles = append(roles, models.NodeRoleRelay)
-	}
-	if node.IsAutoRelay {
-		roles = append(roles, models.NodeRoleAutoRelay)
-	}
-	if _, ok := inetRouters[nodeID]; ok || node.IsInternetGateway {
-		roles = append(roles, models.NodeRoleInternetGateway)
+	if node.IsGw || node.IsIngressGateway || node.IsRelay {
+		return models.NetworkNodeRoleGateway
 	}
 	if routesEgress(node, eli) {
-		roles = append(roles, models.NodeRoleEgress)
+		return models.NetworkNodeRoleEgress
 	}
 	if IsUserOwnedDevice(node) {
-		roles = append(roles, models.NodeRoleUserDevice)
+		return models.NetworkNodeRoleUser
 	}
-	return roles
+	return models.NetworkNodeRoleNode
 }
 
 // routesEgress reports whether the node routes any active non-internet egress,

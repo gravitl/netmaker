@@ -1546,6 +1546,9 @@ definitions:
       endpoint_ip:
         description: public IP
         type: string
+      gateway_node_id:
+        description: gateway the node or extclient connects through
+        type: string
       host_id:
         type: string
       id:
@@ -1553,9 +1556,6 @@ definitions:
         type: string
       internet_gateway_node_id:
         description: node currently used as internet gateway
-        type: string
-      kind:
-        description: node | extclient
         type: string
       last_check_in:
         description: unix seconds, 0 = never
@@ -1578,15 +1578,15 @@ definitions:
         items:
           $ref: '#/definitions/models.NetworkPeerStatus'
         type: array
-      relay_node_id:
-        description: static relay, or ingress gateway for extclients
+      role:
+        enum:
+        - node
+        - user
+        - extclient
+        - gateway
+        - internet_gateway
+        - egress
         type: string
-      roles:
-        description: gateway | relay | auto_relay | internet_gateway | egress |
-          user_device
-        items:
-          type: string
-        type: array
       status:
         enum:
         - online
