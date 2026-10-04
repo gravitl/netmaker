@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -54,47 +55,46 @@ func TestPeerRelayNodeID(t *testing.T) {
 	}
 }
 
-func TestNodeRole(t *testing.T) {
-	egressTagged := func() *models.Node {
+func TestNodeNetworkStatusKindAndFlags(t *testing.T) {
+	newNode := func() *models.Node {
 		n := &models.Node{}
 		n.ID = uuid.New()
-		n.Tags = map[models.TagID]struct{}{"routers": {}}
 		return n
 	}
 	eli := []schema.Egress{
 		{Status: true, Range: "10.0.0.0/24", Tags: datatypes.JSONMap{"routers": struct{}{}}},
 	}
 
-	inetGw := egressTagged()
-	inetGw.IsGw = true
-	gw := egressTagged()
-	gw.IsGw = true
-	relay := &models.Node{}
-	relay.ID = uuid.New()
+	allRoles := newNode()
+	allRoles.IsGw = true
+	allRoles.Tags = map[models.TagID]struct{}{"routers": {}}
+	relay := newNode()
 	relay.IsRelay = true
-	egress := egressTagged()
-	user := &models.Node{OwnerID: "alice"}
-	user.ID = uuid.New()
-	plain := &models.Node{}
-	plain.ID = uuid.New()
-	inetRouters := map[string]struct{}{inetGw.ID.String(): {}}
+	egress := newNode()
+	egress.Tags = map[models.TagID]struct{}{"routers": {}}
+	user := newNode()
+	user.OwnerID = "alice"
+	plain := newNode()
+	inetRouters := map[string]struct{}{allRoles.ID.String(): {}}
 
 	tests := []struct {
-		name string
-		node *models.Node
-		want models.NetworkNodeRole
+		name                    string
+		node                    *models.Node
+		kind                    models.NetworkNodeKind
+		gateway, inetGw, egress bool
 	}{
-		{"internet gateway wins over gateway and egress", inetGw, models.NetworkNodeRoleInternetGateway},
-		{"gateway wins over egress", gw, models.NetworkNodeRoleGateway},
-		{"relay is a gateway", relay, models.NetworkNodeRoleGateway},
-		{"egress via tag", egress, models.NetworkNodeRoleEgress},
-		{"user device", user, models.NetworkNodeRoleUser},
-		{"plain node", plain, models.NetworkNodeRoleNode},
+		{"gateway, internet gateway and egress", allRoles, models.NetworkNodeKindNode, true, true, true},
+		{"relay is a gateway", relay, models.NetworkNodeKindNode, true, false, false},
+		{"egress via tag", egress, models.NetworkNodeKindNode, false, false, true},
+		{"user device", user, models.NetworkNodeKindUser, false, false, false},
+		{"plain node", plain, models.NetworkNodeKindNode, false, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := nodeRole(tt.node, eli, inetRouters); got != tt.want {
-				t.Fatalf("nodeRole() = %q, want %q", got, tt.want)
+			got := nodeNetworkStatus(context.Background(), tt.node, schema.Host{}, eli, inetRouters, nil, nil, false)
+			if got.Kind != tt.kind || got.IsGateway != tt.gateway || got.IsInternetGateway != tt.inetGw || got.IsEgress != tt.egress {
+				t.Fatalf("got kind=%q gateway=%v internet_gateway=%v egress=%v, want kind=%q gateway=%v internet_gateway=%v egress=%v",
+					got.Kind, got.IsGateway, got.IsInternetGateway, got.IsEgress, tt.kind, tt.gateway, tt.inetGw, tt.egress)
 			}
 		})
 	}

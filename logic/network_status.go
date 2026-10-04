@@ -104,20 +104,27 @@ func nodeNetworkStatus(
 	includePeers bool,
 ) models.NetworkNodeStatus {
 	nodeID := node.ID.String()
+	_, isInetRouter := inetRouters[nodeID]
 	nodeStatus := models.NetworkNodeStatus{
-		ID:          nodeID,
-		Role:        nodeRole(node, eli, inetRouters),
-		Name:        host.Name,
-		HostID:      node.HostID.String(),
-		MacAddress:  host.MacAddress.String(),
-		Owner:       NodeOwnerUsername(node),
-		Address:     ipNetAddr(node.Address),
-		Address6:    ipNetAddr(node.Address6),
-		OS:          host.OS,
-		Version:     host.Version,
-		Status:      node.Status,
-		Connected:   node.Connected,
-		LastCheckIn: unixOrZero(node.LastCheckIn),
+		ID:                nodeID,
+		Kind:              models.NetworkNodeKindNode,
+		Name:              host.Name,
+		HostID:            node.HostID.String(),
+		MacAddress:        host.MacAddress.String(),
+		Owner:             NodeOwnerUsername(node),
+		Address:           ipNetAddr(node.Address),
+		Address6:          ipNetAddr(node.Address6),
+		OS:                host.OS,
+		Version:           host.Version,
+		IsGateway:         node.IsGw || node.IsIngressGateway || node.IsRelay,
+		IsInternetGateway: isInetRouter || node.IsInternetGateway,
+		IsEgress:          routesEgress(node, eli),
+		Status:            node.Status,
+		Connected:         node.Connected,
+		LastCheckIn:       unixOrZero(node.LastCheckIn),
+	}
+	if IsUserOwnedDevice(node) {
+		nodeStatus.Kind = models.NetworkNodeKindUser
 	}
 	if host.EndpointIP != nil {
 		nodeStatus.EndpointIP = host.EndpointIP.String()
@@ -166,7 +173,7 @@ func extClientNetworkStatus(
 	ext := node.StaticNode
 	nodeStatus := models.NetworkNodeStatus{
 		ID:            ext.ClientID,
-		Role:          models.NetworkNodeRoleExtClient,
+		Kind:          models.NetworkNodeKindExtClient,
 		Name:          ext.ClientID,
 		MacAddress:    ext.RemoteAccessClientID,
 		Owner:         ext.OwnerID,
@@ -180,7 +187,7 @@ func extClientNetworkStatus(
 		GatewayNodeID: ext.IngressGatewayID,
 	}
 	if node.IsUserNode {
-		nodeStatus.Role = models.NetworkNodeRoleUser
+		nodeStatus.Kind = models.NetworkNodeKindUser
 	}
 	if e := assignedInternetEgress(node, eli); e != nil {
 		nodeStatus.InternetGatewayNodeID = FirstInternetEgressRoutingNodeID(*e)
@@ -244,24 +251,6 @@ func peerRelayNodeID(node, peer *models.Node) string {
 		return peer.RelayedBy
 	}
 	return ""
-}
-
-// nodeRole returns the role of a (non-static) node. A node with several roles reports
-// the most significant one: internet gateway, then gateway, then egress.
-func nodeRole(node *models.Node, eli []schema.Egress, inetRouters map[string]struct{}) models.NetworkNodeRole {
-	if _, ok := inetRouters[node.ID.String()]; ok || node.IsInternetGateway {
-		return models.NetworkNodeRoleInternetGateway
-	}
-	if node.IsGw || node.IsIngressGateway || node.IsRelay {
-		return models.NetworkNodeRoleGateway
-	}
-	if routesEgress(node, eli) {
-		return models.NetworkNodeRoleEgress
-	}
-	if IsUserOwnedDevice(node) {
-		return models.NetworkNodeRoleUser
-	}
-	return models.NetworkNodeRoleNode
 }
 
 // routesEgress reports whether the node routes any active non-internet egress,

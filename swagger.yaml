@@ -1557,6 +1557,21 @@ definitions:
       internet_gateway_node_id:
         description: node currently used as internet gateway
         type: string
+      is_egress:
+        description: routes an active non-internet egress
+        type: boolean
+      is_gateway:
+        description: gateway or relay
+        type: boolean
+      is_internet_gateway:
+        description: routes an active internet egress
+        type: boolean
+      kind:
+        enum:
+        - node
+        - user
+        - extclient
+        type: string
       last_check_in:
         description: unix seconds, 0 = never
         type: integer
@@ -1578,15 +1593,6 @@ definitions:
         items:
           $ref: '#/definitions/models.NetworkPeerStatus'
         type: array
-      role:
-        enum:
-        - node
-        - user
-        - extclient
-        - gateway
-        - internet_gateway
-        - egress
-        type: string
       status:
         enum:
         - online

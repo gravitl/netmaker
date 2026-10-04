@@ -2,16 +2,13 @@ package models
 
 import "github.com/gravitl/netmaker/schema"
 
-// NetworkNodeRole is the role a node or extclient plays in the network.
-type NetworkNodeRole string
+// NetworkNodeKind is what an entry in the network status is.
+type NetworkNodeKind string
 
 const (
-	NetworkNodeRoleNode            = NetworkNodeRole("node")
-	NetworkNodeRoleUser            = NetworkNodeRole("user") // user-registered device or user extclient
-	NetworkNodeRoleExtClient       = NetworkNodeRole("extclient")
-	NetworkNodeRoleGateway         = NetworkNodeRole("gateway")
-	NetworkNodeRoleInternetGateway = NetworkNodeRole("internet_gateway")
-	NetworkNodeRoleEgress          = NetworkNodeRole("egress")
+	NetworkNodeKindNode      = NetworkNodeKind("node")
+	NetworkNodeKindUser      = NetworkNodeKind("user") // user-registered device or user extclient
+	NetworkNodeKindExtClient = NetworkNodeKind("extclient")
 )
 
 const (
@@ -41,7 +38,7 @@ type NetworkStatusSummary struct {
 // NetworkNodeStatus is the status of a node or extclient in a network.
 type NetworkNodeStatus struct {
 	ID         string          `json:"id"`   // node ID, or client ID for extclients
-	Role       NetworkNodeRole `json:"role"` // node | user | extclient | gateway | internet_gateway | egress
+	Kind       NetworkNodeKind `json:"kind"` // node | user | extclient
 	Name       string          `json:"name"` // host name, or client ID for extclients
 	HostID     string          `json:"host_id,omitempty"`
 	MacAddress string          `json:"mac_address,omitempty"` // host MAC; RemoteAccessClientID for RAC clients
@@ -51,6 +48,10 @@ type NetworkNodeStatus struct {
 	EndpointIP string          `json:"endpoint_ip,omitempty"` // public IP
 	OS         string          `json:"os,omitempty"`
 	Version    string          `json:"version,omitempty"`
+
+	IsGateway         bool `json:"is_gateway"`          // gateway or relay
+	IsInternetGateway bool `json:"is_internet_gateway"` // routes an active internet egress
+	IsEgress          bool `json:"is_egress"`           // routes an active non-internet egress
 
 	Status           schema.NodeStatus `json:"status"`
 	Connected        bool              `json:"connected"`          // admin connect/enable toggle
