@@ -1530,6 +1530,191 @@ definitions:
       nodes:
         $ref: '#/definitions/models.MetricsMap'
     type: object
+  models.NetworkNodeStatus:
+    properties:
+      address:
+        description: overlay IPv4
+        type: string
+      address6:
+        description: overlay IPv6
+        type: string
+      connected:
+        description: admin connect/enable toggle
+        type: boolean
+      connected_egresses:
+        type: integer
+      connected_peers:
+        type: integer
+      egresses:
+        items:
+          $ref: '#/definitions/models.NetworkEgressStatus'
+        type: array
+      endpoint_ip:
+        description: public IP
+        type: string
+      gateway_node_id:
+        description: gateway the node or extclient connects through
+        type: string
+      host_id:
+        type: string
+      id:
+        description: node ID, or client ID for extclients
+        type: string
+      internet_gateway_node_id:
+        description: exit node the entry routes all traffic through; empty when no exit is active
+        type: string
+      is_egress:
+        description: routes an active non-internet egress
+        type: boolean
+      is_gateway:
+        description: gateway or relay
+        type: boolean
+      is_internet_gateway:
+        description: routes an active internet egress
+        type: boolean
+      kind:
+        enum:
+        - node
+        - user
+        - extclient
+        type: string
+      last_check_in:
+        description: unix seconds, 0 = never
+        type: integer
+      mac_address:
+        description: host MAC; RemoteAccessClientID for RAC clients
+        type: string
+      metrics_updated_at:
+        description: unix seconds, 0 = no metrics
+        type: integer
+      name:
+        description: host name, or client ID for extclients
+        type: string
+      os:
+        type: string
+      owner:
+        description: username for user devices and user extclients
+        type: string
+      peers:
+        items:
+          $ref: '#/definitions/models.NetworkPeerStatus'
+        type: array
+      status:
+        enum:
+        - online
+        - offline
+        - warning
+        - error
+        - unknown
+        - disconnected
+        type: string
+      total_egresses:
+        type: integer
+      total_peers:
+        type: integer
+      version:
+        type: string
+    type: object
+  models.NetworkEgressStatus:
+    properties:
+      connected:
+        type: boolean
+      domains:
+        items:
+          type: string
+        type: array
+      egress_id:
+        type: string
+      is_internet:
+        description: the internet egress (exit node) the entry routes all traffic
+          through
+        type: boolean
+      is_relayed:
+        type: boolean
+      latency_ms:
+        type: integer
+      name:
+        type: string
+      percent_up:
+        type: number
+      ranges:
+        description: 'routed CIDRs: virtual NAT range when enabled, resolved CIDRs
+          for domain egress'
+        items:
+          type: string
+        type: array
+      routing_node:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: 'routing node in use: preferred exit, else lowest metric among
+          connected routers'
+      routing_nodes_connected:
+        type: integer
+      routing_nodes_total:
+        type: integer
+      via:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: relay, set when relayed
+    type: object
+  models.NetworkNodeRef:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  models.NetworkPeerStatus:
+    properties:
+      bytes_received:
+        type: integer
+      bytes_sent:
+        type: integer
+      connected:
+        type: boolean
+      is_relayed:
+        type: boolean
+      latency_ms:
+        type: integer
+      name:
+        type: string
+      peer_id:
+        type: string
+      percent_up:
+        type: number
+      via:
+        $ref: '#/definitions/models.NetworkNodeRef'
+        description: relay, set when relayed
+    type: object
+  models.NetworkStatus:
+    properties:
+      generated_at:
+        description: unix seconds
+        type: integer
+      network:
+        type: string
+      nodes:
+        items:
+          $ref: '#/definitions/models.NetworkNodeStatus'
+        type: array
+      summary:
+        $ref: '#/definitions/models.NetworkStatusSummary'
+    type: object
+  models.NetworkStatusSummary:
+    properties:
+      disconnected:
+        type: integer
+      error:
+        type: integer
+      offline:
+        type: integer
+      online:
+        type: integer
+      total:
+        type: integer
+      unknown:
+        type: integer
+      warning:
+        type: integer
+    type: object
   models.Node:
     properties:
       action:
@@ -6506,6 +6691,48 @@ paths:
       security:
       - oauth: []
       summary: Lists all networks with stats
+      tags:
+      - Networks
+  /api/v1/networks/{network}/status:
+    get:
+      parameters:
+      - description: Network name
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: 'Comma-separated kinds to include: node, user, extclient (default
+          all)'
+        in: query
+        name: src_type
+        type: string
+      - description: 'Comma-separated details to include: peers, egress (default
+          all)'
+        in: query
+        name: dst_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.NetworkStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Get the status of every node and extclient in a network
       tags:
       - Networks
   /api/v1/node/{network}/auto_relay/reset:

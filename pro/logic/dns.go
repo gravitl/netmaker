@@ -149,10 +149,11 @@ func getNameserversForNode(ctx context.Context, node *models.Node, owner string)
 }
 
 // nameserverTargetsNode reports whether ns applies to node, either via all
-// ("*"), one of the node's tags, the owning user (or all users via "*"), one
-// of the owner's user groups, or the node itself.
+// resources ("*" tag, nodes only), one of the node's tags, the owning user (or
+// all users via "*", user devices only), one of the owner's user groups, or
+// the node itself.
 func nameserverTargetsNode(ns *schema.Nameserver, node *models.Node, owner string, ownerGroups map[schema.UserGroupID]struct{}) bool {
-	if _, ok := ns.Tags["*"]; ok {
+	if logic.NameserverTargetsAll(ns, owner) {
 		return true
 	}
 	for tagI := range node.Tags {
@@ -161,9 +162,6 @@ func nameserverTargetsNode(ns *schema.Nameserver, node *models.Node, owner strin
 		}
 	}
 	if owner != "" {
-		if _, ok := ns.Users["*"]; ok {
-			return true
-		}
 		if _, ok := ns.Users[owner]; ok {
 			return true
 		}

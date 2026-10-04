@@ -30,6 +30,8 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats)))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkStatus)))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetwork)))).
@@ -120,6 +122,73 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
+}
+
+// @Summary     Get the status of every node and extclient in a network
+// @Router      /api/v1/networks/{network}/status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Param       src_type query string false "Comma-separated kinds to include: node, user, extclient (default all)"
+// @Param       dst_type query string false "Comma-separated details to include: peers, egress (default all)"
+// @Produce     json
+// @Success     200 {object} models.NetworkStatus
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkStatus(w http.ResponseWriter, r *http.Request) {
+	netname := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	opts, err := parseNetworkStatusOptions(r)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	status, err := logic.GetNetworkStatus(r.Context(), netname, opts)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, status, "fetched network status")
+}
+
+// parseNetworkStatusOptions reads the comma-separated src_type and dst_type
+// query params. A missing param includes everything.
+func parseNetworkStatusOptions(r *http.Request) (logic.NetworkStatusOptions, error) {
+	opts := logic.NetworkStatusOptions{IncludePeers: true, IncludeEgress: true}
+	query := r.URL.Query()
+	if v := query.Get("src_type"); v != "" {
+		opts.Kinds = make(map[models.NetworkNodeKind]struct{})
+		for _, kind := range strings.Split(v, ",") {
+			switch k := models.NetworkNodeKind(strings.TrimSpace(kind)); k {
+			case models.NetworkNodeKindNode, models.NetworkNodeKindUser, models.NetworkNodeKindExtClient:
+				opts.Kinds[k] = struct{}{}
+			default:
+				return opts, fmt.Errorf("invalid src_type %q: must be node, user or extclient", kind)
+			}
+		}
+	}
+	if v := query.Get("dst_type"); v != "" {
+		opts.IncludePeers, opts.IncludeEgress = false, false
+		for _, dst := range strings.Split(v, ",") {
+			switch models.NetworkStatusDstType(strings.TrimSpace(dst)) {
+			case models.NetworkStatusDstPeers:
+				opts.IncludePeers = true
+			case models.NetworkStatusDstEgress:
+				opts.IncludeEgress = true
+			default:
+				return opts, fmt.Errorf("invalid dst_type %q: must be peers or egress", dst)
+			}
+		}
+	}
+	return opts, nil
 }
 
 // @Summary     Get a network
