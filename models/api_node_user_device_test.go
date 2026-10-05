@@ -31,6 +31,14 @@ func TestConvertToAPINode_marksUserOwnedHostAsUserNode(t *testing.T) {
 			Status:     schema.OnlineSt,
 		},
 		Status: schema.OnlineSt,
+		PostureChecksViolations: []Violation{{
+			CheckID:   "loc",
+			Name:      "loc",
+			Attribute: "client_location",
+			Message:   "client location not allowed",
+			Severity:  schema.SeverityMedium,
+		}},
+		PostureCheckViolationSeverityLevel: schema.SeverityMedium,
 	}
 
 	api := nm.ConvertToAPINode()
@@ -45,6 +53,12 @@ func TestConvertToAPINode_marksUserOwnedHostAsUserNode(t *testing.T) {
 	}
 	if api.StaticNode.DeviceID != hostID.String() {
 		t.Fatalf("expected device_id %s, got %q", hostID, api.StaticNode.DeviceID)
+	}
+	if len(api.StaticNode.PostureChecksViolations) != 1 {
+		t.Fatalf("expected posture violations on static_node for UI, got %d", len(api.StaticNode.PostureChecksViolations))
+	}
+	if api.StaticNode.PostureCheckVolationSeverityLevel != schema.SeverityMedium {
+		t.Fatalf("expected medium severity on static_node, got %v", api.StaticNode.PostureCheckVolationSeverityLevel)
 	}
 }
 
