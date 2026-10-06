@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"net"
 
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -112,6 +113,53 @@ func NodeOwnerUsername(n *models.Node) string {
 // device paths remain intact; ownership is the user-policy subject signal.
 func IsUserOwnedDevice(n *models.Node) bool {
 	return n != nil && !n.IsStatic && !n.IsUserNode && NodeOwnerUsername(n) != ""
+}
+
+// NodesForAllResourcesTag returns the nodes covered by the All Resources ("*")
+// ACL selector. User devices are excluded: they are covered by All Users
+// instead, matching NameserverTargetsAll.
+func NodesForAllResourcesTag(nodes []models.Node) []models.Node {
+	out := make([]models.Node, 0, len(nodes))
+	for i := range nodes {
+		if IsUserOwnedDevice(&nodes[i]) {
+			continue
+		}
+		out = append(out, nodes[i])
+	}
+	return out
+}
+
+// ListUserDevicesByNetwork returns the connected host-backed user devices on the
+// network. These stay real nodes: their firewall source is the node's own
+// overlay address, and their access is decided by the owner's user policies.
+func ListUserDevicesByNetwork(ctx context.Context, network string) (userDevices []models.Node) {
+	nodes, err := GetNetworkNodes(ctx, network)
+	if err != nil {
+		slog.Error("failed to list user devices", "network", network, "error", err)
+		return
+	}
+	for _, n := range nodes {
+		if !IsUserOwnedDevice(&n) || !n.Connected {
+			continue
+		}
+		userDevices = append(userDevices, n)
+	}
+	return
+}
+
+// UserDeviceSrcIPs returns the overlay addresses used as firewall sources for a
+// user device. A zero-value IPNet means the device has no address of that family.
+func UserDeviceSrcIPs(n *models.Node) (src4, src6 net.IPNet) {
+	if n == nil {
+		return
+	}
+	if n.Address.IP != nil {
+		src4 = n.AddressIPNet4()
+	}
+	if n.Address6.IP != nil {
+		src6 = n.AddressIPNet6()
+	}
+	return
 }
 
 // ErrUserOwnedNodeInfrastructureRole rejects infrastructure roles on a

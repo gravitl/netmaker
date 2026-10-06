@@ -60,6 +60,21 @@ var GetUserAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
 
 var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
 
+// Host-backed user devices are real nodes, so unlike the static user hooks above
+// these emit rules keyed on the device's own overlay address.
+var GetUserDeviceEgressRulesForNode = func(ctx context.Context, targetnode *models.Node,
+	rules map[string]models.AclRule) map[string]models.AclRule {
+	return rules
+}
+var GetUserDeviceAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
+	rules map[string]models.AclRule) map[string]models.AclRule {
+	return rules
+}
+
+var GetFwRulesForUserDevicesOnGw = func(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
+	return
+}
+
 func getEgressToEgressPoliciesForNode(ctx context.Context, targetnode models.Node) []models.Acl {
 	policies := getDevicePoliciesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	filtered := make([]models.Acl, 0)
@@ -467,11 +482,18 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 	nodes, _ := GetNetworkNodes(ctx, node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), true)...)
 	rules = GetFwRulesForUserNodesOnGw(ctx, node, nodes)
+	rules = append(rules, GetFwRulesForUserDevicesOnGw(ctx, node, nodes)...)
 	if defaultDevicePolicy.Enabled {
 		if len(node.RelayedNodes) > 0 {
 			for _, relayedNodeID := range node.RelayedNodes {
 				relayedNode, err := GetNodeByID(relayedNodeID)
 				if err != nil {
+					continue
+				}
+				// A relayed user device is not granted the mesh range by the
+				// default device policy; GetFwRulesForUserDevicesOnGw emits its
+				// rules from the owner's user policies instead.
+				if IsUserOwnedDevice(&relayedNode) {
 					continue
 				}
 
@@ -515,17 +537,26 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 	}
 	defer func() {
 		if len(rules) == 0 && IsNodeAllowedToCommunicateWithAllRsrcs(ctx, node) {
-			if node.NetworkRange.IP != nil {
-				rules = append(rules, models.FwRule{
-					SrcIP: node.NetworkRange,
-					Allow: true,
-				})
-			}
-			if node.NetworkRange6.IP != nil {
-				rules = append(rules, models.FwRule{
-					SrcIP: node.NetworkRange6,
-					Allow: true,
-				})
+			// These rules have no destination, so netclient allows the source to
+			// everything the gateway forwards. Enumerate the resources instead of
+			// the mesh range so user devices keep their user-policy restrictions.
+			for _, nodeI := range NodesForAllResourcesTag(nodes) {
+				src4, src6 := nodeI.AddressIPNet4(), nodeI.AddressIPNet6()
+				if nodeI.IsStatic {
+					src4, src6 = nodeI.StaticNode.AddressIPNet4(), nodeI.StaticNode.AddressIPNet6()
+				}
+				if src4.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: src4,
+						Allow: true,
+					})
+				}
+				if src6.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: src6,
+						Allow: true,
+					})
+				}
 			}
 			return
 		}
@@ -994,6 +1025,7 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 		//if !targetnode.IsIngressGateway {
 		rules = GetUserAclRulesForNode(ctx, &targetnode, rules)
 		//}
+		rules = GetUserDeviceAclRulesForNode(ctx, &targetnode, rules)
 	}()
 	rules = make(map[string]models.AclRule)
 	if IsNodeAllowedToCommunicateWithAllRsrcs(ctx, targetnode) {
@@ -1002,11 +1034,15 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 			AllowedProtocol: models.ALL,
 			Direction:       models.TrafficDirectionBi,
 			Allowed:         true,
-			IPList:          []net.IPNet{targetnode.NetworkRange},
-			IP6List:         []net.IPNet{targetnode.NetworkRange6},
 			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
 			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 		}
+		// Enumerate the resources rather than using the mesh range: this rule's
+		// destination includes the egress ranges this node owns, so the range
+		// would hand user devices those ranges outside their user policies.
+		appendNodeIPsToAclRule(&aclRule, GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)["*"], targetnode.ID.String())
+		aclRule.IPList = UniqueIPNetList(aclRule.IPList)
+		aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
 		e := schema.Egress{Network: targetnode.Network}
 		egressRanges4 := []net.IPNet{}
 		egressRanges6 := []net.IPNet{}
@@ -1370,6 +1406,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	rules = make(map[string]models.AclRule)
 	defer func() {
 		rules = GetEgressUserRulesForNode(ctx, &targetnode, rules)
+		rules = GetUserDeviceEgressRulesForNode(ctx, &targetnode, rules)
 	}()
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 
@@ -1437,35 +1474,16 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 
 				_, srcAll := srcTags["*"]
 				if srcAll {
-					if targetnode.NetworkRange.IP != nil {
-						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
-					}
-					if targetnode.NetworkRange6.IP != nil {
-						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
-					}
+					// Enumerate the resources rather than using the mesh range:
+					// that range also covers user devices, which would then get
+					// the full egress range regardless of their user policy.
+					appendNodeIPsToAclRule(&aclRule, taggedNodes[models.TagID("*")], targetnode.ID.String())
 					continue
 				}
 				// get all src tags
 				for src := range srcTags {
 					// Get peers in the tags and add allowed rules
-					nodes := taggedNodes[models.TagID(src)]
-					for _, node := range nodes {
-						if node.ID == targetnode.ID {
-							continue
-						}
-						if !node.IsStatic && node.Address.IP != nil {
-							aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
-						}
-						if !node.IsStatic && node.Address6.IP != nil {
-							aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
-						}
-						if node.IsStatic && node.StaticNode.Address != "" {
-							aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
-						}
-						if node.IsStatic && node.StaticNode.Address6 != "" {
-							aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
-						}
-					}
+					appendNodeIPsToAclRule(&aclRule, taggedNodes[models.TagID(src)], targetnode.ID.String())
 				}
 			}
 		}
@@ -2002,11 +2020,40 @@ func extclientMatchesAclSrc(ec models.ExtClient, srcTags map[string]struct{}, sr
 	return false
 }
 
+// appendNodeIPsToAclRule adds the overlay addresses of nodes to aclRule's source
+// lists, skipping skipID (usually the rule's own node) and user devices. It is
+// used where a blanket mesh range would otherwise be the source: that range also
+// covers user devices, which resource policies must not grant.
+func appendNodeIPsToAclRule(aclRule *models.AclRule, nodes []models.Node, skipID string) {
+	if aclRule == nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.ID.String() == skipID || IsUserOwnedDevice(&node) {
+			continue
+		}
+		if !node.IsStatic && node.Address.IP != nil {
+			aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+		}
+		if !node.IsStatic && node.Address6.IP != nil {
+			aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+		}
+		if node.IsStatic && node.StaticNode.Address != "" {
+			aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+		}
+		if node.IsStatic && node.StaticNode.Address6 != "" {
+			aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+		}
+	}
+}
+
 // nodeMatchesAclSrc reports whether a mesh node is permitted as a source by an acl,
 // matching on its node UUID or any of its tags.
 func nodeMatchesAclSrc(n models.Node, srcTags map[string]struct{}, srcAll bool) bool {
 	if srcAll {
-		return true
+		// All Resources covers resources only; user devices are covered by
+		// All Users on their owner's user policies.
+		return !IsUserOwnedDevice(&n)
 	}
 	if _, ok := srcTags[n.ID.String()]; ok {
 		return true
@@ -2034,16 +2081,24 @@ func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRul
 			Direction:       models.TrafficDirectionBi,
 			Allowed:         true,
 		}
-		if targetnode.NetworkRange.IP != nil {
-			aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+		// Enumerate the resources instead of the mesh range: the range covers
+		// user devices too, and this rule's destination is every address, so it
+		// would override any IP restriction on their user policies. User devices
+		// get internet egress from their own user-policy rules.
+		appendNodeIPsToAclRule(&aclRule, GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)["*"], "")
+		if targetnode.NetworkRange.IP != nil && len(aclRule.IPList) > 0 {
 			_, allIpv4, _ := net.ParseCIDR(IPv4Network)
 			aclRule.Dst = append(aclRule.Dst, *allIpv4)
 		}
-		if targetnode.NetworkRange6.IP != nil {
-			aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+		if targetnode.NetworkRange6.IP != nil && len(aclRule.IP6List) > 0 {
 			_, allIpv6, _ := net.ParseCIDR(IPv6Network)
 			aclRule.Dst6 = append(aclRule.Dst6, *allIpv6)
 		}
+		if len(aclRule.IPList) == 0 && len(aclRule.IP6List) == 0 {
+			return
+		}
+		aclRule.IPList = UniqueIPNetList(aclRule.IPList)
+		aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
 		rules[aclRule.ID] = aclRule
 	}
 	return
@@ -2534,6 +2589,11 @@ func MigrateAclPolicies(ctx context.Context) {
 }
 
 func IsNodeAllowedToCommunicateWithAllRsrcs(ctx context.Context, node models.Node) bool {
+	// Resource policies, including the default allow-all, never grant access to
+	// a user device. Its owner's user policies decide.
+	if IsUserOwnedDevice(&node) {
+		return false
+	}
 	// check default policy if all allowed return true
 	defaultPolicy, err := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil {
@@ -3344,7 +3404,7 @@ func getTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, wi
 			tagNodesMap[netGwTag] = append(tagNodesMap[netGwTag], nodeI)
 		}
 	}
-	tagNodesMap["*"] = nodes
+	tagNodesMap["*"] = NodesForAllResourcesTag(nodes)
 	if !withStaticNodes {
 		return
 	}

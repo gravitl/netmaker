@@ -14,36 +14,16 @@ import (
 
 func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
 	extClients, err := logic.GetAllExtClients(ctx)
-	if err == nil {
-		for _, extI := range extClients {
-			if extI.Network == network.String() && extI.RemoteAccessClientID != "" {
-				staticNode = append(staticNode, models.ConvertToStaticNode(extI))
-			}
-		}
-	}
-	// User-registered devices (Host.OwnerUsername) are also user-policy subjects.
-	// Metadata is attached during schema→models conversion; keep IsUserNode false.
-	nodes, err := logic.GetNetworkNodes(ctx, network.String())
 	if err != nil {
 		return
 	}
-	for _, n := range nodes {
-		if !logic.IsUserOwnedDevice(&n) {
-			continue
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			if extI.RemoteAccessClientID != "" {
+				n := models.ConvertToStaticNode(extI)
+				staticNode = append(staticNode, n)
+			}
 		}
-		if n.StaticNode.OwnerID == "" {
-			n.StaticNode.OwnerID = logic.NodeOwnerUsername(&n)
-		}
-		if n.StaticNode.Address == "" && n.Address.IP != nil {
-			n.StaticNode.Address = n.Address.IP.String()
-		}
-		if n.StaticNode.Address6 == "" && n.Address6.IP != nil {
-			n.StaticNode.Address6 = n.Address6.IP.String()
-		}
-		if !n.StaticNode.Enabled {
-			n.StaticNode.Enabled = n.Connected
-		}
-		staticNode = append(staticNode, n)
 	}
 	return
 }
@@ -751,6 +731,12 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
+					}
+					// Routing nodes can be attached to an egress by tag
+					// instead of individually, in which case e.Nodes is
+					// empty. peerTags below carries the peer's tags.
+					for tagID := range e.Tags {
+						dstMap[tagID] = struct{}{}
 					}
 				}
 			}
@@ -1651,7 +1637,7 @@ func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, wi
 			nodeI.Mutex.Unlock()
 		}
 	}
-	tagNodesMap["*"] = nodes
+	tagNodesMap["*"] = logic.NodesForAllResourcesTag(nodes)
 	if !withStaticNodes {
 		return
 	}
