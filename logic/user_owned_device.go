@@ -115,6 +115,18 @@ func IsUserOwnedDevice(n *models.Node) bool {
 	return n != nil && !n.IsStatic && !n.IsUserNode && NodeOwnerUsername(n) != ""
 }
 
+// NetworkHasUserDevices reports whether any of nodes is a host-backed user
+// device. Callers use it to keep blanket network-range firewall grants out of
+// networks where user policies have to decide what a device may reach.
+func NetworkHasUserDevices(nodes []models.Node) bool {
+	for i := range nodes {
+		if IsUserOwnedDevice(&nodes[i]) {
+			return true
+		}
+	}
+	return false
+}
+
 // NodesForAllResourcesTag returns the nodes covered by the All Resources ("*")
 // ACL selector. User devices are excluded: they are covered by All Users
 // instead, matching NameserverTargetsAll.

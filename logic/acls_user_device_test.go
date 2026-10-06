@@ -33,6 +33,41 @@ func TestNodesForAllResourcesTag_DropsUserDevices(t *testing.T) {
 	}
 }
 
+func TestNetworkHasUserDevices(t *testing.T) {
+	infra := models.Node{CommonNode: models.CommonNode{ID: uuid.New()}}
+	extClient := models.Node{
+		IsStatic:   true,
+		IsUserNode: true,
+		StaticNode: models.ExtClient{OwnerID: "bob", RemoteAccessClientID: "mac"},
+	}
+	userDevice := models.Node{CommonNode: models.CommonNode{ID: uuid.New()}, OwnerID: "alice"}
+
+	if NetworkHasUserDevices([]models.Node{infra, extClient}) {
+		t.Fatal("infrastructure nodes and remote access clients must not count as user devices")
+	}
+	if !NetworkHasUserDevices([]models.Node{infra, extClient, userDevice}) {
+		t.Fatal("expected host-backed user device to be detected")
+	}
+}
+
+func TestCrossSiteEgressIPNetPairs_DropsDefaultRouteSources(t *testing.T) {
+	_, inet, err := net.ParseCIDR("0.0.0.0/0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, lan, err := net.ParseCIDR("10.104.0.0/20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pairs := crossSiteEgressIPNetPairs([]net.IPNet{*inet}, []net.IPNet{*lan}); len(pairs) != 0 {
+		t.Fatalf("0.0.0.0/0 as a site-to-site source would match user devices, got %+v", pairs)
+	}
+	pairs := crossSiteEgressIPNetPairs([]net.IPNet{*lan}, []net.IPNet{*inet})
+	if len(pairs) != 1 || pairs[0].Src.String() != "10.104.0.0/20" || pairs[0].Dst.String() != "0.0.0.0/0" {
+		t.Fatalf("LAN -> internet site-to-site must stay, got %+v", pairs)
+	}
+}
+
 func TestIsNodeAllowedToCommunicateWithAllRsrcs_UserDeviceDenied(t *testing.T) {
 	userDevice := models.Node{
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"},

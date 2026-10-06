@@ -190,12 +190,22 @@ const egressSiteACLReverseSuffix = "-reverse"
 // crossSiteEgressIPNetPairs yields (src,dst) pairs with distinct CIDR strings so downstream
 // firewall generation does not expand reflexive allows (e.g. 10.110.0.0/20 -> 10.110.0.0/20)
 // when multiple egress LANs are merged into one policy.
+func isDefaultRouteIPNet(n net.IPNet) bool {
+	ones, bits := n.Mask.Size()
+	return ones == 0 && (bits == 32 || bits == 128)
+}
+
 func crossSiteEgressIPNetPairs(srcs, dsts []net.IPNet) []struct{ Src, Dst net.IPNet } {
 	if len(srcs) == 0 || len(dsts) == 0 {
 		return nil
 	}
 	var out []struct{ Src, Dst net.IPNet }
 	for _, s := range srcs {
+		// 0.0.0.0/0 and ::/0 as a site-to-site source match every packet,
+		// including user devices that All Resources must not cover.
+		if isDefaultRouteIPNet(s) {
+			continue
+		}
 		for _, d := range dsts {
 			if s.String() == d.String() {
 				continue
