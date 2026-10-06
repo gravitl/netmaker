@@ -1,6 +1,6 @@
 ---
 description: Netmaker ACL model — user devices vs resources, egress/exit enforcement, NM-356 constraints
-globs: logic/acls*.go,logic/peers.go,logic/user_owned_device*.go,logic/exit_node*.go,logic/egress.go,pro/logic/acls.go,pro/logic/user_device_acls*.go,pro/initialize.go,controllers/acls.go,controllers/device.go,controllers/egress.go
+globs: logic/acls*.go,logic/peers.go,logic/user_owned_device*.go,logic/exit_node*.go,logic/egress.go,pro/logic/acls.go,pro/logic/user_device_acls*.go,pro/logic/posture_check*.go,pro/initialize.go,controllers/acls.go,controllers/device.go,controllers/egress.go
 alwaysApply: false
 ---
 
@@ -80,6 +80,11 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 - Use `deviceMaySelectExitNode`: for user hosts/devices, **All Resources must not** allow-all; only All Users or `DoesUserHaveAccessToEgress`.
 - Infra devices may still use All Resources for listing.
 - Peer-update side: `SuppressInternetExitIfNoACLAccess` already skips the device-default free pass for `IsUserOwnedDevice` and uses `NodeHasEgressAccess`.
+
+### Posture checks (`pro/logic/posture_check.go`)
+
+- `postureCheckAppliesToSubject`: Tags `*` (All Resources) matches **infra hosts only** (`Username == ""`). Host-backed user devices and RAC (`IsUser` / `Username` set) match via **UserGroups** (All Users), not All Resources.
+- Do not set `IsUser=true` on host-backed devices; they keep the host evaluation path (`AutoUpdate`, MDM/EDR) but still attach owner groups.
 
 ### Ingress gateway FwRules
 

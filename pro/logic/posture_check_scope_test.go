@@ -40,7 +40,7 @@ func TestPostureCheckAppliesToSubject_allResourcesAndAllUsers(t *testing.T) {
 	assert.True(t, postureCheckAppliesToSubject(check, extClient), "UserGroups=* covers ExtClient users")
 }
 
-func TestPostureCheckAppliesToSubject_tagsStarIncludesUserHosts(t *testing.T) {
+func TestPostureCheckAppliesToSubject_tagsStarExcludesUserHosts(t *testing.T) {
 	tagsOnly := &schema.PostureCheck{
 		Status:    true,
 		Attribute: schema.ClientLocation,
@@ -55,8 +55,8 @@ func TestPostureCheckAppliesToSubject_tagsStarIncludesUserHosts(t *testing.T) {
 		ClientLocation: "US",
 		Username:       "alice",
 	}
-	assert.True(t, postureCheckAppliesToSubject(tagsOnly, userHost),
-		"Tags=* covers host-backed user devices so All Resources checks still flag them")
+	assert.False(t, postureCheckAppliesToSubject(tagsOnly, userHost),
+		"All Resources must not enforce posture on host-backed user devices")
 }
 
 func TestPostureCheckAppliesToSubject_userGroupsOnly(t *testing.T) {

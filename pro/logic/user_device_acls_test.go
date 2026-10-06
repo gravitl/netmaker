@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"testing"
@@ -88,7 +89,7 @@ func TestUserDeviceEgressRule_IPRestrictedPolicyYieldsSelectedIPOnly(t *testing.
 
 	src4, src6 := userDeviceSrcIPsForPolicy(policy, []models.Node{device}, nil)
 	var dst4, dst6 []net.IPNet
-	appendUserDevicePolicyEgressDsts(nil, &routingNode, policy, egs, &dst4, &dst6)
+	appendUserDevicePolicyEgressDsts(context.TODO(), &routingNode, policy, egs, &dst4, &dst6)
 
 	rules := make(map[string]models.AclRule)
 	addUserDeviceAclRule(rules, policy, src4, src6, dst4, dst6)
@@ -126,7 +127,7 @@ func TestUserDeviceEgressRule_WithoutSelectedIPsUsesEgressRange(t *testing.T) {
 	}
 
 	var dst4, dst6 []net.IPNet
-	appendUserDevicePolicyEgressDsts(nil, &routingNode, policy, egs, &dst4, &dst6)
+	appendUserDevicePolicyEgressDsts(context.TODO(), &routingNode, policy, egs, &dst4, &dst6)
 	if len(dst4) != 1 || dst4[0].String() != "10.104.0.0/20" {
 		t.Fatalf("expected the full egress range without IP restrictions, got %v", dst4)
 	}
@@ -161,14 +162,14 @@ func TestUserDeviceEgressRule_TagAttachedRoutingNode(t *testing.T) {
 	}
 
 	var dst4, dst6 []net.IPNet
-	appendUserDevicePolicyEgressDsts(nil, &routingNode, policy, egs, &dst4, &dst6)
+	appendUserDevicePolicyEgressDsts(context.TODO(), &routingNode, policy, egs, &dst4, &dst6)
 	if len(dst4) != 1 || dst4[0].String() != "10.104.0.0/20" {
 		t.Fatalf("expected the real range for a tag-attached routing node, got %v", dst4)
 	}
 
 	other := models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
 	dst4, dst6 = nil, nil
-	appendUserDevicePolicyEgressDsts(nil, &other, policy, egs, &dst4, &dst6)
+	appendUserDevicePolicyEgressDsts(context.TODO(), &other, policy, egs, &dst4, &dst6)
 	if len(dst4) != 1 || dst4[0].String() != "100.64.0.0/20" {
 		t.Fatalf("expected the virtual range for a non-routing node, got %v", dst4)
 	}
@@ -198,7 +199,7 @@ func TestUserDeviceEgressRule_UnrelatedEgressIsNotADestination(t *testing.T) {
 	}
 
 	var dst4, dst6 []net.IPNet
-	appendUserDevicePolicyEgressDsts(nil, &routingNode, policy, egs, &dst4, &dst6)
+	appendUserDevicePolicyEgressDsts(context.TODO(), &routingNode, policy, egs, &dst4, &dst6)
 	if len(dst4) != 0 || len(dst6) != 0 {
 		t.Fatalf("expected no destinations for an egress the policy does not name, got %v %v", dst4, dst6)
 	}
