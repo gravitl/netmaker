@@ -293,6 +293,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		if err != nil {
 			continue
 		}
+		// Host-backed user devices need OwnerID for PeerAllowed / user policies.
+		// GetNodeByID usually attaches it from Host, but keep a host-side fallback.
+		if IsUserOwnedHost(host) && node.OwnerID == "" {
+			node.OwnerID = host.OwnerUsername
+		}
 
 		if !node.Connected || node.PendingDelete || node.Action == schema.NODE_DELETE {
 			if deletedNode == nil || deletedNode.ID != node.ID {

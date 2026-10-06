@@ -367,7 +367,9 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if !IsPeerAllowed(ctx, *relayed, peer, true) && !isAllowedViaUserOwnership(ctx, *relayed, peer) {
+		// PeerAllowed (not bare IsPeerAllowed) so user devices follow user
+		// policies: All Resources must not grant every mesh peer via the relay.
+		if !PeerAllowed(ctx, *relayed, peer, defaultPolicy.Enabled) {
 			continue
 		}
 		GetNodeEgressInfo(&peer, eli, acls)

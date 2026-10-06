@@ -67,6 +67,7 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 - Defer hooks: RAC `GetEgressUserRulesForNode`, then host-backed `GetUserDeviceEgressRulesForNode`.
 - User-device egress rules: source = device overlay `/32` (or v6), dest = selected IPs from policy or egress range; rule id suffix `#user-device`.
 - When default **user** policy is enabled, `GetUserDeviceEgressRulesForNode` currently replaces the policy list with only that default (same pattern as RAC). Custom IP narrowing applies when All Users is **off**.
+- Internet-exit policies must emit `0.0.0.0/0` **only** on nodes that route that exit (`nodeRoutesEgress`). Never install default-route allows on unrelated site-egress gateways — netclient shows those as `anywhere` and they bypass site IP restrictions.
 
 ### Site-to-site / All Resources trap
 

@@ -178,6 +178,66 @@ func TestUserDeviceEgressRule_TagAttachedRoutingNode(t *testing.T) {
 	}
 }
 
+// TestUserDeviceEgressRule_InternetOnlyOnExitRouter ensures an internet-exit
+// user policy does not emit 0.0.0.0/0 on unrelated site-egress gateways (that
+// would appear as iptables "anywhere" and bypass site IP restrictions).
+func TestUserDeviceEgressRule_InternetOnlyOnExitRouter(t *testing.T) {
+	exitRouterID := uuid.New()
+	siteRouterID := uuid.New()
+	exitRouter := models.Node{
+		CommonNode: models.CommonNode{ID: exitRouterID, Network: "netmaker"},
+	}
+	siteRouter := models.Node{
+		CommonNode: models.CommonNode{ID: siteRouterID, Network: "netmaker"},
+	}
+	egs := []schema.Egress{
+		{
+			ID:      "exit2",
+			Network: "netmaker",
+			Status:  true,
+			Type:    schema.EgressTypeInternet,
+			Range:   "*",
+			Nodes:   datatypes.JSONMap{exitRouterID.String(): json.Number("100")},
+		},
+		{
+			ID:      "sig",
+			Network: "netmaker",
+			Status:  true,
+			Range:   "10.104.0.0/20",
+			Nodes:   datatypes.JSONMap{siteRouterID.String(): json.Number("100")},
+		},
+	}
+	policy := models.Acl{
+		ID:       "alice-to-exit",
+		Enabled:  true,
+		RuleType: models.UserPolicy,
+		Src:      []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
+		Dst:      []models.AclPolicyTag{{ID: models.EgressID, Value: "exit2"}},
+	}
+
+	var dst4, dst6 []net.IPNet
+	appendUserDevicePolicyEgressDsts(context.TODO(), &exitRouter, policy, egs, &dst4, &dst6)
+	if len(dst4) == 0 {
+		t.Fatal("expected default-route destinations on the internet exit router")
+	}
+	foundDefault := false
+	for _, n := range dst4 {
+		if ones, bits := n.Mask.Size(); ones == 0 && bits == 32 {
+			foundDefault = true
+			break
+		}
+	}
+	if !foundDefault {
+		t.Fatalf("expected 0.0.0.0/0 on the exit router, got %v", dst4)
+	}
+
+	dst4, dst6 = nil, nil
+	appendUserDevicePolicyEgressDsts(context.TODO(), &siteRouter, policy, egs, &dst4, &dst6)
+	if len(dst4) != 0 || len(dst6) != 0 {
+		t.Fatalf("internet policy must not install anywhere-allows on a site egress gateway, got %v %v", dst4, dst6)
+	}
+}
+
 func TestUserDeviceEgressRule_UnrelatedEgressIsNotADestination(t *testing.T) {
 	routingNodeID := uuid.New()
 	routingNode := models.Node{

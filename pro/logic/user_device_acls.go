@@ -106,6 +106,10 @@ func nodeRoutesEgress(node *models.Node, e *schema.Egress) bool {
 // appendUserDevicePolicyEgressDsts adds the egress destinations the policy grants
 // as seen from node. IPs selected on the policy replace the egress range, so an
 // IP-restricted policy never widens back to the whole range.
+//
+// Internet exits (0.0.0.0/0) are only emitted on nodes that actually route that
+// exit. Putting a default-route allow on an unrelated site-egress gateway would
+// show up as iptables "anywhere" and bypass per-egress IP restrictions.
 func appendUserDevicePolicyEgressDsts(ctx context.Context, node *models.Node,
 	policy models.Acl, egs []schema.Egress, dst4, dst6 *[]net.IPNet) {
 	selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
@@ -118,16 +122,28 @@ func appendUserDevicePolicyEgressDsts(ctx context.Context, node *models.Node,
 		if !dstAll && !egressMatchesPolicyDst(egI, dstTags) {
 			continue
 		}
+		routes := nodeRoutesEgress(node, &egI)
+		if logic.IsEgressInternetGateway(egI) {
+			// 0.0.0.0/0 must only be installed on the exit's routing node.
+			if !routes {
+				continue
+			}
+			logic.AppendEgressPolicyRange(egI, egI.Range, dst4, dst6)
+			continue
+		}
 		if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+			if !routes {
+				continue
+			}
 			*dst4 = append(*dst4, selectedIP4...)
 			*dst6 = append(*dst6, selectedIP6...)
 			continue
 		}
 		egressRange := egI.Range
-		if !nodeRoutesEgress(node, &egI) && egI.VirtualRange != "" {
+		if !routes && egI.VirtualRange != "" {
 			egressRange = egI.VirtualRange
 		}
-		if egressRange != "" || logic.IsEgressInternetGateway(egI) {
+		if egressRange != "" {
 			logic.AppendEgressPolicyRange(egI, egressRange, dst4, dst6)
 			continue
 		}
