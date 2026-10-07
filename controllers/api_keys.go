@@ -97,7 +97,12 @@ func createAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	key, secret, err := logic.CreateAPIKey(r.Context(), &req, caller.Username)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		if errors.Is(err, logic.ErrAPIKeyValidation) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		logger.Log(0, "error creating api key: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 

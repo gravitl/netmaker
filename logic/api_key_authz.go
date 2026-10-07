@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -186,6 +187,107 @@ func isAPIKeyAllowedResource(targetRsrc string) bool {
 	}
 }
 
+// isNetworkChildResource reports whether the resource inherits a parent network scope.
+func isNetworkChildResource(targetRsrc string) bool {
+	switch targetRsrc {
+	case schema.HostRsrc.String(),
+		schema.DnsRsrc.String(),
+		schema.ExtClientsRsrc.String(),
+		schema.EgressGwRsrc.String(),
+		schema.GatewayRsrc.String(),
+		schema.RelayRsrc.String(),
+		schema.RemoteAccessGwRsrc.String(),
+		schema.FailOverRsrc.String(),
+		schema.PostureCheckRsrc.String():
+		return true
+	default:
+		return false
+	}
+}
+
+// resolveNetworksForResource loads the parent network ID(s) for a network-scoped child resource.
+func resolveNetworksForResource(ctx context.Context, targetRsrc, targetRsrcID string) ([]string, error) {
+	if targetRsrcID == "" {
+		return nil, errors.New("resource id is required")
+	}
+	switch targetRsrc {
+	case schema.HostRsrc.String():
+		if _, err := uuid.Parse(targetRsrcID); err != nil {
+			return nil, err
+		}
+		nets := GetHostNetworks(ctx, targetRsrcID)
+		return nets, nil
+	case schema.ExtClientsRsrc.String():
+		client, err := GetExtClientByName(ctx, targetRsrcID)
+		if err != nil {
+			return nil, err
+		}
+		if client.Network == "" {
+			return nil, errors.New("extclient has no network")
+		}
+		return []string{client.Network}, nil
+	case schema.EgressGwRsrc.String():
+		e := schema.Egress{ID: targetRsrcID}
+		if err := e.Get(ctx); err != nil {
+			return nil, err
+		}
+		if e.Network == "" {
+			return nil, errors.New("egress has no network")
+		}
+		return []string{e.Network}, nil
+	case schema.GatewayRsrc.String(),
+		schema.RelayRsrc.String(),
+		schema.RemoteAccessGwRsrc.String(),
+		schema.FailOverRsrc.String():
+		node, err := GetNodeByID(targetRsrcID)
+		if err != nil {
+			return nil, err
+		}
+		if node.Network == "" {
+			return nil, errors.New("node has no network")
+		}
+		return []string{node.Network}, nil
+	case schema.DnsRsrc.String():
+		// DNS routes usually set NET_ID; when TARGET_RSRC_ID is present it is typically the network name.
+		return []string{targetRsrcID}, nil
+	case schema.PostureCheckRsrc.String():
+		p := &schema.PostureCheck{ID: targetRsrcID}
+		if err := p.Get(ctx); err != nil {
+			return nil, err
+		}
+		if p.NetworkID == "" {
+			return nil, errors.New("posture check has no network")
+		}
+		return []string{p.NetworkID.String()}, nil
+	default:
+		return nil, errors.New("unsupported resource type")
+	}
+}
+
+// AuthorizeAPIKeyNetworks enforces required permission against every listed network.
+func AuthorizeAPIKeyNetworks(ctx context.Context, networks []string, required schema.APIKeyPermission) error {
+	if len(networks) == 0 {
+		auth := APIKeyFromContext(ctx)
+		if auth == nil {
+			return errors.New(Forbidden_Msg)
+		}
+		// Host/device with no networks: only all-scope keys may proceed on permission alone.
+		if auth.Scope.Type != schema.APIKeyNetworkScopeAll {
+			return errors.New(Forbidden_Msg)
+		}
+		if !HasPermission(auth.Permission, required) {
+			return errors.New(Forbidden_Msg)
+		}
+		return nil
+	}
+	for _, networkID := range networks {
+		if err := AuthorizeAPIKey(ctx, networkID, required); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AuthorizeAPIKeyRequest enforces API key resource allow-list, network scope, and permission for an HTTP request.
 func AuthorizeAPIKeyRequest(ctx context.Context, r *http.Request) error {
 	auth := APIKeyFromContext(ctx)
@@ -200,8 +302,9 @@ func AuthorizeAPIKeyRequest(ctx context.Context, r *http.Request) error {
 
 	required := RequiredPermissionForRequest(r)
 	netID := r.Header.Get("NET_ID")
+	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	if netID == "" && targetRsrc == schema.NetworkRsrc.String() {
-		netID = r.Header.Get("TARGET_RSRC_ID")
+		netID = targetRsrcID
 	}
 
 	// Creating a network is only allowed for all-networks keys with modify+.
@@ -215,8 +318,19 @@ func AuthorizeAPIKeyRequest(ctx context.Context, r *http.Request) error {
 		return nil
 	}
 
-	// Collection / tenant-level network listing: permission only; filtering happens in handlers.
 	if netID == "" {
+		// Resolve parent network(s) for network-scoped child resources addressed by ID.
+		if isNetworkChildResource(targetRsrc) && targetRsrcID != "" {
+			networks, err := resolveNetworksForResource(ctx, targetRsrc, targetRsrcID)
+			if err != nil {
+				return errors.New(Forbidden_Msg)
+			}
+			return AuthorizeAPIKeyNetworks(ctx, networks, required)
+		}
+
+		// Collection / tenant-level ops without a network context:
+		// permission only here; handlers filter GET results or enforce mutate per entry
+		// (bulkDeleteHosts, updateAllKeys, syncHosts, getAllNodes, getAllExtClients, etc.).
 		if !HasPermission(auth.Permission, required) {
 			return errors.New(Forbidden_Msg)
 		}
@@ -224,6 +338,17 @@ func AuthorizeAPIKeyRequest(ctx context.Context, r *http.Request) error {
 	}
 
 	return AuthorizeAPIKey(ctx, netID, required)
+}
+
+// HostInAPIKeyScope reports whether every network the host belongs to is within the API key scope.
+func HostInAPIKeyScope(ctx context.Context, hostID string, required schema.APIKeyPermission) bool {
+	if !IsAPIKeyAuth(ctx) {
+		return true
+	}
+	if _, err := uuid.Parse(hostID); err != nil {
+		return false
+	}
+	return AuthorizeAPIKeyNetworks(ctx, GetHostNetworks(ctx, hostID), required) == nil
 }
 
 // APIKeyHasNetworkAccess is a convenience for device/network helpers.

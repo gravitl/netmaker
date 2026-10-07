@@ -227,11 +227,6 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), updateNs.NetworkID, schema.APIKeyPermissionModify); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
-		return
-	}
-
 	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -263,6 +258,14 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	err = ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if updateNs.NetworkID != ns.NetworkID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), ns.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	var updateStatus bool

@@ -26,6 +26,9 @@ const (
 	apiKeyCharset   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
+// ErrAPIKeyValidation indicates CreateAPIKey failed request validation (client/bad request).
+var ErrAPIKeyValidation = errors.New("invalid api key request")
+
 type apiKeyContextKey struct{}
 
 // APIKeyAuthContext is the authenticated API key identity attached to a request.
@@ -180,7 +183,7 @@ func ValidateCreateAPIKeyRequest(ctx context.Context, req *models.CreateAPIKeyRe
 func CreateAPIKey(ctx context.Context, req *models.CreateAPIKeyRequest, createdBy string) (*schema.APIKey, string, error) {
 	normalizedScope, err := ValidateCreateAPIKeyRequest(ctx, req)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("%w: %s", ErrAPIKeyValidation, err.Error())
 	}
 
 	secret, prefix, err := generateAPIKeySecret()

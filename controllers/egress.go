@@ -324,10 +324,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.Network, schema.APIKeyPermissionModify); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
-		return
-	}
 	var egressRange string
 	egressType := logic.InferEgressType(&req)
 	if inetGw {
@@ -356,6 +352,14 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	err = e.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.Network != e.Network {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
