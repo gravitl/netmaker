@@ -18,6 +18,19 @@ import (
 // ExtClient user rules, which are keyed by the bare policy ID.
 const userDeviceRuleSuffix = "#user-device"
 
+// listUserDevicesForACL lists host-backed user devices; tests may override.
+var listUserDevicesForACL = logic.ListUserDevicesByNetwork
+
+// listEgressForUserDeviceACL lists network egresses; tests may override.
+var listEgressForUserDeviceACL = func(ctx context.Context, network string) ([]schema.Egress, error) {
+	return (&schema.Egress{Network: network}).ListByNetwork(ctx)
+}
+
+// getDefaultUserPolicyForUserDeviceACL loads the default user policy; tests may override.
+var getDefaultUserPolicyForUserDeviceACL = func(ctx context.Context, netID schema.NetworkID) (models.Acl, error) {
+	return logic.GetDefaultPolicy(ctx, netID, models.UserPolicy)
+}
+
 // userDeviceSrcIPsForPolicy returns the overlay addresses of the devices whose
 // owner is a source of the policy, either directly or through a user group.
 func userDeviceSrcIPsForPolicy(policy models.Acl, devices []models.Node,
@@ -199,11 +212,11 @@ func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 	if logic.IsUserOwnedDevice(targetnode) {
 		return rules
 	}
-	devices := logic.ListUserDevicesByNetwork(ctx, targetnode.Network)
+	devices := listUserDevicesForACL(ctx, targetnode.Network)
 	if len(devices) == 0 {
 		return rules
 	}
-	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(ctx)
+	egs, _ := listEgressForUserDeviceACL(ctx, targetnode.Network)
 	if len(egs) == 0 {
 		return rules
 	}
@@ -240,11 +253,11 @@ func GetUserDeviceAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	if logic.IsUserOwnedDevice(targetnode) {
 		return rules
 	}
-	devices := logic.ListUserDevicesByNetwork(ctx, targetnode.Network)
+	devices := listUserDevicesForACL(ctx, targetnode.Network)
 	if len(devices) == 0 {
 		return rules
 	}
-	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(ctx)
+	egs, _ := listEgressForUserDeviceACL(ctx, targetnode.Network)
 	var dst4, dst6 []net.IPNet
 	if targetnode.Address.IP != nil {
 		dst4 = append(dst4, targetnode.AddressIPNet4())
@@ -279,31 +292,48 @@ func GetUserDeviceAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	return rules
 }
 
-// GetFwRulesForUserDevicesOnGw emits the gateway forward rules for the user
-// devices relayed by it. User devices have no IngressGatewayID, so attachment is
-// read from RelayedBy.
+// GetFwRulesForUserDevicesOnGw emits ingress/relay forward rules so host-backed
+// user devices can reach ACL-allowed mesh peers and static/tagged extclients.
+// Unlike RAC, user devices have no IngressGatewayID — they peer with the gateway
+// directly — so every user device on the network is considered (same shape as
+// GetFwRulesForUserNodesOnGw), not only RelayedBy attachments.
 func GetFwRulesForUserDevicesOnGw(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
-	devices := logic.ListUserDevicesByNetwork(ctx, node.Network)
+	devices := listUserDevicesForACL(ctx, node.Network)
 	if len(devices) == 0 {
 		return
 	}
-	egs, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	egs, _ := listEgressForUserDeviceACL(ctx, node.Network)
+	defaultUserPolicy, _ := getDefaultUserPolicyForUserDeviceACL(ctx, schema.NetworkID(node.Network))
 	for i := range devices {
 		device := devices[i]
-		if device.RelayedBy != node.ID.String() {
-			continue
-		}
 		owner := logic.NodeOwnerUsername(&device)
 		if owner == "" {
 			continue
 		}
 		src4, src6 := logic.UserDeviceSrcIPs(&device)
+		if defaultUserPolicy.Enabled {
+			if src4.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP:           src4,
+					AllowedProtocol: models.ALL,
+					Allow:           true,
+				})
+			}
+			if src6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP:           src6,
+					AllowedProtocol: models.ALL,
+					Allow:           true,
+				})
+			}
+			continue
+		}
 		egressPolicies := make(map[string]models.Acl)
 		for _, peer := range nodes {
 			if peer.IsUserNode || logic.IsUserOwnedDevice(&peer) || peer.ID == device.ID {
 				continue
 			}
-			allowed, allowedPolicies := IsUserAllowedToCommunicate(ctx, owner, peer)
+			allowed, allowedPolicies := logic.IsUserAllowedToCommunicate(ctx, owner, peer)
 			if !allowed {
 				continue
 			}
@@ -317,6 +347,20 @@ func GetFwRulesForUserDevicesOnGw(ctx context.Context, node models.Node, nodes [
 				}
 				if src6.IP != nil && peer.Address6.IP != nil {
 					rules = append(rules, userDeviceFwRule(src6, peer.AddressIPNet6(), policy))
+				}
+				// Extclient additional allowed IPs (LAN/CIDRs behind the client).
+				for _, extra := range peer.StaticNode.ExtraAllowedIPs {
+					_, ipNet, err := net.ParseCIDR(extra)
+					if err != nil || ipNet == nil {
+						continue
+					}
+					if ipNet.IP.To4() != nil {
+						if src4.IP != nil {
+							rules = append(rules, userDeviceFwRule(src4, *ipNet, policy))
+						}
+					} else if src6.IP != nil {
+						rules = append(rules, userDeviceFwRule(src6, *ipNet, policy))
+					}
 				}
 			}
 		}

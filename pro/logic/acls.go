@@ -760,7 +760,55 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 	if len(allowedPolicies) > 0 {
 		return true, allowedPolicies
 	}
+	// Host-backed user devices reach static/tagged extclients through the ingress
+	// gateway. Allow the ingress itself when any attached (non-RAC) extclient is a
+	// policy destination so peering and AllowedIPs via that gateway work.
+	if peer.IsIngressGateway {
+		if ok, policies := userAllowedToAnyExtClientOnIngress(ctx, userName, peer); ok {
+			return true, policies
+		}
+	}
 	return false, []models.Acl{}
+}
+
+// listExtClientsForUserACL lists extclients for user↔ingress ACL bridging; tests may override.
+var listExtClientsForUserACL = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+	return logic.GetNetworkExtClients(ctx, network)
+}
+
+// userAllowedToAnyExtClientOnIngress is true when userName may reach at least one
+// enabled non-RAC extclient attached to ingress under a user policy.
+func userAllowedToAnyExtClientOnIngress(ctx context.Context, userName string, ingress models.Node) (bool, []models.Acl) {
+	if !ingress.IsIngressGateway {
+		return false, nil
+	}
+	extclients, err := listExtClientsForUserACL(ctx, ingress.Network)
+	if err != nil {
+		return false, nil
+	}
+	ingressID := ingress.ID.String()
+	seen := make(map[string]struct{})
+	var allowed []models.Acl
+	for i := range extclients {
+		ec := extclients[i]
+		if !ec.Enabled || ec.IngressGatewayID != ingressID || ec.RemoteAccessClientID != "" {
+			continue
+		}
+		// Use the logic package hook so tests can stub nested static-peer checks
+		// without re-entering this ingress bridge.
+		ok, policies := logic.IsUserAllowedToCommunicate(ctx, userName, models.ConvertToStaticNode(ec))
+		if !ok {
+			continue
+		}
+		for _, p := range policies {
+			if _, exists := seen[p.ID]; exists {
+				continue
+			}
+			seen[p.ID] = struct{}{}
+			allowed = append(allowed, p)
+		}
+	}
+	return len(allowed) > 0, allowed
 }
 
 // IsPeerAllowed - checks if peer needs to be added to the interface

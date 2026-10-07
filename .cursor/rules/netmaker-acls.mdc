@@ -89,7 +89,8 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 
 ### Ingress gateway FwRules
 
-- `GetFwRulesOnIngressGateway`: skip granting mesh range to relayed user devices under default device policy; use `GetFwRulesForUserDevicesOnGw` for user-policy-based rules.
+- `GetFwRulesOnIngressGateway`: skip granting mesh range to relayed user devices under default device policy; use `GetFwRulesForUserDevicesOnGw` for user-policy-based rules (all user devices on the network, not only RelayedBy — needed for tagged/static extclients).
+- User device ↔ static/tagged extclient: `IsUserAllowedToCommunicate` treats the ingress as allowed when any attached non-RAC extclient matches the user policy (peering / AllowedIPs via the gateway).
 
 ## Defaults cheat sheet
 
