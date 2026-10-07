@@ -257,6 +257,9 @@ func (b *networkStatusBuilder) nodeNetworkStatus(node *models.Node) models.Netwo
 		nodeStatus.MetricsUpdatedAt = unixOrZero(metrics.UpdatedAt)
 		connectivity = metrics.Connectivity
 	}
+	// Exit clients hairpin mesh via RelayedBy. Matching peer update, keep as
+	// direct: internet exit routers, and (with BypassEgressRoutes) site egress.
+	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
 	for peerID, metric := range connectivity {
 		nodeStatus.TotalPeers++
 		if metric.Connected {
@@ -265,24 +268,25 @@ func (b *networkStatusBuilder) nodeNetworkStatus(node *models.Node) models.Netwo
 		if !b.opts.IncludePeers {
 			continue
 		}
+		peer := b.nodesByID[peerID]
 		peerStatus := peerNetworkStatus(peerID, metric, b.names)
-		if relayID := peerRelayNodeID(node, b.nodesByID[peerID]); relayID != "" {
+		if relayID := peerRelayNodeID(node, peer, b.peerIgnoreRelayedBy(node, peer, bypass)); relayID != "" {
 			peerStatus.IsRelayed = true
 			peerStatus.Via = b.nodeRef(relayID)
 		}
 		nodeStatus.Peers = append(nodeStatus.Peers, peerStatus)
 	}
 
-	// A bypassing exit keeps specific egress routers as direct peers, even
-	// relayed or auto-relayed ones. Without bypass, an exit client is relayed by
-	// the exit like any relayed node, so all its egress traffic hairpins there.
-	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
 	for i := range b.egresses {
 		e := &b.egresses[i]
 		routers := b.routers[e.ID]
 		inUseRouter, ok := b.egressApplies(e, exit, exitRouterID)
 		if !ok || routedBy(routers, nodeID) || !b.nodeHasEgressAccess(node, e, routers) {
 			continue
+		}
+		ignoreRelayedBy := ""
+		if bypass && !IsEgressInternetGateway(*e) {
+			ignoreRelayedBy = node.RelayedBy
 		}
 		var path egressPath
 		switch {
@@ -291,11 +295,9 @@ func (b *networkStatusBuilder) nodeNetworkStatus(node *models.Node) models.Netwo
 			path = relayedEgressPath(routers, inUseRouter, node.RelayedBy, toRelay, hasToRelay, b.connectivity(node.RelayedBy))
 		default:
 			path = directEgressPath(routers, inUseRouter, connectivity)
-			if bypass {
-				break
-			}
-			// The router itself may be relayed, or auto-relayed for this node.
-			if relayID := peerRelayNodeID(node, b.nodesByID[path.routerID]); relayID != "" {
+			// With bypass, ignore RelayedBy-as-exit for site egress, but still
+			// honor auto-relay and peers that are themselves relayed.
+			if relayID := peerRelayNodeID(node, b.nodesByID[path.routerID], ignoreRelayedBy); relayID != "" {
 				toRelay, hasToRelay := connectivity[relayID]
 				relayed := relayedEgressPath([]egressRouter{{nodeID: path.routerID}}, path.routerID, relayID,
 					toRelay, hasToRelay, b.connectivity(relayID))
@@ -626,7 +628,10 @@ func peerNetworkStatus(peerID string, metric models.Metric, names map[string]str
 
 // peerRelayNodeID returns the node relaying traffic between node and peer,
 // or "" when they connect directly. peer is nil for extclients and unknown peers.
-func peerRelayNodeID(node, peer *models.Node) string {
+// Precedence: AutoRelayedPeers, then the peer's own RelayedBy (manual relay),
+// then the viewer's RelayedBy (exit/relay hairpin). ignoreRelayedBy skips a
+// RelayedBy value (exit hairpin ignored for direct exit/bypass-egress peers).
+func peerRelayNodeID(node, peer *models.Node, ignoreRelayedBy string) string {
 	if peer == nil {
 		return ""
 	}
@@ -634,13 +639,60 @@ func peerRelayNodeID(node, peer *models.Node) string {
 	if relayID, ok := node.AutoRelayedPeers[peerID]; ok && relayID != "" {
 		return relayID
 	}
-	if node.IsRelayed && node.RelayedBy != "" && node.RelayedBy != peerID {
-		return node.RelayedBy
-	}
-	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != node.ID.String() {
+	// Prefer the peer's configured relay over the viewer's exit hairpin so a
+	// node relayed by e.g. "fra" is not reported as via the client's exit.
+	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != node.ID.String() && peer.RelayedBy != ignoreRelayedBy {
 		return peer.RelayedBy
 	}
+	if node.IsRelayed && node.RelayedBy != "" && node.RelayedBy != peerID && node.RelayedBy != ignoreRelayedBy {
+		return node.RelayedBy
+	}
 	return ""
+}
+
+// peerIgnoreRelayedBy returns node.RelayedBy when peer is kept as a direct
+// WireGuard peer despite the exit-client RelayedBy flag (exits always; site
+// egress when BypassEgressRoutes is on). Otherwise "".
+func (b *networkStatusBuilder) peerIgnoreRelayedBy(node, peer *models.Node, bypass bool) string {
+	if node == nil || peer == nil || node.RelayedBy == "" {
+		return ""
+	}
+	peerID := peer.ID.String()
+	if nodeIsInternetExitClient(node) {
+		if _, ok := b.inetRouters[peerID]; ok {
+			return node.RelayedBy
+		}
+	}
+	if bypass && b.peerIsBypassDirectEgress(node, peer) {
+		return node.RelayedBy
+	}
+	return ""
+}
+
+// peerIsBypassDirectEgress reports whether peer is a site-egress router the exit
+// client keeps as a direct WireGuard peer under BypassEgressRoutes (same gates
+// as canBypassForceDirectPeer + specific egress in peer update).
+func (b *networkStatusBuilder) peerIsBypassDirectEgress(node, peer *models.Node) bool {
+	if node == nil || peer == nil {
+		return false
+	}
+	peerID := peer.ID.String()
+	if _, auto := node.AutoRelayedPeers[peerID]; auto {
+		return false
+	}
+	if peer.IsRelayed && peer.RelayedBy != node.ID.String() {
+		return false
+	}
+	for i := range b.egresses {
+		e := &b.egresses[i]
+		if IsEgressInternetGateway(*e) {
+			continue
+		}
+		if routedBy(b.routers[e.ID], peerID) {
+			return true
+		}
+	}
+	return false
 }
 
 // routesEgress reports whether the node routes any active non-internet egress,

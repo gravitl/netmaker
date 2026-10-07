@@ -486,9 +486,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// egress is not forced direct — AllowedIPs go via the client's exit
 				// on both legs (client→exit and site→client's exit).
 				// Exit clients keep ACL-allowed internet exits as direct peers.
-				// User devices keep ACL-allowed non-relayed gateways/relays even when
-				// the device itself is relayed. Relayed infra nodes do not keep
-				// exits as separate peers.
+				// User devices on a normal relay keep ACL-allowed non-relayed
+				// gateways; exit clients do not — mesh goes via the exit.
+				// Relayed infra nodes do not keep exits as separate peers.
 				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, allowedToComm, inetExitRouterIDs) {
 					retainDespiteRelay = true
 					// fall through to normal peer config
@@ -1212,11 +1212,11 @@ func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool,
 			return true
 		}
 	}
-	// User devices: if the device itself is relayed (or the peer is flagged
-	// auto-relay), keep ACL-allowed *non-relayed* peers (gateways/relays/exits).
-	// Relayed destinations still go via RelayedBy (peer.IsRelayed → not retained).
-	// Without this, a simple user→gateway policy yields an empty peer list.
-	if allowedToComm && IsUserOwnedDevice(node) && peer != nil && !peer.IsRelayed && !isAutoRelayPeer {
+	// User devices relayed by a normal relay (not an internet exit client) keep
+	// ACL-allowed non-relayed peers as direct. Exit clients only keep exits and
+	// (with BypassEgressRoutes) specific egress — other mesh goes via the exit.
+	if allowedToComm && IsUserOwnedDevice(node) && !nodeIsInternetExitClient(node) &&
+		peer != nil && !peer.IsRelayed && !isAutoRelayPeer {
 		return true
 	}
 	// Reverse: exit routers keep ACL-allowed clients that use an exit so handshakes work.

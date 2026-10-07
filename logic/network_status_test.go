@@ -13,7 +13,7 @@ import (
 )
 
 func TestPeerRelayNodeID(t *testing.T) {
-	nodeID, peerID, relayID, autoRelayID := uuid.New(), uuid.New(), uuid.New().String(), uuid.New().String()
+	nodeID, peerID, relayID, peerRelayID, autoRelayID := uuid.New(), uuid.New(), uuid.New().String(), uuid.New().String(), uuid.New().String()
 	newNode := func(id uuid.UUID) *models.Node {
 		n := &models.Node{}
 		n.ID = id
@@ -21,38 +21,53 @@ func TestPeerRelayNodeID(t *testing.T) {
 	}
 
 	tests := []struct {
-		name  string
-		setup func(node, peer *models.Node)
-		want  string
+		name            string
+		setup           func(node, peer *models.Node)
+		ignoreRelayedBy string
+		want            string
 	}{
-		{"direct", func(node, peer *models.Node) {}, ""},
+		{"direct", func(node, peer *models.Node) {}, "", ""},
 		{"auto relayed", func(node, peer *models.Node) {
 			node.AutoRelayedPeers = map[string]string{peerID.String(): autoRelayID}
-		}, autoRelayID},
+		}, "", autoRelayID},
 		{"node relayed", func(node, peer *models.Node) {
 			node.IsRelayed, node.RelayedBy = true, relayID
-		}, relayID},
+		}, "", relayID},
 		{"peer relayed", func(node, peer *models.Node) {
 			peer.IsRelayed, peer.RelayedBy = true, relayID
-		}, relayID},
+		}, "", relayID},
+		{"peer relay wins over viewer exit hairpin", func(node, peer *models.Node) {
+			node.IsRelayed, node.RelayedBy = true, relayID
+			peer.IsRelayed, peer.RelayedBy = true, peerRelayID
+		}, "", peerRelayID},
 		{"node relayed by the peer itself", func(node, peer *models.Node) {
 			node.IsRelayed, node.RelayedBy = true, peerID.String()
-		}, ""},
+		}, "", ""},
 		{"peer relayed by the node itself", func(node, peer *models.Node) {
 			peer.IsRelayed, peer.RelayedBy = true, nodeID.String()
-		}, ""},
+		}, "", ""},
+		{"ignore exit RelayedBy on node", func(node, peer *models.Node) {
+			node.IsRelayed, node.RelayedBy = true, relayID
+		}, relayID, ""},
+		{"ignore exit RelayedBy on peer", func(node, peer *models.Node) {
+			peer.IsRelayed, peer.RelayedBy = true, relayID
+		}, relayID, ""},
+		{"auto relay wins over ignore", func(node, peer *models.Node) {
+			node.IsRelayed, node.RelayedBy = true, relayID
+			node.AutoRelayedPeers = map[string]string{peerID.String(): autoRelayID}
+		}, relayID, autoRelayID},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			node, peer := newNode(nodeID), newNode(peerID)
 			tt.setup(node, peer)
-			if got := peerRelayNodeID(node, peer); got != tt.want {
+			if got := peerRelayNodeID(node, peer, tt.ignoreRelayedBy); got != tt.want {
 				t.Fatalf("peerRelayNodeID() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 
-	if got := peerRelayNodeID(newNode(nodeID), nil); got != "" {
+	if got := peerRelayNodeID(newNode(nodeID), nil, ""); got != "" {
 		t.Fatalf("peerRelayNodeID() with unknown peer = %q, want empty", got)
 	}
 }
@@ -224,24 +239,27 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 		// An active exit relays the node through the exit routing node (IGW client).
 		exitClient.IsRelayed, exitClient.RelayedBy, exitClient.InternetGwID = true, exit.ID.String(), exit.ID.String()
 
-		// The node reaches the exit at 30ms and backup directly at 12ms. The exit
-		// reaches backup at 5ms and primary at 4ms, so primary wins via the exit.
-		// Backup is also auto-relayed for the node, which bypass must ignore.
-		exitClient.AutoRelayedPeers = map[string]string{backup.ID.String(): gw.ID.String()}
+		// The node reaches the exit at 30ms and backup/primary; the exit reaches
+		// primary at 4ms and backup at 5ms, so primary wins via the exit.
 		stubMetrics(t, map[string]map[string]models.Metric{
 			node.ID.String(): {
 				exit.ID.String():    {Connected: true, Latency: 30, PercentUp: 97},
-				primary.ID.String(): {Connected: false, Latency: 999},
+				primary.ID.String(): {Connected: true, Latency: 15, PercentUp: 99},
 				backup.ID.String():  {Connected: true, Latency: 12, PercentUp: 99.5},
+				gw.ID.String():      {Connected: true, Latency: 8, PercentUp: 100},
 			},
 			exit.ID.String(): {
 				primary.ID.String(): {Connected: true, Latency: 4, PercentUp: 95},
 				backup.ID.String():  {Connected: true, Latency: 5, PercentUp: 99},
 			},
+			gw.ID.String(): {
+				backup.ID.String(): {Connected: true, Latency: 6, PercentUp: 90},
+			},
 		})
 
-		b := newTestStatusBuilder(eli, NetworkStatusOptions{IncludeEgress: true}, &exitClient, primary, backup, exit, gw)
-		e := b.nodeNetworkStatus(&exitClient).Egresses[0]
+		b := newTestStatusBuilder(eli, NetworkStatusOptions{IncludeEgress: true, IncludePeers: true}, &exitClient, primary, backup, exit, gw)
+		got := b.nodeNetworkStatus(&exitClient)
+		e := got.Egresses[0]
 		if !e.IsRelayed || (e.Via == nil || e.Via.ID != exit.ID.String()) {
 			t.Fatalf("without bypass: link = %+v, want relayed via exit", e)
 		}
@@ -249,21 +267,111 @@ func TestNodeNetworkStatusEgresses(t *testing.T) {
 			e.LatencyMs != 34 || e.PercentUp != 95 {
 			t.Fatalf("without bypass: path = %+v, want primary via exit at 34ms", e)
 		}
+		for _, p := range got.Peers {
+			if p.PeerID == exit.ID.String() {
+				if p.IsRelayed {
+					t.Fatalf("without bypass: exit peer should not be relayed, got %+v", p)
+				}
+				continue
+			}
+			if !p.IsRelayed || p.Via == nil || p.Via.ID != exit.ID.String() {
+				t.Fatalf("without bypass: peer %s = %+v, want relayed via exit", p.PeerID, p)
+			}
+		}
 
 		bypassing := append([]schema.Egress(nil), eli...)
 		bypassing[1].BypassEgressRoutes = true
-		b = newTestStatusBuilder(bypassing, NetworkStatusOptions{IncludeEgress: true}, &exitClient, primary, backup, exit, gw)
-		got := b.nodeNetworkStatus(&exitClient)
+		b = newTestStatusBuilder(bypassing, NetworkStatusOptions{IncludeEgress: true, IncludePeers: true}, &exitClient, primary, backup, exit, gw)
+		got = b.nodeNetworkStatus(&exitClient)
 		e = got.Egresses[0]
 		if e.IsRelayed || e.Via != nil {
-			t.Fatalf("with bypass: link = %+v, want direct", e)
+			t.Fatalf("with bypass: egress link = %+v, want direct", e)
 		}
-		if e.RoutingNode.ID != backup.ID.String() || !e.Connected || e.LatencyMs != 12 {
-			t.Fatalf("with bypass: path = %+v, want backup direct at 12ms", e)
+		if e.RoutingNode.ID != primary.ID.String() || !e.Connected || e.LatencyMs != 15 {
+			t.Fatalf("with bypass: path = %+v, want primary direct at 15ms", e)
 		}
 		// The exit itself is still reached directly for internet traffic.
 		if inet := got.Egresses[1]; !inet.IsInternet || inet.IsRelayed || inet.LatencyMs != 30 {
 			t.Fatalf("with bypass: internet egress = %+v, want direct to exit at 30ms", inet)
+		}
+		// With bypass: site-egress routers are direct; plain gateway still via exit.
+		for _, p := range got.Peers {
+			switch p.PeerID {
+			case exit.ID.String(), primary.ID.String(), backup.ID.String():
+				if p.IsRelayed {
+					t.Fatalf("with bypass: peer %s = %+v, want direct (exit/egress)", p.PeerID, p)
+				}
+			case gw.ID.String():
+				if !p.IsRelayed || p.Via == nil || p.Via.ID != exit.ID.String() {
+					t.Fatalf("with bypass: plain gateway peer = %+v, want via exit", p)
+				}
+			}
+		}
+
+		// Alternate exit routers (not RelayedBy) stay direct for exit clients.
+		altExit := newTestNode()
+		eliAlt := append([]schema.Egress(nil), bypassing...)
+		eliAlt[1].Nodes = datatypes.JSONMap{
+			exit.ID.String():    json.Number("1"),
+			altExit.ID.String(): json.Number("1"),
+		}
+		stubMetrics(t, map[string]map[string]models.Metric{
+			node.ID.String(): {
+				exit.ID.String():    {Connected: true, Latency: 30, PercentUp: 97},
+				altExit.ID.String(): {Connected: true, Latency: 126, PercentUp: 80},
+				primary.ID.String(): {Connected: true, Latency: 15, PercentUp: 99},
+				gw.ID.String():      {Connected: true, Latency: 8, PercentUp: 100},
+			},
+		})
+		b = newTestStatusBuilder(eliAlt, NetworkStatusOptions{IncludePeers: true}, &exitClient, primary, exit, altExit, gw)
+		got = b.nodeNetworkStatus(&exitClient)
+		for _, p := range got.Peers {
+			switch p.PeerID {
+			case altExit.ID.String(), exit.ID.String():
+				if p.IsRelayed {
+					t.Fatalf("alternate exit peer %s = %+v, want direct", p.PeerID, p)
+				}
+			case gw.ID.String():
+				if !p.IsRelayed || p.Via == nil || p.Via.ID != exit.ID.String() {
+					t.Fatalf("plain gateway with alternate exit = %+v, want via RelayedBy", p)
+				}
+			}
+		}
+
+		// Auto-relay still applies under bypass — traffic is not forced direct.
+		exitClient.AutoRelayedPeers = map[string]string{backup.ID.String(): gw.ID.String()}
+		stubMetrics(t, map[string]map[string]models.Metric{
+			node.ID.String(): {
+				exit.ID.String():    {Connected: true, Latency: 30, PercentUp: 97},
+				primary.ID.String(): {Connected: true, Latency: 15, PercentUp: 99},
+				backup.ID.String():  {Connected: true, Latency: 12, PercentUp: 99.5},
+				gw.ID.String():      {Connected: true, Latency: 8, PercentUp: 100},
+			},
+			gw.ID.String(): {
+				backup.ID.String(): {Connected: true, Latency: 6, PercentUp: 90},
+			},
+		})
+		// Prefer backup via metric so the auto-relayed router is the one in use.
+		eliAuto := append([]schema.Egress(nil), bypassing...)
+		eliAuto[0].Nodes = datatypes.JSONMap{backup.ID.String(): json.Number("10"), primary.ID.String(): json.Number("20")}
+		b = newTestStatusBuilder(eliAuto, NetworkStatusOptions{IncludeEgress: true, IncludePeers: true}, &exitClient, primary, backup, exit, gw)
+		got = b.nodeNetworkStatus(&exitClient)
+		e = got.Egresses[0]
+		if e.RoutingNode.ID != backup.ID.String() || !e.IsRelayed || e.Via == nil || e.Via.ID != gw.ID.String() ||
+			e.LatencyMs != 14 || e.PercentUp != 90 {
+			t.Fatalf("with bypass+auto-relay: path = %+v, want backup via auto-relay at 14ms", e)
+		}
+		for _, p := range got.Peers {
+			switch p.PeerID {
+			case backup.ID.String():
+				if !p.IsRelayed || p.Via == nil || p.Via.ID != gw.ID.String() {
+					t.Fatalf("with bypass+auto-relay: backup peer = %+v, want via gw", p)
+				}
+			case primary.ID.String(), exit.ID.String():
+				if p.IsRelayed {
+					t.Fatalf("with bypass+auto-relay: peer %s = %+v, want direct", p.PeerID, p)
+				}
+			}
 		}
 	})
 

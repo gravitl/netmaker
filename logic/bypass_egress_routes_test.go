@@ -415,8 +415,8 @@ func TestShouldRetainPeerDespiteRelay_RelayedNonExitDoesNotKeepExitDirect(t *tes
 func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T) {
 	relayID := uuid.New()
 	gwID := uuid.New()
-	// User device that is itself relayed (e.g. via exit/auto-relay path) must still
-	// keep an ACL-allowed gateway as a direct peer.
+	// User device relayed by a normal relay (not an exit client) must still keep
+	// an ACL-allowed gateway as a direct peer.
 	userDev := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:      uuid.New(),
@@ -427,6 +427,7 @@ func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T
 	userDev.IsRelayed = true
 	userDev.RelayedBy = relayID.String()
 	require.True(t, IsUserOwnedDevice(userDev))
+	require.False(t, nodeIsInternetExitClient(userDev))
 
 	gw := &models.Node{
 		CommonNode: models.CommonNode{
@@ -447,6 +448,43 @@ func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T
 	relayedDest.RelayedBy = gwID.String()
 	assert.False(t, shouldRetainPeerDespiteRelay(userDev, relayedDest, false, false, true, nil),
 		"user device must not force-direct a relayed destination")
+}
+
+func TestShouldRetainPeerDespiteRelay_UserDeviceOnExitDoesNotKeepPlainGateway(t *testing.T) {
+	exitID := uuid.New()
+	gwID := uuid.New()
+	userDev := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+		OwnerID: "abhi",
+	}
+	userDev.IsRelayed = true
+	userDev.RelayedBy = exitID.String()
+	userDev.InternetGwID = exitID.String()
+	userDev.SelectedInternetEgressID = "inet"
+	require.True(t, IsUserOwnedDevice(userDev))
+	require.True(t, nodeIsInternetExitClient(userDev))
+
+	gw := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      gwID,
+			Network: "testnet",
+		},
+	}
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
+		"exit client must not keep a plain gateway as a direct peer; mesh goes via exit")
+
+	exit := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      exitID,
+			Network: "testnet",
+		},
+	}
+	exitIDs := map[string]struct{}{exitID.String(): {}}
+	assert.True(t, shouldRetainPeerDespiteRelay(userDev, exit, false, false, true, exitIDs),
+		"exit client keeps the exit as a direct peer")
 }
 
 func TestInternetEgressRoutingNodeIDsFromList(t *testing.T) {
