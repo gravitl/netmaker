@@ -397,8 +397,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") == "no" {
+	if !logic.IsAPIKeyAuth(r.Context()) && r.Header.Get("ismaster") == "no" {
+		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.Get(r.Context())
 		if err != nil {
@@ -415,6 +415,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := nodes[:0]
+		for _, node := range nodes {
+			if logic.APIKeyHasNetworkAccess(r.Context(), node.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, node)
+			}
+		}
+		nodes = filtered
+	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {

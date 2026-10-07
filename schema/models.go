@@ -6,6 +6,7 @@ func ListModels() []interface{} {
 		&Job{},
 		&Egress{},
 		&UserAccessToken{},
+		&APIKey{},
 		&Event{},
 		&PendingHost{},
 		&Nameserver{},
