@@ -127,6 +127,10 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	e := schema.Egress{
 		ID:                 uuid.New().String(),
 		TenantID:           scope.ID(r.Context()),
@@ -350,6 +354,14 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.Network != e.Network {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
@@ -564,6 +576,10 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	err := e.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	err = e.Delete(db.WithContext(r.Context()))

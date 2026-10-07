@@ -83,6 +83,10 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	if err := logic.ValidateNameserverReq(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -223,7 +227,6 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -255,6 +258,14 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	err = ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if updateNs.NetworkID != ns.NetworkID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), ns.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	var updateStatus bool
@@ -363,6 +374,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), ns.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	if ns.Default {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default nameservers"), logic.BadReq))
 		return
@@ -437,6 +452,15 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := dns[:0]
+		for _, entry := range dns {
+			if logic.APIKeyHasNetworkAccess(r.Context(), entry.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, entry)
+			}
+		}
+		dns = filtered
 	}
 	logic.SortDNSEntrys(dns[:])
 	w.WriteHeader(http.StatusOK)

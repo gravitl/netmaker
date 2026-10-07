@@ -206,6 +206,9 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
@@ -256,6 +259,9 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 
 	total, err := (&schema.Host{}).Count(
@@ -893,6 +899,14 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host IDs provided"), logic.BadReq))
 		return
 	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		for _, idStr := range req.IDs {
+			if !logic.HostInAPIKeyScope(r.Context(), idStr, schema.APIKeyPermissionModify) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(logic.Forbidden_Msg), logic.Forbidden))
+				return
+			}
+		}
+	}
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
 
@@ -1446,6 +1460,15 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
+				filtered = append(filtered, host)
+			}
+		}
+		hosts = filtered
+	}
 	go func() {
 		hostUpdate := models.HostUpdate{}
 		hostUpdate.Action = models.UpdateKeys
@@ -1550,15 +1573,24 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Header.Get("user")
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		slog.Info("requesting all hosts to sync", "user", user)
-
-		hosts, err := (&schema.Host{}).ListAll(ctx)
-		if err != nil {
-			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
-			return
+	hosts, err := (&schema.Host{}).ListAll(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
+				filtered = append(filtered, host)
+			}
 		}
+		hosts = filtered
+	}
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, hosts []schema.Host) {
+		slog.Info("requesting all hosts to sync", "user", user)
 
 		for _, host := range hosts {
 			go func(host schema.Host) {
@@ -1566,7 +1598,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 					Action: models.RequestPull,
 					Host:   host,
 				}
-				if err = mq.HostUpdate(&hostUpdate); err != nil {
+				if err := mq.HostUpdate(&hostUpdate); err != nil {
 					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
 				} else {
 					slog.Info("host sync requested", "user", user, "host", host.ID.String())
@@ -1574,7 +1606,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 			time.Sleep(time.Millisecond * 100)
 		}
-	}(ctx)
+	}(ctx, hosts)
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
@@ -2045,4 +2077,15 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 			continue
 		}
 	}
+}
+
+// filterAPIHostsByAPIKey keeps hosts whose networks are entirely within the API key scope.
+func filterAPIHostsByAPIKey(ctx context.Context, hosts []models.ApiHost) []models.ApiHost {
+	filtered := make([]models.ApiHost, 0, len(hosts))
+	for _, host := range hosts {
+		if logic.HostInAPIKeyScope(ctx, host.ID, schema.APIKeyPermissionRead) {
+			filtered = append(filtered, host)
+		}
+	}
+	return filtered
 }
