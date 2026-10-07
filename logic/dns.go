@@ -93,7 +93,10 @@ func CreateFallbackNameserver(network *schema.Network) error {
 			"2001:4860:4860::8888",
 			"2001:4860:4860::8844",
 		},
-		Tags: map[string]interface{}{
+		Tags: map[string]any{
+			"*": "",
+		},
+		Users: map[string]any{
 			"*": "",
 		},
 		Status:    true,

@@ -223,6 +223,11 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network
 	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
 		dn.Joined = true
 		dn.Connected = node.Connected
+		violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(network.Name), true)
+		if len(violations) > 0 {
+			dn.Status = models.DeviceNetworkStatusBlocked
+			return
+		}
 		if node.Connected {
 			dn.Status = models.DeviceNetworkStatusJoined
 		} else {
@@ -284,17 +289,18 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 	if err := network.Get(ctx); err != nil {
 		return empty, fmt.Errorf("network not found: %w", err)
 	}
+
+	violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(networkID), true)
+	if len(violations) > 0 {
+		return empty, errors.New("access blocked: this device doesn't meet security requirements")
+	}
+
 	if DoesHostExistInTheNetworkAlready(host, network) {
 		// Node may already exist but be disconnected after JIT expiry — reconnect.
 		if err := reconnectUserDeviceNode(ctx, host, networkID); err != nil {
 			return empty, err
 		}
 		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
-	}
-
-	violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(networkID), true)
-	if len(violations) > 0 {
-		return empty, errors.New("access blocked: this device doesn't meet security requirements")
 	}
 
 	if deviceJoinRequiresApproval(ctx, *network, user) {

@@ -637,3 +637,79 @@ func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "host already registered to another tenant", err.Error())
 }
+
+func TestJoinDeviceNetworkBlocksReconnectOnPostureViolation(t *testing.T) {
+	ctx := scopedTestContext(t)
+	netName := "posture-reconnect-" + uuid.NewString()[:8]
+	username := "posture-reconnect-user-" + uuid.NewString()[:8]
+
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
+		Name:         netName,
+		AddressRange: "10.91.0.0/24",
+		AutoJoin:     true,
+	}))
+	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
+
+	net := &schema.Network{Name: netName}
+	require.NoError(t, net.Get(ctx))
+
+	user := &schema.User{Username: username, PlatformRoleID: schema.PlatformUser}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "posture-reconnect-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		OwnerUsername:    username,
+	}
+	require.NoError(t, host.Create(ctx))
+	t.Cleanup(func() { _ = host.Delete(ctx) })
+
+	nodeID := uuid.NewString()
+	node := &schema.Node{
+		ID:        nodeID,
+		TenantID:  scope.ID(ctx),
+		HostID:    hostID.String(),
+		NetworkID: net.ID,
+		Address:   "10.91.0.10",
+		Connected: false,
+		Status:    schema.Disconnected,
+	}
+	require.NoError(t, node.Create(ctx))
+	t.Cleanup(func() { _ = node.Delete(ctx) })
+
+	origJITAccess := CheckJITAccess
+	t.Cleanup(func() { CheckJITAccess = origJITAccess })
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
+		return true, nil, nil
+	}
+
+	origPosture := CheckPostureViolationsForHost
+	t.Cleanup(func() { CheckPostureViolationsForHost = origPosture })
+	CheckPostureViolationsForHost = func(context.Context, *schema.Host, map[models.TagID]struct{}, schema.NetworkID, bool) ([]models.Violation, schema.Severity) {
+		return []models.Violation{{CheckID: "os"}}, schema.SeverityHigh
+	}
+
+	joined := false
+	origJoin := JoinHostToNetworks
+	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+		joined = true
+	}
+
+	_, err := JoinDeviceNetwork(ctx, user, host, netName)
+	require.Error(t, err)
+	assert.Equal(t, "access blocked: this device doesn't meet security requirements", err.Error())
+	assert.False(t, joined, "must not create a new join when posture fails on reconnect")
+
+	// Existing node must stay disconnected.
+	check := &schema.Node{ID: nodeID}
+	require.NoError(t, check.Get(ctx))
+	assert.False(t, check.Connected)
+}

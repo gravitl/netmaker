@@ -22,6 +22,34 @@ func IsUserOwnedHost(h *schema.Host) bool {
 	return h != nil && h.OwnerUsername != ""
 }
 
+// ListPostureViolatedUserOwnedDevices returns host-backed user devices on the
+// network that have a non-unknown posture severity (for Non-compliant Users).
+func ListPostureViolatedUserOwnedDevices(ctx context.Context, networkName string) ([]models.Node, error) {
+	network := &schema.Network{Name: networkName}
+	if err := network.Get(ctx); err != nil {
+		return nil, err
+	}
+	_nodes, err := (&schema.Node{}).ListAll(
+		ctx,
+		dbtypes.WithPreloads("Host"),
+		dbtypes.WithFilter("network_id", network.ID),
+		dbtypes.WithNotFilter("posture_check_severity", schema.SeverityUnknown),
+	)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]models.Node, 0)
+	for i := range _nodes {
+		_nodes[i].Network = network
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i])
+		if node == nil || !IsUserOwnedDevice(node) {
+			continue
+		}
+		out = append(out, *node)
+	}
+	return out, nil
+}
+
 // skipPeerUpdateAclCalc reports whether GetPeerUpdateForHost should skip
 // FwUpdate ACL calculation. User policies are unidirectional to servers and
 // are emitted on the server host's peer update instead.
