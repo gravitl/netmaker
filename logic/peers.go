@@ -485,8 +485,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// CIDRs do not hairpin through the exit. Relayed/auto-relayed site
 				// egress is not forced direct — AllowedIPs go via the client's exit
 				// on both legs (client→exit and site→client's exit).
-				// ACL-allowed internet exit routers stay as direct peers so clients can
-				// reach/probe alternate exits (default routes still only on the selected exit).
+				// Exit clients keep ACL-allowed internet exits as direct peers.
+				// User devices keep ACL-allowed non-relayed gateways/relays even when
+				// the device itself is relayed. Relayed infra nodes do not keep
+				// exits as separate peers.
 				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, allowedToComm, inetExitRouterIDs) {
 					retainDespiteRelay = true
 					// fall through to normal peer config
@@ -1021,10 +1023,14 @@ func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models
 		// mesh peers (including peers auto-relayed by this exit). 0.0.0.0/0 alone is
 		// not sufficient when auto-relayed peers must accept return traffic / when
 		// default-route handling is separate from overlay.
-		// Always attach via the selected exit (this peer), even when RelayedBy is
-		// stale — relayed site-egress AllowedIPs must land here, not on the site's
-		// own RelayedBy (often another exit/relay).
-		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
+		//
+		// Attach when RelayedBy matches this exit, or when the client is still
+		// marked IsRelayed but RelayedBy is stale — GetAllowedIpsForRelayed accepts
+		// InternetExitRoutingNodeID as well. Do not call for InternetGwID-only
+		// fixtures that never entered the relayed path (unit tests without a DB).
+		if node.RelayedBy == peer.ID.String() || node.IsRelayed {
+			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
+		}
 		// handle ingress gateway peers
 		if peer.IsIngressGateway {
 			extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
@@ -1065,6 +1071,15 @@ func usesPeerAsInternetExit(node, peer *models.Node) bool {
 	}
 	routingNodeID := InternetExitRoutingNodeID(node)
 	return routingNodeID != "" && routingNodeID == peer.ID.String()
+}
+
+// nodeIsInternetExitClient reports whether node is configured to use an internet
+// exit (selected egress and/or legacy InternetGwID), even if RelayedBy is stale.
+func nodeIsInternetExitClient(node *models.Node) bool {
+	if node == nil {
+		return false
+	}
+	return node.SelectedInternetEgressID != "" || node.InternetGwID != ""
 }
 
 // authorizedEgressDetails keeps only snapshot ranges whose egress the node may use.
@@ -1189,18 +1204,25 @@ func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool,
 	if usesPeerAsInternetExit(node, peer) || usesPeerAsInternetExit(peer, node) {
 		return true
 	}
-	// ACL-allowed internet exit routers stay as direct peers so clients can
-	// reach/probe every permitted exit. Default routes still only attach via
-	// usesPeerAsInternetExit.
-	if allowedToComm && peer != nil {
+	// ACL-allowed internet exit routers stay as direct peers for exit clients
+	// (probe/switch exits). Relayed infra nodes that are not exit clients must
+	// not keep exits as separate peers — those overlays ride RelayedBy.
+	if allowedToComm && peer != nil && nodeIsInternetExitClient(node) {
 		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
 			return true
 		}
 	}
+	// User devices: if the device itself is relayed (or the peer is flagged
+	// auto-relay), keep ACL-allowed *non-relayed* peers (gateways/relays/exits).
+	// Relayed destinations still go via RelayedBy (peer.IsRelayed → not retained).
+	// Without this, a simple user→gateway policy yields an empty peer list.
+	if allowedToComm && IsUserOwnedDevice(node) && peer != nil && !peer.IsRelayed && !isAutoRelayPeer {
+		return true
+	}
 	// Reverse: exit routers keep ACL-allowed clients that use an exit so handshakes work.
 	if allowedToComm && node != nil && peer != nil {
 		if _, ok := inetExitRouterIDs[node.ID.String()]; ok {
-			if peer.SelectedInternetEgressID != "" || peer.InternetGwID != "" {
+			if nodeIsInternetExitClient(peer) {
 				return true
 			}
 		}

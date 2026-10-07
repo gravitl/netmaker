@@ -1,6 +1,6 @@
 ---
 description: Netmaker ACL model — user devices vs resources, egress/exit enforcement, NM-356 constraints
-globs: logic/acls*.go,logic/peers.go,logic/user_owned_device*.go,logic/exit_node*.go,logic/egress.go,pro/logic/acls.go,pro/logic/user_device_acls*.go,pro/logic/posture_check*.go,pro/initialize.go,controllers/acls.go,controllers/device.go,controllers/egress.go
+globs: logic/acls*.go,logic/peers.go,logic/relay.go,logic/bypass_egress_routes*.go,logic/user_owned_device*.go,logic/exit_node*.go,logic/egress.go,pro/logic/acls.go,pro/logic/user_device_acls*.go,pro/logic/posture_check*.go,pro/initialize.go,controllers/acls.go,controllers/device.go,controllers/egress.go
 alwaysApply: false
 ---
 
@@ -25,7 +25,7 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 1. **Legacy RAC** — `ExtClient` with `RemoteAccessClientID`, modeled as static user nodes (`IsStatic` + `IsUserNode`).
 2. **Host-backed user device (NM-356)** — real WireGuard node on a host with `schema.Host.OwnerUsername`.
    - Detect: `IsUserOwnedDevice(n)` → `!IsStatic && !IsUserNode && NodeOwnerUsername(n) != ""`.
-   - Ownership: `Host.OwnerUsername` → often copied to `node.OwnerID` via `attachUserOwnedDeviceMetadata` (API/preload). If Host is not preloaded, set `OwnerID` from the host you already have.
+   - Ownership: `Host.OwnerUsername` → often copied to `node.OwnerID` via `attachUserOwnedDeviceMetadata` (API/preload). If Host is not preloaded, set `OwnerID` from the host you already have (`ensureUserDeviceOwnerID` on peer-update paths that need `PeerAllowed`).
    - **Never** convert user devices into fake static/RAC nodes for ACL.
    - **Never** set `IsUserNode=true` on host-backed devices (breaks posture / device ACL paths).
 
@@ -87,10 +87,17 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 - `postureCheckAppliesToSubject`: Tags `*` (All Resources) matches **infra hosts only** (`Username == ""`). Host-backed user devices and RAC (`IsUser` / `Username` set) match via **UserGroups** (All Users), not All Resources.
 - Do not set `IsUser=true` on host-backed devices; they keep the host evaluation path (`AutoUpdate`, MDM/EDR) but still attach owner groups.
 
-### Ingress gateway FwRules
+### Ingress gateway FwRules / user device ↔ extclient
 
-- `GetFwRulesOnIngressGateway`: skip granting mesh range to relayed user devices under default device policy; use `GetFwRulesForUserDevicesOnGw` for user-policy-based rules (all user devices on the network, not only RelayedBy — needed for tagged/static extclients).
-- User device ↔ static/tagged extclient: `IsUserAllowedToCommunicate` treats the ingress as allowed when any attached non-RAC extclient matches the user policy (peering / AllowedIPs via the gateway).
+- `GetFwRulesOnIngressGateway`: skip granting mesh range to relayed user devices under default device policy; use `GetFwRulesForUserDevicesOnGw` for user-policy-based rules.
+- **All user devices on the network**, not only `RelayedBy` — host-backed devices peer with the ingress directly (no `IngressGatewayID`).
+- User device ↔ static/tagged extclient peering: `IsUserAllowedToCommunicate` treats the **ingress** as allowed when any attached **non-RAC** extclient matches the user policy (`userAllowedToAnyExtClientOnIngress`), so AllowedIPs via that gateway work when the policy only names tags/ClientIDs.
+- User device ↔ **relayed** resource: relayed peers are not kept as direct WG peers. `PeerAllowed` must allow the **RelayedBy** when the user may reach any of its `RelayedNodes` (`userAllowedViaRelayPeer`). `RelayedAllowedIPs` for user-device viewers only includes RelayedNodes the owner may reach.
+- User device that is **itself** relayed must still **retain** ACL-allowed non-relayed gateways/relays (`shouldRetainPeerDespiteRelay` + `IsUserOwnedDevice`). Stripping those yields an empty peer list for simple user→gateway policies.
+- **Return path (relayed site → user device):** the relayed node does not keep the user as a direct peer. `GetAllowedIpsForRelayed` (on the RelayedBy peer) must advertise the user overlay `/32`/`/128` when `PeerAllowed` says yes. Skip under RelayedBy **only** when `canBypassForceDirectPeer` keeps that client as a direct peer of the site; a **relayed** site cannot keep the client direct — omitting them orphans return traffic (ping relay OK, ping relayed fails).
+- When an extclient is allowed, also emit FwRules for its **`ExtraAllowedIPs`** (additional CIDRs behind the client) — overlay `/32` alone is not enough. Same idea as device-policy `GetFwRulesForNodeAndPeerOnGw`.
+- Routing side (already via `GetExtPeers` / `getExtpeersExtraRoutes` + `extClientEgressAllowed` → `PeerAllowed` for user devices): ExtraAllowedIPs must appear on the ingress peer’s AllowedIPs / EgressRoutes for the user device when access is granted.
+- Leave RAC `GetFwRulesForUserNodesOnGw` alone unless the task explicitly requires RAC changes; host-backed path is `GetFwRulesForUserDevicesOnGw` in `pro/logic/user_device_acls.go`.
 
 ## Defaults cheat sheet
 
@@ -109,14 +116,16 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 | Peer AllowAll / FwUpdate gating | `logic/peers.go` + `NetworkHasUserDevices` |
 | Exit list/select ACL | `deviceMaySelectExitNode` in `logic/exit_node.go` |
 | Peer allow / ownership | `logic/user_owned_device.go`, `pro/logic/acls.go` (`IsUserAllowedToCommunicate`) |
+| Relayed AllowedIPs / return path under RelayedBy | `logic/relay.go` (`GetAllowedIpsForRelayed`, `RelayedAllowedIPs`, `canBypassForceDirectPeer`) |
+| User device ↔ tagged/static extclient + ExtraAllowedIPs | `GetFwRulesForUserDevicesOnGw`, `userAllowedToAnyExtClientOnIngress`, `extClientEgressAllowed` / `GetExtPeers` |
 | Wire hooks | `pro/initialize.go` only (assign vars; don’t duplicate impl in CE) |
 
 ## Testing expectations
 
-- Targeted tests exist in `logic/acls_user_device_test.go`, `pro/logic/user_device_acls_test.go`, `logic/exit_node_test.go`.
-- Prefer small table/unit tests around helpers (drop user devices from `*`, no default-route site-to-site sources, exit picker ignores All Resources for user devices, IP-restricted user-device egress dst).
+- Targeted tests exist in `logic/acls_user_device_test.go`, `pro/logic/user_device_acls_test.go`, `pro/logic/user_device_extclient_test.go`, `logic/exit_node_test.go`.
+- Prefer small table/unit tests around helpers (drop user devices from `*`, no default-route site-to-site sources, exit picker ignores All Resources for user devices, IP-restricted user-device egress dst, user-device → tagged extclient + ExtraAllowedIPs on ingress FwRules).
 - Avoid full `TestCheckPorts` / hanging host-create suites when iterating.
-- After behavior changes that affect live firewall: verify on the **egress/routing host** `FwUpdate` (`allow_all`, `#user-device` rule `src`/`dst`, absence of `0.0.0.0/0 → egress LAN`).
+- After behavior changes that affect live firewall: verify on the **egress/routing host** `FwUpdate` (`allow_all`, `#user-device` rule `src`/`dst`, absence of `0.0.0.0/0 → egress LAN`); for extclients also check **ingress** `IngressInfo.Rules` include user-device → overlay and → ExtraAllowedIPs.
 
 ## Anti-patterns (seen in NM-356)
 
@@ -126,6 +135,12 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 - Assuming egress routing membership is only `e.Nodes` (ignore `e.Tags`).
 - Letting All Resources drive exit-node UI or user-device egress allow-all.
 - Broad rewrites of RAC paths “while we’re here.”
+- Restricting `GetFwRulesForUserDevicesOnGw` to `RelayedBy` only (misses direct-peered user devices → extclients).
+- Allowing an extclient overlay IP but omitting its **`ExtraAllowedIPs`** on ingress FwRules / peer AllowedIPs.
+- Requiring the ingress node itself in the user-policy destination list when the policy already grants a tagged/static extclient on that ingress.
+- Removing a relayed destination as a direct peer without allowing RelayedBy for the user device (empty peer list).
+- Omitting ACL-allowed user devices from `GetAllowedIpsForRelayed` on a relayed site (user `/32` missing on RelayedBy → forward via relay works, return fails).
+- Skipping bypass clients under RelayedBy when `!canBypassForceDirectPeer` (inverted gate — orphans clients the site cannot keep direct).
 
 ## Quick mental model
 
