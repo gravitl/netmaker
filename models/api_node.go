@@ -21,29 +21,29 @@ type ApiNodeStatus struct {
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	TenantID           string            `json:"tenant_id"`
-	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address            string            `json:"address" validate:"omitempty,cidrv4"`
-	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress       string            `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs         []string          `json:"allowedips"`
-	LastModified       int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn        int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate     int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network            string            `json:"network"`
-	NetworkRange       string            `json:"networkrange"`
-	NetworkRange6      string            `json:"networkrange6"`
-	IsRelayed          bool              `json:"isrelayed"`
-	IsRelay            bool              `json:"isrelay"`
-	IsGw               bool              `json:"is_gw"`
-	IsAutoRelay        bool              `json:"is_auto_relay"`
-	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
-	AutoAssignGateway  bool              `json:"auto_assign_gw"`
-	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
-	TcpProxyTLSMode    string            `json:"tcp_proxy_tls_mode"`
+	ID                     string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	TenantID               string            `json:"tenant_id"`
+	HostID                 string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                string            `json:"address" validate:"omitempty,cidrv4"`
+	Address6               string            `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress           string            `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs             []string          `json:"allowedips"`
+	LastModified           int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime     int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn            int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate         int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network                string            `json:"network"`
+	NetworkRange           string            `json:"networkrange"`
+	NetworkRange6          string            `json:"networkrange6"`
+	IsRelayed              bool              `json:"isrelayed"`
+	IsRelay                bool              `json:"isrelay"`
+	IsGw                   bool              `json:"is_gw"`
+	IsAutoRelay            bool              `json:"is_auto_relay"`
+	AutoRelayedPeers       map[string]string `json:"auto_relayed_peers"`
+	AutoAssignGateway      bool              `json:"auto_assign_gw"`
+	TcpProxyEnabled        bool              `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort     int               `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode        string            `json:"tcp_proxy_tls_mode"`
 	TcpProxyListenAddr     string            `json:"tcp_proxy_listen_addr,omitempty"`
 	TcpProxyPublicHostname string            `json:"tcp_proxy_public_hostname,omitempty"`
 	UseTcpUplink           bool              `json:"use_tcp_uplink"`
@@ -284,6 +284,14 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 		apiNode.IsUserNode = true
 		if apiNode.StaticNode.OwnerID == "" {
 			apiNode.StaticNode.OwnerID = nm.OwnerID
+		}
+		// Non-compliant Users UI reads violations from static_node (ExtClient shape).
+		if len(apiNode.StaticNode.PostureChecksViolations) == 0 && len(nm.PostureChecksViolations) > 0 {
+			apiNode.StaticNode.PostureChecksViolations = nm.PostureChecksViolations
+			apiNode.StaticNode.PostureCheckVolationSeverityLevel = nm.PostureCheckViolationSeverityLevel
+		}
+		if apiNode.StaticNode.LastEvaluatedAt.IsZero() && !nm.LastEvaluatedAt.IsZero() {
+			apiNode.StaticNode.LastEvaluatedAt = nm.LastEvaluatedAt
 		}
 	}
 	return &apiNode
