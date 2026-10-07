@@ -337,15 +337,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		// User hosts skip ACL/FwUpdate calc: user policies are uni user→server and
 		// are emitted on the server's peer update via GetUserAclRulesForNode.
 		if !skipPeerUpdateAclCalc(host) {
-			// The branch below publishes AllowAll plus one mesh-range rule with no
-			// destination, and skips the egress/inet rule generators entirely. That
-			// hands user devices every egress range, overriding the user policies
-			// that are supposed to narrow them, so networks holding user devices
-			// always take the full rule path.
-			if !NetworkHasUserDevices(currentPeers) &&
-				((defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-					(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
-						!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0))) {
+			// Both defaults on → AllowAll (user devices or not). Fine-grained
+			// user-device IP limits only apply when All Users is off, so either
+			// default off takes the full ACL / user-device rule path.
+			if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
 				aclRule := models.AclRule{
 					ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 					AllowedProtocol: models.ALL,
@@ -353,10 +348,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 					Allowed:         true,
 					IPList:          []net.IPNet{node.NetworkRange},
 					IP6List:         []net.IPNet{node.NetworkRange6},
-				}
-				if !(defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) {
-					aclRule.Dst = []net.IPNet{node.NetworkRange}
-					aclRule.Dst6 = []net.IPNet{node.NetworkRange6}
 				}
 				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, aclRule)
 			} else {

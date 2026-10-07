@@ -57,9 +57,8 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 
 ### Peer update / firewall (`logic/peers.go`)
 
-- If **network has any user device** (`NetworkHasUserDevices(currentPeers)`), do **not** take the AllowAll short-circuit even when both defaults are enabled.
-- AllowAll path publishes mesh-range source with **no Dst** and skips `GetAclRulesForNode` / `GetEgressRulesForNode` / inet rules — that overrides user IP limits.
-- Full rule path: `networkAllowAll=false`, `FwUpdate.AllowAll=false`, then generators run (and user-device hooks via defer).
+- **Both defaults on** (All Resources + All Users) → AllowAll short-circuit, including when user devices exist (All Users already grants broad user access).
+- **Either default off** → full rule path: `networkAllowAll=false`, `FwUpdate.AllowAll=false`, then `GetAclRulesForNode` / egress / user-device hooks (needed for custom user-policy IP limits).
 
 ### Egress forward rules (`GetEgressRulesForNode`)
 
@@ -105,7 +104,7 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 |------------|-----------------|--------------|
 | All Resources | Broad resource access | **Must not** grant mesh/egress/exit |
 | All Users | N/A (user policies) | Broad user access (existing RAC semantics) |
-| Both | Historically triggered AllowAll peer path | Must still take full rule path if any user device exists on the network |
+| Both | AllowAll peer path | AllowAll (no per-device rules); fine-grained rules only when a default is off |
 
 ## Where to change what
 
