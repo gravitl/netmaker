@@ -418,45 +418,54 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
-				bypassDirect := SelectedInternetEgressBypasses(&node) &&
-					(PeerAdvertisesSpecificEgress(&peer) || unfilteredSpecificEgress)
-				if !bypassDirect && isAutoRelayPeer && peerAutoRelayID != node.ID.String() {
-					// get relay host
-					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
-					if err == nil {
-						relayHost := &schema.Host{
-							ID: autoRelayNode.HostID,
-						}
-						err = relayHost.Get(ctx)
+				bypassOn := SelectedInternetEgressBypasses(&node)
+				specificEgress := PeerAdvertisesSpecificEgress(&peer) || unfilteredSpecificEgress
+				forceDirect := canBypassForceDirectPeer(&node, &peer, isAutoRelayPeer)
+				// Bypass keeps reachable site egress as a direct peer. Relayed /
+				// auto-relayed site egress is not forced direct — its AllowedIPs
+				// ride the exit peer (GetAllowedIpsForRelayed), so skip a separate
+				// EgressRoutes entry that would point at RelayedBy/auto-relay.
+				skipEgressRoutesViaExit := bypassOn && specificEgress && !forceDirect
+				if !skipEgressRoutesViaExit {
+					bypassDirect := bypassOn && specificEgress && forceDirect
+					if !bypassDirect && isAutoRelayPeer && peerAutoRelayID != node.ID.String() {
+						// get relay host
+						autoRelayNode, err := GetNodeByID(peerAutoRelayID)
 						if err == nil {
-							peerKey = relayHost.PublicKey.String()
+							relayHost := &schema.Host{
+								ID: autoRelayNode.HostID,
+							}
+							err = relayHost.Get(ctx)
+							if err == nil {
+								peerKey = relayHost.PublicKey.String()
+							}
 						}
 					}
-				}
-				if !bypassDirect && peer.IsRelayed && (peer.RelayedBy != node.ID.String()) {
-					// get relay host
-					relayNode, err := GetNodeByID(peer.RelayedBy)
-					if err == nil {
-						relayHost := &schema.Host{
-							ID: relayNode.HostID,
-						}
-						err := relayHost.Get(ctx)
+					if !bypassDirect && peer.IsRelayed && (peer.RelayedBy != node.ID.String()) {
+						// get relay host
+						relayNode, err := GetNodeByID(peer.RelayedBy)
 						if err == nil {
-							peerKey = relayHost.PublicKey.String()
+							relayHost := &schema.Host{
+								ID: relayNode.HostID,
+							}
+							err := relayHost.Get(ctx)
+							if err == nil {
+								peerKey = relayHost.PublicKey.String()
+							}
 						}
 					}
-				}
 
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
-					PeerKey:                peerKey,
-					EgressGwAddr:           peer.Address,
-					EgressGwAddr6:          peer.Address6,
-					NodeAddr:               node.Address,
-					NodeAddr6:              node.Address6,
-					EgressRanges:           filterConflictingEgressRoutes(node, peer),
-					EgressRangesWithMetric: filterConflictingEgressRoutesWithMetric(node, peer),
-					Network:                peer.Network,
-				})
+					hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
+						PeerKey:                peerKey,
+						EgressGwAddr:           peer.Address,
+						EgressGwAddr6:          peer.Address6,
+						NodeAddr:               node.Address,
+						NodeAddr6:              node.Address6,
+						EgressRanges:           filterConflictingEgressRoutes(node, peer),
+						EgressRangesWithMetric: filterConflictingEgressRoutesWithMetric(node, peer),
+						Network:                peer.Network,
+					})
+				}
 			}
 			if peer.IsIngressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
@@ -472,10 +481,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				// otherwise netclient IGW monitor fails with "peer not found".
 				//
 				// When BypassEgressRoutes is enabled on the selected internet egress,
-				// also retain authorized specific-egress gateways (and auto-relays
-				// that carry those ranges) so site CIDRs do not hairpin through the exit.
-				// The reverse also applies: specific-egress gateways retain bypass
-				// clients as direct peers so return traffic is not forced via the exit.
+				// retain reachable specific-egress gateways as direct peers so site
+				// CIDRs do not hairpin through the exit. Relayed/auto-relayed site
+				// egress is not forced direct — AllowedIPs go via the client's exit
+				// on both legs (client→exit and site→client's exit).
 				// ACL-allowed internet exit routers stay as direct peers so clients can
 				// reach/probe alternate exits (default routes still only on the selected exit).
 				if shouldRetainPeerDespiteRelay(&node, &peer, isAutoRelayPeer, unfilteredSpecificEgress, allowedToComm, inetExitRouterIDs) {
@@ -1012,9 +1021,10 @@ func GetAllowedIPs(ctx context.Context, node, peer *models.Node, metrics *models
 		// mesh peers (including peers auto-relayed by this exit). 0.0.0.0/0 alone is
 		// not sufficient when auto-relayed peers must accept return traffic / when
 		// default-route handling is separate from overlay.
-		if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-			allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
-		}
+		// Always attach via the selected exit (this peer), even when RelayedBy is
+		// stale — relayed site-egress AllowedIPs must land here, not on the site's
+		// own RelayedBy (often another exit/relay).
+		allowedips = append(allowedips, withoutDefaultRoutes(GetAllowedIpsForRelayed(ctx, node, peer))...)
 		// handle ingress gateway peers
 		if peer.IsIngressGateway {
 			extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
@@ -1167,42 +1177,6 @@ func PeerAdvertisesSpecificEgress(peer *models.Node) bool {
 	return false
 }
 
-// autoRelayCarriesSpecificEgressForNode reports whether autoRelayPeer is the auto-relay
-// for any peer that advertises specific egress ranges to node.
-func autoRelayCarriesSpecificEgressForNode(node, autoRelayPeer *models.Node) bool {
-	if node == nil || autoRelayPeer == nil || !autoRelayPeer.IsAutoRelay {
-		return false
-	}
-	if node.Mutex != nil {
-		node.Mutex.Lock()
-	}
-	autoRelayed := make(map[string]string, len(node.AutoRelayedPeers))
-	for peerID, relayID := range node.AutoRelayedPeers {
-		autoRelayed[peerID] = relayID
-	}
-	if node.Mutex != nil {
-		node.Mutex.Unlock()
-	}
-	for peerID, relayID := range autoRelayed {
-		if relayID != autoRelayPeer.ID.String() {
-			continue
-		}
-		egPeer, err := GetNodeByID(peerID)
-		if err != nil {
-			continue
-		}
-		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-		acls, _ := ListAclsByNetwork(db.WithContext(context.TODO()), schema.NetworkID(node.Network))
-		defaultDevicePolicy, _ := GetDefaultPolicy(db.WithContext(context.TODO()), schema.NetworkID(node.Network), models.DevicePolicy)
-		GetNodeEgressInfo(&egPeer, eli, acls)
-		AddEgressInfoToPeerByAccess(db.WithContext(context.TODO()), node, &egPeer, eli, acls, defaultDevicePolicy.Enabled)
-		if PeerAdvertisesSpecificEgress(&egPeer) {
-			return true
-		}
-	}
-	return false
-}
-
 // shouldRetainPeerDespiteRelay decides whether a relayed IGW client (or its peer)
 // should keep a WireGuard peer that would otherwise be removed (mesh via exit only).
 // unfilteredSpecific is true when peer advertised specific egress CIDRs before
@@ -1231,20 +1205,47 @@ func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool,
 			}
 		}
 	}
-	// Bypass is bidirectional: the client must keep the specific-egress gateway,
-	// and the gateway must keep the bypass client as a direct peer (otherwise the
-	// client's overlay /32 only appears under the exit peer and handshakes fail).
-	if SelectedInternetEgressBypasses(node) && (PeerAdvertisesSpecificEgress(peer) || unfilteredSpecific) {
+	// Bypass is bidirectional for a reachable specific-egress gateway: the client
+	// keeps it as a direct peer, and the gateway keeps the bypass client (otherwise
+	// the client's overlay /32 only appears under the exit peer and handshakes fail).
+	// Relayed/auto-relayed site egress is not forced direct — AllowedIPs go via the
+	// client's selected exit on both legs.
+	if SelectedInternetEgressBypasses(node) && (PeerAdvertisesSpecificEgress(peer) || unfilteredSpecific) &&
+		canBypassForceDirectPeer(node, peer, isAutoRelayPeer) {
 		return true
 	}
-	if SelectedInternetEgressBypasses(peer) && PeerAdvertisesSpecificEgress(node) {
-		return true
-	}
-	// Keep auto-relay peers that carry remapped specific egress ranges for a bypass client.
-	if SelectedInternetEgressBypasses(node) && !isAutoRelayPeer && autoRelayCarriesSpecificEgressForNode(node, peer) {
+	if SelectedInternetEgressBypasses(peer) && PeerAdvertisesSpecificEgress(node) &&
+		canBypassForceDirectPeer(peer, node, siteAutoRelayedByClient(peer, node)) {
 		return true
 	}
 	return false
+}
+
+// siteAutoRelayedByClient reports whether client has site in AutoRelayedPeers
+// (site is reached via an auto-relay from the client's view).
+func siteAutoRelayedByClient(client, site *models.Node) bool {
+	if client == nil || site == nil {
+		return false
+	}
+	if client.Mutex != nil {
+		client.Mutex.Lock()
+		defer client.Mutex.Unlock()
+	}
+	_, ok := client.AutoRelayedPeers[site.ID.String()]
+	return ok
+}
+
+// canBypassForceDirectPeer reports whether a bypass exit client may keep peer as a
+// direct WireGuard peer for specific egress. Relayed / auto-relayed egress peers
+// are not forced direct; their AllowedIPs are advertised through the exit instead.
+func canBypassForceDirectPeer(node, peer *models.Node, isAutoRelayPeer bool) bool {
+	if node == nil || peer == nil || isAutoRelayPeer {
+		return false
+	}
+	if peer.IsRelayed && peer.RelayedBy != node.ID.String() {
+		return false
+	}
+	return true
 }
 
 // logInternetEgressBypassConfig emits a concise debug line for IGW clients describing
