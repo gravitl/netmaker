@@ -14,36 +14,16 @@ import (
 
 func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
 	extClients, err := logic.GetAllExtClients(ctx)
-	if err == nil {
-		for _, extI := range extClients {
-			if extI.Network == network.String() && extI.RemoteAccessClientID != "" {
-				staticNode = append(staticNode, models.ConvertToStaticNode(extI))
-			}
-		}
-	}
-	// User-registered devices (Host.OwnerUsername) are also user-policy subjects.
-	// Metadata is attached during schema→models conversion; keep IsUserNode false.
-	nodes, err := logic.GetNetworkNodes(ctx, network.String())
 	if err != nil {
 		return
 	}
-	for _, n := range nodes {
-		if !logic.IsUserOwnedDevice(&n) {
-			continue
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			if extI.RemoteAccessClientID != "" {
+				n := models.ConvertToStaticNode(extI)
+				staticNode = append(staticNode, n)
+			}
 		}
-		if n.StaticNode.OwnerID == "" {
-			n.StaticNode.OwnerID = logic.NodeOwnerUsername(&n)
-		}
-		if n.StaticNode.Address == "" && n.Address.IP != nil {
-			n.StaticNode.Address = n.Address.IP.String()
-		}
-		if n.StaticNode.Address6 == "" && n.Address6.IP != nil {
-			n.StaticNode.Address6 = n.Address6.IP.String()
-		}
-		if !n.StaticNode.Enabled {
-			n.StaticNode.Enabled = n.Connected
-		}
-		staticNode = append(staticNode, n)
 	}
 	return
 }
@@ -752,6 +732,12 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
 					}
+					// Routing nodes can be attached to an egress by tag
+					// instead of individually, in which case e.Nodes is
+					// empty. peerTags below carries the peer's tags.
+					for tagID := range e.Tags {
+						dstMap[tagID] = struct{}{}
+					}
 				}
 			}
 		}
@@ -774,7 +760,55 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 	if len(allowedPolicies) > 0 {
 		return true, allowedPolicies
 	}
+	// Host-backed user devices reach static/tagged extclients through the ingress
+	// gateway. Allow the ingress itself when any attached (non-RAC) extclient is a
+	// policy destination so peering and AllowedIPs via that gateway work.
+	if peer.IsIngressGateway {
+		if ok, policies := userAllowedToAnyExtClientOnIngress(ctx, userName, peer); ok {
+			return true, policies
+		}
+	}
 	return false, []models.Acl{}
+}
+
+// listExtClientsForUserACL lists extclients for user↔ingress ACL bridging; tests may override.
+var listExtClientsForUserACL = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+	return logic.GetNetworkExtClients(ctx, network)
+}
+
+// userAllowedToAnyExtClientOnIngress is true when userName may reach at least one
+// enabled non-RAC extclient attached to ingress under a user policy.
+func userAllowedToAnyExtClientOnIngress(ctx context.Context, userName string, ingress models.Node) (bool, []models.Acl) {
+	if !ingress.IsIngressGateway {
+		return false, nil
+	}
+	extclients, err := listExtClientsForUserACL(ctx, ingress.Network)
+	if err != nil {
+		return false, nil
+	}
+	ingressID := ingress.ID.String()
+	seen := make(map[string]struct{})
+	var allowed []models.Acl
+	for i := range extclients {
+		ec := extclients[i]
+		if !ec.Enabled || ec.IngressGatewayID != ingressID || ec.RemoteAccessClientID != "" {
+			continue
+		}
+		// Use the logic package hook so tests can stub nested static-peer checks
+		// without re-entering this ingress bridge.
+		ok, policies := logic.IsUserAllowedToCommunicate(ctx, userName, models.ConvertToStaticNode(ec))
+		if !ok {
+			continue
+		}
+		for _, p := range policies {
+			if _, exists := seen[p.ID]; exists {
+				continue
+			}
+			seen[p.ID] = struct{}{}
+			allowed = append(allowed, p)
+		}
+	}
+	return len(allowed) > 0, allowed
 }
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
@@ -1651,7 +1685,7 @@ func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, wi
 			nodeI.Mutex.Unlock()
 		}
 	}
-	tagNodesMap["*"] = nodes
+	tagNodesMap["*"] = logic.NodesForAllResourcesTag(nodes)
 	if !withStaticNodes {
 		return
 	}

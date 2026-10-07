@@ -191,6 +191,38 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
 }
 
+func TestCanBypassForceDirectPeer_RelayedSiteBlocksReverseRetain(t *testing.T) {
+	// Relayed site egress must not keep the bypass exit client as a direct peer;
+	// canBypassForceDirectPeer(client, site) is false so reverse retain is off.
+	clientID := uuid.New()
+	client := &models.Node{CommonNode: models.CommonNode{ID: clientID, Network: "testnet"}}
+	client.IsRelayed = true
+	client.RelayedBy = uuid.New().String()
+	client.InternetGwID = client.RelayedBy
+
+	site := &models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"}}
+	site.IsRelayed = true
+	site.RelayedBy = uuid.New().String()
+	site.EgressDetails = models.EgressDetails{
+		IsEgressGateway:     true,
+		EgressGatewayRanges: []string{"10.20.0.0/16"},
+	}
+	assert.False(t, canBypassForceDirectPeer(client, site, false),
+		"client must not force-direct a relayed site")
+	assert.False(t, siteAutoRelayedByClient(client, site))
+	// Reverse retain uses the same reachability gate.
+	assert.False(t, canBypassForceDirectPeer(client, site, siteAutoRelayedByClient(client, site)))
+
+	// GetAllowedIpsForRelayed must only omit the bypass client under RelayedBy when
+	// that client is kept as a direct peer of the site (canBypassForceDirectPeer).
+	// Relayed sites cannot keep the client direct — the client's /32 must ride
+	// RelayedBy so return traffic (e.g. ICMP reply) has a path.
+	skipUnderRelayedBy := PeerAdvertisesSpecificEgress(site) &&
+		canBypassForceDirectPeer(client, site, siteAutoRelayedByClient(client, site))
+	assert.False(t, skipUnderRelayedBy,
+		"relayed site egress must advertise bypass client under RelayedBy")
+}
+
 func TestFilterEgressDetailsByEgressIDsKeepsOnlyAllowed(t *testing.T) {
 	details := models.EgressDetails{
 		IsEgressGateway:     true,
@@ -234,6 +266,58 @@ func TestAuthorizedEgressDetailsDropsUnauthorizedRanges(t *testing.T) {
 	got := authorizedEgressDetails(context.Background(), node, peer, eli, nil, details)
 	assert.False(t, got.IsEgressGateway, "ranges without egress access must not be restored")
 	assert.Empty(t, got.EgressGatewayRanges)
+}
+
+func TestViewerUsesDifferentInternetExit(t *testing.T) {
+	exitA := uuid.New()
+	exitB := uuid.New()
+	client := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	client.InternetGwID = exitA.String()
+	// No SelectedInternetEgressID → InternetExitRoutingNodeID falls back to InternetGwID.
+
+	peerA := &models.Node{CommonNode: models.CommonNode{ID: exitA, Network: "testnet"}}
+	peerB := &models.Node{CommonNode: models.CommonNode{ID: exitB, Network: "testnet"}}
+	assert.False(t, viewerUsesDifferentInternetExit(client, peerA),
+		"client's selected exit is not a different exit")
+	assert.True(t, viewerUsesDifferentInternetExit(client, peerB),
+		"another exit/relay must not receive the client's relayed site-egress AllowedIPs")
+	assert.False(t, viewerUsesDifferentInternetExit(client, nil))
+	assert.False(t, viewerUsesDifferentInternetExit(nil, peerB))
+}
+
+func TestCanBypassForceDirectPeer(t *testing.T) {
+	clientID := uuid.New()
+	client := &models.Node{CommonNode: models.CommonNode{ID: clientID, Network: "testnet"}}
+
+	directSite := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	assert.True(t, canBypassForceDirectPeer(client, directSite, false),
+		"reachable specific-egress peer may stay direct under bypass")
+
+	assert.False(t, canBypassForceDirectPeer(client, directSite, true),
+		"auto-relayed egress peer must not be forced direct; AllowedIPs go via exit")
+
+	relayedSite := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	relayedSite.IsRelayed = true
+	relayedSite.RelayedBy = uuid.New().String()
+	assert.False(t, canBypassForceDirectPeer(client, relayedSite, false),
+		"manually relayed egress peer must not be forced direct; AllowedIPs go via exit")
+
+	selfRelayed := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	selfRelayed.IsRelayed = true
+	selfRelayed.RelayedBy = clientID.String()
+	assert.True(t, canBypassForceDirectPeer(client, selfRelayed, false),
+		"egress relayed by the client itself may stay direct")
+
+	assert.False(t, canBypassForceDirectPeer(nil, directSite, false))
+	assert.False(t, canBypassForceDirectPeer(client, nil, false))
 }
 
 func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T) {
@@ -297,9 +381,72 @@ func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
 	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, false, exitIDs),
 		"exit must not keep unrelated clients without ACL")
 	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, true, exitIDs),
-		"ACL-allowed alternate exits stay as separate direct peers")
+		"ACL-allowed alternate exits stay as separate direct peers for exit clients")
 	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, true, exitIDs),
 		"ACL-allowed exit keeps exit clients as direct peers")
+}
+
+func TestShouldRetainPeerDespiteRelay_RelayedNonExitDoesNotKeepExitDirect(t *testing.T) {
+	relayID := uuid.New()
+	exitID := uuid.New()
+	// Manually relayed mesh node — not using an internet exit.
+	node := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+	}
+	node.IsRelayed = true
+	node.RelayedBy = relayID.String()
+
+	exit := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      exitID,
+			Network: "testnet",
+		},
+	}
+	exitIDs := map[string]struct{}{exitID.String(): {}}
+	assert.False(t, shouldRetainPeerDespiteRelay(node, exit, false, false, true, exitIDs),
+		"relayed non-exit clients must not keep internet exits as separate peers")
+	assert.False(t, shouldRetainPeerDespiteRelay(exit, node, false, false, true, exitIDs),
+		"exit must not retain unrelated relayed non-exit clients as direct peers")
+}
+
+func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T) {
+	relayID := uuid.New()
+	gwID := uuid.New()
+	// User device that is itself relayed (e.g. via exit/auto-relay path) must still
+	// keep an ACL-allowed gateway as a direct peer.
+	userDev := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+		OwnerID: "abhi",
+	}
+	userDev.IsRelayed = true
+	userDev.RelayedBy = relayID.String()
+	require.True(t, IsUserOwnedDevice(userDev))
+
+	gw := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      gwID,
+			Network: "testnet",
+		},
+	}
+	assert.True(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
+		"user device must keep ACL-allowed non-relayed gateway as a direct peer")
+
+	relayedDest := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+	}
+	relayedDest.IsRelayed = true
+	relayedDest.RelayedBy = gwID.String()
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, relayedDest, false, false, true, nil),
+		"user device must not force-direct a relayed destination")
 }
 
 func TestInternetEgressRoutingNodeIDsFromList(t *testing.T) {

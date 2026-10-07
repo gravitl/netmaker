@@ -144,8 +144,28 @@ func AssignNodeExitNode(ctx context.Context, network, nodeID, egressID string, u
 	return GetNodeExitNode(ctx, network, nodeID)
 }
 
+// deviceMaySelectExitNode reports whether the device may list or select internet
+// egress e. User-owned devices follow user policies only — All Resources must
+// not expose every exit in the picker.
+func deviceMaySelectExitNode(user *schema.User, host *schema.Host, node *models.Node, e *schema.Egress,
+	deviceAcls, userAcls []models.Acl, defaultDeviceEnabled, defaultUserEnabled bool) bool {
+	if user == nil || node == nil || e == nil {
+		return false
+	}
+	if IsUserOwnedHost(host) || IsUserOwnedDevice(node) {
+		if defaultUserEnabled {
+			return true
+		}
+		return DoesUserHaveAccessToEgress(user, e, userAcls)
+	}
+	if defaultDeviceEnabled {
+		return true
+	}
+	return DoesNodeHaveAccessToEgress(node, e, deviceAcls)
+}
+
 // ListDeviceExitNodes returns internet-type egresses in the network the user may select,
-// filtered by ACL when the default device policy is disabled.
+// filtered by ACL. User devices ignore the All Resources default; infra devices keep it.
 func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Host, networkID string) ([]models.DeviceExitNode, error) {
 	if user == nil || host == nil {
 		return nil, errors.New("user and host are required")
@@ -161,6 +181,9 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 		return nil, errors.New("device is not joined to network")
 	}
 	node := ConvertSchemaNodeToModelsNode(nodeSchema)
+	if IsUserOwnedHost(host) && node.OwnerID == "" {
+		node.OwnerID = host.OwnerUsername
+	}
 
 	eli, err := (&schema.Egress{Network: networkID}).ListByNetwork(ctx)
 	if err != nil {
@@ -170,17 +193,15 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
-	allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled
 
 	out := make([]models.DeviceExitNode, 0)
 	for _, e := range eli {
 		if !e.Status || !IsEgressInternetGateway(e) {
 			continue
 		}
-		if !allowAll {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) && !DoesUserHaveAccessToEgress(user, &e, userAcls) {
-				continue
-			}
+		if !deviceMaySelectExitNode(user, host, node, &e, acls, userAcls,
+			defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled) {
+			continue
 		}
 		out = append(out, exitNodeItemFromEgress(ctx, e, node.SelectedInternetEgressID == e.ID))
 	}
@@ -223,6 +244,9 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		return nil, errors.New("device is not joined to network")
 	}
 	node := ConvertSchemaNodeToModelsNode(nodeSchema)
+	if IsUserOwnedHost(host) && node.OwnerID == "" {
+		node.OwnerID = host.OwnerUsername
+	}
 
 	if egressID != "" {
 		e := &schema.Egress{ID: egressID}
@@ -236,8 +260,8 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
-		allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled
-		if !allowAll && !DoesNodeHaveAccessToEgress(node, e, acls) && !DoesUserHaveAccessToEgress(user, e, userAcls) {
+		if !deviceMaySelectExitNode(user, host, node, e, acls, userAcls,
+			defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled) {
 			return nil, errors.New("user does not have access to this exit node")
 		}
 		routingNodeID := FirstInternetEgressRoutingNodeID(*e)

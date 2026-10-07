@@ -3,7 +3,9 @@ package logic
 import (
 	"context"
 	"errors"
+	"net"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/models"
@@ -107,11 +109,83 @@ func NodeOwnerUsername(n *models.Node) string {
 	return n.StaticNode.OwnerID
 }
 
+// ensureUserDeviceOwnerID sets OwnerID from Host.OwnerUsername when missing.
+// Used on peer-update paths that load nodes without a reliable Host preload.
+func ensureUserDeviceOwnerID(ctx context.Context, n *models.Node) {
+	if n == nil || n.OwnerID != "" || n.IsStatic || n.IsUserNode || n.HostID == uuid.Nil {
+		return
+	}
+	h := &schema.Host{ID: n.HostID}
+	if err := h.Get(ctx); err != nil || h.OwnerUsername == "" {
+		return
+	}
+	n.OwnerID = h.OwnerUsername
+}
+
 // IsUserOwnedDevice reports whether this is a host-backed (non-ExtClient) device
 // registered to a user. Runtime IsUserNode stays false for these so posture/ACL
 // device paths remain intact; ownership is the user-policy subject signal.
 func IsUserOwnedDevice(n *models.Node) bool {
 	return n != nil && !n.IsStatic && !n.IsUserNode && NodeOwnerUsername(n) != ""
+}
+
+// NetworkHasUserDevices reports whether any of nodes is a host-backed user
+// device. Callers use it to keep blanket network-range firewall grants out of
+// networks where user policies have to decide what a device may reach.
+func NetworkHasUserDevices(nodes []models.Node) bool {
+	for i := range nodes {
+		if IsUserOwnedDevice(&nodes[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// NodesForAllResourcesTag returns the nodes covered by the All Resources ("*")
+// ACL selector. User devices are excluded: they are covered by All Users
+// instead, matching NameserverTargetsAll.
+func NodesForAllResourcesTag(nodes []models.Node) []models.Node {
+	out := make([]models.Node, 0, len(nodes))
+	for i := range nodes {
+		if IsUserOwnedDevice(&nodes[i]) {
+			continue
+		}
+		out = append(out, nodes[i])
+	}
+	return out
+}
+
+// ListUserDevicesByNetwork returns the connected host-backed user devices on the
+// network. These stay real nodes: their firewall source is the node's own
+// overlay address, and their access is decided by the owner's user policies.
+func ListUserDevicesByNetwork(ctx context.Context, network string) (userDevices []models.Node) {
+	nodes, err := GetNetworkNodes(ctx, network)
+	if err != nil {
+		slog.Error("failed to list user devices", "network", network, "error", err)
+		return
+	}
+	for _, n := range nodes {
+		if !IsUserOwnedDevice(&n) || !n.Connected {
+			continue
+		}
+		userDevices = append(userDevices, n)
+	}
+	return
+}
+
+// UserDeviceSrcIPs returns the overlay addresses used as firewall sources for a
+// user device. A zero-value IPNet means the device has no address of that family.
+func UserDeviceSrcIPs(n *models.Node) (src4, src6 net.IPNet) {
+	if n == nil {
+		return
+	}
+	if n.Address.IP != nil {
+		src4 = n.AddressIPNet4()
+	}
+	if n.Address6.IP != nil {
+		src6 = n.AddressIPNet6()
+	}
+	return
 }
 
 // ErrUserOwnedNodeInfrastructureRole rejects infrastructure roles on a
@@ -266,9 +340,46 @@ func isAllowedViaUserOwnership(ctx context.Context, node, peer models.Node) bool
 		if ok, _ := IsUserAllowedToCommunicate(ctx, owner, peer); ok {
 			return true
 		}
+		// Relayed destinations are reached via RelayedBy. Allow the relay peer when
+		// the user may reach any node it relays (otherwise removing the relayed
+		// peer as direct leaves the user device with no WireGuard peer at all).
+		if userAllowedViaRelayPeer(ctx, owner, peer) {
+			return true
+		}
 	}
 	if owner := NodeOwnerUsername(&peer); owner != "" {
 		if ok, _ := IsUserAllowedToCommunicate(ctx, owner, node); ok {
+			return true
+		}
+		if userAllowedViaRelayPeer(ctx, owner, node) {
+			return true
+		}
+	}
+	return false
+}
+
+// userAllowedViaRelayPeer is true when peer relays at least one node that
+// userName may reach under a user policy.
+func userAllowedViaRelayPeer(ctx context.Context, userName string, peer models.Node) bool {
+	if userName == "" {
+		return false
+	}
+	relayedIDs := peer.RelayedNodes
+	if len(relayedIDs) == 0 && len(peer.InetNodeReq.InetNodeClientIDs) > 0 {
+		relayedIDs = peer.InetNodeReq.InetNodeClientIDs
+	}
+	if len(relayedIDs) == 0 && !peer.IsRelay {
+		return false
+	}
+	for _, id := range relayedIDs {
+		if id == "" {
+			continue
+		}
+		relayed, err := getNodeByID(id)
+		if err != nil {
+			continue
+		}
+		if ok, _ := IsUserAllowedToCommunicate(ctx, userName, relayed); ok {
 			return true
 		}
 	}

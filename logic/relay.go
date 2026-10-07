@@ -290,18 +290,49 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			return
 		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
+		// User devices only receive AllowedIPs for relayed nodes their owner may
+		// reach. Without this, peering with a relay would expose every RelayedNode.
+		if IsUserOwnedDevice(node) {
+			owner := NodeOwnerUsername(node)
+			if owner == "" {
+				return
+			}
+			if ok, _ := IsUserAllowedToCommunicate(ctx, owner, relayedNode); !ok {
+				return
+			}
+		}
 		unfilteredSpecific := PeerAdvertisesSpecificEgress(&relayedNode)
 		if bypass {
 			// Access-filter before deciding whether this relayed node is a
 			// specific-egress peer that should stay direct (not via this relay).
 			AddEgressInfoToPeerByAccess(ctx, node, &relayedNode, eli, acls, defaultPolicy.Enabled)
-			if unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode) {
-				return
+			isAuto := false
+			if node.Mutex != nil {
+				node.Mutex.Lock()
+			}
+			_, isAuto = node.AutoRelayedPeers[relayedNode.ID.String()]
+			if node.Mutex != nil {
+				node.Mutex.Unlock()
+			}
+			specific := unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode)
+			if specific {
+				if canBypassForceDirectPeer(node, &relayedNode, isAuto) {
+					return
+				}
+				// Relayed/auto-relayed site egress must ride the client's selected
+				// exit (GetAllowedIpsForRelayed), not the site's own RelayedBy —
+				// that host is often another exit/relay and steals the AllowedIP.
+				if viewerUsesDifferentInternetExit(node, peer) {
+					return
+				}
 			}
 		}
-		// Reverse of bypass: specific-egress GWs keep bypass clients as direct
-		// peers — do not also advertise those clients' overlays under the exit.
-		if viewerIsSpecificEgress && SelectedInternetEgressBypasses(&relayedNode) {
+		// Reverse of bypass: when the site keeps the bypass client as a direct
+		// peer, do not also advertise that client under the exit. Relayed site
+		// egress cannot keep the client direct — overlay must ride the client's
+		// selected exit (this peer, when it is that exit).
+		if viewerIsSpecificEgress && SelectedInternetEgressBypasses(&relayedNode) &&
+			canBypassForceDirectPeer(&relayedNode, node, siteAutoRelayedByClient(&relayedNode, node)) {
 			return
 		}
 		allowedIPs = append(allowedIPs, allowedIPsFromRelayedNode(&relayedNode)...)
@@ -347,9 +378,22 @@ func allowedIPsFromRelayedNode(relayedNode *models.Node) []net.IPNet {
 	return allowed
 }
 
+// viewerUsesDifferentInternetExit reports whether viewer routes internet through
+// a node other than peer (selected exit / InternetGw). Used so relayed site
+// egress AllowedIPs are not hung off the site's RelayedBy when the client is on
+// a different exit.
+func viewerUsesDifferentInternetExit(viewer, peer *models.Node) bool {
+	if viewer == nil || peer == nil {
+		return false
+	}
+	routingID := InternetExitRoutingNodeID(viewer)
+	return routingID != "" && routingID != peer.ID.String()
+}
+
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
 func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
-	if relayed.RelayedBy != relay.ID.String() {
+	routingID := InternetExitRoutingNodeID(relayed)
+	if relayed.RelayedBy != relay.ID.String() && routingID != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
 	}
@@ -367,20 +411,42 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if !IsPeerAllowed(ctx, *relayed, peer, true) && !isAllowedViaUserOwnership(ctx, *relayed, peer) {
+		// Host-backed user devices need OwnerID for PeerAllowed / user policies.
+		// GetNetworkNodes usually attaches it via Host preload; fill gaps here so
+		// relayed nodes still advertise user overlays under RelayedBy.
+		ensureUserDeviceOwnerID(ctx, &peer)
+		// PeerAllowed (not bare IsPeerAllowed) so user devices follow user
+		// policies: All Resources must not grant every mesh peer via the relay.
+		if !PeerAllowed(ctx, *relayed, peer, defaultPolicy.Enabled) {
 			continue
 		}
 		GetNodeEgressInfo(&peer, eli, acls)
 		unfilteredSpecific := PeerAdvertisesSpecificEgress(&peer)
 		AddEgressInfoToPeerByAccess(ctx, relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		// Internet exit routing nodes (and bypass site-egress gateways) are retained
-		// as direct WireGuard peers. Do not also advertise their AllowedIPs through
-		// the exit/relay — WireGuard AllowedIPs are unique across peers, so
-		// duplicating them on the exit steals routes from the direct peer.
-		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
+		// Exit clients keep internet exit routers as direct peers — do not also
+		// advertise those overlays under RelayedBy. Non-exit relayed nodes do not
+		// retain exits as separate peers, so exit overlays must ride this relay.
+		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok && nodeIsInternetExitClient(relayed) {
 			continue
 		}
-		if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&peer)) {
+		isAuto := false
+		if relayed.Mutex != nil {
+			relayed.Mutex.Lock()
+		}
+		_, isAuto = relayed.AutoRelayedPeers[peer.ID.String()]
+		if relayed.Mutex != nil {
+			relayed.Mutex.Unlock()
+		}
+		if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&peer)) &&
+			canBypassForceDirectPeer(relayed, &peer, isAuto) {
+			continue
+		}
+		// Relayed site egress viewing its RelayedBy: if a bypass client is kept as
+		// a direct peer of this site GW, do not also advertise it under RelayedBy.
+		// When the site is itself relayed it cannot keep that client direct —
+		// the client's overlay must ride RelayedBy for return traffic.
+		if PeerAdvertisesSpecificEgress(relayed) && SelectedInternetEgressBypasses(&peer) &&
+			canBypassForceDirectPeer(&peer, relayed, siteAutoRelayedByClient(&peer, relayed)) {
 			continue
 		}
 		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
@@ -407,8 +473,8 @@ func getRelayedAddresses(id string) []net.IPNet {
 }
 
 // skipBypassClientOverlayOnExitPeer is true when viewer is a specific-egress
-// gateway and clientID is a bypass IGW client. Those clients are retained as
-// direct peers, so their overlay must not also appear under the exit peer.
+// gateway that keeps clientID as a direct bypass peer. Relayed site egress does
+// not keep those clients direct — their overlay must appear under the exit.
 func skipBypassClientOverlayOnExitPeer(viewer *models.Node, clientID string) bool {
 	if viewer == nil || !PeerAdvertisesSpecificEgress(viewer) {
 		return false
@@ -417,7 +483,10 @@ func skipBypassClientOverlayOnExitPeer(viewer *models.Node, clientID string) boo
 	if err != nil {
 		return false
 	}
-	return SelectedInternetEgressBypasses(&client)
+	if !SelectedInternetEgressBypasses(&client) {
+		return false
+	}
+	return canBypassForceDirectPeer(&client, viewer, siteAutoRelayedByClient(&client, viewer))
 }
 
 // ExitClientOverlayIPs returns /32 and /128 overlay addresses for clients in

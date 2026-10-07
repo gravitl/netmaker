@@ -46,6 +46,40 @@ func TestAssignNodeExitNode_Validation(t *testing.T) {
 	}
 }
 
+func TestDeviceMaySelectExitNode_UserDeviceIgnoresAllResources(t *testing.T) {
+	user := &schema.User{Username: "abhi"}
+	host := &schema.Host{OwnerUsername: "abhi"}
+	node := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"},
+		OwnerID:    "abhi",
+	}
+	exit := &schema.Egress{ID: "sig-exit", Status: true, Type: schema.EgressTypeInternet, Range: "*"}
+	allowed := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.UserAclID, Value: "abhi"}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "sig-exit"}},
+	}}
+	otherExit := &schema.Egress{ID: "other-exit", Status: true, Type: schema.EgressTypeInternet, Range: "*"}
+
+	// All Resources on, All Users off: only exits granted by user policy.
+	if !deviceMaySelectExitNode(user, host, node, exit, nil, allowed, true, false) {
+		t.Fatal("user policy must still allow the granted exit when All Resources is on")
+	}
+	if deviceMaySelectExitNode(user, host, node, otherExit, nil, allowed, true, false) {
+		t.Fatal("All Resources must not expose exits the user policy does not grant")
+	}
+	// All Users on: every exit is selectable.
+	if !deviceMaySelectExitNode(user, host, node, otherExit, nil, allowed, true, true) {
+		t.Fatal("All Users should allow every exit for user devices")
+	}
+	// Infra host still gets All Resources free pass.
+	infraHost := &schema.Host{Name: "server"}
+	infraNode := &models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
+	if !deviceMaySelectExitNode(user, infraHost, infraNode, otherExit, nil, nil, true, false) {
+		t.Fatal("infra devices may use All Resources for exit listing")
+	}
+}
+
 func TestPickFallbackExitNode(t *testing.T) {
 	exits := []models.DeviceExitNode{
 		{EgressID: "b", Name: "bravo", Status: true},

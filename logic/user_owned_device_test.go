@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -118,6 +119,45 @@ func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
 	}
 	assert.False(t, PeerAllowed(context.Background(), userDev, infra, false),
 		"user device must not fall through to device default when default is off")
+}
+
+func TestPeerAllowed_UserDeviceViaRelayOfAllowedPeer(t *testing.T) {
+	origAllow := IsUserAllowedToCommunicate
+	origGet := getNodeByID
+	t.Cleanup(func() {
+		IsUserAllowedToCommunicate = origAllow
+		getNodeByID = origGet
+	})
+
+	relayedID := uuid.New()
+	relayID := uuid.New()
+	userDev := models.Node{OwnerID: "abhi"}
+	relay := models.Node{
+		CommonNode: models.CommonNode{ID: relayID, Network: "netmaker"},
+	}
+	relay.IsRelay = true
+	relay.RelayedNodes = []string{relayedID.String()}
+
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == relayedID.String() {
+			return models.Node{CommonNode: models.CommonNode{ID: relayedID, Network: "netmaker"}}, nil
+		}
+		return models.Node{}, errors.New("not found")
+	}
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+		if userName != "abhi" {
+			return false, nil
+		}
+		// Policy grants the relayed node only — not the relay itself.
+		return peer.ID == relayedID, nil
+	}
+
+	if !PeerAllowed(context.Background(), userDev, relay, false) {
+		t.Fatal("user device must peer with RelayedBy when a relayed destination is allowed")
+	}
+	if !userAllowedViaRelayPeer(context.Background(), "abhi", relay) {
+		t.Fatal("expected relay bridge via RelayedNodes")
+	}
 }
 
 func TestErrUserOwnedInfrastructureRole(t *testing.T) {

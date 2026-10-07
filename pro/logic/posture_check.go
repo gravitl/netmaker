@@ -433,8 +433,11 @@ func postureCheckAppliesToSubject(c *schema.PostureCheck, d models.PostureCheckD
 
 	if !d.IsUser {
 		if _, hasWildcard := c.Tags["*"]; hasWildcard {
-			// Tags "*" applies to every host-backed subject (infra and user devices).
-			tagMatch = true
+			// All Resources covers infrastructure hosts only. Host-backed user
+			// devices are scoped via UserGroups (All Users), matching NameserverTargetsAll.
+			if d.Username == "" {
+				tagMatch = true
+			}
 		} else if (c.Attribute == schema.MDMCompliance || c.Attribute == schema.EDRCompliance) && len(c.Tags) == 0 {
 			// Legacy MDM/EDR checks saved before wildcard default; apply to all hosts.
 			tagMatch = true
