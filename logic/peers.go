@@ -413,10 +413,26 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				specificEgress := PeerAdvertisesSpecificEgress(&peer) || unfilteredSpecificEgress
 				forceDirect := canBypassForceDirectPeer(&node, &peer, isAutoRelayPeer)
 				// Bypass keeps reachable site egress as a direct peer. Relayed /
-				// auto-relayed site egress is not forced direct — its AllowedIPs
-				// ride the exit peer (GetAllowedIpsForRelayed), so skip a separate
-				// EgressRoutes entry that would point at RelayedBy/auto-relay.
-				skipEgressRoutesViaExit := bypassOn && specificEgress && !forceDirect
+				// auto-relayed site egress is not forced direct. When RelayedBy is
+				// the client's own exit, AllowedIPs ride GetAllowedIpsForRelayed on
+				// that exit — skip a duplicate EgressRoutes entry. When RelayedBy
+				// is a different retained internet exit, emit EgressRoutes with
+				// that RelayedBy PeerKey so routes do not hang on the client's exit.
+				clientExitID := InternetExitRoutingNodeID(&node)
+				ridesOtherRetainedExit := false
+				if !forceDirect && peer.IsRelayed && peer.RelayedBy != "" &&
+					peer.RelayedBy != node.ID.String() && peer.RelayedBy != clientExitID {
+					if _, ok := inetExitRouterIDs[peer.RelayedBy]; ok {
+						ridesOtherRetainedExit = true
+					}
+				}
+				if !forceDirect && isAutoRelayPeer && peerAutoRelayID != "" &&
+					peerAutoRelayID != node.ID.String() && peerAutoRelayID != clientExitID {
+					if _, ok := inetExitRouterIDs[peerAutoRelayID]; ok {
+						ridesOtherRetainedExit = true
+					}
+				}
+				skipEgressRoutesViaExit := bypassOn && specificEgress && !forceDirect && !ridesOtherRetainedExit
 				if !skipEgressRoutesViaExit {
 					bypassDirect := bypassOn && specificEgress && forceDirect
 					if !bypassDirect && isAutoRelayPeer && peerAutoRelayID != node.ID.String() {

@@ -268,23 +268,58 @@ func TestAuthorizedEgressDetailsDropsUnauthorizedRanges(t *testing.T) {
 	assert.Empty(t, got.EgressGatewayRanges)
 }
 
-func TestViewerUsesDifferentInternetExit(t *testing.T) {
+func TestPeerRidesRetainedInternetExit(t *testing.T) {
+	originalGetNodeByID := getNodeByID
+	originalIsPeerAllowed := IsPeerAllowed
+	t.Cleanup(func() {
+		getNodeByID = originalGetNodeByID
+		IsPeerAllowed = originalIsPeerAllowed
+	})
+
 	exitA := uuid.New()
 	exitB := uuid.New()
 	client := &models.Node{
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
 	}
 	client.InternetGwID = exitA.String()
-	// No SelectedInternetEgressID → InternetExitRoutingNodeID falls back to InternetGwID.
+	client.RelayedBy = exitA.String()
+	client.IsRelayed = true
 
-	peerA := &models.Node{CommonNode: models.CommonNode{ID: exitA, Network: "testnet"}}
-	peerB := &models.Node{CommonNode: models.CommonNode{ID: exitB, Network: "testnet"}}
-	assert.False(t, viewerUsesDifferentInternetExit(client, peerA),
-		"client's selected exit is not a different exit")
-	assert.True(t, viewerUsesDifferentInternetExit(client, peerB),
-		"another exit/relay must not receive the client's relayed site-egress AllowedIPs")
-	assert.False(t, viewerUsesDifferentInternetExit(client, nil))
-	assert.False(t, viewerUsesDifferentInternetExit(nil, peerB))
+	siteOnB := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	siteOnB.IsRelayed = true
+	siteOnB.RelayedBy = exitB.String()
+
+	exitBNode := models.Node{CommonNode: models.CommonNode{ID: exitB, Network: "testnet"}}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == exitB.String() {
+			return exitBNode, nil
+		}
+		return models.Node{}, assert.AnError
+	}
+	IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
+		return peer.ID == exitB
+	}
+
+	inetExits := map[string]struct{}{exitA.String(): {}, exitB.String(): {}}
+	// defaultPolicyEnabled=false so PeerAllowed consults IsPeerAllowed.
+	assert.True(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnB, exitA.String(), inetExits, false),
+		"site RelayedBy another ACL-allowed exit must ride that exit, not the client's")
+
+	siteOnA := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+	}
+	siteOnA.IsRelayed = true
+	siteOnA.RelayedBy = exitA.String()
+	assert.False(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnA, exitA.String(), inetExits, false),
+		"site RelayedBy the client's own exit still rides GetAllowedIpsForRelayed on that exit")
+
+	IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
+		return false
+	}
+	assert.False(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnB, exitA.String(), inetExits, false),
+		"ACL-denied RelayedBy exit is not retained — keep hairpin via client's exit")
 }
 
 func TestCanBypassForceDirectPeer(t *testing.T) {

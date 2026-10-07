@@ -315,16 +315,12 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 				node.Mutex.Unlock()
 			}
 			specific := unfilteredSpecific || PeerAdvertisesSpecificEgress(&relayedNode)
-			if specific {
-				if canBypassForceDirectPeer(node, &relayedNode, isAuto) {
-					return
-				}
-				// Relayed/auto-relayed site egress must ride the client's selected
-				// exit (GetAllowedIpsForRelayed), not the site's own RelayedBy —
-				// that host is often another exit/relay and steals the AllowedIP.
-				if viewerUsesDifferentInternetExit(node, peer) {
-					return
-				}
+			// Force-direct bypass peers stay off RelayedBy AllowedIPs. Relayed
+			// site egress that is not force-direct belongs on this peer
+			// (peer.RelayedBy) — including when the viewer uses a different
+			// internet exit (GetAllowedIpsForRelayed skips those on the viewer's exit).
+			if specific && canBypassForceDirectPeer(node, &relayedNode, isAuto) {
+				return
 			}
 		}
 		// Reverse of bypass: when the site keeps the bypass client as a direct
@@ -378,16 +374,43 @@ func allowedIPsFromRelayedNode(relayedNode *models.Node) []net.IPNet {
 	return allowed
 }
 
-// viewerUsesDifferentInternetExit reports whether viewer routes internet through
-// a node other than peer (selected exit / InternetGw). Used so relayed site
-// egress AllowedIPs are not hung off the site's RelayedBy when the client is on
-// a different exit.
-func viewerUsesDifferentInternetExit(viewer, peer *models.Node) bool {
-	if viewer == nil || peer == nil {
+// peerRidesRetainedInternetExit reports whether peer is relayed (or auto-relayed)
+// by a different internet-exit routing node that the viewer keeps as a direct peer.
+// Those overlays must hang on that RelayedBy exit, not on the viewer's selected exit.
+func peerRidesRetainedInternetExit(ctx context.Context, viewer, peer *models.Node, relayID string, inetExitRouterIDs map[string]struct{}, defaultPolicyEnabled bool) bool {
+	if viewer == nil || peer == nil || !nodeIsInternetExitClient(viewer) || len(inetExitRouterIDs) == 0 {
 		return false
 	}
-	routingID := InternetExitRoutingNodeID(viewer)
-	return routingID != "" && routingID != peer.ID.String()
+	otherExitID := ""
+	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != relayID {
+		otherExitID = peer.RelayedBy
+	}
+	if otherExitID == "" {
+		if viewer.Mutex != nil {
+			viewer.Mutex.Lock()
+		}
+		autoID, isAuto := viewer.AutoRelayedPeers[peer.ID.String()]
+		if viewer.Mutex != nil {
+			viewer.Mutex.Unlock()
+		}
+		if isAuto && autoID != "" && autoID != relayID {
+			otherExitID = autoID
+		}
+	}
+	if otherExitID == "" {
+		return false
+	}
+	if otherExitID == InternetExitRoutingNodeID(viewer) || otherExitID == viewer.RelayedBy {
+		return false
+	}
+	if _, ok := inetExitRouterIDs[otherExitID]; !ok {
+		return false
+	}
+	relayBy, err := getNodeByID(otherExitID)
+	if err != nil {
+		return false
+	}
+	return PeerAllowed(ctx, *viewer, relayBy, defaultPolicyEnabled)
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
@@ -427,6 +450,11 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		// advertise those overlays under RelayedBy. Non-exit relayed nodes do not
 		// retain exits as separate peers, so exit overlays must ride this relay.
 		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok && nodeIsInternetExitClient(relayed) {
+			continue
+		}
+		// Peers relayed by another retained internet exit ride that exit peer —
+		// do not also hang their AllowedIPs on this (viewer's) exit.
+		if peerRidesRetainedInternetExit(ctx, relayed, &peer, relay.ID.String(), inetExitRouterIDs, defaultPolicy.Enabled) {
 			continue
 		}
 		isAuto := false
