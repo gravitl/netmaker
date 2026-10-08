@@ -447,11 +447,12 @@ func TestShouldRetainPeerDespiteRelay_RelayedNonExitDoesNotKeepExitDirect(t *tes
 		"exit must not retain unrelated relayed non-exit clients as direct peers")
 }
 
-func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T) {
+func TestShouldRetainPeerDespiteRelay_RelayedUserDeviceDropsOtherGateways(t *testing.T) {
 	relayID := uuid.New()
 	gwID := uuid.New()
-	// User device relayed by a normal relay (not an exit client) must still keep
-	// an ACL-allowed gateway as a direct peer.
+	// User device relayed from the UI must not keep other gateways as direct
+	// peers. Their overlays ride RelayedBy; keeping both duplicates AllowedIPs
+	// and leaves those peers with an empty list.
 	userDev := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:      uuid.New(),
@@ -470,8 +471,8 @@ func TestShouldRetainPeerDespiteRelay_UserDeviceKeepsAllowedGateway(t *testing.T
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
-		"user device must keep ACL-allowed non-relayed gateway as a direct peer")
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
+		"relayed user device must not keep other gateways as direct peers")
 
 	relayedDest := &models.Node{
 		CommonNode: models.CommonNode{
