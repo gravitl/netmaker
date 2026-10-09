@@ -203,7 +203,7 @@ func AuthorizeHost(
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
-// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned, user, server)
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -255,11 +255,20 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
-	if len(osFilters) > 0 || q != "" {
-		filters = append(filters, func(db *gorm.DB) *gorm.DB {
-			return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
-		})
-	}
+	// Join hosts so OS search and user/server filters can use owner_username.
+	// "user" is a host registered by a user; "server" is every other host.
+	// No device_type (or gw/igw/...) includes both.
+	filters = append(filters, func(db *gorm.DB) *gorm.DB {
+		q := db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+		switch deviceType {
+		case "user":
+			return q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+		case "server":
+			return q.Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
+		default:
+			return q
+		}
+	})
 	if len(osFilters) > 0 {
 		filters = append(filters, dbtypes.WithFilter("hosts_v1.os", osFilters...))
 	}
@@ -388,8 +397,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") == "no" {
+	if !logic.IsAPIKeyAuth(r.Context()) && r.Header.Get("ismaster") == "no" {
+		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.Get(r.Context())
 		if err != nil {
@@ -406,6 +415,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := nodes[:0]
+		for _, node := range nodes {
+			if logic.APIKeyHasNetworkAccess(r.Context(), node.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, node)
+			}
+		}
+		nodes = filtered
+	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -562,7 +580,11 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
 				gateway.NodeID, gateway.NetID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserDeviceInfrastructureRole) {
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -699,6 +721,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
+		return
+	}
+	if err := logic.ErrUserDeviceGainingInfrastructureRole(r.Context(), &currentNode, newNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
@@ -963,6 +989,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
 			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
+			// Disconnect: detach clients from this routing node before publish so
+			// peer calc does not mark the whole mesh Remove (still RelayedBy dead exit).
+			if !newNode.Connected && len(exitClients) > 0 {
+				exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
+			}
 			if len(exitClients) > 0 {
 				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
@@ -1233,6 +1264,9 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				seenClient[c.ID.String()] = struct{}{}
 				exitClients = append(exitClients, c)
 			}
+		}
+		if !req.Connected && len(exitClients) > 0 {
+			exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
 		}
 		if len(exitClients) > 0 {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)

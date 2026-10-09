@@ -41,6 +41,7 @@ var HttpHandlers = []interface{}{
 	loggerHandlers,
 	hostHandlers,
 	enrollmentKeyHandlers,
+	apiKeyHandlers,
 	aclHandlers,
 	deviceHandlers,
 	egressHandlers,

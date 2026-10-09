@@ -78,6 +78,9 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+				return err
+			}
 			if IsEgressInternetGateway(*e) {
 				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
@@ -149,6 +152,53 @@ func IsEgressInternetGateway(e schema.Egress) bool {
 		return true
 	}
 	return strings.TrimSpace(e.Range) == "*"
+}
+
+// InternetEgressBypassesEgressRoutes reports whether an internet egress should keep
+// authorized specific Netmaker Egress peers/routes alongside the default exit path.
+func InternetEgressBypassesEgressRoutes(e schema.Egress) bool {
+	return IsEgressInternetGateway(e) && e.BypassEgressRoutes
+}
+
+// InternetEgressRoutingNodeIDsFromList returns node IDs that route any active
+// internet egress in the given egress list.
+func InternetEgressRoutingNodeIDsFromList(eli []schema.Egress) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, e := range eli {
+		if !e.Status || !IsEgressInternetGateway(e) {
+			continue
+		}
+		for nodeID := range e.Nodes {
+			if nodeID != "" {
+				out[nodeID] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+// ResolveBypassEgressRoutesForCreate returns the bypass flag for a new internet egress.
+// Defaults to true when the request omits the field.
+func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) bool {
+	if !isInternet {
+		return false
+	}
+	if req != nil && req.BypassEgressRoutes != nil {
+		return *req.BypassEgressRoutes
+	}
+	return true
+}
+
+// ResolveBypassEgressRoutesForUpdate returns the bypass flag for an updated internet egress.
+// When the request omits the field, the previous value is kept.
+func ResolveBypassEgressRoutesForUpdate(req *models.EgressReq, isInternet bool, previous bool) bool {
+	if !isInternet {
+		return false
+	}
+	if req != nil && req.BypassEgressRoutes != nil {
+		return *req.BypassEgressRoutes
+	}
+	return previous
 }
 
 // IsEgressReqInternetGateway is true when the request uses type internet or range "*" for internet egress.
@@ -237,8 +287,14 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	if node == nil {
 		return errors.New("routing node is required")
 	}
+	if err := ErrUserOwnedNodeInfrastructureRole(node); err != nil {
+		return err
+	}
 	host := &schema.Host{ID: node.HostID}
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
+		return err
+	}
+	if err := ErrUserOwnedHostInfrastructureRole(host); err != nil {
 		return err
 	}
 	switch host.OS {
@@ -484,8 +540,9 @@ func assignedInternetEgress(node *models.Node, eli []schema.Egress) *schema.Egre
 //   - the default device (all-resources) policy is enabled
 //   - an enabled policy that includes this node has dst all-resources ("*")
 //   - an enabled policy that includes this node has the exit egress in dst
-func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
-	if node == nil || defaultDevicePolicyEnabled {
+//   - for user-owned devices, the owner's user policies grant the egress
+func SuppressInternetExitIfNoACLAccess(ctx context.Context, node *models.Node, eli []schema.Egress, acls []models.Acl, defaultDevicePolicyEnabled bool) {
+	if node == nil || (defaultDevicePolicyEnabled && !IsUserOwnedDevice(node)) {
 		return
 	}
 	if node.SelectedInternetEgressID == "" && node.InternetGwID == "" {
@@ -495,7 +552,7 @@ func SuppressInternetExitIfNoACLAccess(node *models.Node, eli []schema.Egress, a
 	if e == nil {
 		return
 	}
-	if DoesNodeHaveAccessToEgress(node, e, acls) {
+	if NodeHasEgressAccess(ctx, node, e, acls) {
 		return
 	}
 	node.SelectedInternetEgressID = ""
@@ -530,20 +587,21 @@ func CreateInternetEgressForNode(ctx context.Context, node *models.Node, name, c
 		}
 	}
 	e := &schema.Egress{
-		ID:        uuid.New().String(),
-		TenantID:  scope.ID(ctx),
-		Name:      name,
-		Network:   node.Network,
-		Type:      schema.EgressTypeInternet,
-		Range:     "*",
-		Nat:       true,
-		Mode:      schema.DirectNAT,
-		Nodes:     datatypes.JSONMap{node.ID.String(): 256},
-		Tags:      make(datatypes.JSONMap),
-		Status:    true,
-		CreatedBy: createdBy,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
+		ID:                 uuid.New().String(),
+		TenantID:           scope.ID(ctx),
+		Name:               name,
+		Network:            node.Network,
+		Type:               schema.EgressTypeInternet,
+		Range:              "*",
+		Nat:                true,
+		Mode:               schema.DirectNAT,
+		BypassEgressRoutes: true,
+		Nodes:              datatypes.JSONMap{node.ID.String(): 256},
+		Tags:               make(datatypes.JSONMap),
+		Status:             true,
+		CreatedBy:          createdBy,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedAt:          time.Now().UTC(),
 	}
 	if err := ValidateEgressReq(ctx, e); err != nil {
 		return nil, err
@@ -735,6 +793,45 @@ func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, sch
 	updated.InternetGwID = ""
 	*node = *updated
 	return nil
+}
+
+// FailOpenExitClientsKeepSelection fails open exit clients (drops RelayedBy /
+// IsIGWClient) and clears SelectedInternetEgressID so the dashboard/API no
+// longer show a dead exit as the device's routing selection. When the network
+// has AutoSelectExitNode, assigns another available exit. Call before publishing
+// peer updates on routing-node disconnect or internet egress disable.
+func FailOpenExitClientsKeepSelection(ctx context.Context, clients []models.Node) []models.Node {
+	if len(clients) == 0 {
+		return clients
+	}
+	out := make([]models.Node, 0, len(clients))
+	for i := range clients {
+		c := clients[i]
+		// Clear selection + relay attachment (not sticky): UI "ROUTING" reads
+		// SelectedInternetEgressID and must not keep pointing at a disconnected exit.
+		if err := SetNodeSelectedInternetEgress(&c, "", false); err != nil {
+			slog.Error("FailOpenExitClientsKeepSelection: clear selection failed",
+				"node", clients[i].ID, "error", err)
+			if err2 := failOpenExitClientKeepSelection(ctx, &c); err2 != nil {
+				slog.Error("FailOpenExitClientsKeepSelection: fail-open failed",
+					"node", clients[i].ID, "error", err2)
+				out = append(out, clients[i])
+				continue
+			}
+		}
+		host := &schema.Host{ID: c.HostID}
+		if err := host.Get(ctx); err == nil {
+			if err := EnsureAutoExitNode(ctx, host, &c); err != nil {
+				slog.Error("FailOpenExitClientsKeepSelection: auto-exit reassign failed",
+					"node", c.ID, "error", err)
+			}
+		}
+		if n, err := GetNodeByID(c.ID.String()); err == nil {
+			c = n
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // failOpenExitClientKeepSelection clears RelayedBy / IsIGWClient so full-tunnel
@@ -1174,7 +1271,7 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 	}
 }
 
-func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
+func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
 		NodeID:     targetNode.ID.String(),
@@ -1184,6 +1281,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	nodeTagIDs := snapshotNodeTagIDs(targetNode)
 	// For internet egress, ::/0 is gated on the exit host's public IPv6 endpoint.
 	includeIPv6 := exitHostHasEndpointIPv6(targetNode)
+	// Resource (device) default must not grant egress to user devices; user default does.
+	if IsUserOwnedDevice(node) {
+		isDefaultPolicyActive = userDeviceEgressDefaultActive(ctx, node.Network)
+	}
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
@@ -1195,10 +1296,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) &&
+			if !NodeHasEgressAccess(ctx, node, &e, acls) &&
 				!doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
-					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
+					if !NodeHasEgressAccess(ctx, targetNode, &e, acls) {
 						continue
 					}
 				} else {
@@ -1287,7 +1388,7 @@ func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsL
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			if !NodeHasEgressAccess(ctx, node, &e, acls) {
 				continue
 			}
 		}

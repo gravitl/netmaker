@@ -57,7 +57,7 @@ func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 			continue
 		}
 		for _, peer := range nodes {
-			if peer.IsUserNode {
+			if peer.IsUserNode || logic.IsUserOwnedDevice(&peer) {
 				continue
 			}
 
@@ -732,6 +732,12 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
 					}
+					// Routing nodes can be attached to an egress by tag
+					// instead of individually, in which case e.Nodes is
+					// empty. peerTags below carries the peer's tags.
+					for tagID := range e.Tags {
+						dstMap[tagID] = struct{}{}
+					}
 				}
 			}
 		}
@@ -754,7 +760,55 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 	if len(allowedPolicies) > 0 {
 		return true, allowedPolicies
 	}
+	// Host-backed user devices reach static/tagged extclients through the ingress
+	// gateway. Allow the ingress itself when any attached (non-RAC) extclient is a
+	// policy destination so peering and AllowedIPs via that gateway work.
+	if peer.IsIngressGateway {
+		if ok, policies := userAllowedToAnyExtClientOnIngress(ctx, userName, peer); ok {
+			return true, policies
+		}
+	}
 	return false, []models.Acl{}
+}
+
+// listExtClientsForUserACL lists extclients for user↔ingress ACL bridging; tests may override.
+var listExtClientsForUserACL = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+	return logic.GetNetworkExtClients(ctx, network)
+}
+
+// userAllowedToAnyExtClientOnIngress is true when userName may reach at least one
+// enabled non-RAC extclient attached to ingress under a user policy.
+func userAllowedToAnyExtClientOnIngress(ctx context.Context, userName string, ingress models.Node) (bool, []models.Acl) {
+	if !ingress.IsIngressGateway {
+		return false, nil
+	}
+	extclients, err := listExtClientsForUserACL(ctx, ingress.Network)
+	if err != nil {
+		return false, nil
+	}
+	ingressID := ingress.ID.String()
+	seen := make(map[string]struct{})
+	var allowed []models.Acl
+	for i := range extclients {
+		ec := extclients[i]
+		if !ec.Enabled || ec.IngressGatewayID != ingressID || ec.RemoteAccessClientID != "" {
+			continue
+		}
+		// Use the logic package hook so tests can stub nested static-peer checks
+		// without re-entering this ingress bridge.
+		ok, policies := logic.IsUserAllowedToCommunicate(ctx, userName, models.ConvertToStaticNode(ec))
+		if !ok {
+			continue
+		}
+		for _, p := range policies {
+			if _, exists := seen[p.ID]; exists {
+				continue
+			}
+			seen[p.ID] = struct{}{}
+			allowed = append(allowed, p)
+		}
+	}
+	return len(allowed) > 0, allowed
 }
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
@@ -963,7 +1017,7 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1320,7 +1374,7 @@ func appendUserExtClientRemoteEgressFwdRules(
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1631,7 +1685,7 @@ func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, wi
 			nodeI.Mutex.Unlock()
 		}
 	}
-	tagNodesMap["*"] = nodes
+	tagNodesMap["*"] = logic.NodesForAllResourcesTag(nodes)
 	if !withStaticNodes {
 		return
 	}

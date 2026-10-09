@@ -50,6 +50,8 @@ type ApiHost struct {
 	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
 	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
 	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	// OwnerUsername is set when a user registered this host (desktop/device flow).
+	OwnerUsername string `json:"owner_username" yaml:"owner_username"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -112,6 +114,7 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.EntraDeviceID = h.EntraDeviceID
 	a.SerialNumber = h.SerialNumber
 	a.HardwareUUID = h.HardwareUUID
+	a.OwnerUsername = h.OwnerUsername
 	return &a
 }
 
@@ -174,6 +177,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
+	h.OwnerUsername = currentHost.OwnerUsername
 	h.TcpProxyEnabled = a.TcpProxyEnabled
 	h.TcpProxyListenPort = a.TcpProxyListenPort
 	if mode, err := schema.NormaliseTcpProxyTLSMode(a.TcpProxyTLSMode); err == nil {

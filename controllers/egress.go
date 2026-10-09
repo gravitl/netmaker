@@ -127,22 +127,27 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	e := schema.Egress{
-		ID:          uuid.New().String(),
-		TenantID:    scope.ID(r.Context()),
-		Name:        req.Name,
-		Network:     req.Network,
-		Description: req.Description,
-		Type:        egressType,
-		Range:       egressRange,
-		Nat:         req.Nat,
-		Mode:        req.Mode,
-		Nodes:       make(datatypes.JSONMap),
-		Tags:        make(datatypes.JSONMap),
-		PresetID:    req.PresetID,
-		Status:      true,
-		CreatedBy:   r.Header.Get("user"),
-		CreatedAt:   time.Now().UTC(),
+		ID:                 uuid.New().String(),
+		TenantID:           scope.ID(r.Context()),
+		Name:               req.Name,
+		Network:            req.Network,
+		Description:        req.Description,
+		Type:               egressType,
+		Range:              egressRange,
+		Nat:                req.Nat,
+		Mode:               req.Mode,
+		BypassEgressRoutes: logic.ResolveBypassEgressRoutesForCreate(&req, inetGw),
+		Nodes:              make(datatypes.JSONMap),
+		Tags:               make(datatypes.JSONMap),
+		PresetID:           req.PresetID,
+		Status:             true,
+		CreatedBy:          r.Header.Get("user"),
+		CreatedAt:          time.Now().UTC(),
 	}
 	logic.ApplyConfiguredDomainsToEgress(&e, normDomains)
 	if len(resolvedCIDRs) > 0 {
@@ -349,10 +354,19 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.Network != e.Network {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	oldConfigured := logic.ConfiguredDomainsForEgress(e)
 	oldPresetID := e.PresetID
 	oldMode := e.Mode
 	oldStatus := e.Status
+	oldBypassEgressRoutes := e.BypassEgressRoutes
 	oldRoutingNodes := make(map[string]struct{}, len(e.Nodes))
 	for nodeID := range e.Nodes {
 		oldRoutingNodes[nodeID] = struct{}{}
@@ -360,6 +374,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 	e.Range = egressRange
 	e.Type = egressType
+	e.BypassEgressRoutes = logic.ResolveBypassEgressRoutesForUpdate(&req, inetGw, oldBypassEgressRoutes)
 	event := &models.Event{
 		Action: schema.Update,
 		Source: models.Subject{
@@ -449,6 +464,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		"domains":              e.Domains,
 		"nat":                  e.Nat,
 		"mode":                 e.Mode,
+		"bypass_egress_routes": e.BypassEgressRoutes,
 		"status":               e.Status,
 		"nodes":                e.Nodes,
 		"tags":                 e.Tags,
@@ -524,12 +540,13 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Internet egress disabled: keep sticky selection, but push exit clients first so
-	// they fail open (drop full tunnel) before the global peer update.
+	// Internet egress disabled: detach clients from the exit relay, keep sticky
+	// selection, then push peer updates so the mesh is not wiped (Remove-all).
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	if oldStatus && !e.Status && logic.IsEgressInternetGateway(e) {
 		clients := logic.ListNodesBySelectedInternetEgress(r.Context(), e.Network, e.ID)
 		go func(clients []models.Node) {
+			clients = logic.FailOpenExitClientsKeepSelection(ctx, clients)
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, clients)
 		}(clients)
 	} else if !internetRoutingChanged {
@@ -559,6 +576,10 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 	err := e.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	err = e.Delete(db.WithContext(r.Context()))

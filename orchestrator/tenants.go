@@ -118,6 +118,7 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		{"metrics", (&schema.MetricsRecord{}).DeleteAll},
 		{"integrations", (&schema.Integration{}).DeleteAll},
 		{"user_access_tokens", (&schema.UserAccessToken{}).DeleteAll},
+		{"api_keys", (&schema.APIKey{}).DeleteAll},
 		{"user_groups", (&schema.UserGroup{}).DeleteAll},
 		{"pending_users", (&schema.PendingUser{}).DeleteAll},
 		{"user_invites", (&schema.UserInvite{}).DeleteAll},

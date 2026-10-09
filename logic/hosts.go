@@ -375,6 +375,7 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 	if err != nil {
 		return
 	}
+	wasConnected := currentNode.Connected
 	if !currentNode.Connected && newNode.Connected {
 		currentNode.Status = schema.OnlineSt
 	}
@@ -393,6 +394,11 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(ctx, newNode)
+	if !wasConnected && newNode.Connected {
+		if err := EnsureAutoExitNode(ctx, h, &currentNode); err != nil {
+			slog.Warn("auto exit node assignment failed", "node", currentNode.ID.String(), "network", currentNode.Network, "error", err)
+		}
+	}
 
 	return
 }
@@ -571,7 +577,7 @@ func GetDefaultHosts(ctx context.Context) []schema.Host {
 		return defaultHostList
 	}
 	for i := range hosts {
-		if hosts[i].IsDefault {
+		if hosts[i].IsDefault && !IsUserOwnedHost(&hosts[i]) {
 			defaultHostList = append(defaultHostList, hosts[i])
 		}
 	}
