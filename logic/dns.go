@@ -76,7 +76,7 @@ func CreateFallbackNameserver(network *schema.Network) error {
 
 	for _, ns := range nameservers {
 		if ns.Default && ns.Name == GooglePublicNameserverName {
-			return nil
+			return backfillFallbackNameserverAllUsers(ctx, &ns)
 		}
 	}
 
@@ -104,6 +104,36 @@ func CreateFallbackNameserver(network *schema.Network) error {
 		CreatedAt: time.Now().UTC(),
 	}
 	return ns.Create(ctx)
+}
+
+// backfillFallbackNameserverAllUsers adds Users["*"] to a fallback created
+// before the user selector existed. Those rows targeted everyone through
+// Tags["*"] only, so user devices lose the nameserver after upgrade.
+// A non-empty Users map is an explicit assignment and is left unchanged.
+func backfillFallbackNameserverAllUsers(ctx context.Context, ns *schema.Nameserver) error {
+	if !fallbackNameserverNeedsAllUsers(ns) {
+		return nil
+	}
+	if ns.Users == nil {
+		ns.Users = map[string]any{}
+	}
+	ns.Users["*"] = ""
+	return ns.Update(ctx)
+}
+
+// fallbackNameserverNeedsAllUsers reports whether the default Google fallback
+// still has only the old all-resources tag and no user targets.
+func fallbackNameserverNeedsAllUsers(ns *schema.Nameserver) bool {
+	if ns == nil || !ns.Default || !ns.Fallback || ns.Name != GooglePublicNameserverName {
+		return false
+	}
+	if _, ok := ns.Tags["*"]; !ok {
+		return false
+	}
+	if _, ok := ns.Users["*"]; ok || len(ns.Users) > 0 {
+		return false
+	}
+	return true
 }
 
 // GetDNS - gets the DNS of a current network
