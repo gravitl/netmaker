@@ -51,6 +51,10 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.DevicePolicy,
 			models.UserPolicy,
 		},
+		AccessTypes: []models.AclAccessType{
+			models.NetworkAccess,
+			models.ManagedAccess,
+		},
 		SrcGroupTypes: []models.AclGroupType{
 			models.UserAclID,
 			models.UserGroupAclID,
@@ -66,7 +70,8 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		},
 		ProtocolTypes: []models.ProtocolType{
 			{
-				Name: models.Any,
+				Name:       models.Any,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.ALL,
 				},
@@ -74,14 +79,16 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 				AllowPortSetting: false,
 			},
 			{
-				Name: models.Http,
+				Name:       models.Http,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
 				PortRange: "80",
 			},
 			{
-				Name: models.Https,
+				Name:       models.Https,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
@@ -109,35 +116,48 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			// 	PortRange: "53",
 			// },
 			{
-				Name: models.AllTCP,
+				Name:       models.AllTCP,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
 				PortRange: "All ports",
 			},
 			{
-				Name: models.AllUDP,
+				Name:       models.AllUDP,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
 				},
 				PortRange: "All ports",
 			},
 			{
-				Name: models.ICMPService,
+				Name:       models.ICMPService,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.ICMP,
 				},
 				PortRange: "",
 			},
 			{
-				Name: models.SSH,
+				Name:       models.SSH,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
 				PortRange: "22",
 			},
 			{
-				Name: models.Custom,
+				Name:       models.ManagedSSH,
+				AccessType: models.ManagedAccess,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				AllowPortSetting: false,
+			},
+			{
+				Name:       models.Custom,
+				AccessType: models.NetworkAccess,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
 					models.TCP,
@@ -307,6 +327,11 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		acl.Port = []string{}
 		acl.Proto = models.ALL
 	}
+	err = logic.NormalizeAndValidateAclAccessType(&acl)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -378,6 +403,22 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		action = schema.DisableAclPolicy
 	}
 
+	if acl.IsManagedAccess() {
+		managed := acl
+		if updateAcl.Name != "" {
+			managed.Name = updateAcl.Name
+		}
+		managed.Src = updateAcl.Src
+		managed.Dst = updateAcl.Dst
+		managed.SSHUsers = updateAcl.SSHUsers
+		managed.Enabled = updateAcl.Enabled
+		// Keep the request's network id so the mismatch check below still applies.
+		managed.NetworkID = updateAcl.NetworkID
+		updateAcl.Acl = managed
+	} else {
+		// The access type of a policy cannot be changed, whatever the request carries.
+		updateAcl.Acl.AccessType = acl.AccessType
+	}
 	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

@@ -37,6 +37,15 @@ const (
 	DevicePolicy AclPolicyType = "device-policy"
 )
 
+type AclAccessType string
+
+const (
+	NetworkAccess AclAccessType = "network"
+	ManagedAccess AclAccessType = "managed"
+)
+
+func (t AclAccessType) String() string { return string(t) }
+
 type AclGroupType string
 
 const (
@@ -67,6 +76,7 @@ type Acl struct {
 	Name             string                  `json:"name"`
 	NetworkID        NetworkID               `json:"network_id"`
 	RuleType         AclPolicyType           `json:"policy_type"`
+	AccessType       AclAccessType           `json:"access_type"`
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`
 	Proto            Protocol                `json:"protocol"`
@@ -76,6 +86,15 @@ type Acl struct {
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
 	CreatedAt        time.Time               `json:"created_at"`
+	SSHUsers         []string                `json:"ssh_users,omitempty"`
+}
+
+func (a Acl) IsManagedAccess() bool {
+	return a.AccessType == ManagedAccess
+}
+
+func (a Acl) IsNetworkAccess() bool {
+	return a.AccessType != ManagedAccess
 }
 
 type AclRecord struct {

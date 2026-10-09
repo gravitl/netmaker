@@ -273,6 +273,7 @@ func GetDefaultTenantSettings() models.ServerSettings {
 		MetricInterval:              "15",
 		MetricsPort:                 51821,
 		ManageDNS:                   true,
+		ManageSSH:                   false,
 		DefaultDomain:               servercfg.GetDefaultDomain(),
 		Stun:                        true,
 		StunServers:                 "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302",
@@ -584,6 +585,11 @@ func GetMetricInterval(ctx context.Context) string {
 // GetManageDNS - if manage DNS enabled or not
 func GetManageDNS(ctx context.Context) bool {
 	return GetServerSettings(ctx).ManageDNS
+}
+
+// GetManageSSH - if managed SSH is enabled or not
+func GetManageSSH(ctx context.Context) bool {
+	return GetServerSettings(ctx).ManageSSH
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
