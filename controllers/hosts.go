@@ -542,7 +542,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers, runPostureChecks bool
+	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers, runPostureChecks, reassignGwClients bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -590,20 +590,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case models.UpdateNode:
-		var displacedGwNodes []models.Node
-		sendDeletedNodeUpdate, sendPeerUpdate, displacedGwNodes = logic.UpdateHostNode(r.Context(), &hostUpdate.Host, &hostUpdate.Node)
-		if len(displacedGwNodes) > 0 {
-			go func() {
-				for _, dNode := range displacedGwNodes {
-					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
-						slog.Error("fallback disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
-						continue
-					}
-					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
-				}
-			}()
-		}
+		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(r.Context(), &hostUpdate.Host, &hostUpdate.Node)
+		reassignGwClients = !hostUpdate.Node.Connected
 	case models.UpdateMetrics:
 		nodeID := hostUpdate.Node.ID.String()
 		mq.UpdateMetricsFallBack(r.Context(), nodeID, hostUpdate.NewMetrics)
@@ -704,6 +692,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				_ = _node.UpsertViolations(ctx, _violations)
 			}
 
+		}
+		if reassignGwClients {
+			mq.ReassignAutoAssignedClients(ctx, hostUpdate.Node.ID.String())
 		}
 		if sendDeletedNodeUpdate {
 			_ = mq.PublishDeletedNodePeerUpdate(ctx, nil, &hostUpdate.Node)

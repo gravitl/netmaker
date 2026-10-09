@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 )
 
@@ -370,7 +369,7 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 }
 
 // UpdateHostNode -  handles updates from client nodes
-func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool, displacedGwNodes []models.Node) {
+func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
 	currentNode, err := GetNodeByID(newNode.ID.String())
 	if err != nil {
 		return
@@ -386,9 +385,6 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 	UpsertNode(&currentNode)
 	if !newNode.Connected {
 		publishDeletedNodeUpdate = true
-		if servercfg.IsPro {
-			displacedGwNodes = DisplaceAutoRelayedNodes(newNode.ID.String())
-		}
 		go SetPeerMetricsDisconnected(ctx, newNode.ID.String())
 	}
 	publishPeerUpdate = true
@@ -398,27 +394,42 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 }
 
 // DisplaceAutoRelayedNodes removes auto-assigned nodes from a disconnected gateway
-// and returns the displaced nodes that need re-assignment.
+// and returns the displaced nodes that need re-assignment, as stored after the
+// removal (i.e. no longer relayed).
 func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
 	gwNode, err := GetNodeByID(nodeID)
 	if err != nil || !gwNode.IsGw || len(gwNode.RelayedNodes) == 0 {
 		return nil
 	}
+	relayedNodes, err := GetNodesByIDs(gwNode.RelayedNodes)
+	if err != nil {
+		return nil
+	}
 	var newRelayedNodes []string
-	var displacedNodes []models.Node
+	var displacedNodeIDs []string
 	for _, relayedNodeID := range gwNode.RelayedNodes {
-		relayedNode, err := GetNodeByID(relayedNodeID)
-		if err != nil {
+		relayedNode, ok := relayedNodes[relayedNodeID]
+		if !ok {
 			continue
 		}
 		if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
-			displacedNodes = append(displacedNodes, relayedNode)
+			displacedNodeIDs = append(displacedNodeIDs, relayedNodeID)
 			continue
 		}
 		newRelayedNodes = append(newRelayedNodes, relayedNodeID)
 	}
-	if len(displacedNodes) > 0 {
-		UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+	if len(displacedNodeIDs) == 0 {
+		return nil
+	}
+	UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+	// re-read so callers see the cleared relay state, not the pre-removal snapshot
+	displacedNodesByID, err := GetNodesByIDs(displacedNodeIDs)
+	if err != nil {
+		return nil
+	}
+	displacedNodes := make([]models.Node, 0, len(displacedNodesByID))
+	for _, displacedNode := range displacedNodesByID {
+		displacedNodes = append(displacedNodes, displacedNode)
 	}
 	return displacedNodes
 }
