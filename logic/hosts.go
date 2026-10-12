@@ -185,6 +185,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	} else {
 		h.DNS = "no"
 	}
+	h.ManageSSH = GetServerSettings(ctx).ManageSSH
 
 	checkForZombieHosts(ctx, h)
 	return h.Upsert(ctx)

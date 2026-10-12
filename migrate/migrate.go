@@ -277,17 +277,6 @@ func updateNodes(ctx context.Context) {
 	}
 }
 
-func removeInterGw(egressRanges []string) ([]string, bool) {
-	update := false
-	for i := len(egressRanges) - 1; i >= 0; i-- {
-		if egressRanges[i] == "0.0.0.0/0" || egressRanges[i] == "::/0" {
-			update = true
-			egressRanges = append(egressRanges[:i], egressRanges[i+1:]...)
-		}
-	}
-	return egressRanges, update
-}
-
 func updateNewAcls(ctx context.Context) {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(ctx)
