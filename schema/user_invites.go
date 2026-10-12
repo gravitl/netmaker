@@ -37,7 +37,7 @@ func (u *UserInvite) Create(ctx context.Context) error {
 
 func (u *UserInvite) GetByEmail(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ?", u.Email).
+		Where("LOWER(email) = LOWER(?)", u.Email).
 		First(u).
 		Error
 }
@@ -56,7 +56,7 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 
 func (u *UserInvite) DeleteByEmail(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ?", u.Email).
+		Where("LOWER(email) = LOWER(?)", u.Email).
 		Delete(u).
 		Error
 }
