@@ -1179,7 +1179,6 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 					_ = logic.UpdateMetrics(ctx, nodeID, metrics)
 				}
 				go logic.SetPeerMetricsDisconnected(ctx, nodeID)
-				mq.ReassignAutoAssignedClients(ctx, nodeID)
 			}
 			logic.LogEvent(r.Context(), &models.Event{
 				Action: eventAction,
@@ -1204,6 +1203,15 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					slog.Error("failed to publish node update", "id", nodeID, "error", err)
 				}
+			}
+		}
+
+		// Reassign auto-assigned clients only after every disconnected gw has been
+		// sent its node update, so clients are less likely to re-pick a gw that is
+		// still up but about to tear down.
+		if !req.Connected {
+			for i := range nodeIDs {
+				mq.ReassignAutoAssignedClients(ctx, nodeIDs[i].(string))
 			}
 		}
 
