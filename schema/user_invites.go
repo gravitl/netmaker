@@ -52,19 +52,19 @@ func (u *UserInvite) Get(ctx context.Context) error {
 
 func (u *UserInvite) GetValidationInvite(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("invite_code = ? AND email = ? AND type = ?", u.InviteCode, u.Email, ValidationInvite).
+		Where("invite_code = ? AND LOWER(email) = LOWER(?) AND type = ?", u.InviteCode, u.Email, ValidationInvite).
 		First(u).Error
 }
 
 func (u *UserInvite) GetPendingValidationInvite(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ? AND type = ?", u.Email, ValidationInvite).
+		Where("LOWER(email) = LOWER(?) AND type = ?", u.Email, ValidationInvite).
 		First(u).Error
 }
 
 func (u *UserInvite) GetByEmail(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ? AND type = ?", u.Email, MembershipInvite)
+		Where("LOWER(email) = LOWER(?) AND type = ?", u.Email, MembershipInvite)
 	if scopeID := scope.ID(ctx); scopeID != "" {
 		query = query.
 			Where(fmt.Sprintf("%s.scope = ?", userInvitesTable), scope.Level(ctx)).
@@ -94,7 +94,7 @@ func (u *UserInvite) ListAll(ctx context.Context, options ...dbtypes.Option) ([]
 
 func (u *UserInvite) DeleteByEmail(ctx context.Context) error {
 	query := db.FromContext(ctx).Model(&UserInvite{}).
-		Where("email = ? AND type = ?", u.Email, MembershipInvite)
+		Where("LOWER(email) = LOWER(?) AND type = ?", u.Email, MembershipInvite)
 	if scopeID := scope.ID(ctx); scopeID != "" {
 		query = query.
 			Where(fmt.Sprintf("%s.scope = ?", userInvitesTable), scope.Level(ctx)).
