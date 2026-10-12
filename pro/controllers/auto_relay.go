@@ -249,6 +249,17 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if !autoRelayNode.Connected {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
+				"badrequest",
+			),
+		)
+		return
+	}
 
 	var sendPeerUpdate bool
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
@@ -482,6 +493,17 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(
 				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", host.Name),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if !autoRelayNode.Connected {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
 				"badrequest",
 			),
 		)
