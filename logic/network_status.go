@@ -51,15 +51,18 @@ type networkStatusBuilder struct {
 	relayConnectivity map[string]map[string]models.Metric // relay node ID -> its links
 }
 
-// GetNetworkStatus returns the status of the nodes and extclients in the network.
-func GetNetworkStatus(ctx context.Context, network string, opts NetworkStatusOptions) (*models.NetworkStatus, error) {
+// loadNetworkStatusBuilder loads the nodes, extclients, hosts, and egresses for
+// one network. Static clients are named but not placed in nodesByID; callers
+// that need them as peers add them after indexEgressRouters so a tagged
+// extclient is not treated as an egress router.
+func loadNetworkStatusBuilder(ctx context.Context, network string, opts NetworkStatusOptions) (*networkStatusBuilder, []models.Node, error) {
 	nodes, err := GetNetworkNodes(ctx, network)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	extClients, err := GetNetworkExtClients(ctx, network)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for i := range extClients {
 		staticNode := models.ConvertToStaticNode(extClients[i])
@@ -68,7 +71,7 @@ func GetNetworkStatus(ctx context.Context, network string, opts NetworkStatusOpt
 	}
 	eli, err := (&schema.Egress{Network: network}).ListByNetwork(db.WithContext(ctx))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	b := &networkStatusBuilder{
@@ -89,22 +92,50 @@ func GetNetworkStatus(ctx context.Context, network string, opts NetworkStatusOpt
 	}
 	b.userDefault = userDeviceEgressDefaultActive(ctx, network)
 
-	var selected []models.Node
 	for i := range nodes {
 		node := &nodes[i]
 		if node.IsStatic {
 			b.names[node.StaticNode.ClientID] = node.StaticNode.ClientID
-		} else {
-			b.nodesByID[node.ID.String()] = node
-			if host, ok := b.hosts[node.HostID.String()]; ok {
-				b.names[node.ID.String()] = host.Name
-			}
+			continue
 		}
+		b.nodesByID[node.ID.String()] = node
+		if host, ok := b.hosts[node.HostID.String()]; ok {
+			b.names[node.ID.String()] = host.Name
+		}
+	}
+	b.indexEgressRouters()
+	return b, nodes, nil
+}
+
+// indexStaticClients adds extclients to the node map, keyed by client ID.
+// Call after indexEgressRouters.
+func (b *networkStatusBuilder) indexStaticClients(nodes []models.Node) {
+	for i := range nodes {
+		if !nodes[i].IsStatic {
+			continue
+		}
+		id := nodes[i].StaticNode.ClientID
+		if id == "" {
+			continue
+		}
+		b.nodesByID[id] = &nodes[i]
+	}
+}
+
+// GetNetworkStatus returns the status of the nodes and extclients in the network.
+func GetNetworkStatus(ctx context.Context, network string, opts NetworkStatusOptions) (*models.NetworkStatus, error) {
+	b, nodes, err := loadNetworkStatusBuilder(ctx, network, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var selected []models.Node
+	for i := range nodes {
+		node := &nodes[i]
 		if _, ok := opts.Kinds[networkNodeKind(node)]; len(opts.Kinds) == 0 || ok {
 			selected = append(selected, *node)
 		}
 	}
-	b.indexEgressRouters()
 	selected = AddStatusToNodes(ctx, selected, true)
 
 	status := &models.NetworkStatus{
