@@ -40,6 +40,33 @@ func orgHandlers(r *mux.Router) {
 
 var errOrgNotFound = errors.New("organization not found")
 
+func createOrgOwnerMembership(ctx context.Context, user *schema.User) error {
+	tenant := &schema.Tenant{ID: scope.ID(ctx)}
+	if err := tenant.Get(ctx); err != nil {
+		return err
+	}
+
+	owner := &schema.OrgMembership{OrganizationID: tenant.OrganizationID}
+	err := owner.GetOwner(ctx)
+	if err == nil {
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return (&schema.OrgMembership{
+		OrganizationID:             tenant.OrganizationID,
+		UserID:                     user.ID,
+		RoleID:                     schema.OrgOwner,
+		AuthType:                   user.AuthType,
+		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+		Password:                   user.Password,
+		AccountDisabled:            user.AccountDisabled,
+		IsMFAEnabled:               user.IsMFAEnabled,
+		TOTPSecret:                 user.TOTPSecret,
+	}).Create(ctx)
+}
+
 func resolveSoleOrg(ctx context.Context, orgID string) (*schema.Organization, error) {
 	o, err := logic.SoleOrganization(ctx)
 	if err != nil {
@@ -81,6 +108,12 @@ func getOrgSettings(w http.ResponseWriter, r *http.Request) {
 	data := os.Settings.Data()
 	if data.ClientSecret != "" {
 		data.ClientSecret = logic.Mask()
+	}
+	if data.OktaAPIToken != "" {
+		data.OktaAPIToken = logic.Mask()
+	}
+	if data.GoogleSACredsJson != "" {
+		data.GoogleSACredsJson = logic.Mask()
 	}
 	if data.EmailSenderPassword != "" {
 		data.EmailSenderPassword = logic.Mask()
@@ -140,6 +173,12 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	if req.ClientSecret == logic.Mask() {
 		req.ClientSecret = existing.Settings.Data().ClientSecret
 	}
+	if req.OktaAPIToken == logic.Mask() {
+		req.OktaAPIToken = existing.Settings.Data().OktaAPIToken
+	}
+	if req.GoogleSACredsJson == logic.Mask() {
+		req.GoogleSACredsJson = existing.Settings.Data().GoogleSACredsJson
+	}
 	if req.EmailSenderPassword == logic.Mask() {
 		req.EmailSenderPassword = existing.Settings.Data().EmailSenderPassword
 	}
@@ -155,10 +194,17 @@ func upsertOrgSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ResetAuthProvider(r.Context())
+	logic.ResetIDPSyncHook(r.Context())
 	logic.EmailInit(scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, orgID))
 
 	if req.ClientSecret != "" {
 		req.ClientSecret = logic.Mask()
+	}
+	if req.OktaAPIToken != "" {
+		req.OktaAPIToken = logic.Mask()
+	}
+	if req.GoogleSACredsJson != "" {
+		req.GoogleSACredsJson = logic.Mask()
 	}
 	if req.EmailSenderPassword != "" {
 		req.EmailSenderPassword = logic.Mask()
@@ -373,6 +419,25 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := scope.WithContext(dbctx, scope.TenantScope, tenant.ID)
+		exists, err := (&schema.User{}).SuperAdminExists(tenantCtx)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if exists {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("organization is already set up"), logic.BadReq))
+			return
+		}
+	}
+
 	var user schema.User
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -396,12 +461,6 @@ func createOrgOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(ctx, &user)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-
-	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", o.ID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -579,7 +638,32 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 func listTenants(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
-	tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	if err := caller.GetWithMembership(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	var tenants []schema.Tenant
+	var err error
+	if caller.PlatformRoleID == schema.OrgOwner || caller.PlatformRoleID == schema.OrgAdmin {
+		tenants, err = (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+	} else {
+		memberships, mErr := (&schema.TenantMembership{UserID: caller.ID}).ListByUserID(r.Context())
+		if mErr != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(mErr, logic.Internal))
+			return
+		}
+		if len(memberships) == 0 {
+			logic.ReturnSuccessResponseWithJson(w, r, []schema.Tenant{}, "fetched tenants")
+			return
+		}
+		tenantIDs := make([]interface{}, len(memberships))
+		for i, m := range memberships {
+			tenantIDs[i] = m.TenantID
+		}
+		tenants, err = (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID), dbtypes.WithFilter("id", tenantIDs...))
+	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return

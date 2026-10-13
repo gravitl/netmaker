@@ -205,6 +205,7 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 func UserRolesInit() {
 	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = logic.OrgUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
@@ -1467,9 +1468,9 @@ func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[
 func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
 
-func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
+func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	grpUsersMap := make(map[schema.UserGroupID]map[string]struct{})
-	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, _ := (&schema.User{}).ListAllWithMembership(ctx)
 	for _, user := range users {
 		for gID := range user.UserGroups.Data() {
 			if grpUsers, ok := grpUsersMap[gID]; ok {

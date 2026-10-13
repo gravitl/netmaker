@@ -21,6 +21,22 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
+// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
+var ValidTenantRoles = map[schema.UserRoleID]bool{
+	schema.SuperAdminRole: true,
+	schema.AdminRole:      true,
+	schema.PlatformUser:   true,
+	schema.ServiceUser:    true,
+	schema.Auditor:        true,
+}
+
+// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
+var ValidOrgRoles = map[schema.UserRoleID]bool{
+	schema.OrgOwner: true,
+	schema.OrgAdmin: true,
+	schema.OrgUser:  true,
+}
+
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
 	ops := applyOptions(opts...)
 

@@ -53,10 +53,13 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	if host.OS != "linux" { // support for other OS to be added
+	if host.OS != models.OS_Types.Linux && host.OS != models.OS_Types.Windows {
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
-	if host.FirewallInUse == schema.FIREWALL_NONE {
+	if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+		if host.OS == models.OS_Types.Windows {
+			return models.Node{}, errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
 	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
@@ -236,7 +239,13 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 
 func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNodeReq, update bool) error {
 	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
-	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
+	if node.Host == nil {
+		return errors.New("host is required")
+	}
+	if !isSupportedEgressFirewall(node.Host.FirewallInUse, node.Host.OS) {
+		if node.Host.OS == models.OS_Types.Windows {
+			return errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return errors.New("iptables or nftables needs to be installed")
 	}
 	if node.IsIGWClient || node.SelectedInternetEgressID != "" {

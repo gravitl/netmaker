@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 )
 
@@ -46,16 +45,6 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	host := &schema.Host{ID: node.HostID}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if host.OS != models.OS_Types.Linux {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only linux nodes can be made internet gws"), "badrequest"))
 		return
 	}
 	err = logic.ValidateInetGwReq(r.Context(), logic.ConvertModelsNodeToSchemaNode(&node), request, false)

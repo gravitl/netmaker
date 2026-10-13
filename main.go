@@ -14,6 +14,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"syscall"
+	"time"
 
 	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
@@ -156,12 +157,28 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error setting mq keys: ", err.Error())
 		}
 
+	} else {
+		if err := logic.LoadJWTSecret(); err != nil {
+			logger.Log(0, "JWT secret not yet available from master pod, retrying in background: ", err.Error())
+			go retryLoadJWTSecret()
+		}
 	}
 
 	//initialize cache
 	initCache()
 	_ = logic.CleanExpiredSSOStates()
+}
 
+func retryLoadJWTSecret() {
+	const retryInterval = 5 * time.Second
+	for {
+		time.Sleep(retryInterval)
+		err := logic.LoadJWTSecret()
+		if err == nil {
+			logger.Log(0, "JWT secret loaded from master pod")
+			return
+		}
+	}
 }
 
 func initCache() {

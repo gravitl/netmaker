@@ -351,26 +351,27 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.HostPull{
-		Host:               *host,
-		Nodes:              logic.GetHostNodes(host),
-		ServerConfig:       hPU.ServerConfig,
-		Peers:              hPU.Peers,
-		PeerIDs:            hPU.PeerIDs,
-		HostNetworkInfo:    hPU.HostNetworkInfo,
-		EgressRoutes:       hPU.EgressRoutes,
-		FwUpdate:           hPU.FwUpdate,
-		ChangeDefaultGw:    hPU.ChangeDefaultGw,
-		DefaultGwIp:        hPU.DefaultGwIp,
-		DefaultGwIp6:       hPU.DefaultGwIp6,
-		IsInternetGw:       hPU.IsInternetGw,
-		NameServers:        hPU.NameServers,
-		EgressWithDomains:  hPU.EgressWithDomains,
-		EndpointDetection:  logic.IsEndpointDetectionEnabled(r.Context()),
-		DnsNameservers:     hPU.DnsNameservers,
-		ReplacePeers:       hPU.ReplacePeers,
-		AutoRelayNodes:     hPU.AutoRelayNodes,
-		GwNodes:            hPU.GwNodes,
-		AddressIdentityMap: hPU.AddressIdentityMap,
+		Host:                    *host,
+		Nodes:                   logic.GetHostNodes(host),
+		ServerConfig:            hPU.ServerConfig,
+		Peers:                   hPU.Peers,
+		PeerIDs:                 hPU.PeerIDs,
+		HostNetworkInfo:         hPU.HostNetworkInfo,
+		EgressRoutes:            hPU.EgressRoutes,
+		FwUpdate:                hPU.FwUpdate,
+		ChangeDefaultGw:         hPU.ChangeDefaultGw,
+		DefaultGwIp:             hPU.DefaultGwIp,
+		DefaultGwIp6:            hPU.DefaultGwIp6,
+		IsInternetGw:            hPU.IsInternetGw,
+		NameServers:             hPU.NameServers,
+		EgressWithDomains:       hPU.EgressWithDomains,
+		EndpointDetection:       logic.IsEndpointDetectionEnabled(r.Context()),
+		DnsNameservers:          hPU.DnsNameservers,
+		ReplacePeers:            hPU.ReplacePeers,
+		AutoRelayNodes:          hPU.AutoRelayNodes,
+		GwNodes:                 hPU.GwNodes,
+		AddressIdentityMap:      hPU.AddressIdentityMap,
+		SshAuthorizedIdentities: hPU.SshAuthorizedIdentities,
 	}
 
 	logger.Log(1, hostIDStr, host.Name, "completed a pull")
@@ -1422,17 +1423,30 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	signal.IsPro = servercfg.IsPro
-	hostID, err = uuid.Parse(signal.ToHostID)
+	// bind the sender identity to the authenticated host rather than trusting the request body
+	signal.FromHostID = currentHost.ID.String()
+	signal.FromHostPubKey = currentHost.PublicKey.String()
+
+	toHostID, err := uuid.Parse(signal.ToHostID)
 	if err != nil {
 		err = fmt.Errorf("failed to parse host id: %w", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	peerHost := &schema.Host{
-		ID: hostID,
+		ID: toHostID,
 	}
 	err = peerHost.Get(r.Context())
 	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"),
+		)
+		return
+	}
+	// the target host must share a network with the authenticated sender
+	if !logic.HostsShareNetwork(r.Context(), currentHost.ID.String(), peerHost.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,

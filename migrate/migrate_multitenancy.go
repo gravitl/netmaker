@@ -10,9 +10,13 @@ import (
 	"github.com/gravitl/netmaker/scope"
 )
 
-var SyncOrgAndTenants = CreateLocalDefaults
+var MigrateOrgAndTenants = migrateOrgAndTenants
 
-func CreateLocalDefaults(ctx context.Context) error {
+func initializeTenants(ctx context.Context) error {
+	return MigrateOrgAndTenants(ctx)
+}
+
+func migrateOrgAndTenants(ctx context.Context) error {
 	org, err := EnsureLocalOrganization(ctx)
 	if err != nil {
 		return err
@@ -256,31 +260,13 @@ func RekeyOrganization(ctx context.Context, oldID, newID string) error {
 }
 
 func isNewDeployment(ctx context.Context) (bool, error) {
-	if db.FromContext(ctx).Migrator().HasTable(TableName_Users) {
-		numUsers, err := kvCount(ctx, TableName_Users)
-		if err != nil {
-			return false, err
-		}
+	numUsers, err := (&schema.User{}).Count(ctx)
+	if err != nil {
+		return false, err
+	}
 
-		if numUsers == 0 {
-			numUsers, err = (&schema.User{}).Count(ctx)
-			if err != nil {
-				return false, err
-			}
-
-			if numUsers == 0 {
-				return true, nil
-			}
-		}
-	} else {
-		numUsers, err := (&schema.User{}).Count(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		if numUsers == 0 {
-			return true, nil
-		}
+	if numUsers == 0 {
+		return true, nil
 	}
 
 	return false, nil
