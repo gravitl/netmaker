@@ -3,6 +3,8 @@ package schema
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -53,16 +55,12 @@ type Node struct {
 	IsGateway                         bool                                  `json:"is_gateway"`
 	IsAutoRelay                       string                                `json:"is_auto_relay"`
 	IsInternetGateway                 bool                                  `json:"is_internet_gateway"`
-	// TcpProxyEnabled: gateway accepts TCP/TLS framed WG uplinks (control-plane flag; runtime is client-side).
-	TcpProxyEnabled bool `json:"tcp_proxy_enabled"`
-	// TcpProxyListenPort: TCP listen port when TcpProxyEnabled (default 443 if enabled with port 0).
-	TcpProxyListenPort int `json:"tcp_proxy_listen_port"`
 	AdditionalGatewayEndpoints        datatypes.JSONSlice[string]           `json:"additional_gateway_endpoints"`
 	RelayedClients                    datatypes.JSONMap                     `json:"relayed_clients"`
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
-	// UseTcpUplink: assigned/relayed node opts into TCP uplink to its gateway (requires gateway TcpProxyEnabled).
+	// UseTcpUplink: assigned/relayed node opts into TCP uplink to its gateway (requires host TcpProxyEnabled).
 	UseTcpUplink bool `json:"use_tcp_uplink"`
 	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
 	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
@@ -187,32 +185,123 @@ func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error
 	return int(count), err
 }
 
+// UpsertViolations replaces stored violations for this node with the latest
+// evaluation cycle, then updates severity / cycle metadata on the node row.
+// Inserts the new cycle and updates the node first, then deletes only the
+// cycle this writer is replacing (the node's previously persisted cycle),
+// so concurrent writers do not erase each other's current rows.
 func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckViolation) error {
+	txCtx := db.BeginTx(ctx)
+	tx := db.FromContext(txCtx)
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	cycleID := n.PostureCheckLastEvaluationCycleID
+
+	var previousCycleID string
+	if err := tx.Model(&Node{}).
+		Select("posture_check_last_evaluation_cycle_id").
+		Where("id = ?", n.ID).
+		Scan(&previousCycleID).Error; err != nil {
+		return err
+	}
+
 	if len(violations) > 0 {
 		for i := range violations {
 			if violations[i].TenantID == "" {
 				violations[i].TenantID = n.TenantID
 			}
+			if violations[i].NodeID == "" {
+				violations[i].NodeID = n.ID
+			}
+			if violations[i].EvaluationCycleID == "" {
+				violations[i].EvaluationCycleID = cycleID
+			}
 		}
-
-		err := db.FromContext(ctx).Model(&PostureCheckViolation{}).Create(&violations).Error
-		if err != nil {
+		if err := tx.Model(&PostureCheckViolation{}).Create(&violations).Error; err != nil {
 			return err
 		}
 	}
 
-	return db.FromContext(ctx).Model(&Node{}).
+	if err := tx.Model(&Node{}).
 		Where("id = ?", n.ID).
-		Update("posture_check_severity", n.PostureCheckSeverity).
-		Update("posture_check_last_evaluation_cycle_id", n.PostureCheckLastEvaluationCycleID).
-		Update("posture_check_last_evaluated_at", n.PostureCheckLastEvaluatedAt).
-		Error
+		Updates(map[string]interface{}{
+			"posture_check_severity":                 n.PostureCheckSeverity,
+			"posture_check_last_evaluation_cycle_id": cycleID,
+			"posture_check_last_evaluated_at":        n.PostureCheckLastEvaluatedAt,
+		}).Error; err != nil {
+		return err
+	}
+
+	// Drop only the cycle we replaced. Deleting "all except new" would also
+	// remove rows from a concurrent writer's newer cycle.
+	if previousCycleID != "" && previousCycleID != cycleID {
+		del := tx.Model(&PostureCheckViolation{}).
+			Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, previousCycleID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	} else if cycleID == "" {
+		// Clean node with no new cycle — purge any leftover rows for this node.
+		del := tx.Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+		if tenantID := scope.ID(ctx); tenantID != "" {
+			del = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(del)
+		}
+		if err := del.Delete(&PostureCheckViolation{}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	return nil
 }
 
 func (n *Node) ListViolations(ctx context.Context) ([]PostureCheckViolation, error) {
 	var violations []PostureCheckViolation
-	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).
-		Where("node_id = ? AND evaluation_cycle_id = ?", n.ID, n.PostureCheckLastEvaluationCycleID)
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
+	}
+
+	if n.PostureCheckLastEvaluationCycleID != "" {
+		err := query.Where("evaluation_cycle_id = ?", n.PostureCheckLastEvaluationCycleID).Find(&violations).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(violations) > 0 || n.PostureCheckSeverity == SeverityUnknown {
+			return violations, nil
+		}
+	}
+
+	// Fallback when severity says violated but the stored cycle has no rows
+	// (partial upsert from older delete-first writers).
+	fallback := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id = ?", n.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		fallback = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(fallback)
+	}
+	err := fallback.Find(&violations).Error
+	return violations, err
+}
+
+// ListViolationsByNodeIDs fetches posture violations for many nodes in one query.
+// Prefer after UpsertViolations (which replaces cycles) so only current rows remain.
+// Callers should still filter by each node's PostureCheckLastEvaluationCycleID.
+func ListViolationsByNodeIDs(ctx context.Context, nodeIDs []string) ([]PostureCheckViolation, error) {
+	if len(nodeIDs) == 0 {
+		return nil, nil
+	}
+	var violations []PostureCheckViolation
+	query := db.FromContext(ctx).Model(&PostureCheckViolation{}).Where("node_id IN ?", nodeIDs)
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", postureCheckViolationsTable), tenantID)(query)
 	}
@@ -429,6 +518,63 @@ func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 // DefaultTcpProxyListenPort is used when TcpProxyEnabled is set with listen port <= 0.
 const DefaultTcpProxyListenPort = 443
 
+// TcpProxyClientPortProxy is the default client-facing WSS port published when
+// TLS mode is proxy (external termination). Override at runtime with the
+// TCP_PROXY_PUBLIC_PORT server environment variable.
+const TcpProxyClientPortProxy = 443
+
+// TcpProxyTLSMode values (host/node). Empty defaults to selfsigned on clients.
+const (
+	TcpProxyTLSModeSelfSigned = "selfsigned"
+	TcpProxyTLSModeProxy      = "proxy"
+)
+
+// NormaliseTcpProxyTLSMode returns a valid mode; empty → selfsigned.
+func NormaliseTcpProxyTLSMode(mode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", TcpProxyTLSModeSelfSigned:
+		return TcpProxyTLSModeSelfSigned, nil
+	case TcpProxyTLSModeProxy:
+		return TcpProxyTLSModeProxy, nil
+	default:
+		return "", fmt.Errorf("unsupported uplink TLS mode: %s", mode)
+	}
+}
+
+// NormaliseTcpProxyPublicHostname cleans a public hostname for WSS publish.
+// Strips schemes/paths; rejects values that look like URLs with paths or empty hosts.
+func NormaliseTcpProxyPublicHostname(raw string) (string, error) {
+	h := strings.TrimSpace(raw)
+	if h == "" {
+		return "", nil
+	}
+	lower := strings.ToLower(h)
+	for _, pfx := range []string{"wss://", "ws://", "https://", "http://"} {
+		if strings.HasPrefix(lower, pfx) {
+			h = h[len(pfx):]
+			break
+		}
+	}
+	if i := strings.IndexAny(h, "/?"); i >= 0 {
+		h = h[:i]
+	}
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	// Drop accidental port; public port is published separately.
+	if host, _, err := net.SplitHostPort(h); err == nil {
+		h = host
+	} else if strings.HasPrefix(h, "[") && strings.Contains(h, "]") {
+		// leave bracketed IPv6 literals as-is without port
+	}
+	h = strings.TrimSpace(h)
+	if h == "" || strings.ContainsAny(h, " /\\") {
+		return "", fmt.Errorf("invalid tcp_proxy_public_hostname")
+	}
+	return h, nil
+}
+
 func (n *Node) AssignGateway(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")
@@ -533,8 +679,6 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 			"relayed_clients":              n.RelayedClients,
 			"relayed_igw_clients":          n.RelayedIGWClients,
 			"additional_gateway_endpoints": n.AdditionalGatewayEndpoints,
-			"tcp_proxy_enabled":            n.TcpProxyEnabled,
-			"tcp_proxy_listen_port":        n.TcpProxyListenPort,
 		}).Error
 	if err != nil {
 		return err
@@ -559,16 +703,6 @@ func (n *Node) ResetGateway(ctx context.Context) error {
 		Where(expr.WhereHasValue("auto_relayed_peers", n.ID)).
 		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", n.ID)).
 		Error
-}
-
-// SetTcpProxy persists TCP proxy listen settings for a gateway node.
-func (n *Node) SetTcpProxy(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).
-		Where("id = ?", n.ID).
-		Updates(map[string]interface{}{
-			"tcp_proxy_enabled":     n.TcpProxyEnabled,
-			"tcp_proxy_listen_port": n.TcpProxyListenPort,
-		}).Error
 }
 
 func (n *Node) ClearGatewayIDFromEnrollmentKeys(ctx context.Context) error {

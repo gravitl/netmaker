@@ -25,7 +25,7 @@ import (
 
 func TagHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getTags)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createTag)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateTag)))).
@@ -270,7 +270,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		UsedByCnt:   len(updateTag.TaggedNodes),
 		TaggedNodes: updateTag.TaggedNodes,
 	}
-	go proLogic.RunPostureChecks()
+	go proLogic.RunPostureChecksForTenant(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, res, "updated tags")
 }
 
@@ -306,6 +306,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
+		proLogic.RemoveTagFromNetwork(ctx, tag.ID, tag.Network)
 		proLogic.RemoveDeviceTagFromAclPolicies(ctx, tag.ID, tag.Network)
 		proLogic.RemoveTagFromPostureChecks(tag.ID, tag.Network)
 		proLogic.RemoveTagFromNameservers(tag.ID, tag.Network)

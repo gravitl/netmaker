@@ -54,11 +54,11 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserGroup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUserToNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
+	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
+	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet).Queries("network_id", "{network_id}")
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
@@ -80,10 +80,10 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/ingress/{ingress_id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/network_ip", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping)))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/idp/sync", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(syncIDP)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/test", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(testIDPSync)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/idp/sync/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/idp", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/idp/sync", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(syncIDP)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/test", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(testIDPSync)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/idp", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration)))).Methods(http.MethodDelete)
 }
 
 // @Summary     User signup via invite
@@ -99,6 +99,11 @@ func UserHandlers(r *mux.Router) {
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	emailID := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
+	if !logic.IsBasicAuthEnabled(r.Context()) {
+		err := errors.New("basic auth is disabled")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	in, err := logic.GetUserInvite(r.Context(), emailID)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -270,9 +275,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	validRoles := orchestrator.ValidTenantRoles
+	validRoles := schema.ValidTenantRoles
 	if orgScoped {
-		validRoles = orchestrator.ValidOrgRoles
+		validRoles = schema.ValidOrgRoles
 	}
 	if !validRoles[roleCheck.ID] {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid platform role %s", roleCheck.ID), "badrequest"))
@@ -309,6 +314,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			err = orgUser.GetWithMembership(orgCtx)
 			if err == nil {
 				orgUser.PlatformRoleID = schema.UserRoleID(inviteReq.PlatformRoleID)
+				orgUser.UserGroups = datatypes.NewJSONType(inviteReq.UserGroups)
 				err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), orgUser, orchestrator.WithInheritedAuth())
 				if err != nil {
 					slog.Error("failed to grant tenant access to org member", "email", inviteeEmail, "error", err)
@@ -700,6 +706,9 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
+	if len(userGroupReq.Members) > 0 {
+		go proLogic.RunPostureChecksForTenant(ctx)
+	}
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -901,7 +910,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 // @Param       network_id query string true "Network ID"
 // @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
-func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
+func addUserToNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
@@ -957,8 +966,9 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-
-	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.RunPostureChecksForTenant(ctx)
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 
 // @Summary     Remove user from network
@@ -970,7 +980,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 // @Param       network_id query string true "Network ID"
 // @Success     200 {object} schema.User
 // @Failure     400 {object} models.ErrorResponse
-func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
+func removeUserFromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
@@ -1026,7 +1036,9 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		Origin: schema.Dashboard,
 	})
 
-	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
+  ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go proLogic.RunPostureChecksForTenant(ctx)
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 
 // @Summary     Delete user group
@@ -1375,7 +1387,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
-			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network),
 			Metadata:          node.Metadata,
 		})
 
@@ -1585,7 +1597,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Network:           node.Network,
 		GwClient:          userConf,
 		Connected:         true,
-		IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+		IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network),
 		GwPeerPublicKey:   host.PublicKey.String(),
 		GwListenPort:      logic.GetPeerListenPort(host),
 		Metadata:          node.Metadata,
@@ -1747,7 +1759,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Network:           node.Network,
 			GwClient:          gwClient,
 			Connected:         true,
-			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network),
 			GwPeerPublicKey:   host.PublicKey.String(),
 			GwListenPort:      logic.GetPeerListenPort(host),
 			Metadata:          node.Metadata,
@@ -1805,7 +1817,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
-			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network),
+			IsInternetGateway: node.IsInternetGateway || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network),
 			GwPeerPublicKey:   host.PublicKey.String(),
 			GwListenPort:      logic.GetPeerListenPort(host),
 			Metadata:          node.Metadata,
@@ -2205,7 +2217,13 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 	case "azure-ad":
 		secret := req.ClientSecret
 		if secret == logic.Mask() {
-			secret = logic.GetServerSettings(r.Context()).ClientSecret
+			if scope.Level(r.Context()) == scope.OrgScope {
+				os := &schema.OrganizationSettings{ID: scope.ID(r.Context())}
+				_ = os.Get(r.Context())
+				secret = os.Settings.Data().ClientSecret
+			} else {
+				secret = logic.GetServerSettings(r.Context()).ClientSecret
+			}
 		}
 		idpClient = azure.NewAzureEntraIDClient(req.ClientID, secret, req.AzureTenantID)
 	case "okta":
@@ -2239,15 +2257,7 @@ func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(r.Context()), "idp sync status retrieved")
 }
 
-// @Summary     Remove IDP integration
-// @Router      /api/idp [delete]
-// @Tags        IDP
-// @Security    oauth
-// @Produce     json
-// @Success     200 {object} models.SuccessResponse
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
+func removeTenantIDPIntegration(w http.ResponseWriter, r *http.Request) bool {
 	superAdmin, err := logic.GetSuperAdmin(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -2255,7 +2265,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("failed to get superadmin: %v", err), "internal"),
 		)
-		return
+		return false
 	}
 
 	if superAdmin.AuthType == schema.OAuth {
@@ -2263,7 +2273,7 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 			"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+		return false
 	}
 
 	settings := logic.GetServerSettings(r.Context())
@@ -2288,6 +2298,87 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("failed to remove idp integration: %v", err), "internal"),
 		)
+		return false
+	}
+
+	return true
+}
+
+func removeOrgIDPIntegration(w http.ResponseWriter, r *http.Request) bool {
+	orgID := scope.ID(r.Context())
+
+	om := &schema.OrgMembership{OrganizationID: orgID}
+	err := om.GetOwner(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to get org owner: %v", err), "internal"),
+		)
+		return false
+	}
+
+	if om.AuthType == schema.OAuth {
+		err := fmt.Errorf(
+			"cannot remove IdP integration because an OAuth user has the org-owner role; transfer ownership to another user first",
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return false
+	}
+
+	os := &schema.OrganizationSettings{ID: orgID}
+	err = os.Get(r.Context())
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to fetch org settings: %v", err), "internal"),
+		)
+		return false
+	}
+
+	settings := os.Settings.Data()
+	settings.AuthProvider = ""
+	settings.OIDCIssuer = ""
+	settings.ClientID = ""
+	settings.ClientSecret = ""
+	settings.AzureTenant = ""
+	settings.SyncEnabled = false
+	settings.GoogleAdminEmail = ""
+	settings.GoogleSACredsJson = ""
+	settings.OktaOrgURL = ""
+	settings.OktaAPIToken = ""
+	settings.UserFilters = nil
+	settings.IDPSyncInterval = ""
+	os.Settings = datatypes.NewJSONType(settings)
+
+	err = os.Upsert(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to remove idp integration: %v", err), "internal"),
+		)
+		return false
+	}
+
+	return true
+}
+
+// @Summary     Remove IDP integration
+// @Router      /api/idp [delete]
+// @Tags        IDP
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
+	if scope.Level(r.Context()) == scope.OrgScope {
+		if !removeOrgIDPIntegration(w, r) {
+			return
+		}
+	} else if !removeTenantIDPIntegration(w, r) {
 		return
 	}
 

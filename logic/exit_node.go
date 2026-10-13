@@ -25,17 +25,11 @@ func exitNodeItemFromEgress(ctx context.Context, e schema.Egress, selected bool)
 	}
 	if routingNodeID != "" {
 		if rn, err := GetNodeByID(routingNodeID); err == nil {
-			item.TcpProxyEnabled = rn.TcpProxyEnabled
-			item.TcpProxyListenPort = rn.TcpProxyListenPort
 			rh := &schema.Host{ID: rn.HostID}
 			if err := rh.Get(db.WithContext(ctx)); err == nil {
 				item.RoutingHostName = rh.Name
-				if rh.TcpProxyEnabled {
-					item.TcpProxyEnabled = true
-				}
-				if rh.TcpProxyListenPort > 0 {
-					item.TcpProxyListenPort = rh.TcpProxyListenPort
-				}
+				item.TcpProxyEnabled = rh.TcpProxyEnabled
+				item.TcpProxyListenPort = rh.TcpProxyListenPort
 			}
 			if item.TcpProxyEnabled && item.TcpProxyListenPort <= 0 {
 				item.TcpProxyListenPort = schema.DefaultTcpProxyListenPort
@@ -142,8 +136,8 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	if err != nil {
 		return nil, err
 	}
-	acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
-	userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
+	userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 	allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled
@@ -206,8 +200,8 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		if !e.Status || e.Network != networkID || !IsEgressInternetGateway(*e) {
 			return nil, errors.New("egress is not an active internet exit node in this network")
 		}
-		acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
-		userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+		acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
+		userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 		allowAll := defaultDevicePolicy.Enabled || defaultUserPolicy.Enabled

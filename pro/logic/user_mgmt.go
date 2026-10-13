@@ -53,13 +53,73 @@ var AuditorUserPermissionTemplate = schema.UserRole{
 	}),
 }
 
+func defaultNetworkAdminResourceAccess() schema.ResourceAccess {
+	fullAccess := schema.RsrcPermissionScope{Create: true, Read: true, Update: true, Delete: true}
+	return schema.ResourceAccess{
+		schema.HostRsrc: {
+			schema.AllHostRsrcID: fullAccess,
+		},
+		schema.RelayRsrc: {
+			schema.AllRelayRsrcID: fullAccess,
+		},
+		schema.RemoteAccessGwRsrc: {
+			schema.AllRemoteAccessGwRsrcID: schema.RsrcPermissionScope{
+				Create: true, Read: true, Update: true, Delete: true, VPNaccess: true,
+			},
+		},
+		schema.ExtClientsRsrc: {
+			schema.AllExtClientsRsrcID: fullAccess,
+		},
+		schema.InetGwRsrc: {
+			schema.AllInetGwRsrcID: fullAccess,
+		},
+		schema.EgressGwRsrc: {
+			schema.AllEgressGwRsrcID: fullAccess,
+		},
+		schema.NetworkRsrc: {
+			schema.AllNetworkRsrcID: fullAccess,
+		},
+		schema.DnsRsrc: {
+			schema.AllDnsRsrcID: fullAccess,
+		},
+		schema.FailOverRsrc: {
+			schema.AllFailOverRsrcID: fullAccess,
+		},
+		schema.AclRsrc: {
+			schema.AllAclsRsrcID: fullAccess,
+		},
+		schema.TagRsrc: {
+			schema.AllTagsRsrcID: fullAccess,
+		},
+		schema.PostureCheckRsrc: {
+			schema.AllPostureCheckRsrcID: fullAccess,
+		},
+		schema.NameserverRsrc: {
+			schema.AllNameserverRsrcID: fullAccess,
+		},
+		schema.JitAdminRsrc: {
+			schema.AllJitAdminRsrcID: fullAccess,
+		},
+		schema.JitUserRsrc: {
+			schema.AllJitUserRsrcID: fullAccess,
+		},
+		schema.NetworkActivityRsrc: {
+			schema.AllNetworkActivityRsrcID: fullAccess,
+		},
+		schema.TrafficFlow: {
+			schema.AllTrafficFlowRsrcID: fullAccess,
+		},
+	}
+}
+
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
 	ID:                 globalNetworksAdminRoleID,
 	Name:               "Network Admins",
 	MetaData:           "can manage configuration of all networks",
 	Default:            true,
-	TenantGlobalAccess: true,
+	TenantGlobalAccess: false,
 	NetworkID:          schema.AllNetworks,
+	NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
@@ -145,6 +205,7 @@ var NetworkUserAllPermissionTemplate = schema.UserRole{
 func UserRolesInit() {
 	_ = logic.OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = logic.OrgUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = logic.AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = ServiceUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
@@ -200,8 +261,8 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
-		TenantGlobalAccess: true,
-		NetworkLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{}),
+		TenantGlobalAccess: false,
+		NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
@@ -1407,9 +1468,9 @@ func AddGlobalGroupOnRoleUpgrade(oldRole, newRole schema.UserRoleID, groups map[
 func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[schema.UserGroupID]struct{}) {
 }
 
-func GetUserGrpMap() map[schema.UserGroupID]map[string]struct{} {
+func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	grpUsersMap := make(map[schema.UserGroupID]map[string]struct{})
-	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
+	users, _ := (&schema.User{}).ListAllWithMembership(ctx)
 	for _, user := range users {
 		for gID := range user.UserGroups.Data() {
 			if grpUsers, ok := grpUsersMap[gID]; ok {

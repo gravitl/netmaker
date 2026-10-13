@@ -107,7 +107,15 @@ func EventWatcher() {
 			Diff:        diff,
 			TimeStamp:   time.Now().UTC(),
 		}
-		a.Create(db.WithContext(context.TODO()))
+		writeCtx := db.WithContext(context.TODO())
+		if e.TenantID != "" {
+			writeCtx = scope.WithContext(writeCtx, scope.TenantScope, e.TenantID)
+		}
+		if err := a.Create(writeCtx); err != nil {
+			slog.Error("failed to persist audit event",
+				"action", e.Action, "network", e.NetworkID, "tenant", e.TenantID, "error", err)
+			continue
+		}
 
 		_siemMtx.Lock()
 		if !_pushToSiem {
