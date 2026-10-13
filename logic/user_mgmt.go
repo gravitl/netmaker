@@ -24,6 +24,11 @@ var OrgAdminPermissionTemplate = schema.UserRole{
 	OrgGlobalAccess: true,
 }
 
+var OrgUserPermissionTemplate = schema.UserRole{
+	ID:      schema.OrgUser,
+	Default: true,
+}
+
 var SuperAdminPermissionTemplate = schema.UserRole{
 	ID:                 schema.SuperAdminRole,
 	Default:            true,
@@ -49,6 +54,8 @@ var FilterNetworksByRole = func(ctx context.Context, allnetworks []schema.Networ
 }
 
 var UpdateUserGwAccess = func(ctx context.Context, currentUser, changeUser *schema.User) {}
+
+var RunPostureChecksForTenant = func(ctx context.Context) error { return nil }
 
 var InitialiseRoles = userRolesInit
 var InitialiseNetworkRoles = func(ctx context.Context) {}
@@ -154,6 +161,7 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 func userRolesInit() {
 	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = OrgUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }

@@ -246,6 +246,10 @@ func UpdateEnrollmentKey(ctx context.Context, keyValue string, updates *models.A
 
 // ModelsEnrollmentKeyFromSchema converts a schema enrollment key to the models type.
 func ModelsEnrollmentKeyFromSchema(key schema.EnrollmentKey) models.EnrollmentKey {
+	if len(key.Networks) == 0 {
+		key.Networks = make([]string, 0)
+	}
+
 	keyType := models.KeyType(key.Type)
 	var relay uuid.UUID
 	if key.GatewayID != nil {
@@ -263,7 +267,7 @@ func ModelsEnrollmentKeyFromSchema(key schema.EnrollmentKey) models.EnrollmentKe
 		Expiration:        key.Expiration,
 		UsesRemaining:     key.UsesRemaining,
 		Value:             key.Value,
-		Networks:          append([]string(nil), key.Networks...),
+		Networks:          key.Networks,
 		Unlimited:         key.Unlimited,
 		Tags:              tags,
 		Token:             key.Token,

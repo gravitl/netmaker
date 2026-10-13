@@ -20,6 +20,7 @@ const (
 	NetworkUser    UserRoleID = "network-user"
 	OrgOwner       UserRoleID = "org-owner"
 	OrgAdmin       UserRoleID = "org-admin"
+	OrgUser        UserRoleID = "org-user"
 )
 
 func (r UserRoleID) String() string {

@@ -117,7 +117,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
-	go proLogic.RunPostureChecks()
+	go proLogic.RunPostureChecksForTenant(ctx)
 	proLogic.PopulatePostureCheckGroupNames(r.Context(), []schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "created posture check")
 }
@@ -264,7 +264,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(r.Context(), event)
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
-	go proLogic.RunPostureChecks()
+	go proLogic.RunPostureChecksForTenant(ctx)
 	proLogic.PopulatePostureCheckGroupNames(r.Context(), []schema.PostureCheck{pc})
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "updated posture check")
 }
@@ -320,7 +320,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go mq.PublishPeerUpdate(ctx, false)
-	go proLogic.RunPostureChecks()
+	go proLogic.RunPostureChecksForTenant(ctx)
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
 }
 
@@ -339,30 +339,12 @@ func triggerPostureChecks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func(ctx context.Context) {
-		if err := proLogic.RunPostureChecks(); err != nil {
+		if err := proLogic.RunPostureChecksForTenant(ctx); err != nil {
 			logger.Log(0, "posture check: manual run failed:", err.Error())
 		}
 		mq.PublishPeerUpdate(ctx, false)
 	}(scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context())))
 
-	logic.LogEvent(r.Context(), &models.Event{
-		Action:      schema.Sync,
-		TriggeredBy: r.Header.Get("user"),
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		Target: models.Subject{
-			ID:   string(schema.AllPostureCheckRsrcID),
-			Name: "all",
-			Type: schema.PostureCheckSub,
-		},
-		Origin: schema.Dashboard,
-		Diff: models.Diff{
-			New: map[string]interface{}{"status": "queued"},
-		},
-	})
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "posture checks queued")
 }
 

@@ -186,10 +186,13 @@ func (t *TenantOrchestrator) notifyHostsOfDeletion(tenantID string, hosts []sche
 	}
 }
 
-func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenantID string, user *schema.User) error {
-	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenantID)
+func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
+	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
 	user.PlatformRoleID = schema.SuperAdminRole
-	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
+	if t.isMSPTenant(ctx, tenant) {
+		return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
+	}
+	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithReplicatedAuth())
 }
 
 func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *schema.Tenant) error {
@@ -230,5 +233,5 @@ func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenan
 		return err
 	}
 
-	return t.GrantTenantSuperAdmin(ctx, tenant.ID, user)
+	return t.GrantTenantSuperAdmin(ctx, tenant, user)
 }
