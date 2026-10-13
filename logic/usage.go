@@ -62,7 +62,7 @@ func GetCurrentServerUsage(ctx context.Context) (limits models.Usage) {
 			limits.Relays++
 			netUsage.Relays++
 		}
-		if node.IsInternetGateway || NodeIsInternetEgressRouter(node.ID.String(), node.Network) {
+		if node.IsInternetGateway || NodeIsInternetEgressRouter(ctx, node.ID.String(), node.Network) {
 			limits.InternetGateways++
 			netUsage.InternetGateways++
 		}

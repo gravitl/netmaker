@@ -34,6 +34,7 @@ var ValidTenantRoles = map[schema.UserRoleID]bool{
 var ValidOrgRoles = map[schema.UserRoleID]bool{
 	schema.OrgOwner: true,
 	schema.OrgAdmin: true,
+	schema.OrgUser:  true,
 }
 
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
@@ -72,12 +73,14 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		user.Password = ""
 		user.ExternalIdentityProviderID = ""
 	} else {
-		passwordHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
-		if err != nil {
-			return err
-		}
+		if !ops.replicatedAuth {
+			passwordHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+			if err != nil {
+				return err
+			}
 
-		user.Password = string(passwordHash)
+			user.Password = string(passwordHash)
+		}
 
 		err = u.userExt.ConfigureAuthType(ctx, user)
 		if err != nil {
@@ -173,7 +176,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidTenantRoles[user.PlatformRoleID]
+			_, ok := schema.ValidTenantRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}
@@ -203,7 +206,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidOrgRoles[user.PlatformRoleID]
+			_, ok := schema.ValidOrgRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}

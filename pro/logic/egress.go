@@ -56,9 +56,15 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		e.Mode = schema.DirectNAT
 		e.VirtualRange = ""
 	}
-	err := (&schema.Network{Name: e.Network}).Get(ctx)
+	network := &schema.Network{Name: e.Network}
+	err := network.Get(ctx)
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
+	}
+	if e.Range != "" {
+		if err := logic.ValidateEgressCIDR(network, e.Range); err != nil {
+			return err
+		}
 	}
 
 	if !servercfg.IsPro && len(e.Nodes) > 1 {
@@ -71,23 +77,47 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if node.Network != e.Network {
+				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
+			}
 			if logic.IsEgressInternetGateway(*e) {
 				if err := logic.ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
 				}
 			}
 		}
+		if err := logic.ValidateWindowsEgressNATMode(*e); err != nil {
+			return err
+		}
 	}
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			_, err := GetTag(ctx, models.TagID(tagID))
+			tag, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
+			}
+			if tag.Network.String() != e.Network {
+				return fmt.Errorf("tag %s doesn't belong to egress network %s", tagID, e.Network)
 			}
 		}
 		if logic.IsEgressInternetGateway(*e) {
 			return errors.New("internet egress must use explicit routing nodes, not tags")
+		}
+		// Tag-based egress clears e.Nodes above; resolve tag members and reject
+		// Windows + virtual NAT the same way as explicit routing nodes.
+		resolved := make(datatypes.JSONMap)
+		for tagID := range e.Tags {
+			for nodeID := range GetNodesWithTag(ctx, models.TagID(tagID)) {
+				resolved[nodeID] = true
+			}
+		}
+		if len(resolved) > 0 {
+			check := *e
+			check.Nodes = resolved
+			if err := logic.ValidateWindowsEgressNATMode(check); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

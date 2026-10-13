@@ -73,6 +73,20 @@ func SessionHandler(ctx context.Context, conn *websocket.Conn) {
 	if len(registerMessage.User) > 0 { // handle basic auth
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
+		user := &schema.User{
+			Username: registerMessage.User,
+		}
+		err = user.GetWithMembership(ctx)
+		if err != nil {
+			handleHostRegErr(conn, fmt.Errorf("error fetching user %s: %w", registerMessage.User, err))
+			return
+		}
+
+		if user.AccountDisabled {
+			handleHostRegErr(conn, errors.New("user is disabled"))
+			return
+		}
+
 		if !logic.IsBasicAuthEnabled(ctx) {
 			handleHostRegErr(conn, errors.New("basic auth is disabled"))
 			return
@@ -271,6 +285,7 @@ func joinHostToNetworks(ctx context.Context, key models.EnrollmentKey, host *sch
 			true,
 		)
 		if len(violations) > 0 {
+			logic.EmitNewPostureViolationEvents(ctx, nil, violations, models.PostureCheckDeviceInfo{HostID: host.ID.String()}, schema.NetworkID(network.Name))
 			logger.Log(0, fmt.Sprintf("skipping joining network %s due to violations", network.Name))
 			continue
 		}

@@ -12,25 +12,9 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
-	extClients, err := logic.GetAllExtClients(ctx)
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := models.ConvertToStaticNode(extI)
-				staticNode = append(staticNode, n)
-			}
-		}
-	}
-	return
-}
-
 func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if !userNodeI.StaticNode.Enabled {
 			continue
@@ -120,48 +104,52 @@ func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 							if !nodeOwnsEgress && e.VirtualRange != "" {
 								egressRange = e.VirtualRange
 							}
-							if egressRange != "" {
+							if egressRange != "" || logic.IsEgressInternetGateway(e) {
 								dstI.Value = egressRange
 
-								ip, cidr, err := net.ParseCIDR(dstI.Value)
-								if err == nil {
-									if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
-										for _, selectedCIDR := range selectedIP4 {
-											if userNodeI.StaticNode.Address != "" {
-												rules = append(rules, models.FwRule{
-													SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
-													DstIP:           selectedCIDR,
-													AllowedProtocol: policy.Proto,
-													AllowedPorts:    policy.Port,
-													Allow:           true,
-												})
-											}
+								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+									for _, selectedCIDR := range selectedIP4 {
+										if userNodeI.StaticNode.Address != "" {
+											rules = append(rules, models.FwRule{
+												SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+												DstIP:           selectedCIDR,
+												AllowedProtocol: policy.Proto,
+												AllowedPorts:    policy.Port,
+												Allow:           true,
+											})
 										}
-										for _, selectedCIDR := range selectedIP6 {
-											if userNodeI.StaticNode.Address6 != "" {
-												rules = append(rules, models.FwRule{
-													SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
-													DstIP:           selectedCIDR,
-													AllowedProtocol: policy.Proto,
-													AllowedPorts:    policy.Port,
-													Allow:           true,
-												})
-											}
-										}
-										continue
 									}
-									if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
+									for _, selectedCIDR := range selectedIP6 {
+										if userNodeI.StaticNode.Address6 != "" {
+											rules = append(rules, models.FwRule{
+												SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+												DstIP:           selectedCIDR,
+												AllowedProtocol: policy.Proto,
+												AllowedPorts:    policy.Port,
+												Allow:           true,
+											})
+										}
+									}
+									continue
+								}
+								var dst4, dst6 []net.IPNet
+								logic.AppendEgressPolicyRange(e, egressRange, &dst4, &dst6)
+								for _, cidr := range dst4 {
+									if userNodeI.StaticNode.Address != "" {
 										rules = append(rules, models.FwRule{
 											SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
-											DstIP:           *cidr,
+											DstIP:           cidr,
 											AllowedProtocol: policy.Proto,
 											AllowedPorts:    policy.Port,
 											Allow:           true,
 										})
-									} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
+									}
+								}
+								for _, cidr := range dst6 {
+									if userNodeI.StaticNode.Address6 != "" {
 										rules = append(rules, models.FwRule{
 											SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
-											DstIP:           *cidr,
+											DstIP:           cidr,
 											AllowedProtocol: policy.Proto,
 											AllowedPorts:    policy.Port,
 											Allow:           true,
@@ -352,7 +340,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if !nodeOwnsEgress && e.VirtualRange != "" {
 					egressRange = e.VirtualRange
 				}
-				if egressRange != "" {
+				if egressRange != "" || logic.IsEgressInternetGateway(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 						for _, cidr := range selectedIP4 {
 							if node.Address.IP != nil {
@@ -384,38 +372,35 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 						continue
 					}
-					dstI.Value = egressRange
-
-					ip, cidr, err := net.ParseCIDR(dstI.Value)
-					if err == nil {
-						if ip.To4() != nil {
-							if node.Address.IP != nil {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   node.Address.IP,
-										Mask: net.CIDRMask(32, 32),
-									},
-									DstIP:           *cidr,
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
-						} else {
-							if node.Address6.IP != nil {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   node.Address6.IP,
-										Mask: net.CIDRMask(128, 128),
-									},
-									DstIP:           *cidr,
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
+					var dst4, dst6 []net.IPNet
+					logic.AppendEgressPolicyRange(e, egressRange, &dst4, &dst6)
+					for _, cidr := range dst4 {
+						if node.Address.IP != nil {
+							rules = append(rules, models.FwRule{
+								SrcIP: net.IPNet{
+									IP:   node.Address.IP,
+									Mask: net.CIDRMask(32, 32),
+								},
+								DstIP:           cidr,
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
 						}
-
+					}
+					for _, cidr := range dst6 {
+						if node.Address6.IP != nil {
+							rules = append(rules, models.FwRule{
+								SrcIP: net.IPNet{
+									IP:   node.Address6.IP,
+									Mask: net.CIDRMask(128, 128),
+								},
+								DstIP:           cidr,
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
+						}
 					}
 				} else if logic.HasEgressDomainAns(e) {
 					if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
@@ -565,6 +550,13 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
+	if acl.IsManagedAccess() {
+		if err := logic.ValidateManagedAccessAcl(acl); err != nil {
+			return err
+		}
+	} else if err := logic.ValidateNetworkAccessAcl(acl); err != nil {
+		return err
+	}
 	//check if src and dst are valid
 	if acl.AllowedDirection != models.TrafficDirectionBi &&
 		acl.AllowedDirection != models.TrafficDirectionUni {
@@ -621,8 +613,8 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 	return nil
 }
 
-// listPoliciesOfUser - lists all user acl policies applied to user in an network
-func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.NetworkID) []models.Acl {
+// listNetworkAccessPoliciesOfUser - lists all network access user acl policies applied to user in an network
+func listNetworkAccessPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.NetworkID) []models.Acl {
 	allAcls := logic.ListAcls(ctx)
 	var userAcls []models.Acl
 	if _, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]; ok {
@@ -632,8 +624,16 @@ func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.Net
 		user.UserGroups.Data()[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
 	}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
+			// TODO(nm-387): srcMap["*"] (a custom, non-default user-policy
+			// with a literal Src wildcard, e.g. {"id":"user","value":"*"})
+			// is never checked here, so such a policy silently matches no
+			// one - only the dedicated Default-policy mechanism
+			// (GetDefaultPolicy, checked separately in
+			// IsUserAllowedToCommunicate before this function is even
+			// called) currently grants "all users" access. Confirmed via
+			// the Managed SSH resolver hitting the identical gap.
 			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
 				continue
@@ -650,12 +650,12 @@ func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.Net
 	return userAcls
 }
 
-// listUserPolicies - lists all user policies in a network
-func listUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// listNetworkAccessUserPolicies - lists all network access user policies in a network
+func listNetworkAccessUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := logic.ListAcls(ctx)
 	deviceAcls := []models.Acl{}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			deviceAcls = append(deviceAcls, acl)
 		}
 	}
@@ -717,7 +717,7 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 		return false, []models.Acl{}
 	}
 	allowedPolicies := []models.Acl{}
-	policies := listPoliciesOfUser(ctx, user, schema.NetworkID(peer.Network))
+	policies := listNetworkAccessPoliciesOfUser(ctx, user, schema.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -818,7 +818,7 @@ func IsPeerAllowed(ctx context.Context, node, peer models.Node, checkDefaultPoli
 
 	}
 	// list device policies
-	policies := logic.ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := logic.ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -885,7 +885,7 @@ func RemoveUserFromAclPolicy(ctx context.Context, userName string) {
 
 // UpdateDeviceTag - updates device tag on acl policies
 func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schema.NetworkID) {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
@@ -911,7 +911,7 @@ func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schem
 }
 
 func CheckIfTagAsActivePolicy(ctx context.Context, tagID models.TagID, netID schema.NetworkID) bool {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	for _, acl := range acls {
 		for _, srcTagI := range acl.Src {
 			if srcTagI.ID == models.NodeTagID {
@@ -933,7 +933,7 @@ func CheckIfTagAsActivePolicy(ctx context.Context, tagID models.TagID, netID sch
 
 // RemoveDeviceTagFromAclPolicies - remove device tag from acl policies
 func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, netID schema.NetworkID) error {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	update := false
 	for _, acl := range acls {
 		for i := len(acl.Src) - 1; i >= 0; i-- {
@@ -961,10 +961,10 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userGrpMap := GetUserGrpMap(ctx)
 	allowedUsers := make(map[string][]models.Acl)
-	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
+	acls := listNetworkAccessUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags["*"] = struct{}{}
 	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(ctx)
@@ -1114,21 +1114,13 @@ func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 						if !nodeOwnsEgress && e.VirtualRange != "" {
 							egressRange = e.VirtualRange
 						}
-						if egressRange != "" {
+						if egressRange != "" || logic.IsEgressInternetGateway(e) {
 							if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 								r.Dst = append(r.Dst, selectedIP4...)
 								r.Dst6 = append(r.Dst6, selectedIP6...)
 								continue
 							}
-							ip, cidr, err := net.ParseCIDR(egressRange)
-							if err == nil {
-								if ip.To4() != nil {
-									r.Dst = append(r.Dst, *cidr)
-								} else {
-									r.Dst6 = append(r.Dst6, *cidr)
-								}
-
-							}
+							logic.AppendEgressPolicyRange(e, egressRange, &r.Dst, &r.Dst6)
 						} else if logic.HasEgressDomainAns(e) {
 							for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
@@ -1232,15 +1224,8 @@ func appendUserExtClientRemoteEgressFwdRules(
 			if egI.VirtualRange != "" {
 				egressRange = egI.VirtualRange
 			}
-			if egressRange != "" {
-				ip, cidr, parseErr := net.ParseCIDR(egressRange)
-				if parseErr == nil {
-					if ip.To4() != nil {
-						dst4 = append(dst4, *cidr)
-					} else {
-						dst6 = append(dst6, *cidr)
-					}
-				}
+			if egressRange != "" || logic.IsEgressInternetGateway(egI) {
+				logic.AppendEgressPolicyRange(egI, egressRange, &dst4, &dst6)
 				continue
 			}
 			if logic.HasEgressDomainAns(egI) {
@@ -1333,10 +1318,10 @@ func appendUserExtClientRemoteEgressFwdRules(
 
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
-	userGrpMap := GetUserGrpMap()
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userGrpMap := GetUserGrpMap(ctx)
 	allowedUsers := make(map[string][]models.Acl)
-	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
+	acls := listNetworkAccessUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
@@ -1454,16 +1439,7 @@ func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 									egressRanges4 = append(egressRanges4, selectedIP4...)
 									egressRanges6 = append(egressRanges6, selectedIP6...)
-								} else if eI.Range != "" {
-									_, cidr, err := net.ParseCIDR(eI.Range)
-									if err == nil {
-										if cidr.IP.To4() != nil {
-											egressRanges4 = append(egressRanges4, *cidr)
-										} else {
-											egressRanges6 = append(egressRanges6, *cidr)
-										}
-									}
-								} else if logic.HasEgressDomainAns(eI) {
+								} else if logic.HasEgressDomainAns(eI) && eI.Range == "" && !logic.IsEgressInternetGateway(eI) {
 									for _, domainAnsI := range logic.AllDomainAnsFromEgress(eI) {
 										_, cidr, err := net.ParseCIDR(domainAnsI)
 										if err == nil {
@@ -1474,6 +1450,8 @@ func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 											}
 										}
 									}
+								} else {
+									logic.AppendEgressPolicyRange(eI, eI.Range, &egressRanges4, &egressRanges6)
 								}
 							} else if eI.VirtualRange != "" {
 								// Use virtual range if target node doesn't own the egress
@@ -1501,16 +1479,7 @@ func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 								if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
 									egressRanges4 = append(egressRanges4, selectedIP4...)
 									egressRanges6 = append(egressRanges6, selectedIP6...)
-								} else if e.Range != "" {
-									_, cidr, err := net.ParseCIDR(e.Range)
-									if err == nil {
-										if cidr.IP.To4() != nil {
-											egressRanges4 = append(egressRanges4, *cidr)
-										} else {
-											egressRanges6 = append(egressRanges6, *cidr)
-										}
-									}
-								} else if logic.HasEgressDomainAns(e) {
+								} else if logic.HasEgressDomainAns(e) && e.Range == "" && !logic.IsEgressInternetGateway(e) {
 									for _, domainAnsI := range logic.AllDomainAnsFromEgress(e) {
 										_, cidr, err := net.ParseCIDR(domainAnsI)
 										if err == nil {
@@ -1521,6 +1490,8 @@ func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 											}
 										}
 									}
+								} else {
+									logic.AppendEgressPolicyRange(e, e.Range, &egressRanges4, &egressRanges6)
 								}
 							} else if e.VirtualRange != "" {
 								// Use virtual range if target node doesn't own the egress

@@ -76,14 +76,209 @@ func TestNormalizeAndValidateAclEgressIPsRequiresEgressReference(t *testing.T) {
 	}
 }
 
+func TestNormalizeAndValidateAclEgressIPsAllowsInternetEgress(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() {
+		getEgressByID = originalGetEgressByID
+	})
+
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		return schema.Egress{
+			ID:     egressID,
+			Type:   schema.EgressTypeInternet,
+			Range:  "*",
+			Status: true,
+		}, nil
+	}
+
+	acl := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+		},
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
+		t.Fatalf("internet egress ACL should be valid, got: %v", err)
+	}
+
+	aclWithIP := models.Acl{
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+			{ID: models.NetmakerIPAclID, Value: "8.8.8.8"},
+		},
+	}
+	if err := NormalizeAndValidateAclEgressIPs(&aclWithIP); err != nil {
+		t.Fatalf("selected IP on internet egress should be valid, got: %v", err)
+	}
+	if aclWithIP.Dst[1].Value != "8.8.8.8/32" {
+		t.Fatalf("expected normalized host CIDR, got %s", aclWithIP.Dst[1].Value)
+	}
+}
+
+func TestAppendEgressPolicyRangeExpandsInternet(t *testing.T) {
+	e := schema.Egress{Type: schema.EgressTypeInternet, Range: "*"}
+	var v4, v6 []net.IPNet
+	AppendEgressPolicyRange(e, "*", &v4, &v6)
+	if len(v4) != 1 || v4[0].String() != IPv4Network {
+		t.Fatalf("expected 0.0.0.0/0, got %v", v4)
+	}
+	if len(v6) != 1 || v6[0].String() != IPv6Network {
+		t.Fatalf("expected ::/0, got %v", v6)
+	}
+}
+
+func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() { getEgressByID = originalGetEgressByID })
+
+	clientID := uuid.New()
+	exitID := uuid.New()
+	client := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      clientID,
+			Network: "netmaker",
+		},
+	}
+	exitNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      exitID,
+			Network: "netmaker",
+			IsGw:    true,
+		},
+	}
+	eli := []schema.Egress{{
+		ID:      "inet-eg",
+		Network: "netmaker",
+		Status:  true,
+		Type:    schema.EgressTypeInternet,
+		Range:   "*",
+		Nodes:   datatypes.JSONMap{exitID.String(): json.Number("100")},
+	}}
+	getEgressByID = func(id string) (schema.Egress, error) {
+		if id == "inet-eg" {
+			return eli[0], nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+	acls := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+	}}
+
+	// ACL grants access to the internet egress, but the client did not select it.
+	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
+		if r == IPv4Network || r == IPv6Network {
+			t.Fatalf("ACL access alone must not attach default route %s; got %v", r, exitNode.EgressDetails.EgressGatewayRanges)
+		}
+	}
+	if InternetExitRoutingNodeID(&client) != "" {
+		t.Fatalf("client must not be treated as exit client without selection, got %q", InternetExitRoutingNodeID(&client))
+	}
+
+	// Explicit assignment (legacy InternetGwID) still attaches full-tunnel ranges.
+	client.InternetGwID = exitID.String()
+	exitNode.EgressDetails = models.EgressDetails{}
+	AddEgressInfoToPeerByAccess(&client, &exitNode, eli, acls, false)
+	hasV4 := false
+	for _, r := range exitNode.EgressDetails.EgressGatewayRanges {
+		if r == IPv4Network {
+			hasV4 = true
+		}
+	}
+	if !hasV4 {
+		t.Fatalf("explicit exit assignment should attach 0.0.0.0/0, got %v", exitNode.EgressDetails.EgressGatewayRanges)
+	}
+}
+
+func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
+	originalGetEgressByID := getEgressByID
+	t.Cleanup(func() { getEgressByID = originalGetEgressByID })
+
+	clientID := uuid.New()
+	exitID := uuid.New()
+	eli := []schema.Egress{{
+		ID:      "inet-eg",
+		Network: "netmaker",
+		Status:  true,
+		Type:    schema.EgressTypeInternet,
+		Range:   "*",
+		Nodes:   datatypes.JSONMap{exitID.String(): json.Number("100")},
+	}}
+	getEgressByID = func(id string) (schema.Egress, error) {
+		if id == "inet-eg" {
+			return eli[0], nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+
+	allowACL := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+	}}
+	denyACLs := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: exitID.String()}}, // gateway node only, not egress
+	}}
+
+	// Assigned exit + ACL grants egress access → keep exit.
+	client := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      clientID,
+			Network: "netmaker",
+		},
+		SelectedInternetEgressID: "inet-eg",
+		InternetGwID:             exitID.String(),
+	}
+	SuppressInternetExitIfNoACLAccess(&client, eli, allowACL, false)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when ACL allows egress, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Assigned exit but policy does not include exit egress → suppress for this update.
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, false)
+	if client.SelectedInternetEgressID != "" || client.InternetGwID != "" {
+		t.Fatalf("expected exit suppressed without egress ACL, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Default device policy on → do not suppress even without egress ACL.
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, denyACLs, true)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when default policy enabled, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+
+	// Policy includes node with dst all-resources ("*") → keep assigned exit.
+	allResourcesACL := []models.Acl{{
+		Enabled: true,
+		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+	}}
+	client.SelectedInternetEgressID = "inet-eg"
+	client.InternetGwID = exitID.String()
+	SuppressInternetExitIfNoACLAccess(&client, eli, allResourcesACL, false)
+	if client.SelectedInternetEgressID != "inet-eg" || client.InternetGwID != exitID.String() {
+		t.Fatalf("expected exit kept when policy dst is all-resources, got selection=%q gw=%q",
+			client.SelectedInternetEgressID, client.InternetGwID)
+	}
+}
+
 func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 	})
 
 	targetID := uuid.New()
@@ -95,7 +290,7 @@ func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 		},
 	}
 
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
 				ID:               "match-src",
@@ -320,11 +515,11 @@ func TestIsEgressToEgressPolicyForTarget_UniDirection_MatchesDstOnlyRoutingNode(
 func TestGetEgressAclRulesForTargetNode_EmitsRulesWithSiteToSiteKey(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 	})
 
 	targetID := uuid.New()
@@ -334,7 +529,7 @@ func TestGetEgressAclRulesForTargetNode_EmitsRulesWithSiteToSiteKey(t *testing.T
 			Network: "netmaker",
 		},
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
 				ID:               "acl-1",
@@ -395,11 +590,11 @@ func TestGetEgressAclRulesForTargetNode_EmitsRulesWithSiteToSiteKey(t *testing.T
 func TestGetEgressAclRulesForTargetNode_UniEmitsForwardOnDstSideNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 	})
 
 	targetID := uuid.New()
@@ -410,7 +605,7 @@ func TestGetEgressAclRulesForTargetNode_UniEmitsForwardOnDstSideNode(t *testing.
 			Network: "netmaker",
 		},
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
 				ID:               "acl-uni",
@@ -464,11 +659,11 @@ func TestGetEgressAclRulesForTargetNode_UniEmitsForwardOnDstSideNode(t *testing.
 func TestGetEgressAclRulesForTargetNode_UniSkipsUninvolvedNodes(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 	})
 
 	// targetID is some random node hosting NEITHER src-egress nor dst-egress.
@@ -481,7 +676,7 @@ func TestGetEgressAclRulesForTargetNode_UniSkipsUninvolvedNodes(t *testing.T) {
 			Network: "netmaker",
 		},
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
 				ID:               "acl-uni",
@@ -822,12 +1017,12 @@ func TestIsEgressToEgressPolicyForTarget_NoRoutingMatch(t *testing.T) {
 func TestGetEgressAclRulesForTargetNode_NatUsesMeshSrcOnDstRoutingNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetNodeByIDForEgressFw := getNodeByIDForEgressFw
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		getNodeByIDForEgressFw = originalGetNodeByIDForEgressFw
 	})
 
@@ -841,7 +1036,7 @@ func TestGetEgressAclRulesForTargetNode_NatUsesMeshSrcOnDstRoutingNode(t *testin
 		Tags: map[models.TagID]struct{}{},
 	}
 
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{
 			{
 				ID:               "acl-nat",
@@ -913,11 +1108,11 @@ func TestGetEgressAclRulesForTargetNode_NatUsesMeshSrcOnDstRoutingNode(t *testin
 
 func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 	})
 
@@ -944,7 +1139,7 @@ func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
 			Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-bi-dev-egress",
 			Enabled:          true,
@@ -1020,11 +1215,11 @@ func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
 
 func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 	})
 
@@ -1051,7 +1246,7 @@ func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
 			Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-uni-dev-egress",
 			Enabled:          true,
@@ -1091,12 +1286,12 @@ func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
 // at targetnode even though the ingress-chain permits it.
 func TestGetEgressRulesForNode_RemoteEgressEmitsExtclientFwdRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 	})
@@ -1133,7 +1328,7 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsExtclientFwdRule(t *testing.T) {
 			},
 		}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote-egress",
 			Enabled:          true,
@@ -1190,12 +1385,12 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsExtclientFwdRule(t *testing.T) {
 // to the extclient is also allowed at targetnode's forward chain.
 func TestGetEgressRulesForNode_RemoteEgressBiEmitsReverse(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 	})
@@ -1228,7 +1423,7 @@ func TestGetEgressRulesForNode_RemoteEgressBiEmitsReverse(t *testing.T) {
 			},
 		}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-bi",
 			Enabled:          true,
@@ -1284,11 +1479,11 @@ func TestGetEgressRulesForNode_RemoteEgressBiEmitsReverse(t *testing.T) {
 // is never called).
 func TestGetExtClientEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		listNetworkExtClients = originalListExtClients
 	})
 
@@ -1310,7 +1505,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote",
 			Enabled:          true,
@@ -1356,11 +1551,11 @@ func TestGetExtClientEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing
 // case emits both EC -> egress range AND egress range -> EC on the forward chain.
 func TestGetExtClientEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		listNetworkExtClients = originalListExtClients
 	})
 
@@ -1382,7 +1577,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-bi",
 			Enabled:          true,
@@ -1426,11 +1621,11 @@ func TestGetExtClientEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 // does not flow through this gateway.
 func TestGetExtClientEgressFwRulesOnIngressGw_IgnoresExtclientsOnOtherGw(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		listNetworkExtClients = originalListExtClients
 	})
 
@@ -1453,7 +1648,7 @@ func TestGetExtClientEgressFwRulesOnIngressGw_IgnoresExtclientsOnOtherGw(t *test
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote",
 			Enabled:          true,
@@ -1485,12 +1680,12 @@ func TestGetExtClientEgressFwRulesOnIngressGw_IgnoresExtclientsOnOtherGw(t *test
 // their traffic does not flow through targetnode, so we must not author rules for them.
 func TestGetEgressRulesForNode_RemoteEgressIgnoresOtherGwAttachedExtclients(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 	})
@@ -1524,7 +1719,7 @@ func TestGetEgressRulesForNode_RemoteEgressIgnoresOtherGwAttachedExtclients(t *t
 			},
 		}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote-egress",
 			Enabled:          true,
@@ -1565,11 +1760,11 @@ func TestGetEgressRulesForNode_RemoteEgressIgnoresOtherGwAttachedExtclients(t *t
 // relay since the blanket NetworkRange<->relayed rule only covers in-mesh traffic.
 func TestGetDeviceEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetNodeByID := getNodeByID
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		getNodeByID = originalGetNodeByID
 	})
 
@@ -1604,7 +1799,7 @@ func TestGetDeviceEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing.T)
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote",
 			Enabled:          true,
@@ -1646,11 +1841,11 @@ func TestGetDeviceEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing.T)
 // forward and reverse rules at the relay's forward chain for relayed devices.
 func TestGetDeviceEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetNodeByID := getNodeByID
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		getNodeByID = originalGetNodeByID
 	})
 
@@ -1685,7 +1880,7 @@ func TestGetDeviceEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-dev-bi",
 			Enabled:          true,
@@ -1725,11 +1920,11 @@ func TestGetDeviceEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 // not flow through this gateway, so we must not author rules for them.
 func TestGetDeviceEgressFwRulesOnIngressGw_IgnoresUnrelayedNodes(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetNodeByID := getNodeByID
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		getNodeByID = originalGetNodeByID
 	})
 
@@ -1752,7 +1947,7 @@ func TestGetDeviceEgressFwRulesOnIngressGw_IgnoresUnrelayedNodes(t *testing.T) {
 			Nodes:   datatypes.JSONMap{remoteOwnerID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote",
 			Enabled:          true,
@@ -1779,13 +1974,13 @@ func TestGetDeviceEgressFwRulesOnIngressGw_IgnoresUnrelayedNodes(t *testing.T) {
 // allow keyed with "#dev-fwd".
 func TestGetEgressRulesForNode_RemoteEgressEmitsDeviceFwdRule(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	originalGetNodeByID := getNodeByID
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 		getNodeByID = originalGetNodeByID
@@ -1832,7 +2027,7 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsDeviceFwdRule(t *testing.T) {
 			},
 		}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote-egress",
 			Enabled:          true,
@@ -1884,13 +2079,13 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsDeviceFwdRule(t *testing.T) {
 // to the relayed device is also allowed at targetnode's forward chain.
 func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	originalGetNodeByID := getNodeByID
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 		getNodeByID = originalGetNodeByID
@@ -1937,7 +2132,7 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 			},
 		}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "acl-dev-bi",
 			Enabled:          true,
@@ -1999,13 +2194,13 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 func TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 	})
@@ -2071,7 +2266,7 @@ func TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules(t *test
 		}
 		return schema.Egress{}, errors.New("not found")
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
@@ -2163,13 +2358,13 @@ func TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules(t *test
 func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	originalListExtClients := listNetworkExtClients
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 		listNetworkExtClients = originalListExtClients
 	})
@@ -2232,7 +2427,7 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 		}
 		return schema.Egress{}, errors.New("not found")
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
@@ -2331,12 +2526,12 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 	})
 
@@ -2395,7 +2590,7 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 		return schema.Egress{}, errors.New("not found")
 	}
 	getEgressByNetwork = func(network string) ([]schema.Egress, error) { return nil, nil }
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
@@ -2458,12 +2653,12 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 	})
 
@@ -2504,7 +2699,7 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		return schema.Egress{}, errors.New("not found")
 	}
 	getEgressByNetwork = func(network string) ([]schema.Egress, error) { return nil, nil }
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "site-acl-missing-src-egress",
 			Enabled:          true,
