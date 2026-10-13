@@ -24,6 +24,11 @@ var OrgAdminPermissionTemplate = schema.UserRole{
 	OrgGlobalAccess: true,
 }
 
+var OrgUserPermissionTemplate = schema.UserRole{
+	ID:      schema.OrgUser,
+	Default: true,
+}
+
 var SuperAdminPermissionTemplate = schema.UserRole{
 	ID:                 schema.SuperAdminRole,
 	Default:            true,
@@ -156,6 +161,7 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 func userRolesInit() {
 	_ = OrgOwnerPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = OrgAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = OrgUserPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }
