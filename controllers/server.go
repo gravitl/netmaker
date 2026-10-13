@@ -228,8 +228,12 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings(r.Context())
+
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
+	}
+	if scfg.GoogleSACredsJson != "" {
+		scfg.GoogleSACredsJson = logic.Mask()
 	}
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
@@ -237,6 +241,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.EmailSenderPassword != "" {
 		scfg.EmailSenderPassword = logic.Mask()
 	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
