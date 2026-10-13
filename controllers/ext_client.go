@@ -878,7 +878,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientid := params["clientid"]
-	oldExtClient, err := logic.GetExtClientByName(r.Context(), clientid)
+	network := params["network"]
+	oldExtClient, err := logic.GetExtClient(r.Context(), clientid, network)
 	if err != nil {
 		slog.Error(
 			"failed to retrieve extclient",
