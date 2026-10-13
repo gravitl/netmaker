@@ -309,7 +309,7 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeID string) {
 	if !servercfg.IsPro {
 		return
 	}
-	displacedNodes := logic.DisplaceAutoRelayedNodes(gwNodeID)
+	displacedNodes := logic.DisplaceAutoRelayedNodes(ctx, gwNodeID)
 	if len(displacedNodes) == 0 {
 		return
 	}

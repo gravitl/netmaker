@@ -396,34 +396,51 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 // DisplaceAutoRelayedNodes removes auto-assigned nodes from a disconnected gateway
 // and returns the displaced nodes that need re-assignment, as stored after the
 // removal (i.e. no longer relayed).
-func DisplaceAutoRelayedNodes(nodeID string) []models.Node {
-	gwNode, err := GetNodeByID(nodeID)
-	if err != nil || !gwNode.IsGw || len(gwNode.RelayedNodes) == 0 {
+func DisplaceAutoRelayedNodes(ctx context.Context, nodeID string) []models.Node {
+	gwNode := &schema.Node{
+		ID: nodeID,
+	}
+	err := gwNode.Get(ctx)
+	if err != nil || !gwNode.IsGateway || len(gwNode.RelayedClients) == 0 {
 		return nil
 	}
-	relayedNodes, err := GetNodesByIDs(gwNode.RelayedNodes)
+	relayedClientIDs := make([]string, 0, len(gwNode.RelayedClients))
+	for relayedClientID := range gwNode.RelayedClients {
+		relayedClientIDs = append(relayedClientIDs, relayedClientID)
+	}
+	relayedNodes, err := (&schema.Node{}).ListByIDs(ctx, relayedClientIDs)
 	if err != nil {
 		return nil
 	}
-	var newRelayedNodes []string
 	var displacedNodeIDs []string
-	for _, relayedNodeID := range gwNode.RelayedNodes {
-		relayedNode, ok := relayedNodes[relayedNodeID]
-		if !ok {
-			continue
+	for _, relayedNode := range relayedNodes {
+		if relayedNode.AutoAssignGateway &&
+			relayedNode.RelayedByNodeID != nil && *relayedNode.RelayedByNodeID == gwNode.ID {
+			displacedNodeIDs = append(displacedNodeIDs, relayedNode.ID)
 		}
-		if relayedNode.AutoAssignGateway && relayedNode.RelayedBy == gwNode.ID.String() {
-			displacedNodeIDs = append(displacedNodeIDs, relayedNodeID)
-			continue
-		}
-		newRelayedNodes = append(newRelayedNodes, relayedNodeID)
 	}
 	if len(displacedNodeIDs) == 0 {
 		return nil
 	}
-	UpdateRelayNodes(gwNode.ID.String(), gwNode.RelayedNodes, newRelayedNodes)
+
+	unassignedNodeIDs := make([]string, 0, len(displacedNodeIDs))
+	for _, displacedNodeID := range displacedNodeIDs {
+		_node := &schema.Node{
+			ID:        displacedNodeID,
+			NetworkID: gwNode.NetworkID,
+		}
+		err = _node.UnassignGateway(ctx)
+		if err != nil {
+			slog.Error("failed to unassign auto-assigned node from gw", "node", displacedNodeID, "gw", nodeID, "error", err)
+			continue
+		}
+		unassignedNodeIDs = append(unassignedNodeIDs, displacedNodeID)
+	}
+	if len(unassignedNodeIDs) == 0 {
+		return nil
+	}
 	// re-read so callers see the cleared relay state, not the pre-removal snapshot
-	displacedNodesByID, err := GetNodesByIDs(displacedNodeIDs)
+	displacedNodesByID, err := GetNodesByIDs(ctx, unassignedNodeIDs)
 	if err != nil {
 		return nil
 	}
