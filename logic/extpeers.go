@@ -74,17 +74,24 @@ func storeExtClientInCache(ctx context.Context, key string, extclient models.Ext
 	getTenantExtClientCache(scope.ID(ctx)).Store(key, extclient)
 }
 
-// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
+// ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client.
+// Internet egress (0.0.0.0/0, ::/0) is excluded here: full-tunnel is opt-in via
+// SelectedInternetEgressID and is applied only by ExtClientUsesInternetEgress /
+// GetExtclientAllowedIPs (and the matching config-file path).
 func GetEgressRangesOnNetwork(ctx context.Context, client *models.ExtClient) ([]string, error) {
 
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(ctx)
 	staticNode := models.ConvertToStaticNode(*client)
-	userPolicies := ListUserPolicies(ctx, schema.NetworkID(client.Network))
+	userPolicies := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(client.Network))
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(client.Network), models.UserPolicy)
 
 	for _, eI := range eli {
 		if !eI.Status {
+			continue
+		}
+		// Full-tunnel exit must not appear as a normal egress range in AllowedIPs.
+		if IsEgressInternetGateway(eI) {
 			continue
 		}
 		if !IsDomainBasedEgress(eI) && eI.Range == "" {

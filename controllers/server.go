@@ -117,12 +117,21 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	// 		isOnTrial = true
 	// 	}
 	// }
-	var isDBConnected bool
+	// With SQLite MaxOpenConns(1), a timed Ping can fail while the DB is healthy
+	// but the single connection is held by check-in flush / peer updates.
+	// Treat the pool as connected unless we get a hard connection error.
+	isDBConnected := false
 	sqldb, err := db.FromContext(r.Context()).DB()
 	if err == nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
-		defer cancel()
-		if sqldb.PingContext(ctx) == nil {
+		stats := sqldb.Stats()
+		if stats.OpenConnections == 0 || stats.InUse == 0 {
+			ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+			defer cancel()
+			if pingErr := sqldb.PingContext(ctx); pingErr == nil {
+				isDBConnected = true
+			}
+		} else {
+			// Connection is in use — DB is up; avoid false negatives under load.
 			isDBConnected = true
 		}
 	}
@@ -161,6 +170,9 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 		}
 		user, _, _, err := logic.VerifyUserToken(r.Context(), authToken)
 		if err != nil || user == "" {
+			if err != nil {
+				logger.Log(4, "unauthorized:", err.Error())
+			}
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
@@ -216,8 +228,12 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings(r.Context())
+
 	if scfg.ClientSecret != "" {
 		scfg.ClientSecret = logic.Mask()
+	}
+	if scfg.GoogleSACredsJson != "" {
+		scfg.GoogleSACredsJson = logic.Mask()
 	}
 	if scfg.OktaAPIToken != "" {
 		scfg.OktaAPIToken = logic.Mask()
@@ -225,6 +241,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 	if scfg.EmailSenderPassword != "" {
 		scfg.EmailSenderPassword = logic.Mask()
 	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
@@ -334,9 +351,12 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	// On force FlowLogs enable, enable FlowLogs for all hosts.
 	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
 	// On NetclientAutoUpdate disable, forced or not, disable AutoUpdate for all hosts.
-	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate {
+	// On force ManageSSH enable, enable ManageSSH for all hosts.
+	// On ManageSSH disable, forced or not, disable ManageSSH for all hosts.
+	if force || !new.EnableFlowLogs || !new.NetclientAutoUpdate || !new.ManageSSH {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
-			curr.EnableFlowLogs != new.EnableFlowLogs {
+			curr.EnableFlowLogs != new.EnableFlowLogs ||
+			curr.ManageSSH != new.ManageSSH {
 			hosts, _ := (&schema.Host{}).ListAll(ctx)
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
@@ -344,6 +364,9 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 				}
 				if curr.EnableFlowLogs != new.EnableFlowLogs {
 					host.EnableFlowLogs = new.EnableFlowLogs
+				}
+				if curr.ManageSSH != new.ManageSSH {
+					host.ManageSSH = new.ManageSSH
 				}
 				_ = host.Upsert(ctx)
 				_ = mq.HostUpdate(&models.HostUpdate{
@@ -400,6 +423,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) schema.Action 
 	if old.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 		old.RacRestrictToSingleNetwork != new.RacRestrictToSingleNetwork ||
 		old.ManageDNS != new.ManageDNS ||
+		old.ManageSSH != new.ManageSSH ||
 		old.DefaultDomain != new.DefaultDomain ||
 		old.EndpointDetection != new.EndpointDetection {
 		return schema.UpdateClientSettings

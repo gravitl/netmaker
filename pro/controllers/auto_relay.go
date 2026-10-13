@@ -262,7 +262,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
-	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
+	acls := logic.ListNetworkAccessAcls(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
@@ -333,7 +333,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network)) &&
 		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
@@ -624,7 +624,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
-	acls, _ := logic.ListAclsByNetwork(r.Context(), schema.NetworkID(node.Network))
+	acls := logic.ListNetworkAccessAcls(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
 	logic.GetNodeEgressInfo(&peerNode, eli, acls)
 	logic.GetNodeEgressInfo(&autoRelayNode, eli, acls)
@@ -690,7 +690,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(node.ID.String(), node.Network)) &&
+	if (logic.IsInternetGw(node) || logic.NodeIsInternetEgressRouter(r.Context(), node.ID.String(), node.Network)) &&
 		logic.InternetExitRoutingNodeID(&peerNode) == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
