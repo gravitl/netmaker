@@ -10,38 +10,43 @@ import (
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID                  string     `json:"id"`
-	Verbosity           int        `json:"verbosity"`
-	FirewallInUse       string     `json:"firewallinuse"`
-	Version             string     `json:"version"`
-	Name                string     `json:"name"`
-	OS                  string     `json:"os"`
-	OSFamily            string     `json:"os_family" yaml:"os_family"`
-	OSVersion           string     `json:"os_version"                      yaml:"os_version"`
-	KernelVersion       string     `json:"kernel_version" yaml:"kernel_version"`
-	Debug               bool       `json:"debug"`
-	IsStaticPort        bool       `json:"isstaticport"`
-	IsStatic            bool       `json:"isstatic"`
-	ListenPort          int        `json:"listenport"`
-	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	TcpProxyEnabled     bool       `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort  int        `json:"tcp_proxy_listen_port"`
-	MTU                 int        `json:"mtu"                   yaml:"mtu"`
-	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
-	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
-	EndpointIP          string     `json:"endpointip"            yaml:"endpointip"`
-	EndpointIPv6        string     `json:"endpointipv6"            yaml:"endpointipv6"`
-	PublicKey           string     `json:"publickey"`
-	MacAddress          string     `json:"macaddress"`
-	Nodes               []string   `json:"nodes"`
-	IsDefault           bool       `json:"isdefault"             yaml:"isdefault"`
-	NatType             string     `json:"nat_type"              yaml:"nat_type"`
-	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
-	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
-	DNS                 string     `json:"dns"               yaml:"dns"`
-	EnableFlowLogs      bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
-	Location            string     `json:"location"`
-	CountryCode         string     `json:"country_code"`
+	ID                      string     `json:"id"`
+	Verbosity               int        `json:"verbosity"`
+	FirewallInUse           string     `json:"firewallinuse"`
+	Version                 string     `json:"version"`
+	Name                    string     `json:"name"`
+	OS                      string     `json:"os"`
+	OSFamily                string     `json:"os_family" yaml:"os_family"`
+	OSVersion               string     `json:"os_version"                      yaml:"os_version"`
+	KernelVersion           string     `json:"kernel_version" yaml:"kernel_version"`
+	Debug                   bool       `json:"debug"`
+	IsStaticPort            bool       `json:"isstaticport"`
+	IsStatic                bool       `json:"isstatic"`
+	ListenPort              int        `json:"listenport"`
+	WgPublicListenPort      int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	TcpProxyEnabled         bool       `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort      int        `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode         string     `json:"tcp_proxy_tls_mode"`
+	TcpProxyListenAddr      string     `json:"tcp_proxy_listen_addr,omitempty"`
+	TcpProxyPublicHostname  string     `json:"tcp_proxy_public_hostname,omitempty"`
+	TcpProxyCertFingerprint string     `json:"tcp_proxy_cert_fingerprint,omitempty"`
+	MTU                     int        `json:"mtu"                   yaml:"mtu"`
+	Interfaces              []ApiIface `json:"interfaces"            yaml:"interfaces"`
+	DefaultInterface        string     `json:"defaultinterface"      yaml:"defautlinterface"`
+	EndpointIP              string     `json:"endpointip"            yaml:"endpointip"`
+	EndpointIPv6            string     `json:"endpointipv6"            yaml:"endpointipv6"`
+	PublicKey               string     `json:"publickey"`
+	MacAddress              string     `json:"macaddress"`
+	Nodes                   []string   `json:"nodes"`
+	IsDefault               bool       `json:"isdefault"             yaml:"isdefault"`
+	NatType                 string     `json:"nat_type"              yaml:"nat_type"`
+	PersistentKeepalive     int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
+	AutoUpdate              bool       `json:"autoupdate"              yaml:"autoupdate"`
+	DNS                     string     `json:"dns"               yaml:"dns"`
+	EnableFlowLogs          bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	ManageSSH               bool       `json:"manage_ssh" yaml:"manage_ssh"`
+	Location                string     `json:"location"`
+	CountryCode             string     `json:"country_code"`
 	// Device-matching identifiers reported by netclient; read-only via the API.
 	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
 	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
@@ -90,6 +95,10 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.WgPublicListenPort = h.WgPublicListenPort
 	a.TcpProxyEnabled = h.TcpProxyEnabled
 	a.TcpProxyListenPort = h.TcpProxyListenPort
+	a.TcpProxyTLSMode = h.TcpProxyTLSMode
+	a.TcpProxyListenAddr = h.TcpProxyListenAddr
+	a.TcpProxyPublicHostname = h.TcpProxyPublicHostname
+	a.TcpProxyCertFingerprint = h.TcpProxyCertFingerprint
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
@@ -99,6 +108,7 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.AutoUpdate = h.AutoUpdate
 	a.DNS = h.DNS
 	a.EnableFlowLogs = h.EnableFlowLogs
+	a.ManageSSH = h.ManageSSH
 	a.Location = h.Location
 	a.CountryCode = h.CountryCode
 	a.EntraDeviceID = h.EntraDeviceID
@@ -136,7 +146,18 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.IsStaticPort = a.IsStaticPort
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.WgPublicListenPort = currentHost.WgPublicListenPort
+	// Public listen port is client/STUN-owned. On admin updates:
+	// - static port → public port tracks ListenPort
+	// - listen port changed or just switched to dynamic → clear so peers fall
+	//   back to ListenPort until netclient reports a fresh STUN mapping
+	// - otherwise preserve the last known STUN port
+	if a.IsStaticPort {
+		h.WgPublicListenPort = a.ListenPort
+	} else if a.ListenPort != currentHost.ListenPort || currentHost.IsStaticPort {
+		h.WgPublicListenPort = 0
+	} else {
+		h.WgPublicListenPort = currentHost.WgPublicListenPort
+	}
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
@@ -155,8 +176,25 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
-	h.TcpProxyEnabled = currentHost.TcpProxyEnabled
-	h.TcpProxyListenPort = currentHost.TcpProxyListenPort
+	h.ManageSSH = a.ManageSSH
+	h.TcpProxyEnabled = a.TcpProxyEnabled
+	h.TcpProxyListenPort = a.TcpProxyListenPort
+	if mode, err := schema.NormaliseTcpProxyTLSMode(a.TcpProxyTLSMode); err == nil {
+		h.TcpProxyTLSMode = mode
+	} else {
+		h.TcpProxyTLSMode = currentHost.TcpProxyTLSMode
+	}
+	h.TcpProxyListenAddr = a.TcpProxyListenAddr
+	if hn, err := schema.NormaliseTcpProxyPublicHostname(a.TcpProxyPublicHostname); err == nil {
+		h.TcpProxyPublicHostname = hn
+	} else {
+		h.TcpProxyPublicHostname = currentHost.TcpProxyPublicHostname
+	}
+	if h.TcpProxyTLSMode == schema.TcpProxyTLSModeProxy {
+		h.TcpProxyCertFingerprint = ""
+	} else {
+		h.TcpProxyCertFingerprint = currentHost.TcpProxyCertFingerprint
+	}
 	h.Location = currentHost.Location
 	h.CountryCode = currentHost.CountryCode
 	h.EntraDeviceID = currentHost.EntraDeviceID

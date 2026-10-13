@@ -9,11 +9,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func hasCachedResponse(ctx context.Context) bool {
-	cached := &schema.Internal{Key: schema.InternalKey_LicenseValidationCachedResponse}
-	return cached.Get(ctx) == nil
-}
-
 var cachedResponse atomic.Pointer[ValidatedLicense]
 
 func cacheResponse(ctx context.Context, response []byte) error {

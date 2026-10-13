@@ -44,7 +44,11 @@ var CheckPostureViolations = func(ctx context.Context, d models.PostureCheckDevi
 	return []models.Violation{}, schema.SeverityUnknown
 }
 
-// todo(nm-341): add ctx to func
+// EmitNewPostureViolationEvents records audit events for newly observed posture
+// failures. No-op in community; wired by pro.
+var EmitNewPostureViolationEvents = func(ctx context.Context, oldVi, newVi []models.Violation, d models.PostureCheckDeviceInfo, network schema.NetworkID) {
+}
+
 var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host, tags map[models.TagID]struct{}, network schema.NetworkID, skipAutoUpdate bool) ([]models.Violation, schema.Severity) {
 	if host == nil {
 		return []models.Violation{}, schema.SeverityUnknown
@@ -63,7 +67,7 @@ var CheckPostureViolationsForHost = func(ctx context.Context, host *schema.Host,
 	}, network)
 }
 
-var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+var GetPostureCheckDeviceInfoByNode = func(ctx context.Context, node *models.Node) (d models.PostureCheckDeviceInfo) {
 	return
 }
 
@@ -102,9 +106,16 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 			continue
 		}
 
-		nodes := GetHostNodes(&host)
-		for _, node := range nodes {
-			getNodeCheckInStatus(&node, false)
+		for _, nodeID := range host.Nodes {
+			node := &schema.Node{
+				ID: nodeID,
+			}
+			err = node.Get(ctx)
+			if err != nil {
+				continue
+			}
+
+			node.Status = GetNodeCheckInStatus(node)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -152,6 +163,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		h.TenantID = scope.ID(ctx)
 	}
 	h.Nodes = nil
+	h.Name = ToDNSLabel(h.Name)
 
 	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
 		return ErrHostLimitExceeded
@@ -174,6 +186,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	} else {
 		h.DNS = "no"
 	}
+	h.ManageSSH = GetServerSettings(ctx).ManageSSH
 
 	checkForZombieHosts(ctx, h)
 	return h.Upsert(ctx)
@@ -201,6 +214,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 
 	if len(newHost.Name) == 0 {
 		newHost.Name = currentHost.Name
+	} else {
+		newHost.Name = ToDNSLabel(newHost.Name)
+		if len(newHost.Name) == 0 {
+			newHost.Name = currentHost.Name
+		}
 	}
 
 	if newHost.MTU == 0 {
@@ -211,7 +229,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
-	newHost.WgPublicListenPort = currentHost.WgPublicListenPort
+	// WgPublicListenPort is already resolved in ConvertAPIHostToNMHost (clear on
+	// listen-port change / dynamic flip, or track ListenPort when static).
+	if newHost.IsStaticPort {
+		newHost.WgPublicListenPort = newHost.ListenPort
+	}
 
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
@@ -330,11 +352,21 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 			}
 		}
 	}
-	currHost.Name = newHost.Name
+	if len(newHost.Name) > 0 {
+		if sanitized := ToDNSLabel(newHost.Name); len(sanitized) > 0 {
+			currHost.Name = sanitized
+		}
+	}
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
 		peerUpdateReasons = append(peerUpdateReasons, "nat_type")
+	}
+	// Gateway reports self-signed uplink cert fingerprint after LoadOrCreateServerTLS.
+	if newHost.TcpProxyCertFingerprint != "" && newHost.TcpProxyCertFingerprint != currHost.TcpProxyCertFingerprint {
+		currHost.TcpProxyCertFingerprint = newHost.TcpProxyCertFingerprint
+		sendPeerUpdate = true
+		peerUpdateReasons = append(peerUpdateReasons, "tcp_proxy_cert_fingerprint")
 	}
 
 	if sendPeerUpdate {
@@ -572,6 +604,28 @@ func GetHostNetworks(ctx context.Context, hostID string) []string {
 		nets = append(nets, n.Network)
 	}
 	return nets
+}
+
+// HostsShareNetwork - returns true if the two hosts have at least one network in common
+func HostsShareNetwork(ctx context.Context, hostID1, hostID2 string) bool {
+	if hostID1 == hostID2 {
+		return true
+	}
+	networks1 := GetHostNetworks(ctx, hostID1)
+	if len(networks1) == 0 {
+		return false
+	}
+	networks2 := GetHostNetworks(ctx, hostID2)
+	shared := make(map[string]struct{}, len(networks1))
+	for _, n := range networks1 {
+		shared[n] = struct{}{}
+	}
+	for _, n := range networks2 {
+		if _, ok := shared[n]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckHostPorts checks host endpoints to ensures that hosts on the same server

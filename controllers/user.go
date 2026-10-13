@@ -42,6 +42,7 @@ var ListRoles = listRoles
 
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/auth/discover", discoverLoginMethods).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/auth/methods", middleware.InferScope(http.HandlerFunc(getAuthMethods))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/hassuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(hasSuperAdmin))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", middleware.Scope(scope.TenantScope, http.HandlerFunc(createSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin)))).
@@ -55,20 +56,20 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(deleteUser)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser))))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}/enable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/disable", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/enable", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/disable", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/bulk/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkUpdateUserStatus)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/roles", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(ListRoles)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost).Queries("username", "{username}")
 }
 
 // @Summary     Create a user API access token
@@ -477,6 +478,23 @@ func discoverLoginMethods(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, models.LoginMethodsResponse{Options: options}, "login methods retrieved")
 }
 
+// @Summary     Get the login methods available for a tenant or organization
+// @Router      /api/v1/auth/methods [get]
+// @Tags        Auth
+// @Produce     json
+// @Param       X-Tenant-ID header string false "Tenant ID -- returns the tenant's login methods"
+// @Param       X-Organization-ID header string false "Organization ID -- returns the organization's login methods"
+// @Success     200 {object} models.LoginMethodsAvailable
+// @Failure     500 {object} models.ErrorResponse
+func getAuthMethods(w http.ResponseWriter, r *http.Request) {
+	methods, err := logic.GetScopeLoginMethods(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, methods, "fetched auth methods")
+}
+
 // @Summary     Validate a user's identity
 // @Router      /api/users/{username}/validate-identity [post]
 // @Tags        Users
@@ -731,6 +749,13 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = logic.ResolveInheritedAuth(r.Context(), user)
+	if err != nil {
+		logger.Log(0, "failed to resolve inherited auth: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	if !user.IsMFAEnabled {
 		err = fmt.Errorf("mfa is disabled for user(%s), cannot process totp verification", username)
 		logger.Log(0, err.Error())
@@ -899,7 +924,28 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		return
 	}
 
-	if !isMaster {
+	if !isMaster && scope.Level(r.Context()) == scope.OrgScope {
+		switch _user.PlatformRoleID {
+		case schema.OrgOwner:
+			if disableAccount {
+				err = errors.New("cannot disable an org-owner")
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case schema.OrgAdmin:
+			if _caller.PlatformRoleID != schema.OrgOwner {
+				err = fmt.Errorf("%s cannot %s an org-admin", _caller.PlatformRoleID, action)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case schema.OrgUser:
+			if _caller.PlatformRoleID != schema.OrgOwner && _caller.PlatformRoleID != schema.OrgAdmin {
+				err = fmt.Errorf("%s cannot %s an org-user", _caller.PlatformRoleID, action)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		}
+	} else if !isMaster {
 		switch _user.PlatformRoleID {
 		case schema.SuperAdminRole:
 			if disableAccount {
@@ -928,6 +974,30 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		}
 	}
 
+	// An inherited tenant member cannot be enabled at the tenant while
+	// their org account is disabled.
+	if scope.Level(r.Context()) == scope.TenantScope && _user.AuthType == schema.Inherited && !disableAccount {
+		tenant := &schema.Tenant{ID: scope.ID(r.Context())}
+		err = tenant.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		orgMembership := &schema.OrgMembership{OrganizationID: tenant.OrganizationID, UserID: _user.ID}
+		err = orgMembership.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if orgMembership.AccountDisabled {
+			err = errors.New("cannot enable user: account is disabled at the organization")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	_user.AccountDisabled = disableAccount
 	err = _user.UpdateAccountStatus(r.Context())
 	if err != nil {
@@ -936,27 +1006,37 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		return
 	}
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		if !force {
-			return
-		}
-		extclients, err := logic.GetAllExtClients(ctx)
+	// extclients only exist on tenants. In org scope, propagate the status to
+	// every tenant of this org where the user has inherited access.
+	tenantIDs := []string{scope.ID(r.Context())}
+	if scope.Level(r.Context()) == scope.OrgScope {
+		tenantIDs, err = inheritedTenantIDs(r.Context(), _user)
 		if err != nil {
-			logger.Log(0, "failed to get user extclients:", err.Error())
+			logger.Log(0, fmt.Sprintf("failed to list inherited tenants for user %s: %v", _user.Username, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		extclientStatus := !disableAccount
-		for _, extclient := range extclients {
-			if extclient.OwnerID == _user.Username && extclient.Enabled != extclientStatus {
-				_, err = logic.ToggleExtClientConnectivity(ctx, &extclient, extclientStatus)
-				if err != nil {
-					logger.Log(1, "failed to delete user extclient:", err.Error())
-				}
+
+		for _, tenantID := range tenantIDs {
+			err = (&schema.TenantMembership{
+				TenantID:        tenantID,
+				UserID:          _user.ID,
+				AccountDisabled: disableAccount,
+			}).UpdateAccountStatus(r.Context())
+			if err != nil {
+				logger.Log(0, fmt.Sprintf("failed to %s user account in tenant %s: %v", action, tenantID, err))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
 			}
 		}
-		mq.PublishPeerUpdate(ctx, false)
-	}(ctx)
+	}
+
+	if force {
+		for _, tenantID := range tenantIDs {
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
+			go toggleUserExtClients(ctx, _user.Username, !disableAccount)
+		}
+	}
 
 	src := logic.MasterUser
 	if !isMaster {
@@ -986,6 +1066,54 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 	})
 
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", action))
+}
+
+// inheritedTenantIDs returns the tenants of the org in ctx where the user has
+// inherited membership.
+func inheritedTenantIDs(ctx context.Context, user *schema.User) ([]string, error) {
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var tenantIDs []string
+	for _, membership := range memberships {
+		if membership.AuthType != schema.Inherited {
+			continue
+		}
+
+		tenant := &schema.Tenant{ID: membership.TenantID}
+		err = tenant.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if tenant.OrganizationID != scope.ID(ctx) {
+			continue
+		}
+
+		tenantIDs = append(tenantIDs, membership.TenantID)
+	}
+
+	return tenantIDs, nil
+}
+
+// toggleUserExtClients enables or disables the user's extclients in the tenant in ctx.
+func toggleUserExtClients(ctx context.Context, username string, enable bool) {
+	extclients, err := logic.GetAllExtClients(ctx)
+	if err != nil {
+		logger.Log(0, "failed to get user extclients:", err.Error())
+		return
+	}
+	for _, extclient := range extclients {
+		if extclient.OwnerID == username && extclient.Enabled != enable {
+			_, err = logic.ToggleExtClientConnectivity(ctx, &extclient, enable)
+			if err != nil {
+				logger.Log(1, "failed to toggle user extclient:", err.Error())
+			}
+		}
+	}
+	mq.PublishPeerUpdate(ctx, false)
 }
 
 // @Summary     Get a user's preferences and settings
@@ -1199,9 +1327,10 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
-	// role_id and auth_type live on the membership tables, not users_v1. Qualify them
-	// with the join alias used by ListAllWithMembership/CountWithMembership so they
-	// don't collide with the identically named legacy columns still present on users_v1.
+	// account_disabled, is_mfa_enabled, role_id and auth_type all live on the membership
+	// tables now, not users_v1. Qualify them with the join alias used by
+	// ListAllWithMembership/CountWithMembership so they don't collide with the identically
+	// named legacy columns still present on users_v1.
 	membershipAlias := "tm"
 	if scope.Level(r.Context()) == scope.OrgScope {
 		membershipAlias = "om"
@@ -1209,8 +1338,8 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 
 	_users, err := (&schema.User{}).ListAllWithMembership(
 		r.Context(),
-		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
-		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
+		dbtypes.WithFilter(membershipAlias+".account_disabled", accountStatusFilter...),
+		dbtypes.WithFilter(membershipAlias+".is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
 		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
@@ -1233,8 +1362,8 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 
 	total, err := (&schema.User{}).CountWithMembership(
 		r.Context(),
-		dbtypes.WithFilter("account_disabled", accountStatusFilter...),
-		dbtypes.WithFilter("is_mfa_enabled", mfaStatusFilter...),
+		dbtypes.WithFilter(membershipAlias+".account_disabled", accountStatusFilter...),
+		dbtypes.WithFilter(membershipAlias+".is_mfa_enabled", mfaStatusFilter...),
 		dbtypes.WithFilter(membershipAlias+".role_id", roleFilter...),
 		dbtypes.WithFilter(membershipAlias+".auth_type", authTypeFilter...),
 		dbtypes.WithSearchQuery(q, "username"),
@@ -1311,12 +1440,35 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(r.Context(), &user)
+	dbctx := db.BeginTx(r.Context())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	err = orchestrator.GetRepository().UserOrchestrator().CreateUser(dbctx, &user)
 	if err != nil {
 		slog.Error("failed to create superadmin", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
+
+	// on MSP the org owner is created via createOrgOwner instead, which also
+	// grants super admin on every tenant of the org.
+	if !logic.IsMSP(dbctx) {
+		err = createOrgOwnerMembership(dbctx, &user)
+		if err != nil {
+			slog.Error("failed to create org owner for superadmin", "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
+	commit = true
 
 	logger.Log(1, user.Username, "was made a super admin")
 	_ = json.NewEncoder(w).Encode(logic.ToReturnUser(&user))
@@ -1683,15 +1835,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+		slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+		return
+	}
+
 	if scope.Level(r.Context()) == scope.TenantScope {
 		if !ismaster && selfUpdate {
-			if user.PlatformRoleID != userchange.PlatformRoleID {
-				slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-				return
-
-			}
-
 			if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 				err = errors.New("mfa is enforced, user cannot unset their own mfa")
 				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
@@ -1721,6 +1872,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		if user.AuthType == schema.Inherited && userchange.Password != "" {
 			err = fmt.Errorf("cannot update password for user with inherited auth")
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+	}
+
+	if scope.Level(r.Context()) == scope.OrgScope {
+		if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+			slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
 			return
 		}
 	}
@@ -1941,7 +2100,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteUser(r.Context(), user)
+	forceDeleteConfigs := r.URL.Query().Get("force_delete_configs") == "true"
+	if scope.Level(r.Context()) == scope.OrgScope {
+		err = logic.DeleteOrgUser(r.Context(), user, forceDeleteConfigs, cleanupUserRefs)
+	} else {
+		err = logic.DeleteTenantUser(r.Context(), user, forceDeleteConfigs, cleanupUserRefs)
+	}
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user membership: ", err.Error())
@@ -1967,45 +2131,41 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	// check and delete extclient with this ownerID
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		if scope.Level(ctx) == scope.TenantScope {
-			delete := r.URL.Query().Get("force_delete_configs") == "true"
-			extclients, err := logic.GetAllExtClients(ctx)
-			if err != nil {
-				slog.Error("failed to get extclients", "error", err)
-				return
-			}
-			for _, extclient := range extclients {
-				if extclient.OwnerID == user.Username {
-					if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
-						if !delete {
-							// only delete wireguard configs on force
-							continue
-						}
-					}
-					err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
-					if err != nil {
-						slog.Error("failed to delete extclient",
-							"id", extclient.ClientID, "owner", username, "error", err)
-					} else {
-						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-							slog.Error("error setting ext peers: " + err.Error())
-						}
-					}
-				}
-			}
-		}
-
-		_ = (&schema.UserInvite{
-			Email: user.Username,
-		}).DeleteByEmail(ctx)
-
-		mq.PublishPeerUpdate(ctx, false)
-	}(ctx)
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")
+}
+
+func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bool) {
+	extclients, err := logic.GetAllExtClients(ctx)
+	if err != nil {
+		slog.Error("failed to get extclients", "error", err)
+	} else {
+		for _, extclient := range extclients {
+			if extclient.OwnerID != username {
+				continue
+			}
+			if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+				// only delete wireguard configs on force
+				continue
+			}
+			if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+				slog.Error("failed to delete extclient",
+					"id", extclient.ClientID, "owner", username, "error", err)
+				continue
+			}
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+				slog.Error("error setting ext peers: " + err.Error())
+			}
+		}
+	}
+
+	_ = (&schema.UserInvite{
+		Email: username,
+	}).DeleteByEmail(ctx)
+
+	if err := mq.PublishPeerUpdate(ctx, false); err != nil {
+		slog.Error("error publishing peer update", "error", err)
+	}
 }
 
 // @Summary     Bulk delete users
@@ -2052,16 +2212,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		ownerExtClients := make(map[string][]models.ExtClient)
-		extclients, err := logic.GetAllExtClients(ctx)
-		if err != nil {
-			slog.Error("bulk user delete: failed to get extclients", "error", err)
-		} else {
-			for _, ec := range extclients {
-				ownerExtClients[ec.OwnerID] = append(ownerExtClients[ec.OwnerID], ec)
-			}
-		}
-
 		deleted := 0
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
@@ -2090,9 +2240,14 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			err = logic.DeleteUser(ctx, user)
-			if err != nil {
-				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", err)
+			var deleteErr error
+			if scope.Level(ctx) == scope.OrgScope {
+				deleteErr = logic.DeleteOrgUser(ctx, user, forceDeleteConfigs, cleanupUserRefs)
+			} else {
+				deleteErr = logic.DeleteTenantUser(ctx, user, forceDeleteConfigs, cleanupUserRefs)
+			}
+			if deleteErr != nil {
+				slog.Error("bulk user delete: failed to delete user membership", "username", username, "error", deleteErr)
 				continue
 			}
 			logic.LogEvent(r.Context(), &models.Event{
@@ -2113,23 +2268,6 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			})
 			logger.Log(1, username, "was deleted")
 			deleted++
-
-			for _, extclient := range ownerExtClients[user.Username] {
-				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
-					continue
-				}
-				if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
-					slog.Error("bulk user delete: failed to delete extclient", "id", extclient.ClientID, "owner", user.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("bulk user delete: error publishing ext peer update", "error", err)
-					}
-				}
-			}
-
-			_ = (&schema.UserInvite{
-				Email: user.Username,
-			}).DeleteByEmail(ctx)
 		}
 		if deleted > 0 {
 			mq.PublishPeerUpdate(ctx, false)
