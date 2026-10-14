@@ -441,12 +441,8 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 		RemoteAccessClientID: client.RemoteAccessClientID,
 	}
 
-	// update in DB
+	// update in DB (same ClientID — upsert, no delete/recreate)
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(ctx, client.Network, client.ClientID, true); err != nil {
-		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
-		return newClient, err
-	}
 	if err := SaveExtClient(ctx, &newClient); err != nil {
 		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
 		return newClient, err
