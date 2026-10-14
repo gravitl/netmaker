@@ -968,6 +968,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// ClientID rename: old NodeID refs in ACL policies must be scrubbed.
+	if oldExtClient.ClientID != newclient.ClientID {
+		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+		go logic.RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(oldExtClient))
+	}
 	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
 			"failed to save ext client",
