@@ -2,6 +2,8 @@ package schema_test
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -290,4 +292,85 @@ func TestExtclient_Violations(t *testing.T) {
 	violations, err = got.ListViolations(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, violations)
+}
+
+func TestExtclient_WritesAreTenantScoped(t *testing.T) {
+	ctx := setupSchemaTest(t)
+	otherCtx := tenantCtx("tenant-2")
+	network := testutils.CreateIPv4Network(t, ctx, "net-1")
+	extclient := createExtclient(t, ctx, network, "client-1")
+
+	t.Run("Update", func(t *testing.T) {
+		update := &schema.Extclient{ID: extclient.ID, NetworkID: network.ID, Name: "hijacked"}
+		assert.ErrorIs(t, update.Update(otherCtx), gorm.ErrRecordNotFound)
+
+		got := &schema.Extclient{ID: extclient.ID}
+		require.NoError(t, got.Get(ctx))
+		assert.Equal(t, "client-1", got.Name)
+	})
+
+	t.Run("UpsertViolations", func(t *testing.T) {
+		_extclient := &schema.Extclient{
+			ID:                                extclient.ID,
+			TenantID:                          "tenant-2",
+			PostureCheckSeverity:              schema.SeverityHigh,
+			PostureCheckLastEvaluationCycleID: uuid.NewString(),
+		}
+		err := _extclient.UpsertViolations(otherCtx, []schema.PostureCheckViolation{
+			{CheckID: "check-1", Severity: schema.SeverityHigh},
+		})
+		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+
+		got := &schema.Extclient{ID: extclient.ID}
+		require.NoError(t, got.Get(ctx))
+		assert.Equal(t, schema.SeverityUnknown, got.PostureCheckSeverity, "the posture metadata is not updated")
+		assert.Empty(t, got.PostureCheckLastEvaluationCycleID)
+
+		violations, err := got.ListViolations(otherCtx)
+		require.NoError(t, err)
+		assert.Empty(t, violations, "no violations are written")
+	})
+}
+
+func TestExtclient_UniqueName(t *testing.T) {
+	ctx := setupSchemaTest(t)
+	network := testutils.CreateIPv4Network(t, ctx, "net-1")
+	createExtclient(t, ctx, network, "client-1")
+
+	t.Run("SameNameInNetwork", func(t *testing.T) {
+		duplicate := &schema.Extclient{TenantID: "tenant-1", NetworkID: network.ID, Name: "client-1"}
+		assert.Error(t, duplicate.Create(ctx))
+	})
+
+	t.Run("RenameToExistingName", func(t *testing.T) {
+		other := createExtclient(t, ctx, network, "client-2")
+		rename := &schema.Extclient{ID: other.ID, NetworkID: network.ID, Name: "client-1"}
+		assert.Error(t, rename.Update(ctx))
+	})
+
+	t.Run("SameNameInAnotherNetwork", func(t *testing.T) {
+		createExtclient(t, ctx, testutils.CreateIPv4Network(t, ctx, "net-2"), "client-1")
+	})
+
+	t.Run("SameNameInAnotherTenant", func(t *testing.T) {
+		otherCtx := tenantCtx("tenant-2")
+		createExtclient(t, otherCtx, testutils.CreateIPv4Network(t, otherCtx, "net-1"), "client-1")
+	})
+
+	t.Run("ConcurrentCreates", func(t *testing.T) {
+		var wg sync.WaitGroup
+		var created atomic.Int32
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				extclient := &schema.Extclient{TenantID: "tenant-1", NetworkID: network.ID, Name: "client-3"}
+				if extclient.Create(ctx) == nil {
+					created.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+		assert.Equal(t, int32(1), created.Load(), "only one of the concurrent creates succeeds")
+	})
 }

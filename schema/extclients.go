@@ -22,12 +22,12 @@ var ErrExtclientIdentifiersNotProvided = errors.New("extclient identifiers not p
 
 type Extclient struct {
 	ID       string `gorm:"primaryKey" json:"id"`
-	TenantID string `gorm:"default:'';index" json:"tenant_id"`
+	TenantID string `gorm:"default:'';index;uniqueIndex:udx_extclient_tenant_network_name" json:"tenant_id"`
 	// NetworkID has no foreign key constraint, extclients are deleted
 	// explicitly on network deletion.
-	NetworkID string   `gorm:"not null;index" json:"network_id"`
+	NetworkID string   `gorm:"not null;index;uniqueIndex:udx_extclient_tenant_network_name" json:"network_id"`
 	Network   *Network `gorm:"foreignKey:NetworkID;constraint:-" json:"network,omitempty"`
-	Name      string   `gorm:"not null" json:"name"`
+	Name      string   `gorm:"not null;uniqueIndex:udx_extclient_tenant_network_name" json:"name"`
 
 	PrivateKey string `json:"privatekey"`
 	PublicKey  string `json:"publickey"`
@@ -181,8 +181,12 @@ func (e *Extclient) Update(ctx context.Context) error {
 		return ErrExtclientIdentifiersNotProvided
 	}
 
-	result := db.FromContext(ctx).Model(&Extclient{}).
-		Where(fmt.Sprintf("%s.id = ?", extclientsTable), e.ID).
+	query := db.FromContext(ctx).Model(&Extclient{}).Where(fmt.Sprintf("%s.id = ?", extclientsTable), e.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where(fmt.Sprintf("%s.tenant_id = ?", extclientsTable), tenantID)
+	}
+
+	result := query.
 		Select("*").
 		Omit(
 			"id", "tenant_id", "created_at",
@@ -320,13 +324,20 @@ func (e *Extclient) UpsertViolations(ctx context.Context, violations []PostureCh
 
 	cycleID := e.PostureCheckLastEvaluationCycleID
 
-	var previousCycleID string
-	if err := tx.Model(&Extclient{}).
+	query := tx.Model(&Extclient{}).Where(fmt.Sprintf("%s.id = ?", extclientsTable), e.ID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where(fmt.Sprintf("%s.tenant_id = ?", extclientsTable), tenantID)
+	}
+
+	// fails with gorm.ErrRecordNotFound for extclients of other tenants,
+	// before any violations are written.
+	var previous Extclient
+	if err := query.Session(&gorm.Session{}).
 		Select("posture_check_last_evaluation_cycle_id").
-		Where("id = ?", e.ID).
-		Scan(&previousCycleID).Error; err != nil {
+		First(&previous).Error; err != nil {
 		return err
 	}
+	previousCycleID := previous.PostureCheckLastEvaluationCycleID
 
 	if len(violations) > 0 {
 		for i := range violations {
@@ -346,8 +357,7 @@ func (e *Extclient) UpsertViolations(ctx context.Context, violations []PostureCh
 		}
 	}
 
-	if err := tx.Model(&Extclient{}).
-		Where("id = ?", e.ID).
+	if err := query.Session(&gorm.Session{}).
 		Updates(map[string]interface{}{
 			"posture_check_severity":                 e.PostureCheckSeverity,
 			"posture_check_last_evaluation_cycle_id": cycleID,
