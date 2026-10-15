@@ -349,7 +349,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
-		role := &schema.UserRole{ID: user.PlatformRoleID}
+		role := &schema.UserRole{Slug: user.PlatformRoleID}
 		err = role.GetPlatformRole(request.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
@@ -1194,7 +1194,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	user.NumAccessTokens, _ = (&schema.UserAccessToken{
 		UserName: user.UserName,
 	}).CountByUser(r.Context())
-	userRoleTemplate := &schema.UserRole{ID: user.PlatformRoleID}
+	userRoleTemplate := &schema.UserRole{Slug: user.PlatformRoleID}
 	err = userRoleTemplate.GetPlatformRole(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1222,7 +1222,7 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		roles, _ := (&schema.UserRole{}).ListPlatformRoles(r.Context())
 		rolesMap := make(map[schema.UserRoleID]schema.UserRole)
 		for _, role := range roles {
-			rolesMap[role.ID] = role
+			rolesMap[role.Slug] = role
 		}
 
 		tenantMemberships, _ := (&schema.TenantMembership{UserID: _user.ID}).ListByUserID(r.Context())
@@ -1597,7 +1597,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
 		return
 	}
-	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	userRole := &schema.UserRole{Slug: user.PlatformRoleID}
 	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())
@@ -1605,7 +1605,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if userRole.ID == schema.SuperAdminRole {
+	if userRole.Slug == schema.SuperAdminRole {
 		err = errors.New("additional superadmins cannot be created")
 		slog.Error("error creating new user: ", "user", user.Username, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
@@ -1967,7 +1967,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
-				err = logic.DeleteExtClientAndCleanup(r.Context(), extclient)
+				err = logic.DeleteExtClient(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
 						"id", extclient.ClientID, "owner", user.Username, "error", err)
@@ -2005,10 +2005,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	callerUserRole := &schema.UserRole{ID: caller.PlatformRoleID}
+	callerUserRole := &schema.UserRole{Slug: caller.PlatformRoleID}
 	err = callerUserRole.GetPlatformRole(r.Context())
 	if err != nil {
-		slog.Error("failed to get role ", "role", callerUserRole.ID, "error", err)
+		slog.Error("failed to get role ", "role", callerUserRole.Slug, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -2021,16 +2021,16 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	userRole := &schema.UserRole{Slug: user.PlatformRoleID}
 	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
-		slog.Error("failed to get role ", "role", userRole.ID, "error", err)
+		slog.Error("failed to get role ", "role", userRole.Slug, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	switch scope.Level(r.Context()) {
 	case scope.TenantScope:
-		if userRole.ID == schema.SuperAdminRole {
+		if userRole.Slug == schema.SuperAdminRole {
 			slog.Error(
 				"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
 			logic.ReturnErrorResponse(
@@ -2040,8 +2040,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		if callerUserRole.ID != schema.SuperAdminRole {
-			if callerUserRole.ID == schema.AdminRole && userRole.ID == schema.AdminRole {
+		if callerUserRole.Slug != schema.SuperAdminRole {
+			if callerUserRole.Slug == schema.AdminRole && userRole.Slug == schema.AdminRole {
 				slog.Error(
 					"failed to delete user: ",
 					"user",
@@ -2061,7 +2061,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	case scope.OrgScope:
-		if userRole.ID == schema.OrgOwner {
+		if userRole.Slug == schema.OrgOwner {
 			slog.Error(
 				"failed to delete user: ", "user", username, "error", "org-owner cannot be deleted")
 			logic.ReturnErrorResponse(
@@ -2071,7 +2071,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		if userRole.ID == schema.OrgAdmin && callerUserRole.ID != schema.OrgOwner {
+		if userRole.Slug == schema.OrgAdmin && callerUserRole.Slug != schema.OrgOwner {
 			slog.Error(
 				"failed to delete user: ",
 				"user",
@@ -2148,7 +2148,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 				// only delete wireguard configs on force
 				continue
 			}
-			if err := logic.DeleteExtClientAndCleanup(ctx, extclient); err != nil {
+			if err := logic.DeleteExtClient(ctx, extclient); err != nil {
 				slog.Error("failed to delete extclient",
 					"id", extclient.ClientID, "owner", username, "error", err)
 				continue
@@ -2201,7 +2201,7 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		callerRole = &schema.UserRole{ID: caller.PlatformRoleID}
+		callerRole = &schema.UserRole{Slug: caller.PlatformRoleID}
 		if err := callerRole.GetPlatformRole(r.Context()); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -2228,8 +2228,8 @@ func bulkDeleteUsers(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !isMaster {
-				if callerRole.ID != schema.SuperAdminRole {
-					if callerRole.ID == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
+				if callerRole.Slug != schema.SuperAdminRole {
+					if callerRole.Slug == schema.AdminRole && user.PlatformRoleID == schema.AdminRole {
 						slog.Error("bulk user delete: admin cannot delete another admin", "username", username)
 						continue
 					}

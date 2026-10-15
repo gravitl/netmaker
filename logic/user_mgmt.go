@@ -13,30 +13,30 @@ import (
 // Pre-Define Permission Templates for default Roles
 
 var OrgOwnerPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgOwner,
+	Slug:            schema.OrgOwner,
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var OrgAdminPermissionTemplate = schema.UserRole{
-	ID:              schema.OrgAdmin,
+	Slug:            schema.OrgAdmin,
 	Default:         true,
 	OrgGlobalAccess: true,
 }
 
 var OrgUserPermissionTemplate = schema.UserRole{
-	ID:      schema.OrgUser,
+	Slug:    schema.OrgUser,
 	Default: true,
 }
 
 var SuperAdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.SuperAdminRole,
+	Slug:               schema.SuperAdminRole,
 	Default:            true,
 	TenantGlobalAccess: true,
 }
 
 var AdminPermissionTemplate = schema.UserRole{
-	ID:                 schema.AdminRole,
+	Slug:               schema.AdminRole,
 	Default:            true,
 	TenantGlobalAccess: true,
 }

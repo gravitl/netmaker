@@ -3239,7 +3239,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 	}
 	acl.Enabled = newAcl.Enabled
 	r := &schema.AclRecord{
-		Key:       acl.ID,
+		Slug:      acl.ID,
 		TenantID:  scope.ID(ctx),
 		NetworkID: acl.NetworkID.String(),
 		Value:     datatypes.NewJSONType(acl),
@@ -3253,7 +3253,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 
 // UpsertAcl - upserts acl
 func UpsertAcl(ctx context.Context, acl models.Acl) error {
-	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
+	r := &schema.AclRecord{Slug: acl.ID, Value: datatypes.NewJSONType(acl)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(ctx, acl)
@@ -3263,7 +3263,7 @@ func UpsertAcl(ctx context.Context, acl models.Acl) error {
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(ctx context.Context, a models.Acl) error {
-	err := (&schema.AclRecord{Key: a.ID}).Delete(ctx)
+	err := (&schema.AclRecord{Slug: a.ID}).Delete(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		removeAclFromCache(ctx, a)
 	}
@@ -3476,7 +3476,7 @@ func InsertAcl(ctx context.Context, a models.Acl) error {
 	if a.AccessType == "" {
 		a.AccessType = models.NetworkAccess
 	}
-	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
+	r := &schema.AclRecord{Slug: a.ID, Value: datatypes.NewJSONType(a)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(ctx, a)
@@ -3494,7 +3494,7 @@ func GetAcl(ctx context.Context, aID string) (models.Acl, error) {
 			return a, nil
 		}
 	}
-	r := &schema.AclRecord{Key: aID}
+	r := &schema.AclRecord{Slug: aID}
 	if err := r.Get(ctx); err != nil {
 		return a, err
 	}
@@ -3509,6 +3509,36 @@ func GetAcl(ctx context.Context, aID string) (models.Acl, error) {
 func IsAclExists(ctx context.Context, aclID string) bool {
 	_, err := GetAcl(ctx, aclID)
 	return err == nil
+}
+
+// RenameExtClientInAclPolicies updates the policies of the network that refer
+// to the ext client by its old name to refer to it by its new name.
+func RenameExtClientInAclPolicies(ctx context.Context, network, oldName, newName string) error {
+	acls, err := ListAclsByNetwork(ctx, schema.NetworkID(network))
+	if err != nil {
+		return err
+	}
+	for _, acl := range acls {
+		// copy the tags, the policies can be shared with the acl cache.
+		acl.Src = append([]models.AclPolicyTag(nil), acl.Src...)
+		acl.Dst = append([]models.AclPolicyTag(nil), acl.Dst...)
+		update := false
+		for _, tags := range [][]models.AclPolicyTag{acl.Src, acl.Dst} {
+			for i := range tags {
+				if tags[i].ID == models.NodeID && tags[i].Value == oldName {
+					tags[i].Value = newName
+					update = true
+				}
+			}
+		}
+		if !update {
+			continue
+		}
+		if err := UpsertAcl(ctx, acl); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func RemoveNodeFromAclPolicy(ctx context.Context, node models.Node) {

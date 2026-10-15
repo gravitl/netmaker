@@ -1,10 +1,12 @@
 package models
 
 import (
+	"context"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -48,9 +50,18 @@ type ApiHost struct {
 	Location                string     `json:"location"`
 	CountryCode             string     `json:"country_code"`
 	// Device-matching identifiers reported by netclient; read-only via the API.
-	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
-	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
-	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	EntraDeviceID string                 `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string                 `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string                 `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	NetworkNodes  map[string]ApiHostNode `json:"network_nodes" yaml:"network_nodes"`
+}
+
+type ApiHostNode struct {
+	ID        string            `json:"id"`
+	Address   string            `json:"address"`
+	Address6  string            `json:"address6"`
+	Status    schema.NodeStatus `json:"status"`
+	Connected bool              `json:"connected"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -61,7 +72,7 @@ type ApiIface struct {
 }
 
 // NewApiHostFromSchemaHost - converts a Netmaker host to an API editable host
-func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
+func NewApiHostFromSchemaHost(h *schema.Host, populateNetworkNodes bool) *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
@@ -114,7 +125,32 @@ func NewApiHostFromSchemaHost(h *schema.Host) *ApiHost {
 	a.EntraDeviceID = h.EntraDeviceID
 	a.SerialNumber = h.SerialNumber
 	a.HardwareUUID = h.HardwareUUID
+	if populateNetworkNodes {
+		a.NetworkNodes = getHostNetworkNodes(h)
+	}
 	return &a
+}
+
+// getHostNetworkNodes fetches each node on the host and returns them keyed
+// by network ID, with a freshly computed check-in status.
+func getHostNetworkNodes(h *schema.Host) map[string]ApiHostNode {
+	networkNodes := make(map[string]ApiHostNode)
+	ctx := db.WithContext(context.TODO())
+	for _, nodeID := range h.Nodes {
+		node := &schema.Node{ID: nodeID}
+		if err := node.Get(ctx); err != nil {
+			continue
+		}
+
+		networkNodes[node.NetworkID] = ApiHostNode{
+			ID:        node.ID,
+			Address:   node.Address,
+			Address6:  node.Address6,
+			Status:    node.Status,
+			Connected: node.Connected,
+		}
+	}
+	return networkNodes
 }
 
 // APIHost.ConvertAPIHostToNMHost - convert's a given apihost struct to
