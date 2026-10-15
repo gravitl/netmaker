@@ -533,6 +533,13 @@ func migrateSettings(ctx context.Context) {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
+	if settings.SmtpHost == "" && servercfg.GetSmtpHost() != "" {
+		settings.SmtpHost = servercfg.GetSmtpHost()
+		settings.SmtpPort = servercfg.GetSmtpPort()
+		settings.EmailSenderAddr = servercfg.GetSenderEmail()
+		settings.EmailSenderUser = servercfg.GetSenderUser()
+		settings.EmailSenderPassword = servercfg.GetEmaiSenderPassword()
+	}
 	_ = logic.UpsertServerSettings(ctx, settings)
 }
 

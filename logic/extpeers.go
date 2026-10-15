@@ -198,8 +198,13 @@ func DeleteExtClient(ctx context.Context, network string, clientid string, isUpd
 			Origin:    schema.ClientApp,
 		})
 	}
-	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
+	// Skip ACL scrub on update: the caller deletes+recreates the same client.
+	// Scrubbing here would remove still-valid NodeID refs from policies on every
+	// edit. True deletes (and ClientID renames handled by the update caller) scrub.
+	if !isUpdate {
+		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+		go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
+	}
 	return nil
 }
 
@@ -336,7 +341,12 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
-	new.Tags = update.Tags
+	// Tags are usually managed via the tags API. Extclient edit payloads often
+	// omit tags (nil); overwriting would drop the client from all tags. Only
+	// apply when the caller explicitly sends a tags map (including {} to clear).
+	if update.Tags != nil {
+		new.Tags = update.Tags
+	}
 	if update.Location != "" && update.Location != old.Location {
 		new.Location = update.Location
 	}
@@ -431,12 +441,8 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 		RemoteAccessClientID: client.RemoteAccessClientID,
 	}
 
-	// update in DB
+	// update in DB (same ClientID — upsert, no delete/recreate)
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(ctx, client.Network, client.ClientID, true); err != nil {
-		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
-		return newClient, err
-	}
 	if err := SaveExtClient(ctx, &newClient); err != nil {
 		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
 		return newClient, err
