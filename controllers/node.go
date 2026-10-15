@@ -1210,9 +1210,11 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 		// sent its node update, so clients are less likely to re-pick a gw that is
 		// still up but about to tear down.
 		if !req.Connected {
+			gwNodeIDs := make([]string, 0, len(nodeIDs))
 			for i := range nodeIDs {
-				mq.ReassignAutoAssignedClients(ctx, nodeIDs[i].(string))
+				gwNodeIDs = append(gwNodeIDs, nodeIDs[i].(string))
 			}
+			mq.ReassignAutoAssignedClients(ctx, gwNodeIDs...)
 		}
 
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push

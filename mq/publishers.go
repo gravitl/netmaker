@@ -305,17 +305,22 @@ func PublishPeerUpdatesForExitClientsFirst(ctx context.Context, clientNodes []mo
 	return PublishPeerUpdate(ctx, false)
 }
 
-func ReassignAutoAssignedClients(ctx context.Context, gwNodeID string) {
+func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 	if !servercfg.IsPro {
 		return
 	}
-	displacedNodes := logic.DisplaceAutoRelayedNodes(ctx, gwNodeID)
+	// displace from every gw first, so all nodes are listed once and each peer
+	// update reflects the whole batch
+	var displacedNodes []models.Node
+	for _, gwNodeID := range gwNodeIDs {
+		displacedNodes = append(displacedNodes, logic.DisplaceAutoRelayedNodes(ctx, gwNodeID)...)
+	}
 	if len(displacedNodes) == 0 {
 		return
 	}
 	allNodes, err := logic.GetAllNodes(ctx)
 	if err != nil {
-		slog.Error("reassign auto-assigned clients: failed to list nodes", "gw", gwNodeID, "error", err)
+		slog.Error("reassign auto-assigned clients: failed to list nodes", "gws", gwNodeIDs, "error", err)
 	}
 	for i := range displacedNodes {
 		node := displacedNodes[i]
