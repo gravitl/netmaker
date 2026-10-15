@@ -953,9 +953,26 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	// Same ClientID: upsert in place. Delete+recreate is only needed when the
-	// record key changes (ClientID rename); scrubbing NodeID refs on rename
-	// drops the static node from ACL policies, so rewrite those refs instead.
+	// Persist the new record first. Same ClientID upserts in place. A ClientID
+	// rename writes a new key; the old key is deleted only after that save
+	// succeeds, so a failed save cannot drop the existing client and leave
+	// ACL NodeID refs pointing at a ClientID that was never stored. Then
+	// rewrite those refs instead of scrubbing them.
+	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
+		slog.Error(
+			"failed to save ext client",
+			"user",
+			r.Header.Get("user"),
+			"id",
+			newclient.ClientID,
+			"network",
+			newclient.Network,
+			"error",
+			err,
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	if oldExtClient.ClientID != newclient.ClientID {
 		if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 			slog.Error(
@@ -972,22 +989,23 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		logic.RenameNodeInAclPolicies(r.Context(), oldExtClient.Network, oldExtClient.ClientID, newclient.ClientID)
-	}
-	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
-		slog.Error(
-			"failed to save ext client",
-			"user",
-			r.Header.Get("user"),
-			"id",
-			newclient.ClientID,
-			"network",
-			newclient.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+		if err := logic.RenameNodeInAclPolicies(r.Context(), oldExtClient.Network, oldExtClient.ClientID, newclient.ClientID); err != nil {
+			slog.Error(
+				"failed to rename ext client in acl policies",
+				"user",
+				r.Header.Get("user"),
+				"id",
+				oldExtClient.ClientID,
+				"new_id",
+				newclient.ClientID,
+				"network",
+				oldExtClient.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
 

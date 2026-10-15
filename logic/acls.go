@@ -3270,11 +3270,14 @@ func RemoveNodeFromAclPolicy(ctx context.Context, node models.Node) {
 // RenameNodeInAclPolicies rewrites NodeID refs from oldID to newID in all
 // policies on the network. Used when a static extclient ClientID is renamed so
 // ACL membership is preserved instead of scrubbed.
-func RenameNodeInAclPolicies(ctx context.Context, network, oldID, newID string) {
+func RenameNodeInAclPolicies(ctx context.Context, network, oldID, newID string) error {
 	if oldID == "" || newID == "" || oldID == newID {
-		return
+		return nil
 	}
-	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(network))
+	acls, err := ListAclsByNetwork(ctx, schema.NetworkID(network))
+	if err != nil {
+		return err
+	}
 	for _, acl := range acls {
 		changed := false
 		for i := range acl.Src {
@@ -3290,9 +3293,12 @@ func RenameNodeInAclPolicies(ctx context.Context, network, oldID, newID string) 
 			}
 		}
 		if changed {
-			UpsertAcl(ctx, acl)
+			if err := UpsertAcl(ctx, acl); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // CreateDefaultAclNetworkPolicies - create default acl network policies
