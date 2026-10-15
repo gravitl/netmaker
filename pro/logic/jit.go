@@ -213,15 +213,9 @@ func CreateJITRequest(ctx context.Context, networkID, userName, reason string) (
 }
 
 // ApproveJITRequest - approves a JIT request and creates a grant
-func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, *schema.JITRequest, error) {
-	// Get the request
-	request := schema.JITRequest{ID: requestID}
-	if err := request.Get(ctx); err != nil {
-		return nil, nil, fmt.Errorf("request not found: %w", err)
-	}
-
+func ApproveJITRequest(ctx context.Context, request *schema.JITRequest, expiresAt time.Time, approvedBy string) (*schema.JITGrant, error) {
 	if request.Status != "pending" {
-		return nil, nil, errors.New("request is not pending")
+		return nil, errors.New("request is not pending")
 	}
 
 	// Update request status
@@ -242,7 +236,7 @@ func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Tim
 	request.ExpiresAt = expiresAt
 
 	if err := request.Update(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to update request: %w", err)
+		return nil, fmt.Errorf("failed to update request: %w", err)
 	}
 
 	// Delete any existing grants for this user on this network
@@ -261,23 +255,16 @@ func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Tim
 		ExpiresAt: expiresAt,
 	}
 	if err := grant.Create(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to create grant: %w", err)
+		return nil, fmt.Errorf("failed to create grant: %w", err)
 	}
 
-	return &grant, &request, nil
+	return &grant, nil
 }
 
 // DenyJITRequest - denies a JIT request and returns the updated request
-func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, error) {
-	ctx := db.WithContext(context.Background())
-
-	request := schema.JITRequest{ID: requestID}
-	if err := request.Get(ctx); err != nil {
-		return nil, fmt.Errorf("request not found: %w", err)
-	}
-
+func DenyJITRequest(ctx context.Context, request *schema.JITRequest, deniedBy string) error {
 	if request.Status != "pending" {
-		return nil, errors.New("request is not pending")
+		return errors.New("request is not pending")
 	}
 
 	now := time.Now().UTC()
@@ -285,10 +272,7 @@ func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, erro
 	request.ApprovedAt = now
 	request.ApprovedBy = deniedBy
 
-	if err := request.Update(ctx); err != nil {
-		return nil, err
-	}
-	return &request, nil
+	return request.Update(ctx)
 }
 
 // CheckJITAccess - checks if a user has active JIT access for a network

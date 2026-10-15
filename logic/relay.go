@@ -262,7 +262,7 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 		return allowedIPs
 	}
 	eli, _ := listEgressByNetwork(ctx, node.Network)
-	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(node.Network))
+	acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 	excludeID := node.ID.String()
 	seen := map[string]struct{}{}
 	add := func(relayedNodeID string) {
@@ -332,7 +332,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
-	acls, _ := ListAclsByNetwork(ctx, schema.NetworkID(relay.Network))
+	acls := ListNetworkAccessAcls(ctx, schema.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
 	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {

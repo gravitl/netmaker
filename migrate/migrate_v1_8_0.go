@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/migrate/types"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -18,19 +19,37 @@ import (
 )
 
 func migrateV1_8_0(ctx context.Context) error {
-	for _, migrate := range []migrationFunc{
-		migrateExtClients,
-		migrateAcls,
-		migrateTags,
-		migrateDNSEntries,
-		migrateUserGroups,
-		migrateUserRoles,
-	} {
-		if err := migrate(ctx); err != nil {
-			return err
-		}
+	err := migrateExtClients(ctx)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	err = migrateAcls(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateTags(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateDNSEntries(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateUserGroups(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateUserRoles(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateAclAccessType(ctx)
 }
 
 // networkIDs resolves network names to network ids within tenants, caching
@@ -376,6 +395,34 @@ func migrateUserRoles(ctx context.Context) error {
 			}).Error
 		if err != nil {
 			return fmt.Errorf("failed to migrate user role %s: %w", role.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// migrateAclAccessType sets network access on every acl saved before
+// access_type existed. None of them were managed access policies.
+func migrateAclAccessType(ctx context.Context) error {
+	var aclRecords []schema.AclRecord
+	if err := db.FromContext(ctx).Find(&aclRecords).Error; err != nil {
+		return err
+	}
+
+	for _, record := range aclRecords {
+		acl := record.Value.Data()
+		if acl.AccessType != "" {
+			continue
+		}
+
+		acl.AccessType = models.NetworkAccess
+
+		record.Value = datatypes.NewJSONType(acl)
+		err := db.FromContext(ctx).Model(&record).
+			Update("value", record.Value).
+			Error
+		if err != nil {
+			return err
 		}
 	}
 

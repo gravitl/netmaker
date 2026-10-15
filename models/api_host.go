@@ -46,6 +46,7 @@ type ApiHost struct {
 	AutoUpdate              bool       `json:"autoupdate"              yaml:"autoupdate"`
 	DNS                     string     `json:"dns"               yaml:"dns"`
 	EnableFlowLogs          bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	ManageSSH               bool       `json:"manage_ssh" yaml:"manage_ssh"`
 	Location                string     `json:"location"`
 	CountryCode             string     `json:"country_code"`
 	// Device-matching identifiers reported by netclient; read-only via the API.
@@ -118,6 +119,7 @@ func NewApiHostFromSchemaHost(h *schema.Host, populateNetworkNodes bool) *ApiHos
 	a.AutoUpdate = h.AutoUpdate
 	a.DNS = h.DNS
 	a.EnableFlowLogs = h.EnableFlowLogs
+	a.ManageSSH = h.ManageSSH
 	a.Location = h.Location
 	a.CountryCode = h.CountryCode
 	a.EntraDeviceID = h.EntraDeviceID
@@ -210,6 +212,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
+	h.ManageSSH = a.ManageSSH
 	h.TcpProxyEnabled = a.TcpProxyEnabled
 	h.TcpProxyListenPort = a.TcpProxyListenPort
 	if mode, err := schema.NormaliseTcpProxyTLSMode(a.TcpProxyTLSMode); err == nil {

@@ -261,26 +261,27 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host               schema.Host                 `json:"host" yaml:"host"`
-	Nodes              []Node                      `json:"nodes" yaml:"nodes"`
-	Peers              []wgtypes.PeerConfig        `json:"peers" yaml:"peers"`
-	ServerConfig       ServerConfig                `json:"server_config" yaml:"server_config"`
-	PeerIDs            PeerMap                     `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo    HostInfoMap                 `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
-	EgressRoutes       []EgressNetworkRoutes       `json:"egress_network_routes"`
-	FwUpdate           FwUpdate                    `json:"fw_update"`
-	ChangeDefaultGw    bool                        `json:"change_default_gw"`
-	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
-	DefaultGwIp6       net.IP                      `json:"default_gw_ip6"`
-	IsInternetGw       bool                        `json:"is_inet_gw"`
-	EndpointDetection  bool                        `json:"endpoint_detection"`
-	NameServers        []string                    `json:"name_servers"`
-	EgressWithDomains  []EgressDomain              `json:"egress_with_domains"`
-	DnsNameservers     []Nameserver                `json:"dns_nameservers"`
-	AutoRelayNodes     map[schema.NetworkID][]Node `json:"auto_relay_nodes"`
-	GwNodes            map[schema.NetworkID][]Node `json:"gw_nodes"`
-	ReplacePeers       bool                        `json:"replace_peers"`
-	AddressIdentityMap map[string]PeerIdentity     `json:"address_identity_map"`
+	Host                    schema.Host                      `json:"host" yaml:"host"`
+	Nodes                   []Node                           `json:"nodes" yaml:"nodes"`
+	Peers                   []wgtypes.PeerConfig             `json:"peers" yaml:"peers"`
+	ServerConfig            ServerConfig                     `json:"server_config" yaml:"server_config"`
+	PeerIDs                 PeerMap                          `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo         HostInfoMap                      `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes            []EgressNetworkRoutes            `json:"egress_network_routes"`
+	FwUpdate                FwUpdate                         `json:"fw_update"`
+	ChangeDefaultGw         bool                             `json:"change_default_gw"`
+	DefaultGwIp             net.IP                           `json:"default_gw_ip"`
+	DefaultGwIp6            net.IP                           `json:"default_gw_ip6"`
+	IsInternetGw            bool                             `json:"is_inet_gw"`
+	EndpointDetection       bool                             `json:"endpoint_detection"`
+	NameServers             []string                         `json:"name_servers"`
+	EgressWithDomains       []EgressDomain                   `json:"egress_with_domains"`
+	DnsNameservers          []Nameserver                     `json:"dns_nameservers"`
+	AutoRelayNodes          map[schema.NetworkID][]Node      `json:"auto_relay_nodes"`
+	GwNodes                 map[schema.NetworkID][]Node      `json:"gw_nodes"`
+	ReplacePeers            bool                             `json:"replace_peers"`
+	AddressIdentityMap      map[string]PeerIdentity          `json:"address_identity_map"`
+	SshAuthorizedIdentities map[string]SSHAuthorizedIdentity `json:"ssh_authorized_identities"`
 }
 
 // NodeGet - struct for a single node get response

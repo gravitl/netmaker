@@ -14,6 +14,21 @@ import (
 
 type UserRoleID string
 
+// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
+var ValidTenantRoles = map[UserRoleID]bool{
+	SuperAdminRole: true,
+	AdminRole:      true,
+	PlatformUser:   true,
+	ServiceUser:    true,
+	Auditor:        true,
+}
+
+// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
+var ValidOrgRoles = map[UserRoleID]bool{
+	OrgOwner: true,
+	OrgAdmin: true,
+}
+
 const (
 	SuperAdminRole UserRoleID = "super-admin"
 	AdminRole      UserRoleID = "admin"
@@ -24,6 +39,7 @@ const (
 	NetworkUser    UserRoleID = "network-user"
 	OrgOwner       UserRoleID = "org-owner"
 	OrgAdmin       UserRoleID = "org-admin"
+	OrgUser        UserRoleID = "org-user"
 )
 
 func (r UserRoleID) String() string {
