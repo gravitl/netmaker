@@ -205,6 +205,18 @@ func UpdateUser(ctx context.Context, userchange, _user *schema.User) (*schema.Us
 	if newRole == "" {
 		newRole = oldRole
 	}
+	if newRole != oldRole {
+		switch scope.Level(ctx) {
+		case scope.TenantScope:
+			if !schema.ValidTenantRoles[newRole] {
+				return userchange, fmt.Errorf("invalid user role: %s", newRole)
+			}
+		case scope.OrgScope:
+			if !schema.ValidOrgRoles[newRole] {
+				return userchange, fmt.Errorf("invalid user role: %s", newRole)
+			}
+		}
+	}
 	AddGlobalGroupOnRoleUpgrade(oldRole, newRole, userchange.UserGroups.Data())
 	preserveExternalUserGroups(ctx, _user, userchange)
 	if oldRole != newRole {
@@ -336,7 +348,7 @@ func validateUserName(user *schema.User) error {
 func ValidateUser(user *schema.User) error {
 	var validationErr error
 	// check if role is valid
-	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
+	roleCheck := &schema.UserRole{Slug: user.PlatformRoleID}
 	err := roleCheck.GetPlatformRole(db.WithContext(context.TODO()))
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -355,13 +367,19 @@ func ValidateUser(user *schema.User) error {
 }
 
 func IsIDPUser(ctx context.Context, user *schema.User) bool {
-	if scope.Level(ctx) == scope.TenantScope {
-		if user.AuthType == schema.OAuth && IsSyncEnabled(ctx) {
-			return true
-		}
+	if user.AuthType != schema.OAuth {
+		return false
 	}
 
-	return false
+	if scope.Level(ctx) == scope.OrgScope {
+		os := &schema.OrganizationSettings{ID: scope.ID(ctx)}
+		if err := os.Get(ctx); err != nil {
+			return false
+		}
+		return os.Settings.Data().SyncEnabled
+	}
+
+	return IsSyncEnabled(ctx)
 }
 
 func DeleteTenantUser(ctx context.Context, user *schema.User, forceDeleteConfigs bool, cleanup CleanupUserRefsFunc) error {
@@ -396,6 +414,11 @@ func DeleteOrgUser(ctx context.Context, user *schema.User, forceDeleteConfigs bo
 		}
 
 		return err
+	}
+
+	if cleanup != nil {
+		cleanupCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, scope.ID(ctx))
+		go cleanup(cleanupCtx, user.Username, forceDeleteConfigs)
 	}
 
 	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)

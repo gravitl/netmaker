@@ -174,6 +174,9 @@ type Host struct {
 	Location                string                      `json:"location" yaml:"location"` // Format: "lat,lon"
 	CountryCode             string                      `json:"country_code" yaml:"country_code"`
 	EnableFlowLogs          bool                        `json:"enable_flow_logs" yaml:"enable_flow_logs"`
+	// ManageSSH controls whether netclient runs its embedded SSH/SCP/SFTP
+	// server on this host.
+	ManageSSH bool `json:"manage_ssh" yaml:"manage_ssh"`
 
 	// MDM device-matching identifiers. Reported by netclient on host check-in
 	// and consumed by the MDM sync worker to match a Netmaker host to its

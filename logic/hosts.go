@@ -128,9 +128,9 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 
 // GetAllHostsAPI - get's all the hosts in an API usable format
 func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
-	apiHosts := []models.ApiHost{}
+	var apiHosts []models.ApiHost
 	for i := range hosts {
-		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i])
+		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i], true)
 		apiHosts = append(apiHosts, *newApiHost)
 	}
 	return apiHosts[:]
@@ -163,6 +163,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		h.TenantID = scope.ID(ctx)
 	}
 	h.Nodes = nil
+	h.Name = ToDNSLabel(h.Name)
 
 	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
 		return ErrHostLimitExceeded
@@ -185,6 +186,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	} else {
 		h.DNS = "no"
 	}
+	h.ManageSSH = GetServerSettings(ctx).ManageSSH
 
 	checkForZombieHosts(ctx, h)
 	return h.Upsert(ctx)
@@ -212,6 +214,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 
 	if len(newHost.Name) == 0 {
 		newHost.Name = currentHost.Name
+	} else {
+		newHost.Name = ToDNSLabel(newHost.Name)
+		if len(newHost.Name) == 0 {
+			newHost.Name = currentHost.Name
+		}
 	}
 
 	if newHost.MTU == 0 {
@@ -345,7 +352,11 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 			}
 		}
 	}
-	currHost.Name = newHost.Name
+	if len(newHost.Name) > 0 {
+		if sanitized := ToDNSLabel(newHost.Name); len(sanitized) > 0 {
+			currHost.Name = sanitized
+		}
+	}
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true

@@ -221,7 +221,7 @@ func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 		return rules
 	}
 	netID := schema.NetworkID(targetnode.Network)
-	policies := listUserPolicies(ctx, netID)
+	policies := listNetworkAccessUserPolicies(ctx, netID)
 	if defaultPolicy, err := logic.GetDefaultPolicy(ctx, netID, models.UserPolicy); err == nil && defaultPolicy.Enabled {
 		policies = []models.Acl{defaultPolicy}
 	}

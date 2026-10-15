@@ -79,7 +79,7 @@ func GetNetworkStatus(ctx context.Context, network string, opts NetworkStatusOpt
 		hosts:             networkStatusHosts(ctx, nodes),
 		names:             make(map[string]string, len(nodes)),
 		nodesByID:         make(map[string]*models.Node, len(nodes)),
-		userPolicies:      ListUserPolicies(ctx, schema.NetworkID(network)),
+		userPolicies:      ListNetworkAccessUserPolicies(ctx, schema.NetworkID(network)),
 		users:             make(map[string]*schema.User),
 		relayConnectivity: make(map[string]map[string]models.Metric),
 	}

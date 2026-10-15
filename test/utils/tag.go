@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,10 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func CreateTag(t *testing.T, ctx context.Context, tagID, network string) *models.Tag {
+func CreateTag(t *testing.T, ctx context.Context, tagName, network string) *models.Tag {
+	tagName = strings.TrimPrefix(tagName, network+".")
 	tag := models.Tag{
-		ID:        models.TagID(tagID),
-		TagName:   tagID,
+		ID:        models.TagID(fmt.Sprintf("%s.%s", network, tagName)),
+		TagName:   tagName,
 		Network:   schema.NetworkID(network),
 		CreatedAt: time.Now(),
 	}
@@ -25,6 +28,9 @@ func CreateTag(t *testing.T, ctx context.Context, tagID, network string) *models
 }
 
 func DeleteTag(t *testing.T, ctx context.Context, tag *models.Tag) {
-	err := (&schema.TagRecord{Key: tag.ID.String()}).Delete(ctx)
+	network := &schema.Network{Name: tag.Network.String()}
+	require.NoError(t, network.Get(ctx))
+
+	err := (&schema.Tag{NetworkID: network.ID, Name: tag.TagName}).Delete(ctx)
 	require.NoError(t, err)
 }

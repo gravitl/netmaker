@@ -2,13 +2,16 @@ package schema
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -36,6 +39,15 @@ const (
 	UserPolicy   AclPolicyType = "user-policy"
 	DevicePolicy AclPolicyType = "device-policy"
 )
+
+type AclAccessType string
+
+const (
+	NetworkAccess AclAccessType = "network"
+	ManagedAccess AclAccessType = "managed"
+)
+
+func (t AclAccessType) String() string { return string(t) }
 
 type AclGroupType string
 
@@ -67,6 +79,7 @@ type Acl struct {
 	Name             string                  `json:"name"`
 	NetworkID        NetworkID               `json:"network_id"`
 	RuleType         AclPolicyType           `json:"policy_type"`
+	AccessType       AclAccessType           `json:"access_type"`
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`
 	Proto            Protocol                `json:"protocol"`
@@ -76,45 +89,96 @@ type Acl struct {
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
 	CreatedAt        time.Time               `json:"created_at"`
+	SSHUsers         []string                `json:"ssh_users,omitempty"`
+}
+
+func (a Acl) IsManagedAccess() bool {
+	return a.AccessType == ManagedAccess
+}
+
+func (a Acl) IsNetworkAccess() bool {
+	return a.AccessType != ManagedAccess
 }
 
 type AclRecord struct {
-	Key       string `gorm:"primaryKey"`
-	TenantID  string `gorm:"default:'';index"`
+	ID        string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:'';uniqueIndex:udx_acl_tenant_slug"`
+	Slug      string `gorm:"not null;uniqueIndex:udx_acl_tenant_slug"`
 	NetworkID string
 	Value     datatypes.JSONType[Acl]
 }
 
-const aclRecordsTable = "acls"
+const aclRecordsTable = "acls_v1"
+
+var ErrAclIdentifiersNotProvided = errors.New("acl identifiers not provided")
 
 func (*AclRecord) TableName() string { return aclRecordsTable }
 
-func (r *AclRecord) Get(ctx context.Context) error {
+// baseIdentifierQuery scopes the query to the acl identified by its ID, or
+// by its slug within the tenant in the context.
+func (r *AclRecord) baseIdentifierQuery(ctx context.Context) (*gorm.DB, error) {
 	tenantID := scope.ID(ctx)
-	logicalKey := r.Key
-	r.Key = TenantScopedKey(tenantID, logicalKey)
-	err := db.FromContext(ctx).Where("key = ?", r.Key).First(r).Error
+	query := db.FromContext(ctx).Model(&AclRecord{})
+	if r.ID != "" {
+		query = query.Where(fmt.Sprintf("%s.id = ?", aclRecordsTable), r.ID)
+		if tenantID != "" {
+			query = query.Where(fmt.Sprintf("%s.tenant_id = ?", aclRecordsTable), tenantID)
+		}
+		return query, nil
+	}
+
+	if r.Slug == "" {
+		return nil, ErrAclIdentifiersNotProvided
+	}
+
+	return query.Where(fmt.Sprintf("%s.tenant_id = ? AND %s.slug = ?", aclRecordsTable, aclRecordsTable), tenantID, r.Slug), nil
+}
+
+// Get fetches the acl by its ID, or by its slug.
+func (r *AclRecord) Get(ctx context.Context) error {
+	query, err := r.baseIdentifierQuery(ctx)
 	if err != nil {
-		r.Key = logicalKey
 		return err
 	}
-	r.Key = logicalKey
+
+	var record AclRecord
+	err = query.First(&record).Error
+	if err != nil {
+		return err
+	}
+
+	*r = record
 	return nil
 }
 
+// Upsert updates the acl identified by its ID, or by its slug, creating it
+// if it does not exist.
 func (r *AclRecord) Upsert(ctx context.Context) error {
 	r.TenantID = scope.ID(ctx)
 	rec := *r
-	rec.Key = TenantScopedKey(r.TenantID, r.Key)
-	return db.FromContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
+	onConflict := clause.OnConflict{
+		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "slug"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
-	}).Create(&rec).Error
+	}
+	if rec.ID != "" {
+		onConflict = clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"slug", "network_id", "value"}),
+		}
+	} else {
+		rec.ID = uuid.NewString()
+	}
+	return db.FromContext(ctx).Clauses(onConflict).Create(&rec).Error
 }
 
+// Delete deletes the acl identified by its ID, or by its slug.
 func (r *AclRecord) Delete(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	return db.FromContext(ctx).Where("key = ?", TenantScopedKey(tenantID, r.Key)).Delete(&AclRecord{}).Error
+	query, err := r.baseIdentifierQuery(ctx)
+	if err != nil {
+		return err
+	}
+
+	return query.Delete(&AclRecord{}).Error
 }
 
 func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
@@ -124,9 +188,6 @@ func (*AclRecord) List(ctx context.Context) ([]AclRecord, error) {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", aclRecordsTable), tenantID)(query)
 	}
 	err := query.Find(&records).Error
-	for i := range records {
-		records[i].Key = StripTenantKey(records[i].TenantID, records[i].Key)
-	}
 	return records, err
 }
 
