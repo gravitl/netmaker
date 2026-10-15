@@ -27,6 +27,11 @@ import (
 // InitPro - Initialize Pro Logic
 func InitPro() {
 	servercfg.IsPro = true
+	if isAirgapped() {
+		proLogic.EnableAllFeatureFlags()
+		proLogic.SetDeploymentMode("self-hosted")
+		logger.Log(0, "airgapped build: license validation disabled, all feature flags enabled")
+	}
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
@@ -52,46 +57,53 @@ func InitPro() {
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		// == License Handling ==
-		enableLicenseHook := true
-		// licenseKeyValue := servercfg.GetLicenseKey()
-		// netmakerTenantID := servercfg.GetNetmakerTenantID()
-		// if licenseKeyValue != "" && netmakerTenantID != "" {
-		// 	enableLicenseHook = true
-		// }
-		if !enableLicenseHook {
-			err := initTrial()
-			if err != nil {
-				logger.Log(0, "failed to init trial", err.Error())
-				enableLicenseHook = true
-			}
-			trialEndDate, err := getTrialEndDate()
-			if err != nil {
-				slog.Error("failed to get trial end date", "error", err)
-				enableLicenseHook = true
-			} else {
-				// check if trial ended
-				if time.Now().After(trialEndDate) {
-					// trial ended already
+		// Airgapped builds never contact the license API. Flags are already forced on in InitPro.
+		if isAirgapped() {
+			logger.Log(0, "skipping license validation for airgapped build")
+			logic.SetFreeTierForTelemetry(false)
+			_ = mq.PublishExporterFeatureFlags()
+		} else {
+			enableLicenseHook := true
+			// licenseKeyValue := servercfg.GetLicenseKey()
+			// netmakerTenantID := servercfg.GetNetmakerTenantID()
+			// if licenseKeyValue != "" && netmakerTenantID != "" {
+			// 	enableLicenseHook = true
+			// }
+			if !enableLicenseHook {
+				err := initTrial()
+				if err != nil {
+					logger.Log(0, "failed to init trial", err.Error())
 					enableLicenseHook = true
 				}
+				trialEndDate, err := getTrialEndDate()
+				if err != nil {
+					slog.Error("failed to get trial end date", "error", err)
+					enableLicenseHook = true
+				} else {
+					// check if trial ended
+					if time.Now().After(trialEndDate) {
+						// trial ended already
+						enableLicenseHook = true
+					}
+				}
+
 			}
 
-		}
-
-		if enableLicenseHook {
-			logger.Log(0, "starting license checker")
-			ClearLicenseCache()
-			if err := ValidateLicense(); err != nil {
-				slog.Error(err.Error())
-				return
+			if enableLicenseHook {
+				logger.Log(0, "starting license checker")
+				ClearLicenseCache()
+				if err := ValidateLicense(); err != nil {
+					slog.Error(err.Error())
+					return
+				}
+				logger.Log(0, "proceeding with Paid Tier license")
+				logic.SetFreeTierForTelemetry(false)
+				// == End License Handling ==
+				AddLicenseHooks()
+			} else {
+				logger.Log(0, "starting trial license hook")
+				addTrialLicenseHook()
 			}
-			logger.Log(0, "proceeding with Paid Tier license")
-			logic.SetFreeTierForTelemetry(false)
-			// == End License Handling ==
-			AddLicenseHooks()
-		} else {
-			logger.Log(0, "starting trial license hook")
-			addTrialLicenseHook()
 		}
 
 		//AddUnauthorisedUserNodeHooks()
