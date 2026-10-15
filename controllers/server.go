@@ -334,6 +334,7 @@ func reInit(ctx context.Context, curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
 	logic.ResetAuthProvider(ctx)
+	logic.EmailInit(ctx)
 	logic.SetVerbosity(int(logic.GetServerSettings(ctx).Verbosity))
 	logic.ResetIDPSyncHook(ctx)
 	if curr.MetricInterval != new.MetricInterval {
