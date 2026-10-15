@@ -153,13 +153,8 @@ func DeleteExtClient(ctx context.Context, extClient models.ExtClient) error {
 			Origin:    schema.ClientApp,
 		})
 	}
-	// Skip ACL scrub on update: the caller deletes+recreates the same client.
-	// Scrubbing here would remove still-valid NodeID refs from policies on every
-	// edit. True deletes (and ClientID renames handled by the update caller) scrub.
-	if !isUpdate {
-		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-		go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
-	}
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
 	return nil
 }
 
