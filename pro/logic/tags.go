@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -18,8 +17,6 @@ import (
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
-
-var tagMutex = &sync.RWMutex{}
 
 // GetTag - fetches tag info
 func GetTag(ctx context.Context, tagID models.TagID) (models.Tag, error) {
@@ -43,21 +40,11 @@ func UpsertTag(ctx context.Context, tag models.Tag) error {
 	if err != nil {
 		return err
 	}
-	existing := &schema.Tag{NetworkID: _tag.NetworkID, Name: _tag.Name}
-	if err := existing.Get(ctx); err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		return _tag.Create(ctx)
-	}
-	_tag.ID = existing.ID
-	return _tag.Update(ctx)
+	return _tag.Upsert(ctx)
 }
 
 // InsertTag - creates new tag
 func InsertTag(ctx context.Context, tag models.Tag) error {
-	tagMutex.Lock()
-	defer tagMutex.Unlock()
 	if _, err := GetTag(ctx, tag.ID); err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
 	}
@@ -104,8 +91,6 @@ func ConvertModelsTagToSchemaTag(ctx context.Context, tag models.Tag) (*schema.T
 
 // DeleteTag - delete tag, will also untag hosts
 func DeleteTag(ctx context.Context, tagID models.TagID, removeFromPolicy bool) error {
-	tagMutex.Lock()
-	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
 	tag, err := GetTag(ctx, tagID)
 	if err != nil {
@@ -167,8 +152,6 @@ func DeleteAllNetworkTags(ctx context.Context, networkID schema.NetworkID) {
 
 // ListNetworkTags - lists all tags in network
 func ListNetworkTags(ctx context.Context, netID schema.NetworkID) ([]models.Tag, error) {
-	tagMutex.RLock()
-	defer tagMutex.RUnlock()
 	_tags, err := (&schema.Tag{Network: &schema.Network{Name: netID.String()}}).ListByNetwork(ctx)
 	if err != nil {
 		return []models.Tag{}, err
@@ -182,8 +165,6 @@ func ListNetworkTags(ctx context.Context, netID schema.NetworkID) ([]models.Tag,
 
 // UpdateTag - updates and syncs hosts with tag update
 func UpdateTag(ctx context.Context, req models.UpdateTagReq, newID models.TagID) {
-	tagMutex.Lock()
-	defer tagMutex.Unlock()
 	network := &schema.Network{
 		Name: req.Network.String(),
 	}

@@ -99,6 +99,23 @@ func (t *Tag) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Tag{}).Omit(clause.Associations).Create(t).Error
 }
 
+// Upsert creates the tag, or updates the tag with the same name in its
+// network, atomically. The ID is only set on creation.
+func (t *Tag) Upsert(ctx context.Context) error {
+	if t.ID == "" {
+		t.ID = uuid.NewString()
+	}
+
+	return db.FromContext(ctx).Model(&Tag{}).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "network_id"}, {Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"color_code", "created_by", "created_at", "updated_at"}),
+		}).
+		Omit(clause.Associations).
+		Create(t).
+		Error
+}
+
 // Get fetches the tag by its ID, by its name in the network identified by
 // NetworkID, or by its name in the network identified by Network.Name.
 func (t *Tag) Get(ctx context.Context) error {
