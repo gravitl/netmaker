@@ -1242,20 +1242,26 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
-		slog.Error(
-			"failed to delete ext client",
-			"user",
-			r.Header.Get("user"),
-			"id",
-			oldExtClient.ClientID,
-			"network",
-			oldExtClient.Network,
-			"error",
-			err,
-		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	// Same ClientID: upsert in place. Delete+recreate is only needed when the
+	// record key changes (ClientID rename); scrubbing NodeID refs on rename
+	// drops the static node from ACL policies, so rewrite those refs instead.
+	if oldExtClient.ClientID != newclient.ClientID {
+		if err := logic.DeleteExtClient(r.Context(), oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
+			slog.Error(
+				"failed to delete ext client",
+				"user",
+				r.Header.Get("user"),
+				"id",
+				oldExtClient.ClientID,
+				"network",
+				oldExtClient.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		logic.RenameNodeInAclPolicies(r.Context(), oldExtClient.Network, oldExtClient.ClientID, newclient.ClientID)
 	}
 	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
