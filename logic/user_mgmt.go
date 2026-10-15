@@ -25,7 +25,7 @@ var OrgAdminPermissionTemplate = schema.UserRole{
 }
 
 var OrgUserPermissionTemplate = schema.UserRole{
-	ID:      schema.OrgUser,
+	Slug:    schema.OrgUser,
 	Default: true,
 }
 
