@@ -76,6 +76,38 @@ func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 						})
 					}
 
+					// Static extclients may advertise ExtraAllowedIPs (egress ranges).
+					// AllowedIPs on the user client already include them via
+					// GetEgressRangesOnNetwork; without matching forward rules here the
+					// ingress gateway drops user -> ExtraAllowedIP traffic even when the
+					// user policy grants access to that extclient (device policies already
+					// emit these via GetFwRulesForNodeAndPeerOnGw).
+					if len(peer.StaticNode.ExtraAllowedIPs) > 0 {
+						for _, additionalAllowedIPNet := range peer.StaticNode.ExtraAllowedIPs {
+							_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
+							if err != nil {
+								continue
+							}
+							if ipNet.IP.To4() != nil && userNodeI.StaticNode.Address != "" {
+								rules = append(rules, models.FwRule{
+									SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+									DstIP:           *ipNet,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							} else if userNodeI.StaticNode.Address6 != "" {
+								rules = append(rules, models.FwRule{
+									SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+									DstIP:           *ipNet,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
+					}
+
 					// add egress ranges
 					for _, dstI := range policy.Dst {
 						if dstI.Value == "*" {
