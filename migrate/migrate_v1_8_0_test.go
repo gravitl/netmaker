@@ -283,6 +283,7 @@ func TestMigrateAcls(t *testing.T) {
 	assert.Equal(t, "tenant-1", acl.TenantID)
 	assert.Equal(t, "net-1", acl.NetworkID, "the network falls back to the acl's")
 	assert.Equal(t, "All Nodes", acl.Value.Data().Name)
+	assert.Equal(t, schema.NetworkAccess, acl.Value.Data().AccessType, "legacy acls get network access")
 
 	custom := &schema.AclRecord{Slug: customID}
 	require.NoError(t, custom.Get(tenantCtx))

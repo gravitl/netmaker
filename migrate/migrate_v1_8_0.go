@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/migrate/types"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"gorm.io/datatypes"
@@ -44,12 +43,7 @@ func migrateV1_8_0(ctx context.Context) error {
 		return err
 	}
 
-	err = migrateUserRoles(ctx)
-	if err != nil {
-		return err
-	}
-
-	return migrateAclAccessType(ctx)
+	return migrateUserRoles(ctx)
 }
 
 // networkIDs resolves network names to network ids within tenants, caching
@@ -199,7 +193,8 @@ func migrateExtClients(ctx context.Context) error {
 }
 
 // migrateAcls copies the acls from the key-value acls table to acls_v1,
-// identified by their slugs. The old table is left as is.
+// identified by their slugs, setting network access on them since they were
+// all saved before access types existed. The old table is left as is.
 func migrateAcls(ctx context.Context) error {
 	if !db.FromContext(ctx).Migrator().HasTable(&types.AclRecord{}) {
 		return nil
@@ -212,16 +207,20 @@ func migrateAcls(ctx context.Context) error {
 
 	for _, record := range records {
 		slug := unscopedKey(record.TenantID, record.Key)
+		value := record.Value.Data()
+		if value.AccessType == "" {
+			value.AccessType = schema.NetworkAccess
+		}
 		networkID := record.NetworkID
 		if networkID == "" {
-			networkID = record.Value.Data().NetworkID.String()
+			networkID = value.NetworkID.String()
 		}
 		acl := &schema.AclRecord{
 			ID:        idForSlug(slug),
 			TenantID:  record.TenantID,
 			Slug:      slug,
 			NetworkID: networkID,
-			Value:     record.Value,
+			Value:     datatypes.NewJSONType(value),
 		}
 		if err := db.FromContext(ctx).Create(acl).Error; err != nil {
 			return fmt.Errorf("failed to migrate acl %s (tenant %s): %w", slug, record.TenantID, err)
@@ -395,34 +394,6 @@ func migrateUserRoles(ctx context.Context) error {
 			}).Error
 		if err != nil {
 			return fmt.Errorf("failed to migrate user role %s: %w", role.ID, err)
-		}
-	}
-
-	return nil
-}
-
-// migrateAclAccessType sets network access on every acl saved before
-// access_type existed. None of them were managed access policies.
-func migrateAclAccessType(ctx context.Context) error {
-	var aclRecords []schema.AclRecord
-	if err := db.FromContext(ctx).Find(&aclRecords).Error; err != nil {
-		return err
-	}
-
-	for _, record := range aclRecords {
-		acl := record.Value.Data()
-		if acl.AccessType != "" {
-			continue
-		}
-
-		acl.AccessType = models.NetworkAccess
-
-		record.Value = datatypes.NewJSONType(acl)
-		err := db.FromContext(ctx).Model(&record).
-			Update("value", record.Value).
-			Error
-		if err != nil {
-			return err
 		}
 	}
 
