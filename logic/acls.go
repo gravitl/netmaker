@@ -2925,7 +2925,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 	}
 	acl.Enabled = newAcl.Enabled
 	r := &schema.AclRecord{
-		Key:       acl.ID,
+		Slug:      acl.ID,
 		TenantID:  scope.ID(ctx),
 		NetworkID: acl.NetworkID.String(),
 		Value:     datatypes.NewJSONType(acl),
@@ -2939,7 +2939,7 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 
 // UpsertAcl - upserts acl
 func UpsertAcl(ctx context.Context, acl models.Acl) error {
-	r := &schema.AclRecord{Key: acl.ID, Value: datatypes.NewJSONType(acl)}
+	r := &schema.AclRecord{Slug: acl.ID, Value: datatypes.NewJSONType(acl)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(ctx, acl)
@@ -2949,7 +2949,7 @@ func UpsertAcl(ctx context.Context, acl models.Acl) error {
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(ctx context.Context, a models.Acl) error {
-	err := (&schema.AclRecord{Key: a.ID}).Delete(ctx)
+	err := (&schema.AclRecord{Slug: a.ID}).Delete(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		removeAclFromCache(ctx, a)
 	}
@@ -3159,7 +3159,7 @@ func getAclFromCache(ctx context.Context, aID string) (a models.Acl, ok bool) {
 
 // InsertAcl - creates acl policy
 func InsertAcl(ctx context.Context, a models.Acl) error {
-	r := &schema.AclRecord{Key: a.ID, Value: datatypes.NewJSONType(a)}
+	r := &schema.AclRecord{Slug: a.ID, Value: datatypes.NewJSONType(a)}
 	err := r.Upsert(ctx)
 	if err == nil && servercfg.CacheEnabled() {
 		storeAclInCache(ctx, a)
@@ -3177,7 +3177,7 @@ func GetAcl(ctx context.Context, aID string) (models.Acl, error) {
 			return a, nil
 		}
 	}
-	r := &schema.AclRecord{Key: aID}
+	r := &schema.AclRecord{Slug: aID}
 	if err := r.Get(ctx); err != nil {
 		return a, err
 	}

@@ -308,7 +308,7 @@ func newJITNetworkAuditSnapshot(ctx context.Context, network *schema.Network) ji
 	snap.JITUserGroups = make([]jitUserGroupRef, 0, len(network.JITUserGroupIDs))
 	for _, gid := range network.JITUserGroupIDs {
 		ref := jitUserGroupRef{ID: gid}
-		grp := &schema.UserGroup{ID: gid}
+		grp := &schema.UserGroup{Slug: gid}
 		if err := grp.Get(ctx); err == nil {
 			ref.Name = grp.Name
 		}

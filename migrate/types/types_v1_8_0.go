@@ -67,3 +67,64 @@ type Violation struct {
 	Message   string          `json:"message"`
 	Severity  schema.Severity `json:"severity"`
 }
+
+// AclRecord is the key-value row acls were stored as before v1.8.0, keyed
+// by <tenant id>::<acl id>. Used only during the v1.8.0 migration to populate
+// acls_v1.
+type AclRecord struct {
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[schema.Acl]
+}
+
+func (*AclRecord) TableName() string {
+	return "acls"
+}
+
+// TagRecord is the key-value row tags were stored as before v1.8.0, keyed by
+// <tenant id>::<tag id>. Used only during the v1.8.0 migration to populate
+// tags_v1.
+type TagRecord struct {
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[Tag]
+}
+
+func (*TagRecord) TableName() string {
+	return "tags"
+}
+
+// Tag is the json value of a TagRecord.
+type Tag struct {
+	ID        schema.TagID     `json:"id"`
+	TagName   string           `json:"tag_name"`
+	Network   schema.NetworkID `json:"network"`
+	ColorCode string           `json:"color_code"`
+	CreatedBy string           `json:"created_by"`
+	CreatedAt time.Time        `json:"created_at"`
+}
+
+// DNSRecord is the key-value row custom dns entries were stored as before
+// v1.8.0, keyed by <tenant id>::<name>###<network>. Used only during the
+// v1.8.0 migration to populate dns_v1.
+type DNSRecord struct {
+	Key       string `gorm:"primaryKey"`
+	TenantID  string `gorm:"default:''"`
+	NetworkID string
+	Value     datatypes.JSONType[DNSEntry]
+}
+
+func (*DNSRecord) TableName() string {
+	return "dns"
+}
+
+// DNSEntry is the json value of a DNSRecord.
+type DNSEntry struct {
+	Type     schema.DNSEntryType `json:"type"`
+	Address  string              `json:"address"`
+	Address6 string              `json:"address6"`
+	Name     string              `json:"name"`
+	Network  string              `json:"network"`
+}
