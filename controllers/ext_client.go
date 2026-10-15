@@ -1081,6 +1081,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
+	// Save updates the same row, keyed by ID. A ClientID change is a name
+	// change; ACL policies that still refer to the old name are rewritten below.
 	if err := logic.SaveExtClient(r.Context(), &newclient); err != nil {
 		slog.Error(
 			"failed to save ext client",

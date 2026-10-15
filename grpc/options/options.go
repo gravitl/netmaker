@@ -37,6 +37,15 @@ func WithTLS(cfg *tls.Config) func(*Options) {
 	return func(o *Options) { o.TLSCreds = credentials.NewTLS(cfg) }
 }
 
+// WithTLSIf applies WithTLS only when enabled is true.
+func WithTLSIf(enabled bool, cfg *tls.Config) func(*Options) {
+	return func(o *Options) {
+		if enabled {
+			WithTLS(cfg)(o)
+		}
+	}
+}
+
 func WithBatchSize(n int) func(*Options) {
 	return func(o *Options) { o.BatchSize = n }
 }

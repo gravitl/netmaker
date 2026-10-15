@@ -75,7 +75,7 @@ func InitPro() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
 		if err := license.ValidateLicense(ctx, true); err != nil {
-			slog.Error(err.Error())
+			logger.FatalLog("license validation failed on startup:", err.Error())
 			return
 		}
 		logger.Log(0, "proceeding with Paid Tier license")

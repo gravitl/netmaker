@@ -273,7 +273,12 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
-	new.Tags = update.Tags
+	// Tags are usually managed via the tags API. Extclient edit payloads often
+	// omit tags (nil); overwriting would drop the client from all tags. Only
+	// apply when the caller explicitly sends a tags map (including {} to clear).
+	if update.Tags != nil {
+		new.Tags = update.Tags
+	}
 	if update.Location != "" && update.Location != old.Location {
 		new.Location = update.Location
 	}
@@ -349,7 +354,7 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 		RemoteAccessClientID: client.RemoteAccessClientID,
 	}
 
-	// update in DB
+	// update in DB (same ClientID — upsert, no delete/recreate)
 	newClient := UpdateExtClient(client, &update)
 	if err := SaveExtClient(ctx, &newClient); err != nil {
 		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)

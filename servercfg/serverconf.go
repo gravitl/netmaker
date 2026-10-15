@@ -855,6 +855,19 @@ func GetGrpcEndpoint() string {
 	return fmt.Sprintf("grpc.%s", GetNmBaseDomain())
 }
 
+// IsGrpcTLSEnabled - returns true if the grpc clients should use TLS.
+// Defaults to TLS for the public grpc.<NM_DOMAIN> endpoint (fronted by the proxy)
+// and to plaintext when a custom endpoint is set (e.g. netmaker-exporter:50051).
+func IsGrpcTLSEnabled() bool {
+	if os.Getenv("GRPC_TLS") != "" {
+		return os.Getenv("GRPC_TLS") == "true"
+	} else if config.Config.Server.GrpcTLS != "" {
+		return config.Config.Server.GrpcTLS == "true"
+	}
+
+	return os.Getenv("GRPC_ENDPOINT") == "" && config.Config.Server.GrpcEndpoint == ""
+}
+
 // IsHA - returns true if running in High Availability mode (multiple replicas)
 func IsHA() bool {
 	return os.Getenv("IS_HA") == "true"
