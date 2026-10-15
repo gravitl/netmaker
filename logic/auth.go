@@ -336,7 +336,7 @@ func validateUserName(user *schema.User) error {
 func ValidateUser(user *schema.User) error {
 	var validationErr error
 	// check if role is valid
-	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
+	roleCheck := &schema.UserRole{Slug: user.PlatformRoleID}
 	err := roleCheck.GetPlatformRole(db.WithContext(context.TODO()))
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {

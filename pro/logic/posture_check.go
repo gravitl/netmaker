@@ -536,13 +536,13 @@ func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) mod
 			err := user.GetWithMembership(ctx)
 			if err == nil && len(user.UserGroups.Data()) > 0 {
 				deviceInfo.UserGroups = user.UserGroups.Data()
-				if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
+				if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupSlug()]; ok {
 
-					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupSlug(schema.NetworkID(node.Network))] = struct{}{}
 
-				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupID()]; ok {
+				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupSlug()]; ok {
 
-					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(schema.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultNetworkUserGroupSlug(schema.NetworkID(node.Network))] = struct{}{}
 				}
 			}
 		}

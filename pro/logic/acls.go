@@ -627,10 +627,10 @@ func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.Net
 	allAcls := logic.ListAcls(ctx)
 	var userAcls []models.Acl
 	if _, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]; ok {
-		user.UserGroups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+		user.UserGroups.Data()[GetDefaultNetworkAdminGroupSlug(netID)] = struct{}{}
 	}
 	if _, ok := user.UserGroups.Data()[globalNetworksUserGroupID]; ok {
-		user.UserGroups.Data()[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
+		user.UserGroups.Data()[GetDefaultNetworkUserGroupSlug(netID)] = struct{}{}
 	}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {

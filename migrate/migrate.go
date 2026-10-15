@@ -298,7 +298,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range adminAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
 							createSeparateACL = true
 							enableSeparateACL = adminAcl.Enabled
 						} else {
@@ -314,7 +314,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range userAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
 							if !createSeparateACL {
 								// if group src not found in adminACL, then create.
 								createSeparateACL = true
@@ -347,7 +347,7 @@ func updateNewAcls(ctx context.Context) {
 					Src: []models.AclPolicyTag{
 						{
 							ID:    models.UserGroupAclID,
-							Value: group.ID.String(),
+							Value: group.Slug.String(),
 						},
 					},
 					Dst: []models.AclPolicyTag{
@@ -562,7 +562,7 @@ func cleanupDeletedUserGroupRefs(ctx context.Context) {
 
 	existingGroups := make(map[schema.UserGroupID]schema.UserGroup)
 	for _, group := range groups {
-		existingGroups[group.ID] = group
+		existingGroups[group.Slug] = group
 	}
 
 	existingUsers := make(map[string]schema.User)
@@ -674,16 +674,17 @@ func migrateEgressNatMode() {
 
 func cleanUpDeleteNetworksRefs() {
 	networksMap := make(map[string]bool)
+	networkIDs := make(map[string]bool)
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
 		networksMap[network.Name] = true
+		networkIDs[network.ID] = true
 	}
 
-	dnsRecords, _ := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
-	for _, r := range dnsRecords {
-		_, ok := networksMap[r.Value.Data().Network]
-		if !ok {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
+	dnsEntries, _ := (&schema.DNSEntry{}).ListAll(db.WithContext(context.TODO()))
+	for _, entry := range dnsEntries {
+		if !networkIDs[entry.NetworkID] {
+			_ = (&schema.DNSEntry{ID: entry.ID}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 

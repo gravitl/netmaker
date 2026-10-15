@@ -126,7 +126,7 @@ func onlyOwnExtClients(r *http.Request, network string) bool {
 		return false
 	}
 	userRole := &schema.UserRole{
-		ID: user.PlatformRoleID,
+		Slug: user.PlatformRoleID,
 	}
 	if err := userRole.GetPlatformRole(r.Context()); err == nil && userRole.TenantGlobalAccess {
 		return false
