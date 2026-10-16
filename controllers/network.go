@@ -32,6 +32,10 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkStatus)))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/topology", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkTopology)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/nodes/{nodeid}/connections", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeConnections)))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetwork)))).
@@ -161,6 +165,67 @@ func getNetworkStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, status, "fetched network status")
+}
+
+// @Summary     Get the topology of a network
+// @Router      /api/v1/networks/{network}/topology [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.NetworkTopology
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkTopology(w http.ResponseWriter, r *http.Request) {
+	netname := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	topology, err := logic.GetNetworkTopology(r.Context(), netname)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, topology, "fetched network topology")
+}
+
+// @Summary     Get one node's ACL-allowed peer connections
+// @Description Returns peer lines for a user device, server, or extclient. Called when the UI selects a vertex.
+// @Router      /api/v1/networks/{network}/nodes/{nodeid}/connections [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Param       nodeid path string true "Node ID or extclient client ID"
+// @Produce     json
+// @Success     200 {object} models.NodeConnections
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNodeConnections(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	netname := vars["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	conns, err := logic.GetNodeConnections(r.Context(), netname, vars["nodeid"])
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrTopologyNodeNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, conns, "fetched node connections")
 }
 
 // parseNetworkStatusOptions reads the comma-separated src_type and dst_type
