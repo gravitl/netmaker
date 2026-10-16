@@ -1086,6 +1086,11 @@ func extclientAllowed(policies []preparedDevicePolicy, ec models.ExtClient, peer
 	srcKeys := nodePolicyKeys(static)
 	dstKeys := nodePolicyKeys(peer)
 	for _, policy := range policies {
+		// Egress-routing policies allow the pair when either side routes the
+		// policy's egress, same as IsPeerAllowed and IsNodeAllowedToCommunicate.
+		if IsEgressRoutingPolicyAllowedForNodes(policy.acl, static, peer) {
+			return true
+		}
 		if policySideMatch(srcKeys, policy.src, policy.srcAll) && policySideMatch(dstKeys, policy.dst, policy.dstAll) {
 			return true
 		}

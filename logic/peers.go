@@ -235,7 +235,9 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 // unrestricted in protocol and ports. The loaded ACL list is checked as well
 // as the policies returned by GetDefaultPolicy, so an enabled All Nodes and
 // All Users pair is not missed when the default-policy lookup disagrees.
-func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
+// A unidirectional policy that applies to node keeps the host off the
+// ACCEPT-all chain, so that policy is still enforced.
+func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl, node models.Node) bool {
 	deviceOn := device.Enabled && aclOpenBothSides(device)
 	userOn := user.Enabled && aclOpenBothSides(user)
 	if !servercfg.IsPro {
@@ -251,6 +253,9 @@ func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
 		case models.UserPolicy:
 			userOn = true
 		}
+	}
+	if CheckIfAnyPolicyisUniDirectional(node, acls) {
+		return false
 	}
 	return deviceOn && userOn
 }
@@ -378,7 +383,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		// are enabled. A tag-scoped policy does not, so the tail stays DROP and
 		// the per-client rules carry the permits. Any node that is not fully
 		// open clears the host-wide flag; it is not set back to true.
-		if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls) {
+		if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls, node) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,

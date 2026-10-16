@@ -1001,7 +1001,9 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 	}
 
 	usedIDs := map[string]struct{}{}
+	var existingClients []models.ExtClient
 	if existing, err := logic.GetNetworkExtClients(ctx, networkName); err == nil {
+		existingClients = existing
 		for _, ec := range existing {
 			if ec.ClientID != "" {
 				usedIDs[ec.ClientID] = struct{}{}
@@ -1056,6 +1058,13 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 			})
 			continue
 		}
+		if extClientAlreadyOnGateway(existingClients, custom, userName, node.ID.String()) {
+			freeAssigned()
+			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
+				Index: i, Client: custom.ClientID, Error: "remote client config already exists on the gateway",
+			})
+			continue
+		}
 		if err := logic.ValidateEgressRange(ctx, networkName, custom.ExtraAllowedIPs); err != nil {
 			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
@@ -1074,8 +1083,40 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 			continue
 		}
 		resp.Created = append(resp.Created, extclient)
+		existingClients = append(existingClients, extclient)
+		if extclient.DeviceID != "" {
+			if err := logic.CleanupOtherExtclients(ctx, &extclient); err != nil {
+				slog.Error(
+					"failed to clean up older extclients",
+					"user", userName,
+					"network", extclient.Network,
+					"error", err,
+				)
+			}
+		}
 	}
 	return resp
+}
+
+// extClientAlreadyOnGateway reports whether this owner already has a config on
+// the ingress gateway for the same device or remote access client.
+func extClientAlreadyOnGateway(existing []models.ExtClient, custom models.CustomExtClient, ownerID, gatewayID string) bool {
+	if custom.DeviceID != "" {
+		for _, extclient := range existing {
+			if extclient.DeviceID == custom.DeviceID &&
+				extclient.OwnerID == ownerID && gatewayID == extclient.IngressGatewayID {
+				return true
+			}
+		}
+	}
+	for _, extclient := range existing {
+		if extclient.RemoteAccessClientID != "" &&
+			extclient.RemoteAccessClientID == custom.RemoteAccessClientID &&
+			extclient.OwnerID == ownerID && gatewayID == extclient.IngressGatewayID {
+			return true
+		}
+	}
+	return false
 }
 
 func applyBulkCreateTags(clients []models.CustomExtClient, tags []string) {

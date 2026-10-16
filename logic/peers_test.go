@@ -38,11 +38,26 @@ func TestDefaultsAllowAllTrafficRequiresBothDefaults(t *testing.T) {
 	allNodes := open(models.DevicePolicy, true)
 	allUsers := open(models.UserPolicy, true)
 
-	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, nil))
-	assert.False(t, defaultsAllowAllTraffic(open(models.DevicePolicy, false), allUsers, nil))
-	assert.False(t, defaultsAllowAllTraffic(allNodes, open(models.UserPolicy, false), nil))
-	assert.False(t, defaultsAllowAllTraffic(scoped, models.Acl{}, []models.Acl{scoped}))
-	assert.True(t, defaultsAllowAllTraffic(models.Acl{}, models.Acl{}, []models.Acl{allNodes, allUsers, scoped}))
+	node := models.Node{CommonNode: models.CommonNode{Network: "net"}}
+	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, nil, node))
+	assert.False(t, defaultsAllowAllTraffic(open(models.DevicePolicy, false), allUsers, nil, node))
+	assert.False(t, defaultsAllowAllTraffic(allNodes, open(models.UserPolicy, false), nil, node))
+	assert.False(t, defaultsAllowAllTraffic(scoped, models.Acl{}, []models.Acl{scoped}, node))
+	assert.True(t, defaultsAllowAllTraffic(models.Acl{}, models.Acl{}, []models.Acl{allNodes, allUsers, scoped}, node))
+
+	uni := allNodes
+	uni.AllowedDirection = models.TrafficDirectionUni
+	original := CheckIfAnyPolicyisUniDirectional
+	CheckIfAnyPolicyisUniDirectional = func(target models.Node, acls []models.Acl) bool {
+		for _, acl := range acls {
+			if acl.Enabled && acl.AllowedDirection == models.TrafficDirectionUni {
+				return true
+			}
+		}
+		return false
+	}
+	t.Cleanup(func() { CheckIfAnyPolicyisUniDirectional = original })
+	assert.False(t, defaultsAllowAllTraffic(allNodes, allUsers, []models.Acl{allNodes, allUsers, uni}, node))
 }
 
 func TestDeduplicateEgressRoutesMergesRangesForSamePeerAndNetwork(t *testing.T) {

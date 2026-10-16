@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/c-robinson/iplib"
@@ -68,9 +69,13 @@ func (n *NetworkOrchestrator) AllocateExtclientIPs(ctx context.Context, network 
 				n.reserveIPv4(network.ID, addr.String())
 			}
 			out = append(out, copyIP(addr))
+			if len(out) == count {
+				break
+			}
 		}
 		next, stepErr := net4.PreviousIP(addr)
 		if stepErr != nil {
+			n.rollbackIPv4(network.ID, out)
 			return nil, errors.New("no unique IPv4 addresses available")
 		}
 		addr = next
@@ -112,9 +117,13 @@ func (n *NetworkOrchestrator) AllocateExtclientIPv6s(ctx context.Context, networ
 				n.reserveIPv6(network.ID, addr.String())
 			}
 			out = append(out, copyIP(addr))
+			if len(out) == count {
+				break
+			}
 		}
 		next, stepErr := net6.PreviousIP(addr)
 		if stepErr != nil {
+			n.rollbackIPv6(network.ID, out)
 			return nil, errors.New("no unique IPv6 addresses available")
 		}
 		addr = next
@@ -245,8 +254,12 @@ func (n *NetworkOrchestrator) loadUsedIPv4s(ctx context.Context, network *schema
 		if node.Address == "" {
 			continue
 		}
-		if ip, _, err := net.ParseCIDR(node.Address); err == nil && ip != nil {
-			used[ip.String()] = struct{}{}
+		// Addresses are stored with the network mask ("10.0.0.5/24"). ParseCIDR
+		// returns the masked network base, so take the host portion instead.
+		if host, _, ok := strings.Cut(node.Address, "/"); ok {
+			if ip := net.ParseIP(host); ip != nil {
+				used[ip.String()] = struct{}{}
+			}
 		} else if ip := net.ParseIP(node.Address); ip != nil {
 			used[ip.String()] = struct{}{}
 		}
@@ -286,8 +299,12 @@ func (n *NetworkOrchestrator) loadUsedIPv6s(ctx context.Context, network *schema
 		if node.Address6 == "" {
 			continue
 		}
-		if ip, _, err := net.ParseCIDR(node.Address6); err == nil && ip != nil {
-			used[ip.String()] = struct{}{}
+		// Addresses are stored with the network mask. ParseCIDR returns the
+		// masked network base, so take the host portion instead.
+		if host, _, ok := strings.Cut(node.Address6, "/"); ok {
+			if ip := net.ParseIP(host); ip != nil {
+				used[ip.String()] = struct{}{}
+			}
 		} else if ip := net.ParseIP(node.Address6); ip != nil {
 			used[ip.String()] = struct{}{}
 		}
@@ -361,6 +378,28 @@ func (n *NetworkOrchestrator) isIPv4UniqueInDB(ctx context.Context, network *sch
 		}
 	}
 	return true
+}
+
+// rollbackIPv4 drops reservations made by the caller. Caller must hold addressLock.
+func (n *NetworkOrchestrator) rollbackIPv4(networkID string, ips []net.IP) {
+	if servercfg.IsHA() || n.pendingIPv4 == nil {
+		return
+	}
+	pending := n.pendingIPv4[networkID]
+	for _, ip := range ips {
+		delete(pending, ip.String())
+	}
+}
+
+// rollbackIPv6 drops reservations made by the caller. Caller must hold address6Lock.
+func (n *NetworkOrchestrator) rollbackIPv6(networkID string, ips []net.IP) {
+	if servercfg.IsHA() || n.pendingIPv6 == nil {
+		return
+	}
+	pending := n.pendingIPv6[networkID]
+	for _, ip := range ips {
+		delete(pending, ip.String())
+	}
 }
 
 func (n *NetworkOrchestrator) reserveIPv4(networkID, ip string) {
