@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -14,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -91,6 +93,17 @@ func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Netwo
 	if addr.Less(first) || last.Less(addr) {
 		return fmt.Errorf("IP address %s is not in the range of network %s", addr, network.Name)
 	}
+	err = n.claimIP(ctx, network, addr, family, ownerType, ownerID)
+	if errors.Is(err, ErrIPPoolNotFound) {
+		if ensureErr := n.ensureIPPool(ctx, network, family); ensureErr != nil {
+			return ensureErr
+		}
+		err = n.claimIP(ctx, network, addr, family, ownerType, ownerID)
+	}
+	return err
+}
+
+func (n *NetworkOrchestrator) claimIP(ctx context.Context, network *schema.Network, addr netip.Addr, family schema.IPFamily, ownerType schema.IPOwnerType, ownerID string) error {
 	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := db.WithDB(ctx, tx)
 
@@ -156,8 +169,22 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 		}
 	}()
 
+	addr, err := n.allocateOnce(ctx, network, family, ownerType, ownerID)
+	if errors.Is(err, ErrIPPoolNotFound) {
+		if ensureErr := n.ensureIPPool(ctx, network, family); ensureErr != nil {
+			return nil, ensureErr
+		}
+		addr, err = n.allocateOnce(ctx, network, family, ownerType, ownerID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return addr.AsSlice(), nil
+}
+
+func (n *NetworkOrchestrator) allocateOnce(ctx context.Context, network *schema.Network, family schema.IPFamily, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
 	var addr netip.Addr
-	err = db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := db.WithDB(ctx, tx)
 
 		pool := &schema.IPPool{
@@ -179,10 +206,76 @@ func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Netw
 		}
 		return err
 	})
+	return addr, err
+}
+
+// ensureIPPool creates the network's address pool when it is missing, and
+// records addresses already used by nodes and extclients so they are not
+// allocated again. Networks created before address pools, or upgraded after
+// the v1.8.0 migration already completed, have no pool row.
+func (n *NetworkOrchestrator) ensureIPPool(ctx context.Context, network *schema.Network, family schema.IPFamily) error {
+	owners, duplicates, err := n.ListIPOwners(ctx, network)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return addr.AsSlice(), nil
+	if len(duplicates) > 0 {
+		return fmt.Errorf(
+			"found IP addresses used by more than one node or extclient:\n%s",
+			strings.Join(duplicates, "\n"),
+		)
+	}
+
+	first, last, err := network.UsableIPRange(family)
+	if err != nil {
+		return err
+	}
+
+	allocated := make(map[netip.Addr]struct{})
+	var allocations []schema.IPAllocation
+	for addr, owner := range owners {
+		if addr.Is4() != (family == schema.IPv4) {
+			continue
+		}
+		if addr.Less(first) || last.Less(addr) {
+			slog.Warn("skipping IP allocation outside the network range", "address", addr, "owner", owner, "network", network.Name)
+			continue
+		}
+		allocated[addr] = struct{}{}
+		allocation := schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Family:    family,
+			State:     schema.IPAttached,
+			OwnerType: owner.Type,
+			OwnerID:   owner.ID,
+		}
+		allocation.SetAddress(addr)
+		allocations = append(allocations, allocation)
+	}
+
+	pool := &schema.IPPool{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
+		Family:    family,
+		Cursor:    ipPoolCursor(allocated, first, last),
+	}
+	if err := pool.Create(ctx); err != nil {
+		return err
+	}
+	return (&schema.IPAllocation{}).CreateAll(ctx, allocations)
+}
+
+// ipPoolCursor places the cursor at the last address of the allocated block
+// at the start of the range. Every address up to the cursor must have an
+// allocation. Addresses allocated beyond the cursor are skipped on lookup.
+func ipPoolCursor(allocated map[netip.Addr]struct{}, first, last netip.Addr) (cursor string) {
+	for addr := first; addr.IsValid() && !last.Less(addr); addr = addr.Next() {
+		if _, ok := allocated[addr]; !ok {
+			break
+		}
+		cursor = addr.String()
+	}
+	return cursor
 }
 
 // ipAllocationWindow is how many allocated addresses allocateFromCursor
@@ -435,6 +528,128 @@ func (n *NetworkOrchestrator) ReconcileIPAllocations(ctx context.Context, networ
 		}
 	}
 	return nil
+}
+
+// SyncIPAllocations creates a missing address pool for every network and
+// records addresses already used by nodes and extclients. An existing pool
+// cursor is left where it is. A network with duplicate addresses is logged
+// and skipped.
+func (n *NetworkOrchestrator) SyncIPAllocations(ctx context.Context) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.Background()))
+	if err != nil {
+		slog.Error("failed to list networks for IP allocation sync", "error", err)
+		return
+	}
+	for i := range networks {
+		network := &networks[i]
+		netCtx := scope.WithContext(db.WithContext(ctx), scope.TenantScope, network.TenantID)
+		if err := n.syncNetworkIPAllocations(netCtx, network); err != nil {
+			slog.Error("failed to sync IP allocations", "network", network.Name, "tenant", network.TenantID, "error", err)
+		}
+	}
+}
+
+// syncNetworkIPAllocations ensures the network's pools exist and that every
+// in-use address has an allocation. The cursor of a pool that already exists
+// is not changed.
+func (n *NetworkOrchestrator) syncNetworkIPAllocations(ctx context.Context, network *schema.Network) error {
+	owners, duplicates, err := n.ListIPOwners(ctx, network)
+	if err != nil {
+		return err
+	}
+	if len(duplicates) > 0 {
+		return fmt.Errorf("duplicate IP addresses:\n%s", strings.Join(duplicates, "\n"))
+	}
+
+	for _, family := range []schema.IPFamily{schema.IPv4, schema.IPv6} {
+		if (family == schema.IPv4 && network.AddressRange == "") || (family == schema.IPv6 && network.AddressRange6 == "") {
+			continue
+		}
+		pool := &schema.IPPool{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Family:    family,
+		}
+		err := pool.Get(ctx)
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			if err := n.ensureIPPool(ctx, network, family); err != nil {
+				return err
+			}
+			slog.Info("created missing IP pool", "network", network.Name, "tenant", network.TenantID, "family", family)
+		case err != nil:
+			return err
+		default:
+			if err := n.recordUsedAddresses(ctx, network, family, owners); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// recordUsedAddresses inserts an allocation for each in-use address of the
+// family that has none, and reattaches an orphaned allocation that a node or
+// extclient still uses. It does not move the pool cursor.
+func (n *NetworkOrchestrator) recordUsedAddresses(ctx context.Context, network *schema.Network, family schema.IPFamily, owners map[netip.Addr]IPOwner) error {
+	first, last, err := network.UsableIPRange(family)
+	if err != nil {
+		return err
+	}
+	existing, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+	byAddr := make(map[netip.Addr]schema.IPAllocation, len(existing))
+	for _, allocation := range existing {
+		if allocation.Family != family {
+			continue
+		}
+		addr := allocation.Address()
+		if addr.IsValid() {
+			byAddr[addr] = allocation
+		}
+	}
+
+	var missing []schema.IPAllocation
+	for addr, owner := range owners {
+		if addr.Is4() != (family == schema.IPv4) {
+			continue
+		}
+		if addr.Less(first) || last.Less(addr) {
+			continue
+		}
+		current, ok := byAddr[addr]
+		if !ok {
+			allocation := schema.IPAllocation{
+				TenantID:  network.TenantID,
+				NetworkID: network.ID,
+				Family:    family,
+				State:     schema.IPAttached,
+				OwnerType: owner.Type,
+				OwnerID:   owner.ID,
+			}
+			allocation.SetAddress(addr)
+			missing = append(missing, allocation)
+			continue
+		}
+		if current.State == schema.IPAttached && (current.OwnerType != owner.Type || current.OwnerID != owner.ID) {
+			slog.Warn("IP address in use does not match its allocation", "network", network.Name, "address", addr, "owner", owner, "allocated_to", current.OwnerType, "allocated_id", current.OwnerID)
+			continue
+		}
+		if current.State == schema.IPOrphaned {
+			current.OwnerType = owner.Type
+			current.OwnerID = owner.ID
+			if err := current.Attach(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	slog.Info("recorded IP addresses already in use", "network", network.Name, "family", family, "count", len(missing))
+	return (&schema.IPAllocation{}).CreateAll(ctx, missing)
 }
 
 // StartIPAllocationHook starts reconciling the address allocations of all
