@@ -23,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -515,7 +516,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("missing traffic key"), "badrequest"))
 		return
 	}
-	if len(newHost.TrafficKeyPublic) != 32 {
+	if newHost.TrafficKeyPublic != nil && !isValidTrafficKey(newHost.TrafficKeyPublic) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid public key"), "badrequest"))
 		return
 	}
@@ -618,6 +619,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
+}
+
+func isValidTrafficKey(key []byte) bool {
+	_, err := ncutils.ConvertBytesToKey(key)
+	return err == nil
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.
