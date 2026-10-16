@@ -115,20 +115,15 @@ func (a *IPAllocation) Get(ctx context.Context) error {
 
 // ListAddressesBetween lists the allocated addresses (in any state) of the
 // network and family between from and to (both included), at most limit of
-// them, the ones nearest to from first.
+// them, the lowest first.
 func (a *IPAllocation) ListAddressesBetween(ctx context.Context, from, to netip.Addr, limit int) (map[netip.Addr]struct{}, error) {
-	low, high, order := from, to, "address ASC"
-	if to.Less(from) {
-		low, high, order = to, from, "address DESC"
-	}
-
 	var rawAddresses [][]byte
 	err := db.FromContext(ctx).Model(&IPAllocation{}).
 		Where(
 			"tenant_id = ? AND network_id = ? AND family = ? AND address BETWEEN ? AND ?",
-			a.TenantID, a.NetworkID, a.Family, low.AsSlice(), high.AsSlice(),
+			a.TenantID, a.NetworkID, a.Family, from.AsSlice(), to.AsSlice(),
 		).
-		Order(order).
+		Order("address ASC").
 		Limit(limit).
 		Pluck("address", &rawAddresses).
 		Error
