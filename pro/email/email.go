@@ -3,13 +3,17 @@ package email
 import (
 	"context"
 	"regexp"
+	"sync"
 
 	"github.com/gravitl/netmaker/logic"
 )
 
 type EmailSenderType string
 
-var client EmailSender
+var (
+	client    EmailSender
+	clientMtx sync.RWMutex
+)
 
 const (
 	Smtp   EmailSenderType = "smtp"
@@ -29,8 +33,9 @@ func Init(ctx context.Context) {
 	if smtpSender.SendUser == "" {
 		smtpSender.SendUser = smtpSender.SenderEmail
 	}
+	clientMtx.Lock()
 	client = smtpSender
-
+	clientMtx.Unlock()
 }
 
 // EmailSender - an interface for sending emails based on notifications and mail templates
@@ -52,6 +57,8 @@ type Notification struct {
 }
 
 func GetClient() (e EmailSender) {
+	clientMtx.RLock()
+	defer clientMtx.RUnlock()
 	if client == nil {
 		return &noOpSender{}
 	}

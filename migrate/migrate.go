@@ -277,17 +277,6 @@ func updateNodes(ctx context.Context) {
 	}
 }
 
-func removeInterGw(egressRanges []string) ([]string, bool) {
-	update := false
-	for i := len(egressRanges) - 1; i >= 0; i-- {
-		if egressRanges[i] == "0.0.0.0/0" || egressRanges[i] == "::/0" {
-			update = true
-			egressRanges = append(egressRanges[:i], egressRanges[i+1:]...)
-		}
-	}
-	return egressRanges, update
-}
-
 func updateNewAcls(ctx context.Context) {
 	if servercfg.IsPro {
 		userGroups, _ := (&schema.UserGroup{}).ListAll(ctx)
@@ -309,7 +298,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range adminAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
 							createSeparateACL = true
 							enableSeparateACL = adminAcl.Enabled
 						} else {
@@ -325,7 +314,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range userAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
 							if !createSeparateACL {
 								// if group src not found in adminACL, then create.
 								createSeparateACL = true
@@ -358,7 +347,7 @@ func updateNewAcls(ctx context.Context) {
 					Src: []models.AclPolicyTag{
 						{
 							ID:    models.UserGroupAclID,
-							Value: group.ID.String(),
+							Value: group.Slug.String(),
 						},
 					},
 					Dst: []models.AclPolicyTag{
@@ -533,6 +522,13 @@ func migrateSettings(ctx context.Context) {
 	if settings.StunServers == "" {
 		settings.StunServers = servercfg.GetStunServers()
 	}
+	if settings.SmtpHost == "" && servercfg.GetSmtpHost() != "" {
+		settings.SmtpHost = servercfg.GetSmtpHost()
+		settings.SmtpPort = servercfg.GetSmtpPort()
+		settings.EmailSenderAddr = servercfg.GetSenderEmail()
+		settings.EmailSenderUser = servercfg.GetSenderUser()
+		settings.EmailSenderPassword = servercfg.GetEmaiSenderPassword()
+	}
 	_ = logic.UpsertServerSettings(ctx, settings)
 }
 
@@ -558,7 +554,7 @@ func deleteOldExtclients(ctx context.Context) {
 	for _, userExtclients := range userExtclientMap {
 		if len(userExtclients) > 1 {
 			for _, extclient := range userExtclients[1:] {
-				_ = logic.DeleteExtClient(ctx, extclient.Network, extclient.ClientID, false)
+				_ = logic.DeleteExtClient(ctx, extclient)
 			}
 		}
 	}
@@ -573,7 +569,7 @@ func cleanupDeletedUserGroupRefs(ctx context.Context) {
 
 	existingGroups := make(map[schema.UserGroupID]schema.UserGroup)
 	for _, group := range groups {
-		existingGroups[group.ID] = group
+		existingGroups[group.Slug] = group
 	}
 
 	existingUsers := make(map[string]schema.User)
@@ -685,16 +681,17 @@ func migrateEgressNatMode() {
 
 func cleanUpDeleteNetworksRefs() {
 	networksMap := make(map[string]bool)
+	networkIDs := make(map[string]bool)
 	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
 		networksMap[network.Name] = true
+		networkIDs[network.ID] = true
 	}
 
-	dnsRecords, _ := (&schema.DNSRecord{}).List(db.WithContext(context.TODO()))
-	for _, r := range dnsRecords {
-		_, ok := networksMap[r.Value.Data().Network]
-		if !ok {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(db.WithContext(context.TODO()))
+	dnsEntries, _ := (&schema.DNSEntry{}).ListAll(db.WithContext(context.TODO()))
+	for _, entry := range dnsEntries {
+		if !networkIDs[entry.NetworkID] {
+			_ = (&schema.DNSEntry{ID: entry.ID}).Delete(db.WithContext(context.TODO()))
 		}
 	}
 

@@ -42,7 +42,7 @@ var userGroupListCmd = &cobra.Command{
 					}
 					roleInfoStr += fmt.Sprintf("[%s]: %s", netID, strings.Join(roleList, ","))
 				}
-				e := []string{d.ID.String(), d.MetaData, roleInfoStr}
+				e := []string{d.Slug.String(), d.MetaData, roleInfoStr}
 				table.Append(e)
 			}
 			table.Render()
@@ -95,7 +95,7 @@ var userGroupGetCmd = &cobra.Command{
 				}
 				roleInfoStr += fmt.Sprintf("[%s]: %s", netID, strings.Join(roleList, ","))
 			}
-			e := []string{data.ID.String(), data.MetaData, roleInfoStr}
+			e := []string{data.Slug.String(), data.MetaData, roleInfoStr}
 			table.Append(e)
 			table.Render()
 		}

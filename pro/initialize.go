@@ -75,7 +75,7 @@ func InitPro() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		logger.Log(0, "starting license checker")
 		if err := license.ValidateLicense(ctx, true); err != nil {
-			slog.Error(err.Error())
+			logger.FatalLog("license validation failed on startup:", err.Error())
 			return
 		}
 		logger.Log(0, "proceeding with Paid Tier license")
@@ -99,12 +99,22 @@ func InitPro() {
 				flowLogsEnabled := false
 				for _, tenant := range tenants {
 					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
-					auth.StartIDPSyncHookForTenant(scopedCtx)
+					auth.StartIDPSyncHook(scopedCtx)
 					proLogic.AddPostureCheckHook(scopedCtx)
 					logic.GetMetricsMonitor(scopedCtx).Start()
 
 					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
 						flowLogsEnabled = true
+					}
+				}
+
+				orgs, err := (&schema.Organization{}).ListAll(db.WithContext(context.TODO()))
+				if err != nil {
+					logger.Log(0, "error fetching organizations while starting background tasks:", err.Error())
+				} else {
+					for _, org := range orgs {
+						scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, org.ID)
+						auth.StartIDPSyncHook(scopedCtx)
 					}
 				}
 
@@ -204,6 +214,7 @@ func InitPro() {
 	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
 	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
+	logic.GetUserGrpMap = proLogic.GetUserGrpMap
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw

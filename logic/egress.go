@@ -78,11 +78,17 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if node.Network != e.Network {
+				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
+			}
 			if IsEgressInternetGateway(*e) {
 				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
 				}
 			}
+		}
+		if err := ValidateWindowsEgressNATMode(*e); err != nil {
+			return err
 		}
 	}
 	if IsEgressInternetGateway(*e) && len(e.Tags) > 0 {
@@ -238,10 +244,16 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
-	if host.OS != models.OS_Types.Linux {
-		return errors.New("only linux nodes can be internet egress routing nodes")
+	switch host.OS {
+	case models.OS_Types.Linux, models.OS_Types.Windows:
+		// supported
+	default:
+		return errors.New("only linux and windows nodes can be internet egress routing nodes")
 	}
-	if host.FirewallInUse == schema.FIREWALL_NONE {
+	if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+		if host.OS == models.OS_Types.Windows {
+			return errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return errors.New("iptables or nftables needs to be installed")
 	}
 	if InternetExitRoutingNodeID(node) != "" {
@@ -249,6 +261,44 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	}
 	if node.IsRelayed {
 		return fmt.Errorf("node %s is being relayed", host.Name)
+	}
+	return nil
+}
+
+// isSupportedEgressFirewall reports whether the host's reported firewall can do egress NAT.
+func isSupportedEgressFirewall(firewallInUse, osName string) bool {
+	switch firewallInUse {
+	case schema.FIREWALL_IPTABLES, schema.FIREWALL_NFTABLES:
+		return true
+	case schema.FIREWALL_NETNAT:
+		return osName == models.OS_Types.Windows
+	default:
+		return false
+	}
+}
+
+// IsSupportedEgressFirewall is the exported wrapper for gateway validation.
+func IsSupportedEgressFirewall(firewallInUse, osName string) bool {
+	return isSupportedEgressFirewall(firewallInUse, osName)
+}
+
+// ValidateWindowsEgressNATMode rejects virtual NAT when any routing node is Windows.
+func ValidateWindowsEgressNATMode(e schema.Egress) error {
+	if e.Mode != schema.VirtualNAT {
+		return nil
+	}
+	for nodeID := range e.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		host := &schema.Host{ID: node.HostID}
+		if err := host.Get(db.WithContext(context.TODO())); err != nil {
+			continue
+		}
+		if host.OS == models.OS_Types.Windows {
+			return errors.New("virtual NAT is not supported on Windows routing nodes; use direct NAT")
+		}
 	}
 	return nil
 }
@@ -1198,7 +1248,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 }
 
 func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
-	acls := ListUserPolicies(ctx, network)
+	acls := ListNetworkAccessUserPolicies(ctx, network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
@@ -1231,7 +1281,7 @@ func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, net
 }
 
 func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled

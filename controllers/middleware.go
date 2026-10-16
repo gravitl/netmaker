@@ -9,10 +9,35 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+func routeDeclaresQuery(currentRoute *mux.Route, keys ...string) bool {
+	templates, err := currentRoute.GetQueriesTemplates()
+	if err != nil {
+		return false
+	}
+	for _, t := range templates {
+		declaredKey := strings.SplitN(t, "=", 2)[0]
+		for _, key := range keys {
+			if declaredKey == key {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func routeDeclaresNetworkQuery(currentRoute *mux.Route) bool {
+	return routeDeclaresQuery(currentRoute, "network", "network_id")
+}
+
+func routeDeclaresUsernameQuery(currentRoute *mux.Route) bool {
+	return routeDeclaresQuery(currentRoute, "username")
+}
+
 func userMiddleWare(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var params = mux.Vars(r)
-		route, err := mux.CurrentRoute(r).GetPathTemplate()
+		currentRoute := mux.CurrentRoute(r)
+		route, err := currentRoute.GetPathTemplate()
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -29,11 +54,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		r.Header.Set("TARGET_RSRC_ID", "")
 		r.Header.Set("RAC", "")
 		r.Header.Set("NET_ID", params["network"])
-		if r.URL.Query().Get("network") != "" {
-			r.Header.Set("NET_ID", r.URL.Query().Get("network"))
-		}
-		if r.URL.Query().Get("network_id") != "" {
-			r.Header.Set("NET_ID", r.URL.Query().Get("network_id"))
+		if params["network"] == "" && routeDeclaresNetworkQuery(currentRoute) {
+			if v := r.URL.Query().Get("network"); v != "" {
+				r.Header.Set("NET_ID", v)
+			} else if v := r.URL.Query().Get("network_id"); v != "" {
+				r.Header.Set("NET_ID", v)
+			}
 		}
 		if strings.Contains(route, "host") || strings.Contains(route, "nodes") || strings.Contains(route, "pending_hosts") {
 			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
@@ -138,9 +164,8 @@ func userMiddleWare(handler http.Handler) http.Handler {
 
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
-		} else {
-			username := r.URL.Query().Get("username")
-			if username != "" {
+		} else if routeDeclaresUsernameQuery(currentRoute) {
+			if username := r.URL.Query().Get("username"); username != "" {
 				r.Header.Set("TARGET_RSRC_ID", username)
 			}
 		}

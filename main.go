@@ -66,18 +66,33 @@ func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
 	setGarbageCollection()
-	defer db.CloseDB()
-
-	// TODO: although this doesn't cause any problem, it's not the best way to do this.
-	defer ch.Close()
 
 	ctx, stop := signal.NotifyContext(db.WithContext(context.Background()), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
+
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
 	startHooks(ctx, &waitGroup)
+
 	<-ctx.Done()
+	logger.Log(0, "Shutdown signal received, waiting for background processes to finish...")
+
 	waitGroup.Wait()
+
+	// Explicitly close database connections in order
+	logger.Log(0, "Closing database connections...")
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log(0, fmt.Sprintf("Recovered from panic during clickhouse shutdown: %v", r))
+			}
+		}()
+		ch.Close()
+	}()
+
+	db.CloseDB()
+	logger.Log(0, "Shutdown complete.")
 }
 
 func setupConfig(absoluteConfigPath string) {

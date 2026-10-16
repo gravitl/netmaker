@@ -23,7 +23,6 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 )
 
 func tenantCtx() context.Context {
@@ -57,7 +56,7 @@ func createIngressFixture(t *testing.T, ctx context.Context, netName, cidr strin
 	t.Cleanup(func() {
 		if clients, err := logic.GetNetworkExtClients(ctx, network.Name); err == nil {
 			for _, c := range clients {
-				_ = logic.DeleteExtClient(ctx, c.Network, c.ClientID, false)
+				_ = logic.DeleteExtClient(ctx, c)
 			}
 		}
 		_ = node.Delete(ctx)
@@ -204,16 +203,14 @@ func TestBulkCreateExtClients_AssignsTags(t *testing.T) {
 	ctx := tenantCtx()
 	network, host, node := createIngressFixture(t, ctx, "bulk-tag-net", "10.209.0.0/24")
 	tagID := models.TagID(network.Name + ".sales")
-	require.NoError(t, (&schema.TagRecord{
-		Key: tagID.String(),
-		Value: datatypes.NewJSONType(schema.Tag{
-			ID:      tagID,
-			TagName: "sales",
-			Network: schema.NetworkID(network.Name),
-		}),
-	}).Upsert(ctx))
+	tag := &schema.Tag{
+		NetworkID: network.ID,
+		Network:   network,
+		Name:      "sales",
+	}
+	require.NoError(t, tag.Create(ctx))
 	t.Cleanup(func() {
-		_ = (&schema.TagRecord{Key: tagID.String()}).Delete(ctx)
+		_ = tag.Delete(ctx)
 	})
 
 	nodeModel, err := logic.GetNodeByID(node.ID)

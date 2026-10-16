@@ -3,12 +3,74 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+	"net"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gravitl/netmaker/schema"
 )
 
-type ExtClient = schema.ExtClient
+// ExtClient - struct for external clients
+type ExtClient struct {
+	ID              string   `json:"id"`
+	TenantID        string   `json:"tenant_id"`
+	ClientID        string   `json:"clientid" bson:"clientid"`
+	PrivateKey      string   `json:"privatekey" bson:"privatekey"`
+	PublicKey       string   `json:"publickey" bson:"publickey"`
+	Network         string   `json:"network" bson:"network"`
+	DNS             string   `json:"dns" bson:"dns"`
+	Address         string   `json:"address" bson:"address"`
+	Address6        string   `json:"address6" bson:"address6"`
+	ExtraAllowedIPs []string `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs      []string `json:"allowed_ips"`
+	// IncludeNetworkEgressRanges controls whether this client's config lists the
+	// network's egress ranges. Nil keeps the historical behavior and includes them.
+	IncludeNetworkEgressRanges *bool  `json:"include_network_egress_ranges,omitempty" bson:"include_network_egress_ranges,omitempty"`
+	IngressGatewayID           string `json:"ingressgatewayid" bson:"ingressgatewayid"`
+	IngressGatewayEndpoint     string `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
+	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
+	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	Enabled                           bool                `json:"enabled" bson:"enabled"`
+	OwnerID                           string              `json:"ownerid" bson:"ownerid"`
+	DeniedACLs                        map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
+	RemoteAccessClientID              string              `json:"remote_access_client_id"`
+	PostUp                            string              `json:"postup" bson:"postup"`
+	PostDown                          string              `json:"postdown" bson:"postdown"`
+	Tags                              map[TagID]struct{}  `json:"tags"`
+	OS                                string              `json:"os"`
+	OSFamily                          string              `json:"os_family" yaml:"os_family"`
+	OSVersion                         string              `json:"os_version" yaml:"os_version"`
+	KernelVersion                     string              `json:"kernel_version" yaml:"kernel_version"`
+	ClientVersion                     string              `json:"client_version"`
+	DeviceID                          string              `json:"device_id"`
+	DeviceName                        string              `json:"device_name"`
+	PublicEndpoint                    string              `json:"public_endpoint"`
+	Country                           string              `json:"country"`
+	Location                          string              `json:"location"`
+	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
+	PostureCheckVolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
+	LastEvaluationCycleID             string              `json:"-"`
+	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
+	JITExpiresAt                      *time.Time          `json:"jit_expires_at,omitempty" bson:"jit_expires_at,omitempty"`
+	Status                            schema.NodeStatus   `json:"status" bson:"status"`
+	Mutex                             *sync.Mutex         `json:"-"`
+}
+
+// IncludesNetworkEgressRanges reports whether this client's config should list
+// network egress ranges. An unset flag includes them.
+func (extPeer ExtClient) IncludesNetworkEgressRanges() bool {
+	return extPeer.IncludeNetworkEgressRanges == nil || *extPeer.IncludeNetworkEgressRanges
+}
+
+func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
+	return net.IPNet{IP: net.ParseIP(extPeer.Address), Mask: net.CIDRMask(32, 32)}
+}
+
+func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
+	return net.IPNet{IP: net.ParseIP(extPeer.Address6), Mask: net.CIDRMask(128, 128)}
+}
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {

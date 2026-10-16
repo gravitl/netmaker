@@ -16,6 +16,7 @@ const (
 	EDRMatchEntraDeviceID = "entra_device_id"
 	EDRMatchSerialNumber  = "serial_number"
 	EDRMatchHostname      = "hostname"
+	EDRMatchHostID        = "host_id"
 )
 
 // DeviceEDRState is the per-host snapshot of an EDR provider's view of an endpoint.
