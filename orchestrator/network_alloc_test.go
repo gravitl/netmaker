@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -25,6 +26,7 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateExtclientIP_DenseFromCIDREnd()
 	}
 	err := network.Create(c.ctx)
 	c.Require().NoError(err)
+	c.Require().NoError(network.CreateIPPools(c.ctx))
 	c.T().Cleanup(func() { testutils.DeleteNetwork(c.T(), c.ctx, network) })
 
 	net4 := iplib.Net4FromStr(network.AddressRange)
@@ -51,27 +53,26 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateExtclientIP_DenseFromCIDREnd()
 
 	orch := GetRepository().NetworkOrchestrator()
 	start := time.Now()
-	allocated, err := orch.AllocateExtclientIP(c.ctx, network)
+	owner := uuid.NewString()
+	allocated, err := orch.AllocateExtclientIP(c.ctx, network, owner)
 	elapsed := time.Since(start)
 	c.Require().NoError(err)
 	c.Require().NotNil(allocated)
 	c.Require().NotContains(used, allocated.String())
-	// With the set-based allocator this should be well under a second even
-	// with 200 taken addresses at the CIDR end.
 	c.Require().Less(elapsed, 2*time.Second, "dense allocation took %s", elapsed)
 
-	// Keep the first allocation reserved (do not free) and allocate more —
-	// the pending set must force different IPs.
-	reserved1, err := orch.AllocateExtclientIP(c.ctx, network)
+	owner1 := uuid.NewString()
+	reserved1, err := orch.AllocateExtclientIP(c.ctx, network, owner1)
 	c.Require().NoError(err)
 	c.Require().NotEqual(allocated.String(), reserved1.String())
 
-	reserved2, err := orch.AllocateExtclientIP(c.ctx, network)
+	owner2 := uuid.NewString()
+	reserved2, err := orch.AllocateExtclientIP(c.ctx, network, owner2)
 	c.Require().NoError(err)
 	c.Require().NotEqual(reserved1.String(), reserved2.String())
 	c.Require().NotEqual(allocated.String(), reserved2.String())
 
-	orch.FreeIPv4Reservation(network.ID, allocated.String())
-	orch.FreeIPv4Reservation(network.ID, reserved1.String())
-	orch.FreeIPv4Reservation(network.ID, reserved2.String())
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, allocated.String(), schema.IPOwnerExtClient, owner))
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, reserved1.String(), schema.IPOwnerExtClient, owner1))
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, reserved2.String(), schema.IPOwnerExtClient, owner2))
 }

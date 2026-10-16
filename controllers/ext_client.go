@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -674,11 +675,26 @@ func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Hos
 		}
 	}
 
+	// Addresses are allocated to the extclient id, so it is set before create.
+	// TODO: allocate in the same transaction as the extclient.
+	if extclient.ID == "" {
+		extclient.ID = uuid.NewString()
+	}
 	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
 	var reservedIPv4, reservedIPv6 string
+	releaseAddresses := func() {
+		for _, address := range []string{reservedIPv4, reservedIPv6} {
+			if address == "" {
+				continue
+			}
+			if releaseErr := networkOrch.ReleaseIP(ctx, parentNetwork, address, schema.IPOwnerExtClient, extclient.ID); releaseErr != nil {
+				slog.Error("failed to release extclient address", "network", parentNetwork.Name, "address", address, "error", releaseErr)
+			}
+		}
+	}
 
 	if extclient.Address == "" && parentNetwork.AddressRange != "" {
-		newAddress, err := networkOrch.AllocateExtclientIP(ctx, parentNetwork)
+		newAddress, err := networkOrch.AllocateExtclientIP(ctx, parentNetwork, extclient.ID)
 		if err != nil {
 			return extclient, err
 		}
@@ -687,11 +703,9 @@ func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Hos
 	}
 
 	if extclient.Address6 == "" && parentNetwork.AddressRange6 != "" {
-		addr6, err := networkOrch.AllocateExtclientIPv6(ctx, parentNetwork)
+		addr6, err := networkOrch.AllocateExtclientIPv6(ctx, parentNetwork, extclient.ID)
 		if err != nil {
-			if reservedIPv4 != "" {
-				networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-			}
+			releaseAddresses()
 			return extclient, err
 		}
 		reservedIPv6 = addr6.String()
@@ -700,23 +714,12 @@ func persistNewExtClient(ctx context.Context, node models.Node, host *schema.Hos
 
 	extclient.LastModified = time.Now().Unix()
 	if err := logic.ApplyExtClientInternetEgressSelection(ctx, &extclient, node.ID.String(), &custom); err != nil {
-		if reservedIPv4 != "" {
-			networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-		}
-		if reservedIPv6 != "" {
-			networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
-		}
+		releaseAddresses()
 		return extclient, err
 	}
 
-	err = logic.SaveExtClient(ctx, &extclient)
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
-	}
-	if err != nil {
+	if err := logic.CreateExtClient(ctx, &extclient); err != nil {
+		releaseAddresses()
 		return extclient, err
 	}
 	return extclient, nil
@@ -952,8 +955,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 // createExtClientsInBulk saves each client. Failures are recorded and skipped.
 // AllowedIPs are filled by the read APIs; this path does not recompute them.
-// Empty client IDs are minted locally, and addresses are reserved in one pass
-// so each save does not reload the network.
+// Empty client IDs are minted locally. Each client allocates its own addresses
+// and releases them if that create fails.
 func createExtClientsInBulk(ctx context.Context, networkName string, node models.Node, host *schema.Host, userName string, clients []models.CustomExtClient) models.BulkCreateExtClientResponse {
 	resp := models.BulkCreateExtClientResponse{
 		Created: make([]models.ExtClient, 0, len(clients)),
@@ -970,34 +973,6 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 			})
 		}
 		return resp
-	}
-
-	orch := orchestrator.GetRepository().NetworkOrchestrator()
-	var ipv4s, ipv6s []net.IP
-	if parentNetwork.AddressRange != "" {
-		var err error
-		ipv4s, err = orch.AllocateExtclientIPs(ctx, parentNetwork, len(clients))
-		if err != nil {
-			for i := range clients {
-				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-					Index: i, Client: clients[i].ClientID, Error: err.Error(),
-				})
-			}
-			return resp
-		}
-	}
-	if parentNetwork.AddressRange6 != "" {
-		var err error
-		ipv6s, err = orch.AllocateExtclientIPv6s(ctx, parentNetwork, len(clients))
-		if err != nil {
-			freeBulkIPReservations(orch, parentNetwork.ID, ipv4s, nil)
-			for i := range clients {
-				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
-					Index: i, Client: clients[i].ClientID, Error: err.Error(),
-				})
-			}
-			return resp
-		}
 	}
 
 	usedIDs := map[string]struct{}{}
@@ -1017,24 +992,7 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 	}
 
 	for i, custom := range clients {
-		assigned4, assigned6 := "", ""
-		if i < len(ipv4s) {
-			assigned4 = ipv4s[i].String()
-		}
-		if i < len(ipv6s) {
-			assigned6 = ipv6s[i].String()
-		}
-		freeAssigned := func() {
-			if assigned4 != "" {
-				orch.FreeIPv4Reservation(parentNetwork.ID, assigned4)
-			}
-			if assigned6 != "" {
-				orch.FreeIPv6Reservation(parentNetwork.ID, assigned6)
-			}
-		}
-
 		if logic.ClientLimitExceeded(ctx) {
-			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
 				Index: i, Client: custom.ClientID, Error: logic.ErrClientLimitExceeded.Error(),
 			})
@@ -1043,7 +1001,6 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 		if custom.ClientID == "" {
 			id, err := mintBulkExtClientID(usedIDs)
 			if err != nil {
-				freeAssigned()
 				resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
 					Index: i, Error: err.Error(),
 				})
@@ -1052,29 +1009,25 @@ func createExtClientsInBulk(ctx context.Context, networkName string, node models
 			custom.ClientID = id
 		}
 		if err := validateCustomExtClient(ctx, &custom, true); err != nil {
-			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
 				Index: i, Client: custom.ClientID, Error: err.Error(),
 			})
 			continue
 		}
 		if extClientAlreadyOnGateway(existingClients, custom, userName, node.ID.String()) {
-			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
 				Index: i, Client: custom.ClientID, Error: "remote client config already exists on the gateway",
 			})
 			continue
 		}
 		if err := logic.ValidateEgressRange(ctx, networkName, custom.ExtraAllowedIPs); err != nil {
-			freeAssigned()
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
 				Index: i, Client: custom.ClientID, Error: err.Error(),
 			})
 			continue
 		}
 
-		extclient, err := persistNewExtClient(ctx, node, host, userName, custom, nil, assigned4, assigned6)
-		freeAssigned()
+		extclient, err := persistNewExtClient(ctx, node, host, userName, custom, nil, "", "")
 		if err != nil {
 			slog.Error("bulk extclient create failed", "index", i, "client", custom.ClientID, "network", networkName, "error", err)
 			resp.Failed = append(resp.Failed, models.BulkCreateExtClientError{
@@ -1188,15 +1141,6 @@ func mintBulkExtClientID(used map[string]struct{}) (string, error) {
 		return id, nil
 	}
 	return "", errors.New("couldn't allocate a client id")
-}
-
-func freeBulkIPReservations(orch *orchestrator.NetworkOrchestrator, networkID string, ipv4s, ipv6s []net.IP) {
-	for _, ip := range ipv4s {
-		orch.FreeIPv4Reservation(networkID, ip.String())
-	}
-	for _, ip := range ipv6s {
-		orch.FreeIPv6Reservation(networkID, ip.String())
-	}
 }
 
 // @Summary     Bulk create config files on an ingress gateway

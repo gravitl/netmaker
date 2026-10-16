@@ -38,6 +38,7 @@ func createIngressFixture(t *testing.T, ctx context.Context, netName, cidr strin
 		AddressRange: cidr,
 	}
 	require.NoError(t, network.Create(ctx))
+	require.NoError(t, network.CreateIPPools(ctx))
 
 	host := &schema.Host{
 		ID:         uuid.New(),
@@ -192,11 +193,12 @@ func TestBulkCreateExtClientsByCount(t *testing.T) {
 		seenAddr[c.Address] = struct{}{}
 	}
 
-	again, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(ctx, network)
+	owner := uuid.NewString()
+	again, err := orchestrator.GetRepository().NetworkOrchestrator().AllocateExtclientIP(ctx, network, owner)
 	require.NoError(t, err)
 	_, reused := seenAddr[again.String()]
 	assert.False(t, reused, "second allocation reused %s", again.String())
-	orchestrator.GetRepository().NetworkOrchestrator().FreeIPv4Reservation(network.ID, again.String())
+	require.NoError(t, orchestrator.GetRepository().NetworkOrchestrator().ReleaseIP(ctx, network, again.String(), schema.IPOwnerExtClient, owner))
 }
 
 func TestBulkCreateExtClients_AssignsTags(t *testing.T) {
@@ -342,10 +344,11 @@ func TestAllocateExtclientIP_DenseViaHandlerPath(t *testing.T) {
 
 	orch := orchestrator.GetRepository().NetworkOrchestrator()
 	start := time.Now()
-	ip, err := orch.AllocateExtclientIP(ctx, network)
+	owner := uuid.NewString()
+	ip, err := orch.AllocateExtclientIP(ctx, network, owner)
 	elapsed := time.Since(start)
 	require.NoError(t, err)
 	require.NotNil(t, ip)
 	assert.Less(t, elapsed, 2*time.Second, "allocation took %s", elapsed)
-	orch.FreeIPv4Reservation(network.ID, ip.String())
+	require.NoError(t, orch.ReleaseIP(ctx, network, ip.String(), schema.IPOwnerExtClient, owner))
 }
