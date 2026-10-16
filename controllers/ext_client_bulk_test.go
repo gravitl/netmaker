@@ -206,6 +206,7 @@ func TestBulkCreateExtClients_AssignsTags(t *testing.T) {
 	network, host, node := createIngressFixture(t, ctx, "bulk-tag-net", "10.209.0.0/24")
 	tagID := models.TagID(network.Name + ".sales")
 	tag := &schema.Tag{
+		TenantID:  scope.ID(ctx),
 		NetworkID: network.ID,
 		Network:   network,
 		Name:      "sales",
