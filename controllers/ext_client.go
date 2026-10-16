@@ -1160,9 +1160,7 @@ func resolveExtClientTags(ctx context.Context, network string, tags map[models.T
 func resolveExtClientTag(ctx context.Context, network, name string) (models.TagID, error) {
 	name = strings.TrimSpace(name)
 	prefix := network + "."
-	if strings.HasPrefix(name, prefix) {
-		name = strings.TrimPrefix(name, prefix)
-	}
+	name = strings.TrimPrefix(name, prefix)
 	if name == "" {
 		return "", fmt.Errorf("%w: %s", errExtClientTag, name)
 	}
