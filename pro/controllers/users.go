@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -1524,12 +1525,29 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// TODO: allocate the addresses in the same transaction as the
+		// extclient, see orchestrator.NetworkOrchestrator.
 		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		// the addresses are allocated to the extclient's id, so it's set
+		// before the extclient is created.
+		userConf.ID = uuid.NewString()
 		var reservedIPv4, reservedIPv6 string
+		// releaseAddresses makes the allocated addresses available for
+		// reallocation when the extclient is not saved.
+		releaseAddresses := func() {
+			for _, address := range []string{reservedIPv4, reservedIPv6} {
+				if address == "" {
+					continue
+				}
+				if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerExtClient, userConf.ID); err != nil {
+					slog.Error("failed to release extclient address", "network", network.Name, "address", address, "error", err)
+				}
+			}
+		}
 
 		if userConf.Address == "" {
 			if network.AddressRange != "" {
-				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network)
+				newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), network, userConf.ID)
 				if err != nil {
 					slog.Error(
 						"failed to create extclient",
@@ -1550,11 +1568,9 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 
 		if userConf.Address6 == "" {
 			if network.AddressRange6 != "" {
-				addr6, err := networkOrch.AllocateExtclientIPv6(db.WithContext(context.TODO()), network)
+				addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), network, userConf.ID)
 				if err != nil {
-					if reservedIPv4 != "" {
-						networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-					}
+					releaseAddresses()
 					slog.Error(
 						"failed to create extclient",
 						"user",
@@ -1573,16 +1589,9 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userConf.LastModified = time.Now().Unix()
-		err = logic.SaveExtClient(r.Context(), &userConf)
-		// Reservations are freed regardless of outcome: on success the DB is authoritative,
-		// on failure the IPs must be available for reallocation.
-		if reservedIPv4 != "" {
-			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-		}
-		if reservedIPv6 != "" {
-			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
-		}
+		err = logic.CreateExtClient(r.Context(), &userConf)
 		if err != nil {
+			releaseAddresses()
 			slog.Error(
 				"failed to create extclient",
 				"user",

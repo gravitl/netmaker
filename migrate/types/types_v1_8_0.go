@@ -31,6 +31,7 @@ type ExtClient struct {
 	Address6                          string                    `json:"address6"`
 	ExtraAllowedIPs                   []string                  `json:"extraallowedips"`
 	AllowedIPs                        []string                  `json:"allowed_ips"`
+	IncludeNetworkEgressRanges        *bool                     `json:"include_network_egress_ranges,omitempty"`
 	IngressGatewayID                  string                    `json:"ingressgatewayid"`
 	IngressGatewayEndpoint            string                    `json:"ingressgatewayendpoint"`
 	SelectedInternetEgressID          string                    `json:"selected_internet_egress_id"`

@@ -21,6 +21,8 @@ func ListModels() []interface{} {
 		&PendingUser{},
 		&UserInvite{},
 		&Node{},
+		&IPPool{},
+		&IPAllocation{},
 		&PostureCheckViolation{},
 		&DeviceMDMState{},
 		&DeviceEDRState{},

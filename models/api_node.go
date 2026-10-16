@@ -141,15 +141,17 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
 		convertedNode.LocalAddress = currentNode.LocalAddress
 	}
-	ip, addr, err := net.ParseCIDR(a.Address)
-	if err == nil {
+	if ip, addr, err := net.ParseCIDR(a.Address); err == nil {
 		convertedNode.Address = *addr
 		convertedNode.Address.IP = ip
+	} else {
+		convertedNode.Address = currentNode.Address
 	}
-	ip6, addr6, err := net.ParseCIDR(a.Address6)
-	if err == nil {
+	if ip6, addr6, err := net.ParseCIDR(a.Address6); err == nil {
 		convertedNode.Address6 = *addr6
 		convertedNode.Address6.IP = ip6
+	} else {
+		convertedNode.Address6 = currentNode.Address6
 	}
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)

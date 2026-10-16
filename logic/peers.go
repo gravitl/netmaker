@@ -226,6 +226,46 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 	return peerInfo, nil
 }
 
+// defaultsAllowAllTraffic is true only when an enabled device policy and an
+// enabled user policy are both open on every side (source and destination *).
+// That is the only state in which the host accepts the whole network. A
+// tag-scoped policy does not count, even when it is bidirectional and
+// unrestricted in protocol and ports. The loaded ACL list is checked as well
+// as the policies returned by GetDefaultPolicy, so an enabled All Nodes and
+// All Users pair is not missed when the default-policy lookup disagrees.
+// A unidirectional policy that applies to node keeps the host off the
+// ACCEPT-all chain, so that policy is still enforced.
+func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl, node models.Node) bool {
+	deviceOn := device.Enabled && aclOpenBothSides(device)
+	userOn := user.Enabled && aclOpenBothSides(user)
+	if !servercfg.IsPro {
+		userOn = true
+	}
+	for _, acl := range acls {
+		if !acl.Enabled || !aclOpenBothSides(acl) {
+			continue
+		}
+		switch acl.RuleType {
+		case models.DevicePolicy:
+			deviceOn = true
+		case models.UserPolicy:
+			userOn = true
+		}
+	}
+	if CheckIfAnyPolicyisUniDirectional(node, acls) {
+		return false
+	}
+	return deviceOn && userOn
+}
+
+func aclOpenBothSides(acl models.Acl) bool {
+	src := ConvAclTagToValueMap(acl.Src)
+	dst := ConvAclTagToValueMap(acl.Dst)
+	_, srcAll := src["*"]
+	_, dstAll := dst["*"]
+	return srcAll && dstAll
+}
+
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host, allNodes []models.Node, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (hostPeerUpdate models.HostPeerUpdate, err error) {
 	if host == nil {
@@ -339,11 +379,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		// User hosts skip ACL/FwUpdate calc: user policies are uni user→server and
 		// are emitted on the server's peer update via GetUserAclRulesForNode.
+		// The chain tail accepts the whole network only when both default policies
+		// are open on every side. A tag-scoped policy does not, so the tail stays
+		// DROP and the per-client rules carry the permits.
 		if !skipPeerUpdateAclCalc(host) {
-			// Both defaults on → AllowAll (user devices or not). Fine-grained
-			// user-device IP limits only apply when All Users is off, so either
-			// default off takes the full ACL / user-device rule path.
-			if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+			if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls, node) {
 				aclRule := models.AclRule{
 					ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 					AllowedProtocol: models.ALL,
@@ -366,6 +406,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				}
 			}
 		}
+		addedExtpeersExtraRoutes := false
 		for _, peer := range currentPeers {
 			if peer.ID.String() == node.ID.String() {
 				// skip yourself
@@ -477,8 +518,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 					})
 				}
 			}
-			if peer.IsIngressGateway {
+			// getExtpeersExtraRoutes only reads node, so every gateway peer produced
+			// the same routes: one full extclient scan and policy prepare each, all
+			// but the first collapsed again by deduplicateEgressRoutes.
+			if peer.IsIngressGateway && !addedExtpeersExtraRoutes {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
+				addedExtpeersExtraRoutes = true
 			}
 			allowedToComm := PeerAllowed(ctx, node, peer, defaultDevicePolicy.Enabled)
 
@@ -639,13 +684,15 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, &node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
-				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+				// When the network resolved to allow-all the gateway's ACL chains are
+				// set to ACCEPT, so per-client rules are redundant. Sending them anyway
+				// also blackholes every extclient while netclient installs them.
+				if !networkAllowAll {
 					ingFwUpdate := models.IngressInfo{
-						IngressID:     node.ID.String(),
-						Network:       node.NetworkRange,
-						Network6:      node.NetworkRange6,
-						StaticNodeIps: GetStaticNodeIps(ctx, node),
-						Rules:         GetFwRulesOnIngressGateway(ctx, node),
+						IngressID: node.ID.String(),
+						Network:   node.NetworkRange,
+						Network6:  node.NetworkRange6,
+						Rules:     GetFwRulesOnIngressGateway(ctx, node),
 					}
 					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate

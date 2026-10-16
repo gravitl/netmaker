@@ -40,6 +40,9 @@ type Extclient struct {
 
 	AllowedIPs      datatypes.JSONSlice[string] `json:"allowed_ips"`
 	ExtraAllowedIPs datatypes.JSONSlice[string] `json:"extraallowedips"`
+	// IncludeNetworkEgressRanges controls whether this client's config lists the
+	// network's egress ranges. Nil keeps the historical behavior and includes them.
+	IncludeNetworkEgressRanges *bool `json:"include_network_egress_ranges,omitempty"`
 
 	PostUp   string `json:"postup"`
 	PostDown string `json:"postdown"`
