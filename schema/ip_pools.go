@@ -24,9 +24,9 @@ const (
 	IPv6 IPFamily = 6
 )
 
-// IPPool tracks the allocation cursors of a network's address range, for
-// one IP family. Nodes are allocated upwards from the start of the range and
-// extclients downwards from the end of it.
+// IPPool tracks the allocation cursor of a network's address range, for one
+// IP family. Nodes and extclients are allocated upwards from the start of the
+// range.
 //
 // The pool row is locked for the duration of an allocation, which serializes
 // allocations on a network across all server replicas.
@@ -36,12 +36,9 @@ type IPPool struct {
 	NetworkID string   `gorm:"uniqueIndex:udx_ip_pool_tenant_network_family,priority:2" json:"network_id"`
 	Network   *Network `gorm:"foreignKey:NetworkID;constraint:OnDelete:CASCADE" json:"network,omitempty"`
 	Family    IPFamily `gorm:"uniqueIndex:udx_ip_pool_tenant_network_family,priority:3" json:"family"`
-	// NodeCursor is the last address allocated to a node by the cursor, empty
-	// if none has been allocated yet.
-	NodeCursor string `json:"node_cursor"`
-	// ExtCursor is the last address allocated to an extclient by the cursor,
-	// empty if none has been allocated yet.
-	ExtCursor string    `json:"ext_cursor"`
+	// Cursor is the last address allocated by the cursor, empty if none has
+	// been allocated yet. Every address up to it has an allocation.
+	Cursor    string    `json:"cursor"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -61,14 +58,14 @@ func (p *IPPool) Create(ctx context.Context) error {
 	}).Create(p).Error
 }
 
-// Upsert inserts the pool, or updates its cursors if it exists.
+// Upsert inserts the pool, or updates its cursor if it exists.
 func (p *IPPool) Upsert(ctx context.Context) error {
 	if p.ID == "" {
 		p.ID = uuid.NewString()
 	}
 	return db.FromContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "network_id"}, {Name: "family"}},
-		DoUpdates: clause.AssignmentColumns([]string{"node_cursor", "ext_cursor", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"cursor", "updated_at"}),
 	}).Create(p).Error
 }
 
@@ -83,14 +80,13 @@ func (p *IPPool) GetForUpdate(ctx context.Context) error {
 		Error
 }
 
-// UpdateCursors saves the pool's cursors.
-func (p *IPPool) UpdateCursors(ctx context.Context) error {
+// UpdateCursor saves the pool's cursor.
+func (p *IPPool) UpdateCursor(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&IPPool{}).
 		Where("tenant_id = ? AND network_id = ? AND family = ?", p.TenantID, p.NetworkID, p.Family).
 		Updates(map[string]any{
-			"node_cursor": p.NodeCursor,
-			"ext_cursor":  p.ExtCursor,
-			"updated_at":  time.Now(),
+			"cursor":     p.Cursor,
+			"updated_at": time.Now(),
 		}).
 		Error
 }
