@@ -71,13 +71,14 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateIPv4() {
 		return ip
 	}
 
-	c.Run("Cursors", func() {
+	c.Run("Cursor", func() {
+		// nodes and extclients share the cursor.
 		c.Require().Equal("10.10.0.1", allocate(true).String())
 		c.Require().Equal("10.10.0.2", allocate(true).String())
-		c.Require().Equal("10.10.0.6", allocate(false).String())
-		c.Require().Equal("10.10.0.5", allocate(false).String())
-		c.Require().Equal("10.10.0.3", allocate(true).String())
+		c.Require().Equal("10.10.0.3", allocate(false).String())
 		c.Require().Equal("10.10.0.4", allocate(false).String())
+		c.Require().Equal("10.10.0.5", allocate(true).String())
+		c.Require().Equal("10.10.0.6", allocate(false).String())
 	})
 
 	c.Run("Exhausted", func() {
@@ -91,8 +92,8 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateIPv4() {
 		c.Require().NoError(c.releaseIP(network, "10.10.0.2", owners))
 		c.Require().NoError(c.releaseIP(network, "10.10.0.5/29", owners))
 
-		c.Require().Equal("10.10.0.5", allocate(false).String())
-		c.Require().Equal("10.10.0.2", allocate(true).String())
+		c.Require().Equal("10.10.0.2", allocate(false).String())
+		c.Require().Equal("10.10.0.5", allocate(true).String())
 		_, err := c.allocateIP(network, true, owners)
 		c.Require().ErrorIs(err, ErrIPPoolExhausted)
 	})
@@ -112,24 +113,24 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateOrphanedIPFirst() {
 	for i := 1; i <= 10; i++ {
 		allocate(true, fmt.Sprintf("10.11.0.%d", i))
 	}
-	allocate(false, "10.11.0.254")
-	allocate(false, "10.11.0.253")
-	for _, address := range []string{"10.11.0.9", "10.11.0.10", "10.11.0.2", "10.11.0.253", "10.11.0.254"} {
+	allocate(false, "10.11.0.11")
+	allocate(false, "10.11.0.12")
+	for _, address := range []string{"10.11.0.9", "10.11.0.10", "10.11.0.2", "10.11.0.11", "10.11.0.12"} {
 		c.Require().NoError(c.releaseIP(network, address, owners))
 	}
 
-	// orphaned addresses are reused before the cursors advance: nodes take the
-	// one nearest to the start of the range, extclients the one nearest to its
-	// end (compared numerically, .9 comes before .10).
+	// orphaned addresses are reused before the cursor advances, the lowest
+	// first whichever peer released it (compared numerically, .9 comes before
+	// .10).
 	allocate(true, "10.11.0.2")
-	allocate(false, "10.11.0.254")
-	allocate(true, "10.11.0.9")
-	allocate(false, "10.11.0.253")
+	allocate(false, "10.11.0.9")
 	allocate(true, "10.11.0.10")
+	allocate(false, "10.11.0.11")
+	allocate(true, "10.11.0.12")
 
-	// with no orphaned addresses left, the cursors resume.
-	allocate(true, "10.11.0.11")
-	allocate(false, "10.11.0.252")
+	// with no orphaned addresses left, the cursor resumes.
+	allocate(true, "10.11.0.13")
+	allocate(false, "10.11.0.14")
 }
 
 func (c *CENodeOrchestratorTestSuite) TestReleaseIPOwner() {
@@ -176,8 +177,8 @@ func (c *CENodeOrchestratorTestSuite) TestReleaseIPOwner() {
 }
 
 // allocateIPRun allocates count consecutive IPv4 addresses on the network,
-// from start onwards (or downwards if down is set), bypassing the cursors.
-func (c *CENodeOrchestratorTestSuite) allocateIPRun(network *schema.Network, start string, count int, down bool) {
+// from start onwards, bypassing the cursor.
+func (c *CENodeOrchestratorTestSuite) allocateIPRun(network *schema.Network, start string, count int) {
 	addr := netip.MustParseAddr(start)
 	allocations := make([]schema.IPAllocation, 0, count)
 	for i := 0; i < count; i++ {
@@ -191,11 +192,7 @@ func (c *CENodeOrchestratorTestSuite) allocateIPRun(network *schema.Network, sta
 		}
 		allocation.SetAddress(addr)
 		allocations = append(allocations, allocation)
-		if down {
-			addr = addr.Prev()
-		} else {
-			addr = addr.Next()
-		}
+		addr = addr.Next()
 	}
 	c.Require().NoError((&schema.IPAllocation{}).CreateAll(c.ctx, allocations))
 }
@@ -208,20 +205,15 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateSkipsAllocatedIPs() {
 		network := c.createNetwork("network-alloc-skip-runs", "10.13.0.0/22", "")
 		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
 
-		// 300 allocated addresses from each end of the range.
-		c.allocateIPRun(network, "10.13.0.1", 300, false)
-		c.allocateIPRun(network, "10.13.3.254", 300, true)
+		// 300 allocated addresses from the start of the range.
+		c.allocateIPRun(network, "10.13.0.1", 300)
 
 		ip, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
 		c.Require().NoError(err)
 		c.Require().Equal("10.13.1.45", ip.String())
 
+		// the cursor moved past the run.
 		ip, err = orch.AllocateExtclientIP(c.ctx, network, uuid.NewString())
-		c.Require().NoError(err)
-		c.Require().Equal("10.13.2.210", ip.String())
-
-		// the cursors moved past the runs.
-		ip, err = orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
 		c.Require().NoError(err)
 		c.Require().Equal("10.13.1.46", ip.String())
 	})
@@ -231,8 +223,8 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateSkipsAllocatedIPs() {
 		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
 
 		// .1 - .5 and .7 are allocated.
-		c.allocateIPRun(network, "10.14.0.1", 5, false)
-		c.allocateIPRun(network, "10.14.0.7", 1, false)
+		c.allocateIPRun(network, "10.14.0.1", 5)
+		c.allocateIPRun(network, "10.14.0.7", 1)
 
 		ip, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
 		c.Require().NoError(err)
@@ -247,7 +239,7 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateSkipsAllocatedIPs() {
 		// usable addresses: 10.15.0.1 - 10.15.0.6, all allocated.
 		network := c.createNetwork("network-alloc-skip-full", "10.15.0.0/29", "")
 		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
-		c.allocateIPRun(network, "10.15.0.1", 6, false)
+		c.allocateIPRun(network, "10.15.0.1", 6)
 
 		_, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
 		c.Require().ErrorIs(err, ErrIPPoolExhausted)
@@ -267,7 +259,7 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateIPv6() {
 
 	ip, err = orch.AllocateExtclientIPv6(c.ctx, network, uuid.NewString())
 	c.Require().NoError(err)
-	c.Require().Equal("fd00:10::ffff:ffff:ffff:fffe", ip.String())
+	c.Require().Equal("fd00:10::2", ip.String())
 
 	_, err = orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
 	c.Require().Error(err)
