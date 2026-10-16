@@ -137,6 +137,7 @@ func migrateExtClients(ctx context.Context) error {
 			IngressGatewayEndpoint:      extclient.IngressGatewayEndpoint,
 			AllowedIPs:                  extclient.AllowedIPs,
 			ExtraAllowedIPs:             extclient.ExtraAllowedIPs,
+			IncludeNetworkEgressRanges:  extclient.IncludeNetworkEgressRanges,
 			PostUp:                      extclient.PostUp,
 			PostDown:                    extclient.PostDown,
 			SelectedInternetEgressID:    extclient.SelectedInternetEgressID,

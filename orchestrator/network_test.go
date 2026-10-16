@@ -299,10 +299,79 @@ func (c *CENodeOrchestratorTestSuite) TestClaimIP() {
 func (c *CENodeOrchestratorTestSuite) TestAllocateIPWithoutPool() {
 	network := c.createNetwork("network-no-pool", "10.30.0.0/24", "")
 	defer testutils.DeleteNetwork(c.T(), c.ctx, network)
-	c.Require().NoError(db.FromContext(c.ctx).Where("network_id = ?", network.ID).Delete(&schema.IPPool{}).Error)
 
-	_, err := GetRepository().NetworkOrchestrator().AllocateNodeIP(c.ctx, network, uuid.NewString())
-	c.Require().ErrorIs(err, ErrIPPoolNotFound)
+	used := &schema.Extclient{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
+		Name:      "already-using-first",
+		Address:   "10.30.0.1",
+		Enabled:   true,
+	}
+	c.Require().NoError(used.Create(c.ctx))
+	c.Require().NoError(db.FromContext(c.ctx).Where("network_id = ?", network.ID).Delete(&schema.IPPool{}).Error)
+	c.Require().NoError(db.FromContext(c.ctx).Where("network_id = ?", network.ID).Delete(&schema.IPAllocation{}).Error)
+
+	ip, err := GetRepository().NetworkOrchestrator().AllocateNodeIP(c.ctx, network, uuid.NewString())
+	c.Require().NoError(err)
+	c.Require().NotEqual("10.30.0.1", ip.String())
+
+	pool := &schema.IPPool{TenantID: network.TenantID, NetworkID: network.ID, Family: schema.IPv4}
+	c.Require().NoError(pool.GetForUpdate(c.ctx))
+}
+
+func (c *CENodeOrchestratorTestSuite) TestSyncIPAllocations() {
+	orch := GetRepository().NetworkOrchestrator()
+
+	c.Run("Missing Pool", func() {
+		network := c.createNetwork("network-sync-missing", "10.31.0.0/24", "")
+		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+		used := &schema.Extclient{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Name:      "sync-used",
+			Address:   "10.31.0.1",
+			Enabled:   true,
+		}
+		c.Require().NoError(used.Create(c.ctx))
+		c.Require().NoError(db.FromContext(c.ctx).Where("network_id = ?", network.ID).Delete(&schema.IPPool{}).Error)
+		c.Require().NoError(db.FromContext(c.ctx).Where("network_id = ?", network.ID).Delete(&schema.IPAllocation{}).Error)
+
+		orch.SyncIPAllocations(c.ctx)
+
+		pool := &schema.IPPool{TenantID: network.TenantID, NetworkID: network.ID, Family: schema.IPv4}
+		c.Require().NoError(pool.Get(c.ctx))
+		c.Require().Equal("10.31.0.1", pool.Cursor)
+		ip, err := orch.AllocateNodeIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().NotEqual("10.31.0.1", ip.String())
+	})
+
+	c.Run("Existing Pool", func() {
+		network := c.createNetwork("network-sync-existing", "10.32.0.0/24", "")
+		defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+		used := &schema.Extclient{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Name:      "sync-gap",
+			Address:   "10.32.0.5",
+			Enabled:   true,
+		}
+		c.Require().NoError(used.Create(c.ctx))
+
+		orch.SyncIPAllocations(c.ctx)
+
+		pool := &schema.IPPool{TenantID: network.TenantID, NetworkID: network.ID, Family: schema.IPv4}
+		c.Require().NoError(pool.Get(c.ctx))
+		c.Require().Empty(pool.Cursor)
+		allocation := &schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}
+		allocation.SetAddress(netip.MustParseAddr("10.32.0.5"))
+		c.Require().NoError(allocation.Get(c.ctx))
+		c.Require().Equal(schema.IPAttached, allocation.State)
+		c.Require().Equal(used.ID, allocation.OwnerID)
+		ip, err := orch.AllocateExtclientIP(c.ctx, network, uuid.NewString())
+		c.Require().NoError(err)
+		c.Require().NotEqual("10.32.0.5", ip.String())
+	})
 }
 
 func (c *CENodeOrchestratorTestSuite) TestAllocateIPConcurrently() {

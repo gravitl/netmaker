@@ -1,7 +1,10 @@
 package models
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,19 +13,22 @@ import (
 
 // ExtClient - struct for external clients
 type ExtClient struct {
-	ID                     string   `json:"id"`
-	TenantID               string   `json:"tenant_id"`
-	ClientID               string   `json:"clientid" bson:"clientid"`
-	PrivateKey             string   `json:"privatekey" bson:"privatekey"`
-	PublicKey              string   `json:"publickey" bson:"publickey"`
-	Network                string   `json:"network" bson:"network"`
-	DNS                    string   `json:"dns" bson:"dns"`
-	Address                string   `json:"address" bson:"address"`
-	Address6               string   `json:"address6" bson:"address6"`
-	ExtraAllowedIPs        []string `json:"extraallowedips" bson:"extraallowedips"`
-	AllowedIPs             []string `json:"allowed_ips"`
-	IngressGatewayID       string   `json:"ingressgatewayid" bson:"ingressgatewayid"`
-	IngressGatewayEndpoint string   `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	ID              string   `json:"id"`
+	TenantID        string   `json:"tenant_id"`
+	ClientID        string   `json:"clientid" bson:"clientid"`
+	PrivateKey      string   `json:"privatekey" bson:"privatekey"`
+	PublicKey       string   `json:"publickey" bson:"publickey"`
+	Network         string   `json:"network" bson:"network"`
+	DNS             string   `json:"dns" bson:"dns"`
+	Address         string   `json:"address" bson:"address"`
+	Address6        string   `json:"address6" bson:"address6"`
+	ExtraAllowedIPs []string `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs      []string `json:"allowed_ips"`
+	// IncludeNetworkEgressRanges controls whether this client's config lists the
+	// network's egress ranges. Nil keeps the historical behavior and includes them.
+	IncludeNetworkEgressRanges *bool  `json:"include_network_egress_ranges,omitempty" bson:"include_network_egress_ranges,omitempty"`
+	IngressGatewayID           string `json:"ingressgatewayid" bson:"ingressgatewayid"`
+	IngressGatewayEndpoint     string `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
 	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
 	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
@@ -52,6 +58,12 @@ type ExtClient struct {
 	Mutex                             *sync.Mutex         `json:"-"`
 }
 
+// IncludesNetworkEgressRanges reports whether this client's config should list
+// network egress ranges. An unset flag includes them.
+func (extPeer ExtClient) IncludesNetworkEgressRanges() bool {
+	return extPeer.IncludeNetworkEgressRanges == nil || *extPeer.IncludeNetworkEgressRanges
+}
+
 func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
 	return net.IPNet{IP: net.ParseIP(extPeer.Address), Mask: net.CIDRMask(32, 32)}
 }
@@ -62,16 +74,19 @@ func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID                   string              `json:"clientid,omitempty"`
-	PublicKey                  string              `json:"publickey,omitempty"`
-	DNS                        string              `json:"dns,omitempty"`
-	ExtraAllowedIPs            []string            `json:"extraallowedips,omitempty"`
-	Enabled                    bool                `json:"enabled,omitempty"`
+	ClientID        string   `json:"clientid,omitempty"`
+	PublicKey       string   `json:"publickey,omitempty"`
+	DNS             string   `json:"dns,omitempty"`
+	ExtraAllowedIPs []string `json:"extraallowedips,omitempty"`
+	Enabled         bool     `json:"enabled,omitempty"`
+	// IncludeNetworkEgressRanges, when set, is stored on the client. Nil leaves
+	// the stored value unchanged. False skips network egress ranges in the config.
+	IncludeNetworkEgressRanges *bool               `json:"include_network_egress_ranges,omitempty"`
 	DeniedACLs                 map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 	RemoteAccessClientID       string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`
 	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
-	Tags                       map[TagID]struct{}  `json:"tags"`
+	Tags                       ExtClientTags       `json:"tags,omitempty"`
 	DeviceID                   string              `json:"device_id"`
 	DeviceName                 string              `json:"device_name"`
 	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
@@ -85,6 +100,45 @@ type CustomExtClient struct {
 	Location                   string              `json:"location"` //format: lat,long
 	UseInternetEgress          *bool               `json:"use_internet_egress,omitempty"`
 	SelectedInternetEgressID   string              `json:"selected_internet_egress_id,omitempty"`
+}
+
+// ExtClientTags is the tag set stored on an extclient. JSON requests send a list of tag IDs.
+type ExtClientTags map[TagID]struct{}
+
+func (t *ExtClientTags) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '[' {
+		var ids []string
+		if err := json.Unmarshal(data, &ids); err != nil {
+			return err
+		}
+		set := make(ExtClientTags, len(ids))
+		for _, id := range ids {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			set[TagID(id)] = struct{}{}
+		}
+		*t = set
+		return nil
+	}
+	var set map[TagID]struct{}
+	if err := json.Unmarshal(data, &set); err != nil {
+		return err
+	}
+	*t = set
+	return nil
+}
+
+func (t ExtClientTags) Map() map[TagID]struct{} {
+	if t == nil {
+		return nil
+	}
+	return map[TagID]struct{}(t)
 }
 
 func ConvertToStaticNode(ext ExtClient) Node {

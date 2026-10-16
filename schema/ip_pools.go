@@ -69,6 +69,14 @@ func (p *IPPool) Upsert(ctx context.Context) error {
 	}).Create(p).Error
 }
 
+// Get fetches the pool.
+func (p *IPPool) Get(ctx context.Context) error {
+	return db.FromContext(ctx).
+		Where("tenant_id = ? AND network_id = ? AND family = ?", p.TenantID, p.NetworkID, p.Family).
+		First(p).
+		Error
+}
+
 // GetForUpdate fetches the pool and locks its row until the end of the
 // transaction in ctx. SQLite does not support row locks, but it only allows
 // one writing transaction at a time.
