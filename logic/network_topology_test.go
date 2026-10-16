@@ -178,6 +178,203 @@ func TestNodeConnectionsUserServerAndACL(t *testing.T) {
 	}
 }
 
+func TestNodeConnectionsRACExtClientUserPolicy(t *testing.T) {
+	allowed := newTestNode()
+	denied := newTestNode()
+	rac := &models.Node{IsStatic: true, IsUserNode: true}
+	rac.StaticNode.ClientID = "rac-alice"
+	rac.StaticNode.OwnerID = "alice"
+	rac.StaticNode.Enabled = true
+
+	b := newTestStatusBuilder(nil, NetworkStatusOptions{}, allowed, denied)
+	b.names[rac.StaticNode.ClientID] = rac.StaticNode.ClientID
+	origUser := IsUserAllowedToCommunicate
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+		return userName == "alice" && peer.ID == allowed.ID, nil
+	}
+	t.Cleanup(func() { IsUserAllowedToCommunicate = origUser })
+
+	nodes := []models.Node{*allowed, *denied, *rac}
+	racConns, err := b.nodeConnections(nodes, rac.StaticNode.ClientID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(racConns.Connections) != 1 || racConns.Connections[0].PeerID != allowed.ID.String() {
+		t.Fatalf("rac connections = %+v", racConns.Connections)
+	}
+
+	deniedConns, err := b.nodeConnections(nodes, denied.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range deniedConns.Connections {
+		if c.PeerID == rac.StaticNode.ClientID {
+			t.Fatalf("denying user policy still produced a line to the RAC: %+v", deniedConns.Connections)
+		}
+	}
+	if len(deniedConns.Connections) != 1 || deniedConns.Connections[0].PeerID != allowed.ID.String() {
+		t.Fatalf("denied server connections = %+v", deniedConns.Connections)
+	}
+
+	allowedConns, err := b.nodeConnections(nodes, allowed.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]struct{}{}
+	for _, c := range allowedConns.Connections {
+		seen[c.PeerID] = struct{}{}
+	}
+	if _, ok := seen[rac.StaticNode.ClientID]; !ok {
+		t.Fatalf("allowed server missing RAC: %+v", allowedConns.Connections)
+	}
+	if _, ok := seen[denied.ID.String()]; !ok {
+		t.Fatalf("device default should still link servers: %+v", allowedConns.Connections)
+	}
+}
+
+func TestNodeConnectionsMemoizesUserPolicyLookups(t *testing.T) {
+	alice := newTestNode()
+	alice.OwnerID = "alice"
+	allowed := newTestNode()
+	other := newTestNode()
+	third := newTestNode()
+
+	b := newTestStatusBuilder(nil, NetworkStatusOptions{}, alice, allowed, other, third)
+	var calls int
+	origUser := IsUserAllowedToCommunicate
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+		calls++
+		return userName == "alice" && peer.ID == allowed.ID, nil
+	}
+	t.Cleanup(func() { IsUserAllowedToCommunicate = origUser })
+
+	nodes := []models.Node{*alice, *allowed, *other, *third}
+	got, err := b.nodeConnections(nodes, alice.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Connections) != 1 || got.Connections[0].PeerID != allowed.ID.String() {
+		t.Fatalf("alice connections = %+v", got.Connections)
+	}
+	if calls != 3 {
+		t.Fatalf("user policy lookups = %d, want one per server", calls)
+	}
+
+	calls = 0
+	if _, err := b.nodeConnections(nodes, alice.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	fromAllowed, err := b.nodeConnections(nodes, allowed.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("repeat user policy lookups = %d, want cached results", calls)
+	}
+	seen := map[string]struct{}{}
+	for _, c := range fromAllowed.Connections {
+		seen[c.PeerID] = struct{}{}
+	}
+	if _, ok := seen[alice.ID.String()]; !ok {
+		t.Fatalf("allowed server missing alice: %+v", fromAllowed.Connections)
+	}
+}
+
+func TestNodeConnectionsUsesLoadedUserPolicy(t *testing.T) {
+	allowed := newTestNode()
+	denied := newTestNode()
+	site := newTestNode()
+	relay := newTestNode()
+	relay.IsRelay = true
+	relay.RelayedNodes = []string{allowed.ID.String()}
+	alice := newTestNode()
+	alice.OwnerID = "alice"
+	rac := &models.Node{IsStatic: true, IsUserNode: true}
+	rac.StaticNode.ClientID = "rac-alice"
+	rac.StaticNode.OwnerID = "alice"
+	rac.StaticNode.Enabled = true
+
+	eli := []schema.Egress{{
+		ID:     "lan",
+		Status: true,
+		Nodes:  datatypes.JSONMap{site.ID.String(): float64(1)},
+	}}
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, alice, allowed, denied, site, relay)
+	b.names[rac.StaticNode.ClientID] = rac.StaticNode.ClientID
+	b.network = "net"
+	b.userPoliciesLoaded = true
+	b.userDefault = false
+	b.users["alice"] = &schema.User{Username: "alice"}
+	b.userPolicies = []models.Acl{{
+		Enabled:  true,
+		RuleType: models.UserPolicy,
+		Src:      []schema.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
+		Dst: []schema.AclPolicyTag{
+			{ID: models.NodeID, Value: allowed.ID.String()},
+			{ID: models.EgressID, Value: "lan"},
+		},
+	}}
+
+	origUser := IsUserAllowedToCommunicate
+	origGet := getNodeByID
+	IsUserAllowedToCommunicate = func(context.Context, string, models.Node) (bool, []models.Acl) {
+		t.Fatal("loaded user policy was queried again")
+		return false, nil
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		t.Fatalf("relayed node %s was loaded again", id)
+		return models.Node{}, ErrTopologyNodeNotFound
+	}
+	t.Cleanup(func() {
+		IsUserAllowedToCommunicate = origUser
+		getNodeByID = origGet
+	})
+
+	nodes := []models.Node{*alice, *allowed, *denied, *site, *relay, *rac}
+	aliceConns, err := b.nodeConnections(nodes, alice.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alicePeers := indexConns(t, aliceConns.Connections)
+	if _, ok := alicePeers[allowed.ID.String()]; !ok {
+		t.Fatalf("alice missing allowed server: %+v", aliceConns.Connections)
+	}
+	if _, ok := alicePeers[site.ID.String()]; !ok {
+		t.Fatalf("alice missing egress router: %+v", aliceConns.Connections)
+	}
+	if _, ok := alicePeers[relay.ID.String()]; !ok {
+		t.Fatalf("alice missing relay of an allowed node: %+v", aliceConns.Connections)
+	}
+	if _, ok := alicePeers[denied.ID.String()]; ok {
+		t.Fatalf("denying user policy still linked alice to denied: %+v", aliceConns.Connections)
+	}
+
+	racConns, err := b.nodeConnections(nodes, rac.StaticNode.ClientID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	racPeers := indexConns(t, racConns.Connections)
+	if _, ok := racPeers[allowed.ID.String()]; !ok {
+		t.Fatalf("rac missing allowed server: %+v", racConns.Connections)
+	}
+	if _, ok := racPeers[site.ID.String()]; !ok {
+		t.Fatalf("rac missing egress router: %+v", racConns.Connections)
+	}
+	if _, ok := racPeers[denied.ID.String()]; ok {
+		t.Fatalf("denying user policy still linked rac to denied: %+v", racConns.Connections)
+	}
+
+	deniedConns, err := b.nodeConnections(nodes, denied.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range deniedConns.Connections {
+		if c.PeerID == alice.ID.String() || c.PeerID == rac.StaticNode.ClientID {
+			t.Fatalf("denied server linked to a user the policy excludes: %+v", deniedConns.Connections)
+		}
+	}
+}
+
 func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	relay := newTestNode()
 	relay.IsRelay = true
@@ -262,6 +459,82 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	relayByPeer := indexConns(t, fromRelay.Connections)
 	if c := relayByPeer[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionP2P || c.Kind != models.NetworkNodeKindExtClient {
 		t.Fatalf("ingress to extclient = %+v", c)
+	}
+}
+
+func TestNodeConnectionsExtClientLiveness(t *testing.T) {
+	gw := newTestNode()
+	gw.IsIngressGateway = true
+	gw.IsRelay = true
+	viewer := newTestNode()
+	relayed := newTestNode()
+	relayed.IsRelayed = true
+	relayed.RelayedBy = gw.ID.String()
+	partial := newTestNode()
+	down := newTestNode()
+
+	ext := &models.Node{IsStatic: true}
+	ext.StaticNode.ClientID = "laptop"
+	ext.StaticNode.IngressGatewayID = gw.ID.String()
+	ext.StaticNode.Enabled = true
+
+	b := newTestStatusBuilder(nil, NetworkStatusOptions{}, gw, viewer, relayed, partial, down)
+	b.names[gw.ID.String()] = "gateway"
+	b.names[ext.StaticNode.ClientID] = "laptop"
+	stubMetrics(t, map[string]map[string]models.Metric{
+		viewer.ID.String(): {
+			gw.ID.String(): {Connected: true, Latency: 5, PercentUp: 80},
+		},
+		relayed.ID.String(): {
+			gw.ID.String(): {Connected: true, Latency: 4, PercentUp: 90},
+		},
+		down.ID.String(): {
+			gw.ID.String(): {Connected: false, Latency: 3, PercentUp: 10},
+		},
+		gw.ID.String(): {
+			ext.StaticNode.ClientID: {Connected: true, Latency: 7, PercentUp: 70},
+		},
+	})
+
+	nodes := []models.Node{*gw, *viewer, *relayed, *partial, *down, *ext}
+	fromViewer, err := b.nodeConnections(nodes, viewer.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := indexConns(t, fromViewer.Connections)[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionRelayed || c.Via == nil || c.Via.ID != gw.ID.String() || !c.Connected || c.LatencyMs != 12 || c.PercentUp != 70 {
+		t.Fatalf("viewer through gateway = %+v", c)
+	}
+
+	fromRelayed, err := b.nodeConnections(nodes, relayed.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := indexConns(t, fromRelayed.Connections)[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionRelayed || c.Via == nil || c.Via.ID != gw.ID.String() || !c.Connected || c.LatencyMs != 11 || c.PercentUp != 70 {
+		t.Fatalf("node relayed by its gateway = %+v", c)
+	}
+
+	fromGW, err := b.nodeConnections(nodes, gw.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := indexConns(t, fromGW.Connections)[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionP2P || c.Via != nil || !c.Connected || c.LatencyMs != 7 || c.PercentUp != 70 {
+		t.Fatalf("gateway to extclient = %+v", c)
+	}
+
+	fromPartial, err := b.nodeConnections(nodes, partial.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := indexConns(t, fromPartial.Connections)[ext.StaticNode.ClientID]; c.Via == nil || c.Via.ID != gw.ID.String() || !c.Connected || c.LatencyMs != 7 || c.PercentUp != 70 {
+		t.Fatalf("gateway hop alone = %+v", c)
+	}
+
+	fromDown, err := b.nodeConnections(nodes, down.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := indexConns(t, fromDown.Connections)[ext.StaticNode.ClientID]; c.Connected || c.LatencyMs != 10 || c.PercentUp != 10 {
+		t.Fatalf("down first hop = %+v", c)
 	}
 }
 

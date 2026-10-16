@@ -42,11 +42,17 @@ type networkStatusBuilder struct {
 	names       map[string]string
 	nodesByID   map[string]*models.Node
 
-	acls          []models.Acl
-	userPolicies  []models.Acl
-	deviceDefault bool
-	userDefault   bool
-	users         map[string]*schema.User // nil value: lookup failed
+	network            string
+	acls               []models.Acl
+	userPolicies       []models.Acl
+	userPoliciesLoaded bool // userPolicies was loaded for this network (possibly empty)
+	deviceDefault      bool
+	userDefault        bool
+	users              map[string]*schema.User // nil value: lookup failed
+	// userPeerAllowed memoizes whether an owner may reach a peer (node ID or
+	// extclient client ID). userAccess is that owner's destination set.
+	userPeerAllowed map[userPeerKey]bool
+	userAccess      map[string]userPolicyAccess
 
 	relayConnectivity map[string]map[string]models.Metric // relay node ID -> its links
 }
@@ -75,16 +81,20 @@ func loadNetworkStatusBuilder(ctx context.Context, network string, opts NetworkS
 	}
 
 	b := &networkStatusBuilder{
-		ctx:               ctx,
-		opts:              opts,
-		eli:               eli,
-		inetRouters:       InternetEgressRoutingNodeIDsFromList(eli),
-		hosts:             networkStatusHosts(ctx, nodes),
-		names:             make(map[string]string, len(nodes)),
-		nodesByID:         make(map[string]*models.Node, len(nodes)),
-		userPolicies:      ListUserPolicies(ctx, schema.NetworkID(network)),
-		users:             make(map[string]*schema.User),
-		relayConnectivity: make(map[string]map[string]models.Metric),
+		ctx:                ctx,
+		opts:               opts,
+		network:            network,
+		eli:                eli,
+		inetRouters:        InternetEgressRoutingNodeIDsFromList(eli),
+		hosts:              networkStatusHosts(ctx, nodes),
+		names:              make(map[string]string, len(nodes)),
+		nodesByID:          make(map[string]*models.Node, len(nodes)),
+		userPolicies:       ListUserPolicies(ctx, schema.NetworkID(network)),
+		userPoliciesLoaded: true,
+		users:              make(map[string]*schema.User),
+		userPeerAllowed:    make(map[userPeerKey]bool),
+		userAccess:         make(map[string]userPolicyAccess),
+		relayConnectivity:  make(map[string]map[string]models.Metric),
 	}
 	b.acls, _ = ListAclsByNetwork(ctx, schema.NetworkID(network))
 	if p, err := GetDefaultPolicy(ctx, schema.NetworkID(network), models.DevicePolicy); err == nil {
