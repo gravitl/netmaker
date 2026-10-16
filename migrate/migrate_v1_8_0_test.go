@@ -66,8 +66,7 @@ func TestMigrateIPAllocations(t *testing.T) {
 
 	pool := &schema.IPPool{TenantID: network.TenantID, NetworkID: network.ID, Family: schema.IPv4}
 	require.NoError(t, pool.GetForUpdate(ctx))
-	assert.Equal(t, "10.50.0.2", pool.NodeCursor)
-	assert.Equal(t, "10.50.0.254", pool.ExtCursor)
+	assert.Equal(t, "10.50.0.2", pool.Cursor)
 
 	allocations, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).ListByNetwork(ctx)
 	require.NoError(t, err)
@@ -85,7 +84,7 @@ func TestMigrateIPAllocations(t *testing.T) {
 	}
 
 	// allocation continues after the backfilled addresses, skipping the ones in
-	// use beyond the cursors.
+	// use beyond the cursor.
 	orch := orchestrator.GetRepository().NetworkOrchestrator()
 	ip, err := orch.AllocateNodeIP(ctx, network, uuid.NewString())
 	require.NoError(t, err)
@@ -95,7 +94,7 @@ func TestMigrateIPAllocations(t *testing.T) {
 	assert.Equal(t, "10.50.0.5", ip.String())
 	ip, err = orch.AllocateExtclientIP(ctx, network, uuid.NewString())
 	require.NoError(t, err)
-	assert.Equal(t, "10.50.0.253", ip.String())
+	assert.Equal(t, "10.50.0.6", ip.String())
 }
 
 func TestMigrateIPAllocations_AbortsOnDuplicates(t *testing.T) {
@@ -140,7 +139,7 @@ func TestRekeyTenant_IPAllocations(t *testing.T) {
 	assert.Equal(t, "10.50.0.2", ip.String())
 }
 
-func TestInitialIPPoolCursors(t *testing.T) {
+func TestInitialIPPoolCursor(t *testing.T) {
 	first, last := netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("10.0.0.6")
 	allocated := func(addrs ...string) map[netip.Addr]struct{} {
 		m := make(map[netip.Addr]struct{})
@@ -151,21 +150,18 @@ func TestInitialIPPoolCursors(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		allocated  map[netip.Addr]struct{}
-		nodeCursor string
-		extCursor  string
+		name      string
+		allocated map[netip.Addr]struct{}
+		cursor    string
 	}{
-		{"Empty", allocated(), "", ""},
-		{"Nodes", allocated("10.0.0.1", "10.0.0.2", "10.0.0.4"), "10.0.0.2", ""},
-		{"ExtClients", allocated("10.0.0.6", "10.0.0.5"), "", "10.0.0.5"},
-		{"Full", allocated("10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6"), "10.0.0.6", "10.0.0.1"},
+		{"Empty", allocated(), ""},
+		{"Block At Start", allocated("10.0.0.1", "10.0.0.2", "10.0.0.4"), "10.0.0.2"},
+		{"Block At End", allocated("10.0.0.6", "10.0.0.5"), ""},
+		{"Full", allocated("10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6"), "10.0.0.6"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeCursor, extCursor := initialIPPoolCursors(tt.allocated, first, last)
-			assert.Equal(t, tt.nodeCursor, nodeCursor)
-			assert.Equal(t, tt.extCursor, extCursor)
+			assert.Equal(t, tt.cursor, initialIPPoolCursor(tt.allocated, first, last))
 		})
 	}
 }
