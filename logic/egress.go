@@ -78,6 +78,9 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if node.Network != e.Network {
+				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
+			}
 			if IsEgressInternetGateway(*e) {
 				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
@@ -1245,7 +1248,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 }
 
 func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
-	acls := ListUserPolicies(ctx, network)
+	acls := ListNetworkAccessUserPolicies(ctx, network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
@@ -1278,7 +1281,7 @@ func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, net
 }
 
 func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
-	acls := ListDevicePolicies(ctx, schema.NetworkID(node.Network))
+	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled

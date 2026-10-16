@@ -36,10 +36,10 @@ func ListModels() []interface{} {
 		&TenantSettingsRecord{},
 		&AclRecord{},
 		&CacheRecord{},
-		&DNSRecord{},
-		&ExtClientRecord{},
+		&DNSEntry{},
+		&Extclient{},
 		&MetricsRecord{},
 		&SsoStateRecord{},
-		&TagRecord{},
+		&Tag{},
 	}
 }

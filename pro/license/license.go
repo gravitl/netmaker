@@ -292,7 +292,7 @@ func ValidateLicense(ctx context.Context, clearCache bool) (err error) {
 	var isCachedResp bool
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("%w: %s", errValidation, err.Error())
+			err = fmt.Errorf("%w: %w", errValidation, err)
 			setLicenseInvalidErr(err)
 		} else if !isCachedResp {
 			licenseInvalidErr.Store(nil)
@@ -422,7 +422,7 @@ func fetchValidatedLicense(ctx context.Context) (licenseResponse ValidatedLicens
 
 	if isCachedResp {
 		if licenseResponse.LicenseValue == "" && licenseResponse.EncryptedLicense == "" && len(licenseResponse.Tenants) == 0 {
-			return licenseResponse, false, errNoCachedResponse
+			return licenseResponse, false, fmt.Errorf("failed to validate license key: %w", apiErr)
 		}
 		return licenseResponse, isCachedResp, nil
 	}

@@ -183,7 +183,7 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	userRole := &schema.UserRole{Slug: user.PlatformRoleID}
 	err = userRole.GetPlatformRole(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
