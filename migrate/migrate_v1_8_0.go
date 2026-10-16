@@ -480,7 +480,7 @@ func migrateIPAllocations(ctx context.Context) error {
 				NetworkID: network.ID,
 				Family:    family,
 			}
-			pool.NodeCursor, pool.ExtCursor = initialIPPoolCursors(allocated, first, last)
+			pool.Cursor = initialIPPoolCursor(allocated, first, last)
 			if err := pool.Upsert(ctx); err != nil {
 				return err
 			}
@@ -492,23 +492,15 @@ func migrateIPAllocations(ctx context.Context) error {
 	return nil
 }
 
-// initialIPPoolCursors places the node cursor at the last address of the
-// allocated block at the start of the range, and the extclient cursor at the
-// first address of the allocated block at the end of the range, which is
-// where the previous allocator would have continued from. The cursors skip
-// allocated addresses beyond them anyway.
-func initialIPPoolCursors(allocated map[netip.Addr]struct{}, first, last netip.Addr) (nodeCursor, extCursor string) {
+// initialIPPoolCursor places the cursor at the last address of the allocated
+// block at the start of the range, since every address up to the cursor must
+// have an allocation. The cursor skips allocated addresses beyond it anyway.
+func initialIPPoolCursor(allocated map[netip.Addr]struct{}, first, last netip.Addr) (cursor string) {
 	for addr := first; addr.IsValid() && !last.Less(addr); addr = addr.Next() {
 		if _, ok := allocated[addr]; !ok {
 			break
 		}
-		nodeCursor = addr.String()
+		cursor = addr.String()
 	}
-	for addr := last; addr.IsValid() && !addr.Less(first); addr = addr.Prev() {
-		if _, ok := allocated[addr]; !ok {
-			break
-		}
-		extCursor = addr.String()
-	}
-	return nodeCursor, extCursor
+	return cursor
 }
