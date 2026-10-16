@@ -1,0 +1,24 @@
+---
+description: IP address pool allocation for nodes and ext clients
+globs: "{orchestrator/network.go,orchestrator/node.go,schema/ip_pools.go,schema/ip_allocations.go,logic/nodes.go,logic/extpeers.go,main.go}"
+alwaysApply: false
+---
+
+# IP pool management
+
+Addresses live in `ip_pools_v1` (one cursor per network and family) and `ip_allocations_v1` (one row per address). Allocate with `AllocateNodeIP`, `AllocateExtclientIP`, `AllocateNodeIPv6`, or `AllocateExtclientIPv6` (`ctx`, network, owner ID). There is no in-memory pending set and no batch allocator.
+
+- Set the node or ext client ID before allocating. The allocation is owned by that ID.
+- Save the peer after the address is attached. If the save fails, `ReleaseIP` for that owner. Do not release after a successful save.
+- `Release` only matches an attached row for that owner. It marks the row orphaned; it does not delete it. The next allocation reuses the lowest orphaned address, then walks up from the cursor and skips rows that already exist.
+- Node addresses are stored as CIDR (`10.0.0.5/24`). Ext client addresses are plain IPs. `ParseAddr` accepts both. Releasing a node address must parse the prefix; releasing an ext client address must parse the plain IP.
+- Look up a pool by tenant ID, network ID, and family. A missing `TenantID` will not find the pool.
+
+`SyncIPAllocations` runs on the master pod at startup, before the 6-hour reconcile hook.
+
+- No pool row: `ensureIPPool` creates it and records in-use addresses. The cursor stops at the end of the contiguous used block at the start of the range.
+- Pool already exists: do not move the cursor. Insert a row for an in-use address that has none. Reattach an orphaned row that a node or ext client still uses.
+- Duplicate addresses on one network: log and skip that network. Do not fail startup.
+- `migrateIPAllocations` runs only inside the v1.8.0 migration. Once that job is complete it will not backfill pools. Do not rely on it for existing installs.
+
+`ErrIPPoolNotFound` on allocate or claim calls `ensureIPPool` and retries once. The periodic hook only orphans attached rows unused for 10 minutes. It does not create pools.
