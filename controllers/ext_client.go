@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -839,12 +840,29 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TODO: allocate the addresses in the same transaction as the extclient,
+	// see orchestrator.NetworkOrchestrator.
 	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	// the addresses are allocated to the extclient's id, so it's set before
+	// the extclient is created.
+	extclient.ID = uuid.NewString()
 	var reservedIPv4, reservedIPv6 string
+	// releaseAddresses makes the allocated addresses available for
+	// reallocation when the extclient is not saved.
+	releaseAddresses := func() {
+		for _, address := range []string{reservedIPv4, reservedIPv6} {
+			if address == "" {
+				continue
+			}
+			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address, schema.IPOwnerExtClient, extclient.ID); err != nil {
+				slog.Error("failed to release extclient address", "network", parentNetwork.Name, "address", address, "error", err)
+			}
+		}
+	}
 
 	if extclient.Address == "" {
 		if parentNetwork.AddressRange != "" {
-			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork)
+			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork, extclient.ID)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -865,11 +883,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address6 == "" {
 		if parentNetwork.AddressRange6 != "" {
-			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork)
+			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork, extclient.ID)
 			if err != nil {
-				if reservedIPv4 != "" {
-					networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-				}
+				releaseAddresses()
 				slog.Error(
 					"failed to create extclient",
 					"user",
@@ -889,19 +905,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	extclient.LastModified = time.Now().Unix()
 	if err := logic.ApplyExtClientInternetEgressSelection(r.Context(), &extclient, nodeid, &customExtClient); err != nil {
+		releaseAddresses()
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	err = logic.SaveExtClient(r.Context(), &extclient)
-	// Reservations are freed regardless of outcome: on success the DB is authoritative,
-	// on failure the IPs must be available for reallocation.
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(parentNetwork.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(parentNetwork.ID, reservedIPv6)
-	}
+	err = logic.CreateExtClient(r.Context(), &extclient)
 	if err != nil {
+		releaseAddresses()
 		slog.Error(
 			"failed to create extclient",
 			"user",

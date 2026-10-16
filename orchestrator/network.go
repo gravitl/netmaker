@@ -5,255 +5,487 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sync"
+	"net/netip"
+	"sort"
+	"time"
 
-	"github.com/c-robinson/iplib"
+	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
-type NetworkOrchestrator struct {
-	addressLock  sync.RWMutex
-	address6Lock sync.RWMutex
-	pendingIPv4  map[string]map[string]struct{}
-	pendingIPv6  map[string]map[string]struct{}
+var (
+	// ErrIPPoolExhausted is returned when a network has no address left to
+	// allocate.
+	ErrIPPoolExhausted = errors.New("no IP addresses available in the network")
+	// ErrNoOrphanedIP is returned when a network has no orphaned address to
+	// reallocate.
+	ErrNoOrphanedIP = errors.New("no orphaned IP addresses in the network")
+	// ErrIPAlreadyAllocated is returned when claiming an address that is in
+	// use.
+	ErrIPAlreadyAllocated = errors.New("IP address is already allocated")
+	// ErrIPPoolNotFound is returned when a network has no address pool, e.g.
+	// if the IP allocations migration has not run yet.
+	ErrIPPoolNotFound = errors.New("IP address pool not found for the network")
+)
+
+// NetworkOrchestrator allocates the addresses of nodes and extclients.
+//
+// Allocations are tracked in the DB (ip_pools_v1, ip_allocations_v1), so they
+// are consistent across server replicas: every allocation locks the network's
+// pool row, and the allocations table's unique index guarantees that an address
+// is never handed out twice.
+//
+// Nodes and extclients are allocated from the start of the network's range.
+// Released (orphaned) addresses are reused first, the lowest one; otherwise
+// addresses are allocated upwards by the pool's cursor.
+//
+// Addresses must be allocated (or claimed) before the node or extclient using
+// them is saved, and released when it is deleted, so that every address in use
+// is attached. Attached addresses left unused, e.g. by a failed save, are
+// orphaned by ReconcileIPAllocations.
+type NetworkOrchestrator struct{}
+
+// AllocateNodeIP allocates an IPv4 address on the network to the node with
+// the given ID.
+func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network, nodeID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerNode, nodeID)
 }
 
-func (n *NetworkOrchestrator) AllocateNodeIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv4(ctx, network, false)
+// AllocateExtclientIP allocates an IPv4 address on the network to the
+// extclient with the given ID.
+func (n *NetworkOrchestrator) AllocateExtclientIP(ctx context.Context, network *schema.Network, extClientID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv4, schema.IPOwnerExtClient, extClientID)
 }
 
-func (n *NetworkOrchestrator) AllocateExtclientIP(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv4(ctx, network, true)
+// AllocateNodeIPv6 allocates an IPv6 address on the network to the node with
+// the given ID.
+func (n *NetworkOrchestrator) AllocateNodeIPv6(ctx context.Context, network *schema.Network, nodeID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerNode, nodeID)
 }
 
-func (n *NetworkOrchestrator) AllocateNodeIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv6(ctx, network, false)
+// AllocateExtclientIPv6 allocates an IPv6 address on the network to the
+// extclient with the given ID.
+func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network *schema.Network, extClientID string) (net.IP, error) {
+	return n.allocate(ctx, network, schema.IPv6, schema.IPOwnerExtClient, extClientID)
 }
 
-func (n *NetworkOrchestrator) AllocateExtclientIPv6(ctx context.Context, network *schema.Network) (net.IP, error) {
-	return n.allocateIPv6(ctx, network, true)
-}
-
-func (n *NetworkOrchestrator) allocateIPv4(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	n.addressLock.Lock()
-	defer n.addressLock.Unlock()
-
-	if network.AddressRange == "" {
-		return nil, fmt.Errorf("IPv4 not configured on network %s", network.Name)
+// ClaimIP allocates the given address (plain or in CIDR notation) on the
+// network to the given owner, e.g. when a custom address is set on a node.
+//
+// Returns ErrIPAlreadyAllocated if the address is in use.
+func (n *NetworkOrchestrator) ClaimIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
+	addr, err := n.ParseAddr(ip)
+	if err != nil {
+		return err
 	}
-	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
-		return nil, err
+	family := n.addrFamily(addr)
+	first, last, err := network.UsableIPRange(family)
+	if err != nil {
+		return err
 	}
-	return n.findUniqueIPv4DB(ctx, network, reverse)
-}
-
-func (n *NetworkOrchestrator) allocateIPv6(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	n.address6Lock.Lock()
-	defer n.address6Lock.Unlock()
-
-	if network.AddressRange6 == "" {
-		return nil, fmt.Errorf("IPv6 not configured on network %s", network.Name)
+	if addr.Less(first) || last.Less(addr) {
+		return fmt.Errorf("IP address %s is not in the range of network %s", addr, network.Name)
 	}
-	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
-		return nil, err
-	}
-	return n.findUniqueIPv6DB(ctx, network, reverse)
-}
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := db.WithDB(ctx, tx)
 
-func (n *NetworkOrchestrator) findUniqueIPv4DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	net4 := iplib.Net4FromStr(network.AddressRange)
-	addr := net4.FirstAddress()
-	if reverse {
-		addr = net4.LastAddress()
-	}
-
-	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv4PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv4UniqueInDB(ctx, network, addr.String()) {
-			if !servercfg.IsHA() {
-				n.reserveIPv4(network.ID, addr.String())
-			}
-			return addr, nil
+		// lock the pool, so that the address is not allocated concurrently.
+		if err := n.lockPool(txCtx, network, family); err != nil {
+			return err
 		}
+
+		allocation := &schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+		}
+		allocation.SetAddress(addr)
+		err := allocation.Get(txCtx)
+		switch {
+		case err == nil && allocation.State == schema.IPAttached:
+			return ErrIPAlreadyAllocated
+		case err == nil:
+			allocation.OwnerType = ownerType
+			allocation.OwnerID = ownerID
+			return allocation.Attach(txCtx)
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			allocation.Family = family
+			allocation.State = schema.IPAttached
+			allocation.OwnerType = ownerType
+			allocation.OwnerID = ownerID
+			return allocation.Create(txCtx)
+		default:
+			return err
+		}
+	})
+}
+
+// ReleaseIP releases the given address (plain or in CIDR notation) on the
+// network, so that it can be reallocated. The address is only released if it
+// is allocated to the given owner.
+func (n *NetworkOrchestrator) ReleaseIP(ctx context.Context, network *schema.Network, ip string, ownerType schema.IPOwnerType, ownerID string) error {
+	addr, err := n.ParseAddr(ip)
+	if err != nil {
+		return err
+	}
+	allocation := &schema.IPAllocation{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
+		OwnerType: ownerType,
+		OwnerID:   ownerID,
+	}
+	allocation.SetAddress(addr)
+	return allocation.Release(ctx)
+}
+
+// allocate allocates an address of the given family on the network to the
+// given owner, in its own transaction.
+//
+// TODO: allocations should share the transaction of the node or extclient
+// being created, so that a failed or interrupted create does not leave the
+// address attached (until the reconciler orphans it). Until then, callers
+// release the address if the create fails.
+func (n *NetworkOrchestrator) allocate(ctx context.Context, network *schema.Network, family schema.IPFamily, ownerType schema.IPOwnerType, ownerID string) (ip net.IP, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("failed to allocate IPv%d address on network %s: %w", family, network.Name, err)
+		}
+	}()
+
+	var addr netip.Addr
+	err = db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := db.WithDB(ctx, tx)
+
+		pool := &schema.IPPool{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			Family:    family,
+		}
+		if err := pool.GetForUpdate(txCtx); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrIPPoolNotFound
+			}
+			return err
+		}
+
 		var err error
-		if reverse {
-			addr, err = net4.PreviousIP(addr)
-		} else {
-			addr, err = net4.NextIP(addr)
+		addr, err = n.allocateOrphaned(txCtx, pool, ownerType, ownerID)
+		if errors.Is(err, ErrNoOrphanedIP) {
+			addr, err = n.allocateFromCursor(txCtx, network, pool, ownerType, ownerID)
 		}
-		if err != nil {
-			return nil, errors.New("no unique IPv4 addresses available")
-		}
-	}
-}
-
-func (n *NetworkOrchestrator) findUniqueIPv6DB(ctx context.Context, network *schema.Network, reverse bool) (net.IP, error) {
-	net6 := iplib.Net6FromStr(network.AddressRange6)
-
-	var (
-		addr net.IP
-		err  error
-	)
-	if reverse {
-		addr, err = net6.PreviousIP(net6.LastAddress())
-	} else {
-		addr, err = net6.NextIP(net6.FirstAddress())
-	}
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
+	return addr.AsSlice(), nil
+}
 
-	for {
-		pendingTaken := !servercfg.IsHA() && n.isIPv6PendingReserved(network.ID, addr.String())
-		if !pendingTaken && n.isIPv6UniqueInDB(ctx, network, addr.String()) {
-			if !servercfg.IsHA() {
-				n.reserveIPv6(network.ID, addr.String())
-			}
-			return addr, nil
-		}
-		if reverse {
-			addr, err = net6.PreviousIP(addr)
-		} else {
-			addr, err = net6.NextIP(addr)
-		}
+// ipAllocationWindow is how many allocated addresses allocateFromCursor
+// fetches at a time, while looking for the next address that isn't allocated.
+const ipAllocationWindow = 256
+
+// allocateFromCursor allocates the next address after the pool's cursor,
+// skipping addresses that are already allocated (e.g. claimed custom
+// addresses). Caller must hold the pool lock.
+func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+	first, last, err := network.UsableIPRange(pool.Family)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+	addr := first
+	if pool.Cursor != "" {
+		cursor, err := n.parseCursor(pool.Cursor)
 		if err != nil {
-			return nil, errors.New("no unique IPv6 addresses available")
+			return netip.Addr{}, err
+		}
+		if !cursor.Less(first) {
+			addr = cursor.Next()
 		}
 	}
-}
 
-// isIPv4PendingReserved reports whether ip is reserved in pendingIPv4.
-// Caller must hold addressLock (read or write).
-func (n *NetworkOrchestrator) isIPv4PendingReserved(networkID, ip string) bool {
-	if pending, ok := n.pendingIPv4[networkID]; ok {
-		if _, reserved := pending[ip]; reserved {
-			return true
+	// withinRange reports whether addr has not gone past the end of the range.
+	withinRange := func(addr netip.Addr) bool {
+		return addr.IsValid() && !last.Less(addr)
+	}
+
+	var skipped netip.Addr
+	for withinRange(addr) {
+		// fetch the allocated addresses from addr onwards, a window at a time.
+		allocated, err := (&schema.IPAllocation{
+			TenantID:  pool.TenantID,
+			NetworkID: pool.NetworkID,
+			Family:    pool.Family,
+		}).ListAddressesBetween(ctx, addr, last, ipAllocationWindow)
+		if err != nil {
+			return netip.Addr{}, err
+		}
+
+		// skip the run of allocated addresses starting at addr.
+		run := 0
+		for ; run < ipAllocationWindow; run++ {
+			if _, ok := allocated[addr]; !ok {
+				break
+			}
+			skipped = addr
+			addr = addr.Next()
+		}
+		if run == ipAllocationWindow {
+			// the whole window is allocated, look at the next one.
+			continue
+		}
+		if !withinRange(addr) {
+			break
+		}
+
+		// addr is not allocated.
+		allocation := &schema.IPAllocation{
+			TenantID:  pool.TenantID,
+			NetworkID: pool.NetworkID,
+			Family:    pool.Family,
+			State:     schema.IPAttached,
+			OwnerType: ownerType,
+			OwnerID:   ownerID,
+		}
+		allocation.SetAddress(addr)
+		if err := allocation.Create(ctx); err != nil {
+			return netip.Addr{}, err
+		}
+		pool.Cursor = addr.String()
+		return addr, pool.UpdateCursor(ctx)
+	}
+
+	// don't walk over the skipped addresses again on the next allocation.
+	if skipped.IsValid() {
+		pool.Cursor = skipped.String()
+		if err := pool.UpdateCursor(ctx); err != nil {
+			return netip.Addr{}, err
 		}
 	}
-	return false
+	return netip.Addr{}, ErrIPPoolExhausted
 }
 
-// isIPv6PendingReserved reports whether ip is reserved in pendingIPv6.
-// Caller must hold address6Lock (read or write).
-func (n *NetworkOrchestrator) isIPv6PendingReserved(networkID, ip string) bool {
-	if pending, ok := n.pendingIPv6[networkID]; ok {
-		if _, reserved := pending[ip]; reserved {
-			return true
-		}
+// allocateOrphaned reallocates the lowest orphaned address.
+// Caller must hold the pool lock.
+func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+	allocation := &schema.IPAllocation{
+		TenantID:  pool.TenantID,
+		NetworkID: pool.NetworkID,
+		Family:    pool.Family,
 	}
-	return false
-}
-
-func (n *NetworkOrchestrator) IsIPv4Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	if !servercfg.IsHA() {
-		n.addressLock.RLock()
-		pendingReserved := n.isIPv4PendingReserved(network.ID, ip)
-		n.addressLock.RUnlock()
-		if pendingReserved {
-			return false
+	if err := allocation.GetFirstOrphaned(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return netip.Addr{}, ErrNoOrphanedIP
 		}
+		return netip.Addr{}, err
 	}
-	return n.isIPv4UniqueInDB(ctx, network, ip)
+	addr := allocation.Address()
+	if !addr.IsValid() {
+		return netip.Addr{}, fmt.Errorf("invalid orphaned IP address %v", allocation.RawAddress)
+	}
+	allocation.OwnerType = ownerType
+	allocation.OwnerID = ownerID
+	return addr, allocation.Attach(ctx)
 }
 
-func (n *NetworkOrchestrator) isIPv4UniqueInDB(ctx context.Context, network *schema.Network, ip string) bool {
-	_, cidr, err := net.ParseCIDR(network.AddressRange)
+// lockPool locks the network's pool of the given family until the end of the
+// transaction in ctx.
+func (n *NetworkOrchestrator) lockPool(ctx context.Context, network *schema.Network, family schema.IPFamily) error {
+	pool := &schema.IPPool{
+		TenantID:  network.TenantID,
+		NetworkID: network.ID,
+		Family:    family,
+	}
+	err := pool.GetForUpdate(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrIPPoolNotFound
+	}
+	return err
+}
+
+// ipAllocationGracePeriod is how long an attached address can go without a
+// node or extclient using it before ReconcileIPAllocations orphans it. It
+// covers the time between allocating an address and saving the peer using it.
+const ipAllocationGracePeriod = 10 * time.Minute
+
+// ipAllocationReconcileInterval is how often the address allocations are
+// reconciled. Unused attached addresses only occur when a node or extclient
+// fails to save and its address can't be released, and allocations keep
+// working as long as the network has addresses left, so it can be long.
+const ipAllocationReconcileInterval = 6 * time.Hour
+
+// IPOwner is the node or extclient using an address.
+type IPOwner struct {
+	Type schema.IPOwnerType
+	ID   string
+}
+
+func (o IPOwner) String() string {
+	return fmt.Sprintf("%s %s", o.Type, o.ID)
+}
+
+// ListIPOwners lists the addresses used by the network's nodes and
+// extclients. Addresses used more than once are reported in duplicates.
+func (n *NetworkOrchestrator) ListIPOwners(ctx context.Context, network *schema.Network) (owners map[netip.Addr]IPOwner, duplicates []string, err error) {
+	owners = make(map[netip.Addr]IPOwner)
+	add := func(address string, owner IPOwner) {
+		addr, err := n.ParseAddr(address)
+		if err != nil {
+			return
+		}
+		if existing, ok := owners[addr]; ok {
+			duplicates = append(duplicates, fmt.Sprintf("%s is used by %s and %s", addr, existing, owner))
+			return
+		}
+		owners[addr] = owner
+	}
+
+	nodes, err := (&schema.Node{}).ListAll(ctx, dbtypes.WithFilter("nodes_v1.network_id", network.ID))
 	if err != nil {
-		return true
+		return nil, nil, err
 	}
-	cidr.IP = net.ParseIP(ip)
-	node := &schema.Node{NetworkID: network.ID, Address: cidr.String()}
-	if err := node.GetByNetworkAndAddress(ctx); err == nil {
-		return false
+	for _, node := range nodes {
+		owner := IPOwner{Type: schema.IPOwnerNode, ID: node.ID}
+		add(node.Address, owner)
+		add(node.Address6, owner)
 	}
 
-	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
+	extClients, err := (&schema.Extclient{NetworkID: network.ID}).ListByNetwork(ctx)
 	if err != nil {
-		return true
+		return nil, nil, err
 	}
-	for _, ec := range extClients {
-		if ec.Address == ip {
-			return false
+	for _, extClient := range extClients {
+		owner := IPOwner{Type: schema.IPOwnerExtClient, ID: extClient.ID}
+		add(extClient.Address, owner)
+		add(extClient.Address6, owner)
+	}
+
+	sort.Strings(duplicates)
+	return owners, duplicates, nil
+}
+
+// hasUnusedIPAllocations reports whether the network has more attached
+// addresses than its nodes and extclients use. Each node and extclient has an
+// address from each of the network's ranges.
+func (n *NetworkOrchestrator) hasUnusedIPAllocations(ctx context.Context, network *schema.Network) (bool, error) {
+	nodes, err := (&schema.Node{}).Count(ctx, dbtypes.WithFilter("nodes_v1.network_id", network.ID))
+	if err != nil {
+		return false, err
+	}
+	extClients, err := (&schema.Extclient{NetworkID: network.ID}).CountByNetwork(ctx)
+	if err != nil {
+		return false, err
+	}
+	attached, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).CountAttached(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	families := 0
+	if network.AddressRange != "" {
+		families++
+	}
+	if network.AddressRange6 != "" {
+		families++
+	}
+	return attached > (nodes+extClients)*families, nil
+}
+
+// ReconcileIPAllocations orphans the network's attached addresses that are not
+// used by any node or extclient, once they are older than
+// ipAllocationGracePeriod, so that they can be reallocated.
+//
+// An address is always allocated before the node or extclient using it is
+// saved, so a node or extclient never uses an address that is not attached.
+// But if saving the node or extclient fails (and the address is not released),
+// the address is left attached without being used.
+func (n *NetworkOrchestrator) ReconcileIPAllocations(ctx context.Context, network *schema.Network) error {
+	unused, err := n.hasUnusedIPAllocations(ctx, network)
+	if err != nil {
+		return err
+	}
+	if !unused {
+		return nil
+	}
+
+	owners, _, err := n.ListIPOwners(ctx, network)
+	if err != nil {
+		return err
+	}
+	allocations, err := (&schema.IPAllocation{TenantID: network.TenantID, NetworkID: network.ID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+
+	staleBefore := time.Now().Add(-ipAllocationGracePeriod)
+	for _, allocation := range allocations {
+		if allocation.State != schema.IPAttached || !allocation.UpdatedAt.Before(staleBefore) {
+			continue
+		}
+		addr := allocation.Address()
+		if _, used := owners[addr]; used {
+			continue
+		}
+		if err := allocation.ReleaseStale(ctx, staleBefore); err != nil {
+			slog.Error("failed to orphan unused IP address", "network", network.Name, "address", addr, "error", err)
 		}
 	}
-	return true
+	return nil
 }
 
-func (n *NetworkOrchestrator) reserveIPv4(networkID, ip string) {
-	if n.pendingIPv4 == nil {
-		n.pendingIPv4 = make(map[string]map[string]struct{})
-	}
-	if n.pendingIPv4[networkID] == nil {
-		n.pendingIPv4[networkID] = make(map[string]struct{})
-	}
-	n.pendingIPv4[networkID][ip] = struct{}{}
-}
-
-func (n *NetworkOrchestrator) reserveIPv6(networkID, ip string) {
-	if n.pendingIPv6 == nil {
-		n.pendingIPv6 = make(map[string]map[string]struct{})
-	}
-	if n.pendingIPv6[networkID] == nil {
-		n.pendingIPv6[networkID] = make(map[string]struct{})
-	}
-	n.pendingIPv6[networkID][ip] = struct{}{}
-}
-
-func (n *NetworkOrchestrator) FreeIPv4Reservation(networkID, ip string) {
-	if servercfg.IsHA() {
-		return
-	}
-	n.addressLock.Lock()
-	defer n.addressLock.Unlock()
-	if n.pendingIPv4 != nil {
-		delete(n.pendingIPv4[networkID], ip)
+// StartIPAllocationHook starts reconciling the address allocations of all
+// networks periodically.
+func (n *NetworkOrchestrator) StartIPAllocationHook() {
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       "ip-allocation-hook",
+		Hook:     logic.WrapHook(n.reconcileAllIPAllocations),
+		Interval: ipAllocationReconcileInterval,
 	}
 }
 
-func (n *NetworkOrchestrator) FreeIPv6Reservation(networkID, ip string) {
-	if servercfg.IsHA() {
-		return
+// reconcileAllIPAllocations reconciles the address allocations of the
+// networks of all tenants.
+func (n *NetworkOrchestrator) reconcileAllIPAllocations() error {
+	ctx := db.WithContext(context.TODO())
+	networks, err := (&schema.Network{}).ListAll(ctx)
+	if err != nil {
+		return err
 	}
-	n.address6Lock.Lock()
-	defer n.address6Lock.Unlock()
-	if n.pendingIPv6 != nil {
-		delete(n.pendingIPv6[networkID], ip)
-	}
-}
-
-func (n *NetworkOrchestrator) IsIPv6Unique(ctx context.Context, network *schema.Network, ip string) bool {
-	if !servercfg.IsHA() {
-		n.address6Lock.RLock()
-		pendingReserved := n.isIPv6PendingReserved(network.ID, ip)
-		n.address6Lock.RUnlock()
-		if pendingReserved {
-			return false
+	for i := range networks {
+		if err := n.ReconcileIPAllocations(ctx, &networks[i]); err != nil {
+			slog.Error("failed to reconcile IP allocations", "network", networks[i].Name, "tenant", networks[i].TenantID, "error", err)
 		}
 	}
-	return n.isIPv6UniqueInDB(ctx, network, ip)
+	return nil
 }
 
-func (n *NetworkOrchestrator) isIPv6UniqueInDB(ctx context.Context, network *schema.Network, ip string) bool {
-	_, cidr, err := net.ParseCIDR(network.AddressRange6)
+// ParseAddr parses an address given either as a plain IP or in CIDR notation.
+func (n *NetworkOrchestrator) ParseAddr(address string) (netip.Addr, error) {
+	if prefix, err := netip.ParsePrefix(address); err == nil {
+		return prefix.Addr().Unmap(), nil
+	}
+	addr, err := netip.ParseAddr(address)
 	if err != nil {
-		return true
+		return netip.Addr{}, fmt.Errorf("invalid IP address %q", address)
 	}
-	cidr.IP = net.ParseIP(ip)
-	node := &schema.Node{NetworkID: network.ID, Address6: cidr.String()}
-	if err := node.GetByNetworkAndAddress6(ctx); err == nil {
-		return false
-	}
+	return addr.Unmap(), nil
+}
 
-	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
+func (n *NetworkOrchestrator) parseCursor(cursor string) (netip.Addr, error) {
+	addr, err := netip.ParseAddr(cursor)
 	if err != nil {
-		return true
+		return netip.Addr{}, fmt.Errorf("invalid IP pool cursor %q: %w", cursor, err)
 	}
-	for _, ec := range extClients {
-		if ec.Address6 == ip {
-			return false
-		}
+	return addr, nil
+}
+
+func (n *NetworkOrchestrator) addrFamily(addr netip.Addr) schema.IPFamily {
+	if addr.Is4() {
+		return schema.IPv4
 	}
-	return true
+	return schema.IPv6
 }

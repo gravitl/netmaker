@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"sort"
 	"strings"
@@ -134,6 +135,7 @@ func DeleteExtClient(ctx context.Context, extClient models.ExtClient) error {
 	if err := _extClient.DeleteViolations(ctx); err != nil {
 		slog.Error("failed to delete ext client posture check violations", "id", extClient.ID, "error", err)
 	}
+	releaseExtClientAddresses(ctx, extClient)
 	if extClient.RemoteAccessClientID != "" {
 		LogEvent(ctx, &models.Event{
 			Action: schema.Disconnect,
@@ -156,6 +158,32 @@ func DeleteExtClient(ctx context.Context, extClient models.ExtClient) error {
 	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 	go RemoveNodeFromAclPolicy(detachedCtx, models.ConvertToStaticNode(extClient))
 	return nil
+}
+
+// releaseExtClientAddresses releases the addresses of a deleted extclient, so
+// that they can be reallocated.
+func releaseExtClientAddresses(ctx context.Context, extClient models.ExtClient) {
+	network := &schema.Network{Name: extClient.Network}
+	if err := network.Get(ctx); err != nil {
+		slog.Error("failed to release extclient addresses", "extclient", extClient.ID, "network", extClient.Network, "error", err)
+		return
+	}
+	for _, address := range []string{extClient.Address, extClient.Address6} {
+		addr, err := netip.ParseAddr(address)
+		if err != nil {
+			continue
+		}
+		allocation := &schema.IPAllocation{
+			TenantID:  network.TenantID,
+			NetworkID: network.ID,
+			OwnerType: schema.IPOwnerExtClient,
+			OwnerID:   extClient.ID,
+		}
+		allocation.SetAddress(addr)
+		if err := allocation.Release(ctx); err != nil {
+			slog.Error("failed to release extclient address", "extclient", extClient.ID, "address", address, "error", err)
+		}
+	}
 }
 
 //TODO - enforce extclient-to-extclient on ingress gw
@@ -232,25 +260,41 @@ func GenerateNodeName(ctx context.Context, network string) (string, error) {
 // SaveExtClient creates the ext client if it has no ID, else updates it.
 // Posture check violations are not saved, use Extclient.UpsertViolations.
 func SaveExtClient(ctx context.Context, extclient *models.ExtClient) error {
+	if extclient.ID == "" {
+		return CreateExtClient(ctx, extclient)
+	}
+	_extclient, err := convertExtClientForSave(ctx, extclient)
+	if err != nil {
+		return err
+	}
+	if err = _extclient.Update(ctx); err != nil {
+		return err
+	}
+	return SetNetworkNodesLastModified(ctx, extclient.Network)
+}
+
+// CreateExtClient creates the ext client. Its ID is kept if set, so that
+// its addresses can be allocated to the ID before it is created.
+func CreateExtClient(ctx context.Context, extclient *models.ExtClient) error {
+	_extclient, err := convertExtClientForSave(ctx, extclient)
+	if err != nil {
+		return err
+	}
+	if err = _extclient.Create(ctx); err != nil {
+		return err
+	}
+	extclient.ID = _extclient.ID
+	return SetNetworkNodesLastModified(ctx, extclient.Network)
+}
+
+func convertExtClientForSave(ctx context.Context, extclient *models.ExtClient) (*schema.Extclient, error) {
 	if IsExtClientID(extclient.ClientID) {
-		return ErrExtClientNameIsID
+		return nil, ErrExtClientNameIsID
 	}
 	if extclient.TenantID == "" {
 		extclient.TenantID = scope.ID(ctx)
 	}
-	_extclient, err := ConvertModelsExtClientToSchemaExtclient(extclient)
-	if err != nil {
-		return err
-	}
-	if extclient.ID == "" {
-		if err = _extclient.Create(ctx); err != nil {
-			return err
-		}
-		extclient.ID = _extclient.ID
-	} else if err = _extclient.Update(ctx); err != nil {
-		return err
-	}
-	return SetNetworkNodesLastModified(ctx, extclient.Network)
+	return ConvertModelsExtClientToSchemaExtclient(extclient)
 }
 
 // UpdateExtClient - updates an ext client with new values
