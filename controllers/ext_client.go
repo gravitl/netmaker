@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -842,8 +843,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	// TODO: allocate the addresses in the same transaction as the extclient,
 	// see orchestrator.NetworkOrchestrator.
 	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
-	// TODO(nm-360): use the extclient's ID as the owner of its addresses.
-	ownerID := extclient.ClientID
+	// the addresses are allocated to the extclient's id, so it's set before
+	// the extclient is created.
+	extclient.ID = uuid.NewString()
 	var reservedIPv4, reservedIPv6 string
 	// releaseAddresses makes the allocated addresses available for
 	// reallocation when the extclient is not saved.
@@ -852,7 +854,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			if address == "" {
 				continue
 			}
-			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address, schema.IPOwnerExtClient, ownerID); err != nil {
+			if err := networkOrch.ReleaseIP(r.Context(), parentNetwork, address, schema.IPOwnerExtClient, extclient.ID); err != nil {
 				slog.Error("failed to release extclient address", "network", parentNetwork.Name, "address", address, "error", err)
 			}
 		}
@@ -860,7 +862,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address == "" {
 		if parentNetwork.AddressRange != "" {
-			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork, ownerID)
+			newAddress, err := networkOrch.AllocateExtclientIP(r.Context(), parentNetwork, extclient.ID)
 			if err != nil {
 				slog.Error(
 					"failed to create extclient",
@@ -881,7 +883,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	if extclient.Address6 == "" {
 		if parentNetwork.AddressRange6 != "" {
-			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork, ownerID)
+			addr6, err := networkOrch.AllocateExtclientIPv6(r.Context(), parentNetwork, extclient.ID)
 			if err != nil {
 				releaseAddresses()
 				slog.Error(
@@ -907,7 +909,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	err = logic.SaveExtClient(r.Context(), &extclient)
+	err = logic.CreateExtClient(r.Context(), &extclient)
 	if err != nil {
 		releaseAddresses()
 		slog.Error(

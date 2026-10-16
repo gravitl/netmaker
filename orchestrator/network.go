@@ -411,15 +411,12 @@ func (n *NetworkOrchestrator) ListIPOwners(ctx context.Context, network *schema.
 		add(node.Address6, owner)
 	}
 
-	// extclient records only hold the network's name, within their tenant.
-	records, err := (&schema.ExtClientRecord{TenantID: network.TenantID}).ListByNetwork(ctx, network.Name)
+	extClients, err := (&schema.Extclient{NetworkID: network.ID}).ListByNetwork(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, record := range records {
-		extClient := record.Value.Data()
-		// TODO(nm-360): use the extclient's ID as the owner of its addresses.
-		owner := IPOwner{Type: schema.IPOwnerExtClient, ID: extClient.ClientID}
+	for _, extClient := range extClients {
+		owner := IPOwner{Type: schema.IPOwnerExtClient, ID: extClient.ID}
 		add(extClient.Address, owner)
 		add(extClient.Address6, owner)
 	}
@@ -436,7 +433,7 @@ func (n *NetworkOrchestrator) hasUnusedIPAllocations(ctx context.Context, networ
 	if err != nil {
 		return false, err
 	}
-	extClients, err := (&schema.ExtClientRecord{TenantID: network.TenantID}).CountByNetwork(ctx, network.Name)
+	extClients, err := (&schema.Extclient{NetworkID: network.ID}).CountByNetwork(ctx)
 	if err != nil {
 		return false, err
 	}
