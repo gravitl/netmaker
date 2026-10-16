@@ -43,7 +43,7 @@ require (
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/hashicorp/go-retryablehttp v0.7.8
-	github.com/klauspost/compress v1.19.1
+	github.com/klauspost/compress v1.20.3
 	github.com/matryer/is v1.4.1
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/cobra v1.10.2
