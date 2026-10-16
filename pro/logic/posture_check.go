@@ -147,10 +147,34 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						oldVi = nil
 					}
 					EmitNewPostureViolationEvents(ctx, oldVi, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-					extclient.PostureChecksViolations = postureChecksViolations
-					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
-					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(ctx, &extclient)
+
+					_extclient := &schema.Extclient{
+						ID:                                extclient.ID,
+						TenantID:                          extclient.TenantID,
+						PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+						PostureCheckLastEvaluationCycleID: uuid.NewString(),
+						PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+					}
+
+					_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+					for _, violation := range postureChecksViolations {
+						_violations = append(_violations, schema.PostureCheckViolation{
+							EvaluationCycleID: _extclient.PostureCheckLastEvaluationCycleID,
+							TenantID:          extclient.TenantID,
+							CheckID:           violation.CheckID,
+							SubjectID:         _extclient.ID,
+							SubjectType:       schema.PostureCheckSubjectTypeExtclient,
+							Name:              violation.Name,
+							Attribute:         violation.Attribute,
+							Message:           violation.Message,
+							Severity:          violation.Severity,
+							EvaluatedAt:       _extclient.PostureCheckLastEvaluatedAt,
+						})
+					}
+					if err := _extclient.UpsertViolations(ctx, _violations); err != nil {
+						slog.Error("failed to upsert posture check violations",
+							"extclient_id", _extclient.ID, "error", err)
+					}
 				}
 			} else {
 				// When no checks are configured and the node is already clean, skip
@@ -182,7 +206,8 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
 						TenantID:          nodeI.TenantID,
 						CheckID:           violation.CheckID,
-						NodeID:            _node.ID,
+						SubjectID:         _node.ID,
+						SubjectType:       schema.PostureCheckSubjectTypeDevice,
 						Name:              violation.Name,
 						Attribute:         violation.Attribute,
 						Message:           violation.Message,
@@ -486,10 +511,10 @@ func attachOwnerUserGroups(ctx context.Context, d *models.PostureCheckDeviceInfo
 		return
 	}
 	d.UserGroups = user.UserGroups.Data()
-	if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
-		d.UserGroups[GetDefaultNetworkAdminGroupID(network)] = struct{}{}
-	} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupID()]; ok {
-		d.UserGroups[GetDefaultNetworkUserGroupID(network)] = struct{}{}
+	if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupSlug()]; ok {
+		d.UserGroups[GetDefaultNetworkAdminGroupSlug(network)] = struct{}{}
+	} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupSlug()]; ok {
+		d.UserGroups[GetDefaultNetworkUserGroupSlug(network)] = struct{}{}
 	}
 }
 

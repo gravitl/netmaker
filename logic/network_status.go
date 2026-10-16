@@ -89,7 +89,7 @@ func loadNetworkStatusBuilder(ctx context.Context, network string, opts NetworkS
 		hosts:              networkStatusHosts(ctx, nodes),
 		names:              make(map[string]string, len(nodes)),
 		nodesByID:          make(map[string]*models.Node, len(nodes)),
-		userPolicies:       ListUserPolicies(ctx, schema.NetworkID(network)),
+		userPolicies:       ListNetworkAccessUserPolicies(ctx, schema.NetworkID(network)),
 		userPoliciesLoaded: true,
 		users:              make(map[string]*schema.User),
 		userPeerAllowed:    make(map[userPeerKey]bool),

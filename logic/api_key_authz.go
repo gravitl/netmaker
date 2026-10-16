@@ -218,14 +218,21 @@ func resolveNetworksForResource(ctx context.Context, targetRsrc, targetRsrcID st
 		nets := GetHostNetworks(ctx, targetRsrcID)
 		return nets, nil
 	case schema.ExtClientsRsrc.String():
-		client, err := GetExtClientByName(ctx, targetRsrcID)
-		if err != nil {
+		extclient := &schema.Extclient{ID: targetRsrcID}
+		if err := extclient.Get(ctx); err != nil {
 			return nil, err
 		}
-		if client.Network == "" {
+		if extclient.NetworkID == "" {
 			return nil, errors.New("extclient has no network")
 		}
-		return []string{client.Network}, nil
+		network := &schema.Network{ID: extclient.NetworkID}
+		if err := network.Get(ctx); err != nil {
+			return nil, err
+		}
+		if network.Name == "" {
+			return nil, errors.New("extclient has no network")
+		}
+		return []string{network.Name}, nil
 	case schema.EgressGwRsrc.String():
 		e := schema.Egress{ID: targetRsrcID}
 		if err := e.Get(ctx); err != nil {

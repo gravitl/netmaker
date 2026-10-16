@@ -407,7 +407,7 @@ func NodeHasEgressAccess(ctx context.Context, node *models.Node, e *schema.Egres
 	if err := user.GetWithMembership(ctx); err != nil {
 		return false
 	}
-	return DoesUserHaveAccessToEgress(user, e, ListUserPolicies(ctx, schema.NetworkID(node.Network)))
+	return DoesUserHaveAccessToEgress(user, e, ListNetworkAccessUserPolicies(ctx, schema.NetworkID(node.Network)))
 }
 
 // UserDeviceNode is a network node of a user-registered device.

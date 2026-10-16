@@ -23,31 +23,31 @@ type NodeCheckin struct {
 
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient
 type CommonNode struct {
-	ID                  uuid.UUID `json:"id"                  yaml:"id"`
-	TenantID            string    `json:"tenant_id"`
-	HostID              uuid.UUID `json:"hostid"              yaml:"hostid"`
-	Network             string    `json:"network"             yaml:"network"`
-	NetworkRange        net.IPNet `json:"networkrange"        yaml:"networkrange"        swaggertype:"primitive,integer"`
-	NetworkRange6       net.IPNet `json:"networkrange6"       yaml:"networkrange6"       swaggertype:"primitive,number"`
-	Server              string    `json:"server"              yaml:"server"`
-	Connected           bool      `json:"connected"           yaml:"connected"`
-	Address             net.IPNet `json:"address"             yaml:"address"`
-	Address6            net.IPNet `json:"address6"            yaml:"address6"`
-	Action              string    `json:"action"              yaml:"action"`
-	LocalAddress        net.IPNet `json:"localaddress"        yaml:"localaddress"`
-	IsEgressGateway     bool      `json:"isegressgateway"     yaml:"isegressgateway"`
-	EgressGatewayRanges []string  `json:"egressgatewayranges" yaml:"egressgatewayranges"`
-	IsIngressGateway    bool      `json:"isingressgateway"    yaml:"isingressgateway"`
-	IsRelayed           bool      `json:"isrelayed"           yaml:"isrelayed"`
-	RelayedBy           string    `json:"relayedby"           yaml:"relayedby"`
-	IsRelay             bool      `json:"isrelay"             yaml:"isrelay"`
-	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
-	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
-	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
-	AutoAssignGateway   bool      `json:"auto_assign_gw"`
-	TcpProxyEnabled     bool      `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort  int       `json:"tcp_proxy_listen_port"`
-	TcpProxyTLSMode     string    `json:"tcp_proxy_tls_mode"`
+	ID                     uuid.UUID `json:"id"                  yaml:"id"`
+	TenantID               string    `json:"tenant_id"`
+	HostID                 uuid.UUID `json:"hostid"              yaml:"hostid"`
+	Network                string    `json:"network"             yaml:"network"`
+	NetworkRange           net.IPNet `json:"networkrange"        yaml:"networkrange"        swaggertype:"primitive,integer"`
+	NetworkRange6          net.IPNet `json:"networkrange6"       yaml:"networkrange6"       swaggertype:"primitive,number"`
+	Server                 string    `json:"server"              yaml:"server"`
+	Connected              bool      `json:"connected"           yaml:"connected"`
+	Address                net.IPNet `json:"address"             yaml:"address"`
+	Address6               net.IPNet `json:"address6"            yaml:"address6"`
+	Action                 string    `json:"action"              yaml:"action"`
+	LocalAddress           net.IPNet `json:"localaddress"        yaml:"localaddress"`
+	IsEgressGateway        bool      `json:"isegressgateway"     yaml:"isegressgateway"`
+	EgressGatewayRanges    []string  `json:"egressgatewayranges" yaml:"egressgatewayranges"`
+	IsIngressGateway       bool      `json:"isingressgateway"    yaml:"isingressgateway"`
+	IsRelayed              bool      `json:"isrelayed"           yaml:"isrelayed"`
+	RelayedBy              string    `json:"relayedby"           yaml:"relayedby"`
+	IsRelay                bool      `json:"isrelay"             yaml:"isrelay"`
+	IsGw                   bool      `json:"is_gw"             yaml:"is_gw"`
+	RelayedNodes           []string  `json:"relaynodes"          yaml:"relayedNodes"`
+	IngressDNS             string    `json:"ingressdns"          yaml:"ingressdns"`
+	AutoAssignGateway      bool      `json:"auto_assign_gw"`
+	TcpProxyEnabled        bool      `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort     int       `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode        string    `json:"tcp_proxy_tls_mode"`
 	TcpProxyListenAddr     string    `json:"tcp_proxy_listen_addr,omitempty"`
 	TcpProxyPublicHostname string    `json:"tcp_proxy_public_hostname,omitempty"`
 	UseTcpUplink           bool      `json:"use_tcp_uplink"`
@@ -75,27 +75,27 @@ type Node struct {
 	//AutoRelayedPeers   map[string]struct{} `json:"auto_relayed_peers"`
 	AutoRelayedPeers map[string]string `json:"auto_relayed_peers_v1"`
 	//AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
-	FailOverPeers                      map[string]struct{} `json:"fail_over_peers"`
-	FailedOverBy                       uuid.UUID           `json:"failed_over_by"`
-	IsInternetGateway                  bool                `json:"isinternetgateway"`
-	InetNodeReq                        InetNodeReq         `json:"inet_node_req"`
-	InternetGwID                       string              `json:"internetgw_node_id"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers"`
+	FailedOverBy      uuid.UUID           `json:"failed_over_by"`
+	IsInternetGateway bool                `json:"isinternetgateway"`
+	InetNodeReq       InetNodeReq         `json:"inet_node_req"`
+	InternetGwID      string              `json:"internetgw_node_id"`
 	// SelectedInternetEgressID is the internet-type egress this node uses as its exit node (empty = none).
-	SelectedInternetEgressID           string              `json:"selected_internet_egress_id"`
-	AdditionalRagIps                   []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
-	Tags                               map[TagID]struct{}  `json:"tags"`
-	IsStatic                           bool                `json:"is_static"`
-	IsUserNode                         bool                `json:"is_user_node"`
-	StaticNode                         ExtClient           `json:"static_node"`
-	Status                             schema.NodeStatus   `json:"node_status"`
-	Mutex                              *sync.Mutex         `json:"-"`
-	EgressDetails                      EgressDetails       `json:"-"`
-	PostureChecksViolations            []Violation         `json:"posture_check_violations"`
-	PostureCheckViolationSeverityLevel schema.Severity     `json:"posture_check_violation_severity_level"`
-	LastEvaluationCycleID              string              `json:"last_evaluation_cycle_id"`
-	LastEvaluatedAt                    time.Time           `json:"last_evaluated_at"`
-	Location                           string              `json:"location"` // Format: "lat,lon"
-	CountryCode                        string              `json:"country_code"`
+	SelectedInternetEgressID           string             `json:"selected_internet_egress_id"`
+	AdditionalRagIps                   []net.IP           `json:"additional_rag_ips" swaggertype:"array,number"`
+	Tags                               map[TagID]struct{} `json:"tags"`
+	IsStatic                           bool               `json:"is_static"`
+	IsUserNode                         bool               `json:"is_user_node"`
+	StaticNode                         ExtClient          `json:"static_node"`
+	Status                             schema.NodeStatus  `json:"node_status"`
+	Mutex                              *sync.Mutex        `json:"-"`
+	EgressDetails                      EgressDetails      `json:"-"`
+	PostureChecksViolations            []Violation        `json:"posture_check_violations"`
+	PostureCheckViolationSeverityLevel schema.Severity    `json:"posture_check_violation_severity_level"`
+	LastEvaluationCycleID              string             `json:"last_evaluation_cycle_id"`
+	LastEvaluatedAt                    time.Time          `json:"last_evaluated_at"`
+	Location                           string             `json:"location"` // Format: "lat,lon"
+	CountryCode                        string             `json:"country_code"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
@@ -318,7 +318,7 @@ func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.ID = _node.ID
 	n.TenantID = _node.TenantID
 	n.HostID = _node.HostID
-	n.Host = NewApiHostFromSchemaHost(_node.Host)
+	n.Host = NewApiHostFromSchemaHost(_node.Host, false)
 	n.NetworkID = _node.NetworkID
 	n.Address = _node.Address
 	n.Address6 = _node.Address6

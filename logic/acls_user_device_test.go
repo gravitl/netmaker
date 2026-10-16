@@ -84,11 +84,11 @@ func TestIsNodeAllowedToCommunicateWithAllRsrcs_UserDeviceDenied(t *testing.T) {
 // its user policy still matched the rule granting the full egress range.
 func TestGetEgressRulesForNode_AllResourcesSrcExcludesUserDevice(t *testing.T) {
 	originalGetEgressByNetwork := getEgressByNetwork
-	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
 	originalGetTagMap := GetTagMapWithNodesByNetwork
 	t.Cleanup(func() {
 		getEgressByNetwork = originalGetEgressByNetwork
-		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
 		GetTagMapWithNodesByNetwork = originalGetTagMap
 	})
 
@@ -132,7 +132,7 @@ func TestGetEgressRulesForNode_AllResourcesSrcExcludesUserDevice(t *testing.T) {
 			Nodes:   datatypes.JSONMap{targetID.String(): json.Number("100")},
 		}}, nil
 	}
-	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
 		return []models.Acl{{
 			ID:               "all-rsrcs-to-sig",
 			Enabled:          true,

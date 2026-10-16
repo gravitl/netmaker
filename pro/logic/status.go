@@ -49,8 +49,10 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		if !defaultEnabledPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, ingNode, false)
 			if !allowed {
-				node.Status = schema.OnlineSt
-				node.StaticNode.Status = schema.OnlineSt
+				// ACL deny is not a handshake. The metrics check below is what
+				// distinguishes online from offline, so leave the client unknown.
+				node.Status = schema.UnKnown
+				node.StaticNode.Status = schema.UnKnown
 				return
 			}
 		}

@@ -41,7 +41,7 @@ var userRoleListCmd = &cobra.Command{
 			}
 			table.SetHeader(h)
 			for _, d := range data {
-				e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
+				e := []string{d.Slug.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
 				if !platformRoles {
 					e = append(e, d.NetworkID.String())
 				}
@@ -80,7 +80,7 @@ var userRoleGetCmd = &cobra.Command{
 				h = append(h, "Network")
 			}
 			table.SetHeader(h)
-			e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
+			e := []string{d.Slug.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.TenantGlobalAccess)}
 			if !platformRoles {
 				e = append(e, d.NetworkID.String())
 			}

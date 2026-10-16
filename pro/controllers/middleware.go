@@ -17,6 +17,7 @@ var limitedApis = map[string]struct{}{
 	"/api/users/adm/authenticate": {},
 	"/api/v1/auth/discover":       {},
 	"/api/v1/auth/methods":        {},
+	"/api/v1/orgs/sole/owner":     {},
 }
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {

@@ -12,25 +12,9 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func getStaticUserNodesByNetwork(ctx context.Context, network schema.NetworkID) (staticNode []models.Node) {
-	extClients, err := logic.GetAllExtClients(ctx)
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := models.ConvertToStaticNode(extI)
-				staticNode = append(staticNode, n)
-			}
-		}
-	}
-	return
-}
-
 func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if !userNodeI.StaticNode.Enabled {
 			continue
@@ -90,6 +74,38 @@ func GetFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 							AllowedPorts:    policy.Port,
 							Allow:           true,
 						})
+					}
+
+					// Static extclients may advertise ExtraAllowedIPs (egress ranges).
+					// AllowedIPs on the user client already include them via
+					// GetEgressRangesOnNetwork; without matching forward rules here the
+					// ingress gateway drops user -> ExtraAllowedIP traffic even when the
+					// user policy grants access to that extclient (device policies already
+					// emit these via GetFwRulesForNodeAndPeerOnGw).
+					if len(peer.StaticNode.ExtraAllowedIPs) > 0 {
+						for _, additionalAllowedIPNet := range peer.StaticNode.ExtraAllowedIPs {
+							_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
+							if err != nil {
+								continue
+							}
+							if ipNet.IP.To4() != nil && userNodeI.StaticNode.Address != "" {
+								rules = append(rules, models.FwRule{
+									SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+									DstIP:           *ipNet,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							} else if userNodeI.StaticNode.Address6 != "" {
+								rules = append(rules, models.FwRule{
+									SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+									DstIP:           *ipNet,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						}
 					}
 
 					// add egress ranges
@@ -566,6 +582,13 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
+	if acl.IsManagedAccess() {
+		if err := logic.ValidateManagedAccessAcl(acl); err != nil {
+			return err
+		}
+	} else if err := logic.ValidateNetworkAccessAcl(acl); err != nil {
+		return err
+	}
 	//check if src and dst are valid
 	if acl.AllowedDirection != models.TrafficDirectionBi &&
 		acl.AllowedDirection != models.TrafficDirectionUni {
@@ -622,19 +645,27 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 	return nil
 }
 
-// listPoliciesOfUser - lists all user acl policies applied to user in an network
-func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.NetworkID) []models.Acl {
+// listNetworkAccessPoliciesOfUser - lists all network access user acl policies applied to user in an network
+func listNetworkAccessPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.NetworkID) []models.Acl {
 	allAcls := logic.ListAcls(ctx)
 	var userAcls []models.Acl
 	if _, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]; ok {
-		user.UserGroups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+		user.UserGroups.Data()[GetDefaultNetworkAdminGroupSlug(netID)] = struct{}{}
 	}
 	if _, ok := user.UserGroups.Data()[globalNetworksUserGroupID]; ok {
-		user.UserGroups.Data()[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
+		user.UserGroups.Data()[GetDefaultNetworkUserGroupSlug(netID)] = struct{}{}
 	}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
+			// TODO(nm-387): srcMap["*"] (a custom, non-default user-policy
+			// with a literal Src wildcard, e.g. {"id":"user","value":"*"})
+			// is never checked here, so such a policy silently matches no
+			// one - only the dedicated Default-policy mechanism
+			// (GetDefaultPolicy, checked separately in
+			// IsUserAllowedToCommunicate before this function is even
+			// called) currently grants "all users" access. Confirmed via
+			// the Managed SSH resolver hitting the identical gap.
 			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
 				continue
@@ -651,12 +682,12 @@ func listPoliciesOfUser(ctx context.Context, user *schema.User, netID schema.Net
 	return userAcls
 }
 
-// listUserPolicies - lists all user policies in a network
-func listUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
+// listNetworkAccessUserPolicies - lists all network access user policies in a network
+func listNetworkAccessUserPolicies(ctx context.Context, netID schema.NetworkID) []models.Acl {
 	allAcls := logic.ListAcls(ctx)
 	deviceAcls := []models.Acl{}
 	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			deviceAcls = append(deviceAcls, acl)
 		}
 	}
@@ -718,7 +749,7 @@ func IsUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 		return false, []models.Acl{}
 	}
 	allowedPolicies := []models.Acl{}
-	policies := listPoliciesOfUser(ctx, user, schema.NetworkID(peer.Network))
+	policies := listNetworkAccessPoliciesOfUser(ctx, user, schema.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -873,7 +904,7 @@ func IsPeerAllowed(ctx context.Context, node, peer models.Node, checkDefaultPoli
 
 	}
 	// list device policies
-	policies := logic.ListDevicePolicies(ctx, schema.NetworkID(peer.Network))
+	policies := logic.ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {
@@ -940,7 +971,7 @@ func RemoveUserFromAclPolicy(ctx context.Context, userName string) {
 
 // UpdateDeviceTag - updates device tag on acl policies
 func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schema.NetworkID) {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
@@ -966,7 +997,7 @@ func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schem
 }
 
 func CheckIfTagAsActivePolicy(ctx context.Context, tagID models.TagID, netID schema.NetworkID) bool {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	for _, acl := range acls {
 		for _, srcTagI := range acl.Src {
 			if srcTagI.ID == models.NodeTagID {
@@ -988,7 +1019,7 @@ func CheckIfTagAsActivePolicy(ctx context.Context, tagID models.TagID, netID sch
 
 // RemoveDeviceTagFromAclPolicies - remove device tag from acl policies
 func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, netID schema.NetworkID) error {
-	acls := logic.ListDevicePolicies(ctx, netID)
+	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	update := false
 	for _, acl := range acls {
 		for i := len(acl.Src) - 1; i >= 0; i-- {
@@ -1016,10 +1047,10 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 
 func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
-	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
+	acls := listNetworkAccessUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags["*"] = struct{}{}
 	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(ctx)
@@ -1373,10 +1404,10 @@ func appendUserExtClientRemoteEgressFwdRules(
 
 func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := getStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
+	userNodes := logic.GetStaticUserNodesByNetwork(ctx, schema.NetworkID(targetnode.Network))
 	userGrpMap := userGroupsForNetwork(ctx, schema.NetworkID(targetnode.Network))
 	allowedUsers := make(map[string][]models.Acl)
-	acls := listUserPolicies(ctx, schema.NetworkID(targetnode.Network))
+	acls := listNetworkAccessUserPolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()

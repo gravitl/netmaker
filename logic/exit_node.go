@@ -189,8 +189,8 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	if err != nil {
 		return nil, err
 	}
-	acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
-	userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
+	userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 
@@ -256,8 +256,8 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		if !e.Status || e.Network != networkID || !IsEgressInternetGateway(*e) {
 			return nil, errors.New("egress is not an active internet exit node in this network")
 		}
-		acls := ListDevicePolicies(ctx, schema.NetworkID(networkID))
-		userAcls := ListUserPolicies(ctx, schema.NetworkID(networkID))
+		acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
+		userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
 		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
 		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
 		if !deviceMaySelectExitNode(user, host, node, e, acls, userAcls,

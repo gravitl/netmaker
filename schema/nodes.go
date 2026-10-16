@@ -233,12 +233,13 @@ func (n *Node) UpsertViolations(ctx context.Context, violations []PostureCheckVi
 			if violations[i].TenantID == "" {
 				violations[i].TenantID = n.TenantID
 			}
-			if violations[i].NodeID == "" {
-				violations[i].NodeID = n.ID
+			if violations[i].SubjectID == "" {
+				violations[i].SubjectID = n.ID
 			}
 			if violations[i].EvaluationCycleID == "" {
 				violations[i].EvaluationCycleID = cycleID
 			}
+			violations[i].SubjectType = PostureCheckSubjectTypeDevice
 		}
 		if err := tx.Model(&PostureCheckViolation{}).Create(&violations).Error; err != nil {
 			return err
