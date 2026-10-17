@@ -52,7 +52,6 @@ func Run() {
 	syncUsers()
 	migrateEgressDomains()
 	migrateInternetEgress()
-	migrateBypassEgressRoutesDefault()
 	updateNetworks()
 	migrateNameservers()
 	migrateEgressNatMode()

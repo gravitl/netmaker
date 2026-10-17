@@ -52,7 +52,9 @@ type Egress struct {
 	// Netmaker Egress CIDRs are retained as direct peers and take precedence over
 	// this exit via longest-prefix match. When false, IGW clients stay fully
 	// relayed through the exit (legacy hairpin behavior).
-	BypassEgressRoutes bool `gorm:"column:bypass_egress_routes;default:true" json:"bypass_egress_routes"`
+	// The API default (true when omitted) is applied in ResolveBypassEgressRoutesForCreate.
+	// A gorm default tag would make Create omit false, and the column default would store true.
+	BypassEgressRoutes bool `gorm:"column:bypass_egress_routes" json:"bypass_egress_routes"`
 	// PresetID is the catalog id when this egress was created from a preset (empty if custom).
 	PresetID  string    `gorm:"preset_id" json:"preset_id"`
 	Status    bool      `gorm:"status" json:"status"`

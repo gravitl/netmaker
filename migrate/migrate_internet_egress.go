@@ -16,14 +16,14 @@ import (
 )
 
 // migrateInternetEgress:
-// 1) backfills Type=internet on egresses with Range="*"
-// 2) creates internet-type egress resources for legacy IsInternetGateway nodes
-// 3) clears obsolete central relayed_igw_clients rosters on IGW routing nodes
-// 4) sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
-// 5) sets SelectedInternetEgressID on ext clients attached to those inet gws
-//    (enables "use gateway as exit node"); recovers configs if a prior run cleared
-//    IsInternetGateway before stamping selections
-// 6) clears IsInternetGateway only on routing nodes whose ext-client migration succeeded
+//  1. backfills Type=internet on egresses with Range="*"
+//  2. creates internet-type egress resources for legacy IsInternetGateway nodes
+//  3. clears obsolete central relayed_igw_clients rosters on IGW routing nodes
+//  4. sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
+//  5. sets SelectedInternetEgressID on ext clients attached to those inet gws
+//     (enables "use gateway as exit node"); recovers configs if a prior run cleared
+//     IsInternetGateway before stamping selections
+//  6. clears IsInternetGateway only on routing nodes whose ext-client migration succeeded
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -104,19 +104,19 @@ func migrateInternetEgress() {
 }
 
 // migrateBypassEgressRoutesDefault backfills bypass_egress_routes=true for internet
-// egress rows after the column is added (existing rows otherwise stay false).
-func migrateBypassEgressRoutesDefault() {
-	ctx := db.WithContext(context.TODO())
+// egress rows that predate the column (those rows stay false). It runs once inside
+// the v1.8.0 migration job. A later admin false is left alone.
+func migrateBypassEgressRoutesDefault(ctx context.Context) error {
 	res := db.FromContext(ctx).Table((&schema.Egress{}).Table()).
 		Where("bypass_egress_routes = ? AND egress_type = ?", false, schema.EgressTypeInternet).
 		Update("bypass_egress_routes", true)
 	if res.Error != nil {
-		logger.Log(0, "migration: failed to backfill bypass_egress_routes:", res.Error.Error())
-		return
+		return fmt.Errorf("backfill bypass_egress_routes: %w", res.Error)
 	}
 	if res.RowsAffected > 0 {
 		logger.Log(1, fmt.Sprintf("migration: set bypass_egress_routes=true on %d internet egress(es)", res.RowsAffected))
 	}
+	return nil
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {

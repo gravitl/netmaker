@@ -107,7 +107,7 @@ func TestShouldRetainPeerDespiteRelay_ExitPeerAlways(t *testing.T) {
 			Network: "testnet",
 		},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false, false, nil))
+	assert.True(t, shouldRetainPeerDespiteRelay(client, exit, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
@@ -133,7 +133,7 @@ func TestShouldRetainPeerDespiteRelay_NoBypassWithoutSelection(t *testing.T) {
 		IsEgressGateway:     true,
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, false, nil),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, false, nil),
 		"without selected internet egress, specific egress peers must not be retained via bypass")
 }
 
@@ -156,7 +156,7 @@ func TestShouldRetainPeerDespiteRelay_NonIGWRelayedStillRemoves(t *testing.T) {
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(meshPeer))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false, false, nil))
+	assert.False(t, shouldRetainPeerDespiteRelay(client, meshPeer, false, false, nil))
 }
 
 func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing.T) {
@@ -187,7 +187,7 @@ func TestShouldRetainPeerDespiteRelay_SpecificEgressKeepsBypassClient(t *testing
 		EgressGatewayRanges: []string{"10.20.0.0/16"},
 	}
 	require.True(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false, false, nil),
+	assert.False(t, shouldRetainPeerDespiteRelay(site, client, false, false, nil),
 		"without resolvable BypassEgressRoutes on client, GW must not retain")
 }
 
@@ -374,8 +374,8 @@ func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T
 		},
 	}
 	require.False(t, PeerAdvertisesSpecificEgress(site))
-	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, true, false, nil),
-		"unfiltered specific egress still requires BypassEgressRoutes on the selected internet egress")
+	assert.False(t, shouldRetainPeerDespiteRelay(client, site, false, false, nil),
+		"specific egress cleared by access filtering must not be retained")
 }
 
 func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
@@ -407,17 +407,17 @@ func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
 		selectedExitID.String(): {},
 		otherExitID.String():    {},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, selectedExit, false, false, false, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(client, selectedExit, false, false, exitIDs),
 		"selected exit must stay as a direct peer even without PeerAllowed")
-	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, client, false, false, false, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, client, false, false, exitIDs),
 		"selected exit must keep its client as a direct peer")
-	assert.False(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, false, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, exitIDs),
 		"ACL-denied alternate exits must not be retained")
-	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, false, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, exitIDs),
 		"exit must not keep unrelated clients without ACL")
-	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, true, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, true, exitIDs),
 		"ACL-allowed alternate exits stay as separate direct peers for exit clients")
-	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, true, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, true, exitIDs),
 		"ACL-allowed exit keeps exit clients as direct peers")
 }
 
@@ -441,9 +441,9 @@ func TestShouldRetainPeerDespiteRelay_RelayedNonExitDoesNotKeepExitDirect(t *tes
 		},
 	}
 	exitIDs := map[string]struct{}{exitID.String(): {}}
-	assert.False(t, shouldRetainPeerDespiteRelay(node, exit, false, false, true, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(node, exit, false, true, exitIDs),
 		"relayed non-exit clients must not keep internet exits as separate peers")
-	assert.False(t, shouldRetainPeerDespiteRelay(exit, node, false, false, true, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(exit, node, false, true, exitIDs),
 		"exit must not retain unrelated relayed non-exit clients as direct peers")
 }
 
@@ -471,7 +471,7 @@ func TestShouldRetainPeerDespiteRelay_RelayedUserDeviceDropsOtherGateways(t *tes
 			Network: "testnet",
 		},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, true, nil),
 		"relayed user device must not keep other gateways as direct peers")
 
 	relayedDest := &models.Node{
@@ -482,7 +482,7 @@ func TestShouldRetainPeerDespiteRelay_RelayedUserDeviceDropsOtherGateways(t *tes
 	}
 	relayedDest.IsRelayed = true
 	relayedDest.RelayedBy = gwID.String()
-	assert.False(t, shouldRetainPeerDespiteRelay(userDev, relayedDest, false, false, true, nil),
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, relayedDest, false, true, nil),
 		"user device must not force-direct a relayed destination")
 }
 
@@ -509,7 +509,7 @@ func TestShouldRetainPeerDespiteRelay_UserDeviceOnExitDoesNotKeepPlainGateway(t 
 			Network: "testnet",
 		},
 	}
-	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, false, true, nil),
+	assert.False(t, shouldRetainPeerDespiteRelay(userDev, gw, false, true, nil),
 		"exit client must not keep a plain gateway as a direct peer; mesh goes via exit")
 
 	exit := &models.Node{
@@ -519,7 +519,7 @@ func TestShouldRetainPeerDespiteRelay_UserDeviceOnExitDoesNotKeepPlainGateway(t 
 		},
 	}
 	exitIDs := map[string]struct{}{exitID.String(): {}}
-	assert.True(t, shouldRetainPeerDespiteRelay(userDev, exit, false, false, true, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(userDev, exit, false, true, exitIDs),
 		"exit client keeps the exit as a direct peer")
 }
 

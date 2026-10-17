@@ -198,6 +198,11 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
+	// A pending join has no node. Publishing it as a deletion fans a peer update out to every host.
+	if node == nil {
+		logic.ReturnSuccessResponse(w, r, "left network")
+		return
+	}
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
