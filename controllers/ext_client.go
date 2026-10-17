@@ -270,6 +270,15 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := clients[:0]
+		for _, client := range clients {
+			if logic.APIKeyHasNetworkAccess(r.Context(), client.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, client)
+			}
+		}
+		clients = filtered
+	}
 	logic.AttachExtClientViolations(r.Context(), clients)
 	for i := range clients {
 		clients[i].PrivateKey = ""

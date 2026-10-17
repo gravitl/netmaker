@@ -50,9 +50,11 @@ type ApiHost struct {
 	Location                string     `json:"location"`
 	CountryCode             string     `json:"country_code"`
 	// Device-matching identifiers reported by netclient; read-only via the API.
-	EntraDeviceID string                 `json:"entra_device_id" yaml:"entra_device_id"`
-	SerialNumber  string                 `json:"serial_number"   yaml:"serial_number"`
-	HardwareUUID  string                 `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	EntraDeviceID string `json:"entra_device_id" yaml:"entra_device_id"`
+	SerialNumber  string `json:"serial_number"   yaml:"serial_number"`
+	HardwareUUID  string `json:"hardware_uuid"   yaml:"hardware_uuid"`
+	// OwnerUsername is set when a user registered this host (desktop/device flow).
+	OwnerUsername string                 `json:"owner_username" yaml:"owner_username"`
 	NetworkNodes  map[string]ApiHostNode `json:"network_nodes" yaml:"network_nodes"`
 }
 
@@ -125,6 +127,7 @@ func NewApiHostFromSchemaHost(h *schema.Host, populateNetworkNodes bool) *ApiHos
 	a.EntraDeviceID = h.EntraDeviceID
 	a.SerialNumber = h.SerialNumber
 	a.HardwareUUID = h.HardwareUUID
+	a.OwnerUsername = h.OwnerUsername
 	if populateNetworkNodes {
 		a.NetworkNodes = getHostNetworkNodes(h)
 	}
@@ -212,6 +215,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *schema.Host) *schema.Host 
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.EnableFlowLogs = a.EnableFlowLogs
+	h.OwnerUsername = currentHost.OwnerUsername
 	h.ManageSSH = a.ManageSSH
 	h.TcpProxyEnabled = a.TcpProxyEnabled
 	h.TcpProxyListenPort = a.TcpProxyListenPort

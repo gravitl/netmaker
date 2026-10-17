@@ -53,7 +53,8 @@ func enrichDeviceNetworksWithJIT(ctx context.Context, user *schema.User, accessi
 		if js.Request != nil {
 			dn.JITRequest = js.Request
 		}
-		if js.JitAppliesToUser && !js.HasAccess && !dn.Joined {
+		// Joined-but-disconnected after JIT expiry still needs a new grant.
+		if js.JitAppliesToUser && !js.HasAccess && (!dn.Joined || !dn.Connected) {
 			dn.Status = models.DeviceNetworkStatusJITRequired
 			dn.HasJITAccess = false
 		}

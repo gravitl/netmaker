@@ -83,6 +83,10 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), req.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	if err := logic.ValidateNameserverReq(r.Context(), &req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -93,6 +97,12 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	if req.Nodes == nil {
 		req.Nodes = make(datatypes.JSONMap)
 	}
+	if req.Users == nil {
+		req.Users = make(datatypes.JSONMap)
+	}
+	if req.UserGroups == nil {
+		req.UserGroups = make(datatypes.JSONMap)
+	}
 	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
 		req.Servers = gNs.IPs
 	}
@@ -100,6 +110,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		req.Tags = datatypes.JSONMap{
 			"*": struct{}{},
 		}
+		req.Users = make(datatypes.JSONMap)
+		req.UserGroups = make(datatypes.JSONMap)
 	}
 	if req.MatchAll {
 		req.Domains = []schema.NameserverDomain{
@@ -128,6 +140,8 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		Domains:     req.Domains,
 		Tags:        req.Tags,
 		Nodes:       req.Nodes,
+		Users:       req.Users,
+		UserGroups:  req.UserGroups,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
@@ -213,7 +227,6 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	if err := logic.ValidateNameserverReq(r.Context(), &updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -234,11 +247,25 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	if updateNs.Nodes == nil {
 		updateNs.Nodes = make(datatypes.JSONMap)
 	}
+	if updateNs.Users == nil || !servercfg.IsPro {
+		updateNs.Users = make(datatypes.JSONMap)
+	}
+	if updateNs.UserGroups == nil || !servercfg.IsPro {
+		updateNs.UserGroups = make(datatypes.JSONMap)
+	}
 
 	ns := schema.Nameserver{ID: updateNs.ID}
 	err = ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if updateNs.NetworkID != ns.NetworkID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network mismatch"), "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), ns.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	var updateStatus bool
@@ -288,6 +315,8 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Description = updateNs.Description
 		ns.Name = updateNs.Name
 		ns.Nodes = updateNs.Nodes
+		ns.Users = updateNs.Users
+		ns.UserGroups = updateNs.UserGroups
 		ns.UpdatedAt = time.Now().UTC()
 
 		err = ns.Update(r.Context())
@@ -343,6 +372,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 	err := ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), ns.NetworkID, schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	if ns.Default {
@@ -419,6 +452,15 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := dns[:0]
+		for _, entry := range dns {
+			if logic.APIKeyHasNetworkAccess(r.Context(), entry.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, entry)
+			}
+		}
+		dns = filtered
 	}
 	logic.SortDNSEntrys(dns[:])
 	w.WriteHeader(http.StatusOK)

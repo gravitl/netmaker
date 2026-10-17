@@ -5,7 +5,9 @@
 // Falls back to SQLite if unset or unrecognised.
 //
 //	DATABASE=sqlite   → json_extract / json_set / json_remove / json_patch
-//	DATABASE=postgres → ->> / jsonb_set / #- / ||
+//	DATABASE=postgres → ->> / jsonb_set / - / ||
+//
+// JSON keys are always passed as bind parameters, never interpolated.
 package expr
 
 import (
@@ -53,17 +55,27 @@ func sqlitePath(key string) string {
 	return fmt.Sprintf(`$."%s"`, key)
 }
 
+// keyVar returns the bind value addressing key: the key itself on Postgres,
+// a JSONPath on SQLite. Keys are always bound, never interpolated, since they
+// can be user-controlled (e.g. usernames that are email addresses).
+func keyVar(d Dialect, key string) interface{} {
+	if d == DialectPostgres {
+		return key
+	}
+	return sqlitePath(key)
+}
+
 // scalarSQL returns the SQL fragment that extracts a scalar text value from
-// a JSON column at key.
+// a JSON column at a key bound by the single placeholder (see keyVar).
 //
-//	SQLite:   json_extract(col, '$."key"')
-//	Postgres: col->>'key'
-func scalarSQL(d Dialect, col, key string) string {
+//	SQLite:   json_extract(col, ?)
+//	Postgres: col->>?::text
+func scalarSQL(d Dialect, col string) string {
 	switch d {
 	case DialectPostgres:
-		return fmt.Sprintf("%s->>'%s'", col, key)
+		return fmt.Sprintf("%s->>?::text", col)
 	default:
-		return fmt.Sprintf("json_extract(%s, '%s')", col, sqlitePath(key))
+		return fmt.Sprintf("json_extract(%s, ?)", col)
 	}
 }
 
@@ -75,16 +87,16 @@ func scalarSQL(d Dialect, col, key string) string {
 //
 //	db.Model(&u).UpdateColumn("meta", expr.Set("meta", "theme", "dark"))
 func Set(col, key string, value interface{}) clause.Expr {
-	switch CurrentDialect() {
+	switch d := CurrentDialect(); d {
 	case DialectPostgres:
 		return clause.Expr{
-			SQL:  fmt.Sprintf("jsonb_set(%s, '{%s}', to_jsonb(?::text))", col, key),
-			Vars: []interface{}{value},
+			SQL:  fmt.Sprintf("jsonb_set(%s, ARRAY[?::text], to_jsonb(?::text))", col),
+			Vars: []interface{}{keyVar(d, key), value},
 		}
 	default:
 		return clause.Expr{
-			SQL:  fmt.Sprintf("json_set(%s, '%s', ?)", col, sqlitePath(key)),
-			Vars: []interface{}{value},
+			SQL:  fmt.Sprintf("json_set(%s, ?, ?)", col),
+			Vars: []interface{}{keyVar(d, key), value},
 		}
 	}
 }
@@ -94,21 +106,25 @@ func Set(col, key string, value interface{}) clause.Expr {
 //	db.Model(&u).UpdateColumn("meta", expr.Remove("meta", "theme"))
 //	db.Model(&u).UpdateColumn("meta", expr.Remove("meta", "theme", "lang", "score"))
 func Remove(col string, keys ...string) clause.Expr {
-	switch CurrentDialect() {
+	d := CurrentDialect()
+	vars := make([]interface{}, len(keys))
+	for i, k := range keys {
+		vars[i] = keyVar(d, k)
+	}
+	switch d {
 	case DialectPostgres:
-		// col #- '{a}' #- '{b}' #- '{c}'
+		// col - ?::text - ?::text (removes top-level keys)
 		s := col
-		for _, k := range keys {
-			s = fmt.Sprintf("%s #- '{%s}'", s, k)
+		for range keys {
+			s += " - ?::text"
 		}
-		return clause.Expr{SQL: s}
+		return clause.Expr{SQL: s, Vars: vars}
 	default:
-		// json_remove(col, '$."a"', '$."b"', '$."c"')
-		paths := make([]string, len(keys))
-		for i, k := range keys {
-			paths[i] = fmt.Sprintf("'%s'", sqlitePath(k))
+		// json_remove(col, ?, ?)
+		return clause.Expr{
+			SQL:  fmt.Sprintf("json_remove(%s, %s)", col, strings.TrimSuffix(strings.Repeat("?, ", len(keys)), ", ")),
+			Vars: vars,
 		}
-		return clause.Expr{SQL: fmt.Sprintf("json_remove(%s, %s)", col, strings.Join(paths, ", "))}
 	}
 }
 
@@ -169,7 +185,7 @@ func Merge(col string, patch map[string]interface{}) clause.Expr {
 //	db.Where(expr.Where("meta", "rating", expr.Lte, 4.5)).Find(&rows)
 func Where(col, key string, op Op, value interface{}) clause.Expr {
 	d := CurrentDialect()
-	raw := scalarSQL(d, col, key)
+	raw := scalarSQL(d, col)
 
 	if op == Gt || op == Lt || op == Gte || op == Lte {
 		switch d {
@@ -182,7 +198,7 @@ func Where(col, key string, op Op, value interface{}) clause.Expr {
 
 	return clause.Expr{
 		SQL:  fmt.Sprintf("%s %s ?", raw, op),
-		Vars: []interface{}{value},
+		Vars: []interface{}{keyVar(d, key), value},
 	}
 }
 
@@ -190,14 +206,31 @@ func Where(col, key string, op Op, value interface{}) clause.Expr {
 //
 //	db.Where(expr.WhereNull("meta", "deleted_at")).Find(&rows)
 func WhereNull(col, key string) clause.Expr {
-	return clause.Expr{SQL: fmt.Sprintf("%s IS NULL", scalarSQL(CurrentDialect(), col, key))}
+	d := CurrentDialect()
+	return clause.Expr{SQL: fmt.Sprintf("%s IS NULL", scalarSQL(d, col)), Vars: []interface{}{keyVar(d, key)}}
 }
 
 // WhereNotNull matches rows where key exists and is not null.
 //
 //	db.Where(expr.WhereNotNull("meta", "verified")).Find(&rows)
 func WhereNotNull(col, key string) clause.Expr {
-	return clause.Expr{SQL: fmt.Sprintf("%s IS NOT NULL", scalarSQL(CurrentDialect(), col, key))}
+	d := CurrentDialect()
+	return clause.Expr{SQL: fmt.Sprintf("%s IS NOT NULL", scalarSQL(d, col)), Vars: []interface{}{keyVar(d, key)}}
+}
+
+// WhereHasKey matches rows where key is present in col, whatever its value
+// (including JSON null).
+//
+//	db.Where(expr.WhereHasKey("meta", "theme")).Find(&rows)
+func WhereHasKey(col, key string) clause.Expr {
+	switch d := CurrentDialect(); d {
+	case DialectPostgres:
+		// jsonb_exists is the function form of the `?` operator, which would
+		// otherwise clash with GORM's placeholder.
+		return clause.Expr{SQL: fmt.Sprintf("jsonb_exists(%s, ?::text)", col), Vars: []interface{}{keyVar(d, key)}}
+	default:
+		return clause.Expr{SQL: fmt.Sprintf("json_type(%s, ?) IS NOT NULL", col), Vars: []interface{}{keyVar(d, key)}}
+	}
 }
 
 // WhereHasValue matches rows where any entry in col has the given value.

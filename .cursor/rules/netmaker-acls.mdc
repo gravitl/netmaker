@@ -1,0 +1,153 @@
+---
+description: Netmaker ACL model — user devices vs resources, egress/exit enforcement, NM-356 constraints
+globs: logic/acls*.go,logic/peers.go,logic/relay.go,logic/bypass_egress_routes*.go,logic/user_owned_device*.go,logic/exit_node*.go,logic/egress.go,pro/logic/acls.go,pro/logic/user_device_acls*.go,pro/logic/posture_check*.go,pro/initialize.go,controllers/acls.go,controllers/device.go,controllers/egress.go
+alwaysApply: false
+---
+
+# Netmaker ACLs — agent context (NM-356 / user devices)
+
+Use this when changing ACL, peer firewall rules, egress access, or exit-node selection.
+Goal: keep **host-backed user devices** governed by **user policies**, never by **resource/device policies** (including All Resources).
+
+## Two subject kinds (do not merge casually)
+
+| Kind | Policy type | Default | Subjects | Examples |
+|------|-------------|---------|----------|----------|
+| Resources / devices | `DevicePolicy` (`device-policy`) | **All Resources** (`{net}.all-nodes`) | nodes, tags, egresses | servers, gateways, routing nodes |
+| Users | `UserPolicy` (`user-policy`, Pro) | **All Users** (`{net}.all-users`) | users, user groups | RAC ExtClients + host-backed user devices |
+
+- **All Resources (`tag:*`)** = resources only. Must **never** include user devices.
+- **All Users (`user:*`)** = user subjects only. Do **not** merge the wildcards.
+- Prefer keeping two policy types; if redesigning later, keep typed subjects (`user` / `usergroup` / `tag` / `node` / `egress` / IP), not one bag that treats laptops as mesh resources.
+
+## Two user-device implementations (keep both)
+
+1. **Legacy RAC** — `ExtClient` with `RemoteAccessClientID`, modeled as static user nodes (`IsStatic` + `IsUserNode`).
+2. **Host-backed user device (NM-356)** — real WireGuard node on a host with `schema.Host.OwnerUsername`.
+   - Detect: `IsUserOwnedDevice(n)` → `!IsStatic && !IsUserNode && NodeOwnerUsername(n) != ""`.
+   - Ownership: `Host.OwnerUsername` → often copied to `node.OwnerID` via `attachUserOwnedDeviceMetadata` (API/preload). If Host is not preloaded, set `OwnerID` from the host you already have (`ensureUserDeviceOwnerID` on peer-update paths that need `PeerAllowed`).
+   - **Never** convert user devices into fake static/RAC nodes for ACL.
+   - **Never** set `IsUserNode=true` on host-backed devices (breaks posture / device ACL paths).
+
+## Hard constraints (do not violate)
+
+1. **Leave RAC / static user config funcs as-is** unless the task explicitly requires RAC changes:
+   - `GetEgressUserRulesForNode`, `GetUserAclRulesForNode`, `GetFwRulesForUserNodesOnGw`, `getStaticUserNodesByNetwork`, etc.
+2. Host-backed device logic lives in parallel hooks / helpers:
+   - Vars in `logic/acls.go`: `GetUserDeviceAclRulesForNode`, `GetUserDeviceEgressRulesForNode`, `GetFwRulesForUserDevicesOnGw` (no-op CE; wired in `pro/initialize.go`).
+   - Impl: `pro/logic/user_device_acls.go`.
+   - Helpers: `logic/user_owned_device.go` (`NodesForAllResourcesTag`, `ListUserDevicesByNetwork`, `UserDeviceSrcIPs`, `NetworkHasUserDevices`, `PeerAllowed`, `NodeHasEgressAccess`, …).
+3. Minimal diffs — no speculative refactors of the whole ACL engine.
+4. User devices are **not peers with each other** (`UserDevicesAreNotPeers`).
+5. User-device hosts **skip** local FwUpdate ACL calc (`skipPeerUpdateAclCalc` / `IsUserOwnedHost`) — user→resource rules are emitted on **infra / egress / gateway** peer updates.
+
+## Enforcement split (routing vs firewall)
+
+- **WireGuard AllowedIPs** may still advertise full egress CIDRs (routing).
+- **IP restrictions** (e.g. allow only `10.104.0.1/32`) are enforced by **firewall rules** on the routing/egress/ingress node (`FwUpdate`), same idea as RAC.
+- Empty `AclRule.Dst` / missing `-d` on netclient ≈ allow-everything. Never emit user-device rules with sources but no destinations (`addUserDeviceAclRule` drops those).
+- `FwUpdate.AllowAll == true` → netclient chain default ACCEPT; bypasses fine-grained rules.
+
+## Critical code paths
+
+### Peering allow
+
+- `PeerAllowed` → if either side is a user device, **only** user policies (`isAllowedViaUserOwnership` → `IsUserAllowedToCommunicate`). Resource/default device policy must not decide.
+- Tag-attached egress: when expanding `EgressID` destinations to peer IDs in `IsUserAllowedToCommunicate`, include **`e.Tags` as well as `e.Nodes`**. Routing nodes may be attached only by tag (`controllers/egress.go` can leave `Nodes` empty when tags are set). Membership helper pattern: `nodeRoutesEgress` in `pro/logic/user_device_acls.go`.
+
+### Peer update / firewall (`logic/peers.go`)
+
+- **Both defaults on** (All Resources + All Users) → AllowAll short-circuit, including when user devices exist (All Users already grants broad user access).
+- **Either default off** → full rule path: `networkAllowAll=false`, `FwUpdate.AllowAll=false`, then `GetAclRulesForNode` / egress / user-device hooks (needed for custom user-policy IP limits).
+
+### Egress forward rules (`GetEgressRulesForNode`)
+
+- Device-policy sources: enumerate node IPs via `appendNodeIPsToAclRule` / `NodesForAllResourcesTag` — **never** use the whole mesh `NetworkRange` as source (it covers user device IPs).
+- Defer hooks: RAC `GetEgressUserRulesForNode`, then host-backed `GetUserDeviceEgressRulesForNode`.
+- User-device egress rules: source = device overlay `/32` (or v6), dest = selected IPs from policy or egress range; rule id suffix `#user-device`.
+- When default **user** policy is enabled, `GetUserDeviceEgressRulesForNode` currently replaces the policy list with only that default (same pattern as RAC). Custom IP narrowing applies when All Users is **off**.
+- Internet-exit policies must emit `0.0.0.0/0` **only** on nodes that route that exit (`nodeRoutesEgress`). Never install default-route allows on unrelated site-egress gateways — netclient shows those as `anywhere` and they bypass site IP restrictions.
+
+### Site-to-site / All Resources trap
+
+- All Resources can be treated as egress↔egress and emit `#xsN` rules.
+- **Never** emit `0.0.0.0/0` or `::/0` as a **site-to-site source** (`crossSiteEgressIPNetPairs` + `isDefaultRouteIPNet`). That matches every packet and bypasses user-device `/32` rules.
+- LAN → internet (`10.x → 0.0.0.0/0`) as destination is fine.
+
+### Exit node picker / selection (`logic/exit_node.go`)
+
+- API: `/api/v1/device/networks/{network}/exit_nodes` etc. (`controllers/device.go`).
+- Use `deviceMaySelectExitNode`: for user hosts/devices, **All Resources must not** allow-all; only All Users or `DoesUserHaveAccessToEgress`.
+- Infra devices may still use All Resources for listing.
+- Peer-update side: `SuppressInternetExitIfNoACLAccess` already skips the device-default free pass for `IsUserOwnedDevice` and uses `NodeHasEgressAccess`.
+
+### Posture checks (`pro/logic/posture_check.go`)
+
+- `postureCheckAppliesToSubject`: Tags `*` (All Resources) matches **infra hosts only** (`Username == ""`). Host-backed user devices and RAC (`IsUser` / `Username` set) match via **UserGroups** (All Users), not All Resources.
+- Do not set `IsUser=true` on host-backed devices; they keep the host evaluation path (`AutoUpdate`, MDM/EDR) but still attach owner groups.
+
+### Ingress gateway FwRules / user device ↔ extclient
+
+- `GetFwRulesOnIngressGateway`: skip granting mesh range to relayed user devices under default device policy; use `GetFwRulesForUserDevicesOnGw` for user-policy-based rules.
+- **All user devices on the network**, not only `RelayedBy` — host-backed devices peer with the ingress directly (no `IngressGatewayID`).
+- User device ↔ static/tagged extclient peering: `IsUserAllowedToCommunicate` treats the **ingress** as allowed when any attached **non-RAC** extclient matches the user policy (`userAllowedToAnyExtClientOnIngress`), so AllowedIPs via that gateway work when the policy only names tags/ClientIDs.
+- User device ↔ **relayed** resource: relayed peers are not kept as direct WG peers. `PeerAllowed` must allow the **RelayedBy** when the user may reach any of its `RelayedNodes` (`userAllowedViaRelayPeer`). `RelayedAllowedIPs` for user-device viewers only includes RelayedNodes the owner may reach.
+- User device relayed from the UI (`IsRelayed`, not an internet exit client) must **not** keep other gateways as direct peers. Their overlays ride `RelayedBy` via `GetAllowedIpsForRelayed`. Retaining them duplicates AllowedIPs and leaves peers with an empty list. Exit clients only keep exits + (with BypassEgressRoutes) specific egress — other mesh goes via the exit. Peer with the relay itself via `userAllowedViaRelayPeer` when a destination is relayed and the device is not.
+- **Return path (relayed site → user device):** the relayed node does not keep the user as a direct peer. `GetAllowedIpsForRelayed` (on the RelayedBy peer) must advertise the user overlay `/32`/`/128` when `PeerAllowed` says yes. Skip under RelayedBy **only** when `canBypassForceDirectPeer` keeps that client as a direct peer of the site; a **relayed** site cannot keep the client direct — omitting them orphans return traffic (ping relay OK, ping relayed fails).
+- When an extclient is allowed, also emit FwRules for its **`ExtraAllowedIPs`** (additional CIDRs behind the client) — overlay `/32` alone is not enough. Same idea as device-policy `GetFwRulesForNodeAndPeerOnGw`.
+- Routing side (already via `GetExtPeers` / `getExtpeersExtraRoutes` + `extClientEgressAllowed` → `PeerAllowed` for user devices): ExtraAllowedIPs must appear on the ingress peer’s AllowedIPs / EgressRoutes for the user device when access is granted.
+- Leave RAC `GetFwRulesForUserNodesOnGw` alone unless the task explicitly requires RAC changes; host-backed path is `GetFwRulesForUserDevicesOnGw` in `pro/logic/user_device_acls.go`.
+
+## Defaults cheat sheet
+
+| Default on | Infra resources | User devices |
+|------------|-----------------|--------------|
+| All Resources | Broad resource access | **Must not** grant mesh/egress/exit |
+| All Users | N/A (user policies) | Broad user access (existing RAC semantics) |
+| Both | AllowAll peer path | AllowAll (no per-device rules); fine-grained rules only when a default is off |
+
+## Where to change what
+
+| Need | Touch |
+|------|--------|
+| User-device egress/input fw rules | `pro/logic/user_device_acls.go` (+ hooks already wired) |
+| Exclude user devices from `*` resource expansion | `NodesForAllResourcesTag`, `appendNodeIPsToAclRule`, `nodeMatchesAclSrc`, tag maps in CE + pro |
+| Peer AllowAll / FwUpdate gating | `logic/peers.go` + `NetworkHasUserDevices` |
+| Exit list/select ACL | `deviceMaySelectExitNode` in `logic/exit_node.go` |
+| Peer allow / ownership | `logic/user_owned_device.go`, `pro/logic/acls.go` (`IsUserAllowedToCommunicate`) |
+| Relayed AllowedIPs / return path under RelayedBy | `logic/relay.go` (`GetAllowedIpsForRelayed`, `RelayedAllowedIPs`, `canBypassForceDirectPeer`) |
+| User device ↔ tagged/static extclient + ExtraAllowedIPs | `GetFwRulesForUserDevicesOnGw`, `userAllowedToAnyExtClientOnIngress`, `extClientEgressAllowed` / `GetExtPeers` |
+| Wire hooks | `pro/initialize.go` only (assign vars; don’t duplicate impl in CE) |
+
+## Testing expectations
+
+- Targeted tests exist in `logic/acls_user_device_test.go`, `pro/logic/user_device_acls_test.go`, `pro/logic/user_device_extclient_test.go`, `logic/exit_node_test.go`.
+- Prefer small table/unit tests around helpers (drop user devices from `*`, no default-route site-to-site sources, exit picker ignores All Resources for user devices, IP-restricted user-device egress dst, user-device → tagged extclient + ExtraAllowedIPs on ingress FwRules).
+- Avoid full `TestCheckPorts` / hanging host-create suites when iterating.
+- After behavior changes that affect live firewall: verify on the **egress/routing host** `FwUpdate` (`allow_all`, `#user-device` rule `src`/`dst`, absence of `0.0.0.0/0 → egress LAN`); for extclients also check **ingress** `IngressInfo.Rules` include user-device → overlay and → ExtraAllowedIPs.
+
+## Anti-patterns (seen in NM-356)
+
+- Stuffing host-backed devices into `getStaticUserNodesByNetwork` / fake `StaticNode` for ACL.
+- Using mesh CIDR as firewall source under All Resources.
+- AllowAll / empty-Dst rules “for simplicity” when user devices exist.
+- Assuming egress routing membership is only `e.Nodes` (ignore `e.Tags`).
+- Letting All Resources drive exit-node UI or user-device egress allow-all.
+- Broad rewrites of RAC paths “while we’re here.”
+- Restricting `GetFwRulesForUserDevicesOnGw` to `RelayedBy` only (misses direct-peered user devices → extclients).
+- Allowing an extclient overlay IP but omitting its **`ExtraAllowedIPs`** on ingress FwRules / peer AllowedIPs.
+- Requiring the ingress node itself in the user-policy destination list when the policy already grants a tagged/static extclient on that ingress.
+- Removing a relayed destination as a direct peer without allowing RelayedBy for the user device (empty peer list).
+- Keeping other gateways as direct peers when the user device itself is relayed (duplicate AllowedIPs, peers left with an empty list).
+- Omitting ACL-allowed user devices from `GetAllowedIpsForRelayed` on a relayed site (user `/32` missing on RelayedBy → forward via relay works, return fails).
+- Skipping bypass clients under RelayedBy when `!canBypassForceDirectPeer` (inverted gate — orphans clients the site cannot keep direct).
+
+## Quick mental model
+
+```
+User laptop (host-backed)  --WG AllowedIPs may include full egress CIDR-->
+                              firewall on egress router MUST allow only
+                              policy-selected IPs for that user's device /32
+Infra node                 -- may use DevicePolicy / All Resources --
+RAC ExtClient              -- existing Get*User* static hooks (leave alone) --
+```

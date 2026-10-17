@@ -969,6 +969,7 @@ func addUserToNetwork(w http.ResponseWriter, r *http.Request) {
 	})
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go proLogic.RunPostureChecksForTenant(ctx)
+	go mq.PublishPeerUpdate(ctx, false)
 	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 
@@ -1039,6 +1040,10 @@ func removeUserFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go proLogic.RunPostureChecksForTenant(ctx)
+	go func() {
+		mq.PublishDeletedUserDeviceNodes(ctx, logic.DeleteUserDeviceNodesWithoutAccess(ctx, user))
+		mq.PublishPeerUpdate(ctx, false)
+	}()
 	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(user), "updated user group")
 }
 

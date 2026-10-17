@@ -113,7 +113,8 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
-		case "node is using an exit node; auto-relay is not allowed",
+		case logic.ErrUserDeviceInfrastructureRole.Error(),
+			"node is using an exit node; auto-relay is not allowed",
 			"relayed node cannot be set as autoRelay",
 			"only linux nodes are allowed to be set as autoRelay":
 			errType = logic.BadReq

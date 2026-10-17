@@ -70,6 +70,7 @@ type SubjectType string
 const (
 	UserSub            SubjectType = "USER"
 	UserAccessTokenSub SubjectType = "USER_ACCESS_TOKEN"
+	APIKeySub          SubjectType = "API_KEY"
 	DeviceSub          SubjectType = "DEVICE"
 	NodeSub            SubjectType = "NODE"
 	GatewaySub         SubjectType = "GATEWAY"

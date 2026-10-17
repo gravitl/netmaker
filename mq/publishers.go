@@ -190,9 +190,39 @@ func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, del
 	if err != nil {
 		return err
 	}
+	var delHosts []schema.Host
+	if delHost != nil {
+		delHosts = []schema.Host{*delHost}
+	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, delHost, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, delHosts, delNode, nil, false, nil); err != nil {
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		}
+	}
+	return err
+}
+
+// PublishDeletedNodesPeerUpdate publishes a single peer update to every host
+// after a batch of node deletions, instead of a full fanout per deleted node.
+// Each of deletedHosts is sent as a removed peer unless it is still a peer
+// through another node.
+func PublishDeletedNodesPeerUpdate(ctx context.Context, deletedHosts []schema.Host) error {
+	if !servercfg.IsMessageQueueBackend() || len(deletedHosts) == 0 {
+		return nil
+	}
+	hosts, err := (&schema.Host{}).ListAll(ctx)
+	if err != nil {
+		logger.Log(1, "err getting all hosts", err.Error())
+		return err
+	}
+	allNodes, err := logic.GetAllNodes(ctx)
+	if err != nil {
+		return err
+	}
+	for _, host := range hosts {
+		host := host
+		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, deletedHosts, nil, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -227,11 +257,11 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNodes []models.Node, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, allNodes, deletedHost, deletedNode, deletedClients)
+	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, allNodes, deletedHosts, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
@@ -249,7 +279,7 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
-	if deletedNode == nil && len(deletedClients) == 0 {
+	if deletedNode == nil && len(deletedClients) == 0 && len(deletedHosts) == 0 {
 		logic.StoreHostPeerUpdate(ctx, host.ID.String(), peerUpdate)
 	}
 	data, err := json.Marshal(&peerUpdate)
@@ -368,15 +398,22 @@ func ServerStartNotify() error {
 	return nil
 }
 
+// publishNodeDeleted tells the node itself that it has been deleted.
+func publishNodeDeleted(node models.Node) {
+	node.PendingDelete = true
+	node.Action = schema.NODE_DELETE
+	if err := NodeUpdate(&node); err != nil {
+		slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+	}
+}
+
 // PublishMqUpdatesForDeletedNode - published all the required updates for deleted host and node
 func PublishMqUpdatesForDeletedNode(ctx context.Context, delHost *schema.Host, node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
 	node.Action = schema.NODE_DELETE
 	if sendNodeUpdate {
-		if err := NodeUpdate(&node); err != nil {
-			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-		}
+		publishNodeDeleted(node)
 	}
 	if err := PublishDeletedNodePeerUpdate(ctx, delHost, &node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
@@ -549,4 +586,75 @@ func PublishIntegrationDelete(id string) error {
 	}
 
 	return nil
+}
+
+// PublishDisconnectedUserDeviceNodes notifies peers that user device nodes are
+// offline (JIT ended) and asks each device to pull its new state. Nodes remain enrolled.
+func PublishDisconnectedUserDeviceNodes(ctx context.Context, disconnected []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	for i := range disconnected {
+		d := disconnected[i]
+		if err := NodeUpdate(&d.Node); err != nil {
+			slog.Error("failed to publish node update for disconnected user device",
+				"node", d.Node.ID.String(), "error", err)
+		}
+		go logic.SetPeerMetricsDisconnected(ctx, d.Node.ID.String())
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from disconnected user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	if err := PublishPeerUpdate(ctx, false); err != nil {
+		slog.Error("failed to publish peer update for disconnected user devices", "error", err)
+	}
+}
+
+// PublishDeletedUserDeviceNodes notifies peers about deleted user device nodes
+// and asks each affected device to pull its new state.
+func PublishDeletedUserDeviceNodes(ctx context.Context, deleted []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	var deletedHosts []schema.Host
+	for i := range deleted {
+		d := deleted[i]
+		publishNodeDeleted(d.Node)
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		deletedHosts = append(deletedHosts, d.Host)
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	// One peer update for all deletions instead of a full fanout per node.
+	if err := PublishDeletedNodesPeerUpdate(ctx, deletedHosts); err != nil {
+		slog.Error("failed to publish peer update for deleted user device nodes", "error", err)
+	}
+}
+
+// PublishDeletedUserDevices notifies peers about deleted user devices and
+// tells each device it has been deleted.
+func PublishDeletedUserDevices(ctx context.Context, devices []logic.UserDevice) {
+	var deletedHosts []schema.Host
+	for i := range devices {
+		d := devices[i]
+		if len(d.Nodes) > 0 {
+			deletedHosts = append(deletedHosts, d.Host)
+		}
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			if err := GetEmqxHandler().DeleteEmqxUser(d.Host.ID.String()); err != nil {
+				slog.Error("failed to remove host credentials from EMQX", "id", d.Host.ID, "error", err)
+			}
+		}
+		if err := HostUpdate(&models.HostUpdate{Action: models.DeleteHost, Host: d.Host}); err != nil {
+			slog.Error("failed to send delete host update", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	// One peer update for all deletions instead of a full fanout per node.
+	if err := PublishDeletedNodesPeerUpdate(ctx, deletedHosts); err != nil {
+		slog.Error("failed to publish peer update for deleted user devices", "error", err)
+	}
 }

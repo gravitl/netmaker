@@ -39,7 +39,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.7.0"
+var version = "v1.7.1"
 
 //	@title			NetMaker
 //	@version		1.7.0

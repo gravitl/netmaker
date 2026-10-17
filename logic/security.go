@@ -27,7 +27,34 @@ var OrgPermissionsCheck = func(username string, r *http.Request) error { return 
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
+		r.Header.Set("auth_type", "user")
 		bearerToken := r.Header.Get("Authorization")
+
+		// Tenant API keys use opaque nm_live_ secrets (not JWTs / user sessions).
+		if token := bearerTokenValue(bearerToken); IsAPIKeySecret(token) {
+			auth, err := AuthenticateAPIKey(r.Context(), token)
+			if err != nil {
+				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
+				return
+			}
+			ctx := WithAPIKeyContext(r.Context(), auth)
+			r = r.WithContext(ctx)
+			if err := AuthorizeAPIKeyRequest(ctx, r); err != nil {
+				w.Header().Set("ACCESS_PERM", err.Error())
+				ReturnErrorResponse(w, r, FormatError(err, "forbidden"))
+				return
+			}
+			r.Header.Set("auth_type", "api_key")
+			r.Header.Set("user", APIKeyActorName(auth.Name))
+			w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+			w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+			w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
+			w.Header().Set("IS_NETWORK_ACCESS", r.Header.Get("IS_NETWORK_ACCESS"))
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		username, err := GetUserNameFromToken(r.Context(), bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
@@ -78,6 +105,14 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
 	}
+}
+
+func bearerTokenValue(authHeader string) string {
+	parts := strings.Split(authHeader, " ")
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
 }
 
 func PreAuthCheck(next http.Handler) http.HandlerFunc {

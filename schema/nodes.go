@@ -172,6 +172,24 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	return nodes, err
 }
 
+// ListByOwnerUsername lists the nodes of all hosts registered by username,
+// matched on each node's host_id.
+func (n *Node) ListByOwnerUsername(ctx context.Context, username string, options ...dbtypes.Option) ([]Node, error) {
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select(fmt.Sprintf("%s.*", nodesTable)).
+		Joins(fmt.Sprintf("INNER JOIN %s ON %s.id = %s.host_id", hostsTable, hostsTable, nodesTable)).
+		Where(fmt.Sprintf("%s.owner_username = ?", hostsTable), username)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Find(&nodes).Error
+	return nodes, err
+}
+
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})

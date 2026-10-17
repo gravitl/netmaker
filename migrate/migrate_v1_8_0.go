@@ -52,7 +52,14 @@ func migrateV1_8_0(ctx context.Context) error {
 
 	// runs after the extclients are migrated, since the addresses of the
 	// extclients are allocated to their ids.
-	return migrateIPAllocations(ctx)
+	err = migrateIPAllocations(ctx)
+	if err != nil {
+		return err
+	}
+
+	// One shot with this job. bypass_egress_routes=false is a valid admin value
+	// after the backfill, so it must not run again on later startups.
+	return migrateBypassEgressRoutesDefault(ctx)
 }
 
 // networkIDs resolves network names to network ids within tenants, caching

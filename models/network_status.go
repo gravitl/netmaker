@@ -1,0 +1,115 @@
+package models
+
+import "github.com/gravitl/netmaker/schema"
+
+// NetworkNodeKind is what an entry in the network status is.
+type NetworkNodeKind string
+
+const (
+	NetworkNodeKindNode      = NetworkNodeKind("node")
+	NetworkNodeKindUser      = NetworkNodeKind("user") // user-registered device or user extclient
+	NetworkNodeKindExtClient = NetworkNodeKind("extclient")
+)
+
+// NetworkNodeRef identifies a node by ID and name.
+type NetworkNodeRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// NetworkStatusDstType selects which destination details the network status includes.
+type NetworkStatusDstType string
+
+const (
+	NetworkStatusDstPeers  = NetworkStatusDstType("peers")
+	NetworkStatusDstEgress = NetworkStatusDstType("egress")
+)
+
+// NetworkStatus is a monitoring snapshot of every node and extclient in a network.
+type NetworkStatus struct {
+	Network     string               `json:"network"`
+	GeneratedAt int64                `json:"generated_at"` // unix seconds
+	Summary     NetworkStatusSummary `json:"summary"`
+	Nodes       []NetworkNodeStatus  `json:"nodes"`
+}
+
+// NetworkStatusSummary counts the network's nodes and extclients by status.
+type NetworkStatusSummary struct {
+	Total        int `json:"total"`
+	Online       int `json:"online"`
+	Offline      int `json:"offline"`
+	Warning      int `json:"warning"`
+	Error        int `json:"error"`
+	Unknown      int `json:"unknown"`
+	Disconnected int `json:"disconnected"`
+}
+
+// NetworkNodeStatus is the status of a node or extclient in a network.
+type NetworkNodeStatus struct {
+	ID         string          `json:"id"`   // node ID, or client ID for extclients
+	Kind       NetworkNodeKind `json:"kind"` // node | user | extclient
+	Name       string          `json:"name"` // host name, or client ID for extclients
+	HostID     string          `json:"host_id,omitempty"`
+	MacAddress string          `json:"mac_address,omitempty"` // host MAC; RemoteAccessClientID for RAC clients
+	Owner      string          `json:"owner,omitempty"`       // username for user devices and user extclients
+	Address    string          `json:"address,omitempty"`     // overlay IPv4
+	Address6   string          `json:"address6,omitempty"`    // overlay IPv6
+	EndpointIP string          `json:"endpoint_ip,omitempty"` // public IP
+	OS         string          `json:"os,omitempty"`
+	Version    string          `json:"version,omitempty"`
+
+	IsGateway         bool `json:"is_gateway"`          // gateway or relay
+	IsInternetGateway bool `json:"is_internet_gateway"` // routes an active internet egress
+	IsEgress          bool `json:"is_egress"`           // routes an active non-internet egress
+
+	Status           schema.NodeStatus `json:"status"`
+	Connected        bool              `json:"connected"`          // admin connect/enable toggle
+	LastCheckIn      int64             `json:"last_check_in"`      // unix seconds, 0 = never
+	MetricsUpdatedAt int64             `json:"metrics_updated_at"` // unix seconds, 0 = no metrics
+
+	GatewayNodeID         string `json:"gateway_node_id,omitempty"`          // gateway the node or extclient connects through
+	InternetGatewayNodeID string `json:"internet_gateway_node_id,omitempty"` // exit node the entry routes all traffic through
+
+	ConnectedPeers int                 `json:"connected_peers"`
+	TotalPeers     int                 `json:"total_peers"`
+	Peers          []NetworkPeerStatus `json:"peers,omitempty"`
+
+	ConnectedEgresses int                   `json:"connected_egresses"`
+	TotalEgresses     int                   `json:"total_egresses"`
+	Egresses          []NetworkEgressStatus `json:"egresses,omitempty"`
+}
+
+// NetworkEgressStatus is a node's path to an egress site it has access to.
+// Netclient probes peers, not egress ranges, so link fields describe the path
+// to the egress routing node.
+type NetworkEgressStatus struct {
+	EgressID string   `json:"egress_id"`
+	Name     string   `json:"name"`
+	Ranges   []string `json:"ranges"` // routed CIDRs: virtual NAT range when enabled, resolved CIDRs for domain egress
+	Domains  []string `json:"domains,omitempty"`
+	// IsInternet marks the internet egress (exit node) the entry routes all traffic through.
+	IsInternet bool `json:"is_internet"`
+
+	RoutingNode           *NetworkNodeRef `json:"routing_node,omitempty"` // in use: preferred exit, else lowest metric among connected routers
+	RoutingNodesTotal     int             `json:"routing_nodes_total"`
+	RoutingNodesConnected int             `json:"routing_nodes_connected"`
+
+	Connected bool            `json:"connected"`
+	LatencyMs int64           `json:"latency_ms"`
+	IsRelayed bool            `json:"is_relayed"`
+	Via       *NetworkNodeRef `json:"via,omitempty"` // relay, set when relayed
+	PercentUp float64         `json:"percent_up"`
+}
+
+// NetworkPeerStatus is a node's link to one peer, as reported in its metrics.
+type NetworkPeerStatus struct {
+	PeerID        string          `json:"peer_id"`
+	Name          string          `json:"name"`
+	Connected     bool            `json:"connected"`
+	LatencyMs     int64           `json:"latency_ms"`
+	IsRelayed     bool            `json:"is_relayed"`
+	Via           *NetworkNodeRef `json:"via,omitempty"` // relay, set when relayed
+	PercentUp     float64         `json:"percent_up"`
+	BytesSent     int64           `json:"bytes_sent"`
+	BytesReceived int64           `json:"bytes_received"`
+}
