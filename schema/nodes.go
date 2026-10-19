@@ -688,6 +688,34 @@ func (n *Node) UnassignGateway(ctx context.Context) error {
 	return relayedIGWQ.UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).Error
 }
 
+// UnassignGatewayForClients unassigns the given clients from this gateway: clears
+// the relay columns of each client still relayed by n and removes their keys from
+// n's relayed_clients and relayed_igw_clients.
+func (n *Node) UnassignGatewayForClients(ctx context.Context, clientIDs []string) error {
+	if len(clientIDs) == 0 {
+		return nil
+	}
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id IN ?", clientIDs).
+		Where("relayed_by_node_id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"relayed_by_node_id": nil,
+			"is_igw_client":      false,
+			"use_tcp_uplink":     false,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumns(map[string]interface{}{
+			"relayed_clients":     expr.Remove("relayed_clients", clientIDs...),
+			"relayed_igw_clients": expr.Remove("relayed_igw_clients", clientIDs...),
+		}).
+		Error
+}
+
 func (n *Node) ResetGateway(ctx context.Context) error {
 	err := db.FromContext(ctx).Model(&Node{}).
 		Where("id = ?", n.ID).
