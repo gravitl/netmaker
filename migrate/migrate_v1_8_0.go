@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"net/netip"
 	"strings"
 	"time"
@@ -46,6 +47,11 @@ func migrateV1_8_0(ctx context.Context) error {
 	}
 
 	err = migrateUserRoles(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateUserEmailUsernamesToLowercase(ctx)
 	if err != nil {
 		return err
 	}
@@ -411,6 +417,39 @@ func migrateUserRoles(ctx context.Context) error {
 			}).Error
 		if err != nil {
 			return fmt.Errorf("failed to migrate user role %s: %w", role.ID, err)
+		}
+	}
+
+	return nil
+}
+
+func migrateUserEmailUsernamesToLowercase(ctx context.Context) error {
+	var users []struct {
+		ID       string
+		Username string
+	}
+	err := db.FromContext(ctx).Model(&schema.User{}).
+		Select("id", "username").
+		Find(&users).Error
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		lower := strings.ToLower(user.Username)
+		if lower == user.Username {
+			continue
+		}
+		_, err = mail.ParseAddress(user.Username)
+		if err != nil {
+			continue
+		}
+
+		err = db.FromContext(ctx).Model(&schema.User{}).
+			Where("id = ?", user.ID).
+			Update("username", lower).Error
+		if err != nil {
+			return err
 		}
 	}
 

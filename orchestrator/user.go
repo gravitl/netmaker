@@ -21,29 +21,18 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
-// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
-var ValidTenantRoles = map[schema.UserRoleID]bool{
-	schema.SuperAdminRole: true,
-	schema.AdminRole:      true,
-	schema.PlatformUser:   true,
-	schema.ServiceUser:    true,
-	schema.Auditor:        true,
-}
-
-// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
-var ValidOrgRoles = map[schema.UserRoleID]bool{
-	schema.OrgOwner: true,
-	schema.OrgAdmin: true,
-	schema.OrgUser:  true,
-}
-
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
 	ops := applyOptions(opts...)
+
+	_, err := mail.ParseAddress(user.Username)
+	if err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
 
 	existing := &schema.User{
 		Username: user.Username,
 	}
-	err := existing.Get(ctx)
+	err = existing.Get(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
@@ -157,6 +146,10 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 }
 
 func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.User, _ ...Option) error {
+	if _, err := mail.ParseAddress(user.Username); err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
+
 	var userExists bool
 	existing := &schema.User{
 		Username: user.Username,
