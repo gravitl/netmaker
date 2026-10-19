@@ -496,21 +496,17 @@ func GetNodeByID(nodeID string) (models.Node, error) {
 // This avoids the N+1 (and N^2) query patterns that arise when callers loop
 // over peer IDs and call GetNodeByID per peer (e.g. status / connectivity
 // checks driven by metrics).
-func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
+func GetNodesByIDs(ctx context.Context, ids []string) (map[string]models.Node, error) {
 	if len(ids) == 0 {
 		return map[string]models.Node{}, nil
 	}
 	_nodes, err := (&schema.Node{}).ListByIDs(
-		db.WithContext(context.TODO()),
+		ctx,
 		ids,
 		dbtypes.WithAllPreloads(),
 	)
 	if err != nil {
 		return nil, err
-	}
-	ctx := db.WithContext(context.TODO())
-	if len(_nodes) > 0 {
-		ctx = scope.WithContext(ctx, scope.TenantScope, _nodes[0].TenantID)
 	}
 	modelsNodes := make([]models.Node, len(_nodes))
 	for i := range _nodes {
