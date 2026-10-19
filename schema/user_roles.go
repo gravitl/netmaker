@@ -27,6 +27,7 @@ var ValidTenantRoles = map[UserRoleID]bool{
 var ValidOrgRoles = map[UserRoleID]bool{
 	OrgOwner: true,
 	OrgAdmin: true,
+	OrgUser:  true,
 }
 
 const (
