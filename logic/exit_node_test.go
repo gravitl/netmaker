@@ -135,3 +135,17 @@ func TestValidateInternetEgressSelection_ExitNodeCannotUseAnotherExitNode(t *tes
 		t.Fatalf("expected exit-node validation error, got %v", err)
 	}
 }
+
+func TestValidateInternetEgressSelection_AllowsRelayedByDifferentGateway(t *testing.T) {
+	node := &models.Node{}
+	node.ID = uuid.New()
+	node.Network = "net-1"
+	otherGw := uuid.NewString()
+	exitRouting := uuid.NewString()
+	schemaNode := &schema.Node{ID: node.ID.String(), RelayedByNodeID: &otherGw}
+
+	err := validateInternetEgressSelection(node, schemaNode, exitRouting, false)
+	if err != nil {
+		t.Fatalf("exit selection should unrelay and proceed, got %v", err)
+	}
+}

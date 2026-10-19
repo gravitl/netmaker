@@ -765,9 +765,8 @@ func validateInternetEgressSelection(
 	if node.IsGw || node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || schemaNode.IsGateway {
 		return errors.New("gateway nodes cannot be assigned an exit node")
 	}
-	if schemaNode.RelayedByNodeID != nil && *schemaNode.RelayedByNodeID != "" && *schemaNode.RelayedByNodeID != routingNodeID {
-		return errors.New("node is relayed by a different gateway")
-	}
+	// Being RelayedBy a different gateway is allowed: AssignGateway removes the
+	// node from the previous relay and attaches it to the exit routing node.
 	return nil
 }
 
@@ -778,10 +777,8 @@ func clearNodeSelectedInternetEgress(ctx context.Context, node *models.Node, sch
 	}
 	schemaNode.SelectedInternetEgressID = ""
 
-	// Always drop exit RelayedBy / IsIGWClient when clearing selection. RelayedBy may
-	// still point at a deleted routing node while egress.Nodes already lists a new one;
-	// matching only FirstInternetEgressRoutingNodeID would leave a stale RelayedBy and
-	// block reassignment with "relayed by a different gateway".
+	// Always drop exit RelayedBy / IsIGWClient when clearing selection so the next
+	// exit selection starts from an unrelayed state.
 	schemaNode.RelayedByNodeID = nil
 	schemaNode.IsIGWClient = false
 	if err := schemaNode.UnassignGateway(ctx); err != nil {
@@ -1057,8 +1054,7 @@ func RebindInternetEgressClients(ctx context.Context, e schema.Egress) {
 	for i := range clients {
 		c := clients[i]
 		preserveTcpUplink := c.UseTcpUplink
-		// Drop RelayedBy to a removed/old routing node first; otherwise
-		// SetNodeSelectedInternetEgress rejects "relayed by a different gateway".
+		// Drop RelayedBy to a removed/old routing node first so rebind starts clean.
 		if err := failOpenExitClientKeepSelection(ctx, &c); err != nil {
 			slog.Error("RebindInternetEgressClients: fail-open failed", "node", c.ID, "error", err)
 			continue
