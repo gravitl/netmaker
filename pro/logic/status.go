@@ -196,7 +196,7 @@ func buildPeerCache(ctx context.Context, node *models.Node, metrics *models.Metr
 	for id := range idSet {
 		ids = append(ids, id)
 	}
-	peers, err := logic.GetNodesByIDs(ctx, ids)
+	peers, err := logic.GetNodesByIDs(ids)
 	if err != nil {
 		return map[string]models.Node{}
 	}

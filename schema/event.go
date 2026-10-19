@@ -227,7 +227,7 @@ func (a *Event) DeleteAllForTenant(ctx context.Context) error {
 
 func (a *Event) DeleteOldEvents(ctx context.Context, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
-	query := db.FromContext(ctx).Model(&Event{}).Where("time_stamp < ?", cutoff)
+	query := db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff)
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}

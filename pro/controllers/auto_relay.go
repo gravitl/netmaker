@@ -249,17 +249,6 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if !autoRelayNode.Connected {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
-				"badrequest",
-			),
-		)
-		return
-	}
 
 	var sendPeerUpdate bool
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
@@ -498,17 +487,6 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if !autoRelayNode.Connected {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
-				"badrequest",
-			),
-		)
-		return
-	}
 	if !autoRelayNode.IsGw {
 		logic.ReturnErrorResponse(
 			w,
@@ -525,22 +503,17 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	// (checked on node/peerNode above and in SetAutoRelayCtx).
 	if node.AutoAssignGateway {
 		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
-			_node := &schema.Node{
-				ID: node.ID.String(),
+			if node.RelayedBy != "" {
+				// unset relayed node from the curr relay
+				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				if err == nil {
+					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
+					logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+				}
 			}
-			err = _node.Get(r.Context())
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-				return
-			}
-			gwNodeID := autoRelayNode.ID.String()
-			_node.RelayedByNodeID = &gwNodeID
-			_node.IsIGWClient = false
-			err = _node.AssignGateway(r.Context())
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to assign gw: %v", err), logic.Internal))
-				return
-			}
+			newNodes := []string{node.ID.String()}
+			newNodes = append(newNodes, autoRelayNode.RelayedNodes...)
+			logic.UpdateRelayNodes(autoRelayNode.ID.String(), autoRelayNode.RelayedNodes, newNodes)
 			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 			go mq.PublishPeerUpdate(ctx, false)
 		}

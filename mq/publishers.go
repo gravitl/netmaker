@@ -305,42 +305,6 @@ func PublishPeerUpdatesForExitClientsFirst(ctx context.Context, clientNodes []mo
 	return PublishPeerUpdate(ctx, false)
 }
 
-func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
-	if !servercfg.IsPro {
-		return
-	}
-	// displace from every gw first, so all nodes are listed once and each peer
-	// update reflects the whole batch
-	var displacedNodes []models.Node
-	for _, gwNodeID := range gwNodeIDs {
-		displacedNodes = append(displacedNodes, logic.DisplaceAutoRelayedNodes(ctx, gwNodeID)...)
-	}
-	if len(displacedNodes) == 0 {
-		return
-	}
-	allNodes, err := logic.GetAllNodes(ctx)
-	if err != nil {
-		slog.Error("reassign auto-assigned clients: failed to list nodes", "gws", gwNodeIDs, "error", err)
-	}
-	for i := range displacedNodes {
-		node := displacedNodes[i]
-		host := &schema.Host{ID: node.HostID}
-		if err := host.Get(ctx); err != nil {
-			slog.Error("reassign auto-assigned clients: failed to get host for displaced node", "node", node.ID, "error", err)
-			continue
-		}
-
-		if allNodes != nil {
-			if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
-				slog.Error("reassign auto-assigned clients: failed to publish peer update", "host", host.ID, "error", err)
-			}
-		}
-		if err := HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node}); err != nil {
-			slog.Error("reassign auto-assigned clients: failed to send gateway check", "host", host.ID, "error", err)
-		}
-	}
-}
-
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
 	host := &schema.Host{ID: node.HostID}
