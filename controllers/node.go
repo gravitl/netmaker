@@ -947,17 +947,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				_ = logic.UpdateMetrics(ctx, newNode.ID.String(), metrics)
 			}
 			go logic.SetPeerMetricsDisconnected(ctx, newNode.ID.String())
-			if servercfg.IsPro {
-				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
-				for _, dNode := range displacedNodes {
-					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(ctx); err != nil {
-						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
-						continue
-					}
-					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
-				}
-			}
+			mq.ReassignAutoAssignedClients(ctx, newNode.ID.String())
 		}
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
 		// exit-client peer updates first before the global mesh update.
@@ -1214,6 +1204,17 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to publish node update", "id", nodeID, "error", err)
 				}
 			}
+		}
+
+		// Reassign auto-assigned clients only after every disconnected gw has been
+		// sent its node update, so clients are less likely to re-pick a gw that is
+		// still up but about to tear down.
+		if !req.Connected {
+			gwNodeIDs := make([]string, 0, len(nodeIDs))
+			for i := range nodeIDs {
+				gwNodeIDs = append(gwNodeIDs, nodeIDs[i].(string))
+			}
+			mq.ReassignAutoAssignedClients(ctx, gwNodeIDs...)
 		}
 
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
