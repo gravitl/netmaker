@@ -3,15 +3,39 @@ package ncutils
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"io"
 
+	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/box"
 )
 
 const (
 	chunkSize = 16000 // 16000 bytes max message size
+
+	// trafficKeyHKDFInfo is the HKDF context label for keys derived by
+	// DeriveSharedKey. It must be identical on both ends of a connection.
+	trafficKeyHKDFInfo = "netmaker-traffic-key-v1"
 )
+
+// DeriveSharedKey derives a symmetric AES-256 key from the X25519 ECDH shared
+// secret between localPrivate and remotePublic, via HKDF-SHA256.
+//
+// This must be used instead of either key's raw bytes as a symmetric key:
+// a public key is, by definition, not secret (it is readable via the API),
+// so using it directly as an AES key provides no confidentiality. The ECDH
+// shared secret cannot be computed by anyone who only knows the two public
+// keys -- it also requires one of the two private keys.
+func DeriveSharedKey(localPrivate, remotePublic *[32]byte) ([]byte, error) {
+	var shared [32]byte
+	box.Precompute(&shared, remotePublic, localPrivate)
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(hkdf.New(sha256.New, shared[:], nil, []byte(trafficKeyHKDFInfo)), key); err != nil {
+		return nil, err
+	}
+	return key, nil
+}
 
 // BoxEncrypt - encrypts traffic box
 func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32]byte) ([]byte, error) {

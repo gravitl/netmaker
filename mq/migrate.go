@@ -105,14 +105,9 @@ func SendPullSYN() error {
 				continue
 			}
 		} else {
-			zipped, err := compressPayload(msg)
-			if err != nil {
-				slog.Warn("error compressing message", "warn", err)
-				continue
-			}
-			encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+			encrypted, encryptErr = encryptMsgAESGCM(&host, msg)
 			if encryptErr != nil {
-				slog.Warn("error encrypt with encryptMsg", "warn", encryptErr)
+				slog.Warn("error encrypt with encryptMsgAESGCM", "warn", encryptErr)
 				continue
 			}
 		}
