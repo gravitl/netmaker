@@ -116,6 +116,8 @@ func GetAllRsrcIDForRsrc(rsrc schema.RsrcType) schema.RsrcID {
 		return schema.AllHostRsrcID
 	case schema.RelayRsrc:
 		return schema.AllRelayRsrcID
+	case schema.GatewayRsrc:
+		return schema.AllGatewayRsrcID
 	case schema.RemoteAccessGwRsrc:
 		return schema.AllRemoteAccessGwRsrcID
 	case schema.ExtClientsRsrc:

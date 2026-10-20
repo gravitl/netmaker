@@ -132,6 +132,11 @@ func checkNetworkAccessPermissions(ctx context.Context, netRoleID schema.UserRol
 	if networkPermissionScope.NetworkID != schema.AllNetworks && networkPermissionScope.NetworkID.String() != netID {
 		return errors.New("access denied")
 	}
+	// NetworkGlobalAccess grants full access within the role's network scope
+	// (default and custom network-admin roles). Distinct from TenantGlobalAccess.
+	if networkPermissionScope.NetworkGlobalAccess {
+		return nil
+	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[schema.RsrcType(targetRsrc)]
 	if !ok {
 		return errors.New("access denied")
@@ -373,7 +378,7 @@ func roleGrantsDeviceWrite(role *schema.UserRole) bool {
 	if role == nil {
 		return false
 	}
-	if role.TenantGlobalAccess {
+	if role.TenantGlobalAccess || role.NetworkGlobalAccess {
 		return true
 	}
 	access := role.NetworkLevelAccess.Data()

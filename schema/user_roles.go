@@ -81,6 +81,7 @@ const (
 var RsrcTypeMap = map[RsrcType]struct{}{
 	HostRsrc:           {},
 	RelayRsrc:          {},
+	GatewayRsrc:        {},
 	RemoteAccessGwRsrc: {},
 	ExtClientsRsrc:     {},
 	InetGwRsrc:         {},
@@ -102,6 +103,7 @@ func (rid RsrcID) String() string {
 const (
 	AllHostRsrcID            RsrcID = "all_host"
 	AllRelayRsrcID           RsrcID = "all_relay"
+	AllGatewayRsrcID         RsrcID = "all_gateway"
 	AllRemoteAccessGwRsrcID  RsrcID = "all_remote_access_gw"
 	AllExtClientsRsrcID      RsrcID = "all_extclients"
 	AllInetGwRsrcID          RsrcID = "all_inet_gw"
@@ -152,6 +154,10 @@ type UserRole struct {
 	DenyDashboardAccess bool                               `json:"deny_dashboard_access"`
 	OrgGlobalAccess     bool                               `json:"org_global_access"`
 	TenantGlobalAccess  bool                               `json:"tenant_global_access"`
+	// NetworkGlobalAccess grants full access to all network-scoped resources
+	// within NetworkID (or all networks when NetworkID is AllNetworks). It is
+	// distinct from TenantGlobalAccess, which applies to tenant-global APIs.
+	NetworkGlobalAccess bool                               `json:"network_global_access"`
 	NetworkID           NetworkID                          `json:"network_id"`
 	NetworkLevelAccess  datatypes.JSONType[ResourceAccess] `json:"network_level_access"`
 	GlobalLevelAccess   datatypes.JSONType[ResourceAccess] `json:"global_level_access"`
