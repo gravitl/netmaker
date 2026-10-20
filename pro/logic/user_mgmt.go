@@ -62,6 +62,9 @@ func defaultNetworkAdminResourceAccess() schema.ResourceAccess {
 		schema.RelayRsrc: {
 			schema.AllRelayRsrcID: fullAccess,
 		},
+		schema.GatewayRsrc: {
+			schema.AllGatewayRsrcID: fullAccess,
+		},
 		schema.RemoteAccessGwRsrc: {
 			schema.AllRemoteAccessGwRsrcID: schema.RsrcPermissionScope{
 				Create: true, Read: true, Update: true, Delete: true, VPNaccess: true,
@@ -113,13 +116,14 @@ func defaultNetworkAdminResourceAccess() schema.ResourceAccess {
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	Slug:               globalNetworksAdminRoleID,
-	Name:               "Network Admins",
-	MetaData:           "can manage configuration of all networks",
-	Default:            true,
-	TenantGlobalAccess: false,
-	NetworkID:          schema.AllNetworks,
-	NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
+	Slug:                globalNetworksAdminRoleID,
+	Name:                "Network Admins",
+	MetaData:            "can manage configuration of all networks",
+	Default:             true,
+	TenantGlobalAccess:  false,
+	NetworkGlobalAccess: true,
+	NetworkID:           schema.AllNetworks,
+	NetworkLevelAccess:  datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
@@ -256,13 +260,14 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		return
 	}
 	var NetworkAdminPermissionTemplate = schema.UserRole{
-		Slug:               GetDefaultNetworkAdminRoleID(netID),
-		Name:               fmt.Sprintf("%s Admin", netID),
-		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
-		Default:            true,
-		NetworkID:          netID,
-		TenantGlobalAccess: false,
-		NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
+		Slug:                GetDefaultNetworkAdminRoleID(netID),
+		Name:                fmt.Sprintf("%s Admin", netID),
+		MetaData:            fmt.Sprintf("can manage your network `%s` configuration.", netID),
+		Default:             true,
+		NetworkID:           netID,
+		TenantGlobalAccess:  false,
+		NetworkGlobalAccess: true,
+		NetworkLevelAccess:  datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
