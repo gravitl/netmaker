@@ -327,7 +327,6 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 			"exit node cannot use another exit node",
 			"routing node cannot select itself as exit node",
 			"gateway nodes cannot be assigned an exit node",
-			"node is relayed by a different gateway",
 			"internet egress has no routing node",
 			"exit node selection is required":
 			errType = logic.BadReq

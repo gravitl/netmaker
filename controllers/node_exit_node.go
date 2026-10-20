@@ -127,8 +127,7 @@ func exitNodeErrType(err error) logic.ApiErrorType {
 		"exit node cannot use another exit node",
 		"routing node cannot select itself as exit node",
 		"internet egress has no routing node",
-		"gateway nodes cannot be assigned an exit node",
-		"node is relayed by a different gateway":
+		"gateway nodes cannot be assigned an exit node":
 		return logic.BadReq
 	default:
 		if strings.Contains(err.Error(), "does not have TCP proxy enabled") {
