@@ -141,18 +141,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
 		convertedNode.LocalAddress = currentNode.LocalAddress
 	}
-	if ip, addr, err := net.ParseCIDR(a.Address); err == nil {
-		convertedNode.Address = *addr
-		convertedNode.Address.IP = ip
-	} else {
-		convertedNode.Address = currentNode.Address
-	}
-	if ip6, addr6, err := net.ParseCIDR(a.Address6); err == nil {
-		convertedNode.Address6 = *addr6
-		convertedNode.Address6.IP = ip6
-	} else {
-		convertedNode.Address6 = currentNode.Address6
-	}
+	convertedNode.Address = parseNodeAddress(a.Address, currentNode.Address, convertedNode.NetworkRange)
+	convertedNode.Address6 = parseNodeAddress(a.Address6, currentNode.Address6, convertedNode.NetworkRange6)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
@@ -301,4 +291,37 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 
 func isEmptyAddr(addr string) bool {
 	return addr == "<nil>" || addr == ":0"
+}
+
+func parseNodeAddress(newAddr string, currentAddr, networkRange net.IPNet) net.IPNet {
+	if newAddr == "" {
+		return currentAddr
+	}
+
+	var ip net.IP
+	mask := currentAddr.Mask
+	if networkRange.Mask != nil {
+		mask = networkRange.Mask
+	}
+
+	if parsedIP, cidr, err := net.ParseCIDR(newAddr); err == nil {
+		ip = parsedIP
+		mask = cidr.Mask
+	} else if parsedIP := net.ParseIP(newAddr); parsedIP != nil {
+		ip = parsedIP
+	} else {
+		return currentAddr
+	}
+
+	if len(mask) == net.IPv4len {
+		if ip4 := ip.To4(); ip4 != nil {
+			ip = ip4
+		}
+	}
+
+	if networkRange.IP != nil && !networkRange.Contains(ip) {
+		return currentAddr
+	}
+
+	return net.IPNet{IP: ip, Mask: mask}
 }
