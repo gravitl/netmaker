@@ -105,7 +105,22 @@ func cleanFilters(filters []string) []string {
 }
 
 func idpSyncHookID(ctx context.Context) string {
-	return fmt.Sprintf("idp-sync-%d-%s", scope.Level(ctx), scope.ID(ctx))
+	return idpSyncHookIDFor(scope.Level(ctx), scope.ID(ctx))
+}
+
+func idpSyncHookIDFor(level scope.Scope, id string) string {
+	return fmt.Sprintf("idp-sync-%d-%s", level, id)
+}
+
+func RekeyIDPSyncHook(level scope.Scope, oldID, newID string) {
+	if oldID == newID {
+		return
+	}
+
+	logic.StopHook(idpSyncHookIDFor(level, oldID))
+
+	newCtx := scope.WithContext(db.WithContext(context.Background()), level, newID)
+	StartIDPSyncHook(newCtx)
 }
 
 func syncLock(level scope.Scope, id string) *sync.Mutex {
