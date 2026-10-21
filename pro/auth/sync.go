@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -102,6 +103,13 @@ func cleanFilters(filters []string) []string {
 		}
 	}
 	return cleaned
+}
+
+func normalizeUsername(username string) string {
+	if _, err := mail.ParseAddress(username); err == nil {
+		return strings.ToLower(username)
+	}
+	return username
 }
 
 func idpSyncHookID(ctx context.Context) string {
@@ -247,6 +255,9 @@ func SyncFromIDP(ctx context.Context) error {
 		idpUsers, err = idpClient.GetUsers(settings.UserFilters)
 		if err != nil {
 			return err
+		}
+		for i := range idpUsers {
+			idpUsers[i].Username = normalizeUsername(idpUsers[i].Username)
 		}
 		logger.Log(0, "idp sync: fetched", fmt.Sprint(len(idpUsers)), "users from", settings.AuthProvider, "for", scope.ID(ctx), "with filters", fmt.Sprint(settings.UserFilters))
 
