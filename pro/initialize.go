@@ -219,6 +219,9 @@ func InitPro() {
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
+	logic.GetUserDeviceAclRulesForNode = proLogic.GetUserDeviceAclRulesForNode
+	logic.GetUserDeviceEgressRulesForNode = proLogic.GetUserDeviceEgressRulesForNode
+	logic.GetFwRulesForUserDevicesOnGw = proLogic.GetFwRulesForUserDevicesOnGw
 	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.IsMSP = license.IsMSP

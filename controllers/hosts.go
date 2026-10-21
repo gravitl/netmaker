@@ -206,6 +206,9 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
@@ -256,6 +259,9 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 
 	total, err := (&schema.Host{}).Count(
@@ -289,6 +295,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 // @Tags        Hosts
 // @Security    oauth
 // @Produce     json
+// @Param       refresh query bool false "Bypass peer-update cache and recompute"
+// @Param       reset_failovered query bool false "Reset auto-relay failover peers and refresh peer update"
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
@@ -321,6 +329,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
+	refresh := r.URL.Query().Get("refresh") == "true"
 	if resetFailovered {
 		for _, nodeID := range host.Nodes {
 			node, err := logic.GetNodeByID(nodeID)
@@ -334,7 +343,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
-	if !ok || resetFailovered {
+	if !ok || resetFailovered || refresh {
 		allNodes, err := logic.GetAllNodes(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
@@ -417,6 +426,14 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+
+	if logic.IsUserOwnedHost(currHost) && newHost.IsDefault && !currHost.IsDefault {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("user-registered devices cannot be marked as default hosts"),
+			logic.Forbidden,
+		))
+		return
+	}
 
 	logic.UpdateHost(r.Context(), newHost, currHost) // update the in memory struct values
 	if newHost.DNS != "yes" {
@@ -543,7 +560,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers, runPostureChecks bool
+	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers, runPostureChecks, reassignGwClients bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -621,20 +638,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case models.UpdateNode:
-		var displacedGwNodes []models.Node
-		sendDeletedNodeUpdate, sendPeerUpdate, displacedGwNodes = logic.UpdateHostNode(r.Context(), &hostUpdate.Host, &hostUpdate.Node)
-		if len(displacedGwNodes) > 0 {
-			go func() {
-				for _, dNode := range displacedGwNodes {
-					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(db.WithContext(context.TODO())); err != nil {
-						slog.Error("fallback disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
-						continue
-					}
-					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
-				}
-			}()
-		}
+		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(r.Context(), &hostUpdate.Host, &hostUpdate.Node)
+		reassignGwClients = !hostUpdate.Node.Connected
 	case models.UpdateMetrics:
 		nodeID := hostUpdate.Node.ID.String()
 		mq.UpdateMetricsFallBack(r.Context(), nodeID, hostUpdate.NewMetrics)
@@ -736,6 +741,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				_ = _node.UpsertViolations(ctx, _violations)
 			}
 
+		}
+		if reassignGwClients {
+			mq.ReassignAutoAssignedClients(ctx, hostUpdate.Node.ID.String())
 		}
 		if sendDeletedNodeUpdate {
 			_ = mq.PublishDeletedNodePeerUpdate(ctx, nil, &hostUpdate.Node)
@@ -937,6 +945,14 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host IDs provided"), logic.BadReq))
 		return
 	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		for _, idStr := range req.IDs {
+			if !logic.HostInAPIKeyScope(r.Context(), idStr, schema.APIKeyPermissionModify) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(logic.Forbidden_Msg), logic.Forbidden))
+				return
+			}
+		}
+	}
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
 
@@ -1064,6 +1080,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.IsUserOwnedHost(host) {
+		err = errors.New("user-registered devices can only join networks from the user device dashboard")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 
@@ -1494,6 +1516,15 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
+				filtered = append(filtered, host)
+			}
+		}
+		hosts = filtered
+	}
 	go func() {
 		hostUpdate := models.HostUpdate{}
 		hostUpdate.Action = models.UpdateKeys
@@ -1598,15 +1629,24 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Header.Get("user")
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		slog.Info("requesting all hosts to sync", "user", user)
-
-		hosts, err := (&schema.Host{}).ListAll(ctx)
-		if err != nil {
-			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
-			return
+	hosts, err := (&schema.Host{}).ListAll(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
+				filtered = append(filtered, host)
+			}
 		}
+		hosts = filtered
+	}
+
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go func(ctx context.Context, hosts []schema.Host) {
+		slog.Info("requesting all hosts to sync", "user", user)
 
 		for _, host := range hosts {
 			go func(host schema.Host) {
@@ -1614,7 +1654,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 					Action: models.RequestPull,
 					Host:   host,
 				}
-				if err = mq.HostUpdate(&hostUpdate); err != nil {
+				if err := mq.HostUpdate(&hostUpdate); err != nil {
 					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
 				} else {
 					slog.Info("host sync requested", "user", user, "host", host.ID.String())
@@ -1622,7 +1662,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 			time.Sleep(time.Millisecond * 100)
 		}
-	}(ctx)
+	}(ctx, hosts)
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
@@ -1908,8 +1948,25 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	tenantID := scope.ID(r.Context())
+	visible := make([]schema.PendingHost, 0, len(pendingHosts))
+	for i := range pendingHosts {
+		hostID, parseErr := uuid.Parse(pendingHosts[i].HostID)
+		if parseErr != nil {
+			visible = append(visible, pendingHosts[i])
+			continue
+		}
+		host := &schema.Host{ID: hostID}
+		if err := host.Get(r.Context()); err == nil {
+			if pendingHosts[i].TenantID == "" && host.TenantID != "" && tenantID != "" && host.TenantID != tenantID {
+				continue
+			}
+			pendingHosts[i].OwnerUsername = host.OwnerUsername
+		}
+		visible = append(visible, pendingHosts[i])
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.ReturnSuccessResponseWithJson(w, r, pendingHosts, "returned pending hosts in "+netID)
+	logic.ReturnSuccessResponseWithJson(w, r, visible, "returned pending hosts in "+netID)
 }
 
 // @Summary     Approve pending host in a network
@@ -2046,6 +2103,9 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 // existing network it is not already part of, applying the standard default
 // host operations for each network.
 func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
+	if logic.IsUserOwnedHost(host) {
+		return
+	}
 	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(0, "failed to get networks for default host ops:", err.Error())
@@ -2073,4 +2133,15 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 			continue
 		}
 	}
+}
+
+// filterAPIHostsByAPIKey keeps hosts whose networks are entirely within the API key scope.
+func filterAPIHostsByAPIKey(ctx context.Context, hosts []models.ApiHost) []models.ApiHost {
+	filtered := make([]models.ApiHost, 0, len(hosts))
+	for _, host := range hosts {
+		if logic.HostInAPIKeyScope(ctx, host.ID, schema.APIKeyPermissionRead) {
+			filtered = append(filtered, host)
+		}
+	}
+	return filtered
 }

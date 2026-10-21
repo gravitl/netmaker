@@ -172,6 +172,24 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	return nodes, err
 }
 
+// ListByOwnerUsername lists the nodes of all hosts registered by username,
+// matched on each node's host_id.
+func (n *Node) ListByOwnerUsername(ctx context.Context, username string, options ...dbtypes.Option) ([]Node, error) {
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select(fmt.Sprintf("%s.*", nodesTable)).
+		Joins(fmt.Sprintf("INNER JOIN %s ON %s.id = %s.host_id", hostsTable, hostsTable, nodesTable)).
+		Where(fmt.Sprintf("%s.owner_username = ?", hostsTable), username)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Find(&nodes).Error
+	return nodes, err
+}
+
 func (n *Node) Count(ctx context.Context, options ...dbtypes.Option) (int, error) {
 	var count int64
 	query := db.FromContext(ctx).Model(&Node{})
@@ -668,6 +686,34 @@ func (n *Node) UnassignGateway(ctx context.Context) error {
 	}
 
 	return relayedIGWQ.UpdateColumn("relayed_igw_clients", expr.Remove("relayed_igw_clients", n.ID)).Error
+}
+
+// UnassignGatewayForClients unassigns the given clients from this gateway: clears
+// the relay columns of each client still relayed by n and removes their keys from
+// n's relayed_clients and relayed_igw_clients.
+func (n *Node) UnassignGatewayForClients(ctx context.Context, clientIDs []string) error {
+	if len(clientIDs) == 0 {
+		return nil
+	}
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("id IN ?", clientIDs).
+		Where("relayed_by_node_id = ?", n.ID).
+		Updates(map[string]interface{}{
+			"relayed_by_node_id": nil,
+			"is_igw_client":      false,
+			"use_tcp_uplink":     false,
+		}).Error
+	if err != nil {
+		return err
+	}
+
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumns(map[string]interface{}{
+			"relayed_clients":     expr.Remove("relayed_clients", clientIDs...),
+			"relayed_igw_clients": expr.Remove("relayed_igw_clients", clientIDs...),
+		}).
+		Error
 }
 
 func (n *Node) ResetGateway(ctx context.Context) error {

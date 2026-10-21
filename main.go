@@ -39,7 +39,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.7.0"
+var version = "v1.7.1"
 
 //	@title			NetMaker
 //	@version		1.7.0
@@ -126,6 +126,10 @@ func initialize() { // Client Mode Prereq Check
 
 	// Log master/worker mode for K8s HA setup
 	if servercfg.IsHA() {
+		// replicas share state through the database, which requires postgres.
+		if servercfg.GetDB() != "postgres" {
+			logger.FatalLog("HA mode requires postgres as the database, found: " + servercfg.GetDB())
+		}
 		if servercfg.IsMasterPod() {
 			logger.Log(0, "HA mode: running as MASTER pod - will run migrations and singleton operations")
 		} else {
@@ -144,7 +148,12 @@ func initialize() { // Client Mode Prereq Check
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
-		if err != nil {
+		if errors.Is(err, migrate.ErrMigrationV170Required) {
+			logger.FatalLog(
+				"Only v1.7.0 can upgrade directly to v1.8.0.\n" +
+					"Upgrade your Netmaker server first to v1.7.0 before upgrading to v1.8.0",
+			)
+		} else if err != nil {
 			logger.FatalLog("schema migration failed: ", err.Error())
 		}
 
@@ -257,6 +266,9 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 
+		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		networkOrch.SyncIPAllocations(db.WithContext(ctx))
+		networkOrch.StartIPAllocationHook()
 	}
 	logic.AddSSOStateCleanupHook()
 }

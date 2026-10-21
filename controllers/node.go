@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -203,7 +205,7 @@ func AuthorizeHost(
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
-// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned, user, server)
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -255,11 +257,20 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
-	if len(osFilters) > 0 || q != "" {
-		filters = append(filters, func(db *gorm.DB) *gorm.DB {
-			return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
-		})
-	}
+	// Join hosts so OS search and user/server filters can use owner_username.
+	// "user" is a host registered by a user; "server" is every other host.
+	// No device_type (or gw/igw/...) includes both.
+	filters = append(filters, func(db *gorm.DB) *gorm.DB {
+		q := db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+		switch deviceType {
+		case "user":
+			return q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+		case "server":
+			return q.Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
+		default:
+			return q
+		}
+	})
 	if len(osFilters) > 0 {
 		filters = append(filters, dbtypes.WithFilter("hosts_v1.os", osFilters...))
 	}
@@ -388,8 +399,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") == "no" {
+	if !logic.IsAPIKeyAuth(r.Context()) && r.Header.Get("ismaster") == "no" {
+		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.Get(r.Context())
 		if err != nil {
@@ -406,6 +417,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := nodes[:0]
+		for _, node := range nodes {
+			if logic.APIKeyHasNetworkAccess(r.Context(), node.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, node)
+			}
+		}
+		nodes = filtered
+	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -562,7 +582,11 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
 				gateway.NodeID, gateway.NetID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserDeviceInfrastructureRole) {
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -674,19 +698,51 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newData.Address {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv4Unique(r.Context(), network, newData.Address) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address)
+	// claim the node's new addresses; they are released again if the update
+	// does not go through, otherwise the replaced addresses are released.
+	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	var claimedAddrs, replacedAddrs []string
+	updated := false
+	defer func() {
+		if updated {
+			return
+		}
+		for _, address := range claimedAddrs {
+			if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
+				slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+			}
+		}
+	}()
+	for _, change := range []struct {
+		current   net.IPNet
+		requested string
+	}{
+		{currentNode.Address, newData.Address},
+		{currentNode.Address6, newData.Address6},
+	} {
+		if change.current.IP == nil || change.requested == "" {
+			continue
+		}
+		addr, err := networkOrch.ParseAddr(change.requested)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				fmt.Errorf("invalid address %q: must be a plain IP or CIDR address within the network's range", change.requested),
+				"badrequest"))
+			return
+		}
+		if currentAddr, ok := netip.AddrFromSlice(change.current.IP); ok && addr == currentAddr.Unmap() {
+			continue
+		}
+		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode, currentNode.ID.String())
+		if err != nil {
+			if errors.Is(err, orchestrator.ErrIPAlreadyAllocated) {
+				err = errors.New("ip specified is already allocated: " + change.requested)
+			}
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newData.Address6 {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv6Unique(r.Context(), network, newData.Address6) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address6)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		claimedAddrs = append(claimedAddrs, change.requested)
+		replacedAddrs = append(replacedAddrs, change.current.IP.String())
 	}
 
 	if !servercfg.IsPro {
@@ -699,6 +755,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
+		return
+	}
+	if err := logic.ErrUserDeviceGainingInfrastructureRole(r.Context(), &currentNode, newNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
@@ -834,6 +894,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	updated = true
+	for _, address := range replacedAddrs {
+		if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
+			slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+		}
+	}
 	if relayUpdate {
 		logic.UpdateRelayed(r.Context(), &currentNode, newNode)
 	}
@@ -947,22 +1013,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				_ = logic.UpdateMetrics(ctx, newNode.ID.String(), metrics)
 			}
 			go logic.SetPeerMetricsDisconnected(ctx, newNode.ID.String())
-			if servercfg.IsPro {
-				displacedNodes := logic.DisplaceAutoRelayedNodes(newNode.ID.String())
-				for _, dNode := range displacedNodes {
-					dHost := &schema.Host{ID: dNode.HostID}
-					if err := dHost.Get(ctx); err != nil {
-						slog.Error("disconnect gw: failed to get host for displaced node", "node", dNode.ID, "error", err)
-						continue
-					}
-					mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *dHost, Node: dNode})
-				}
-			}
+			mq.ReassignAutoAssignedClients(ctx, newNode.ID.String())
 		}
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
 			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
+			// Disconnect: detach clients from this routing node before publish so
+			// peer calc does not mark the whole mesh Remove (still RelayedBy dead exit).
+			if !newNode.Connected && len(exitClients) > 0 {
+				exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
+			}
 			if len(exitClients) > 0 {
 				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
@@ -1216,6 +1277,17 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Reassign auto-assigned clients only after every disconnected gw has been
+		// sent its node update, so clients are less likely to re-pick a gw that is
+		// still up but about to tear down.
+		if !req.Connected {
+			gwNodeIDs := make([]string, 0, len(nodeIDs))
+			for i := range nodeIDs {
+				gwNodeIDs = append(gwNodeIDs, nodeIDs[i].(string))
+			}
+			mq.ReassignAutoAssignedClients(ctx, gwNodeIDs...)
+		}
+
 		// On exit disconnect (fail open) or reconnect (restore full tunnel), push
 		// exit-client peer updates first before the global mesh update.
 		seenClient := map[string]struct{}{}
@@ -1233,6 +1305,9 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				seenClient[c.ID.String()] = struct{}{}
 				exitClients = append(exitClients, c)
 			}
+		}
+		if !req.Connected && len(exitClients) > 0 {
+			exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
 		}
 		if len(exitClients) > 0 {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)

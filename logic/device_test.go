@@ -22,6 +22,37 @@ func scopedTestContext(t *testing.T) context.Context {
 	return scope.WithContext(ctx, scope.TenantScope, defaultTenant.ID)
 }
 
+func TestGetDeviceNetworksIncludesAutoSelectExitNode(t *testing.T) {
+	ctx := scopedTestContext(t)
+	username := "auto-exit-user-" + uuid.NewString()[:8]
+	user := &schema.User{Username: username, PlatformRoleID: schema.PlatformUser}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	origFilter := FilterNetworksByRole
+	t.Cleanup(func() { FilterNetworksByRole = origFilter })
+	FilterNetworksByRole = func(context.Context, []schema.Network, *schema.User) []schema.Network {
+		return []schema.Network{
+			{Name: "enforced", AutoSelectExitNode: true},
+			{Name: "optional"},
+		}
+	}
+	origJIT := CheckJITAccess
+	t.Cleanup(func() { CheckJITAccess = origJIT })
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
+		return true, nil, nil
+	}
+
+	networks, err := GetDeviceNetworks(ctx, user, nil)
+	require.NoError(t, err)
+	got := map[string]bool{}
+	for _, n := range networks {
+		got[n.NetworkID] = n.AutoSelectExitNode
+	}
+	assert.True(t, got["enforced"])
+	assert.False(t, got["optional"])
+}
+
 func TestEnsureHostOwner(t *testing.T) {
 	ctx := scopedTestContext(t)
 	host := &schema.Host{ID: uuid.New(), Name: "ensure-owner-host", OwnerUsername: ""}
@@ -114,21 +145,23 @@ func TestRegisterDevice(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, hostID, resp.RequestedHost.ID)
 	assert.Equal(t, owner, resp.RequestedHost.OwnerUsername)
+	assert.Equal(t, scope.ID(ctx), resp.RequestedHost.TenantID)
+	assert.Equal(t, scope.ID(ctx), resp.ServerConf.TenantID)
 
 	otherUser := &schema.User{Username: other, PlatformRoleID: schema.AdminRole}
 	require.NoError(t, otherUser.Create(ctx))
 	t.Cleanup(func() { _ = otherUser.Delete(ctx) })
 
 	dup := &schema.Host{ID: hostID, Name: "device-reg-host", OS: "linux", Version: "dev", TrafficKeyPublic: []byte{1, 2, 3}}
-	_, err = RegisterDevice(ctx, otherUser, dup)
-	require.Error(t, err)
-	assert.Equal(t, "host already registered to another user", err.Error())
-
-	got, err := VerifyDeviceHostAccess(ctx, owner, hostID.String())
+	resp, err = RegisterDevice(ctx, otherUser, dup)
 	require.NoError(t, err)
-	assert.Equal(t, owner, got.OwnerUsername)
+	assert.Equal(t, other, resp.RequestedHost.OwnerUsername)
 
-	_, err = VerifyDeviceHostAccess(ctx, other, hostID.String())
+	got, err := VerifyDeviceHostAccess(ctx, other, hostID.String())
+	require.NoError(t, err)
+	assert.Equal(t, other, got.OwnerUsername)
+
+	_, err = VerifyDeviceHostAccess(ctx, owner, hostID.String())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not belong")
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
@@ -308,7 +341,7 @@ func TestDeviceJoinRequiresApprovalWhenJITDisabled(t *testing.T) {
 	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
-func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
+func TestDeviceJoinSkipsApprovalWhenJITAppliesToUser(t *testing.T) {
 	ctx := scopedTestContext(t)
 	netName := "jit-skip-approval-" + uuid.NewString()[:8]
 	username := "jit-skip-user-" + uuid.NewString()[:8]
@@ -365,14 +398,12 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 		return []schema.Network{{Name: netName, JITEnabled: true, AutoJoin: false}}
 	}
 
-	stalePending := schema.PendingHost{
-		ID:          uuid.NewString(),
-		TenantID:    scope.ID(ctx),
-		HostID:      hostID.String(),
-		Network:     netName,
-		RequestedAt: time.Now().UTC(),
+	joined := false
+	origJoin := JoinHostToNetworks
+	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+		joined = true
 	}
-	require.NoError(t, stalePending.Create(ctx))
 
 	networks, err := GetDeviceNetworks(ctx, user, host)
 	require.NoError(t, err)
@@ -384,30 +415,22 @@ func TestDeviceJoinSkipsApprovalWhenJITEnabledForUser(t *testing.T) {
 		}
 	}
 	require.Equal(t, netName, found.NetworkID)
-	assert.False(t, found.ApprovalRequired)
-	assert.False(t, found.Pending)
-	assert.Equal(t, models.DeviceNetworkStatusAvailable, found.Status)
-
-	var joinKey models.EnrollmentKey
-	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
-		joinKey = key
-	}
-	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	assert.False(t, found.ApprovalRequired, "JIT-scoped users skip pending-host approval")
+	assert.NotEqual(t, models.DeviceNetworkStatusApprovalRequired, found.Status)
 
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
 	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
-	assert.True(t, joinKey.SkipDeviceApproval)
+	assert.True(t, joined, "expected immediate join when JIT applies")
 
 	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
-	require.Error(t, check.CheckIfPendingHostExists(ctx))
+	assert.Error(t, check.CheckIfPendingHostExists(ctx), "must not create pending host for JIT users")
 }
 
-func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
+func TestDeviceJoinRequiresApprovalForNetworkAdmin(t *testing.T) {
 	ctx := scopedTestContext(t)
-	netName := "admin-skip-approval-" + uuid.NewString()[:8]
-	username := "admin-skip-user-" + uuid.NewString()[:8]
+	netName := "admin-approval-" + uuid.NewString()[:8]
+	username := "admin-approval-user-" + uuid.NewString()[:8]
 
 	origFlags := GetFeatureFlags
 	t.Cleanup(func() { GetFeatureFlags = origFlags })
@@ -438,7 +461,7 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 	hostID := uuid.New()
 	host := &schema.Host{
 		ID:               hostID,
-		Name:             "admin-skip-host",
+		Name:             "admin-approval-host",
 		OS:               "linux",
 		Version:          "dev",
 		HostPass:         "test-pass",
@@ -460,17 +483,12 @@ func TestDeviceJoinSkipsApprovalForNetworkAdmin(t *testing.T) {
 		return true, nil, nil
 	}
 
-	var joinKey models.EnrollmentKey
-	origJoin := JoinHostToNetworks
-	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, _ *schema.Host, _ string) {
-		joinKey = key
-	}
-	t.Cleanup(func() { JoinHostToNetworks = origJoin })
-
 	result, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.NoError(t, err)
-	assert.Equal(t, models.DeviceJoinStatusJoined, result.Status)
-	assert.True(t, joinKey.SkipDeviceApproval)
+	assert.Equal(t, models.DeviceJoinStatusPending, result.Status)
+
+	check := &schema.PendingHost{HostID: hostID.String(), Network: netName}
+	require.NoError(t, check.CheckIfPendingHostExists(ctx))
 }
 
 func TestCancelDeviceNetworkJoinClearsStalePending(t *testing.T) {
@@ -564,4 +582,134 @@ func TestJoinDeviceNetworkRequiresWriteAccess(t *testing.T) {
 	_, err := JoinDeviceNetwork(ctx, user, host, netName)
 	require.Error(t, err)
 	assert.Equal(t, "operation not permitted", err.Error())
+}
+
+func TestRegisterDevice_requiresTenantScope(t *testing.T) {
+	user := &schema.User{Username: "reg-user-" + uuid.NewString()[:8]}
+	host := &schema.Host{
+		ID:               uuid.New(),
+		Name:             "reg-host",
+		Version:          "dev",
+		OS:               "linux",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		HostPass:         "pass",
+	}
+	_, err := RegisterDevice(context.TODO(), user, host)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant id is required")
+}
+
+func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
+	ctx := scopedTestContext(t)
+	tenantID := scope.ID(ctx)
+	require.NotEmpty(t, tenantID)
+
+	owner := "reg-xt-" + uuid.NewString()[:8]
+	user := &schema.User{Username: owner, PlatformRoleID: schema.AdminRole}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "cross-tenant-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-host-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		TenantID:         "should-be-overwritten",
+	}
+	resp, err := RegisterDevice(ctx, user, host)
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, resp.RequestedHost.TenantID)
+	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
+
+	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, "other-tenant-"+uuid.NewString())
+	dup := &schema.Host{
+		ID:               hostID,
+		Name:             "cross-tenant-host",
+		OS:               "linux",
+		Version:          "dev",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		HostPass:         "test-host-pass",
+	}
+	_, err = RegisterDevice(otherCtx, user, dup)
+	require.Error(t, err)
+	assert.Equal(t, "host already registered to another tenant", err.Error())
+}
+
+func TestJoinDeviceNetworkBlocksReconnectOnPostureViolation(t *testing.T) {
+	ctx := scopedTestContext(t)
+	netName := "posture-reconnect-" + uuid.NewString()[:8]
+	username := "posture-reconnect-user-" + uuid.NewString()[:8]
+
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		TenantID:     scope.ID(ctx),
+		Name:         netName,
+		AddressRange: "10.91.0.0/24",
+		AutoJoin:     true,
+	}))
+	t.Cleanup(func() { _ = (&schema.Network{Name: netName}).Delete(ctx) })
+
+	net := &schema.Network{Name: netName}
+	require.NoError(t, net.Get(ctx))
+
+	user := &schema.User{Username: username, PlatformRoleID: schema.PlatformUser}
+	require.NoError(t, user.Create(ctx))
+	t.Cleanup(func() { _ = user.Delete(ctx) })
+
+	hostID := uuid.New()
+	host := &schema.Host{
+		ID:               hostID,
+		Name:             "posture-reconnect-host",
+		OS:               "linux",
+		Version:          "dev",
+		HostPass:         "test-pass",
+		TrafficKeyPublic: []byte{1, 2, 3},
+		OwnerUsername:    username,
+	}
+	require.NoError(t, host.Create(ctx))
+	t.Cleanup(func() { _ = host.Delete(ctx) })
+
+	nodeID := uuid.NewString()
+	node := &schema.Node{
+		ID:        nodeID,
+		TenantID:  scope.ID(ctx),
+		HostID:    hostID.String(),
+		NetworkID: net.ID,
+		Address:   "10.91.0.10",
+		Connected: false,
+		Status:    schema.Disconnected,
+	}
+	require.NoError(t, node.Create(ctx))
+	t.Cleanup(func() { _ = node.Delete(ctx) })
+
+	origJITAccess := CheckJITAccess
+	t.Cleanup(func() { CheckJITAccess = origJITAccess })
+	CheckJITAccess = func(context.Context, string, string) (bool, *schema.JITGrant, error) {
+		return true, nil, nil
+	}
+
+	origPosture := CheckPostureViolationsForHost
+	t.Cleanup(func() { CheckPostureViolationsForHost = origPosture })
+	CheckPostureViolationsForHost = func(context.Context, *schema.Host, map[models.TagID]struct{}, schema.NetworkID, bool) ([]models.Violation, schema.Severity) {
+		return []models.Violation{{CheckID: "os"}}, schema.SeverityHigh
+	}
+
+	joined := false
+	origJoin := JoinHostToNetworks
+	t.Cleanup(func() { JoinHostToNetworks = origJoin })
+	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+		joined = true
+	}
+
+	_, err := JoinDeviceNetwork(ctx, user, host, netName)
+	require.Error(t, err)
+	assert.Equal(t, "access blocked: this device doesn't meet security requirements", err.Error())
+	assert.False(t, joined, "must not create a new join when posture fails on reconnect")
+
+	// Existing node must stay disconnected.
+	check := &schema.Node{ID: nodeID}
+	require.NoError(t, check.Get(ctx))
+	assert.False(t, check.Connected)
 }

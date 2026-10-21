@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"sync"
 	"time"
@@ -311,9 +312,15 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
+	// fetch the node first, to release its addresses once it is deleted.
+	nodeExists := _node.Get(ctx) == nil
 	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
+	}
+
+	if nodeExists {
+		releaseNodeAddresses(ctx, _node)
 	}
 
 	err = _node.DeleteViolations(ctx)
@@ -326,6 +333,27 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	}
 	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
+}
+
+// releaseNodeAddresses releases the addresses of a deleted node, so that they
+// can be reallocated.
+func releaseNodeAddresses(ctx context.Context, node *schema.Node) {
+	for _, address := range []string{node.Address, node.Address6} {
+		prefix, err := netip.ParsePrefix(address)
+		if err != nil {
+			continue
+		}
+		allocation := &schema.IPAllocation{
+			TenantID:  node.TenantID,
+			NetworkID: node.NetworkID,
+			OwnerType: schema.IPOwnerNode,
+			OwnerID:   node.ID,
+		}
+		allocation.SetAddress(prefix.Addr())
+		if err := allocation.Release(ctx); err != nil {
+			slog.Error("failed to release node address", "node", node.ID, "address", address, "error", err)
+		}
+	}
 }
 
 // GetAllNodes - returns all nodes in the DB.
@@ -487,21 +515,17 @@ func GetNodeByID(nodeID string) (models.Node, error) {
 // This avoids the N+1 (and N^2) query patterns that arise when callers loop
 // over peer IDs and call GetNodeByID per peer (e.g. status / connectivity
 // checks driven by metrics).
-func GetNodesByIDs(ids []string) (map[string]models.Node, error) {
+func GetNodesByIDs(ctx context.Context, ids []string) (map[string]models.Node, error) {
 	if len(ids) == 0 {
 		return map[string]models.Node{}, nil
 	}
 	_nodes, err := (&schema.Node{}).ListByIDs(
-		db.WithContext(context.TODO()),
+		ctx,
 		ids,
 		dbtypes.WithAllPreloads(),
 	)
 	if err != nil {
 		return nil, err
-	}
-	ctx := db.WithContext(context.TODO())
-	if len(_nodes) > 0 {
-		ctx = scope.WithContext(ctx, scope.TenantScope, _nodes[0].TenantID)
 	}
 	modelsNodes := make([]models.Node, len(_nodes))
 	for i := range _nodes {
@@ -861,6 +885,12 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 		CountryCode:                        _node.Host.CountryCode,
 	}
 
+	// User-registered devices: attach owner metadata for API Active Users listing.
+	// Do not set IsUserNode here — that would divert posture/ACL away from the host path.
+	if _node.Host != nil && _node.Host.OwnerUsername != "" {
+		attachUserOwnedDeviceMetadata(node, _node.Host)
+	}
+
 	if _node.IsGateway {
 		node.IngressGatewayRange = _node.Network.AddressRange
 		node.IngressGatewayRange6 = _node.Network.AddressRange6
@@ -926,6 +956,57 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 	}
 
 	return node
+}
+
+// attachUserOwnedDeviceMetadata copies host owner identity into node fields used by
+// ConvertToAPINode so registered desktop devices appear under Active Users alongside
+// legacy ExtClient RAC nodes. IsUserNode stays false on the models.Node so posture
+// and ACL keep using the host/device path.
+func attachUserOwnedDeviceMetadata(node *models.Node, host *schema.Host) {
+	if node == nil || host == nil || host.OwnerUsername == "" {
+		return
+	}
+	node.OwnerID = host.OwnerUsername
+	addr := ""
+	if node.Address.IP != nil {
+		addr = node.Address.IP.String()
+	}
+	addr6 := ""
+	if node.Address6.IP != nil {
+		addr6 = node.Address6.IP.String()
+	}
+	pubKey := host.PublicKey.String()
+	endpoint := host.EndpointIP.String()
+	if endpoint == "<nil>" {
+		endpoint = ""
+	}
+	if endpoint == "" {
+		endpoint = host.EndpointIPv6.String()
+		if endpoint == "<nil>" {
+			endpoint = ""
+		}
+	}
+	node.StaticNode = models.ExtClient{
+		ClientID:                 host.Name,
+		Network:                  node.Network,
+		Address:                  addr,
+		Address6:                 addr6,
+		Enabled:                  node.Connected,
+		OwnerID:                  host.OwnerUsername,
+		OS:                       host.OS,
+		OSFamily:                 host.OSFamily,
+		OSVersion:                host.OSVersion,
+		KernelVersion:            host.KernelVersion,
+		ClientVersion:            host.Version,
+		DeviceID:                 host.ID.String(),
+		DeviceName:               host.Name,
+		PublicKey:                pubKey,
+		PublicEndpoint:           endpoint,
+		Country:                  host.CountryCode,
+		Location:                 host.Location,
+		Status:                   node.Status,
+		SelectedInternetEgressID: node.SelectedInternetEgressID,
+	}
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {

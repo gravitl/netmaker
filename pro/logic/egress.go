@@ -77,6 +77,9 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if err := logic.ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+				return err
+			}
 			if node.Network != e.Network {
 				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
 			}
@@ -108,7 +111,10 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		// Windows + virtual NAT the same way as explicit routing nodes.
 		resolved := make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			for nodeID := range GetNodesWithTag(ctx, models.TagID(tagID)) {
+			for nodeID, tagged := range GetNodesWithTag(ctx, models.TagID(tagID)) {
+				if err := logic.ErrUserOwnedNodeInfrastructureRole(&tagged); err != nil {
+					return err
+				}
 				resolved[nodeID] = true
 			}
 		}

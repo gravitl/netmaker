@@ -70,6 +70,7 @@ type SubjectType string
 const (
 	UserSub            SubjectType = "USER"
 	UserAccessTokenSub SubjectType = "USER_ACCESS_TOKEN"
+	APIKeySub          SubjectType = "API_KEY"
 	DeviceSub          SubjectType = "DEVICE"
 	NodeSub            SubjectType = "NODE"
 	GatewaySub         SubjectType = "GATEWAY"
@@ -227,7 +228,7 @@ func (a *Event) DeleteAllForTenant(ctx context.Context) error {
 
 func (a *Event) DeleteOldEvents(ctx context.Context, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
-	query := db.FromContext(ctx).Model(&Event{}).Where("created_at < ?", cutoff)
+	query := db.FromContext(ctx).Model(&Event{}).Where("time_stamp < ?", cutoff)
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", eventsTable), tenantID)(query)
 	}

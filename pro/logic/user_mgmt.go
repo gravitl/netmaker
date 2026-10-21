@@ -62,6 +62,9 @@ func defaultNetworkAdminResourceAccess() schema.ResourceAccess {
 		schema.RelayRsrc: {
 			schema.AllRelayRsrcID: fullAccess,
 		},
+		schema.GatewayRsrc: {
+			schema.AllGatewayRsrcID: fullAccess,
+		},
 		schema.RemoteAccessGwRsrc: {
 			schema.AllRemoteAccessGwRsrcID: schema.RsrcPermissionScope{
 				Create: true, Read: true, Update: true, Delete: true, VPNaccess: true,
@@ -113,13 +116,14 @@ func defaultNetworkAdminResourceAccess() schema.ResourceAccess {
 }
 
 var NetworkAdminAllPermissionTemplate = schema.UserRole{
-	Slug:               globalNetworksAdminRoleID,
-	Name:               "Network Admins",
-	MetaData:           "can manage configuration of all networks",
-	Default:            true,
-	TenantGlobalAccess: false,
-	NetworkID:          schema.AllNetworks,
-	NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
+	Slug:                globalNetworksAdminRoleID,
+	Name:                "Network Admins",
+	MetaData:            "can manage configuration of all networks",
+	Default:             true,
+	TenantGlobalAccess:  false,
+	NetworkGlobalAccess: true,
+	NetworkID:           schema.AllNetworks,
+	NetworkLevelAccess:  datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 }
 
 var NetworkUserAllPermissionTemplate = schema.UserRole{
@@ -256,13 +260,14 @@ func CreateDefaultNetworkRolesAndGroups(ctx context.Context, netID schema.Networ
 		return
 	}
 	var NetworkAdminPermissionTemplate = schema.UserRole{
-		Slug:               GetDefaultNetworkAdminRoleID(netID),
-		Name:               fmt.Sprintf("%s Admin", netID),
-		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
-		Default:            true,
-		NetworkID:          netID,
-		TenantGlobalAccess: false,
-		NetworkLevelAccess: datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
+		Slug:                GetDefaultNetworkAdminRoleID(netID),
+		Name:                fmt.Sprintf("%s Admin", netID),
+		MetaData:            fmt.Sprintf("can manage your network `%s` configuration.", netID),
+		Default:             true,
+		NetworkID:           netID,
+		TenantGlobalAccess:  false,
+		NetworkGlobalAccess: true,
+		NetworkLevelAccess:  datatypes.NewJSONType(defaultNetworkAdminResourceAccess()),
 	}
 
 	var NetworkUserPermissionTemplate = schema.UserRole{
@@ -666,6 +671,11 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 		return err
 	}
 
+	if err := logic.RemoveUserGroupFromNameservers(ctx, group.Slug); err != nil {
+		slog.Warn("failed to clean up nameservers for deleted user group",
+			"group_id", group.Slug, "error", err)
+	}
+
 	go UpdatesUserGwAccessOnGrpUpdates(ctx, group.Slug, group.NetworkRoles.Data(), make(map[schema.NetworkID]map[schema.UserRoleID]struct{}))
 
 	networksMap, err := GetGroupNetworksMap(ctx, group)
@@ -906,6 +916,9 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 			networkRemovedMap[netID] = struct{}{}
 		}
 	}
+	if len(networkRemovedMap) > 0 {
+		removeUserDeviceNodesOnGrpUpdates(ctx, networkRemovedMap)
+	}
 
 	extclients, err := logic.GetAllExtClients(ctx)
 	if err != nil {
@@ -945,6 +958,35 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 			}
 		}
 	}
+}
+
+// removeUserDeviceNodesOnGrpUpdates deletes user device nodes in networks a
+// group lost access to, for users with no remaining access. Every user that
+// owns a device is checked, not just the group's members, since a deleted
+// group has already been removed from its members.
+func removeUserDeviceNodesOnGrpUpdates(ctx context.Context, networkRemovedMap map[schema.NetworkID]struct{}) {
+	owners, err := (&schema.Host{}).ListOwnerUsernames(ctx)
+	if err != nil {
+		slog.Error("failed to list user device owners", "error", err)
+		return
+	}
+	_, allNetworksRemoved := networkRemovedMap[schema.AllNetworks]
+	var deleted []logic.UserDeviceNode
+	for _, owner := range owners {
+		user := &schema.User{Username: owner}
+		if err := user.GetWithMembership(ctx); err != nil {
+			slog.Error("failed to get user device owner", "user", owner, "error", err)
+			continue
+		}
+		deleted = append(deleted, logic.DeleteUserDeviceNodes(ctx, user.Username, func(network string) bool {
+			if _, ok := networkRemovedMap[schema.NetworkID(network)]; !ok && !allNetworksRemoved {
+				return false
+			}
+			return !logic.UserHasAccessToNetwork(ctx, user, network)
+		})...)
+	}
+	// One publish for the whole group update.
+	mq.PublishDeletedUserDeviceNodes(ctx, deleted)
 }
 
 func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.User) {
@@ -1471,7 +1513,15 @@ func StripGroupsOnRoleDowngrade(oldRole, newRole schema.UserRoleID, groups map[s
 
 func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct{} {
 	grpUsersMap := make(map[schema.UserGroupID]map[string]struct{})
-	users, _ := (&schema.User{}).ListAllWithMembership(ctx)
+	if ctx == nil {
+		ctx = db.WithContext(context.TODO())
+	}
+	// Groups live on tenant membership, not the user row. An unscoped ListAll
+	// leaves UserGroups empty, so group policies never match those users.
+	users, err := (&schema.User{}).ListAllWithMembership(ctx)
+	if err != nil {
+		users, _ = (&schema.User{}).ListAll(ctx)
+	}
 	for _, user := range users {
 		for gID := range user.UserGroups.Data() {
 			if grpUsers, ok := grpUsersMap[gID]; ok {
@@ -1485,6 +1535,30 @@ func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct
 	}
 
 	return grpUsersMap
+}
+
+// userGroupsForNetwork includes members of the global admin and user groups in
+// the network's default groups, matching listPoliciesOfUser.
+func userGroupsForNetwork(ctx context.Context, netID schema.NetworkID) map[schema.UserGroupID]map[string]struct{} {
+	grp := GetUserGrpMap(ctx)
+	copyGroupMembers(grp, globalNetworksAdminGroupID, GetDefaultNetworkAdminGroupSlug(netID))
+	copyGroupMembers(grp, globalNetworksUserGroupID, GetDefaultNetworkUserGroupSlug(netID))
+	return grp
+}
+
+func copyGroupMembers(grp map[schema.UserGroupID]map[string]struct{}, from, to schema.UserGroupID) {
+	src, ok := grp[from]
+	if !ok || from == to {
+		return
+	}
+	dst := grp[to]
+	if dst == nil {
+		dst = make(map[string]struct{})
+	}
+	for userName := range src {
+		dst[userName] = struct{}{}
+	}
+	grp[to] = dst
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.

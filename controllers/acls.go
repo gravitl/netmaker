@@ -205,7 +205,15 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicate(r.Context(), node, peer, true)
-	isallowed := logic.IsPeerAllowed(r.Context(), node, peer, true)
+	isallowed := logic.PeerAllowed(r.Context(), node, peer, true)
+	if logic.IsUserOwnedDevice(&node) || logic.IsUserOwnedDevice(&peer) {
+		allowed = isallowed
+		if owner := logic.NodeOwnerUsername(&node); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, peer)
+		} else if owner := logic.NodeOwnerUsername(&peer); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, node)
+		}
+	}
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
@@ -272,6 +280,10 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionRead); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	acls, err := logic.ListEgressAcls(r.Context(), eID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
@@ -302,11 +314,19 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	user := &schema.User{Username: r.Header.Get("user")}
-	err = user.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(req.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
+	}
+	createdBy := r.Header.Get("user")
+	if !logic.IsAPIKeyAuth(r.Context()) {
+		user := &schema.User{Username: createdBy}
+		err = user.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		createdBy = user.Username
 	}
 	err = logic.ValidateCreateAclReq(r.Context(), req)
 	if err != nil {
@@ -320,7 +340,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acl.ID = uuid.New().String()
-	acl.CreatedBy = user.Username
+	acl.CreatedBy = createdBy
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
 	if acl.ServiceType == models.Any {
@@ -347,14 +367,11 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	src := logic.EventSourceForRequest(r.Context(), r.Header.Get("user"))
 	logic.LogEvent(r.Context(), &models.Event{
-		Action: schema.Create,
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		TriggeredBy: r.Header.Get("user"),
+		Action:      schema.Create,
+		Source:      src,
+		TriggeredBy: src.Name,
 		Target: models.Subject{
 			ID:   acl.ID,
 			Name: acl.Name,
@@ -393,6 +410,10 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 	acl, err := logic.GetAcl(r.Context(), updateAcl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(acl.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 
@@ -490,6 +511,10 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 	acl, err := logic.GetAcl(r.Context(), aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(acl.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	if acl.Default {

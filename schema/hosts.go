@@ -241,6 +241,19 @@ func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, 
 	return hosts, err
 }
 
+// ListOwnerUsernames returns the distinct usernames that have registered at
+// least one host (user devices).
+func (h *Host) ListOwnerUsernames(ctx context.Context) ([]string, error) {
+	query := db.FromContext(ctx).Model(&Host{}).
+		Where(fmt.Sprintf("%s.owner_username <> ''", hostsTable))
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", hostsTable), tenantID)(query)
+	}
+	var usernames []string
+	err := query.Distinct("owner_username").Pluck("owner_username", &usernames).Error
+	return usernames, err
+}
+
 func (h *Host) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(h).Error
 }

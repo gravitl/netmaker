@@ -164,6 +164,50 @@ func encryptMsg(host *schema.Host, msg []byte) ([]byte, error) {
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
+// deriveHostTrafficKey computes the AES-256 key shared with host, derived via
+// ECDH between the server's private traffic key and the host's public one.
+func deriveHostTrafficKey(host *schema.Host) ([]byte, error) {
+	trafficKey, err := logic.RetrievePrivateTrafficKey()
+	if err != nil {
+		return nil, err
+	}
+	serverPrivKey, err := ncutils.ConvertBytesToKey(trafficKey)
+	if err != nil {
+		return nil, err
+	}
+	hostPubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
+	if err != nil {
+		return nil, err
+	}
+	return ncutils.DeriveSharedKey(serverPrivKey, hostPubKey)
+}
+
+// encryptMsgAESGCM compresses and AES-GCM encrypts msg for delivery to host.
+// Hosts that have upgraded past v1.8.0 get a key derived via
+// ECDH; older hosts, which only know how to decrypt with the host's raw
+// public key as the AES key (no real confidentiality), keep getting that
+// legacy scheme until they upgrade.
+func encryptMsgAESGCM(host *schema.Host, msg []byte) ([]byte, error) {
+	zipped, err := compressPayload(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	legacyScheme, err := logic.VersionLessThan(host.Version, "v1.8.0")
+	if err != nil {
+		return nil, err
+	}
+	if legacyScheme {
+		return encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+	}
+
+	key, err := deriveHostTrafficKey(host)
+	if err != nil {
+		return nil, err
+	}
+	return encryptAESGCM(key, zipped)
+}
+
 func publish(host *schema.Host, dest string, msg []byte) error {
 
 	var encrypted []byte
@@ -179,11 +223,7 @@ func publish(host *schema.Host, dest string, msg []byte) error {
 			return encryptErr
 		}
 	} else {
-		zipped, err := compressPayload(msg)
-		if err != nil {
-			return err
-		}
-		encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+		encrypted, encryptErr = encryptMsgAESGCM(host, msg)
 		if encryptErr != nil {
 			return encryptErr
 		}

@@ -99,6 +99,13 @@ func BeginTx(ctx context.Context) context.Context {
 	return context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
 }
 
+// WithDB returns a context with the given db
+// connection instance, e.g. the transaction passed
+// to a gorm.DB.Transaction callback.
+func WithDB(ctx context.Context, db *gorm.DB) context.Context {
+	return context.WithValue(ctx, dbCtxKey, db)
+}
+
 // CloseDB close a connection to the database
 // (if one exists). It panics if any error
 // occurs.

@@ -16,14 +16,14 @@ import (
 )
 
 // migrateInternetEgress:
-// 1) backfills Type=internet on egresses with Range="*"
-// 2) creates internet-type egress resources for legacy IsInternetGateway nodes
-// 3) clears obsolete central relayed_igw_clients rosters on IGW routing nodes
-// 4) sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
-// 5) sets SelectedInternetEgressID on ext clients attached to those inet gws
-//    (enables "use gateway as exit node"); recovers configs if a prior run cleared
-//    IsInternetGateway before stamping selections
-// 6) clears IsInternetGateway only on routing nodes whose ext-client migration succeeded
+//  1. backfills Type=internet on egresses with Range="*"
+//  2. creates internet-type egress resources for legacy IsInternetGateway nodes
+//  3. clears obsolete central relayed_igw_clients rosters on IGW routing nodes
+//  4. sets SelectedInternetEgressID + RelayedBy/IsIGWClient on former IGW client nodes
+//  5. sets SelectedInternetEgressID on ext clients attached to those inet gws
+//     (enables "use gateway as exit node"); recovers configs if a prior run cleared
+//     IsInternetGateway before stamping selections
+//  6. clears IsInternetGateway only on routing nodes whose ext-client migration succeeded
 func migrateInternetEgress() {
 	ctx := db.WithContext(context.TODO())
 	logger.Log(1, "migration: migrating internet gateways to egress type internet")
@@ -64,20 +64,21 @@ func migrateInternetEgress() {
 		}
 
 		e := schema.Egress{
-			ID:        uuid.New().String(),
-			Name:      name,
-			Network:   node.Network,
-			Type:      schema.EgressTypeInternet,
-			Range:     "*",
-			Nat:       true,
-			Mode:      schema.DirectNAT,
-			Nodes:     datatypes.JSONMap{node.ID.String(): 256},
-			Tags:      make(datatypes.JSONMap),
-			Status:    true,
-			CreatedBy: "migration",
-			CreatedAt: time.Now().UTC(),
-			UpdatedAt: time.Now().UTC(),
-			TenantID:  getNodeTenantID(ctx, node),
+			ID:                 uuid.New().String(),
+			Name:               name,
+			Network:            node.Network,
+			Type:               schema.EgressTypeInternet,
+			Range:              "*",
+			Nat:                true,
+			Mode:               schema.DirectNAT,
+			BypassEgressRoutes: true,
+			Nodes:              datatypes.JSONMap{node.ID.String(): 256},
+			Tags:               make(datatypes.JSONMap),
+			Status:             true,
+			CreatedBy:          "migration",
+			CreatedAt:          time.Now().UTC(),
+			UpdatedAt:          time.Now().UTC(),
+			TenantID:           getNodeTenantID(ctx, node),
 		}
 		if err := e.Create(ctx); err != nil {
 			logger.Log(0, "migration: failed to create internet egress for node", node.ID.String(), err.Error())
@@ -100,6 +101,22 @@ func migrateInternetEgress() {
 	// failed/partial run can retry while the legacy flag is still set.
 	clearable := migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
 	clearLegacyIsInternetGateway(ctx, clearable)
+}
+
+// migrateBypassEgressRoutesDefault backfills bypass_egress_routes=true for internet
+// egress rows that predate the column (those rows stay false). It runs once inside
+// the v1.8.0 migration job. A later admin false is left alone.
+func migrateBypassEgressRoutesDefault(ctx context.Context) error {
+	res := db.FromContext(ctx).Table((&schema.Egress{}).Table()).
+		Where("bypass_egress_routes = ? AND egress_type = ?", false, schema.EgressTypeInternet).
+		Update("bypass_egress_routes", true)
+	if res.Error != nil {
+		return fmt.Errorf("backfill bypass_egress_routes: %w", res.Error)
+	}
+	if res.RowsAffected > 0 {
+		logger.Log(1, fmt.Sprintf("migration: set bypass_egress_routes=true on %d internet egress(es)", res.RowsAffected))
+	}
+	return nil
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {
