@@ -113,33 +113,23 @@ func (a *IPAllocation) Get(ctx context.Context) error {
 		Error
 }
 
-// ListAddressesBetween lists the allocated addresses (in any state) of the
-// network and family between from and to (both included), at most limit of
-// them, the lowest first.
-func (a *IPAllocation) ListAddressesBetween(ctx context.Context, from, to netip.Addr, limit int) (map[netip.Addr]struct{}, error) {
-	var rawAddresses [][]byte
-	err := db.FromContext(ctx).Model(&IPAllocation{}).
+// ListAllocationsBetween lists the allocations (in any state) of the network
+// and family between from and to (both included), at most limit of them,
+// the lowest first. Returns the full rows so the caller can tell an
+// attached address (must be skipped) apart from an orphaned one (can be
+// reclaimed directly instead of inserted as new).
+func (a *IPAllocation) ListAllocationsBetween(ctx context.Context, from, to netip.Addr, limit int) ([]IPAllocation, error) {
+	var allocations []IPAllocation
+	err := db.FromContext(ctx).
 		Where(
 			"tenant_id = ? AND network_id = ? AND family = ? AND address BETWEEN ? AND ?",
 			a.TenantID, a.NetworkID, a.Family, from.AsSlice(), to.AsSlice(),
 		).
 		Order("address ASC").
 		Limit(limit).
-		Pluck("address", &rawAddresses).
+		Find(&allocations).
 		Error
-	if err != nil {
-		return nil, err
-	}
-
-	addresses := make(map[netip.Addr]struct{}, len(rawAddresses))
-	for _, rawAddress := range rawAddresses {
-		addr, ok := netip.AddrFromSlice(rawAddress)
-		if !ok {
-			return nil, fmt.Errorf("invalid IP allocation address %v", rawAddress)
-		}
-		addresses[addr] = struct{}{}
-	}
-	return addresses, nil
+	return allocations, err
 }
 
 // GetFirstOrphaned fetches the lowest orphaned address of the network and
@@ -149,6 +139,23 @@ func (a *IPAllocation) GetFirstOrphaned(ctx context.Context) error {
 		Where(
 			"tenant_id = ? AND network_id = ? AND family = ? AND state = ?",
 			a.TenantID, a.NetworkID, a.Family, IPOrphaned,
+		).
+		Order("address ASC").
+		First(a).
+		Error
+}
+
+// GetFirstOrphanedUpTo fetches the lowest orphaned address of the network
+// and family that is at most upTo. Used to limit orphan reuse to gaps in
+// the range the cursor has already walked past, rather than an address
+// beyond it (e.g. a custom address that was claimed and later released,
+// without the cursor ever reaching it) -- those are left for the cursor's
+// own forward walk to reclaim in order when it gets there.
+func (a *IPAllocation) GetFirstOrphanedUpTo(ctx context.Context, upTo netip.Addr) error {
+	return db.FromContext(ctx).
+		Where(
+			"tenant_id = ? AND network_id = ? AND family = ? AND state = ? AND address <= ?",
+			a.TenantID, a.NetworkID, a.Family, IPOrphaned, upTo.AsSlice(),
 		).
 		Order("address ASC").
 		First(a).

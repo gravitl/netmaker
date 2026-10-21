@@ -133,6 +133,60 @@ func (c *CENodeOrchestratorTestSuite) TestAllocateOrphanedIPFirst() {
 	allocate(false, "10.11.0.14")
 }
 
+// TestAllocateOrphanedIPBeyondCursorIsNotPrioritized covers a custom address
+// set far beyond the cursor (e.g. a node's address changed by hand), later
+// freed by deleting the node. That address must not jump ahead of addresses
+// the cursor has never reached; it should only be reclaimed once the cursor
+// actually walks that far, same as any other address in its path.
+func (c *CENodeOrchestratorTestSuite) TestAllocateOrphanedIPBeyondCursorIsNotPrioritized() {
+	network := c.createNetwork("network-alloc-orphan-beyond-cursor", "10.15.0.0/24", "")
+	defer testutils.DeleteNetwork(c.T(), c.ctx, network)
+	orch := GetRepository().NetworkOrchestrator()
+	owners := make(map[string]IPOwner)
+
+	allocate := func(expected string) {
+		ip, err := c.allocateIP(network, true, owners)
+		c.Require().NoError(err)
+		c.Require().Equal(expected, ip.String())
+	}
+
+	// three nodes join, contiguous.
+	allocate("10.15.0.1")
+	allocate("10.15.0.2")
+	allocate("10.15.0.3")
+	node2 := owners["10.15.0.2"]
+	node3 := owners["10.15.0.3"]
+
+	// two of them are given a custom address, far beyond the cursor.
+	c.Require().NoError(orch.ClaimIP(c.ctx, network, "10.15.0.10", node2.Type, node2.ID))
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, "10.15.0.2", node2.Type, node2.ID))
+	c.Require().NoError(orch.ClaimIP(c.ctx, network, "10.15.0.11", node3.Type, node3.ID))
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, "10.15.0.3", node3.Type, node3.ID))
+
+	// both are then removed from the network, freeing their custom address.
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, "10.15.0.10", node2.Type, node2.ID))
+	c.Require().NoError(orch.ReleaseIP(c.ctx, network, "10.15.0.11", node3.Type, node3.ID))
+
+	// rejoining fills the gaps the cursor already walked past first.
+	allocate("10.15.0.2")
+	allocate("10.15.0.3")
+
+	// brand new nodes continue from the cursor, not from the stale, far
+	// ahead custom addresses that were just freed.
+	allocate("10.15.0.4")
+	allocate("10.15.0.5")
+
+	// the freed custom addresses are not leaked: the cursor reclaims them
+	// in order, once it walks far enough to reach them.
+	allocate("10.15.0.6")
+	allocate("10.15.0.7")
+	allocate("10.15.0.8")
+	allocate("10.15.0.9")
+	allocate("10.15.0.10")
+	allocate("10.15.0.11")
+	allocate("10.15.0.12")
+}
+
 func (c *CENodeOrchestratorTestSuite) TestReleaseIPOwner() {
 	network := c.createNetwork("network-release-owner", "10.12.0.0/24", "")
 	defer testutils.DeleteNetwork(c.T(), c.ctx, network)

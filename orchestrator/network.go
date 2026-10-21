@@ -283,8 +283,11 @@ func ipPoolCursor(allocated map[netip.Addr]struct{}, first, last netip.Addr) (cu
 const ipAllocationWindow = 256
 
 // allocateFromCursor allocates the next address after the pool's cursor,
-// skipping addresses that are already allocated (e.g. claimed custom
-// addresses). Caller must hold the pool lock.
+// skipping attached addresses (e.g. claimed custom addresses) and
+// reclaiming any orphaned address it meets along the way, instead of
+// skipping past it -- the cursor only ever moves forward, so an orphaned
+// address left unreclaimed here would never be revisited and be leaked for
+// good. Caller must hold the pool lock.
 func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *schema.Network, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
 	first, last, err := network.UsableIPRange(pool.Family)
 	if err != nil {
@@ -308,34 +311,56 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 
 	var skipped netip.Addr
 	for withinRange(addr) {
-		// fetch the allocated addresses from addr onwards, a window at a time.
-		allocated, err := (&schema.IPAllocation{
+		// fetch the allocations from addr onwards, a window at a time.
+		window, err := (&schema.IPAllocation{
 			TenantID:  pool.TenantID,
 			NetworkID: pool.NetworkID,
 			Family:    pool.Family,
-		}).ListAddressesBetween(ctx, addr, last, ipAllocationWindow)
+		}).ListAllocationsBetween(ctx, addr, last, ipAllocationWindow)
 		if err != nil {
 			return netip.Addr{}, err
 		}
+		byAddress := make(map[netip.Addr]schema.IPAllocation, len(window))
+		for _, a := range window {
+			byAddress[a.Address()] = a
+		}
 
-		// skip the run of allocated addresses starting at addr.
+		// skip the run of attached addresses starting at addr, stopping
+		// early on an orphaned one so it can be reclaimed below rather than
+		// skipped.
 		run := 0
+		var reclaim *schema.IPAllocation
 		for ; run < ipAllocationWindow; run++ {
-			if _, ok := allocated[addr]; !ok {
+			existing, ok := byAddress[addr]
+			if !ok {
+				break
+			}
+			if existing.State == schema.IPOrphaned {
+				reclaim = &existing
 				break
 			}
 			skipped = addr
 			addr = addr.Next()
 		}
+
+		if reclaim != nil {
+			reclaim.OwnerType = ownerType
+			reclaim.OwnerID = ownerID
+			if err := reclaim.Attach(ctx); err != nil {
+				return netip.Addr{}, err
+			}
+			pool.Cursor = addr.String()
+			return addr, pool.UpdateCursor(ctx)
+		}
 		if run == ipAllocationWindow {
-			// the whole window is allocated, look at the next one.
+			// the whole window is attached, look at the next one.
 			continue
 		}
 		if !withinRange(addr) {
 			break
 		}
 
-		// addr is not allocated.
+		// addr has no allocation at all.
 		allocation := &schema.IPAllocation{
 			TenantID:  pool.TenantID,
 			NetworkID: pool.NetworkID,
@@ -362,15 +387,31 @@ func (n *NetworkOrchestrator) allocateFromCursor(ctx context.Context, network *s
 	return netip.Addr{}, ErrIPPoolExhausted
 }
 
-// allocateOrphaned reallocates the lowest orphaned address.
+// allocateOrphaned reallocates the lowest orphaned address that is at most
+// the pool's cursor -- i.e. a gap in the range the cursor has already
+// walked past (e.g. an address released by a deleted node), not an address
+// beyond it. An orphaned address the cursor hasn't reached yet (e.g. a
+// custom high address that was claimed and later released) is left alone,
+// so it doesn't jump ahead of addresses that have never been used at all;
+// allocateFromCursor reclaims it in its turn once the cursor gets there.
 // Caller must hold the pool lock.
 func (n *NetworkOrchestrator) allocateOrphaned(ctx context.Context, pool *schema.IPPool, ownerType schema.IPOwnerType, ownerID string) (netip.Addr, error) {
+	if pool.Cursor == "" {
+		// nothing has been walked yet, so there is no gap behind the cursor
+		// to fill.
+		return netip.Addr{}, ErrNoOrphanedIP
+	}
+	cursor, err := n.parseCursor(pool.Cursor)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+
 	allocation := &schema.IPAllocation{
 		TenantID:  pool.TenantID,
 		NetworkID: pool.NetworkID,
 		Family:    pool.Family,
 	}
-	if err := allocation.GetFirstOrphaned(ctx); err != nil {
+	if err := allocation.GetFirstOrphanedUpTo(ctx, cursor); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return netip.Addr{}, ErrNoOrphanedIP
 		}
