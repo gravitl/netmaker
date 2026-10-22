@@ -130,6 +130,8 @@ const (
 	UpdateNode HostMqAction = "UPDATE_NODE"
 	// DeleteHost - constant for host delete action
 	DeleteHost HostMqAction = "DELETE_HOST"
+	// ForceLogout - clear the desktop session/JWT and disconnect networks
+	ForceLogout HostMqAction = "FORCE_LOGOUT"
 	// JoinHostToNetwork - constant for host network join action
 	JoinHostToNetwork HostMqAction = "JOIN_HOST_TO_NETWORK"
 	// Acknowledgement - ACK response for hosts

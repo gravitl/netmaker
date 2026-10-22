@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -622,6 +623,31 @@ func PublishIntegrationDelete(id string) error {
 	}
 
 	return nil
+}
+
+// PublishForceLogoutUserDevices tells each host registered by username to clear
+// its desktop session (JWT) and disconnect. Hosts remain enrolled on the server.
+func PublishForceLogoutUserDevices(ctx context.Context, username string) {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices for force logout", "user", username, "error", err)
+		return
+	}
+	for i := range hosts {
+		if err := HostUpdate(&models.HostUpdate{Action: models.ForceLogout, Host: hosts[i]}); err != nil {
+			slog.Error("failed to send force logout to user device",
+				"host", hosts[i].ID.String(), "user", username, "error", err)
+		}
+	}
+}
+
+// DisconnectAndForceLogoutUserDevices marks the user's host-backed devices
+// disconnected on every network, notifies peers, then force-logs out Desktop
+// last so the client applies Connected=false before clearing the session.
+func DisconnectAndForceLogoutUserDevices(ctx context.Context, username string) {
+	disconnected := logic.DisconnectUserDeviceNodes(ctx, username, func(string) bool { return true })
+	PublishDisconnectedUserDeviceNodes(ctx, disconnected)
+	PublishForceLogoutUserDevices(ctx, username)
 }
 
 // PublishDisconnectedUserDeviceNodes notifies peers that user device nodes are
