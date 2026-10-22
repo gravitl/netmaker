@@ -355,6 +355,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 					dbUser.DisplayName != user.DisplayName ||
 					dbUser.ExternalIdentityProviderID != user.ID) {
 
+				wasDisabled := dbUser.AccountDisabled
 				dbUser.AccountDisabled = user.AccountDisabled
 				dbUser.DisplayName = user.DisplayName
 				dbUser.ExternalIdentityProviderID = user.ID
@@ -386,6 +387,28 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				err = dbUser.UpdateAccountStatus(ctx)
 				if err != nil {
 					return err
+				}
+
+				// Newly disabled via IdP: drop mesh + Desktop session like dashboard disable.
+				if !wasDisabled && dbUser.AccountDisabled {
+					username := dbUser.Username
+					if isOrgScope {
+						memberships, listErr := (&schema.TenantMembership{UserID: dbUser.ID}).ListByUserID(ctx)
+						if listErr != nil {
+							logger.Log(0, "idp sync: failed to list tenants for disabled user", username, listErr.Error())
+						} else {
+							for _, membership := range memberships {
+								if membership.AuthType != schema.Inherited {
+									continue
+								}
+								tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, membership.TenantID)
+								go mq.DisconnectAndForceLogoutUserDevices(tenantCtx, username)
+							}
+						}
+					} else {
+						tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, scope.ID(ctx))
+						go mq.DisconnectAndForceLogoutUserDevices(tenantCtx, username)
+					}
 				}
 			}
 		} else {

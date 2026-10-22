@@ -1031,10 +1031,12 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 		}
 	}
 
-	if force {
-		for _, tenantID := range tenantIDs {
-			ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
-			go toggleUserExtClients(ctx, _user.Username, !disableAccount)
+	for _, tenantID := range tenantIDs {
+		ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenantID)
+		if disableAccount {
+			go disableUserDevicesAndLogout(ctx, _user.Username, force)
+		} else if force {
+			go toggleUserExtClients(ctx, _user.Username, true)
 		}
 	}
 
@@ -1114,6 +1116,18 @@ func toggleUserExtClients(ctx context.Context, username string, enable bool) {
 		}
 	}
 	mq.PublishPeerUpdate(ctx, false)
+}
+
+// disableUserDevicesAndLogout disconnects host-backed user devices on every
+// network, optionally disables RAC extclients, then force-logs out Desktop last.
+// Hosts stay enrolled so re-enable can reconnect later.
+func disableUserDevicesAndLogout(ctx context.Context, username string, forceConfigs bool) {
+	disconnected := logic.DisconnectUserDeviceNodes(ctx, username, func(string) bool { return true })
+	mq.PublishDisconnectedUserDeviceNodes(ctx, disconnected)
+	if forceConfigs {
+		toggleUserExtClients(ctx, username, false)
+	}
+	mq.PublishForceLogoutUserDevices(ctx, username)
 }
 
 // @Summary     Get a user's preferences and settings
@@ -2165,7 +2179,15 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		Email: username,
 	}).DeleteByEmail(ctx)
 
-	mq.PublishDeletedUserDevices(ctx, logic.DeleteUserDevices(ctx, username))
+	// Delete hosts/nodes first, then FORCE_LOGOUT last (DeleteHost also logs out).
+	devices := logic.DeleteUserDevices(ctx, username)
+	mq.PublishDeletedUserDevices(ctx, devices)
+	for i := range devices {
+		if err := mq.HostUpdate(&models.HostUpdate{Action: models.ForceLogout, Host: devices[i].Host}); err != nil {
+			slog.Error("failed to send force logout after user device delete",
+				"host", devices[i].Host.ID.String(), "user", username, "error", err)
+		}
+	}
 
 	if err := logic.RemoveUserFromNameservers(ctx, username); err != nil {
 		slog.Error("failed to remove user from nameservers", "user", username, "error", err)
@@ -2341,6 +2363,7 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updated := 0
+		disabledUsers := make([]string, 0)
 		for _, username := range req.IDs {
 			user := &schema.User{Username: username}
 			if err := user.GetWithMembership(ctx); err != nil {
@@ -2407,6 +2430,10 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, username, "was", action+"d")
 			updated++
 
+			if req.Disable {
+				disabledUsers = append(disabledUsers, user.Username)
+			}
+
 			if forceToggle && ownerExtClients != nil {
 				extclientStatus := !req.Disable
 				for _, extclient := range ownerExtClients[user.Username] {
@@ -2417,6 +2444,14 @@ func bulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+		}
+		for _, username := range disabledUsers {
+			disconnected := logic.DisconnectUserDeviceNodes(ctx, username, func(string) bool { return true })
+			mq.PublishDisconnectedUserDeviceNodes(ctx, disconnected)
+		}
+		// FORCE_LOGOUT after all nodes are disabled (and extclients toggled above).
+		for _, username := range disabledUsers {
+			mq.PublishForceLogoutUserDevices(ctx, username)
 		}
 		if updated > 0 && forceToggle {
 			mq.PublishPeerUpdate(ctx, false)
