@@ -128,6 +128,14 @@ func RekeyIDPSyncHook(level scope.Scope, oldID, newID string) {
 	logic.StopHook(idpSyncHookIDFor(level, oldID))
 
 	newCtx := scope.WithContext(db.WithContext(context.Background()), level, newID)
+
+	if !servercfg.IsMasterPod() {
+		if servercfg.IsHA() && logic.PublishServerSync != nil {
+			logic.PublishServerSync(newCtx, logic.SyncTypeIDPReset)
+		}
+		return
+	}
+
 	StartIDPSyncHook(newCtx)
 }
 
