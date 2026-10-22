@@ -206,6 +206,7 @@ func AuthorizeHost(
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
 // @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned, user, server)
+// @Param       username query string false "Filter by owner username (only with device_type=user)"
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -220,6 +221,13 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deviceType := r.URL.Query().Get("device_type")
+	username := r.URL.Query().Get("username")
+	if username != "" && deviceType != "user" {
+		err := fmt.Errorf("username filter is only supported with device_type=user")
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 
 	var statusFilters []interface{}
 	for _, filter := range r.URL.Query()["status"] {
@@ -264,7 +272,11 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		q := db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
 		switch deviceType {
 		case "user":
-			return q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+			q = q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+			if username != "" {
+				q = q.Where("hosts_v1.owner_username = ?", username)
+			}
+			return q
 		case "server":
 			return q.Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
 		default:
