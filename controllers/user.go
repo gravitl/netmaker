@@ -2179,15 +2179,9 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		Email: username,
 	}).DeleteByEmail(ctx)
 
-	// Delete hosts/nodes first, then FORCE_LOGOUT last (DeleteHost also logs out).
+	// DeleteHost logs the device out and wipes local host/node config.
 	devices := logic.DeleteUserDevices(ctx, username)
 	mq.PublishDeletedUserDevices(ctx, devices)
-	for i := range devices {
-		if err := mq.HostUpdate(&models.HostUpdate{Action: models.ForceLogout, Host: devices[i].Host}); err != nil {
-			slog.Error("failed to send force logout after user device delete",
-				"host", devices[i].Host.ID.String(), "user", username, "error", err)
-		}
-	}
 
 	if err := logic.RemoveUserFromNameservers(ctx, username); err != nil {
 		slog.Error("failed to remove user from nameservers", "user", username, "error", err)
