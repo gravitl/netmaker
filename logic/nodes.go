@@ -883,6 +883,7 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 		LastEvaluatedAt:                    _node.PostureCheckLastEvaluatedAt,
 		Location:                           _node.Host.Location,
 		CountryCode:                        _node.Host.CountryCode,
+		HostHasEndpointIPv6:                len(_node.Host.EndpointIPv6) > 0,
 	}
 
 	// User-registered devices: attach owner metadata for API Active Users listing.
