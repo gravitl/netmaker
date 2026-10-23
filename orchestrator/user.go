@@ -39,9 +39,10 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 
 	userExists := err == nil
 
-	if scope.Level(ctx) == scope.TenantScope {
-		var hasMembership bool
-		if userExists {
+	var hasMembership bool
+	if userExists {
+		switch scope.Level(ctx) {
+		case scope.TenantScope:
 			membership := &schema.TenantMembership{
 				TenantID: scope.ID(ctx),
 				UserID:   existing.ID,
@@ -52,11 +53,22 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
+		case scope.OrgScope:
+			membership := &schema.OrgMembership{
+				OrganizationID: scope.ID(ctx),
+				UserID:         existing.ID,
+			}
+			err = membership.Get(ctx)
+			if err == nil {
+				hasMembership = true
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 		}
+	}
 
-		if !hasMembership && logic.UserLimitExceeded(ctx) {
-			return logic.ErrUserLimitExceeded
-		}
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership && logic.UserLimitExceeded(ctx) {
+		return logic.ErrUserLimitExceeded
 	}
 
 	var emailValidated bool
@@ -95,7 +107,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		}
 	}
 
-	if scope.Level(ctx) == scope.TenantScope {
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership {
 		tenantID := scope.ID(ctx)
 		membership := &schema.TenantMembership{
 			TenantID:                   tenantID,
@@ -116,7 +128,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		if err != nil {
 			return err
 		}
-	} else if scope.Level(ctx) == scope.OrgScope {
+	} else if scope.Level(ctx) == scope.OrgScope && !hasMembership {
 		orgID := scope.ID(ctx)
 		membership := &schema.OrgMembership{
 			OrganizationID:             orgID,

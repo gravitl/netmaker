@@ -638,6 +638,16 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 func listTenants(w http.ResponseWriter, r *http.Request) {
 	orgID := scope.ID(r.Context())
 
+	if r.Header.Get("ismaster") == "yes" {
+		tenants, err := (&schema.Tenant{}).List(r.Context(), dbtypes.WithFilter("organization_id", orgID))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		logic.ReturnSuccessResponseWithJson(w, r, tenants, "fetched tenants")
+		return
+	}
+
 	caller := &schema.User{Username: r.Header.Get("user")}
 	if err := caller.GetWithMembership(r.Context()); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
