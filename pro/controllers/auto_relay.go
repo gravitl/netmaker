@@ -485,13 +485,11 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		g, err := logic.LoadPeerGraph(r.Context())
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil)
 		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go mq.PublishPeerUpdate(ctx, false)
-		if node.AutoAssignGateway {
-			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node})
-		}
+		mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node})
 		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 		return
 	}

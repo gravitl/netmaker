@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"testing"
 
@@ -187,7 +186,8 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	}
 
 	ctx := db.WithContext(context.TODO())
-	allowed := GetAllowedIPs(ctx, &client, &gw, nil)
+	g := NewPeerGraph(nil, []models.Node{gw, client})
+	allowed := GetAllowedIPs(ctx, g, &client, &gw, nil)
 	hasLAN := false
 	for _, ip := range allowed {
 		assert.NotEqual(t, IPv4Network, ip.String(), "non-exit client must not get default v4 route")
@@ -201,7 +201,7 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	// Exit client via legacy InternetGwID assignment.
 	exitClient := client
 	exitClient.InternetGwID = gwID.String()
-	exitAllowed := GetAllowedIPs(ctx, &exitClient, &gw, nil)
+	exitAllowed := GetAllowedIPs(ctx, g, &exitClient, &gw, nil)
 	hasV4 := false
 	for _, ip := range exitAllowed {
 		if ip.String() == IPv4Network {
@@ -246,10 +246,8 @@ func TestAllowedIPsFromRelayedNodeIncludesNonDefaultEgress(t *testing.T) {
 }
 
 func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
-	originalGetNodeByID := getNodeByID
 	originalListEgress := listEgressByNetwork
 	t.Cleanup(func() {
-		getNodeByID = originalGetNodeByID
 		listEgressByNetwork = originalListEgress
 	})
 
@@ -282,12 +280,6 @@ func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
 		},
 	}
 
-	getNodeByID = func(id string) (models.Node, error) {
-		if id == clientID.String() {
-			return exitClient, nil
-		}
-		return models.Node{}, fmt.Errorf("not found")
-	}
 	listEgressByNetwork = func(ctx context.Context, network string) ([]schema.Egress, error) {
 		return []schema.Egress{{
 			ID:      "lan-egress",
@@ -302,7 +294,8 @@ func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
 	assert.False(t, usesPeerAsInternetExit(&observer, &exitNode), "observer is not an exit client")
 
 	ctx := db.WithContext(context.TODO())
-	allowed := GetAllowedIPs(ctx, &observer, &exitNode, nil)
+	g := NewPeerGraph(nil, []models.Node{exitClient, exitNode, observer})
+	allowed := GetAllowedIPs(ctx, g, &observer, &exitNode, nil)
 	hasOverlay := false
 	hasLAN := false
 	for _, ip := range allowed {
