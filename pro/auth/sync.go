@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -104,8 +105,38 @@ func cleanFilters(filters []string) []string {
 	return cleaned
 }
 
+func normalizeUsername(username string) string {
+	if _, err := mail.ParseAddress(username); err == nil {
+		return strings.ToLower(username)
+	}
+	return username
+}
+
 func idpSyncHookID(ctx context.Context) string {
-	return fmt.Sprintf("idp-sync-%d-%s", scope.Level(ctx), scope.ID(ctx))
+	return idpSyncHookIDFor(scope.Level(ctx), scope.ID(ctx))
+}
+
+func idpSyncHookIDFor(level scope.Scope, id string) string {
+	return fmt.Sprintf("idp-sync-%d-%s", level, id)
+}
+
+func RekeyIDPSyncHook(level scope.Scope, oldID, newID string) {
+	if oldID == newID {
+		return
+	}
+
+	logic.StopHook(idpSyncHookIDFor(level, oldID))
+
+	newCtx := scope.WithContext(db.WithContext(context.Background()), level, newID)
+
+	if !servercfg.IsMasterPod() {
+		if servercfg.IsHA() && logic.PublishServerSync != nil {
+			logic.PublishServerSync(newCtx, logic.SyncTypeIDPReset)
+		}
+		return
+	}
+
+	StartIDPSyncHook(newCtx)
 }
 
 func syncLock(level scope.Scope, id string) *sync.Mutex {
@@ -232,6 +263,9 @@ func SyncFromIDP(ctx context.Context) error {
 		idpUsers, err = idpClient.GetUsers(settings.UserFilters)
 		if err != nil {
 			return err
+		}
+		for i := range idpUsers {
+			idpUsers[i].Username = normalizeUsername(idpUsers[i].Username)
 		}
 		logger.Log(0, "idp sync: fetched", fmt.Sprint(len(idpUsers)), "users from", settings.AuthProvider, "for", scope.ID(ctx), "with filters", fmt.Sprint(settings.UserFilters))
 
