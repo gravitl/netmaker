@@ -580,13 +580,18 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("requested node is not a auto relay node"), "badrequest"))
 		return
 	}
-	if node.AutoRelayedPeers[peerNode.ID.String()] == peerNode.AutoRelayedPeers[node.ID.String()] {
+	if peerNode.AutoRelayedPeers == nil {
+		peerNode.AutoRelayedPeers = make(map[string]string)
+	}
+	if node.AutoRelayedPeers[peerNode.ID.String()] == autoRelayReq.AutoRelayGwID &&
+		peerNode.AutoRelayedPeers[node.ID.String()] == autoRelayReq.AutoRelayGwID {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("already using requested relay node"), "badrequest"))
 		return
 	}
 	node.AutoRelayedPeers[peerNode.ID.String()] = autoRelayReq.AutoRelayGwID
 	peerNode.AutoRelayedPeers[node.ID.String()] = autoRelayReq.AutoRelayGwID
 	logic.UpsertNode(&node)
+	logic.UpsertNode(&peerNode)
 	slog.Info(
 		"[auto-relay] created relay on node",
 		"node",
