@@ -234,6 +234,16 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
 func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
+	relaysViaPeer := false
+	for _, autoRelayID := range node.AutoRelayedPeers {
+		if autoRelayID == peer.ID.String() {
+			relaysViaPeer = true
+			break
+		}
+	}
+	if !relaysViaPeer {
+		return allowedips
+	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls := logic.ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
