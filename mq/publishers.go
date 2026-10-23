@@ -291,6 +291,38 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
+// PublishPeerUpdateToNodeHosts pushes a peer update only to the hosts of the
+// given nodes.
+func PublishPeerUpdateToNodeHosts(ctx context.Context, nodes ...models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	g, err := logic.LoadPeerGraph(ctx)
+	if err != nil {
+		return err
+	}
+	seenHosts := map[uuid.UUID]struct{}{}
+	for i := range nodes {
+		hostID := nodes[i].HostID
+		if hostID == uuid.Nil {
+			continue
+		}
+		if _, ok := seenHosts[hostID]; ok {
+			continue
+		}
+		seenHosts[hostID] = struct{}{}
+		host, err := g.Host(ctx, hostID)
+		if err != nil {
+			slog.Error("node host peer update: failed to get host", "host", hostID.String(), "error", err)
+			continue
+		}
+		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+			slog.Error("node host peer update: publish failed", "host", host.Name, "error", err)
+		}
+	}
+	return nil
+}
+
 // PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
 // the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
 // routes before a routing node is removed.

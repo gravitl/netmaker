@@ -389,8 +389,9 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	sendPeerUpdate = true
 
 	if sendPeerUpdate {
+		// only the paired nodes' configs change; skip the full mesh recompute
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		go mq.PublishPeerUpdate(ctx, false)
+		go mq.PublishPeerUpdateToNodeHosts(ctx, node, peerNode)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -474,8 +475,15 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			delete(peerNode.AutoRelayedPeers, node.ID.String())
 			logic.UpsertNode(&node)
 			logic.UpsertNode(&peerNode)
+			// only the unpaired nodes' configs change; skip the full mesh recompute
+			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+			if err := mq.PublishPeerUpdateToNodeHosts(ctx, node, peerNode); err != nil {
+				slog.Error("failed to publish peer update after auto relay reset", "node", node.ID.String(), "error", err)
+			}
+			logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
+			return
 		}
-		allNodes, err := logic.GetAllNodes(r.Context())
+		g, err := logic.LoadPeerGraph(r.Context())
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil)
 		}
@@ -586,8 +594,9 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		"network",
 		node.Network,
 	)
+	// only the paired nodes' configs change; skip the full mesh recompute
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	go mq.PublishPeerUpdateToNodeHosts(ctx, node, peerNode)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
