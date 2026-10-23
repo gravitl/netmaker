@@ -233,9 +233,9 @@ func computeHostPeerInfo(ctx context.Context, host *schema.Host, allNodes []mode
 // unrestricted in protocol and ports. The loaded ACL list is checked as well
 // as the policies returned by GetDefaultPolicy, so an enabled All Nodes and
 // All Users pair is not missed when the default-policy lookup disagrees.
-// A unidirectional policy that applies to node keeps the host off the
-// ACCEPT-all chain, so that policy is still enforced.
-func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl, node models.Node) bool {
+// Extra uni / proto / port / IP-scoped policies do not defeat this: ACLs are
+// allow-list only, so with both defaults open they cannot restrict further.
+func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
 	deviceOn := device.Enabled && aclOpenBothSides(device)
 	userOn := user.Enabled && aclOpenBothSides(user)
 	if !servercfg.IsPro {
@@ -251,9 +251,6 @@ func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl, node mo
 		case models.UserPolicy:
 			userOn = true
 		}
-	}
-	if CheckIfAnyPolicyisUniDirectional(node, acls) {
-		return false
 	}
 	return deviceOn && userOn
 }
@@ -379,11 +376,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		// User hosts skip ACL/FwUpdate calc: user policies are uni user→server and
 		// are emitted on the server's peer update via GetUserAclRulesForNode.
-		// The chain tail accepts the whole network only when both default policies
-		// are open on every side. A tag-scoped policy does not, so the tail stays
-		// DROP and the per-client rules carry the permits.
+		// Both open defaults (*↔*) → AllowAll. Otherwise fine-grained rules + DROP tail.
 		if !skipPeerUpdateAclCalc(host) {
-			if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls, node) {
+			if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls) {
 				aclRule := models.AclRule{
 					ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 					AllowedProtocol: models.ALL,
