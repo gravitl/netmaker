@@ -511,7 +511,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	allNodes, err := logic.GetAllNodes(r.Context())
+	g, err := logic.LoadPeerGraph(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -525,7 +525,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(r.Context(), node.Network, host, allNodes, nil, nil, nil)
+	hostPeerUpdate, err := g.PeerUpdateForHost(r.Context(), node.Network, host, nil, nil, nil)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(
 			0,
@@ -889,10 +889,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// Push peer update while still connected so the client drops exit/default routes
 	// before the disconnect NodeUpdate is applied.
 	if preDisconnectExitClear {
-		allNodes, peerErr := logic.GetAllNodes(r.Context())
+		g, peerErr := logic.LoadPeerGraph(r.Context())
 		if peerErr != nil {
-			slog.Error("pre-disconnect exit clear: failed to list nodes", "error", peerErr)
-		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
+			slog.Error("pre-disconnect exit clear: failed to load peer graph", "error", peerErr)
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil); pubErr != nil {
 			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -1006,9 +1006,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
 			}
 		}
-		allNodes, err := logic.GetAllNodes(ctx)
+		g, err := logic.LoadPeerGraph(ctx)
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})

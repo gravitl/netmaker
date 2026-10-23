@@ -159,11 +159,27 @@ func NodesForAllResourcesTag(nodes []models.Node) []models.Node {
 // network. These stay real nodes: their firewall source is the node's own
 // overlay address, and their access is decided by the owner's user policies.
 func ListUserDevicesByNetwork(ctx context.Context, network string) (userDevices []models.Node) {
-	nodes, err := GetNetworkNodes(ctx, network)
+	_network := &schema.Network{Name: network}
+	if err := _network.Get(ctx); err != nil {
+		slog.Error("failed to list user devices", "network", network, "error", err)
+		return
+	}
+	_nodes, err := (&schema.Node{}).ListUserOwnedByNetwork(ctx, _network.ID, dbtypes.WithAllPreloads())
 	if err != nil {
 		slog.Error("failed to list user devices", "network", network, "error", err)
 		return
 	}
+	nodes := make([]models.Node, 0, len(_nodes))
+	for i := range _nodes {
+		node := ConvertSchemaNodeToModelsNodeWithContext(ctx, &_nodes[i], SkipViolations())
+		ensureNodeMutex(node)
+		nodes = append(nodes, *node)
+	}
+	return UserDevicesFromNodes(nodes)
+}
+
+// UserDevicesFromNodes returns the connected host-backed user devices among nodes.
+func UserDevicesFromNodes(nodes []models.Node) (userDevices []models.Node) {
 	for _, n := range nodes {
 		if !IsUserOwnedDevice(&n) || !n.Connected {
 			continue

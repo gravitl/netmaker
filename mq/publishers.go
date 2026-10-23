@@ -118,12 +118,12 @@ func StartPeerUpdateWorker(ctx context.Context) {
 // pull requests arriving before the first debounced broadcast are served
 // instantly from cache instead of triggering expensive on-demand computation.
 func warmPeerCaches(ctx context.Context) {
-	hosts, allNodes := logic.RefreshHostPeerInfoCache(ctx)
-	if hosts == nil || allNodes == nil {
+	hosts, g := logic.RefreshHostPeerInfoCache(ctx)
+	if hosts == nil || g == nil {
 		return
 	}
 	for i := range hosts {
-		peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", &hosts[i], allNodes, nil, nil, nil)
+		peerUpdate, err := g.PeerUpdateForHost(ctx, "", &hosts[i], nil, nil, nil)
 		if err != nil {
 			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
 			continue
@@ -152,6 +152,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, allNodes)
 
 	sem := make(chan struct{}, maxConcurrentPublishes)
 	var wg sync.WaitGroup
@@ -161,7 +162,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 		wg.Add(1)
 		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(ctx, &host, allNodes, nil, nil, nil, replacePeers, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -191,13 +192,14 @@ func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, del
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, allNodes)
 	var delHosts []schema.Host
 	if delHost != nil {
 		delHosts = []schema.Host{*delHost}
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, delHosts, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, delHosts, delNode, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -221,9 +223,10 @@ func PublishDeletedNodesPeerUpdate(ctx context.Context, deletedHosts []schema.Ho
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, allNodes)
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, deletedHosts, nil, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, deletedHosts, nil, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -246,10 +249,11 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, nodes)
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(ctx, &host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -258,18 +262,18 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNodes []models.Node, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *schema.Host, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, allNodes, deletedHosts, deletedNode, deletedClients)
+	peerUpdate, err := g.PeerUpdateForHost(ctx, "", host, deletedHosts, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
 
 	for _, nodeID := range host.Nodes {
 
-		node, err := logic.GetNodeByID(nodeID)
+		node, err := g.Node(nodeID)
 		if err == nil && node.Connected && logic.InternetExitRoutingNodeID(&node) != "" {
 			replacePeers = false
 		}
@@ -291,6 +295,38 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
+// PublishPeerUpdateToNodeHosts pushes a peer update only to the hosts of the
+// given nodes.
+func PublishPeerUpdateToNodeHosts(ctx context.Context, nodes ...models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	g, err := logic.LoadPeerGraph(ctx)
+	if err != nil {
+		return err
+	}
+	seenHosts := map[uuid.UUID]struct{}{}
+	for i := range nodes {
+		hostID := nodes[i].HostID
+		if hostID == uuid.Nil {
+			continue
+		}
+		if _, ok := seenHosts[hostID]; ok {
+			continue
+		}
+		seenHosts[hostID] = struct{}{}
+		host, err := g.Host(ctx, hostID)
+		if err != nil {
+			slog.Error("node host peer update: failed to get host", "host", hostID.String(), "error", err)
+			continue
+		}
+		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+			slog.Error("node host peer update: publish failed", "host", host.Name, "error", err)
+		}
+	}
+	return nil
+}
+
 // PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
 // the given exit-node clients (no global mesh update). Used to fail-open full-tunnel
 // routes before a routing node is removed.
@@ -298,7 +334,7 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	allNodes, err := logic.GetAllNodes(ctx)
+	g, err := logic.LoadPeerGraph(ctx)
 	if err != nil {
 		return err
 	}
@@ -312,12 +348,12 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 			continue
 		}
 		seenHosts[hostID] = struct{}{}
-		host := &schema.Host{ID: clientNodes[i].HostID}
-		if err := host.Get(ctx); err != nil {
+		host, err := g.Host(ctx, clientNodes[i].HostID)
+		if err != nil {
 			slog.Error("exit-client peer update: failed to get host", "host", hostID, "error", err)
 			continue
 		}
-		if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
+		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
 			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
 		}
 	}
@@ -349,9 +385,9 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 	if len(displacedNodes) == 0 {
 		return
 	}
-	allNodes, err := logic.GetAllNodes(ctx)
+	g, err := logic.LoadPeerGraph(ctx)
 	if err != nil {
-		slog.Error("reassign auto-assigned clients: failed to list nodes", "gws", gwNodeIDs, "error", err)
+		slog.Error("reassign auto-assigned clients: failed to load peer graph", "gws", gwNodeIDs, "error", err)
 	}
 	for i := range displacedNodes {
 		node := displacedNodes[i]
@@ -361,8 +397,8 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 			continue
 		}
 
-		if allNodes != nil {
-			if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
+		if g != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
 				slog.Error("reassign auto-assigned clients: failed to publish peer update", "host", host.ID, "error", err)
 			}
 		}

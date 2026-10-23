@@ -213,6 +213,7 @@ func InitPro() {
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
 	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
+	logic.GetTagMapWithNetworkNodes = proLogic.GetTagMapWithNetworkNodes
 	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
 	logic.GetUserGrpMap = proLogic.GetUserGrpMap
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
