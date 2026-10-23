@@ -386,7 +386,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 			} else {
 				networkAllowAll = false
 				hostPeerUpdate.FwUpdate.AllowAll = false
-				rules := GetAclRulesForNode(ctx, &node)
+				rules := GetAclRulesForNode(ctx, g, &node)
 				if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
 					hostPeerUpdate.FwUpdate.AclRules = rules
 				} else {
