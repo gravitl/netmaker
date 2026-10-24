@@ -563,6 +563,9 @@ definitions:
         items:
           type: string
         type: array
+      include_network_egress_ranges:
+        description: When false, this client's config omits network egress ranges and skips that scan. Omitted leaves the stored value unchanged.
+        type: boolean
       is_already_connected_to_inet_gw:
         type: boolean
       kernel_version:
@@ -810,6 +813,9 @@ definitions:
         items:
           type: string
         type: array
+      include_network_egress_ranges:
+        description: When false, this client's config omits network egress ranges. Omitted on a stored client includes them.
+        type: boolean
       ingressgatewayendpoint:
         type: string
       ingressgatewayid:

@@ -138,3 +138,21 @@ func TestApplyExtClientInternetEgressSelection_ExplicitOptOutClears(t *testing.T
 		t.Fatalf("expected selection cleared, got %q", client.SelectedInternetEgressID)
 	}
 }
+
+func TestExtClientIncludesNetworkEgressRanges(t *testing.T) {
+	off := false
+	on := true
+	if !((models.ExtClient{}).IncludesNetworkEgressRanges()) {
+		t.Fatal("unset flag should include network egress ranges")
+	}
+	if !(models.ExtClient{IncludeNetworkEgressRanges: &on}).IncludesNetworkEgressRanges() {
+		t.Fatal("true should include network egress ranges")
+	}
+	if (models.ExtClient{IncludeNetworkEgressRanges: &off}).IncludesNetworkEgressRanges() {
+		t.Fatal("false should skip network egress ranges")
+	}
+	updated := UpdateExtClient(&models.ExtClient{}, &models.CustomExtClient{IncludeNetworkEgressRanges: &off})
+	if updated.IncludesNetworkEgressRanges() {
+		t.Fatal("create/update should store an explicit false")
+	}
+}
