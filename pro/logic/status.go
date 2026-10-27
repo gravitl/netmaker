@@ -88,7 +88,8 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		node.Status = schema.OfflineSt
 		return
 	}
-	if metrics, err := logic.GetMetrics(ctx, node.ID.String()); err == nil && metrics != nil && metrics.Summary != nil {
+	metrics, metricsErr := logic.GetMetrics(ctx, node.ID.String())
+	if metricsErr == nil && metrics != nil && metrics.Summary != nil {
 		node.Status = getNodeStatusFromSummary(ctx, metrics.Summary)
 		return
 	}
@@ -109,8 +110,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		getNodeStatusOld(node)
 		return
 	}
-	metrics, err := logic.GetMetrics(ctx, node.ID.String())
-	if err != nil {
+	if metricsErr != nil {
 		return
 	}
 	if metrics == nil || metrics.Connectivity == nil || len(metrics.Connectivity) == 0 {
