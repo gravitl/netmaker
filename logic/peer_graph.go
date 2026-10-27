@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"slices"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
@@ -11,12 +12,18 @@ import (
 
 // PeerGraph is a tenant's hosts and nodes loaded once, used to compute peer
 // updates for many hosts without a DB query per (host, peer) pair.
-// It is read-only after construction and safe for concurrent use.
+// It is read-only after construction, apart from ext clients loaded once on
+// first use, and safe for concurrent use.
 type PeerGraph struct {
 	hosts map[uuid.UUID]*schema.Host
 	// byNetwork holds the only copy of the node data; nodes points into it.
 	byNetwork map[string][]models.Node
 	nodes     map[string]*models.Node
+
+	// ext clients by ingress gateway node ID, loaded on first use.
+	extClientsOnce sync.Once
+	extClients     map[string][]models.ExtClient
+	extClientsErr  error
 }
 
 // LoadPeerGraph - loads all hosts and nodes of the tenant in ctx.
@@ -77,6 +84,28 @@ func (g *PeerGraph) Node(nodeID string) (models.Node, error) {
 		return *n, nil
 	}
 	return getNodeByID(nodeID)
+}
+
+// GatewayExtClients - returns a copy of the ext clients attached to the
+// gateway node. The tenant's ext clients are loaded once per graph, on first
+// use, instead of once per (host, gateway peer).
+func (g *PeerGraph) GatewayExtClients(ctx context.Context, gatewayID string) ([]models.ExtClient, error) {
+	g.extClientsOnce.Do(func() {
+		clients, err := GetAllExtClients(ctx)
+		if err != nil {
+			g.extClientsErr = err
+			return
+		}
+		g.extClients = make(map[string][]models.ExtClient)
+		for i := range clients {
+			gwID := clients[i].IngressGatewayID
+			g.extClients[gwID] = append(g.extClients[gwID], clients[i])
+		}
+	})
+	if g.extClientsErr != nil {
+		return nil, g.extClientsErr
+	}
+	return slices.Clone(g.extClients[gatewayID]), nil
 }
 
 // NetworkNodes - returns a copy of the nodes in the network.

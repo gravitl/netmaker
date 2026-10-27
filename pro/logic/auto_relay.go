@@ -300,7 +300,7 @@ func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *mo
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := logic.GetExtPeers(ctx, g, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}

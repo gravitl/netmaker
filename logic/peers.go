@@ -203,7 +203,7 @@ func (g *PeerGraph) HostPeerInfo(ctx context.Context, host *schema.Host) (models
 		}
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			_, extPeerIDAndAddrs, _, err = GetExtPeers(ctx, &node, &node, make(map[string]models.PeerIdentity))
+			_, extPeerIDAndAddrs, _, err = GetExtPeers(ctx, g, &node, &node, make(map[string]models.PeerIdentity))
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
@@ -664,7 +664,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, &node, &node, hostPeerUpdate.AddressIdentityMap)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(ctx, g, &node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
 				// When the network resolved to allow-all the gateway's ACL chains are
 				// set to ACCEPT, so per-client rules are redundant. Sending them anyway
@@ -1073,7 +1073,7 @@ func GetAllowedIPs(ctx context.Context, g *PeerGraph, node, peer *models.Node, m
 		}
 		// handle ingress gateway peers
 		if peer.IsIngressGateway {
-			extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
+			extPeers, _, _, err := GetExtPeers(ctx, g, peer, node, make(map[string]models.PeerIdentity))
 			if err != nil {
 				logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 			}
@@ -1091,7 +1091,7 @@ func GetAllowedIPs(ctx context.Context, g *PeerGraph, node, peer *models.Node, m
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := GetExtPeers(ctx, peer, node, make(map[string]models.PeerIdentity))
+		extPeers, _, _, err := GetExtPeers(ctx, g, peer, node, make(map[string]models.PeerIdentity))
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
