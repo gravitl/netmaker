@@ -27,7 +27,36 @@ import (
 var (
 	peerUpdateSignals  sync.Map
 	peerUpdateReplaces sync.Map
+	peerUpdatePending  sync.Map
 )
+
+// pendingPeerUpdate - what a tenant's worker publishes when its debounce
+// window closes: every host, or only the hosts that were queued.
+type pendingPeerUpdate struct {
+	mu    sync.Mutex
+	full  bool
+	hosts map[uuid.UUID]struct{}
+}
+
+func pendingPeerUpdateFor(tenantID string) *pendingPeerUpdate {
+	p, _ := peerUpdatePending.LoadOrStore(tenantID, &pendingPeerUpdate{hosts: make(map[uuid.UUID]struct{})})
+	return p.(*pendingPeerUpdate)
+}
+
+// take - returns and clears the pending update.
+func (p *pendingPeerUpdate) take() (full bool, hostIDs []uuid.UUID) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	full = p.full
+	if !full {
+		for id := range p.hosts {
+			hostIDs = append(hostIDs, id)
+		}
+	}
+	p.full = false
+	p.hosts = make(map[uuid.UUID]struct{})
+	return full, hostIDs
+}
 
 const (
 	peerUpdateDebounce     = 500 * time.Millisecond
@@ -57,6 +86,34 @@ func PublishPeerUpdate(ctx context.Context, replacePeers bool) error {
 	if replacePeers {
 		peerUpdateReplaceFor(tenantID).Store(true)
 	}
+	p := pendingPeerUpdateFor(tenantID)
+	p.mu.Lock()
+	p.full = true
+	p.mu.Unlock()
+	select {
+	case peerUpdateSignalFor(tenantID) <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+// PublishPeerUpdateToHosts --- queues a peer update for only the given hosts,
+// coalesced like PublishPeerUpdate. For changes that alter only these host's
+// own peer configs (e.g. an auto relay pairing), not anyone's peer list.
+// If a full update is queued in the same window, it covers these hosts.
+func PublishPeerUpdateToHosts(ctx context.Context, hostIDs ...uuid.UUID) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	tenantID := scope.ID(ctx)
+	p := pendingPeerUpdateFor(tenantID)
+	p.mu.Lock()
+	for _, id := range hostIDs {
+		if id != uuid.Nil {
+			p.hosts[id] = struct{}{}
+		}
+	}
+	p.mu.Unlock()
 	select {
 	case peerUpdateSignalFor(tenantID) <- struct{}{}:
 	default:
@@ -73,6 +130,7 @@ func StartPeerUpdateWorker(ctx context.Context) {
 	tenantID := scope.ID(ctx)
 	signal := peerUpdateSignalFor(tenantID)
 	replace := peerUpdateReplaceFor(tenantID)
+	pending := pendingPeerUpdateFor(tenantID)
 	go func() {
 		for {
 			select {
@@ -94,7 +152,6 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						debounce = time.After(peerUpdateDebounce)
 					}
 				}
-				replacePeers := replace.Swap(false)
 			drain:
 				for {
 					select {
@@ -103,8 +160,21 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						break drain
 					}
 				}
-				logic.RefreshHostPeerInfoCache(ctx)
-				if err := publishPeerUpdateImmediate(ctx, replacePeers); err != nil {
+				// take after the drain: anything queued later comes with a
+				// signal that is still in the channel, for the next round
+				replacePeers := replace.Swap(false)
+				full, hostIDs := pending.take()
+				var err error
+				switch {
+				case full || replacePeers:
+					logic.RefreshHostPeerInfoCache(ctx)
+					err = publishPeerUpdateImmediate(ctx, replacePeers)
+				case len(hostIDs) > 0:
+					err = publishPeerUpdateToHosts(ctx, hostIDs)
+				default:
+					continue
+				}
+				if err != nil {
 					slog.Error("error publishing peer update", "tenant", tenantID, "error", err)
 				} else {
 					publishServerSync(ctx, logic.SyncTypePeerUpdate)
@@ -131,6 +201,34 @@ func warmPeerCaches(ctx context.Context) {
 		logic.StoreHostPeerUpdate(ctx, hosts[i].ID.String(), peerUpdate)
 	}
 	slog.Info("peer update caches warmed", "tenant", scope.ID(ctx), "hosts", len(hosts))
+}
+
+// publishPeerUpdateToHosts --- loads the peer graph once and publishes a peer
+// update to only the given hosts.
+func publishPeerUpdateToHosts(ctx context.Context, hostIDs []uuid.UUID) error {
+	g, err := logic.LoadPeerGraph(ctx)
+	if err != nil {
+		return err
+	}
+	sem := make(chan struct{}, maxConcurrentPublishes)
+	var wg sync.WaitGroup
+	for _, hostID := range hostIDs {
+		host, err := g.Host(ctx, hostID)
+		if err != nil {
+			slog.Error("failed to get host for peer update", "host", hostID.String(), "error", err)
+			continue
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(host *schema.Host) {
+			defer func() { <-sem; wg.Done() }()
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+				slog.Error("failed to publish peer update to host", "host", host.ID.String(), "error", err)
+			}
+		}(host)
+	}
+	wg.Wait()
+	return nil
 }
 
 // publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts in a given tenant.
@@ -293,38 +391,6 @@ func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *
 	}
 	slog.Debug("publishing peer update to host", "name", host.Name, "id", host.ID.String(), "owner", host.OwnerUsername, "peers", len(peerUpdate.Peers))
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
-}
-
-// PublishPeerUpdateToNodeHosts pushes a peer update only to the hosts of the
-// given nodes.
-func PublishPeerUpdateToNodeHosts(ctx context.Context, nodes ...models.Node) error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-	g, err := logic.LoadPeerGraph(ctx)
-	if err != nil {
-		return err
-	}
-	seenHosts := map[uuid.UUID]struct{}{}
-	for i := range nodes {
-		hostID := nodes[i].HostID
-		if hostID == uuid.Nil {
-			continue
-		}
-		if _, ok := seenHosts[hostID]; ok {
-			continue
-		}
-		seenHosts[hostID] = struct{}{}
-		host, err := g.Host(ctx, hostID)
-		if err != nil {
-			slog.Error("node host peer update: failed to get host", "host", hostID.String(), "error", err)
-			continue
-		}
-		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
-			slog.Error("node host peer update: publish failed", "host", host.Name, "error", err)
-		}
-	}
-	return nil
 }
 
 // PublishPeerUpdatesToExitClientHosts pushes a peer update to each unique host among
