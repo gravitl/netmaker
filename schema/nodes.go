@@ -172,6 +172,23 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	return nodes, err
 }
 
+// ListLivenessByIDs fetches only what a peer's liveness needs (id, connected,
+// pending_delete, last_check_in) for the given IDs: no preloads and no JSON
+// columns. Other fields are left zero.
+func (n *Node) ListLivenessByIDs(ctx context.Context, ids []string) ([]Node, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select("id", "connected", "pending_delete", "last_check_in")
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	var nodes []Node
+	err := query.Where("id IN ?", ids).Find(&nodes).Error
+	return nodes, err
+}
+
 // ListUserOwnedByNetwork lists the network's nodes whose host is owned by a
 // user (hosts.owner_username set), matched on each node's host_id.
 func (n *Node) ListUserOwnedByNetwork(ctx context.Context, networkID string, options ...dbtypes.Option) ([]Node, error) {
