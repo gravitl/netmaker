@@ -664,7 +664,15 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
-			for _, node := range nodesWithStatus {
+			for i, node := range nodesWithStatus {
+				// most reports don't change the status; skip the write then
+				if node.IsStatic {
+					if node.StaticNode.Status == nodes[i].StaticNode.Status {
+						continue
+					}
+				} else if node.Status == nodes[i].Status {
+					continue
+				}
 				if node.IsStatic {
 					err = logic.SaveExtClient(ctx, &node.StaticNode)
 					if err != nil {
