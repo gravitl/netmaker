@@ -70,7 +70,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
 	methodsOk := handlers.AllowedMethods(
-		[]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+		[]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodPatch},
 	)
 
 	for _, middleware := range HttpMiddlewares {
