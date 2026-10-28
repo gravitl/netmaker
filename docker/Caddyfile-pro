@@ -1,5 +1,6 @@
 # Dashboard
 https://dashboard.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/dashboard.crt /etc/caddy/certs/dashboard.key
 	# Apply basic security headers
 	header {
 		# Enable cross origin access to *.{$NM_DOMAIN}
@@ -54,6 +55,7 @@ https://grafana.{$NM_DOMAIN} {
 
 # API
 https://api.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/api.crt /etc/caddy/certs/api.key
 	header {
 		# Prevent MIME type sniffing
 		X-Content-Type-Options "nosniff"
@@ -66,6 +68,7 @@ https://api.{$NM_DOMAIN} {
 
 # MQ
 broker.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/broker.crt /etc/caddy/certs/broker.key
 	@ws {
 			header Connection *Upgrade*
 			header Upgrade websocket

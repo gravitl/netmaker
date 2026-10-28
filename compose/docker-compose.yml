@@ -47,10 +47,10 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./certs:/etc/caddy/certs:ro
       - caddy_data:/data
       - caddy_conf:/config
     ports:
-      - "80:80/tcp"
       - "443:443/tcp"
       - "50051:50051"
   mq:
