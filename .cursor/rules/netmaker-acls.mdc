@@ -40,6 +40,11 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 3. Minimal diffs — no speculative refactors of the whole ACL engine.
 4. User devices are **not peers with each other** (`UserDevicesAreNotPeers`).
 5. User-device hosts **skip** local FwUpdate ACL calc (`skipPeerUpdateAclCalc` / `IsUserOwnedHost`) — user→resource rules are emitted on **infra / egress / gateway** peer updates.
+6. **Both open defaults ⇒ AllowAll, no exceptions from other ACLs.**
+   - When All Resources (`*↔*`) and All Users (`*↔*`) are enabled, `defaultsAllowAllTraffic` / `FwUpdate.AllowAll` **must** be true.
+   - Extra uni / proto / port / IP-scoped / tag-scoped policies **must not** defeat AllowAll. ACLs are allow-list only; with both defaults open they cannot restrict further.
+   - Do **not** reintroduce `CheckIfAnyPolicyisUniDirectional` (or similar) into the AllowAll short-circuit. Uni/port enforcement belongs only on the fine-grained path when a default is off.
+   - Symptom of regression: client `NETMAKER-ACL-IN` has per-peer ACCEPTs + DROP tail (and FWD DROPs) even though both defaults are on in the UI.
 
 ## Enforcement split (routing vs firewall)
 
@@ -57,8 +62,10 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 
 ### Peer update / firewall (`logic/peers.go`)
 
-- **Both defaults on** (All Resources + All Users) → AllowAll short-circuit, including when user devices exist (All Users already grants broad user access).
-- **Either default off** → full rule path: `networkAllowAll=false`, `FwUpdate.AllowAll=false`, then `GetAclRulesForNode` / egress / user-device hooks (needed for custom user-policy IP limits).
+- Gate: `defaultsAllowAllTraffic(deviceDefault, userDefault, acls)` — true only when an enabled device policy and user policy are both open on every side (`src=*` and `dst=*`). Also accepts open `*↔*` policies found in the loaded ACL list (in case `GetDefaultPolicy` disagrees). On CE, user side is treated as on.
+- **Both defaults on** → AllowAll short-circuit (`FwUpdate.AllowAll=true`), including when user devices exist and when other uni/proto/port/IP policies remain enabled. Netclient chain default ACCEPT; no per-peer DROP posture.
+- **Either default off** → full rule path: `networkAllowAll=false`, `FwUpdate.AllowAll=false`, then `GetAclRulesForNode` / egress / user-device hooks (needed for custom user-policy IP limits). Only here may uni/port policies shape the chain.
+- Tests: `TestDefaultsAllowAllTrafficRequiresBothDefaults` — must keep asserting that a uni or ICMP-scoped sibling ACL does **not** flip AllowAll off when both defaults are open.
 
 ### Egress forward rules (`GetEgressRulesForNode`)
 
@@ -104,7 +111,7 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 |------------|-----------------|--------------|
 | All Resources | Broad resource access | **Must not** grant mesh/egress/exit |
 | All Users | N/A (user policies) | Broad user access (existing RAC semantics) |
-| Both | AllowAll peer path | AllowAll (no per-device rules); fine-grained rules only when a default is off |
+| Both | AllowAll peer path (ignore other ACLs) | AllowAll (no per-device rules); fine-grained only when a default is off |
 
 ## Where to change what
 
@@ -122,15 +129,17 @@ Goal: keep **host-backed user devices** governed by **user policies**, never by 
 ## Testing expectations
 
 - Targeted tests exist in `logic/acls_user_device_test.go`, `pro/logic/user_device_acls_test.go`, `pro/logic/user_device_extclient_test.go`, `logic/exit_node_test.go`.
-- Prefer small table/unit tests around helpers (drop user devices from `*`, no default-route site-to-site sources, exit picker ignores All Resources for user devices, IP-restricted user-device egress dst, user-device → tagged extclient + ExtraAllowedIPs on ingress FwRules).
+- Prefer small table/unit tests around helpers (drop user devices from `*`, no default-route site-to-site sources, exit picker ignores All Resources for user devices, IP-restricted user-device egress dst, user-device → tagged extclient + ExtraAllowedIPs on ingress FwRules, both defaults on ⇒ AllowAll despite uni/ICMP siblings).
 - Avoid full `TestCheckPorts` / hanging host-create suites when iterating.
 - After behavior changes that affect live firewall: verify on the **egress/routing host** `FwUpdate` (`allow_all`, `#user-device` rule `src`/`dst`, absence of `0.0.0.0/0 → egress LAN`); for extclients also check **ingress** `IngressInfo.Rules` include user-device → overlay and → ExtraAllowedIPs.
+- When both defaults are on: client should show `allow_all` / ACCEPT-all chain — **not** per-peer ACCEPTs + `NETMAKER-ACL-*` DROP tails.
 
 ## Anti-patterns (seen in NM-356)
 
 - Stuffing host-backed devices into `getStaticUserNodesByNetwork` / fake `StaticNode` for ACL.
 - Using mesh CIDR as firewall source under All Resources.
-- AllowAll / empty-Dst rules “for simplicity” when user devices exist.
+- AllowAll / empty-Dst rules “for simplicity” when user devices exist **and a default is off** (IP limits must still enforce).
+- Defeating `defaultsAllowAllTraffic` / `FwUpdate.AllowAll` with `CheckIfAnyPolicyisUniDirectional` (or any uni/proto/port/IP check) while both All Resources and All Users are open — causes DROP + per-peer ACCEPTs on clients despite open defaults.
 - Assuming egress routing membership is only `e.Nodes` (ignore `e.Tags`).
 - Letting All Resources drive exit-node UI or user-device egress allow-all.
 - Broad rewrites of RAC paths “while we’re here.”
