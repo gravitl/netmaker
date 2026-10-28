@@ -420,6 +420,15 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 			if UserDevicesAreNotPeers(host, peerHost) {
 				continue
 			}
+			if host.EnableFlowLogs {
+				peerIdentity := nodeFlowIdentity(&peer, peerHost)
+				if peer.Address.IP != nil {
+					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = peerIdentity
+				}
+				if peer.Address6.IP != nil {
+					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = peerIdentity
+				}
+			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey.Key,
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
@@ -661,15 +670,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				}
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = ida
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
-			}
-			if host.EnableFlowLogs {
-				peerIdentity := nodeFlowIdentity(&peer, peerHost)
-				if peer.Address.IP != nil {
-					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = peerIdentity
-				}
-				if peer.Address6.IP != nil {
-					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = peerIdentity
-				}
 			}
 		}
 		logInternetEgressBypassConfig(&node, hostPeerUpdate)
