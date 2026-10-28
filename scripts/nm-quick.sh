@@ -18,7 +18,7 @@ CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 LATEST=v1.7.0
-BRANCH=master
+BRANCH=v1-7-0-private-ca-install
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
