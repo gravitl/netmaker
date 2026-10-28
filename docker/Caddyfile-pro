@@ -1,6 +1,6 @@
 # Dashboard
-https://dashboard.{$NM_DOMAIN} {
-	tls /etc/caddy/certs/dashboard.crt /etc/caddy/certs/dashboard.key
+https://dashnm.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/wildcard.crt /etc/caddy/certs/wildcard.key
 	# Apply basic security headers
 	header {
 		# Enable cross origin access to *.{$NM_DOMAIN}
@@ -25,9 +25,9 @@ https://dashboard.{$NM_DOMAIN} {
 }
 
 # Netmaker Exporter
-https://netmaker-exporter.{$NM_DOMAIN} {
-	reverse_proxy http://netmaker-exporter:8085
-}
+# https://netmaker-exporter.{$NM_DOMAIN} {
+# 	reverse_proxy http://netmaker-exporter:8085
+# }
 
 # Prometheus
 # https://prometheus.{$NM_DOMAIN} {
@@ -42,20 +42,20 @@ https://netmaker-exporter.{$NM_DOMAIN} {
 # }
 
 # Grafana
-https://grafana.{$NM_DOMAIN} {
-	header {
-		# Prevent MIME type sniffing
-		X-Content-Type-Options "nosniff"
-		# Control referrer information sent with requests
-		Referrer-Policy "strict-origin-when-cross-origin"
-	}
+# https://grafana.{$NM_DOMAIN} {
+# 	header {
+# 		# Prevent MIME type sniffing
+# 		X-Content-Type-Options "nosniff"
+# 		# Control referrer information sent with requests
+# 		Referrer-Policy "strict-origin-when-cross-origin"
+# 	}
 
-	reverse_proxy http://grafana:3000
-}
+# 	reverse_proxy http://grafana:3000
+# }
 
 # API
-https://api.{$NM_DOMAIN} {
-	tls /etc/caddy/certs/api.crt /etc/caddy/certs/api.key
+https://apinm.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/wildcard.crt /etc/caddy/certs/wildcard.key
 	header {
 		# Prevent MIME type sniffing
 		X-Content-Type-Options "nosniff"
@@ -67,8 +67,8 @@ https://api.{$NM_DOMAIN} {
 }
 
 # MQ
-broker.{$NM_DOMAIN} {
-	tls /etc/caddy/certs/broker.crt /etc/caddy/certs/broker.key
+brokernm.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/wildcard.crt /etc/caddy/certs/wildcard.key
 	@ws {
 			header Connection *Upgrade*
 			header Upgrade websocket
@@ -78,6 +78,7 @@ broker.{$NM_DOMAIN} {
 
 
 default-gateway.{$NM_DOMAIN} {
+	tls /etc/caddy/certs/wildcard.crt /etc/caddy/certs/wildcard.key
     reverse_proxy /uplink/v1 host.docker.internal:6443
 }
 
