@@ -29,11 +29,11 @@ func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls/policy_types", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createAcl)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAcl)))).
-		Methods(http.MethodPut)
+		Methods(http.MethodPut).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAcl)))).
-		Methods(http.MethodDelete)
+		Methods(http.MethodDelete).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls/debug", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclDebug)))).
 		Methods(http.MethodGet)
 }
