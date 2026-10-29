@@ -39,6 +39,9 @@ func userDeviceSrcIPsForPolicy(policy models.Acl, devices []models.Node,
 	for _, srcAcl := range policy.Src {
 		switch srcAcl.ID {
 		case models.UserAclID:
+			if srcAcl.Value == "*" {
+				return allUserDeviceSrcIPs(devices)
+			}
 			owners[srcAcl.Value] = struct{}{}
 		case models.UserGroupAclID:
 			if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {

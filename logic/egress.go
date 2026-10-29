@@ -1081,7 +1081,7 @@ func EgressDomainsEqual(a, b []string) bool {
 }
 
 func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
-	if !e.Status {
+	if user == nil || e == nil || !e.Status {
 		return false
 	}
 	for _, acl := range acls {
@@ -1092,12 +1092,13 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 		_, all := dstTags["*"]
 
 		if _, ok := dstTags[e.ID]; ok || all {
-			// get all src tags
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.Username {
-					return true
+				if srcAcl.ID == models.UserAclID {
+					// All Users (user:*) and per-user sources.
+					if srcAcl.Value == "*" || srcAcl.Value == user.Username {
+						return true
+					}
 				} else if srcAcl.ID == models.UserGroupAclID {
-					// fetch all users in the group
 					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}
