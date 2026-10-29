@@ -468,8 +468,8 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	if c := exitByPeer[site.ID.String()]; c.Type != models.NetworkConnectionP2P || c.Via != nil {
 		t.Fatalf("bypass site egress = %+v", c)
 	}
-	if c := exitByPeer[plain.ID.String()]; c.Type != models.NetworkConnectionExit || c.Via == nil || c.Via.ID != exitNode.ID.String() || c.Via.Name != "exit" || c.Connected {
-		t.Fatalf("exit link = %+v", c)
+	if c := exitByPeer[plain.ID.String()]; c.Type != models.NetworkConnectionRelayed || c.Via == nil || c.Via.ID != exitNode.ID.String() || c.Via.Name != "exit" || c.Connected {
+		t.Fatalf("exit-client peer via RelayedBy exit router = %+v, want relayed", c)
 	}
 
 	plainConns, err := b.nodeConnections(nodes, plain.ID.String())
@@ -505,6 +505,44 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	relayByPeer := indexConns(t, fromRelay.Connections)
 	if c := relayByPeer[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionP2P || c.Kind != models.NetworkNodeKindExtClient {
 		t.Fatalf("ingress to extclient = %+v", c)
+	}
+}
+
+func TestMeshConnectionPathAutoRelayedViaExit(t *testing.T) {
+	exitNode := newTestNode()
+	peer := newTestNode()
+	viewer := newTestNode()
+	viewer.SelectedInternetEgressID = "exit"
+	viewer.InternetGwID = exitNode.ID.String()
+	viewer.AutoRelayedPeers = map[string]string{peer.ID.String(): exitNode.ID.String()}
+
+	eli := []schema.Egress{
+		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", BypassEgressRoutes: true, Nodes: datatypes.JSONMap{exitNode.ID.String(): float64(1)}},
+	}
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, viewer, exitNode, peer)
+
+	tests := []struct {
+		name     string
+		node     *models.Node
+		peer     *models.Node
+		wantType models.NetworkConnectionType
+		wantVia  string
+	}{
+		{
+			name:     "auto-relayed through exit router stays relayed",
+			node:     viewer,
+			peer:     peer,
+			wantType: models.NetworkConnectionRelayed,
+			wantVia:  exitNode.ID.String(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotType, gotVia := b.meshConnectionPath(tt.node, tt.peer)
+			if gotType != tt.wantType || gotVia != tt.wantVia {
+				t.Fatalf("meshConnectionPath = (%q, %q), want (%q, %q)", gotType, gotVia, tt.wantType, tt.wantVia)
+			}
+		})
 	}
 }
 

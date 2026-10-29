@@ -555,24 +555,18 @@ func (b *networkStatusBuilder) meshConnectionPath(node, peer *models.Node) (mode
 	if peer == nil {
 		return models.NetworkConnectionP2P, ""
 	}
-	exit, exitRouter := b.nodeExit(node)
+	exit, _ := b.nodeExit(node)
 	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
 	ignore := b.peerIgnoreRelayedBy(node, peer, bypass)
 	peerID := peer.ID.String()
 
 	if relayID, ok := node.AutoRelayedPeers[peerID]; ok && relayID != "" {
-		if exitRouter != "" && relayID == exitRouter {
-			return models.NetworkConnectionExit, relayID
-		}
 		return models.NetworkConnectionRelayed, relayID
 	}
 	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != node.ID.String() && peer.RelayedBy != ignore {
 		return models.NetworkConnectionRelayed, peer.RelayedBy
 	}
 	if node.IsRelayed && node.RelayedBy != "" && node.RelayedBy != peerID && node.RelayedBy != ignore {
-		if exitRouter != "" && node.RelayedBy == exitRouter {
-			return models.NetworkConnectionExit, node.RelayedBy
-		}
 		return models.NetworkConnectionRelayed, node.RelayedBy
 	}
 	return models.NetworkConnectionP2P, ""
