@@ -46,14 +46,16 @@ type NetworkTopologyNode struct {
 	HostID    string            `json:"host_id,omitempty"`
 	OwnerID   string            `json:"owner_id,omitempty"` // username for user devices
 	Address   string            `json:"address,omitempty"`
+	Location  string            `json:"location,omitempty"` // lat,lon
+	Country   string            `json:"country,omitempty"`
 	Status    schema.NodeStatus `json:"status"`
 	Connected bool              `json:"connected"`
 
 	GatewayNodeID         string `json:"gateway_node_id,omitempty"`
 	InternetGatewayNodeID string `json:"internet_gateway_node_id,omitempty"`
 
-	// Roles is set on servers. The only value is "gateway".
-	Roles []string `json:"roles,omitempty"`
+	// IsGw is true when the node is a mesh/ingress/relay gateway.
+	IsGw bool `json:"is_gw"`
 	// Egresses are the active egresses this server routes. The role is derived
 	// from the egress: internet_gateway for an internet egress, egress otherwise.
 	Egresses []NetworkTopologyEgress `json:"egresses,omitempty"`
@@ -69,18 +71,31 @@ type NetworkTopologyEgress struct {
 
 // NodeConnections is the clicked node's ACL-allowed peer lines.
 type NodeConnections struct {
-	NodeID      string              `json:"node_id"`
-	Connections []NetworkConnection `json:"connections"`
+	NodeID   string          `json:"node_id"`
+	Name     string          `json:"name,omitempty"`
+	Kind     NetworkNodeKind `json:"kind,omitempty"`
+	Location string          `json:"location,omitempty"` // lat,lon
+	Country  string          `json:"country,omitempty"`
+	// IsGw is true when the node is a mesh/ingress/relay gateway.
+	IsGw bool `json:"is_gw"`
+	// Egresses are active egresses this node routes. Role is "egress" or
+	// "internet_gateway" (exit) under that egress.
+	Egresses    []NetworkTopologyEgress `json:"egresses,omitempty"`
+	Connections []NetworkConnection     `json:"connections"`
 }
 
 // NetworkConnection is one peer line from the clicked node.
 type NetworkConnection struct {
-	PeerID    string                `json:"peer_id"`
-	Name      string                `json:"name"`
-	Kind      NetworkNodeKind       `json:"kind"`
-	Type      NetworkConnectionType `json:"type"` // p2p | relayed | exit
-	Via       *NetworkNodeRef       `json:"via,omitempty"`
-	Connected bool                  `json:"connected"`
-	LatencyMs int64                 `json:"latency_ms"`
-	PercentUp float64               `json:"percent_up"`
+	PeerID    string                  `json:"peer_id"`
+	Name      string                  `json:"name"`
+	Kind      NetworkNodeKind         `json:"kind"`
+	Type      NetworkConnectionType   `json:"type"` // p2p | relayed | exit
+	IsGw      bool                    `json:"is_gw"`
+	Egresses  []NetworkTopologyEgress `json:"egresses,omitempty"` // role: egress | internet_gateway
+	Location  string                  `json:"location,omitempty"` // lat,lon
+	Country   string                  `json:"country,omitempty"`
+	Via       *NetworkNodeRef         `json:"via,omitempty"`
+	Connected bool                    `json:"connected"`
+	LatencyMs int64                   `json:"latency_ms"`
+	PercentUp float64                 `json:"percent_up"`
 }

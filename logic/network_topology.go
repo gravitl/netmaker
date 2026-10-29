@@ -103,11 +103,14 @@ func sortTopologyNodes(nodes []models.NetworkTopologyNode) {
 
 func (b *networkStatusBuilder) topologyNode(node *models.Node) models.NetworkTopologyNode {
 	id := graphNodeID(node)
+	loc, country := b.nodeLocation(node)
 	vert := models.NetworkTopologyNode{
-		ID:     id,
-		Kind:   networkNodeKind(node),
-		Name:   b.names[id],
-		Status: node.Status,
+		ID:       id,
+		Kind:     networkNodeKind(node),
+		Name:     b.names[id],
+		Location: loc,
+		Country:  country,
+		Status:   node.Status,
 	}
 	if vert.Kind == models.NetworkNodeKindUser {
 		vert.OwnerID = NodeOwnerUsername(node)
@@ -131,7 +134,7 @@ func (b *networkStatusBuilder) topologyNode(node *models.Node) models.NetworkTop
 	_, exitRouter := b.nodeExit(node)
 	vert.InternetGatewayNodeID = exitRouter
 	if vert.Kind == models.NetworkNodeKindNode {
-		vert.Roles = serverGatewayRole(node)
+		vert.IsGw = connectionIsGw(node)
 		vert.Egresses = b.topologyEgresses(node)
 	}
 	return vert
@@ -143,6 +146,37 @@ func serverGatewayRole(node *models.Node) []string {
 		return []string{models.NetworkServerRoleGateway}
 	}
 	return nil
+}
+
+// nodeLocation returns lat,lon and country for a node or static extclient.
+func (b *networkStatusBuilder) nodeLocation(node *models.Node) (location, country string) {
+	if node == nil {
+		return "", ""
+	}
+	if node.IsStatic {
+		return node.StaticNode.Location, node.StaticNode.Country
+	}
+	if host := b.hostOf(node); host != nil {
+		return host.Location, host.CountryCode
+	}
+	return node.Location, node.CountryCode
+}
+
+// connectionIsGw reports whether a server node is a mesh/ingress/relay gateway.
+func connectionIsGw(node *models.Node) bool {
+	if node == nil || node.IsStatic || networkNodeKind(node) != models.NetworkNodeKindNode {
+		return false
+	}
+	return len(serverGatewayRole(node)) > 0
+}
+
+// connectionEgresses returns routed egresses for a server node. User devices
+// and extclients get none.
+func (b *networkStatusBuilder) connectionEgresses(node *models.Node) []models.NetworkTopologyEgress {
+	if node == nil || node.IsStatic || networkNodeKind(node) != models.NetworkNodeKindNode {
+		return nil
+	}
+	return b.topologyEgresses(node)
 }
 
 // topologyEgresses lists active egresses this server routes. An internet egress
@@ -194,7 +228,17 @@ func (b *networkStatusBuilder) nodeConnections(nodes []models.Node, nodeID strin
 		conns = append(conns, b.connection(self, peer))
 	}
 	sort.Slice(conns, func(i, j int) bool { return conns[i].PeerID < conns[j].PeerID })
-	return &models.NodeConnections{NodeID: nodeID, Connections: conns}, nil
+	loc, country := b.nodeLocation(self)
+	return &models.NodeConnections{
+		NodeID:      nodeID,
+		Name:        b.names[nodeID],
+		Kind:        networkNodeKind(self),
+		Location:    loc,
+		Country:     country,
+		IsGw:        connectionIsGw(self),
+		Egresses:    b.connectionEgresses(self),
+		Connections: conns,
+	}, nil
 }
 
 // connectionAllowed reports whether the clicked node keeps a line to peer.
@@ -471,10 +515,15 @@ func (b *networkStatusBuilder) hostOf(node *models.Node) *schema.Host {
 
 func (b *networkStatusBuilder) connection(node, peer *models.Node) models.NetworkConnection {
 	peerID := graphNodeID(peer)
+	loc, country := b.nodeLocation(peer)
 	conn := models.NetworkConnection{
-		PeerID: peerID,
-		Name:   b.names[peerID],
-		Kind:   networkNodeKind(peer),
+		PeerID:   peerID,
+		Name:     b.names[peerID],
+		Kind:     networkNodeKind(peer),
+		IsGw:     connectionIsGw(peer),
+		Egresses: b.connectionEgresses(peer),
+		Location: loc,
+		Country:  country,
 	}
 	var via string
 	conn.Type, via = b.connectionPath(node, peer)
@@ -486,7 +535,7 @@ func (b *networkStatusBuilder) connection(node, peer *models.Node) models.Networ
 }
 
 // connectionPath classifies the clicked node's path to peer: direct, through a
-// relay, or through an internet-egress routing node.
+// relay, or through the viewer's selected internet exit.
 func (b *networkStatusBuilder) connectionPath(node, peer *models.Node) (models.NetworkConnectionType, string) {
 	if node.IsStatic {
 		return b.extClientConnectionPath(node, peer)
@@ -494,23 +543,39 @@ func (b *networkStatusBuilder) connectionPath(node, peer *models.Node) (models.N
 	if peer.IsStatic {
 		return b.pathToExtClient(node, peer)
 	}
-	return b.classifyRelay(b.relayBetween(node, peer))
+	return b.meshConnectionPath(node, peer)
 }
 
-func (b *networkStatusBuilder) relayBetween(node, peer *models.Node) string {
-	exit, _ := b.nodeExit(node)
-	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
-	return peerRelayNodeID(node, peer, b.peerIgnoreRelayedBy(node, peer, bypass))
-}
-
-func (b *networkStatusBuilder) classifyRelay(relayID string) (models.NetworkConnectionType, string) {
-	if relayID == "" {
+// meshConnectionPath classifies a real-node path. "exit" is only for traffic
+// hairpinning through the viewer's selected internet-egress router. A peer (or
+// the viewer) that is RelayedBy / auto-relayed through a node that also happens
+// to route internet egress is still "relayed" — being an exit router alone does
+// not make every path through it an exit path.
+func (b *networkStatusBuilder) meshConnectionPath(node, peer *models.Node) (models.NetworkConnectionType, string) {
+	if peer == nil {
 		return models.NetworkConnectionP2P, ""
 	}
-	if _, ok := b.inetRouters[relayID]; ok {
-		return models.NetworkConnectionExit, relayID
+	exit, exitRouter := b.nodeExit(node)
+	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
+	ignore := b.peerIgnoreRelayedBy(node, peer, bypass)
+	peerID := peer.ID.String()
+
+	if relayID, ok := node.AutoRelayedPeers[peerID]; ok && relayID != "" {
+		if exitRouter != "" && relayID == exitRouter {
+			return models.NetworkConnectionExit, relayID
+		}
+		return models.NetworkConnectionRelayed, relayID
 	}
-	return models.NetworkConnectionRelayed, relayID
+	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != node.ID.String() && peer.RelayedBy != ignore {
+		return models.NetworkConnectionRelayed, peer.RelayedBy
+	}
+	if node.IsRelayed && node.RelayedBy != "" && node.RelayedBy != peerID && node.RelayedBy != ignore {
+		if exitRouter != "" && node.RelayedBy == exitRouter {
+			return models.NetworkConnectionExit, node.RelayedBy
+		}
+		return models.NetworkConnectionRelayed, node.RelayedBy
+	}
+	return models.NetworkConnectionP2P, ""
 }
 
 // extClientConnectionPath is the extclient's view: its gateway is direct, and
