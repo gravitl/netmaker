@@ -268,6 +268,10 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
+	if err := logic.EnsureEnabledFallbackRemains(db.WithContext(r.Context()), &ns, &updateNs); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 	var updateStatus bool
 	var updateMatchAll bool
 	var updateFallback bool
@@ -380,6 +384,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 	}
 	if ns.Default {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default nameservers"), logic.BadReq))
+		return
+	}
+	if err := logic.EnsureEnabledFallbackOnDelete(db.WithContext(r.Context()), &ns); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	err = ns.Delete(db.WithContext(r.Context()))
