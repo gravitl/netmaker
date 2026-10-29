@@ -186,15 +186,18 @@ func (p *AzureADProvider) HandleCallback(w http.ResponseWriter, r *http.Request)
 
 	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
+		logger.Log(0, "failed to fetch oauth secret:", fetchErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 	authRequest := models.UserAuthParams{
-		UserName: content.UserPrincipalName,
+		UserName: user.Username,
 		Password: newPass,
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 
@@ -256,6 +259,8 @@ func (p *AzureADProvider) GetUserInfo(state string, code string) (*OAuthUser, er
 	if userInfo.Email == "" && userInfo.UserPrincipalName != "" {
 		userInfo.Email = userInfo.UserPrincipalName
 	}
+	userInfo.Email = normalizeUsername(userInfo.Email)
+	userInfo.UserPrincipalName = normalizeUsername(userInfo.UserPrincipalName)
 	if userInfo.Email == "" {
 		return userInfo, errors.New("failed to fetch user email from SSO state")
 	}

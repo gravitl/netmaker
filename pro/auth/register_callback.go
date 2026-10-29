@@ -76,17 +76,17 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.PlatformRoleID != schema.AdminRole && user.PlatformRoleID != schema.SuperAdminRole {
-		response := returnErrTemplate(userClaims.getUserName(), "only admin users can register using SSO", state, reqKeyIf)
+		response := returnErrTemplate(user.Username, "only admin users can register using SSO", state, reqKeyIf)
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(response)
 		return
 	}
-	logger.Log(1, "registering host for user:", userClaims.getUserName(), reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
+	logger.Log(1, "registering host for user:", user.Username, reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
 
 	// Send OK to user in the browser
 	var response bytes.Buffer
 	if err := ssoCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
-		User: userClaims.getUserName(),
+		User: user.Username,
 		Verb: "authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
@@ -98,7 +98,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		w.Write(response.Bytes())
 	}
 
-	reqKeyIf.User = userClaims.getUserName() // set the cached registering hosts' user
+	reqKeyIf.User = user.Username // set the cached registering hosts' user
 	if err = netcache.Set(state, reqKeyIf); err != nil {
 		logger.Log(0, "machine failed to complete join on network,", reqKeyIf.Network, "-", err.Error())
 		return
