@@ -172,6 +172,41 @@ func (n *Node) ListByIDs(ctx context.Context, ids []string, options ...dbtypes.O
 	return nodes, err
 }
 
+// ListLivenessByIDs fetches only what a peer's liveness needs (id, connected,
+// pending_delete, last_check_in) for the given IDs: no preloads and no JSON
+// columns. Other fields are left zero.
+func (n *Node) ListLivenessByIDs(ctx context.Context, ids []string) ([]Node, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select("id", "connected", "pending_delete", "last_check_in")
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	var nodes []Node
+	err := query.Where("id IN ?", ids).Find(&nodes).Error
+	return nodes, err
+}
+
+// ListUserOwnedByNetwork lists the network's nodes whose host is owned by a
+// user (hosts.owner_username set), matched on each node's host_id.
+func (n *Node) ListUserOwnedByNetwork(ctx context.Context, networkID string, options ...dbtypes.Option) ([]Node, error) {
+	query := db.FromContext(ctx).Model(&Node{}).
+		Select(fmt.Sprintf("%s.*", nodesTable)).
+		Joins(fmt.Sprintf("INNER JOIN %s ON %s.id = %s.host_id", hostsTable, hostsTable, nodesTable)).
+		Where(fmt.Sprintf("%s.network_id = ? AND %s.owner_username <> ''", nodesTable, hostsTable), networkID)
+	if tenantID := scope.ID(ctx); tenantID != "" {
+		options = append(options, dbtypes.WithFilter(fmt.Sprintf("%s.tenant_id", nodesTable), tenantID))
+	}
+	for _, opt := range options {
+		query = opt(query)
+	}
+	var nodes []Node
+	err := query.Find(&nodes).Error
+	return nodes, err
+}
+
 // ListByOwnerUsername lists the nodes of all hosts registered by username,
 // matched on each node's host_id.
 func (n *Node) ListByOwnerUsername(ctx context.Context, username string, options ...dbtypes.Option) ([]Node, error) {

@@ -2573,12 +2573,12 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
 	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
-	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalGetTagMap := GetTagMapWithNetworkNodes
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
 		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
-		GetTagMapWithNodesByNetwork = originalGetTagMap
+		GetTagMapWithNetworkNodes = originalGetTagMap
 	})
 
 	targetID := uuid.New()         // vr-owner = dst egress node
@@ -2656,14 +2656,14 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 	}
 	// Both nodes are advertised under their NodeID keys so the existing
 	// taggedNodes[NodeID] lookup resolves their mesh AddressIPNet4.
-	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNetworkNodes = func(ctx context.Context, netID schema.NetworkID, nodes []models.Node, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()):        {macbookNode},
 			models.TagID(srcEgressOwnerID.String()): {srcEgressOwnerNode},
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
 	rule, ok := rules["site-acl"]
 	if !ok {
 		t.Fatalf("expected peer-acl rule keyed by acl.ID for Uni site-to-site policy on dst-side node, got rules: %+v", rules)
@@ -2700,12 +2700,12 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
 	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
-	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalGetTagMap := GetTagMapWithNetworkNodes
 	t.Cleanup(func() {
 		getEgressByID = originalGetEgressByID
 		getEgressByNetwork = originalGetEgressByNetwork
 		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
-		GetTagMapWithNodesByNetwork = originalGetTagMap
+		GetTagMapWithNetworkNodes = originalGetTagMap
 	})
 
 	targetID := uuid.New()
@@ -2760,13 +2760,13 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 			},
 		}}
 	}
-	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+	GetTagMapWithNetworkNodes = func(ctx context.Context, netID schema.NetworkID, nodes []models.Node, withStatic bool) map[models.TagID][]models.Node {
 		return map[models.TagID][]models.Node{
 			models.TagID(macbookID.String()): {macbookNode},
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
 	rule, ok := rules["site-acl-missing-src-egress"]
 	if !ok {
 		t.Fatalf("expected acl rule, got: %+v", rules)

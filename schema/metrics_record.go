@@ -18,6 +18,7 @@ type Metrics struct {
 	NodeID       string            `json:"node_id" bson:"node_id" yaml:"node_id"`
 	NodeName     string            `json:"node_name" bson:"node_name" yaml:"node_name"`
 	Connectivity map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
+	Summary      *MetricsSummary   `json:"summary,omitempty" bson:"summary,omitempty" yaml:"summary,omitempty"`
 	UpdatedAt    time.Time         `json:"updated_at" bson:"updated_at" yaml:"updated_at"`
 }
 
@@ -34,6 +35,11 @@ type Metric struct {
 	ActualUptime      time.Duration `json:"actualuptime" swaggertype:"primitive,integer" format:"int64" bson:"actualuptime" yaml:"actualuptime"`
 	PercentUp         float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
 	Connected         bool          `json:"connected" bson:"connected" yaml:"connected"`
+}
+
+type MetricsSummary struct {
+	TotalPeers       int      `json:"total_peers" bson:"total_peers" yaml:"total_peers"`
+	UnreachablePeers []string `json:"unreachable_peers" bson:"unreachable_peers" yaml:"unreachable_peers"`
 }
 
 type MetricsRecord struct {

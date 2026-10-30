@@ -12,6 +12,7 @@ import (
 
 func TestNetworkTopologyRoles(t *testing.T) {
 	gw := newTestNode()
+	gw.HostID = uuid.New()
 	gw.IsGw = true
 	gw.IsIngressGateway = true
 	gw.IsRelay = true
@@ -20,6 +21,7 @@ func TestNetworkTopologyRoles(t *testing.T) {
 	gw.Connected = true
 
 	site := newTestNode()
+	site.HostID = uuid.New()
 	site.Status = schema.OnlineSt
 
 	tagged := newTestNode()
@@ -34,6 +36,7 @@ func TestNetworkTopologyRoles(t *testing.T) {
 	flagOnly.IsInternetGateway = true
 
 	userA := newTestNode()
+	userA.HostID = uuid.New()
 	userA.OwnerID = "alice"
 	userA.Status = schema.OnlineSt
 	userA.Connected = true
@@ -44,11 +47,15 @@ func TestNetworkTopologyRoles(t *testing.T) {
 	rac.StaticNode.ClientID = "rac-alice"
 	rac.StaticNode.OwnerID = "alice"
 	rac.StaticNode.Enabled = true
+	rac.StaticNode.Location = "40.7,-74.0"
+	rac.StaticNode.Country = "US"
 
 	ext := &models.Node{IsStatic: true}
 	ext.StaticNode.ClientID = "site-client"
 	ext.StaticNode.IngressGatewayID = gw.ID.String()
 	ext.StaticNode.Enabled = true
+	ext.StaticNode.Location = "51.5,-0.1"
+	ext.StaticNode.Country = "GB"
 
 	eli := []schema.Egress{
 		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{gw.ID.String(): float64(1)}},
@@ -57,6 +64,9 @@ func TestNetworkTopologyRoles(t *testing.T) {
 		{ID: "old-exit", Name: "old", Status: false, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{flagOnly.ID.String(): float64(1)}},
 	}
 	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, gw, site, tagged, plain, flagOnly, userA, userB)
+	b.hosts[gw.HostID.String()] = schema.Host{Name: "gw", Location: "48.8,2.3", CountryCode: "FR"}
+	b.hosts[site.HostID.String()] = schema.Host{Name: "site", Location: "52.3,4.9", CountryCode: "NL"}
+	b.hosts[userA.HostID.String()] = schema.Host{Name: "laptop", Location: "37.7,-122.4", CountryCode: "US", OwnerUsername: "alice"}
 	b.names[rac.StaticNode.ClientID] = rac.StaticNode.ClientID
 	b.names[ext.StaticNode.ClientID] = ext.StaticNode.ClientID
 
@@ -68,7 +78,7 @@ func TestNetworkTopologyRoles(t *testing.T) {
 	deviceIDs := map[string]models.NetworkTopologyNode{}
 	for _, d := range topo.Users[0].Devices {
 		deviceIDs[d.ID] = d
-		if d.Kind != models.NetworkNodeKindUser || d.OwnerID != "alice" || len(d.Roles) != 0 || len(d.Egresses) != 0 {
+		if d.Kind != models.NetworkNodeKindUser || d.OwnerID != "alice" || d.IsGw || len(d.Egresses) != 0 {
 			t.Fatalf("user device %+v", d)
 		}
 	}
@@ -80,6 +90,12 @@ func TestNetworkTopologyRoles(t *testing.T) {
 	}
 	if deviceIDs[userA.ID.String()].Status != schema.OnlineSt || !deviceIDs[userA.ID.String()].Connected {
 		t.Fatalf("user status = %+v", deviceIDs[userA.ID.String()])
+	}
+	if deviceIDs[userA.ID.String()].Location != "37.7,-122.4" || deviceIDs[userA.ID.String()].Country != "US" {
+		t.Fatalf("user location = %+v", deviceIDs[userA.ID.String()])
+	}
+	if deviceIDs[rac.StaticNode.ClientID].Location != "40.7,-74.0" || deviceIDs[rac.StaticNode.ClientID].Country != "US" {
+		t.Fatalf("rac location = %+v", deviceIDs[rac.StaticNode.ClientID])
 	}
 
 	servers := map[string]models.NetworkTopologyNode{}
@@ -93,28 +109,37 @@ func TestNetworkTopologyRoles(t *testing.T) {
 		t.Fatalf("servers = %+v", topo.Servers)
 	}
 	gotGW := servers[gw.ID.String()]
-	if len(gotGW.Roles) != 1 || gotGW.Roles[0] != models.NetworkServerRoleGateway {
-		t.Fatalf("gateway roles = %v", gotGW.Roles)
+	if !gotGW.IsGw {
+		t.Fatalf("gateway is_gw = false")
+	}
+	if gotGW.Location != "48.8,2.3" || gotGW.Country != "FR" {
+		t.Fatalf("gateway location = %+v", gotGW)
 	}
 	if len(gotGW.Egresses) != 1 || gotGW.Egresses[0].Type != string(schema.EgressTypeInternet) || gotGW.Egresses[0].Role != models.NetworkEgressRoleInternetGateway {
 		t.Fatalf("gateway egresses = %+v", gotGW.Egresses)
 	}
 	gotSite := servers[site.ID.String()]
-	if len(gotSite.Roles) != 0 || len(gotSite.Egresses) != 1 || gotSite.Egresses[0].Role != models.NetworkEgressRoleEgress || gotSite.Egresses[0].Type != string(schema.EgressTypeCIDR) {
+	if gotSite.IsGw || len(gotSite.Egresses) != 1 || gotSite.Egresses[0].Role != models.NetworkEgressRoleEgress || gotSite.Egresses[0].Type != string(schema.EgressTypeCIDR) {
 		t.Fatalf("site = %+v", gotSite)
+	}
+	if gotSite.Location != "52.3,4.9" || gotSite.Country != "NL" {
+		t.Fatalf("site location = %+v", gotSite)
 	}
 	gotTagged := servers[tagged.ID.String()]
 	if len(gotTagged.Egresses) != 1 || gotTagged.Egresses[0].Type != string(schema.EgressTypeDomain) || gotTagged.Egresses[0].Role != models.NetworkEgressRoleEgress {
 		t.Fatalf("tagged = %+v", gotTagged)
 	}
-	if len(servers[plain.ID.String()].Roles) != 0 || len(servers[plain.ID.String()].Egresses) != 0 {
+	if servers[plain.ID.String()].IsGw || len(servers[plain.ID.String()].Egresses) != 0 {
 		t.Fatalf("plain = %+v", servers[plain.ID.String()])
 	}
-	if len(servers[flagOnly.ID.String()].Roles) != 0 || len(servers[flagOnly.ID.String()].Egresses) != 0 {
+	if servers[flagOnly.ID.String()].IsGw || len(servers[flagOnly.ID.String()].Egresses) != 0 {
 		t.Fatalf("flag-only internet gateway = %+v", servers[flagOnly.ID.String()])
 	}
 	if len(topo.ExtClients) != 1 || topo.ExtClients[0].ID != ext.StaticNode.ClientID || topo.ExtClients[0].GatewayNodeID != gw.ID.String() {
 		t.Fatalf("extclients = %+v", topo.ExtClients)
+	}
+	if topo.ExtClients[0].Location != "51.5,-0.1" || topo.ExtClients[0].Country != "GB" {
+		t.Fatalf("extclient location = %+v", topo.ExtClients[0])
 	}
 }
 
@@ -389,14 +414,20 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	exitClient.RelayedBy = exitNode.ID.String()
 	exitClient.SelectedInternetEgressID = "exit"
 	exitClient.InternetGwID = exitNode.ID.String()
+	// Peer manually RelayedBy a node that is also an internet-egress router —
+	// path type must stay "relayed", not flip to "exit".
+	relayedByExit := newTestNode()
+	relayedByExit.IsRelayed = true
+	relayedByExit.RelayedBy = exitNode.ID.String()
 
 	eli := []schema.Egress{
 		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", BypassEgressRoutes: true, Nodes: datatypes.JSONMap{exitNode.ID.String(): float64(1)}},
 		{ID: "lan", Name: "office", Status: true, Type: schema.EgressTypeCIDR, Range: "10.1.0.0/16", Nodes: datatypes.JSONMap{site.ID.String(): float64(10)}},
 	}
-	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, relay, exitNode, site, plain, client, exitClient)
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, relay, exitNode, site, plain, client, exitClient, relayedByExit)
 	b.names[relay.ID.String()] = "fra-gw"
 	b.names[exitNode.ID.String()] = "exit"
+	b.names[relayedByExit.ID.String()] = "ubuntu-fra"
 
 	stubMetrics(t, map[string]map[string]models.Metric{
 		client.ID.String(): {
@@ -405,9 +436,15 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 		relay.ID.String(): {
 			plain.ID.String(): {Connected: true, Latency: 15, PercentUp: 90},
 		},
+		plain.ID.String(): {
+			exitNode.ID.String(): {Connected: true, Latency: 5, PercentUp: 99},
+		},
+		exitNode.ID.String(): {
+			relayedByExit.ID.String(): {Connected: true, Latency: 8, PercentUp: 95},
+		},
 	})
 
-	nodes := []models.Node{*relay, *exitNode, *site, *plain, *client, *exitClient}
+	nodes := []models.Node{*relay, *exitNode, *site, *plain, *client, *exitClient, *relayedByExit}
 	got, err := b.nodeConnections(nodes, client.ID.String())
 	if err != nil {
 		t.Fatal(err)
@@ -431,8 +468,17 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	if c := exitByPeer[site.ID.String()]; c.Type != models.NetworkConnectionP2P || c.Via != nil {
 		t.Fatalf("bypass site egress = %+v", c)
 	}
-	if c := exitByPeer[plain.ID.String()]; c.Type != models.NetworkConnectionExit || c.Via == nil || c.Via.ID != exitNode.ID.String() || c.Via.Name != "exit" || c.Connected {
-		t.Fatalf("exit link = %+v", c)
+	if c := exitByPeer[plain.ID.String()]; c.Type != models.NetworkConnectionRelayed || c.Via == nil || c.Via.ID != exitNode.ID.String() || c.Via.Name != "exit" || c.Connected {
+		t.Fatalf("exit-client peer via RelayedBy exit router = %+v, want relayed", c)
+	}
+
+	plainConns, err := b.nodeConnections(nodes, plain.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainByPeer := indexConns(t, plainConns.Connections)
+	if c := plainByPeer[relayedByExit.ID.String()]; c.Type != models.NetworkConnectionRelayed || c.Via == nil || c.Via.ID != exitNode.ID.String() || !c.Connected || c.LatencyMs != 13 || c.PercentUp != 95 {
+		t.Fatalf("peer RelayedBy exit router = %+v, want relayed via exit", c)
 	}
 
 	ext := &models.Node{IsStatic: true}
@@ -459,6 +505,44 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	relayByPeer := indexConns(t, fromRelay.Connections)
 	if c := relayByPeer[ext.StaticNode.ClientID]; c.Type != models.NetworkConnectionP2P || c.Kind != models.NetworkNodeKindExtClient {
 		t.Fatalf("ingress to extclient = %+v", c)
+	}
+}
+
+func TestMeshConnectionPathAutoRelayedViaExit(t *testing.T) {
+	exitNode := newTestNode()
+	peer := newTestNode()
+	viewer := newTestNode()
+	viewer.SelectedInternetEgressID = "exit"
+	viewer.InternetGwID = exitNode.ID.String()
+	viewer.AutoRelayedPeers = map[string]string{peer.ID.String(): exitNode.ID.String()}
+
+	eli := []schema.Egress{
+		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", BypassEgressRoutes: true, Nodes: datatypes.JSONMap{exitNode.ID.String(): float64(1)}},
+	}
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, viewer, exitNode, peer)
+
+	tests := []struct {
+		name     string
+		node     *models.Node
+		peer     *models.Node
+		wantType models.NetworkConnectionType
+		wantVia  string
+	}{
+		{
+			name:     "auto-relayed through exit router stays relayed",
+			node:     viewer,
+			peer:     peer,
+			wantType: models.NetworkConnectionRelayed,
+			wantVia:  exitNode.ID.String(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotType, gotVia := b.meshConnectionPath(tt.node, tt.peer)
+			if gotType != tt.wantType || gotVia != tt.wantVia {
+				t.Fatalf("meshConnectionPath = (%q, %q), want (%q, %q)", gotType, gotVia, tt.wantType, tt.wantVia)
+			}
+		})
 	}
 }
 
@@ -548,4 +632,105 @@ func indexConns(t *testing.T, conns []models.NetworkConnection) map[string]model
 		out[c.PeerID] = c
 	}
 	return out
+}
+
+func TestNodeConnectionsLocationAndRoles(t *testing.T) {
+	plain := newTestNode()
+	plain.HostID = uuid.New()
+
+	gw := newTestNode()
+	gw.HostID = uuid.New()
+	gw.IsGw = true
+	gw.IsRelay = true
+
+	exitNode := newTestNode()
+	exitNode.HostID = uuid.New()
+
+	site := newTestNode()
+	site.HostID = uuid.New()
+
+	userDev := newTestNode()
+	userDev.OwnerID = "alice"
+	userDev.HostID = uuid.New()
+
+	eli := []schema.Egress{
+		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{exitNode.ID.String(): float64(1)}},
+		{ID: "lan", Name: "office", Status: true, Type: schema.EgressTypeCIDR, Range: "10.0.0.0/24", Nodes: datatypes.JSONMap{site.ID.String(): float64(10)}},
+	}
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, plain, gw, exitNode, site, userDev)
+	b.hosts[plain.HostID.String()] = schema.Host{Name: "plain", Location: "1.0,2.0", CountryCode: "DE"}
+	b.hosts[gw.HostID.String()] = schema.Host{Name: "gw", Location: "48.8,2.3", CountryCode: "FR"}
+	b.hosts[exitNode.HostID.String()] = schema.Host{Name: "exit", Location: "52.3,4.9", CountryCode: "NL"}
+	b.hosts[site.HostID.String()] = schema.Host{Name: "site", Location: "51.5,-0.1", CountryCode: "GB"}
+	b.hosts[userDev.HostID.String()] = schema.Host{Name: "laptop", Location: "40.7,-74.0", CountryCode: "US", OwnerUsername: "alice"}
+	b.names[plain.ID.String()] = "plain"
+	b.names[gw.ID.String()] = "gw"
+	b.names[exitNode.ID.String()] = "exit"
+	b.names[site.ID.String()] = "site"
+	b.names[userDev.ID.String()] = "laptop"
+
+	origUser := IsUserAllowedToCommunicate
+	IsUserAllowedToCommunicate = func(_ context.Context, _ string, _ models.Node) (bool, []models.Acl) {
+		return true, nil
+	}
+	t.Cleanup(func() { IsUserAllowedToCommunicate = origUser })
+
+	nodes := []models.Node{*plain, *gw, *exitNode, *site, *userDev}
+	got, err := b.nodeConnections(nodes, plain.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Location != "1.0,2.0" || got.Country != "DE" || got.Name != "plain" || got.Kind != models.NetworkNodeKindNode {
+		t.Fatalf("self = %+v", got)
+	}
+	if got.IsGw || len(got.Egresses) != 0 {
+		t.Fatalf("plain meta = is_gw=%v egresses=%+v", got.IsGw, got.Egresses)
+	}
+
+	byPeer := indexConns(t, got.Connections)
+	if c := byPeer[gw.ID.String()]; c.Location != "48.8,2.3" || c.Country != "FR" ||
+		!c.IsGw || len(c.Egresses) != 0 {
+		t.Fatalf("gateway peer = %+v", c)
+	}
+	if c := byPeer[exitNode.ID.String()]; c.Location != "52.3,4.9" || c.Country != "NL" ||
+		c.IsGw || len(c.Egresses) != 1 ||
+		c.Egresses[0].ID != "exit" || c.Egresses[0].Role != models.NetworkEgressRoleInternetGateway ||
+		c.Egresses[0].Type != string(schema.EgressTypeInternet) {
+		t.Fatalf("exit peer = %+v", c)
+	}
+	if c := byPeer[site.ID.String()]; c.Location != "51.5,-0.1" || c.Country != "GB" ||
+		c.IsGw || len(c.Egresses) != 1 ||
+		c.Egresses[0].ID != "lan" || c.Egresses[0].Name != "office" ||
+		c.Egresses[0].Role != models.NetworkEgressRoleEgress || c.Egresses[0].Type != string(schema.EgressTypeCIDR) {
+		t.Fatalf("site egress peer = %+v", c)
+	}
+	if c := byPeer[userDev.ID.String()]; c.Location != "40.7,-74.0" || c.Country != "US" ||
+		c.IsGw || len(c.Egresses) != 0 {
+		t.Fatalf("user device peer = %+v", c)
+	}
+
+	// Gateway that also routes egresses: is_gw=true, egresses list both roles.
+	gwExit := newTestNode()
+	gwExit.HostID = uuid.New()
+	gwExit.IsGw = true
+	eliBoth := []schema.Egress{
+		{ID: "exit", Name: "exit", Status: true, Type: schema.EgressTypeInternet, Range: "*", Nodes: datatypes.JSONMap{gwExit.ID.String(): float64(1)}},
+		{ID: "lan", Name: "office", Status: true, Type: schema.EgressTypeCIDR, Range: "10.0.0.0/24", Nodes: datatypes.JSONMap{gwExit.ID.String(): float64(10)}},
+	}
+	bBoth := newTestStatusBuilder(eliBoth, NetworkStatusOptions{}, plain, gwExit)
+	bBoth.hosts[gwExit.HostID.String()] = schema.Host{Name: "gw-exit", Location: "0,0", CountryCode: "XX"}
+	bBoth.names[gwExit.ID.String()] = "gw-exit"
+	bothConns, err := bBoth.nodeConnections([]models.Node{*plain, *gwExit}, plain.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := indexConns(t, bothConns.Connections)[gwExit.ID.String()]
+	if !c.IsGw {
+		t.Fatalf("gateway+exit is_gw = false")
+	}
+	if len(c.Egresses) != 2 ||
+		c.Egresses[0].ID != "exit" || c.Egresses[0].Role != models.NetworkEgressRoleInternetGateway ||
+		c.Egresses[1].ID != "lan" || c.Egresses[1].Role != models.NetworkEgressRoleEgress {
+		t.Fatalf("gateway+exit egresses = %+v", c.Egresses)
+	}
 }

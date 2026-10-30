@@ -149,6 +149,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Set("NET_ID", node.Network)
 
 		}
+		if strings.Contains(route, "auto_relayed_peers") {
+			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
+			nodeID := r.Header.Get("TARGET_RSRC_ID")
+			node, _ := logic.GetNodeByID(nodeID)
+			r.Header.Set("NET_ID", node.Network)
+		}
 		if hostID, ok := params["hostid"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", hostID)
 		}

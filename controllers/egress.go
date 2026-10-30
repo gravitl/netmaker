@@ -24,10 +24,10 @@ import (
 
 func egressHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/egress/presets", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressPresets)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createEgress)))).Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listEgress)))).Methods(http.MethodGet).Queries("network", "{network}")
-	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateEgress)))).Methods(http.MethodPut).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteEgress)))).Methods(http.MethodDelete).Queries("network", "{network}")
 }
 
 // @Summary     List egress domain presets

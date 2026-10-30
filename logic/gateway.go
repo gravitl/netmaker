@@ -405,14 +405,7 @@ func internetEgressGwIPs(inetNode *models.Node) (gw4, gw6 net.IP) {
 // exitHostHasEndpointIPv6 reports whether the exit node's host has a public IPv6 endpoint.
 // Used to decide whether internet egress should expand ::/0.
 func exitHostHasEndpointIPv6(node *models.Node) bool {
-	if node == nil {
-		return false
-	}
-	host, ok := getExitHostSafe(node.HostID)
-	if !ok {
-		return node.Address6.IP != nil
-	}
-	return len(host.EndpointIPv6) > 0
+	return node != nil && node.HostHasEndpointIPv6
 }
 
 // getExitHostSafe loads a host without panicking when the DB is uninitialized (unit tests).

@@ -658,14 +658,10 @@ func listNetworkAccessPoliciesOfUser(ctx context.Context, user *schema.User, net
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.IsNetworkAccess() && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
-			// TODO(nm-387): srcMap["*"] (a custom, non-default user-policy
-			// with a literal Src wildcard, e.g. {"id":"user","value":"*"})
-			// is never checked here, so such a policy silently matches no
-			// one - only the dedicated Default-policy mechanism
-			// (GetDefaultPolicy, checked separately in
-			// IsUserAllowedToCommunicate before this function is even
-			// called) currently grants "all users" access. Confirmed via
-			// the Managed SSH resolver hitting the identical gap.
+			if _, ok := srcMap["*"]; ok {
+				userAcls = append(userAcls, acl)
+				continue
+			}
 			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
 				continue
@@ -692,6 +688,16 @@ func listNetworkAccessUserPolicies(ctx context.Context, netID schema.NetworkID) 
 		}
 	}
 	return deviceAcls
+}
+
+// aclsForUserOwner returns policies keyed to owner plus any user:* policies.
+func aclsForUserOwner(allowedUsers map[string][]models.Acl, owner string) []models.Acl {
+	if owner == "" {
+		return append([]models.Acl(nil), allowedUsers["*"]...)
+	}
+	out := append([]models.Acl(nil), allowedUsers[owner]...)
+	out = append(out, allowedUsers["*"]...)
+	return out
 }
 
 func getSelectedUserEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
@@ -1160,8 +1166,8 @@ func GetEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 				continue
 			}
 
-			acls, ok := allowedUsers[userNode.StaticNode.OwnerID]
-			if !ok {
+			acls := aclsForUserOwner(allowedUsers, userNode.StaticNode.OwnerID)
+			if len(acls) == 0 {
 				continue
 			}
 			for _, acl := range acls {
@@ -1356,7 +1362,9 @@ func appendUserExtClientRemoteEgressFwdRules(
 			if userNode.StaticNode.IngressGatewayID != targetnode.ID.String() {
 				continue
 			}
-			if _, ok := allowedOwners[userNode.StaticNode.OwnerID]; !ok {
+			_, ownerOK := allowedOwners[userNode.StaticNode.OwnerID]
+			_, allUsers := allowedOwners["*"]
+			if !ownerOK && !allUsers {
 				continue
 			}
 			if userNode.StaticNode.Address != "" {
@@ -1496,8 +1504,8 @@ func GetUserAclRulesForNode(ctx context.Context, targetnode *models.Node,
 			if !userNode.StaticNode.Enabled {
 				continue
 			}
-			acls, ok := allowedUsers[userNode.StaticNode.OwnerID]
-			if !ok {
+			acls := aclsForUserOwner(allowedUsers, userNode.StaticNode.OwnerID)
+			if len(acls) == 0 {
 				continue
 			}
 			for _, acl := range acls {
@@ -1693,9 +1701,15 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 	return false
 }
 
-func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
+func GetTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) map[models.TagID][]models.Node {
 	nodes, _ := logic.GetNetworkNodes(ctx, netID.String())
+	return GetTagMapWithNetworkNodes(ctx, netID, nodes, withStaticNodes)
+}
+
+// GetTagMapWithNetworkNodes builds the tag map from the network's nodes the caller
+// already loaded.
+func GetTagMapWithNetworkNodes(ctx context.Context, netID schema.NetworkID, nodes []models.Node, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
 	for _, nodeI := range nodes {
 		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
 			nodeI,
