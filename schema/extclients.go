@@ -445,7 +445,7 @@ func (e *Extclient) MarkOfflineForOfflineGateways(ctx context.Context) (int64, e
 		Where(nodesTable+".status IN ?", []NodeStatus{OfflineSt, Disconnected})
 	result := db.FromContext(ctx).Model(&Extclient{}).
 		Where(extclientsTable+".status = ?", OnlineSt).
-		Where(extclientsTable+".ingressgatewayid IN (?)", offlineGateways).
+		Where(extclientsTable+".ingress_gateway_id IN (?)", offlineGateways).
 		Update("status", OfflineSt)
 	return result.RowsAffected, result.Error
 }
