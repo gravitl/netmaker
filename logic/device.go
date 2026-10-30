@@ -123,6 +123,32 @@ func EnsureHostOwner(host *schema.Host, username string) {
 	_ = host.Get(ctx)
 }
 
+// ResolveUserOwnedHostForAPI ensures username owns an already user-bound host.
+// Unlike VerifyDeviceHostAccess, it never claims an unowned (headless) host.
+func ResolveUserOwnedHostForAPI(ctx context.Context, username, hostIDStr string) (*schema.Host, error) {
+	if username == "" || hostIDStr == "" {
+		return nil, errors.New("user and host id are required")
+	}
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid host id: %w", err)
+	}
+	host := &schema.Host{ID: hostID}
+	if err := host.Get(db.WithContext(ctx)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("host not found")
+		}
+		return nil, err
+	}
+	if !IsUserOwnedHost(host) {
+		return nil, errors.New("host is not a user-owned device")
+	}
+	if host.OwnerUsername != username {
+		return nil, errors.New("host does not belong to user")
+	}
+	return host, nil
+}
+
 // VerifyDeviceHostAccess ensures the user may operate on the given host ID.
 func VerifyDeviceHostAccess(ctx context.Context, username, hostIDStr string) (*schema.Host, error) {
 	if username == "" || hostIDStr == "" {

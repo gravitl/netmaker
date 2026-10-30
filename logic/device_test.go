@@ -120,6 +120,32 @@ func TestVerifyDeviceHostAccess(t *testing.T) {
 	})
 }
 
+
+func TestResolveUserOwnedHostForAPI(t *testing.T) {
+	ctx := scopedTestContext(t)
+	owner := "api-owner-" + uuid.NewString()[:8]
+	other := "api-other-" + uuid.NewString()[:8]
+
+	owned := &schema.Host{ID: uuid.New(), Name: "owned-api-host", OwnerUsername: owner}
+	require.NoError(t, owned.Create(ctx))
+	t.Cleanup(func() { _ = owned.Delete(ctx) })
+
+	got, err := ResolveUserOwnedHostForAPI(ctx, owner, owned.ID.String())
+	require.NoError(t, err)
+	assert.Equal(t, owned.ID, got.ID)
+
+	_, err = ResolveUserOwnedHostForAPI(ctx, other, owned.ID.String())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not belong")
+
+	unowned := &schema.Host{ID: uuid.New(), Name: "unowned-api-host"}
+	require.NoError(t, unowned.Create(ctx))
+	t.Cleanup(func() { _ = unowned.Delete(ctx) })
+	_, err = ResolveUserOwnedHostForAPI(ctx, owner, unowned.ID.String())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a user-owned")
+}
+
 func TestRegisterDevice(t *testing.T) {
 	ctx := scopedTestContext(t)
 	owner := "reg-user-" + uuid.NewString()[:8]

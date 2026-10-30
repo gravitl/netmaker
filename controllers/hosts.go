@@ -76,11 +76,11 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/host/{hostid}/posture_status/ui", middleware.Scope(scope.TenantScope, middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHostPostureStatus))))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/emqx/hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", middleware.Scope(scope.TenantScope, http.HandlerFunc(socketHandler)))
@@ -1347,6 +1347,14 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		errorResponse.Message = err.Error()
 		logger.Log(0, request.Header.Get("user"),
 			"error retrieving host: ", authRequest.ID, err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	if logic.IsUserOwnedHost(host) {
+		errorResponse.Code = http.StatusUnauthorized
+		errorResponse.Message = "user session required"
+		logger.Log(0, request.Header.Get("user"),
+			"rejecting host-password auth for user-owned device:", authRequest.ID)
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
