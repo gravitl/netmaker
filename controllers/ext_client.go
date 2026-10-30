@@ -1559,7 +1559,11 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			allNodes, _ := logic.GetAllNodes(ctx)
+			g, err := logic.LoadPeerGraph(ctx)
+			if err != nil {
+				slog.Error("bulk extclient delete: failed to load peer graph", "error", err)
+				gwDeletedClients = nil
+			}
 			for gwNodeID, clients := range gwDeletedClients {
 				gwNode, err := logic.GetNodeByID(gwNodeID)
 				if err != nil {
@@ -1571,7 +1575,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
-				go mq.PublishSingleHostPeerUpdate(ctx, gwHost, allNodes, nil, nil, clients, false, nil)
+				go mq.PublishSingleHostPeerUpdate(ctx, g, gwHost, nil, nil, clients, false, nil)
 
 			}
 			go mq.PublishPeerUpdate(ctx, false)

@@ -248,12 +248,12 @@ func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 
 // GetUserDeviceAclRulesForNode emits the input-chain rules a resource needs for
 // the user devices whose owner is allowed to reach it.
-func GetUserDeviceAclRulesForNode(ctx context.Context, targetnode *models.Node,
+func GetUserDeviceAclRulesForNode(ctx context.Context, g *logic.PeerGraph, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	if logic.IsUserOwnedDevice(targetnode) {
 		return rules
 	}
-	devices := listUserDevicesForACL(ctx, targetnode.Network)
+	devices := logic.UserDevicesFromNodes(g.NetworkNodes(targetnode.Network))
 	if len(devices) == 0 {
 		return rules
 	}

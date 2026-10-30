@@ -96,6 +96,7 @@ type Node struct {
 	LastEvaluatedAt                    time.Time          `json:"last_evaluated_at"`
 	Location                           string             `json:"location"` // Format: "lat,lon"
 	CountryCode                        string             `json:"country_code"`
+	HostHasEndpointIPv6                bool               `json:"-"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
