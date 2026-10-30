@@ -17,6 +17,12 @@ func getNodeStatusOld(node *models.Node) {
 			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
+		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
+		if err != nil || !logic.IngressGatewayIsReachable(&ingNode) {
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
+			return
+		}
 		node.Status = schema.OnlineSt
 		node.StaticNode.Status = schema.OnlineSt
 		return
@@ -42,6 +48,13 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		}
 		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
 		if err != nil {
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
+			return
+		}
+		// Stale gateway metrics can still report Connected=true after the
+		// gateway itself goes offline; clients cannot be online then.
+		if !logic.IngressGatewayIsReachable(&ingNode) {
 			node.Status = schema.OfflineSt
 			node.StaticNode.Status = schema.OfflineSt
 			return
