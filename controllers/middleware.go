@@ -89,9 +89,11 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "networks") {
 			r.Header.Set("TARGET_RSRC", schema.NetworkRsrc.String())
 		}
-		// check 'graph' after 'networks', otherwise the
-		// header will be overwritten.
-		if strings.Contains(route, "graph") {
+		// Map/topology reads after 'networks': network users have HostRsrc
+		// read but not NetworkRsrc. Same override as /graph.
+		if strings.Contains(route, "graph") ||
+			strings.Contains(route, "/topology") ||
+			strings.Contains(route, "/connections") {
 			r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
 		}
 		if strings.Contains(route, "acls") {
@@ -131,7 +133,14 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Set("TARGET_RSRC", schema.NetworkRsrc.String())
 		}
 		if strings.Contains(route, "metrics") {
-			r.Header.Set("TARGET_RSRC", schema.MetricRsrc.String())
+			// Network-scoped metrics are node/host reads; network users have
+			// HostRsrc read but not MetricRsrc. Tenant-wide /api/metrics keeps
+			// MetricRsrc (TenantPermissionsCheck allows it).
+			if r.Header.Get("NET_ID") != "" {
+				r.Header.Set("TARGET_RSRC", schema.HostRsrc.String())
+			} else {
+				r.Header.Set("TARGET_RSRC", schema.MetricRsrc.String())
+			}
 		}
 		if strings.Contains(route, "flows") {
 			r.Header.Set("TARGET_RSRC", schema.TrafficFlow.String())

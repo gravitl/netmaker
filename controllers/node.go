@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
@@ -145,8 +146,9 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// AuthorizeHost - middleware that authenticates a host via JWT and ensures
-// the host is only operating on its own resources (matched by hostid/nodeid path params).
+// AuthorizeHost authenticates control-plane host APIs.
+// Headless hosts use a host JWT. User-owned desktop devices must use a user JWT
+// plus X-Host-ID; host-password JWTs are rejected for those devices.
 func AuthorizeHost(
 	next http.Handler,
 ) http.HandlerFunc {
@@ -157,44 +159,97 @@ func AuthorizeHost(
 		w.Header().Set("Content-Type", "application/json")
 
 		bearerToken := r.Header.Get("Authorization")
-		var tokenSplit = strings.Split(bearerToken, " ")
-		var authToken = ""
-
+		tokenSplit := strings.Split(bearerToken, " ")
 		if len(tokenSplit) < 2 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
-		} else {
-			authToken = tokenSplit[1]
 		}
+		authToken := tokenSplit[1]
 
-		hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
+		hostID, err := authorizeHostIdentity(r, authToken)
 		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
-			return
-		}
-
-		// master key bypasses ownership checks
-		if hostID != logic.MasterUser {
-			params := mux.Vars(r)
-			if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+			if errors.Is(err, errHostForbidden) {
 				logic.ReturnErrorResponse(w, r, forbiddenResponse)
 				return
 			}
-			if nodeID := params["nodeid"]; nodeID != "" {
-				node, err := logic.GetNodeByID(nodeID)
-				if err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-					return
-				}
-				if node.HostID.String() != hostID {
-					logic.ReturnErrorResponse(w, r, forbiddenResponse)
-					return
-				}
+			if errors.Is(err, errHostBadRequest) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
 			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
+			return
 		}
 		r.Header.Set(hostIDHeader, hostID)
 		next.ServeHTTP(w, r)
 	}
+}
+
+var (
+	errHostForbidden  = errors.New("forbidden")
+	errHostBadRequest = errors.New("bad request")
+)
+
+func authorizeHostIdentity(r *http.Request, authToken string) (string, error) {
+	hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
+	if err == nil {
+		if hostID == logic.MasterUser {
+			return hostID, nil
+		}
+		parsed, parseErr := uuid.Parse(hostID)
+		if parseErr != nil {
+			return "", logic.Unauthorized_Err
+		}
+		host := &schema.Host{ID: parsed}
+		if getErr := host.Get(r.Context()); getErr != nil {
+			return "", logic.Unauthorized_Err
+		}
+		if logic.IsUserOwnedHost(host) {
+			// Desktop/user devices must present the owning user's session JWT.
+			return "", logic.Unauthorized_Err
+		}
+		if err := enforceHostResourceAccess(r, hostID); err != nil {
+			return "", err
+		}
+		return hostID, nil
+	}
+
+	username, _, _, userErr := logic.VerifyUserToken(r.Context(), authToken)
+	if userErr != nil || username == "" || username == logic.MasterUser {
+		return "", logic.Unauthorized_Err
+	}
+	user := &schema.User{Username: username}
+	if getErr := user.Get(r.Context()); getErr != nil {
+		return "", logic.Unauthorized_Err
+	}
+	if user.AccountDisabled {
+		return "", logic.Unauthorized_Err
+	}
+	headerHostID := r.Header.Get(logic.DeviceHostIDHeader)
+	host, accessErr := logic.ResolveUserOwnedHostForAPI(r.Context(), username, headerHostID)
+	if accessErr != nil {
+		return "", logic.Unauthorized_Err
+	}
+	if err := enforceHostResourceAccess(r, host.ID.String()); err != nil {
+		return "", err
+	}
+	return host.ID.String(), nil
+}
+
+func enforceHostResourceAccess(r *http.Request, hostID string) error {
+	params := mux.Vars(r)
+	if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+		return errHostForbidden
+	}
+	if nodeID := params["nodeid"]; nodeID != "" {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			return fmt.Errorf("%w: %v", errHostBadRequest, err)
+		}
+		if node.HostID.String() != hostID {
+			return errHostForbidden
+		}
+	}
+	return nil
 }
 
 // @Summary     List all nodes in the network
