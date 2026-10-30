@@ -88,6 +88,11 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		node.Status = schema.OfflineSt
 		return
 	}
+	metrics, metricsErr := logic.GetMetrics(ctx, node.ID.String())
+	if metricsErr == nil && metrics != nil && metrics.Summary != nil {
+		node.Status = getNodeStatusFromSummary(ctx, metrics.Summary)
+		return
+	}
 	host := &schema.Host{
 		ID: node.HostID,
 	}
@@ -105,8 +110,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 		getNodeStatusOld(node)
 		return
 	}
-	metrics, err := logic.GetMetrics(ctx, node.ID.String())
-	if err != nil {
+	if metricsErr != nil {
 		return
 	}
 	if metrics == nil || metrics.Connectivity == nil || len(metrics.Connectivity) == 0 {
@@ -157,6 +161,44 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 	peers := buildPeerCache(ctx, node, metrics)
 	checkPeerConnectivity(ctx, node, metrics, defaultEnabledPolicy, peers)
 
+}
+
+func getNodeStatusFromSummary(ctx context.Context, summary *models.MetricsSummary) schema.NodeStatus {
+	if len(summary.UnreachablePeers) == 0 {
+		return schema.OnlineSt
+	}
+	nodes, err := (&schema.Node{}).ListLivenessByIDs(ctx, summary.UnreachablePeers)
+	if err != nil {
+		return schema.UnKnown
+	}
+	peers := make(map[string]schema.Node, len(nodes))
+	for _, n := range nodes {
+		peers[n.ID] = n
+	}
+	return statusFromSummary(summary, peers)
+}
+
+func statusFromSummary(summary *models.MetricsSummary, peers map[string]schema.Node) schema.NodeStatus {
+	total, unreachable := summary.TotalPeers, 0
+	for _, peerID := range summary.UnreachablePeers {
+		peer, ok := peers[peerID]
+		if !ok || !peer.Connected || peer.PendingDelete ||
+			time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
+			total--
+			continue
+		}
+		unreachable++
+	}
+	switch {
+	case unreachable == 0:
+		return schema.OnlineSt
+	case unreachable >= total:
+		return schema.ErrorSt
+	case unreachable > total/2:
+		return schema.WarningSt
+	default:
+		return schema.OnlineSt
+	}
 }
 
 // buildPeerCache fetches every node referenced (directly or transitively via

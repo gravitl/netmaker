@@ -232,8 +232,18 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
-func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPNet {
+func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
+	relaysViaPeer := false
+	for _, autoRelayID := range node.AutoRelayedPeers {
+		if autoRelayID == peer.ID.String() {
+			relaysViaPeer = true
+			break
+		}
+	}
+	if !relaysViaPeer {
+		return allowedips
+	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls := logic.ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
@@ -244,7 +254,7 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 		if peer.ID.String() != autoRelayID {
 			continue
 		}
-		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
+		autoRelayedpeer, err := g.Node(autoRelayedpeerID)
 		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
 			unfilteredSpecific := logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)
@@ -285,12 +295,12 @@ func GetAutoRelayPeerIps(ctx context.Context, peer, node *models.Node) []net.IPN
 			// filtering for specific-egress viewers/clients.
 			if autoRelayedpeer.IsRelay || len(autoRelayedpeer.RelayedNodes) > 0 ||
 				len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
-				allowedips = append(allowedips, logic.RelayedAllowedIPs(ctx, &autoRelayedpeer, node)...)
+				allowedips = append(allowedips, logic.RelayedAllowedIPs(ctx, g, &autoRelayedpeer, node)...)
 				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node)...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(ctx, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := logic.GetExtPeers(ctx, g, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}
