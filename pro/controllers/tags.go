@@ -27,11 +27,11 @@ func TagHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getTags)))).
 		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createTag)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateTag)))).
-		Methods(http.MethodPut)
+		Methods(http.MethodPut).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/tags", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTag)))).
-		Methods(http.MethodDelete)
+		Methods(http.MethodDelete).Queries("network", "{network}")
 
 }
 

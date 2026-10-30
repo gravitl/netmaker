@@ -7,6 +7,51 @@ import (
 	"gorm.io/datatypes"
 )
 
+func TestNetworkHasOtherEnabledFallback(t *testing.T) {
+	list := []schema.Nameserver{
+		{ID: "a", Fallback: true, Status: true},
+		{ID: "b", Fallback: true, Status: false},
+		{ID: "c", Fallback: false, Status: true},
+	}
+	if !networkHasOtherEnabledFallback(list, "b") {
+		t.Fatal("enabled fallback a must count when excluding b")
+	}
+	if networkHasOtherEnabledFallback(list, "a") {
+		t.Fatal("no other enabled fallback when excluding a")
+	}
+	if !networkHasOtherEnabledFallback(list, "") {
+		t.Fatal("enabled fallback a must count when excluding none")
+	}
+}
+
+func TestWouldLoseLastEnabledFallback(t *testing.T) {
+	enabled := &schema.Nameserver{ID: "a", Fallback: true, Status: true}
+	if !wouldLoseLastEnabledFallback(enabled, &schema.Nameserver{Fallback: true, Status: false}, false) {
+		t.Fatal("disabling the only enabled fallback must be blocked")
+	}
+	if !wouldLoseLastEnabledFallback(enabled, &schema.Nameserver{Fallback: false, Status: true}, false) {
+		t.Fatal("unsetting Fallback on the only enabled fallback must be blocked")
+	}
+	if wouldLoseLastEnabledFallback(enabled, &schema.Nameserver{Fallback: true, Status: false}, true) {
+		t.Fatal("disabling is allowed when another enabled fallback remains")
+	}
+	if wouldLoseLastEnabledFallback(enabled, &schema.Nameserver{Fallback: true, Status: true}, false) {
+		t.Fatal("keeping an enabled fallback must be allowed")
+	}
+	disabled := &schema.Nameserver{ID: "a", Fallback: true, Status: false}
+	if wouldLoseLastEnabledFallback(disabled, &schema.Nameserver{Fallback: true, Status: false}, false) {
+		t.Fatal("already-disabled fallback is not the last enabled")
+	}
+	def := &schema.Nameserver{ID: "a", Default: true, Fallback: true, Status: true}
+	if !wouldLoseLastEnabledFallback(def, &schema.Nameserver{Fallback: false, Status: false}, false) {
+		t.Fatal("disabling default fallback status must be blocked when it is the last")
+	}
+	// Default keeps Fallback even if the request clears the flag.
+	if wouldLoseLastEnabledFallback(def, &schema.Nameserver{Fallback: false, Status: true}, false) {
+		t.Fatal("clearing Fallback on a default nameserver is ignored while Status stays on")
+	}
+}
+
 func TestFallbackNameserverNeedsAllUsers(t *testing.T) {
 	base := func() *schema.Nameserver {
 		return &schema.Nameserver{

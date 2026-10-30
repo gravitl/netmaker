@@ -196,15 +196,18 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 
 	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
+		logger.Log(0, "failed to fetch oauth secret:", fetchErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 	authRequest := models.UserAuthParams{
-		UserName: content.Email,
+		UserName: user.Username,
 		Password: newPass,
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 
@@ -224,8 +227,8 @@ func (p *GitHubProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		},
 		Origin: schema.Dashboard,
 	})
-	logger.Log(1, "completed github OAuth signin for", content.Email)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
+	logger.Log(1, "completed github OAuth signin for", user.Username)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)
 }
 
 func (p *GitHubProvider) GetUserInfo(state, code string) (*OAuthUser, error) {
@@ -270,6 +273,7 @@ func (p *GitHubProvider) GetUserInfo(state, code string) (*OAuthUser, error) {
 			logger.Log(0, "failed to fetch user's email from github: ", err.Error())
 		}
 	}
+	userInfo.Email = normalizeUsername(userInfo.Email)
 	if userInfo.Email == "" {
 		return userInfo, errors.New("failed to fetch user email from SSO state")
 	}
