@@ -257,6 +257,9 @@ func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNo
 	if node.RelayedByNodeID != nil {
 		return fmt.Errorf("node %s is being relayed", node.Host.Name)
 	}
+	if len(node.AutoRelayedPeers.Data()) > 0 {
+		ResetAutoRelayedPeer(ctx, ConvertSchemaNodeToModelsNode(node))
+	}
 
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := GetNodeByID(clientNodeID)
