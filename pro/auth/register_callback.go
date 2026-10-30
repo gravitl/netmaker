@@ -81,6 +81,12 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		w.Write(response)
 		return
 	}
+	if user.AccountDisabled {
+		response := returnErrTemplate(user.Username, "user is disabled", state, reqKeyIf)
+		w.WriteHeader(http.StatusForbidden)
+		w.Write(response)
+		return
+	}
 	logger.Log(1, "registering host for user:", user.Username, reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
 
 	// Send OK to user in the browser
