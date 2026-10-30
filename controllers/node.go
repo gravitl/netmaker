@@ -229,6 +229,9 @@ func authorizeHostIdentity(r *http.Request, authToken string) (string, error) {
 	if accessErr != nil {
 		return "", logic.Unauthorized_Err
 	}
+	if scope.ID(r.Context()) != host.TenantID {
+		return "", logic.Unauthorized_Err
+	}
 	if err := enforceHostResourceAccess(r, host.ID.String()); err != nil {
 		return "", err
 	}
