@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
@@ -20,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 // AutoRelayHandlers - handlers for AutoRelay
@@ -37,6 +40,8 @@ func AutoRelayHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listAutoRelayedPeers)))).
 		Methods(http.MethodGet)
 }
 
@@ -84,6 +89,111 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, returnautoRelayNodes, "get autorelay node successfully")
+}
+
+// @Summary     List a node's auto-relayed peers
+// @Router      /api/v1/node/{nodeid}/auto_relayed_peers [get]
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
+// @Param       q query string false "Search across fields"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {object} models.PaginatedResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listAutoRelayedPeers(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	node, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	q := r.URL.Query().Get("q")
+
+	var page, pageSize int
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page == 0 {
+		page = 1
+	}
+	pageSize, _ = strconv.Atoi(r.URL.Query().Get("per_page"))
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	peerIDs := make([]interface{}, 0, len(node.AutoRelayedPeers))
+	for peerID := range node.AutoRelayedPeers {
+		peerIDs = append(peerIDs, peerID)
+	}
+
+	response := models.PaginatedResponse{
+		Data:       []models.NodeWithHost{},
+		Page:       page,
+		PerPage:    pageSize,
+		Total:      0,
+		TotalPages: 1,
+	}
+	if len(peerIDs) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		logic.ReturnSuccessResponseWithJson(w, r, response, "fetched auto relayed peers successfully")
+		return
+	}
+
+	nodeTable := (&schema.Node{}).TableName()
+	var filters, options []dbtypes.Option
+	filters = append(filters, dbtypes.WithFilter(fmt.Sprintf("%s.id", nodeTable), peerIDs...))
+	filters = append(filters, func(db *gorm.DB) *gorm.DB {
+		return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+	})
+	filters = append(filters, dbtypes.WithSearchQuery(
+		q,
+		fmt.Sprintf("%s.id", nodeTable),
+		"hosts_v1.name",
+		fmt.Sprintf("%s.address", nodeTable),
+		fmt.Sprintf("%s.address6", nodeTable),
+	))
+	options = append(options, filters...)
+	options = append(options, dbtypes.WithPreloads("Host"))
+	options = append(options, dbtypes.InAscOrder(fmt.Sprintf("%s.created_at", nodeTable)))
+	options = append(options, dbtypes.WithPagination(page, pageSize))
+
+	_nodes, err := (&schema.Node{}).ListAll(r.Context(), options...)
+	if err != nil {
+		err = fmt.Errorf("failed to fetch auto relayed peers for node %s: %v", nodeid, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	peers := make([]models.NodeWithHost, 0, len(_nodes))
+	for _, _node := range _nodes {
+		var peer models.NodeWithHost
+		peer.Fill(&_node)
+		peers = append(peers, peer)
+	}
+
+	total, err := (&schema.Node{}).Count(r.Context(), filters...)
+	if err != nil {
+		err = fmt.Errorf("failed to count auto relayed peers for node %s: %v", nodeid, err)
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response.Data = peers
+	response.Total = total
+	response.TotalPages = totalPages
+
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched auto relayed peers successfully")
 }
 
 // @Summary     Create AutoRelay node
