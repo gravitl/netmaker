@@ -57,6 +57,20 @@ func TestUserDeviceSrcIPsForPolicy_MatchesUserAndGroupSources(t *testing.T) {
 	}
 }
 
+func TestUserDeviceSrcIPsForPolicy_AllUsersWildcard(t *testing.T) {
+	devices := []models.Node{
+		userDeviceNode("alice", "100.64.0.9"),
+		userDeviceNode("bob", "100.64.0.10"),
+	}
+	policy := models.Acl{
+		Src: []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
+	}
+	src4, _ := userDeviceSrcIPsForPolicy(policy, devices, nil)
+	if len(src4) != 2 {
+		t.Fatalf("user:* must cover every user device, got %v", src4)
+	}
+}
+
 // TestUserDeviceEgressRule_IPRestrictedPolicyYieldsSelectedIPOnly is the regression
 // for the reported bug: a user policy granting the "sig" egress but restricted to
 // 10.104.0.1/32 must produce exactly that destination with the device /32 as the

@@ -39,6 +39,7 @@ func Run() {
 		for _, netI := range networks {
 			logic.CreateDefaultNetworkRolesAndGroups(ctx, schema.NetworkID(netI.Name), "")
 		}
+		backfillNetworkGlobalAccess(ctx)
 
 		createDefaultTagsAndPolicies(ctx)
 		cleanupDeletedUserGroupRefs(ctx)
