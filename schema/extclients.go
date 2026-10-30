@@ -434,3 +434,18 @@ func (e *Extclient) DeleteViolations(ctx context.Context) error {
 	}
 	return query.Delete(&PostureCheckViolation{}).Error
 }
+
+// MarkOfflineForOfflineGateways sets status=offline for extclients that are
+// still marked online while their ingress gateway is offline or disconnected.
+// Stale gateway metrics otherwise leave those clients stuck online.
+func (e *Extclient) MarkOfflineForOfflineGateways(ctx context.Context) (int64, error) {
+	nodesTable := (&Node{}).TableName()
+	offlineGateways := db.FromContext(ctx).Model(&Node{}).
+		Select(nodesTable+".id").
+		Where(nodesTable+".status IN ?", []NodeStatus{OfflineSt, Disconnected})
+	result := db.FromContext(ctx).Model(&Extclient{}).
+		Where(extclientsTable+".status = ?", OnlineSt).
+		Where(extclientsTable+".ingressgatewayid IN (?)", offlineGateways).
+		Update("status", OfflineSt)
+	return result.RowsAffected, result.Error
+}
