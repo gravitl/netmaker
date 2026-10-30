@@ -344,13 +344,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
 	if !ok || resetFailovered || refresh {
-		allNodes, err := logic.GetAllNodes(r.Context())
+		g, err := logic.LoadPeerGraph(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost(r.Context(), "", host, allNodes, nil, nil, nil)
+		hPU, err = g.PeerUpdateForHost(r.Context(), "", host, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -664,7 +664,15 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			}
 
 			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
-			for _, node := range nodesWithStatus {
+			for i, node := range nodesWithStatus {
+				// most reports don't change the status; skip the write then
+				if node.IsStatic {
+					if node.StaticNode.Status == nodes[i].StaticNode.Status {
+						continue
+					}
+				} else if node.Status == nodes[i].Status {
+					continue
+				}
 				if node.IsStatic {
 					err = logic.SaveExtClient(ctx, &node.StaticNode)
 					if err != nil {

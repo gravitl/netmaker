@@ -409,22 +409,24 @@ func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, 
 	return newClient, nil
 }
 
-func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(ctx context.Context, g *PeerGraph, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+	var peers []wgtypes.PeerConfig
+	var idsAndAddr []models.IDandAddr
+	var egressRoutes []models.EgressNetworkRoutes
+	// only this gateway's ext clients matter; most gateways have none, and
+	// this runs for every gateway peer of every host in a peer update
+	extPeers, err := g.GatewayExtClients(ctx, node.ID.String())
+	if err != nil {
+		return peers, idsAndAddr, egressRoutes, err
+	}
+	if len(extPeers) == 0 {
+		return peers, idsAndAddr, egressRoutes, nil
+	}
 	var skipFlowLogs bool
 	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		skipFlowLogs = true
 	}
-	var peers []wgtypes.PeerConfig
-	var idsAndAddr []models.IDandAddr
-	var egressRoutes []models.EgressNetworkRoutes
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
-	if err != nil {
-		return peers, idsAndAddr, egressRoutes, err
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(ctx)
+	host, err := g.Host(ctx, node.HostID)
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}

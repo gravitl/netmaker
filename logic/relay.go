@@ -259,7 +259,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
-func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
+func RelayedAllowedIPs(ctx context.Context, g *PeerGraph, peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
 	if peer == nil || node == nil {
 		return allowedIPs
@@ -285,7 +285,7 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			return
 		}
 		seen[relayedNodeID] = struct{}{}
-		relayedNode, err := getNodeByID(relayedNodeID)
+		relayedNode, err := g.Node(relayedNodeID)
 		if err != nil {
 			return
 		}
@@ -414,7 +414,7 @@ func peerRidesRetainedInternetExit(ctx context.Context, viewer, peer *models.Nod
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
-func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
+func GetAllowedIpsForRelayed(ctx context.Context, g *PeerGraph, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
 	routingID := InternetExitRoutingNodeID(relayed)
 	if relayed.RelayedBy != relay.ID.String() && routingID != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
@@ -477,7 +477,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 			canBypassForceDirectPeer(&peer, relayed, siteAutoRelayedByClient(&peer, relayed)) {
 			continue
 		}
-		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
+		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, g, relayed, &peer, nil)...)
 	}
 	return
 }

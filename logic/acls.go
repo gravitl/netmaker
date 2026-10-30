@@ -25,6 +25,9 @@ import (
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
 
 var GetTagMapWithNodesByNetwork = getTagMapWithNodesByNetwork
+
+// GetTagMapWithNetworkNodes builds the tag map from nodes the caller already loaded.
+var GetTagMapWithNetworkNodes = getTagMapWithNetworkNodes
 var getEgressByID = func(egressID string) (schema.Egress, error) {
 	e := schema.Egress{ID: egressID}
 	err := e.Get(db.WithContext(context.TODO()))
@@ -344,7 +347,7 @@ var GetUserDeviceEgressRulesForNode = func(ctx context.Context, targetnode *mode
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	return rules
 }
-var GetUserDeviceAclRulesForNode = func(ctx context.Context, targetnode *models.Node,
+var GetUserDeviceAclRulesForNode = func(ctx context.Context, g *PeerGraph, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	return rules
 }
@@ -1461,13 +1464,13 @@ var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []model
 	return false
 }
 
-func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules map[string]models.AclRule) {
+func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.Node) (rules map[string]models.AclRule) {
 	targetnode := *targetnodeI
 	defer func() {
 		//if !targetnode.IsIngressGateway {
 		rules = GetUserAclRulesForNode(ctx, &targetnode, rules)
 		//}
-		rules = GetUserDeviceAclRulesForNode(ctx, &targetnode, rules)
+		rules = GetUserDeviceAclRulesForNode(ctx, g, &targetnode, rules)
 	}()
 	rules = make(map[string]models.AclRule)
 	if IsNodeAllowedToCommunicateWithAllRsrcs(ctx, targetnode) {
@@ -1482,7 +1485,7 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 		// Enumerate the resources rather than using the mesh range: this rule's
 		// destination includes the egress ranges this node owns, so the range
 		// would hand user devices those ranges outside their user policies.
-		appendNodeIPsToAclRule(&aclRule, GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)["*"], targetnode.ID.String())
+		appendNodeIPsToAclRule(&aclRule, GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), g.NetworkNodes(targetnode.Network), true)["*"], targetnode.ID.String())
 		aclRule.IPList = UniqueIPNetList(aclRule.IPList)
 		aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
 		e := schema.Egress{Network: targetnode.Network}
@@ -1508,9 +1511,9 @@ func GetAclRulesForNode(ctx context.Context, targetnodeI *models.Node) (rules ma
 	}
 	var taggedNodes map[models.TagID][]models.Node
 	if targetnode.IsIngressGateway {
-		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), false)
+		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), g.NetworkNodes(targetnode.Network), false)
 	} else {
-		taggedNodes = GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
+		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), g.NetworkNodes(targetnode.Network), true)
 	}
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -3905,9 +3908,15 @@ func CreateDefaultAclNetworkPolicies(ctx context.Context, netID schema.NetworkID
 	CreateDefaultUserPolicies(ctx, netID)
 }
 
-func getTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
+func getTagMapWithNodesByNetwork(ctx context.Context, netID schema.NetworkID, withStaticNodes bool) map[models.TagID][]models.Node {
 	nodes, _ := GetNetworkNodes(ctx, netID.String())
+	return getTagMapWithNetworkNodes(ctx, netID, nodes, withStaticNodes)
+}
+
+// getTagMapWithNetworkNodes builds the tag map from the network's nodes the caller
+// already loaded.
+func getTagMapWithNetworkNodes(ctx context.Context, netID schema.NetworkID, nodes []models.Node, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
 	netGwTag := models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName))
 	for _, nodeI := range nodes {
 		tagNodesMap[models.TagID(nodeI.ID.String())] = append(tagNodesMap[models.TagID(nodeI.ID.String())], nodeI)
