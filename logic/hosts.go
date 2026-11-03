@@ -259,15 +259,16 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 		sendPeerUpdate = true
 		peerUpdateReasons = append(peerUpdateReasons, "public_key")
 	}
-	if !currHost.IsStaticPort {
+	if newHost.IsStaticPort || !currHost.IsStaticPort {
 		if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
 			currHost.ListenPort = newHost.ListenPort
+			currHost.IsStaticPort = newHost.IsStaticPort
 			sendPeerUpdate = true
 			peerUpdateReasons = append(peerUpdateReasons, "listen_port")
 		}
-		if newHost.WgPublicListenPort != 0 &&
-			currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+		if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
 			currHost.WgPublicListenPort = newHost.WgPublicListenPort
+			currHost.IsStaticPort = newHost.IsStaticPort
 			sendPeerUpdate = true
 			peerUpdateReasons = append(peerUpdateReasons, "wg_public_listen_port")
 		}
