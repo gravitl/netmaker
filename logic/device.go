@@ -47,6 +47,36 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 	return DisassociateAllNodesFromHost(ctx, host.ID.String())
 }
 
+// RebindDeviceHostToTenant moves a Desktop host UUID onto a new MSP tenant and
+// owner. Used when RegisterDevice finds the machine still enrolled under a
+// previous tenant that the new user cannot leave themselves.
+func RebindDeviceHostToTenant(ctx context.Context, host *schema.Host, newOwner, newTenantID string) error {
+	if host == nil || newOwner == "" || newTenantID == "" {
+		return errors.New("host, new owner, and tenant are required")
+	}
+	prevTenant := host.TenantID
+	prevOwner := host.OwnerUsername
+	if err := CleanupDeviceHostForOwnershipTransfer(ctx, host); err != nil {
+		return fmt.Errorf("failed to cleanup host for tenant rebind: %w", err)
+	}
+	host.TenantID = newTenantID
+	host.OwnerUsername = newOwner
+	if err := host.Upsert(ctx); err != nil {
+		return err
+	}
+	if prevOwner != "" && prevOwner != newOwner {
+		logDeviceOwnershipTransfer(ctx, newOwner, host, prevOwner)
+	}
+	slog.Info("rebound device host to tenant",
+		"host", host.ID.String(),
+		"from_tenant", prevTenant,
+		"to_tenant", newTenantID,
+		"from_owner", prevOwner,
+		"to_owner", newOwner,
+	)
+	return nil
+}
+
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
 // RegisterDevice calls this when a different user logs in on the same machine.
 func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
@@ -488,20 +518,26 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 			return empty, err
 		}
 		if existing.TenantID != "" && existing.TenantID != tenantID {
-			return empty, errors.New("host already registered to another tenant")
-		}
-		if existing.OwnerUsername == "" {
-			EnsureHostOwner(existing, user.Username)
-		}
-		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			// Same machine, next person at the keyboard. Re-bind the host
-			// instead of leaving it owned by whoever logged in first.
-			if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+			// Same Desktop machine moving to another MSP tenant (and often another
+			// user). Previous leave may have failed (new user cannot DELETE the
+			// old owner's host). Rebind instead of hard-failing register.
+			if err := RebindDeviceHostToTenant(ctx, existing, user.Username, tenantID); err != nil {
 				return empty, err
 			}
-		}
-		if existing.TenantID == "" {
-			existing.TenantID = tenantID
+		} else {
+			if existing.OwnerUsername == "" {
+				EnsureHostOwner(existing, user.Username)
+			}
+			if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
+				// Same machine, next person at the keyboard. Re-bind the host
+				// instead of leaving it owned by whoever logged in first.
+				if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+					return empty, err
+				}
+			}
+			if existing.TenantID == "" {
+				existing.TenantID = tenantID
+			}
 		}
 		endpointChanged, _ := UpdateHostFromClient(ctx, newHost, existing)
 		if endpointChanged {
