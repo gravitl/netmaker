@@ -56,6 +56,11 @@ func migrateV1_8_0(ctx context.Context) error {
 		return err
 	}
 
+	err = resetHostOwnerUsernames(ctx)
+	if err != nil {
+		return err
+	}
+
 	// runs after the extclients are migrated, since the addresses of the
 	// extclients are allocated to their ids.
 	err = migrateIPAllocations(ctx)
@@ -454,6 +459,13 @@ func migrateUserEmailUsernamesToLowercase(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// resetHostOwnerUsernames clears the owner_username on hosts.
+func resetHostOwnerUsernames(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&schema.Host{}).
+		Where("owner_username <> ''").
+		Update("owner_username", "").Error
 }
 
 // migrateIPAllocations backfills the address pools and allocations of the

@@ -871,10 +871,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// inet_node_req / relaynodes that include exit clients (RelayedIGWClients),
 	// which must not be treated as a new IGW or manual relay assignment.
 	connectionToggle := currentNode.Connected != newNode.Connected
+	resetAutoRelayedPeers := false
 	if !connectionToggle {
 		enablingInetGw := !currentNode.IsInternetGateway && newNode.IsInternetGateway
 		updatingInetGwClients := newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0
 		if enablingInetGw || updatingInetGwClients {
+			resetAutoRelayedPeers = true
 			err = logic.ValidateInetGwReq(
 				r.Context(),
 				logic.ConvertModelsNodeToSchemaNode(newNode),
@@ -965,6 +967,15 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	updated = true
+	if resetAutoRelayedPeers && len(newNode.AutoRelayedPeers) > 0 {
+		// the node is becoming an internet gateway, so it can no longer be auto relayed.
+		if err := logic.ResetAutoRelayedPeer(r.Context(), newNode); err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to reset auto relayed peers for node [ %s ]: %v", nodeid, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
 	for _, address := range replacedAddrs {
 		if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
 			slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)

@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 )
 
@@ -17,98 +15,13 @@ var (
 	redirectUrl string
 )
 
-// HandleHostSSOCallback handles the callback from the sso endpoint
-// It is the analogue of auth.handleNodeSSOCallback but takes care of the end point flow
-// Retrieves the mkey from the state cache and adds the machine to the users email namespace
-// TODO: A confirmation page for new machines should be added to avoid phishing vulnerabilities
-// TODO: Add groups information from OIDC tokens into machine HostInfo
+// HandleHostSSOCallback handles the callback from the sso endpoint for host registration.
+// Registering a host via SSO is no longer supported, so the request is rejected.
 // Listens in /oidc/callback.
 func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
-
-	p, ok := Registry().FromContext(r.Context())
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("bad conf"))
-		logger.Log(0, "Missing Oauth config in HandleNodeSSOCallback")
-		return
-	}
-
-	state, code := getStateAndCode(r)
-
-	var userClaims, err = p.GetUserInfo(state, code)
-	if err != nil {
-		logger.Log(0, "error when getting user info from callback:", err.Error())
-		handleOauthNotConfigured(w)
-		return
-	}
-
-	if code == "" || state == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Wrong params"))
-		logger.Log(0, "Missing params in HandleSSOCallback")
-		return
-	}
-
-	// all responses should be in html format from here on out
-	w.Header().Add("content-type", "text/html; charset=utf-8")
-
-	// retrieve machinekey from state cache
-	reqKeyIf, machineKeyFoundErr := netcache.Get(state)
-	if machineKeyFoundErr != nil {
-		logger.Log(0, "requested machine state key expired before authorisation completed -", machineKeyFoundErr.Error())
-		reqKeyIf = &netcache.CValue{
-			Network:    "invalid",
-			Value:      state,
-			Pass:       "",
-			User:       "netmaker",
-			Expiration: time.Now(),
-		}
-		response := returnErrTemplate("", "requested machine state key expired before authorisation completed", state, reqKeyIf)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(response)
-		return
-	}
-	// check if user exists
-	user := &schema.User{Username: userClaims.getUserName()}
-	err = user.Get(r.Context())
-	if err != nil {
-		handleOauthUserNotFound(w)
-		return
-	}
-	if user.PlatformRoleID != schema.AdminRole && user.PlatformRoleID != schema.SuperAdminRole {
-		response := returnErrTemplate(user.Username, "only admin users can register using SSO", state, reqKeyIf)
-		w.WriteHeader(http.StatusForbidden)
-		w.Write(response)
-		return
-	}
-	if user.AccountDisabled {
-		response := returnErrTemplate(user.Username, "user is disabled", state, reqKeyIf)
-		w.WriteHeader(http.StatusForbidden)
-		w.Write(response)
-		return
-	}
-	logger.Log(1, "registering host for user:", user.Username, reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
-
-	// Send OK to user in the browser
-	var response bytes.Buffer
-	if err := ssoCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
-		User: user.Username,
-		Verb: "authenticated",
-	}); err != nil {
-		logger.Log(0, "Could not render SSO callback template ", err.Error())
-		response := returnErrTemplate(reqKeyIf.User, "Could not render SSO callback template", state, reqKeyIf)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(response)
-	} else {
-		w.WriteHeader(http.StatusOK)
-		w.Write(response.Bytes())
-	}
-
-	reqKeyIf.User = user.Username // set the cached registering hosts' user
-	if err = netcache.Set(state, reqKeyIf); err != nil {
-		logger.Log(0, "machine failed to complete join on network,", reqKeyIf.Network, "-", err.Error())
-		return
-	}
+	logger.Log(0, "host registration via SSO attempted, but it is no longer supported")
+	w.WriteHeader(http.StatusGone)
+	_, _ = w.Write([]byte("registering a host via SSO is no longer supported; use an enrollment token: netclient join -t <token>"))
 }
 
 func setNetcache(ncache *netcache.CValue, state string) error {
