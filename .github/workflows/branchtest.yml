@@ -25,7 +25,7 @@ jobs:
       skip: ${{ steps.skip.outputs.skip }}
     steps:
       - id: skip
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           concurrent_skipping: 'always'
   
@@ -52,7 +52,7 @@ jobs:
             echo "netclient_branch=develop" >> "$GITHUB_OUTPUT"
           fi
       - name: Checkout netclient repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           repository: gravitl/netclient
