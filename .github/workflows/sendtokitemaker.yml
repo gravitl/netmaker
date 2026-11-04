@@ -5,6 +5,9 @@ on:
         types: opened
 
 
+permissions:
+  contents: read
+
 jobs:
     send-ticket:
         uses: gravitl/devops/.github/workflows/makekitemakerticket.yml@master

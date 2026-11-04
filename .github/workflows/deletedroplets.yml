@@ -6,6 +6,11 @@ on:
     types:
       - completed
 
+permissions:
+  # Downloads the artifacts of the test run and reads its pull request.
+  actions: read
+  contents: read
+
 jobs:
   on-success:
     runs-on: ubuntu-latest

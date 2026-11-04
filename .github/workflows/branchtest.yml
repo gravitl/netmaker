@@ -11,8 +11,15 @@ on:
       types: [opened, synchronize, reopened]
       branches: [develop]
 
+permissions:
+  contents: read
+
 jobs:
   skip-check:
+    permissions:
+      # skip-duplicate-actions cancels the superseded runs.
+      actions: write
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.skip.outputs.skip }}
@@ -65,6 +72,9 @@ jobs:
           echo "netmakerbranch=$NETMAKER_BRANCH" >> "$GITHUB_OUTPUT"
 
   branchtest:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: gravitl/devops/.github/workflows/testdeploybranch.yml@master
     needs: [getbranch, skip-check]
     with:

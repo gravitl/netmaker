@@ -8,6 +8,11 @@ on:
         required: true
         default: 'master'
 
+permissions:
+  # Pushes the documentation branch and opens the pull request.
+  contents: write
+  pull-requests: write
+
 jobs:
   generate-docs:
     runs-on: ubuntu-latest
