@@ -54,6 +54,7 @@ jobs:
       - name: Checkout netclient repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           repository: gravitl/netclient
           fetch-depth: 0
       - name: Check if netclient branch exists and set output
