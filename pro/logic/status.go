@@ -103,7 +103,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 	}
 	metrics, metricsErr := logic.GetMetrics(ctx, node.ID.String())
 	if metricsErr == nil && metrics != nil && metrics.Summary != nil {
-		node.Status = getNodeStatusFromSummary(ctx, metrics.Summary)
+		node.Status = getNodeStatusFromSummary(ctx, node, metrics.Summary)
 		return
 	}
 	host := &schema.Host{
@@ -176,8 +176,12 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 
 }
 
-func getNodeStatusFromSummary(ctx context.Context, summary *models.MetricsSummary) schema.NodeStatus {
+func getNodeStatusFromSummary(ctx context.Context, node *models.Node, summary *models.MetricsSummary) schema.NodeStatus {
 	if len(summary.UnreachablePeers) == 0 {
+		return schema.OnlineSt
+	}
+
+	if time.Since(node.CreatedAt) < models.CreationThreshold {
 		return schema.OnlineSt
 	}
 
