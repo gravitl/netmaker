@@ -196,7 +196,8 @@ func statusFromSummary(summary *models.MetricsSummary, peers map[string]schema.N
 	for _, peerID := range summary.UnreachablePeers {
 		peer, ok := peers[peerID]
 		if !ok || !peer.Connected || peer.PendingDelete ||
-			time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
+			time.Since(peer.LastCheckIn) > models.LastCheckInThreshold ||
+			time.Since(peer.CreatedAt) < models.CreationThreshold {
 			total--
 			continue
 		}

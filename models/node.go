@@ -14,6 +14,9 @@ import (
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
 
+// CreationThreshold - if node is unreachable upto this threshold after creation, it's peers need not worry.
+const CreationThreshold = time.Minute * 2
+
 // NodeCheckin - struct for node checkins with server
 type NodeCheckin struct {
 	Version   string
