@@ -180,6 +180,8 @@ func getNodeStatusFromSummary(ctx context.Context, summary *models.MetricsSummar
 	if len(summary.UnreachablePeers) == 0 {
 		return schema.OnlineSt
 	}
+
+	// only "id", "connected", "pending_delete", "last_check_in", "created_at" fields are fetched.
 	nodes, err := (&schema.Node{}).ListLivenessByIDs(ctx, summary.UnreachablePeers)
 	if err != nil {
 		return schema.UnKnown
