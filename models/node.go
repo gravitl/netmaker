@@ -14,6 +14,9 @@ import (
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
 
+// CreationThreshold - if node is unreachable before reaching this threshold after creation, treat node as online.
+const CreationThreshold = time.Minute * 2
+
 // NodeCheckin - struct for node checkins with server
 type NodeCheckin struct {
 	Version   string
@@ -97,6 +100,7 @@ type Node struct {
 	Location                           string             `json:"location"` // Format: "lat,lon"
 	CountryCode                        string             `json:"country_code"`
 	HostHasEndpointIPv6                bool               `json:"-"`
+	CreatedAt                          time.Time          `json:"-"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool

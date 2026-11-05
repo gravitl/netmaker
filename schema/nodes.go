@@ -180,7 +180,7 @@ func (n *Node) ListLivenessByIDs(ctx context.Context, ids []string) ([]Node, err
 		return nil, nil
 	}
 	query := db.FromContext(ctx).Model(&Node{}).
-		Select("id", "connected", "pending_delete", "last_check_in")
+		Select("id", "connected", "pending_delete", "last_check_in", "created_at")
 	if tenantID := scope.ID(ctx); tenantID != "" {
 		query = query.Where("tenant_id = ?", tenantID)
 	}
