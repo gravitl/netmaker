@@ -144,6 +144,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if strings.Contains(route, "flows") {
 			r.Header.Set("TARGET_RSRC", schema.TrafficFlow.String())
+			if netID := r.URL.Query().Get("network_id"); netID != "" {
+				r.Header.Set("NET_ID", netID)
+			}
 		}
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
