@@ -455,14 +455,16 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 				// is a different retained internet exit, emit EgressRoutes with
 				// that RelayedBy PeerKey so routes do not hang on the client's exit.
 				clientExitID := InternetExitRoutingNodeID(&node)
+				// Only user devices retain alternate exits as separate peers; server
+				// exit clients hairpin site egress via their selected exit instead.
 				ridesOtherRetainedExit := false
-				if !forceDirect && peer.IsRelayed && peer.RelayedBy != "" &&
+				if IsUserOwnedDevice(&node) && !forceDirect && peer.IsRelayed && peer.RelayedBy != "" &&
 					peer.RelayedBy != node.ID.String() && peer.RelayedBy != clientExitID {
 					if _, ok := inetExitRouterIDs[peer.RelayedBy]; ok {
 						ridesOtherRetainedExit = true
 					}
 				}
-				if !forceDirect && isAutoRelayPeer && peerAutoRelayID != "" &&
+				if IsUserOwnedDevice(&node) && !forceDirect && isAutoRelayPeer && peerAutoRelayID != "" &&
 					peerAutoRelayID != node.ID.String() && peerAutoRelayID != clientExitID {
 					if _, ok := inetExitRouterIDs[peerAutoRelayID]; ok {
 						ridesOtherRetainedExit = true
@@ -526,7 +528,9 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 				// CIDRs do not hairpin through the exit. Relayed/auto-relayed site
 				// egress is not forced direct — AllowedIPs go via the client's exit
 				// on both legs (client→exit and site→client's exit).
-				// Exit clients keep ACL-allowed internet exits as direct peers.
+				// User-device exit clients keep ACL-allowed internet exits as
+				// direct peers (probe/switch). Server exit clients do not —
+				// only the selected exit stays, plus bypass site egress below.
 				// A user device relayed from the UI does not keep other gateways
 				// direct — those overlays ride RelayedBy. Keeping both duplicates
 				// AllowedIPs and leaves peers with an empty list.
@@ -1233,22 +1237,26 @@ func PeerAdvertisesSpecificEgress(peer *models.Node) bool {
 // cleared must not keep the peer or put those CIDRs in AllowedIPs.
 // allowedToComm is PeerAllowed for this node/peer pair; inetExitRouterIDs lists
 // active internet-egress routing node IDs. ACL-denied exits are never retained.
+// Alternate internet exits are retained as separate peers only for user devices.
 func shouldRetainPeerDespiteRelay(node, peer *models.Node, isAutoRelayPeer bool, allowedToComm bool, inetExitRouterIDs map[string]struct{}) bool {
 	// Selected exit (and reverse leg) always stays — clients need 0.0.0.0/0 even
 	// when RelayedBy is stale after gateway teardown.
 	if usesPeerAsInternetExit(node, peer) || usesPeerAsInternetExit(peer, node) {
 		return true
 	}
-	// ACL-allowed internet exit routers stay as direct peers for exit clients
-	// (probe/switch exits). Relayed infra nodes that are not exit clients must
-	// not keep exits as separate peers — those overlays ride RelayedBy.
-	if allowedToComm && peer != nil && nodeIsInternetExitClient(node) {
+	// User devices keep ACL-allowed internet exits as separate peers (probe/switch).
+	// Server/infra exit clients do not — all mesh rides the selected exit except
+	// bypass site-egress peers below. Relayed non-exit nodes never keep exits
+	// as separate peers either.
+	if allowedToComm && peer != nil && IsUserOwnedDevice(node) && nodeIsInternetExitClient(node) {
 		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok {
 			return true
 		}
 	}
-	// Reverse: exit routers keep ACL-allowed clients that use an exit so handshakes work.
-	if allowedToComm && node != nil && peer != nil {
+	// Reverse: exit routers keep ACL-allowed user-device exit clients so alternate
+	// exits can handshake for probe/switch. Server exit clients are only kept by
+	// their selected exit (usesPeerAsInternetExit above).
+	if allowedToComm && node != nil && peer != nil && IsUserOwnedDevice(peer) {
 		if _, ok := inetExitRouterIDs[node.ID.String()]; ok {
 			if nodeIsInternetExitClient(peer) {
 				return true
