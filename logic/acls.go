@@ -226,6 +226,7 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 		case models.UserPolicy:
 			if userNodes == nil {
 				userNodes = GetStaticUserNodesByNetwork(ctx, netID)
+				userNodes = append(userNodes, ListUserDevicesByNetwork(ctx, netID.String())...)
 			}
 			allSrcUsers := false
 			allowedUsernames := make(map[string]struct{})
