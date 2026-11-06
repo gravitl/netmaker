@@ -223,7 +223,15 @@ func listNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		extclients = append(extclients, *logic.ConvertSchemaExtclientToModelsExtClientWithContext(r.Context(), &_extclients[i], logic.SkipViolations()))
 	}
 	logic.AttachExtClientViolations(r.Context(), extclients)
+
 	for i := range extclients {
+		if extclients[i].Status == "" {
+			staticNode := logic.AddStatusToNodes(r.Context(), []models.Node{models.ConvertToStaticNode(extclients[i])}, true)[0]
+			extclients[i].Status = staticNode.StaticNode.Status
+			if err := logic.SaveExtClient(r.Context(), &extclients[i]); err != nil {
+				slog.Error("failed to persist extclient status", "id", extclients[i].ClientID, "error", err)
+			}
+		}
 		extclients[i].PrivateKey = ""
 	}
 

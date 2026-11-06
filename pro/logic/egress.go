@@ -118,20 +118,25 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		if logic.IsEgressInternetGateway(*e) {
 			return errors.New("internet egress must use explicit routing nodes, not tags")
 		}
-		// Tag-based egress clears e.Nodes above; resolve tag members and reject
-		// Windows + virtual NAT the same way as explicit routing nodes.
+		// Tag-based egress clears e.Nodes above; resolve tag members and
+		// validate them the same way as explicit routing nodes (we already
+		// rejected internet-gateway egress with tags above, so every member
+		// here is a direct/virtual NAT routing node, not an internet exit).
 		for tagID := range e.Tags {
 			for _, tagged := range GetNodesWithTag(ctx, models.TagID(tagID)) {
 				if err := logic.ErrUserOwnedNodeInfrastructureRole(&tagged); err != nil {
 					return err
 				}
 				// static (ext client) members have no host.
-				if e.Mode != schema.VirtualNAT || tagged.HostID == uuid.Nil {
+				if tagged.HostID == uuid.Nil {
 					continue
 				}
 				host := &schema.Host{ID: tagged.HostID}
 				if err := host.Get(db.WithContext(ctx)); err != nil {
-					continue
+					return errors.New("invalid routing node " + err.Error())
+				}
+				if err := logic.ValidateEgressHostFirewall(host); err != nil {
+					return err
 				}
 				if err := logic.ValidateHostEgressNATMode(*e, host); err != nil {
 					return err
