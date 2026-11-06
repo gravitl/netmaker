@@ -655,44 +655,32 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
+
+			nodeWithStatus := logic.AddStatusToNodes(ctx, []models.Node{node}, true)[0]
+			if nodeWithStatus.Status != node.Status {
+				_node := &schema.Node{ID: nodeID, Status: nodeWithStatus.Status}
+				if err := _node.UpdateStatus(ctx); err != nil {
+					slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
+				}
+			}
+
 			extclients, err := logic.GetGatewayExtClients(ctx, nodeID)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
 			}
-
-			nodes := make([]models.Node, 0, len(extclients)+1)
-			nodes = append(nodes, node)
+			extNodes := make([]models.Node, 0, len(extclients))
 			for _, extclient := range extclients {
-				nodes = append(nodes, models.ConvertToStaticNode(extclient))
+				extNodes = append(extNodes, models.ConvertToStaticNode(extclient))
 			}
-
-			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
-			for i, node := range nodesWithStatus {
+			extNodesWithStatus := logic.AddStatusToNodes(ctx, extNodes, true)
+			for i, extNode := range extNodesWithStatus {
 				// most reports don't change the status; skip the write then
-				if node.IsStatic {
-					if node.StaticNode.Status == nodes[i].StaticNode.Status {
-						continue
-					}
-				} else if node.Status == nodes[i].Status {
+				if extNode.StaticNode.Status == extNodes[i].StaticNode.Status {
 					continue
 				}
-				if node.IsStatic {
-					err = logic.SaveExtClient(ctx, &node.StaticNode)
-					if err != nil {
-						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
-						continue
-					}
-				} else {
-					_node := &schema.Node{
-						ID:     node.ID.String(),
-						Status: node.Status,
-					}
-					err = _node.UpdateStatus(ctx)
-					if err != nil {
-						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
-						continue
-					}
+				if err := logic.SaveExtClient(ctx, &extNode.StaticNode); err != nil {
+					slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", extNode.StaticNode.ClientID, "error", err)
 				}
 			}
 		}(ctx, nodeID)

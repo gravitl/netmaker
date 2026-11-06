@@ -46,6 +46,11 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
+		if ingNode.Status == schema.OfflineSt || ingNode.Status == schema.Disconnected {
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
+			return
+		}
 		if !defaultEnabledPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(ctx, *node, ingNode, false)
 			if !allowed {
