@@ -11,14 +11,21 @@ on:
       types: [opened, synchronize, reopened]
       branches: [develop]
 
+permissions:
+  contents: read
+
 jobs:
   skip-check:
+    permissions:
+      # skip-duplicate-actions cancels the superseded runs.
+      actions: write
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.skip.outputs.skip }}
     steps:
       - id: skip
-        uses: fkirc/skip-duplicate-actions@v5
+        uses: fkirc/skip-duplicate-actions@v5.3.2
         with:
           concurrent_skipping: 'always'
   
@@ -32,32 +39,43 @@ jobs:
     steps:
       - name: Determine branches
         id: determine_branches
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "NETMAKER_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
-            echo "NETCLIENT_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "netmaker_branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "netclient_branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
           else
-            echo "NETMAKER_BRANCH=${{ github.head_ref }}" >> $GITHUB_ENV
-            echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
+            echo "netmaker_branch=$HEAD_REF" >> "$GITHUB_OUTPUT"
+            echo "netclient_branch=develop" >> "$GITHUB_OUTPUT"
           fi
       - name: Checkout netclient repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
+          persist-credentials: false
           repository: gravitl/netclient
           fetch-depth: 0
       - name: Check if netclient branch exists and set output
-        id: getbranch 
+        id: getbranch
+        env:
+          NETCLIENT_BRANCH: ${{ steps.determine_branches.outputs.netclient_branch }}
+          NETMAKER_BRANCH: ${{ steps.determine_branches.outputs.netmaker_branch }}
         run: |
-          if git ls-remote --heads origin ${{ env.NETCLIENT_BRANCH }} | grep -q ${{ env.NETCLIENT_BRANCH }}; then
-            echo "netclient branch ${{ env.NETCLIENT_BRANCH }} exists"
-            echo "netclientbranch=${{ env.NETCLIENT_BRANCH }}" >> $GITHUB_OUTPUT
+          if git ls-remote --heads origin "$NETCLIENT_BRANCH" | grep -q "$NETCLIENT_BRANCH"; then
+            echo "netclient branch $NETCLIENT_BRANCH exists"
+            echo "netclientbranch=$NETCLIENT_BRANCH" >> "$GITHUB_OUTPUT"
           else
-            echo "netclient branch ${{ env.NETCLIENT_BRANCH }} does not exist, using develop"
-            echo "netclientbranch=develop" >> $GITHUB_OUTPUT
+            echo "netclient branch $NETCLIENT_BRANCH does not exist, using develop"
+            echo "netclientbranch=develop" >> "$GITHUB_OUTPUT"
           fi
-          echo "netmakerbranch=${{ env.NETMAKER_BRANCH }}" >> $GITHUB_OUTPUT
+          echo "netmakerbranch=$NETMAKER_BRANCH" >> "$GITHUB_OUTPUT"
 
   branchtest:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: gravitl/devops/.github/workflows/testdeploybranch.yml@master
     needs: [getbranch, skip-check]
     with:
