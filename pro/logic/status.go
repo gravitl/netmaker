@@ -17,6 +17,12 @@ func getNodeStatusOld(node *models.Node) {
 			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
+		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
+		if err != nil || !logic.IngressGatewayIsReachable(&ingNode) {
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
+			return
+		}
 		node.Status = schema.OnlineSt
 		node.StaticNode.Status = schema.OnlineSt
 		return
@@ -46,7 +52,9 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 			node.StaticNode.Status = schema.OfflineSt
 			return
 		}
-		if ingNode.Status == schema.OfflineSt || ingNode.Status == schema.Disconnected {
+		// Stale gateway metrics can still report Connected=true after the
+		// gateway itself goes offline; clients cannot be online then.
+		if !logic.IngressGatewayIsReachable(&ingNode) {
 			node.Status = schema.OfflineSt
 			node.StaticNode.Status = schema.OfflineSt
 			return
@@ -95,7 +103,7 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 	}
 	metrics, metricsErr := logic.GetMetrics(ctx, node.ID.String())
 	if metricsErr == nil && metrics != nil && metrics.Summary != nil {
-		node.Status = getNodeStatusFromSummary(ctx, metrics.Summary)
+		node.Status = getNodeStatusFromSummary(ctx, node, metrics.Summary)
 		return
 	}
 	host := &schema.Host{
@@ -168,10 +176,16 @@ func GetNodeStatus(ctx context.Context, node *models.Node, defaultEnabledPolicy 
 
 }
 
-func getNodeStatusFromSummary(ctx context.Context, summary *models.MetricsSummary) schema.NodeStatus {
+func getNodeStatusFromSummary(ctx context.Context, node *models.Node, summary *models.MetricsSummary) schema.NodeStatus {
 	if len(summary.UnreachablePeers) == 0 {
 		return schema.OnlineSt
 	}
+
+	if time.Since(node.CreatedAt) < models.CreationThreshold {
+		return schema.OnlineSt
+	}
+
+	// only "id", "connected", "pending_delete", "last_check_in", "created_at" fields are fetched.
 	nodes, err := (&schema.Node{}).ListLivenessByIDs(ctx, summary.UnreachablePeers)
 	if err != nil {
 		return schema.UnKnown
@@ -188,7 +202,8 @@ func statusFromSummary(summary *models.MetricsSummary, peers map[string]schema.N
 	for _, peerID := range summary.UnreachablePeers {
 		peer, ok := peers[peerID]
 		if !ok || !peer.Connected || peer.PendingDelete ||
-			time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
+			time.Since(peer.LastCheckIn) > models.LastCheckInThreshold ||
+			time.Since(peer.CreatedAt) < models.CreationThreshold {
 			total--
 			continue
 		}
