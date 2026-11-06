@@ -19,10 +19,32 @@ var GetNodeStatus = func(ctx context.Context, node *models.Node, t bool) {
 	getNodeCheckInStatus(node, t)
 }
 
+// IngressGatewayIsReachable reports whether an ingress gateway can currently
+// forward traffic for its extclients. Offline/disconnected gateways leave
+// stale peer metrics that would otherwise keep clients marked online.
+func IngressGatewayIsReachable(gw *models.Node) bool {
+	if gw == nil {
+		return false
+	}
+	if !gw.Connected {
+		return false
+	}
+	if time.Since(gw.LastCheckIn) > models.LastCheckInThreshold {
+		return false
+	}
+	return true
+}
+
 func getNodeCheckInStatus(node *models.Node, t bool) {
 	// On CE check only last check-in time
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
+			node.Status = schema.OfflineSt
+			node.StaticNode.Status = schema.OfflineSt
+			return
+		}
+		ingNode, err := GetNodeByID(node.StaticNode.IngressGatewayID)
+		if err != nil || !IngressGatewayIsReachable(&ingNode) {
 			node.Status = schema.OfflineSt
 			node.StaticNode.Status = schema.OfflineSt
 			return
@@ -67,14 +89,23 @@ func MarkStaleNodesOffline(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			dbCtx := db.WithContext(ctx)
 			threshold := time.Now().UTC().Add(-models.LastCheckInThreshold)
-			n, err := (&schema.Node{}).MarkStaleOffline(db.WithContext(ctx), threshold)
+			n, err := (&schema.Node{}).MarkStaleOffline(dbCtx, threshold)
 			if err != nil {
 				slog.Error("mark stale nodes offline failed", "error", err)
 				continue
 			}
 			if n > 0 {
 				slog.Info("marked stale nodes offline", "count", n, "threshold", threshold)
+			}
+			clients, cErr := (&schema.Extclient{}).MarkOfflineForOfflineGateways(dbCtx)
+			if cErr != nil {
+				slog.Error("mark extclients of offline gateways failed", "error", cErr)
+				continue
+			}
+			if clients > 0 {
+				slog.Info("marked extclients offline for offline gateways", "count", clients)
 			}
 		}
 	}

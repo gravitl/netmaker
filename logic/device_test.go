@@ -625,7 +625,7 @@ func TestRegisterDevice_requiresTenantScope(t *testing.T) {
 	assert.Contains(t, err.Error(), "tenant id is required")
 }
 
-func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
+func TestRegisterDevice_rebindsCrossTenantHost(t *testing.T) {
 	ctx := scopedTestContext(t)
 	tenantID := scope.ID(ctx)
 	require.NotEmpty(t, tenantID)
@@ -650,7 +650,13 @@ func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
 	assert.Equal(t, tenantID, resp.RequestedHost.TenantID)
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
 
-	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, "other-tenant-"+uuid.NewString())
+	otherTenant := "other-tenant-" + uuid.NewString()
+	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, otherTenant)
+	otherOwner := "reg-xt2-" + uuid.NewString()[:8]
+	otherUser := &schema.User{Username: otherOwner, PlatformRoleID: schema.AdminRole}
+	require.NoError(t, otherUser.Create(otherCtx))
+	t.Cleanup(func() { _ = otherUser.Delete(otherCtx) })
+
 	dup := &schema.Host{
 		ID:               hostID,
 		Name:             "cross-tenant-host",
@@ -659,9 +665,15 @@ func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
 		TrafficKeyPublic: []byte{1, 2, 3},
 		HostPass:         "test-host-pass",
 	}
-	_, err = RegisterDevice(otherCtx, user, dup)
-	require.Error(t, err)
-	assert.Equal(t, "host already registered to another tenant", err.Error())
+	resp2, err := RegisterDevice(otherCtx, otherUser, dup)
+	require.NoError(t, err)
+	assert.Equal(t, otherTenant, resp2.RequestedHost.TenantID)
+	assert.Equal(t, otherOwner, resp2.RequestedHost.OwnerUsername)
+
+	reloaded := &schema.Host{ID: hostID}
+	require.NoError(t, reloaded.Get(otherCtx))
+	assert.Equal(t, otherTenant, reloaded.TenantID)
+	assert.Equal(t, otherOwner, reloaded.OwnerUsername)
 }
 
 func TestJoinDeviceNetworkBlocksReconnectOnPostureViolation(t *testing.T) {

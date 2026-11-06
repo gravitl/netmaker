@@ -271,19 +271,31 @@ func TestAuthorizedEgressDetailsDropsUnauthorizedRanges(t *testing.T) {
 func TestPeerRidesRetainedInternetExit(t *testing.T) {
 	originalGetNodeByID := getNodeByID
 	originalIsPeerAllowed := IsPeerAllowed
+	originalUserAllowed := IsUserAllowedToCommunicate
 	t.Cleanup(func() {
 		getNodeByID = originalGetNodeByID
 		IsPeerAllowed = originalIsPeerAllowed
+		IsUserAllowedToCommunicate = originalUserAllowed
 	})
 
 	exitA := uuid.New()
 	exitB := uuid.New()
-	client := &models.Node{
+	userClient := &models.Node{
+		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
+		OwnerID:    "abhi",
+	}
+	userClient.InternetGwID = exitA.String()
+	userClient.RelayedBy = exitA.String()
+	userClient.IsRelayed = true
+	require.True(t, IsUserOwnedDevice(userClient))
+
+	serverClient := &models.Node{
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
 	}
-	client.InternetGwID = exitA.String()
-	client.RelayedBy = exitA.String()
-	client.IsRelayed = true
+	serverClient.InternetGwID = exitA.String()
+	serverClient.RelayedBy = exitA.String()
+	serverClient.IsRelayed = true
+	require.False(t, IsUserOwnedDevice(serverClient))
 
 	siteOnB := &models.Node{
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
@@ -301,24 +313,29 @@ func TestPeerRidesRetainedInternetExit(t *testing.T) {
 	IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
 		return peer.ID == exitB
 	}
+	// User devices use user policies via PeerAllowed, not resource IsPeerAllowed.
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+		return userName == "abhi" && peer.ID == exitB, nil
+	}
 
 	inetExits := map[string]struct{}{exitA.String(): {}, exitB.String(): {}}
-	// defaultPolicyEnabled=false so PeerAllowed consults IsPeerAllowed.
-	assert.True(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnB, exitA.String(), inetExits, false),
-		"site RelayedBy another ACL-allowed exit must ride that exit, not the client's")
+	assert.True(t, peerRidesRetainedInternetExit(context.Background(), userClient, siteOnB, exitA.String(), inetExits, false),
+		"user device: site RelayedBy another ACL-allowed exit must ride that exit, not the client's")
+	assert.False(t, peerRidesRetainedInternetExit(context.Background(), serverClient, siteOnB, exitA.String(), inetExits, false),
+		"server exit client does not retain alternate exits — hairpin via selected exit")
 
 	siteOnA := &models.Node{
 		CommonNode: models.CommonNode{ID: uuid.New(), Network: "testnet"},
 	}
 	siteOnA.IsRelayed = true
 	siteOnA.RelayedBy = exitA.String()
-	assert.False(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnA, exitA.String(), inetExits, false),
+	assert.False(t, peerRidesRetainedInternetExit(context.Background(), userClient, siteOnA, exitA.String(), inetExits, false),
 		"site RelayedBy the client's own exit still rides GetAllowedIpsForRelayed on that exit")
 
-	IsPeerAllowed = func(ctx context.Context, node, peer models.Node, checkDefaultPolicy bool) bool {
-		return false
+	IsUserAllowedToCommunicate = func(context.Context, string, models.Node) (bool, []models.Acl) {
+		return false, nil
 	}
-	assert.False(t, peerRidesRetainedInternetExit(context.Background(), client, siteOnB, exitA.String(), inetExits, false),
+	assert.False(t, peerRidesRetainedInternetExit(context.Background(), userClient, siteOnB, exitA.String(), inetExits, false),
 		"ACL-denied RelayedBy exit is not retained — keep hairpin via client's exit")
 }
 
@@ -381,15 +398,28 @@ func TestShouldRetainPeerDespiteRelay_UnfilteredSpecificNeedsBypass(t *testing.T
 func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
 	selectedExitID := uuid.New()
 	otherExitID := uuid.New()
-	client := &models.Node{
+	userClient := &models.Node{
+		CommonNode: models.CommonNode{
+			ID:      uuid.New(),
+			Network: "testnet",
+		},
+		OwnerID: "abhi",
+	}
+	userClient.IsRelayed = true
+	userClient.RelayedBy = selectedExitID.String()
+	userClient.InternetGwID = selectedExitID.String()
+	require.True(t, IsUserOwnedDevice(userClient))
+
+	serverClient := &models.Node{
 		CommonNode: models.CommonNode{
 			ID:      uuid.New(),
 			Network: "testnet",
 		},
 	}
-	client.IsRelayed = true
-	client.RelayedBy = selectedExitID.String()
-	client.InternetGwID = selectedExitID.String()
+	serverClient.IsRelayed = true
+	serverClient.RelayedBy = selectedExitID.String()
+	serverClient.InternetGwID = selectedExitID.String()
+	require.False(t, IsUserOwnedDevice(serverClient))
 
 	selectedExit := &models.Node{
 		CommonNode: models.CommonNode{
@@ -407,18 +437,27 @@ func TestShouldRetainPeerDespiteRelay_AlternateExitsNeedACL(t *testing.T) {
 		selectedExitID.String(): {},
 		otherExitID.String():    {},
 	}
-	assert.True(t, shouldRetainPeerDespiteRelay(client, selectedExit, false, false, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(userClient, selectedExit, false, false, exitIDs),
 		"selected exit must stay as a direct peer even without PeerAllowed")
-	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, client, false, false, exitIDs),
+	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, userClient, false, false, exitIDs),
 		"selected exit must keep its client as a direct peer")
-	assert.False(t, shouldRetainPeerDespiteRelay(client, otherExit, false, false, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(userClient, otherExit, false, false, exitIDs),
 		"ACL-denied alternate exits must not be retained")
-	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, client, false, false, exitIDs),
+	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, userClient, false, false, exitIDs),
 		"exit must not keep unrelated clients without ACL")
-	assert.True(t, shouldRetainPeerDespiteRelay(client, otherExit, false, true, exitIDs),
-		"ACL-allowed alternate exits stay as separate direct peers for exit clients")
-	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, client, false, true, exitIDs),
-		"ACL-allowed exit keeps exit clients as direct peers")
+	assert.True(t, shouldRetainPeerDespiteRelay(userClient, otherExit, false, true, exitIDs),
+		"ACL-allowed alternate exits stay as separate direct peers for user-device exit clients")
+	assert.True(t, shouldRetainPeerDespiteRelay(otherExit, userClient, false, true, exitIDs),
+		"ACL-allowed exit keeps user-device exit clients as direct peers")
+
+	assert.True(t, shouldRetainPeerDespiteRelay(serverClient, selectedExit, false, false, exitIDs),
+		"server exit client keeps its selected exit")
+	assert.True(t, shouldRetainPeerDespiteRelay(selectedExit, serverClient, false, false, exitIDs),
+		"selected exit keeps its server client")
+	assert.False(t, shouldRetainPeerDespiteRelay(serverClient, otherExit, false, true, exitIDs),
+		"server exit clients must not keep alternate exits as separate peers")
+	assert.False(t, shouldRetainPeerDespiteRelay(otherExit, serverClient, false, true, exitIDs),
+		"alternate exits must not keep server exit clients as direct peers")
 }
 
 func TestShouldRetainPeerDespiteRelay_RelayedNonExitDoesNotKeepExitDirect(t *testing.T) {
