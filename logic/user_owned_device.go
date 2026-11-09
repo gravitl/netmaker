@@ -53,8 +53,10 @@ func ListPostureViolatedUserOwnedDevices(ctx context.Context, networkName string
 }
 
 // skipPeerUpdateAclCalc reports whether GetPeerUpdateForHost should skip
-// FwUpdate ACL calculation. User policies are unidirectional to servers and
-// are emitted on the server host's peer update instead.
+// FwUpdate ACL / ingress / egress firewall calculation for this host.
+// User-owned devices apply default-deny inbound locally; user→server policy is
+// unidirectional and is emitted on the infrastructure host's peer update via
+// GetUserAclRulesForNode instead.
 func skipPeerUpdateAclCalc(h *schema.Host) bool {
 	return IsUserOwnedHost(h)
 }

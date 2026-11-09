@@ -86,6 +86,8 @@ func TestSkipPeerUpdateAclCalc_userHost(t *testing.T) {
 	assert.True(t, skipPeerUpdateAclCalc(&schema.Host{OwnerUsername: "alice"}))
 	assert.False(t, skipPeerUpdateAclCalc(&schema.Host{Name: "server"}))
 	assert.False(t, skipPeerUpdateAclCalc(nil))
+	// PeerUpdateForHost uses this to leave FwUpdate empty (AllowAll=false, no
+	// AclRules / ingress / egress FW calc). Desktop applies default-deny locally.
 }
 
 func TestPeerAllowedSkipsResourcePolicyForUserDevices(t *testing.T) {
