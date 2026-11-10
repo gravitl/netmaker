@@ -42,5 +42,8 @@ func ListModels() []interface{} {
 		&MetricsRecord{},
 		&SsoStateRecord{},
 		&Tag{},
+		&AlertRule{},
+		&NotificationChannel{},
+		&AlertRecord{},
 	}
 }

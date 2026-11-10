@@ -67,6 +67,7 @@ func InitPro() {
 		proControllers.JITHandlers,
 		proControllers.ServerHandlers,
 		proControllers.IntegrationHandlers,
+		proControllers.AlertHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	migrate.MigrateOrgAndTenants = license.MigrateOrgAndTenants
@@ -149,6 +150,14 @@ func InitPro() {
 		}
 		go proLogic.EventWatcher()
 	})
+	logic.ResetAutoRelay = proLogic.ResetAutoRelay
+
+	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
+	logic.SetAutoRelay = proLogic.SetAutoRelay
+	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
+	logic.OnNodeOffline = proLogic.OnNodeOffline
+	logic.OnNodeOnline = proLogic.OnNodeOnline
+	proLogic.SendAlertEmail = email.SendAlertEmail
 
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
