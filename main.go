@@ -222,15 +222,15 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
-	if servercfg.IsMessageQueueBackend() {
-		brokerHost, _ := servercfg.GetMessageQueueEndpoint()
-		logger.Log(0, "connecting to mq broker at", brokerHost)
-		mq.SetupMQTT(true)
-		if mq.IsConnected() {
-			logger.Log(0, "connected to MQ Broker")
-		} else {
-			logger.FatalLog("error connecting to MQ Broker")
-		}
+	if true {
+		// brokerHost, _ := servercfg.GetMessageQueueEndpoint()
+		// logger.Log(0, "connecting to mq broker at", brokerHost)
+		// mq.SetupMQTT(true)
+		// if mq.IsConnected() {
+		// 	logger.Log(0, "connected to MQ Broker")
+		// } else {
+		// 	logger.FatalLog("error connecting to MQ Broker")
+		// }
 
 		wg.Add(1)
 		go runMessageQueue(wg, ctx)
@@ -270,7 +270,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	go func() {
 		// Only run zombie management and expired node deletion on master pod
 		// to avoid duplicate operations in HA setup
-		if servercfg.IsMasterPod() {
+		if true {
 			go logic.ManageZombies(ctx)
 			go logic.DeleteExpiredNodes(ctx)
 			go logic.MarkStaleNodesOffline(ctx)

@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -13,7 +14,7 @@ import (
 // StaleStatusCheckInterval - how often MarkStaleNodesOffline scans the nodes
 // table looking for nodes whose last check-in is older than
 // models.LastCheckInThreshold.
-const StaleStatusCheckInterval = 5 * time.Minute
+const StaleStatusCheckInterval = 1 * time.Minute
 
 var GetNodeStatus = func(ctx context.Context, node *models.Node, t bool) {
 	getNodeCheckInStatus(node, t)
@@ -60,6 +61,7 @@ func GetNodeCheckInStatus(node *schema.Node) schema.NodeStatus {
 //
 // Intended to be started once from the master pod.
 func MarkStaleNodesOffline(ctx context.Context) {
+	fmt.Println("paper boat")
 	ticker := time.NewTicker(StaleStatusCheckInterval)
 	defer ticker.Stop()
 	for {
@@ -67,14 +69,27 @@ func MarkStaleNodesOffline(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			fmt.Println("First post checked")
 			threshold := time.Now().UTC().Add(-models.LastCheckInThreshold)
-			n, err := (&schema.Node{}).MarkStaleOffline(db.WithContext(ctx), threshold)
+			staleNodes, err := (&schema.Node{}).FindStaleNodes(db.WithContext(ctx), threshold)
 			if err != nil {
-				slog.Error("mark stale nodes offline failed", "error", err)
+				slog.Error("find stale nodes failed", "error", err)
 				continue
 			}
-			if n > 0 {
-				slog.Info("marked stale nodes offline", "count", n, "threshold", threshold)
+			if len(staleNodes) > 0 {
+				n, err := (&schema.Node{}).MarkStaleOffline(db.WithContext(ctx), threshold)
+				if err != nil {
+					slog.Error("mark stale nodes offline failed", "error", err)
+					continue
+				}
+				if n > 0 {
+					slog.Info("marked stale nodes offline", "count", n, "threshold", threshold)
+					for i := range staleNodes {
+						staleNodes[i].Status = schema.OfflineSt
+						fmt.Println("second post checked")
+						OnNodeOffline(ctx, &staleNodes[i])
+					}
+				}
 			}
 		}
 	}

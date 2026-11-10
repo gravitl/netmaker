@@ -349,6 +349,19 @@ func (n *Node) UpdateStatus(ctx context.Context) error {
 		Error
 }
 
+// FindStaleNodes returns all nodes whose last_check_in is older than threshold
+// and which are not already offline, pending deletion, or marked for deletion.
+func (n *Node) FindStaleNodes(ctx context.Context, threshold time.Time) ([]Node, error) {
+	var nodes []Node
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("last_check_in < ?", threshold).
+		Where("status <> ?", OfflineSt).
+		Where("pending_delete = ?", false).
+		Where("action <> ?", NODE_DELETE).
+		Find(&nodes).Error
+	return nodes, err
+}
+
 // MarkStaleOffline sets status=offline for every node whose last_check_in is
 // older than the given threshold and which is not already offline, not
 // pending deletion, and not flagged for the delete action. Returns the number

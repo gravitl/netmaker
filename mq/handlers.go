@@ -296,6 +296,12 @@ func HandleHostCheckin(h, currentHost *schema.Host) bool {
 				if err := promoted.UpdateStatus(db.WithContext(context.TODO())); err != nil {
 					slog.Warn("failed to promote node from offline on checkin", "nodeid", node.ID, "error", err)
 				}
+				logic.OnNodeOnline(context.TODO(), &schema.Node{
+					ID:        node.ID.String(),
+					NetworkID: node.Network,
+					TenantID:  node.TenantID,
+					Status:    schema.OnlineSt,
+				})
 			}
 			go logic.TriggerCollectMetrics(currentHost.ID.String(), node.ID.String(), "checkin_recovered")
 		}

@@ -63,6 +63,9 @@ const (
 	MDMSync                              Action = "MDM_SYNC"
 	PostureCheckFailed                   Action = "POSTURE_CHECK_FAILED"
 	TransferDeviceOwnership              Action = "TRANSFER_DEVICE_OWNERSHIP"
+	AlertTriggered                       Action = "ALERT_TRIGGERED"
+	AlertResolved                        Action = "ALERT_RESOLVED"
+	AlertAcknowledged                    Action = "ALERT_ACKNOWLEDGED"
 )
 
 type SubjectType string
@@ -89,6 +92,9 @@ const (
 	PostureCheckSub    SubjectType = "POSTURE_CHECK"
 	JITSub             SubjectType = "JIT"
 	MDMSub             SubjectType = "MDM"
+	AlertSub           SubjectType = "ALERT"
+	AlertRuleSub       SubjectType = "ALERT_RULE"
+	AlertChannelSub    SubjectType = "ALERT_CHANNEL"
 )
 
 func (sub SubjectType) String() string {
