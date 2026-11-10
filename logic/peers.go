@@ -669,6 +669,26 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *schema.Host
 				}
 			}
 
+		} else if !networkAllowAll && len(node.RelayedNodes) > 0 {
+			// Relay/gateway is not itself an egress gw, so GetEgressRulesForNode
+			// is never called — still publish forward ACL rules for egress ranges
+			// hosted on RelayedNodes (RelayedAllowedIPs advertises those ranges).
+			relayedEgRules := RelayedEgressFwdAclRulesForNode(ctx, node)
+			if len(relayedEgRules) > 0 {
+				egInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+				if egInfo.EgressFwRules == nil {
+					egInfo.EgressFwRules = make(map[string]models.AclRule)
+				}
+				if egInfo.EgressID == "" {
+					egInfo.EgressID = node.ID.String()
+				}
+				for id, rule := range relayedEgRules {
+					egInfo.EgressFwRules[id] = rule
+					hostPeerUpdate.FwUpdate.AclRules[id] = rule
+				}
+				hostPeerUpdate.FwUpdate.IsEgressGw = true
+				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egInfo
+			}
 		}
 
 		// Publish internet egress firewall config keyed by real egress IDs when present;

@@ -510,6 +510,10 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 				}
 
 			}
+			// RelayedAllowedIPs also advertises egress ranges hosted on RelayedNodes.
+			// NetworkRange ↔ overlay alone is not enough: mesh → those ranges still
+			// forwards through this gateway and must be allowed explicitly.
+			rules = append(rules, getDefaultRelayedEgressFwRulesOnGw(node)...)
 		}
 		return
 	}
@@ -613,6 +617,11 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 	// device to an external egress range (LAN CIDR / VirtualRange / domain CIDRs),
 	// so those packets would otherwise be dropped on the relay's forward chain.
 	rules = append(rules, getDeviceEgressFwRulesOnIngressGw(ctx, node)...)
+	// Inverse of the above: when the egress-owning node itself is relayed by this
+	// gateway, RelayedAllowedIPs advertises its egress ranges via this peer, so
+	// ACL-allowed mesh sources send that traffic here. Emit forward allows for
+	// those sources → relayed egress ranges.
+	rules = append(rules, getRelayedEgressFwRulesOnGw(ctx, node)...)
 
 	if len(node.RelayedNodes) > 0 {
 		for _, relayedNodeID := range node.RelayedNodes {
@@ -1508,6 +1517,10 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 		rules[aclID] = aclRule
 	}
 
+	for aclID, aclRule := range appendRelayedEgressFwdRules(ctx, targetnode, acls) {
+		rules[aclID] = aclRule
+	}
+
 	for aclID, aclRule := range getEgressAclRulesForTargetNode(ctx, targetnode) {
 		rules[aclID] = aclRule
 	}
@@ -1873,6 +1886,238 @@ func getDeviceEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (r
 		}
 	}
 	return
+}
+
+const relayedEgressFwdSuffix = "#relayed-eg-fwd"
+
+// appendRelayedEgressFwdRules emits forward-chain AclRules on a relay/gateway for
+// egress ranges hosted on its RelayedNodes. RelayedAllowedIPs advertises those
+// ranges via the relay peer, so ACL-allowed mesh traffic to the ranges arrives
+// here and must be allowed on the forward chain. Rules are keyed
+// "<acl.ID>#relayed-eg-fwd" (plus "-reverse" for Bi policies).
+func appendRelayedEgressFwdRules(
+	ctx context.Context,
+	targetnode models.Node,
+	acls []models.Acl,
+) map[string]models.AclRule {
+	out := make(map[string]models.AclRule)
+	relayedEgresses := egressesHostedOnRelayedNodes(targetnode)
+	if len(relayedEgresses) == 0 {
+		return out
+	}
+	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		dst4, dst6 := computeEgressDstsForAcl(targetnode.ID.String(), acl, relayedEgresses)
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+		srcIP4, srcIP6 := collectDeviceAclSrcIPs(acl, taggedNodes, targetnode)
+		if len(srcIP4) == 0 && len(srcIP6) == 0 {
+			continue
+		}
+		ruleID := acl.ID + relayedEgressFwdSuffix
+		aclRule := models.AclRule{
+			ID:              ruleID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+			IPList:          UniqueIPNetList(srcIP4),
+			IP6List:         UniqueIPNetList(srcIP6),
+			Dst:             UniqueIPNetList(dst4),
+			Dst6:            UniqueIPNetList(dst6),
+		}
+		out[ruleID] = aclRule
+		if acl.AllowedDirection == models.TrafficDirectionBi &&
+			(len(aclRule.Dst) > 0 || len(aclRule.Dst6) > 0) {
+			revID := ruleID + egressSiteACLReverseSuffix
+			out[revID] = models.AclRule{
+				ID:              revID,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Direction:       acl.AllowedDirection,
+				Allowed:         true,
+				IPList:          append([]net.IPNet(nil), aclRule.Dst...),
+				IP6List:         append([]net.IPNet(nil), aclRule.Dst6...),
+				Dst:             append([]net.IPNet(nil), aclRule.IPList...),
+				Dst6:            append([]net.IPNet(nil), aclRule.IP6List...),
+			}
+		}
+	}
+	return out
+}
+
+// getRelayedEgressFwRulesOnGw is the IngressInfo.Rules twin of
+// appendRelayedEgressFwdRules: when this gateway relays an egress-owning node,
+// emit allow rules for every ACL-matching mesh source to that egress's ranges.
+func getRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node) (rules []models.FwRule) {
+	relayedEgresses := egressesHostedOnRelayedNodes(node)
+	if len(relayedEgresses) == 0 {
+		return
+	}
+	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(node.Network), true)
+	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, relayedEgresses)
+		if len(dst4) == 0 && len(dst6) == 0 {
+			continue
+		}
+		srcIP4, srcIP6 := collectDeviceAclSrcIPs(acl, taggedNodes, node)
+		for _, src4 := range srcIP4 {
+			rules = append(rules, emitEgressFwRulesForSrc(acl, src4, net.IPNet{}, dst4, dst6)...)
+		}
+		for _, src6 := range srcIP6 {
+			rules = append(rules, emitEgressFwRulesForSrc(acl, net.IPNet{}, src6, dst4, dst6)...)
+		}
+	}
+	return
+}
+
+// getDefaultRelayedEgressFwRulesOnGw allows the whole mesh NetworkRange to reach
+// egress ranges hosted on RelayedNodes when the default All Resources device
+// policy is enabled (early-return path of GetFwRulesOnIngressGateway).
+func getDefaultRelayedEgressFwRulesOnGw(node models.Node) (rules []models.FwRule) {
+	relayedEgresses := egressesHostedOnRelayedNodes(node)
+	if len(relayedEgresses) == 0 {
+		return
+	}
+	var dst4, dst6 []net.IPNet
+	for _, egI := range relayedEgresses {
+		egressRange := egI.Range
+		if egI.VirtualRange != "" {
+			egressRange = egI.VirtualRange
+		}
+		if servercfg.IsPro && IsDomainBasedEgress(egI) && HasEgressDomainAns(egI) {
+			for _, domainAnsI := range AllDomainAnsFromEgress(egI) {
+				AppendEgressPolicyRange(egI, domainAnsI, &dst4, &dst6)
+			}
+			continue
+		}
+		AppendEgressPolicyRange(egI, egressRange, &dst4, &dst6)
+	}
+	dst4 = UniqueIPNetList(dst4)
+	dst6 = UniqueIPNetList(dst6)
+	allowAll := models.Acl{
+		Proto:            models.ALL,
+		AllowedDirection: models.TrafficDirectionBi,
+	}
+	if node.NetworkRange.IP != nil {
+		rules = append(rules, emitEgressFwRulesForSrc(allowAll, node.NetworkRange, net.IPNet{}, dst4, dst6)...)
+	}
+	if node.NetworkRange6.IP != nil {
+		rules = append(rules, emitEgressFwRulesForSrc(allowAll, net.IPNet{}, node.NetworkRange6, dst4, dst6)...)
+	}
+	return
+}
+
+// egressesHostedOnRelayedNodes returns enabled egresses whose routing membership
+// includes any of targetnode.RelayedNodes (by node ID or tag).
+func egressesHostedOnRelayedNodes(targetnode models.Node) map[string]schema.Egress {
+	out := make(map[string]schema.Egress)
+	if len(targetnode.RelayedNodes) == 0 {
+		return out
+	}
+	var relayed []models.Node
+	for _, id := range targetnode.RelayedNodes {
+		r, err := getNodeByID(id)
+		if err != nil {
+			continue
+		}
+		relayed = append(relayed, r)
+	}
+	if len(relayed) == 0 {
+		return out
+	}
+	egs, err := getEgressByNetwork(targetnode.Network)
+	if err != nil {
+		return out
+	}
+	for _, eg := range egs {
+		if !eg.Status {
+			continue
+		}
+		for _, r := range relayed {
+			if relayedNodeHostsEgress(r, eg) {
+				out[eg.ID] = eg
+				break
+			}
+		}
+	}
+	return out
+}
+
+func relayedNodeHostsEgress(relayed models.Node, eg schema.Egress) bool {
+	if _, ok := eg.Nodes[relayed.ID.String()]; ok {
+		return true
+	}
+	if len(eg.Tags) == 0 || len(relayed.Tags) == 0 {
+		return false
+	}
+	if relayed.Mutex != nil {
+		relayed.Mutex.Lock()
+		defer relayed.Mutex.Unlock()
+	}
+	for tagID := range relayed.Tags {
+		if _, ok := eg.Tags[tagID.String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// collectDeviceAclSrcIPs returns overlay addresses for every mesh/static device
+// matching acl.Src (excluding targetnode). For src=* it uses the network ranges.
+func collectDeviceAclSrcIPs(
+	acl models.Acl,
+	taggedNodes map[models.TagID][]models.Node,
+	targetnode models.Node,
+) (src4, src6 []net.IPNet) {
+	srcTags := ConvAclTagToValueMap(acl.Src)
+	_, srcAll := srcTags["*"]
+	if srcAll {
+		if targetnode.NetworkRange.IP != nil {
+			src4 = append(src4, targetnode.NetworkRange)
+		}
+		if targetnode.NetworkRange6.IP != nil {
+			src6 = append(src6, targetnode.NetworkRange6)
+		}
+		return
+	}
+	for src := range srcTags {
+		nodes := taggedNodes[models.TagID(src)]
+		for _, n := range nodes {
+			if n.ID == targetnode.ID {
+				continue
+			}
+			if !n.IsStatic && n.Address.IP != nil {
+				src4 = append(src4, n.AddressIPNet4())
+			}
+			if !n.IsStatic && n.Address6.IP != nil {
+				src6 = append(src6, n.AddressIPNet6())
+			}
+			if n.IsStatic && n.StaticNode.Address != "" {
+				src4 = append(src4, n.StaticNode.AddressIPNet4())
+			}
+			if n.IsStatic && n.StaticNode.Address6 != "" {
+				src6 = append(src6, n.StaticNode.AddressIPNet6())
+			}
+		}
+	}
+	return
+}
+
+// RelayedEgressFwdAclRulesForNode returns AclRules for egress ranges hosted on
+// RelayedNodes. Used by peer-update when the relay is not itself an egress gw
+// (so GetEgressRulesForNode is not called) but still forwards that traffic.
+func RelayedEgressFwdAclRulesForNode(ctx context.Context, node models.Node) map[string]models.AclRule {
+	acls := getDevicePoliciesByNetwork(ctx, schema.NetworkID(node.Network))
+	return appendRelayedEgressFwdRules(ctx, node, acls)
 }
 
 // computeEgressDstsForAcl returns the IPv4 and IPv6 destination CIDRs an acl

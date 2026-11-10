@@ -2176,6 +2176,362 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 	}
 }
 
+// TestGetEgressRulesForNode_RelayedEgressEmitsFwdRule verifies that when the
+// egress-owning node is relayed by targetnode, ACL-allowed mesh sources get a
+// "#relayed-eg-fwd" allow for the egress range on the relay's forward chain.
+// Without this, RelayedAllowedIPs still advertises the range via the relay peer
+// but the relay drops the packets.
+func TestGetEgressRulesForNode_RelayedEgressEmitsFwdRule(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalListExtClients := listNetworkExtClients
+	originalGetNodeByID := getNodeByID
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		listNetworkExtClients = originalListExtClients
+		getNodeByID = originalGetNodeByID
+	})
+
+	targetID := uuid.New()
+	egressOwnerID := uuid.New()
+	srcNodeID := uuid.New()
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{
+				IP:   net.ParseIP("100.64.0.30"),
+				Mask: net.CIDRMask(32, 32),
+			},
+		},
+	}
+	srcNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcNodeID,
+			Network: "netmaker",
+			Address: net.IPNet{
+				IP:   net.ParseIP("100.64.0.40"),
+				Mask: net.CIDRMask(32, 32),
+			},
+		},
+		Tags: map[models.TagID]struct{}{"marketing": {}},
+	}
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:           targetID,
+			Network:      "netmaker",
+			RelayedNodes: []string{egressOwnerID.String()},
+			NetworkRange: net.IPNet{
+				IP:   net.ParseIP("100.64.0.0"),
+				Mask: net.CIDRMask(16, 32),
+			},
+		},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-on-relayed",
+			Network: network,
+			Status:  true,
+			Range:   "10.90.0.0/24",
+			Nodes:   datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-to-relayed-egress",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionUni,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-relayed"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{
+			"marketing": {srcNode},
+		}
+	}
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+		return nil, nil
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == egressOwnerID.String() {
+			return egressOwner, nil
+		}
+		return models.Node{}, fmt.Errorf("not found")
+	}
+
+	rules := GetEgressRulesForNode(db.WithContext(context.Background()), targetNode)
+	fwd, ok := rules["acl-to-relayed-egress#relayed-eg-fwd"]
+	if !ok {
+		t.Fatalf("expected relayed-eg-fwd rule, got rules: %+v", rules)
+	}
+	srcSet := make(map[string]struct{}, len(fwd.IPList))
+	for _, n := range fwd.IPList {
+		srcSet[n.String()] = struct{}{}
+	}
+	if _, ok := srcSet["100.64.0.40/32"]; !ok {
+		t.Fatalf("expected relayed-eg-fwd IPList to contain src device /32, got %v", fwd.IPList)
+	}
+	dstSet := make(map[string]struct{}, len(fwd.Dst))
+	for _, n := range fwd.Dst {
+		dstSet[n.String()] = struct{}{}
+	}
+	if _, ok := dstSet["10.90.0.0/24"]; !ok {
+		t.Fatalf("expected relayed-eg-fwd Dst to contain egress range, got %v", fwd.Dst)
+	}
+	if _, ok := rules["acl-to-relayed-egress#relayed-eg-fwd-reverse"]; ok {
+		t.Fatalf("did not expect reverse rule for uni-directional policy")
+	}
+}
+
+// TestGetEgressRulesForNode_RelayedEgressBiEmitsReverse verifies Bi policies
+// emit a reverse companion for "#relayed-eg-fwd".
+func TestGetEgressRulesForNode_RelayedEgressBiEmitsReverse(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalListExtClients := listNetworkExtClients
+	originalGetNodeByID := getNodeByID
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		listNetworkExtClients = originalListExtClients
+		getNodeByID = originalGetNodeByID
+	})
+
+	targetID := uuid.New()
+	egressOwnerID := uuid.New()
+	srcNodeID := uuid.New()
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.30"), Mask: net.CIDRMask(32, 32)},
+		},
+	}
+	srcNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcNodeID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.40"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags: map[models.TagID]struct{}{"marketing": {}},
+	}
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:           targetID,
+			Network:      "netmaker",
+			RelayedNodes: []string{egressOwnerID.String()},
+		},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-on-relayed",
+			Network: network,
+			Status:  true,
+			Range:   "10.90.0.0/24",
+			Nodes:   datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-bi-relayed-eg",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionBi,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-relayed"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{"marketing": {srcNode}}
+	}
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+		return nil, nil
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == egressOwnerID.String() {
+			return egressOwner, nil
+		}
+		return models.Node{}, fmt.Errorf("not found")
+	}
+
+	rules := GetEgressRulesForNode(db.WithContext(context.Background()), targetNode)
+	rev, ok := rules["acl-bi-relayed-eg#relayed-eg-fwd-reverse"]
+	if !ok {
+		t.Fatalf("expected -reverse companion for Bi relayed-eg-fwd, rules: %+v", rules)
+	}
+	revSrcSet := make(map[string]struct{}, len(rev.IPList))
+	for _, n := range rev.IPList {
+		revSrcSet[n.String()] = struct{}{}
+	}
+	if _, ok := revSrcSet["10.90.0.0/24"]; !ok {
+		t.Fatalf("expected reverse IPList to contain egress range, got %v", rev.IPList)
+	}
+	revDstSet := make(map[string]struct{}, len(rev.Dst))
+	for _, n := range rev.Dst {
+		revDstSet[n.String()] = struct{}{}
+	}
+	if _, ok := revDstSet["100.64.0.40/32"]; !ok {
+		t.Fatalf("expected reverse Dst to contain src device /32, got %v", rev.Dst)
+	}
+}
+
+// TestGetRelayedEgressFwRulesOnGw_EmitsFwRule verifies IngressInfo.Rules include
+// mesh-src → relayed-egress-range allows when the egress owner is RelayedBy this gw.
+func TestGetRelayedEgressFwRulesOnGw_EmitsFwRule(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getDevicePoliciesByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalGetNodeByID := getNodeByID
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getDevicePoliciesByNetwork = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		getNodeByID = originalGetNodeByID
+	})
+
+	targetID := uuid.New()
+	egressOwnerID := uuid.New()
+	srcNodeID := uuid.New()
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.30"), Mask: net.CIDRMask(32, 32)},
+		},
+	}
+	srcNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcNodeID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.40"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags: map[models.TagID]struct{}{"marketing": {}},
+	}
+	node := models.Node{
+		CommonNode: models.CommonNode{
+			ID:           targetID,
+			Network:      "netmaker",
+			RelayedNodes: []string{egressOwnerID.String()},
+		},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-on-relayed",
+			Network: network,
+			Status:  true,
+			Range:   "10.90.0.0/24",
+			Nodes:   datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getDevicePoliciesByNetwork = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-to-relayed-egress",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionUni,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-relayed"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{"marketing": {srcNode}}
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == egressOwnerID.String() {
+			return egressOwner, nil
+		}
+		return models.Node{}, fmt.Errorf("not found")
+	}
+
+	rules := getRelayedEgressFwRulesOnGw(db.WithContext(context.Background()), node)
+	var found bool
+	for _, r := range rules {
+		if r.SrcIP.String() == "100.64.0.40/32" && r.DstIP.String() == "10.90.0.0/24" && r.Allow {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected 100.64.0.40/32 -> 10.90.0.0/24 allow, got: %+v", rules)
+	}
+}
+
+// TestGetDefaultRelayedEgressFwRulesOnGw_UsesNetworkRange verifies the
+// All-Resources early-return path allows NetworkRange → relayed egress ranges.
+func TestGetDefaultRelayedEgressFwRulesOnGw_UsesNetworkRange(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetNodeByID := getNodeByID
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getNodeByID = originalGetNodeByID
+	})
+
+	targetID := uuid.New()
+	egressOwnerID := uuid.New()
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.30"), Mask: net.CIDRMask(32, 32)},
+		},
+	}
+	node := models.Node{
+		CommonNode: models.CommonNode{
+			ID:           targetID,
+			Network:      "netmaker",
+			RelayedNodes: []string{egressOwnerID.String()},
+			NetworkRange: net.IPNet{
+				IP:   net.ParseIP("100.64.0.0"),
+				Mask: net.CIDRMask(16, 32),
+			},
+		},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:           "egress-on-relayed",
+			Network:      network,
+			Status:       true,
+			Range:        "10.90.0.0/24",
+			VirtualRange: "10.200.0.0/24",
+			Nodes:        datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == egressOwnerID.String() {
+			return egressOwner, nil
+		}
+		return models.Node{}, fmt.Errorf("not found")
+	}
+
+	rules := getDefaultRelayedEgressFwRulesOnGw(node)
+	var foundFwd, foundRev bool
+	for _, r := range rules {
+		if r.SrcIP.String() == "100.64.0.0/16" && r.DstIP.String() == "10.200.0.0/24" {
+			foundFwd = true
+		}
+		if r.SrcIP.String() == "10.200.0.0/24" && r.DstIP.String() == "100.64.0.0/16" {
+			foundRev = true
+		}
+	}
+	if !foundFwd {
+		t.Fatalf("expected NetworkRange -> VirtualRange allow, got: %+v", rules)
+	}
+	if !foundRev {
+		t.Fatalf("expected VirtualRange -> NetworkRange reverse allow, got: %+v", rules)
+	}
+}
+
 // TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules verifies
 // that when an acl.Src mixes EgressID + NodeID + NetmakerIPAclID (e.g. a
 // "site + device" policy that lets both a mesh device and an egress-LAN IP
