@@ -51,6 +51,11 @@ var getNodeByID = func(uuid string) (models.Node, error) {
 	return GetNodeByID(uuid)
 }
 
+// getNodesByIDs batch-fetches nodes by UUID; tests may override.
+var getNodesByIDs = func(ctx context.Context, ids []string) (map[string]models.Node, error) {
+	return GetNodesByIDs(ctx, ids)
+}
+
 // listNetworkNodes lists mesh nodes in a network; tests may override.
 var listNetworkNodes = func(ctx context.Context, network string) ([]models.Node, error) {
 	return GetNetworkNodes(ctx, network)
@@ -349,11 +354,11 @@ var GetFwRulesForUserNodesOnGw = func(ctx context.Context, node models.Node, nod
 // Host-backed user devices are real nodes, so unlike the static user hooks above
 // these emit rules keyed on the device's own overlay address.
 var GetUserDeviceEgressRulesForNode = func(ctx context.Context, targetnode *models.Node,
-	rules map[string]models.AclRule) map[string]models.AclRule {
+	networkNodes []models.Node, rules map[string]models.AclRule) map[string]models.AclRule {
 	return rules
 }
 var GetUserDeviceAclRulesForNode = func(ctx context.Context, g *PeerGraph, targetnode *models.Node,
-	rules map[string]models.AclRule) map[string]models.AclRule {
+	networkNodes []models.Node, rules map[string]models.AclRule) map[string]models.AclRule {
 	return rules
 }
 
@@ -775,12 +780,15 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 		})
 	}()
 	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	nodes, _ := GetNetworkNodes(ctx, node.Network)
-	nodes = append(nodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), true)...)
+	meshNodes, _ := GetNetworkNodes(ctx, node.Network)
+	nodes := append(meshNodes, GetStaticNodesByNetwork(ctx, schema.NetworkID(node.Network), true)...)
 	rules = GetFwRulesForUserNodesOnGw(ctx, node, nodes)
 	rules = append(rules, GetFwRulesForUserDevicesOnGw(ctx, node, nodes)...)
+	// Resolve RelayedNodes ∪ auto-relayed peers once; helpers below must not
+	// re-walk GetNodesByIDs / listNetworkNodes for the same set.
+	forwarded := nodesForwardedByGateway(ctx, node, meshNodes)
+	relayedEgresses := egressesHostedOnNodes(forwarded, node.Network)
 	if defaultDevicePolicy.Enabled {
-		forwarded := nodesForwardedByGateway(ctx, node)
 		for _, relayedNode := range forwarded {
 			// A relayed/auto-relayed user device is not granted the mesh range by
 			// the default device policy; GetFwRulesForUserDevicesOnGw emits its
@@ -790,10 +798,10 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 			}
 			rules = append(rules, meshToPeerOverlayFwRules(node, relayedNode)...)
 		}
-		if len(forwarded) > 0 {
+		if len(relayedEgresses) > 0 {
 			// RelayedAllowedIPs / GetAutoRelayPeerIps also advertise egress ranges
 			// hosted on forwarded nodes. Overlay ↔ NetworkRange alone is not enough.
-			rules = append(rules, getDefaultRelayedEgressFwRulesOnGw(ctx, node)...)
+			rules = append(rules, getDefaultRelayedEgressFwRulesOnGw(ctx, node, relayedEgresses)...)
 		}
 		return
 	}
@@ -854,9 +862,9 @@ func GetFwRulesOnIngressGateway(ctx context.Context, node models.Node) (rules []
 	rules = append(rules, getDeviceEgressFwRulesOnIngressGw(ctx, node)...)
 	// Inverse of #dev-fwd: when the egress-owning node itself is relayed (or
 	// auto-relayed) by this gateway, advertise ACL-allowed mesh → those ranges.
-	rules = append(rules, getRelayedEgressFwRulesOnGw(ctx, node)...)
+	rules = append(rules, getRelayedEgressFwRulesOnGw(ctx, node, relayedEgresses)...)
 
-	for _, relayedNode := range nodesForwardedByGateway(ctx, node) {
+	for _, relayedNode := range forwarded {
 		if IsUserOwnedDevice(&relayedNode) {
 			continue
 		}
@@ -1439,13 +1447,16 @@ var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []model
 	return false
 }
 
-func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.Node) (rules map[string]models.AclRule) {
+func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.Node, networkNodes []models.Node) (rules map[string]models.AclRule) {
 	targetnode := *targetnodeI
+	if networkNodes == nil && g != nil {
+		networkNodes = g.NetworkNodes(targetnode.Network)
+	}
 	defer func() {
 		//if !targetnode.IsIngressGateway {
 		rules = GetUserAclRulesForNode(ctx, &targetnode, rules)
 		//}
-		rules = GetUserDeviceAclRulesForNode(ctx, g, &targetnode, rules)
+		rules = GetUserDeviceAclRulesForNode(ctx, g, &targetnode, networkNodes, rules)
 	}()
 	rules = make(map[string]models.AclRule)
 	if IsNodeAllowedToCommunicateWithAllRsrcs(ctx, targetnode) {
@@ -1482,7 +1493,7 @@ func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.N
 			aclRule.Dst6 = append(aclRule.Dst6, egressRanges6...)
 		}
 		// Auto-relay: hairpinned peer overlays must also be allowed on ACL-IN.
-		for _, peer := range nodesAutoRelayedVia(ctx, targetnode) {
+		for _, peer := range nodesAutoRelayedVia(ctx, targetnode, networkNodes) {
 			if IsUserOwnedDevice(&peer) {
 				continue
 			}
@@ -1500,9 +1511,9 @@ func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.N
 	}
 	var taggedNodes map[models.TagID][]models.Node
 	if targetnode.IsIngressGateway {
-		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), g.NetworkNodes(targetnode.Network), false)
+		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), networkNodes, false)
 	} else {
-		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), g.NetworkNodes(targetnode.Network), true)
+		taggedNodes = GetTagMapWithNetworkNodes(ctx, schema.NetworkID(targetnode.Network), networkNodes, true)
 	}
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1790,7 +1801,7 @@ func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.N
 	// Auto-relay GWs hairpin ACL-allowed traffic between peers that removed each
 	// other as direct WG peers. Also emit ACL-IN rules with Dst = auto-relayed
 	// peer overlays so those packets are not dropped on the gateway.
-	for aclID, aclRule := range appendAutoRelayPeerAclRules(ctx, targetnode, acls, taggedNodes) {
+	for aclID, aclRule := range appendAutoRelayPeerAclRules(ctx, targetnode, acls, taggedNodes, networkNodes) {
 		rules[aclID] = aclRule
 	}
 	return rules
@@ -1844,11 +1855,12 @@ func GetEgressDefaultAllowAllFwRule(node models.Node) (models.AclRule, bool) {
 
 func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
+	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
+	networkNodes := taggedNodes[models.TagID("*")]
 	defer func() {
 		rules = GetEgressUserRulesForNode(ctx, &targetnode, rules)
-		rules = GetUserDeviceEgressRulesForNode(ctx, &targetnode, rules)
+		rules = GetUserDeviceEgressRulesForNode(ctx, &targetnode, networkNodes, rules)
 	}()
-	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
 
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
@@ -1966,7 +1978,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 		rules[aclID] = aclRule
 	}
 
-	for aclID, aclRule := range appendRelayedEgressFwdRules(ctx, targetnode, acls, taggedNodes) {
+	for aclID, aclRule := range appendRelayedEgressFwdRules(ctx, targetnode, acls, taggedNodes, taggedNodes[models.TagID("*")]) {
 		rules[aclID] = aclRule
 	}
 
@@ -2351,9 +2363,10 @@ func appendRelayedEgressFwdRules(
 	targetnode models.Node,
 	acls []models.Acl,
 	taggedNodes map[models.TagID][]models.Node,
+	networkNodes []models.Node,
 ) map[string]models.AclRule {
 	out := make(map[string]models.AclRule)
-	relayedEgresses := egressesHostedOnForwardedNodes(ctx, targetnode)
+	relayedEgresses := egressesHostedOnForwardedNodes(ctx, targetnode, networkNodes)
 	if len(relayedEgresses) == 0 {
 		return out
 	}
@@ -2406,17 +2419,19 @@ func appendRelayedEgressFwdRules(
 
 // appendAutoRelayPeerAclRules emits ACL-IN AclRules on an auto-relay gateway for
 // hairpinned traffic whose destination is an auto-relayed peer overlay.
+// networkNodes is the caller's pre-fetched mesh node list for the network.
 func appendAutoRelayPeerAclRules(
 	ctx context.Context,
 	targetnode models.Node,
 	acls []models.Acl,
 	taggedNodes map[models.TagID][]models.Node,
+	networkNodes []models.Node,
 ) map[string]models.AclRule {
 	out := make(map[string]models.AclRule)
 	if !targetnode.IsAutoRelay {
 		return out
 	}
-	autoRelayed := nodesAutoRelayedVia(ctx, targetnode)
+	autoRelayed := nodesAutoRelayedVia(ctx, targetnode, networkNodes)
 	if len(autoRelayed) == 0 {
 		return out
 	}
@@ -2484,9 +2499,9 @@ func appendAutoRelayPeerAclRules(
 }
 
 // getRelayedEgressFwRulesOnGw is the IngressInfo.Rules twin of
-// appendRelayedEgressFwdRules.
-func getRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node) (rules []models.FwRule) {
-	relayedEgresses := egressesHostedOnForwardedNodes(ctx, node)
+// appendRelayedEgressFwdRules. relayedEgresses must be precomputed by the caller
+// (typically via egressesHostedOnNodes on a shared forwarded set).
+func getRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node, relayedEgresses map[string]schema.Egress) (rules []models.FwRule) {
 	if len(relayedEgresses) == 0 {
 		return
 	}
@@ -2514,8 +2529,8 @@ func getRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node) (rules [
 // getDefaultRelayedEgressFwRulesOnGw allows All Resources (resource nodes only,
 // never the mesh NetworkRange) to reach egress ranges hosted on RelayedNodes /
 // auto-relayed peers when the default device policy is enabled.
-func getDefaultRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node) (rules []models.FwRule) {
-	relayedEgresses := egressesHostedOnForwardedNodes(ctx, node)
+// relayedEgresses must be precomputed by the caller.
+func getDefaultRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node, relayedEgresses map[string]schema.Egress) (rules []models.FwRule) {
 	if len(relayedEgresses) == 0 {
 		return
 	}
@@ -2566,19 +2581,23 @@ func getDefaultRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node) (
 }
 
 // nodesAutoRelayedVia returns mesh nodes that have at least one AutoRelayedPeers
-// entry pointing at gw.
-func nodesAutoRelayedVia(ctx context.Context, gw models.Node) []models.Node {
+// entry pointing at gw. Callers should pass a pre-fetched networkNodes slice
+// (e.g. PeerGraph.NetworkNodes); when nil, falls back to listNetworkNodes.
+func nodesAutoRelayedVia(ctx context.Context, gw models.Node, networkNodes []models.Node) []models.Node {
 	if !gw.IsAutoRelay {
 		return nil
 	}
-	nodes, err := listNetworkNodes(ctx, gw.Network)
-	if err != nil {
-		return nil
+	if networkNodes == nil {
+		nodes, err := listNetworkNodes(ctx, gw.Network)
+		if err != nil {
+			return nil
+		}
+		networkNodes = nodes
 	}
 	gwID := gw.ID.String()
 	seen := make(map[string]struct{})
 	var out []models.Node
-	for _, n := range nodes {
+	for _, n := range networkNodes {
 		if n.ID == gw.ID {
 			continue
 		}
@@ -2606,7 +2625,9 @@ func nodesAutoRelayedVia(ctx context.Context, gw models.Node) []models.Node {
 }
 
 // nodesForwardedByGateway returns RelayedNodes ∪ auto-relayed peers via this gw.
-func nodesForwardedByGateway(ctx context.Context, gw models.Node) []models.Node {
+// networkNodes is the caller's pre-fetched mesh node list (may be nil); RelayedNodes
+// are resolved from it first, with a single GetNodesByIDs for any IDs still missing.
+func nodesForwardedByGateway(ctx context.Context, gw models.Node, networkNodes []models.Node) []models.Node {
 	seen := make(map[string]struct{})
 	var out []models.Node
 	add := func(n models.Node) {
@@ -2617,14 +2638,28 @@ func nodesForwardedByGateway(ctx context.Context, gw models.Node) []models.Node 
 		seen[id] = struct{}{}
 		out = append(out, n)
 	}
-	for _, id := range gw.RelayedNodes {
-		r, err := getNodeByID(id)
-		if err != nil {
-			continue
+	if len(gw.RelayedNodes) > 0 {
+		fromCache := make(map[string]models.Node, len(networkNodes))
+		for i := range networkNodes {
+			fromCache[networkNodes[i].ID.String()] = networkNodes[i]
 		}
-		add(r)
+		var missing []string
+		for _, id := range gw.RelayedNodes {
+			if r, ok := fromCache[id]; ok {
+				add(r)
+				continue
+			}
+			missing = append(missing, id)
+		}
+		if len(missing) > 0 {
+			if byID, err := getNodesByIDs(ctx, missing); err == nil {
+				for _, r := range byID {
+					add(r)
+				}
+			}
+		}
 	}
-	for _, n := range nodesAutoRelayedVia(ctx, gw) {
+	for _, n := range nodesAutoRelayedVia(ctx, gw, networkNodes) {
 		add(n)
 	}
 	return out
@@ -2632,13 +2667,20 @@ func nodesForwardedByGateway(ctx context.Context, gw models.Node) []models.Node 
 
 // egressesHostedOnForwardedNodes returns enabled egresses whose routing
 // membership includes any RelayedNode or auto-relayed peer of targetnode.
-func egressesHostedOnForwardedNodes(ctx context.Context, targetnode models.Node) map[string]schema.Egress {
+// networkNodes is the caller's pre-fetched mesh node list (may be nil).
+func egressesHostedOnForwardedNodes(ctx context.Context, targetnode models.Node, networkNodes []models.Node) map[string]schema.Egress {
+	return egressesHostedOnNodes(nodesForwardedByGateway(ctx, targetnode, networkNodes), targetnode.Network)
+}
+
+// egressesHostedOnNodes returns enabled egresses whose routing membership
+// includes any node in forwarded. Callers that already resolved the forwarded
+// set should use this to avoid a second nodesForwardedByGateway walk.
+func egressesHostedOnNodes(forwarded []models.Node, network string) map[string]schema.Egress {
 	out := make(map[string]schema.Egress)
-	forwarded := nodesForwardedByGateway(ctx, targetnode)
 	if len(forwarded) == 0 {
 		return out
 	}
-	egs, err := getEgressByNetwork(targetnode.Network)
+	egs, err := getEgressByNetwork(network)
 	if err != nil {
 		return out
 	}
@@ -2699,11 +2741,12 @@ func collectDeviceAclSrcIPs(
 // RelayedEgressFwdAclRulesForNode returns AclRules for egress ranges hosted on
 // RelayedNodes / auto-relayed peers, plus auto-relay peer overlay ACL-IN rules.
 // Used by peer-update when the relay is not itself an egress gw.
-func RelayedEgressFwdAclRulesForNode(ctx context.Context, node models.Node) map[string]models.AclRule {
+// networkNodes is the caller's pre-fetched mesh node list (may be nil).
+func RelayedEgressFwdAclRulesForNode(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]models.AclRule {
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(node.Network), true)
-	out := appendRelayedEgressFwdRules(ctx, node, acls, taggedNodes)
-	for id, rule := range appendAutoRelayPeerAclRules(ctx, node, acls, taggedNodes) {
+	out := appendRelayedEgressFwdRules(ctx, node, acls, taggedNodes, networkNodes)
+	for id, rule := range appendAutoRelayPeerAclRules(ctx, node, acls, taggedNodes, networkNodes) {
 		out[id] = rule
 	}
 	return out
@@ -2711,15 +2754,16 @@ func RelayedEgressFwdAclRulesForNode(ctx context.Context, node models.Node) map[
 
 // EgressesHostedOnForwardedNodes returns enabled egresses whose routing membership
 // includes any RelayedNode or auto-relayed peer of node. Used by host-backed
-// user-device ACL hooks (NM-356) — not by RAC. Tests may override.
-var EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node) map[string]schema.Egress {
-	return egressesHostedOnForwardedNodes(ctx, node)
+// user-device ACL hooks (NM-356) — not by RAC. networkNodes may be nil.
+// Tests may override.
+var EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]schema.Egress {
+	return egressesHostedOnForwardedNodes(ctx, node, networkNodes)
 }
 
 // NodesAutoRelayedViaGateway returns mesh nodes that hairpin at least one peer
-// through gw via AutoRelayedPeers. Tests may override.
-var NodesAutoRelayedViaGateway = func(ctx context.Context, gw models.Node) []models.Node {
-	return nodesAutoRelayedVia(ctx, gw)
+// through gw via AutoRelayedPeers. networkNodes may be nil. Tests may override.
+var NodesAutoRelayedViaGateway = func(ctx context.Context, gw models.Node, networkNodes []models.Node) []models.Node {
+	return nodesAutoRelayedVia(ctx, gw, networkNodes)
 }
 
 // computeEgressDstsForAcl returns the IPv4 and IPv6 destination CIDRs an acl

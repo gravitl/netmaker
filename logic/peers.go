@@ -386,7 +386,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 			} else {
 				networkAllowAll = false
 				hostPeerUpdate.FwUpdate.AllowAll = false
-				rules := GetAclRulesForNode(ctx, g, &node)
+				rules := GetAclRulesForNode(ctx, g, &node, currentPeers)
 				if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
 					hostPeerUpdate.FwUpdate.AclRules = rules
 				} else {
@@ -752,8 +752,8 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 			// is never called — still publish forward + ACL-IN rules for overlays /
 			// egress ranges hairpinned through this node (device-policy + host-backed
 			// user-device hooks; RAC paths are left alone).
-			relayedEgRules := RelayedEgressFwdAclRulesForNode(ctx, node)
-			relayedEgRules = GetUserDeviceEgressRulesForNode(ctx, &node, relayedEgRules)
+			relayedEgRules := RelayedEgressFwdAclRulesForNode(ctx, node, currentPeers)
+			relayedEgRules = GetUserDeviceEgressRulesForNode(ctx, &node, currentPeers, relayedEgRules)
 			if len(relayedEgRules) > 0 {
 				egInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
 				if egInfo.EgressFwRules == nil {

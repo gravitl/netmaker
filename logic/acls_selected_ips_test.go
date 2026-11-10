@@ -2367,7 +2367,7 @@ func TestAppendAutoRelayPeerAclRules_EmitsAclInForHairpinnedPeer(t *testing.T) {
 		"servers":   {nodeB},
 	}
 
-	rules := appendAutoRelayPeerAclRules(db.WithContext(context.Background()), gw, acls, tagged)
+	rules := appendAutoRelayPeerAclRules(db.WithContext(context.Background()), gw, acls, tagged, []models.Node{gw, nodeA, nodeB})
 	fwd, ok := rules["acl-a-to-b#auto-relay-peer"]
 	if !ok {
 		t.Fatalf("expected #auto-relay-peer ACL-IN rule, got: %+v", rules)
@@ -2453,7 +2453,7 @@ func TestRelayedEgressFwdAclRulesForNode_IncludesAutoRelayedEgress(t *testing.T)
 		return map[models.TagID][]models.Node{"marketing": {srcNode}, "*": {srcNode, egressOwner}}
 	}
 
-	rules := RelayedEgressFwdAclRulesForNode(db.WithContext(context.Background()), gw)
+	rules := RelayedEgressFwdAclRulesForNode(db.WithContext(context.Background()), gw, []models.Node{gw, egressOwner, srcNode})
 	fwd, ok := rules["acl-to-auto-relayed-eg#relayed-eg-fwd"]
 	if !ok {
 		t.Fatalf("expected relayed-eg-fwd for auto-relayed egress, got: %+v", rules)
@@ -2908,7 +2908,7 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode, nil)
 	rule, ok := rules["site-acl"]
 	if !ok {
 		t.Fatalf("expected peer-acl rule keyed by acl.ID for Uni site-to-site policy on dst-side node, got rules: %+v", rules)
@@ -3011,7 +3011,7 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode, nil)
 	rule, ok := rules["site-acl-missing-src-egress"]
 	if !ok {
 		t.Fatalf("expected acl rule, got: %+v", rules)

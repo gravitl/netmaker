@@ -352,7 +352,7 @@ func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) 
 	gwID := uuid.New()
 	gw := models.Node{CommonNode: models.CommonNode{ID: gwID, Network: "netmaker"}}
 	device := userDeviceNode("alice", "100.64.0.9")
-	logic.EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node) map[string]schema.Egress {
+	logic.EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]schema.Egress {
 		return map[string]schema.Egress{
 			"sig": {ID: "sig", Status: true, Range: "10.90.0.0/24", VirtualRange: "10.200.0.0/24"},
 		}
@@ -367,7 +367,7 @@ func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) 
 		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
 	}
 	rules := appendUserDeviceForwardedEgressRules(context.Background(), &gw,
-		[]models.Node{device}, []models.Acl{policy}, nil, make(map[string]models.AclRule))
+		[]models.Node{device}, []models.Acl{policy}, nil, nil, make(map[string]models.AclRule))
 	rule, ok := rules["alice-to-sig"+userDeviceRuleSuffix]
 	if !ok {
 		t.Fatalf("expected user-device forwarded egress rule, got %+v", rules)
@@ -385,7 +385,7 @@ func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) 
 func TestAppendUserDeviceAutoRelayPeerAclRules_SkipsWithoutAutoRelay(t *testing.T) {
 	gw := models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
 	device := userDeviceNode("alice", "100.64.0.9")
-	rules := appendUserDeviceAutoRelayPeerAclRules(context.Background(), &gw, []models.Node{device}, make(map[string]models.AclRule))
+	rules := appendUserDeviceAutoRelayPeerAclRules(context.Background(), &gw, []models.Node{device}, nil, make(map[string]models.AclRule))
 	if len(rules) != 0 {
 		t.Fatalf("expected no rules when IsAutoRelay is false, got %+v", rules)
 	}
