@@ -747,6 +747,28 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 				}
 			}
 
+		} else if !skipFwCalc && !networkAllowAll && (len(node.RelayedNodes) > 0 || node.IsAutoRelay) {
+			// Relay / auto-relay is not itself an egress gw, so GetEgressRulesForNode
+			// is never called — still publish forward + ACL-IN rules for overlays /
+			// egress ranges hairpinned through this node (device-policy + host-backed
+			// user-device hooks; RAC paths are left alone).
+			relayedEgRules := RelayedEgressFwdAclRulesForNode(ctx, node)
+			relayedEgRules = GetUserDeviceEgressRulesForNode(ctx, &node, relayedEgRules)
+			if len(relayedEgRules) > 0 {
+				egInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+				if egInfo.EgressFwRules == nil {
+					egInfo.EgressFwRules = make(map[string]models.AclRule)
+				}
+				if egInfo.EgressID == "" {
+					egInfo.EgressID = node.ID.String()
+				}
+				for id, rule := range relayedEgRules {
+					egInfo.EgressFwRules[id] = rule
+					hostPeerUpdate.FwUpdate.AclRules[id] = rule
+				}
+				hostPeerUpdate.FwUpdate.IsEgressGw = true
+				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egInfo
+			}
 		}
 
 		// Publish internet egress firewall config keyed by real egress IDs when present;

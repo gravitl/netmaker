@@ -209,7 +209,10 @@ func addUserDeviceAclRule(rules map[string]models.AclRule, policy models.Acl,
 }
 
 // GetUserDeviceEgressRulesForNode emits the forward-chain rules a routing node
-// needs for the user devices allowed to reach the egresses it serves.
+// needs for the user devices allowed to reach the egresses it serves, plus the
+// twin of device-policy #relayed-eg-fwd: when this node relays/auto-relays an
+// egress-owning peer, user devices with policy access must be allowed to those
+// ranges on this node's forward chain.
 func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	if logic.IsUserOwnedDevice(targetnode) {
@@ -220,15 +223,47 @@ func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 		return rules
 	}
 	egs, _ := listEgressForUserDeviceACL(ctx, targetnode.Network)
-	if len(egs) == 0 {
-		return rules
-	}
 	netID := schema.NetworkID(targetnode.Network)
 	policies := listNetworkAccessUserPolicies(ctx, netID)
 	if defaultPolicy, err := logic.GetDefaultPolicy(ctx, netID, models.UserPolicy); err == nil && defaultPolicy.Enabled {
 		policies = []models.Acl{defaultPolicy}
 	}
 	userGrpMap := userGroupsForNetwork(ctx, netID)
+	if len(egs) > 0 {
+		for _, policy := range policies {
+			if !policy.Enabled {
+				continue
+			}
+			var src4, src6 []net.IPNet
+			if policy.Default {
+				src4, src6 = allUserDeviceSrcIPs(devices)
+			} else {
+				src4, src6 = userDeviceSrcIPsForPolicy(policy, devices, userGrpMap)
+			}
+			if len(src4) == 0 && len(src6) == 0 {
+				continue
+			}
+			var dst4, dst6 []net.IPNet
+			appendUserDevicePolicyEgressDsts(ctx, targetnode, policy, egs, &dst4, &dst6)
+			addUserDeviceAclRule(rules, policy, src4, src6, dst4, dst6)
+		}
+	}
+	return appendUserDeviceForwardedEgressRules(ctx, targetnode, devices, policies, userGrpMap, rules)
+}
+
+// appendUserDeviceForwardedEgressRules emits user-device → egress-range allows for
+// egresses hosted on RelayedNodes / auto-relayed peers of targetnode (hairpin path).
+func appendUserDeviceForwardedEgressRules(ctx context.Context, targetnode *models.Node,
+	devices []models.Node, policies []models.Acl,
+	userGrpMap map[schema.UserGroupID]map[string]struct{},
+	rules map[string]models.AclRule) map[string]models.AclRule {
+	if targetnode == nil {
+		return rules
+	}
+	forwarded := logic.EgressesHostedOnForwardedNodes(ctx, *targetnode)
+	if len(forwarded) == 0 {
+		return rules
+	}
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -243,14 +278,63 @@ func GetUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 			continue
 		}
 		var dst4, dst6 []net.IPNet
-		appendUserDevicePolicyEgressDsts(ctx, targetnode, policy, egs, &dst4, &dst6)
+		appendUserDeviceForwardedEgressDsts(policy, forwarded, &dst4, &dst6)
 		addUserDeviceAclRule(rules, policy, src4, src6, dst4, dst6)
 	}
 	return rules
 }
 
+// appendUserDeviceForwardedEgressDsts adds destinations for egresses hairpinned
+// through a relay/auto-relay. Prefer VirtualRange when set (gateway does not own
+// the egress). Skip internet exits — RelayedAllowedIPs strips default routes.
+func appendUserDeviceForwardedEgressDsts(policy models.Acl, forwarded map[string]schema.Egress,
+	dst4, dst6 *[]net.IPNet) {
+	selectedIP4, selectedIP6 := getSelectedUserEgressIPNets(policy.Dst)
+	dstTags := logic.ConvAclTagToValueMap(policy.Dst)
+	_, dstAll := dstTags["*"]
+	for _, egI := range forwarded {
+		if !egI.Status {
+			continue
+		}
+		if !dstAll && !egressMatchesPolicyDst(egI, dstTags) {
+			continue
+		}
+		if logic.IsEgressInternetGateway(egI) {
+			continue
+		}
+		if len(selectedIP4) > 0 || len(selectedIP6) > 0 {
+			*dst4 = append(*dst4, selectedIP4...)
+			*dst6 = append(*dst6, selectedIP6...)
+			continue
+		}
+		egressRange := egI.Range
+		if egI.VirtualRange != "" {
+			egressRange = egI.VirtualRange
+		}
+		if egressRange != "" {
+			logic.AppendEgressPolicyRange(egI, egressRange, dst4, dst6)
+			continue
+		}
+		if logic.HasEgressDomainAns(egI) {
+			for _, domainAns := range logic.AllDomainAnsFromEgress(egI) {
+				ip, cidr, err := net.ParseCIDR(domainAns)
+				if err != nil {
+					continue
+				}
+				if ip.To4() != nil {
+					*dst4 = append(*dst4, *cidr)
+				} else {
+					*dst6 = append(*dst6, *cidr)
+				}
+			}
+		}
+	}
+}
+
 // GetUserDeviceAclRulesForNode emits the input-chain rules a resource needs for
-// the user devices whose owner is allowed to reach it.
+// the user devices whose owner is allowed to reach it. On auto-relay gateways it
+// also emits ACL-IN rules with Dst = auto-relayed peer overlays so hairpinned
+// user-device traffic is not dropped (device-policy twin is #auto-relay-peer).
 func GetUserDeviceAclRulesForNode(ctx context.Context, g *logic.PeerGraph, targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	if logic.IsUserOwnedDevice(targetnode) {
@@ -290,6 +374,60 @@ func GetUserDeviceAclRulesForNode(ctx context.Context, g *logic.PeerGraph, targe
 			policyDst6 := append([]net.IPNet(nil), dst6...)
 			appendUserDevicePolicyEgressDsts(ctx, targetnode, policy, egs, &policyDst4, &policyDst6)
 			addUserDeviceAclRule(rules, policy, deviceSrc4, deviceSrc6, policyDst4, policyDst6)
+		}
+	}
+	return appendUserDeviceAutoRelayPeerAclRules(ctx, targetnode, devices, rules)
+}
+
+// appendUserDeviceAutoRelayPeerAclRules adds ACL-IN allows for user devices to
+// reach auto-relayed resource peer overlays hairpinned through targetnode.
+func appendUserDeviceAutoRelayPeerAclRules(ctx context.Context, targetnode *models.Node,
+	devices []models.Node, rules map[string]models.AclRule) map[string]models.AclRule {
+	if targetnode == nil || !targetnode.IsAutoRelay {
+		return rules
+	}
+	autoRelayed := logic.NodesAutoRelayedViaGateway(ctx, *targetnode)
+	if len(autoRelayed) == 0 {
+		return rules
+	}
+	for i := range devices {
+		device := devices[i]
+		owner := logic.NodeOwnerUsername(&device)
+		if owner == "" {
+			continue
+		}
+		src4, src6 := logic.UserDeviceSrcIPs(&device)
+		var deviceSrc4, deviceSrc6 []net.IPNet
+		if src4.IP != nil {
+			deviceSrc4 = []net.IPNet{src4}
+		}
+		if src6.IP != nil {
+			deviceSrc6 = []net.IPNet{src6}
+		}
+		if len(deviceSrc4) == 0 && len(deviceSrc6) == 0 {
+			continue
+		}
+		for _, peer := range autoRelayed {
+			if logic.IsUserOwnedDevice(&peer) || peer.IsUserNode {
+				continue
+			}
+			allowed, allowedPolicies := IsUserAllowedToCommunicate(ctx, owner, peer)
+			if !allowed {
+				continue
+			}
+			var peerDst4, peerDst6 []net.IPNet
+			if peer.Address.IP != nil {
+				peerDst4 = append(peerDst4, peer.AddressIPNet4())
+			}
+			if peer.Address6.IP != nil {
+				peerDst6 = append(peerDst6, peer.AddressIPNet6())
+			}
+			if len(peerDst4) == 0 && len(peerDst6) == 0 {
+				continue
+			}
+			for _, policy := range allowedPolicies {
+				addUserDeviceAclRule(rules, policy, deviceSrc4, deviceSrc6, peerDst4, peerDst6)
+			}
 		}
 	}
 	return rules
@@ -379,6 +517,54 @@ func GetFwRulesForUserDevicesOnGw(ctx context.Context, node models.Node, nodes [
 				for _, cidr := range logic.UniqueIPNetList(dst6) {
 					rules = append(rules, userDeviceFwRule(src6, cidr, policy))
 				}
+			}
+		}
+		// Explicit twin of #relayed-eg-fwd: egresses hosted on RelayedNodes /
+		// auto-relayed peers are advertised via this gateway, so user devices
+		// with policy access need forward allows even when peer iteration above
+		// did not surface the egress owner (e.g. policy names only EgressID).
+		rules = append(rules, userDeviceForwardedEgressFwRules(ctx, node, device, src4, src6)...)
+	}
+	return
+}
+
+// userDeviceForwardedEgressFwRules emits user-device → forwarded-egress-range
+// FwRules on an ingress/relay/auto-relay gateway.
+func userDeviceForwardedEgressFwRules(ctx context.Context, gw models.Node, device models.Node,
+	src4, src6 net.IPNet) (rules []models.FwRule) {
+	forwarded := logic.EgressesHostedOnForwardedNodes(ctx, gw)
+	if len(forwarded) == 0 {
+		return
+	}
+	owner := logic.NodeOwnerUsername(&device)
+	if owner == "" {
+		return
+	}
+	netID := schema.NetworkID(gw.Network)
+	policies := listNetworkAccessUserPolicies(ctx, netID)
+	if defaultPolicy, err := getDefaultUserPolicyForUserDeviceACL(ctx, netID); err == nil && defaultPolicy.Enabled {
+		// Default All Users already emitted a src-only allow above.
+		return
+	}
+	userGrpMap := userGroupsForNetwork(ctx, netID)
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		srcMatch4, srcMatch6 := userDeviceSrcIPsForPolicy(policy, []models.Node{device}, userGrpMap)
+		if len(srcMatch4) == 0 && len(srcMatch6) == 0 {
+			continue
+		}
+		var dst4, dst6 []net.IPNet
+		appendUserDeviceForwardedEgressDsts(policy, forwarded, &dst4, &dst6)
+		if src4.IP != nil {
+			for _, cidr := range logic.UniqueIPNetList(dst4) {
+				rules = append(rules, userDeviceFwRule(src4, cidr, policy))
+			}
+		}
+		if src6.IP != nil {
+			for _, cidr := range logic.UniqueIPNetList(dst6) {
+				rules = append(rules, userDeviceFwRule(src6, cidr, policy))
 			}
 		}
 	}
