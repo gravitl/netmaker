@@ -226,6 +226,7 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 		case models.UserPolicy:
 			if userNodes == nil {
 				userNodes = GetStaticUserNodesByNetwork(ctx, netID)
+				userNodes = append(userNodes, ListUserDevicesByNetwork(ctx, netID.String())...)
 			}
 			allSrcUsers := false
 			allowedUsernames := make(map[string]struct{})
@@ -249,11 +250,15 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 				}
 			}
 			for _, userNode := range userNodes {
-				if !userNode.StaticNode.Enabled {
+				if userNode.IsStatic {
+					if !userNode.StaticNode.Enabled {
+						continue
+					}
+				} else if !userNode.Connected {
 					continue
 				}
 				if !allSrcUsers {
-					if _, ok := allowedUsernames[userNode.StaticNode.OwnerID]; !ok {
+					if _, ok := allowedUsernames[NodeOwnerUsername(&userNode)]; !ok {
 						continue
 					}
 				}
