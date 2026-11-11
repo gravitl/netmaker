@@ -690,6 +690,20 @@ func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, only
 	return
 }
 
+// IsRACExtClient reports whether the ext client was created by the remote
+// access / desktop client app (has a device or RAC id). Admin-managed static
+// WireGuard config files have neither and should not be auto-deleted on JIT
+// expiry, IdP user removal, or group/network access loss.
+func IsRACExtClient(client models.ExtClient) bool {
+	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+}
+
+// IsStaticConfigExtClient reports whether the ext client is an admin-managed
+// static WireGuard config file (no device / RAC id).
+func IsStaticConfigExtClient(client models.ExtClient) bool {
+	return !IsRACExtClient(client)
+}
+
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
 func CleanupOtherExtclients(ctx context.Context, extclient *models.ExtClient) error {
 	extclients, err := GetNetworkExtClients(ctx, extclient.Network)

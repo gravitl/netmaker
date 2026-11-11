@@ -1981,6 +1981,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			if extclient.OwnerID != user.Username {
 				continue
 			}
+			if logic.IsStaticConfigExtClient(extclient) {
+				continue
+			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
 				err = logic.DeleteExtClient(r.Context(), extclient)
@@ -2160,7 +2163,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 			if extclient.OwnerID != username {
 				continue
 			}
-			if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+			if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
 				// only delete wireguard configs on force
 				continue
 			}

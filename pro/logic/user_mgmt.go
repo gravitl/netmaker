@@ -871,6 +871,9 @@ func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 		if extclient.Network != netID {
 			continue
 		}
+		if logic.IsStaticConfigExtClient(extclient) {
+			continue
+		}
 		if _, ok := networkChangeMap[schema.AllRemoteAccessGwRsrcID]; ok {
 			if user, ok := userMap[extclient.OwnerID]; ok {
 				if user.PlatformRoleID != schema.ServiceUser {
@@ -931,10 +934,13 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 	}
 
 	for _, extclient := range extclients {
+		if logic.IsStaticConfigExtClient(extclient) {
+			continue
+		}
 		var shouldDelete bool
 		user, ok := userMap[extclient.OwnerID]
 		if !ok {
-			// user does not exist, delete extclient.
+			// user does not exist, delete RAC extclient.
 			shouldDelete = true
 		} else {
 			_, userInGroup := user.UserGroups.Data()[groupID]
@@ -1022,19 +1028,22 @@ func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.Use
 		return
 	}
 	for _, extclient := range extclients {
-		if extclient.OwnerID == currentUser.Username {
-			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClient(ctx, extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
-					}
+		if extclient.OwnerID != currentUser.Username {
+			continue
+		}
+		if logic.IsStaticConfigExtClient(extclient) {
+			continue
+		}
+		if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
+			err = logic.DeleteExtClient(ctx, extclient)
+			if err != nil {
+				slog.Error("failed to delete extclient",
+					"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
+			} else {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
-
 		}
 	}
 }

@@ -173,6 +173,15 @@ func TestGetNetworkAndAllExtClients(t *testing.T) {
 	assert.Equal(t, "tenant-list-other", all[0].TenantID)
 }
 
+func TestIsRACExtClient(t *testing.T) {
+	assert.True(t, IsRACExtClient(models.ExtClient{DeviceID: "dev-1"}))
+	assert.True(t, IsRACExtClient(models.ExtClient{RemoteAccessClientID: "rac-1"}))
+	assert.True(t, IsRACExtClient(models.ExtClient{DeviceID: "dev-1", RemoteAccessClientID: "rac-1"}))
+	assert.False(t, IsRACExtClient(models.ExtClient{}))
+	assert.True(t, IsStaticConfigExtClient(models.ExtClient{}))
+	assert.False(t, IsStaticConfigExtClient(models.ExtClient{DeviceID: "dev-1"}))
+}
+
 func TestDeleteExtClient(t *testing.T) {
 	ctx := extClientTestCtx("tenant-1")
 	network := createExtClientTestNetwork(t, ctx, "extclient-delete-net")

@@ -721,7 +721,7 @@ func DisconnectExtClientsFromNetwork(ctx context.Context, networkID string) erro
 
 // extClientFromClientApp reports whether the ext client was created by the desktop/RAC app.
 func extClientFromClientApp(client models.ExtClient) bool {
-	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+	return logic.IsRACExtClient(client)
 }
 
 // DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
@@ -844,17 +844,22 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 	for _, client := range extClients {
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
-		if client.OwnerID == userID {
-			clientCopy := client
-			if err := logic.DeleteExtClient(ctx, client); err != nil {
-				slog.Warn("failed to delete ext client after JIT ended",
-					"client_id", client.ClientID, "error", err)
-				continue
-			}
-			if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
-				slog.Warn("failed to publish deleted client peer update",
-					"client_id", client.ClientID, "error", err)
-			}
+		if client.OwnerID != userID {
+			continue
+		}
+		// Keep admin-managed static config files; only tear down RAC/app clients.
+		if !logic.IsRACExtClient(client) {
+			continue
+		}
+		clientCopy := client
+		if err := logic.DeleteExtClient(ctx, client); err != nil {
+			slog.Warn("failed to delete ext client after JIT ended",
+				"client_id", client.ClientID, "error", err)
+			continue
+		}
+		if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
+			slog.Warn("failed to publish deleted client peer update",
+				"client_id", client.ClientID, "error", err)
 		}
 	}
 
