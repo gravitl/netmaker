@@ -734,3 +734,228 @@ func TestNodeConnectionsLocationAndRoles(t *testing.T) {
 		t.Fatalf("gateway+exit egresses = %+v", c.Egresses)
 	}
 }
+
+func TestNodeConnectionsStatusUsernameAndFilters(t *testing.T) {
+	gw := newTestNode()
+	gw.IsIngressGateway = true
+	gw.IsRelay = true
+	gw.Status = schema.OnlineSt
+
+	otherGw := newTestNode()
+	otherGw.IsGw = true
+	otherGw.Status = schema.OnlineSt
+
+	site := newTestNode()
+	site.Status = schema.OnlineSt
+
+	offlinePeer := newTestNode()
+	offlinePeer.Status = schema.OfflineSt
+
+	relayed := newTestNode()
+	relayed.IsRelayed = true
+	relayed.RelayedBy = gw.ID.String()
+	relayed.Status = schema.WarningSt
+
+	userDev := newTestNode()
+	userDev.OwnerID = "alice"
+	userDev.HostID = uuid.New()
+	userDev.Status = schema.OnlineSt
+
+	ext := &models.Node{IsStatic: true}
+	ext.StaticNode.ClientID = "cfg-1"
+	ext.StaticNode.IngressGatewayID = gw.ID.String()
+	ext.StaticNode.Enabled = true
+	ext.Status = schema.OnlineSt
+
+	eli := []schema.Egress{
+		{ID: "lan", Name: "office", Status: true, Type: schema.EgressTypeCIDR, Range: "10.0.0.0/24", Nodes: datatypes.JSONMap{site.ID.String(): float64(10)}},
+	}
+	b := newTestStatusBuilder(eli, NetworkStatusOptions{}, gw, otherGw, site, offlinePeer, relayed, userDev)
+	b.hosts[userDev.HostID.String()] = schema.Host{Name: "laptop", OwnerUsername: "alice"}
+	b.names[gw.ID.String()] = "gw"
+	b.names[otherGw.ID.String()] = "other-gw"
+	b.names[site.ID.String()] = "site"
+	b.names[offlinePeer.ID.String()] = "offline"
+	b.names[relayed.ID.String()] = "relayed"
+	b.names[userDev.ID.String()] = "laptop"
+	b.names[ext.StaticNode.ClientID] = "cfg-1"
+	b.nodesByID[ext.StaticNode.ClientID] = ext
+
+	origUser := IsUserAllowedToCommunicate
+	IsUserAllowedToCommunicate = func(_ context.Context, _ string, _ models.Node) (bool, []models.Acl) {
+		return true, nil
+	}
+	t.Cleanup(func() { IsUserAllowedToCommunicate = origUser })
+
+	nodes := []models.Node{*gw, *otherGw, *site, *offlinePeer, *relayed, *userDev, *ext}
+	got, err := b.nodeConnections(nodes, gw.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.IsGw {
+		t.Fatalf("gw self is_gw = false")
+	}
+	byPeer := indexConns(t, got.Connections)
+	if c := byPeer[userDev.ID.String()]; c.Kind != models.NetworkNodeKindUser || c.Username != "alice" || c.Status != schema.OnlineSt {
+		t.Fatalf("user peer = %+v", c)
+	}
+	if c := byPeer[offlinePeer.ID.String()]; c.Status != schema.OfflineSt {
+		t.Fatalf("offline peer status = %+v", c)
+	}
+	if c := byPeer[ext.StaticNode.ClientID]; c.Kind != models.NetworkNodeKindExtClient {
+		t.Fatalf("config file peer = %+v", c)
+	}
+	if c := byPeer[site.ID.String()]; len(c.Egresses) == 0 {
+		t.Fatalf("egress peer missing egresses: %+v", c)
+	}
+
+	userConns, err := b.nodeConnections(nodes, userDev.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if userConns.Username != "alice" || userConns.Kind != models.NetworkNodeKindUser {
+		t.Fatalf("user self = %+v", userConns)
+	}
+
+	peersByID := map[string]*models.Node{
+		gw.ID.String():          gw,
+		otherGw.ID.String():     otherGw,
+		site.ID.String():        site,
+		offlinePeer.ID.String(): offlinePeer,
+		relayed.ID.String():     relayed,
+		userDev.ID.String():     userDev,
+		ext.StaticNode.ClientID: ext,
+	}
+
+	statusFiltered := cloneNodeConnections(got)
+	total := filterAndPaginateConnections(statusFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, Status: []schema.NodeStatus{schema.OfflineSt},
+	})
+	if total != 1 || len(statusFiltered.Connections) != 1 || statusFiltered.Connections[0].PeerID != offlinePeer.ID.String() {
+		t.Fatalf("status filter = total=%d conns=%+v", total, statusFiltered.Connections)
+	}
+
+	typeFiltered := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(typeFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, ConnectionType: []models.NetworkConnectionType{models.NetworkConnectionP2P},
+	})
+	if total == 0 {
+		t.Fatal("expected p2p connections")
+	}
+	for _, c := range typeFiltered.Connections {
+		if c.Type != models.NetworkConnectionP2P {
+			t.Fatalf("connection_type filter leaked %+v", c)
+		}
+	}
+
+	gwFiltered := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(gwFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, DeviceType: []string{models.ConnectionDeviceGateway},
+	})
+	if total != 1 || gwFiltered.Connections[0].PeerID != otherGw.ID.String() {
+		t.Fatalf("gateway device_type = total=%d conns=%+v", total, gwFiltered.Connections)
+	}
+
+	egressFiltered := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(egressFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, DeviceType: []string{models.ConnectionDeviceEgress},
+	})
+	if total != 1 || egressFiltered.Connections[0].PeerID != site.ID.String() {
+		t.Fatalf("egress device_type = total=%d conns=%+v", total, egressFiltered.Connections)
+	}
+
+	cfgFiltered := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(cfgFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, DeviceType: []string{models.ConnectionDeviceConfigFile},
+	})
+	if total != 1 || cfgFiltered.Connections[0].PeerID != ext.StaticNode.ClientID {
+		t.Fatalf("config_file device_type = total=%d conns=%+v", total, cfgFiltered.Connections)
+	}
+
+	relayedFiltered := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(relayedFiltered, gw, peersByID, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, DeviceType: []string{models.ConnectionDeviceRelayedClient},
+	})
+	if total < 2 {
+		t.Fatalf("relayed_client device_type = total=%d conns=%+v", total, relayedFiltered.Connections)
+	}
+	seenRelayed := map[string]bool{}
+	for _, c := range relayedFiltered.Connections {
+		seenRelayed[c.PeerID] = true
+	}
+	if !seenRelayed[relayed.ID.String()] || !seenRelayed[ext.StaticNode.ClientID] {
+		t.Fatalf("relayed_client missing peers: %+v", seenRelayed)
+	}
+
+	plain := newTestNode()
+	plain.Status = schema.OnlineSt
+	bPlain := newTestStatusBuilder(nil, NetworkStatusOptions{}, plain, site)
+	plainConns, err := bPlain.nodeConnections([]models.Node{*plain, *site}, plain.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonGwCfg := cloneNodeConnections(plainConns)
+	total = filterAndPaginateConnections(nonGwCfg, plain, map[string]*models.Node{
+		plain.ID.String(): plain,
+		site.ID.String():  site,
+	}, NodeConnectionsOptions{
+		Page: 1, PerPage: 50, DeviceType: []string{models.ConnectionDeviceConfigFile},
+	})
+	if total != 0 || len(nonGwCfg.Connections) != 0 {
+		t.Fatalf("non-gw config_file filter = total=%d conns=%+v", total, nonGwCfg.Connections)
+	}
+
+	paged := cloneNodeConnections(got)
+	total = filterAndPaginateConnections(paged, gw, peersByID, NodeConnectionsOptions{Page: 2, PerPage: 2})
+	if total != len(got.Connections) {
+		t.Fatalf("pagination total = %d want %d", total, len(got.Connections))
+	}
+	if len(paged.Connections) > 2 {
+		t.Fatalf("page size = %d", len(paged.Connections))
+	}
+	if ConnectionsTotalPages(total, 2) < 2 {
+		t.Fatalf("total pages = %d", ConnectionsTotalPages(total, 2))
+	}
+}
+
+func TestGatewayAlwaysIncludesConfigFiles(t *testing.T) {
+	gw := newTestNode()
+	gw.IsIngressGateway = true
+	peer := newTestNode()
+
+	ext := &models.Node{IsStatic: true}
+	ext.StaticNode.ClientID = "denied-cfg"
+	ext.StaticNode.IngressGatewayID = gw.ID.String()
+	ext.StaticNode.Enabled = true
+
+	b := newTestStatusBuilder(nil, NetworkStatusOptions{}, gw, peer)
+	b.deviceDefault = false
+	b.names[ext.StaticNode.ClientID] = "denied-cfg"
+	b.nodesByID[ext.StaticNode.ClientID] = ext
+
+	origPeer := IsPeerAllowed
+	IsPeerAllowed = func(_ context.Context, _, _ models.Node, _ bool) bool { return false }
+	t.Cleanup(func() { IsPeerAllowed = origPeer })
+
+	nodes := []models.Node{*gw, *peer, *ext}
+	got, err := b.nodeConnections(nodes, gw.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPeer := indexConns(t, got.Connections)
+	if _, ok := byPeer[peer.ID.String()]; ok {
+		t.Fatalf("ACL-denied mesh peer should be absent: %+v", got.Connections)
+	}
+	if c := byPeer[ext.StaticNode.ClientID]; c.Kind != models.NetworkNodeKindExtClient {
+		t.Fatalf("expected always-included config file, got %+v", got.Connections)
+	}
+}
+
+func cloneNodeConnections(in *models.NodeConnections) *models.NodeConnections {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.Connections = append([]models.NetworkConnection(nil), in.Connections...)
+	return &out
+}

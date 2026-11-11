@@ -69,11 +69,20 @@ type NetworkTopologyEgress struct {
 	Role string `json:"role"` // egress | internet_gateway
 }
 
+// Connection device_type filter values for node connections.
+const (
+	ConnectionDeviceGateway       = "gateway"
+	ConnectionDeviceEgress        = "egress"
+	ConnectionDeviceConfigFile    = "config_file"
+	ConnectionDeviceRelayedClient = "relayed_client"
+)
+
 // NodeConnections is the clicked node's ACL-allowed peer lines.
 type NodeConnections struct {
 	NodeID   string          `json:"node_id"`
 	Name     string          `json:"name,omitempty"`
 	Kind     NetworkNodeKind `json:"kind,omitempty"`
+	Username string          `json:"username,omitempty"` // owner username for user devices
 	Location string          `json:"location,omitempty"` // lat,lon
 	Country  string          `json:"country,omitempty"`
 	// IsGw is true when the node is a mesh/ingress/relay gateway.
@@ -89,7 +98,9 @@ type NetworkConnection struct {
 	PeerID    string                  `json:"peer_id"`
 	Name      string                  `json:"name"`
 	Kind      NetworkNodeKind         `json:"kind"`
-	Type      NetworkConnectionType   `json:"type"` // p2p | relayed | exit
+	Username  string                  `json:"username,omitempty"` // owner username for user devices
+	Type      NetworkConnectionType   `json:"type"`               // p2p | relayed | exit
+	Status    schema.NodeStatus       `json:"status"`
 	IsGw      bool                    `json:"is_gw"`
 	Egresses  []NetworkTopologyEgress `json:"egresses,omitempty"` // role: egress | internet_gateway
 	Location  string                  `json:"location,omitempty"` // lat,lon
