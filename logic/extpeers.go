@@ -315,9 +315,15 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
-	// replace any \r\n with \n in postup and postdown from HTTP request
-	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
-	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	// PostUp/PostDown: omitted and explicit "" both decode to empty, so treat
+	// empty as "leave unchanged" (same idea as PublicKey). Sparse updates
+	// (toggle, rename) must not wipe existing scripts.
+	if update.PostUp != "" {
+		new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
+	}
+	if update.PostDown != "" {
+		new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	}
 	// Tags are usually managed via the tags API. Extclient edit payloads often
 	// omit tags (nil); overwriting would drop the client from all tags. Only
 	// apply when the caller explicitly sends a tags map (including {} to clear).
@@ -388,25 +394,24 @@ func listExtClients(ctx context.Context, options ...dbtypes.Option) ([]models.Ex
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
+//
+// Flips Enabled in place and saves. Does not go through UpdateExtClient with a
+// sparse CustomExtClient, which would drop fields omitted from the update
+// (notably PostUp/PostDown before those were guarded).
 func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, enable bool) (models.ExtClient, error) {
-	update := models.CustomExtClient{
-		Enabled:              enable,
-		ClientID:             client.ClientID,
-		PublicKey:            client.PublicKey,
-		DNS:                  client.DNS,
-		ExtraAllowedIPs:      client.ExtraAllowedIPs,
-		DeniedACLs:           client.DeniedACLs,
-		RemoteAccessClientID: client.RemoteAccessClientID,
+	if client == nil {
+		return models.ExtClient{}, errors.New("nil ext client")
 	}
-
-	// update in DB (same ClientID — upsert, no delete/recreate)
-	newClient := UpdateExtClient(client, &update)
-	if err := SaveExtClient(ctx, &newClient); err != nil {
-		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
-		return newClient, err
+	if client.Enabled == enable {
+		return *client, nil
 	}
-
-	return newClient, nil
+	updated := *client
+	updated.Enabled = enable
+	if err := SaveExtClient(ctx, &updated); err != nil {
+		slog.Error("failed to save updated ext client during update", "id", updated.ClientID, "network", updated.Network, "error", err)
+		return updated, err
+	}
+	return updated, nil
 }
 
 func GetExtPeers(ctx context.Context, g *PeerGraph, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
