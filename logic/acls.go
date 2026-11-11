@@ -250,11 +250,15 @@ func GetSshAuthorizedIdentitiesForNode(ctx context.Context, targetnode *models.N
 				}
 			}
 			for _, userNode := range userNodes {
-				if !userNode.StaticNode.Enabled {
+				if userNode.IsStatic {
+					if !userNode.StaticNode.Enabled {
+						continue
+					}
+				} else if !userNode.Connected {
 					continue
 				}
 				if !allSrcUsers {
-					if _, ok := allowedUsernames[userNode.StaticNode.OwnerID]; !ok {
+					if _, ok := allowedUsernames[NodeOwnerUsername(&userNode)]; !ok {
 						continue
 					}
 				}
