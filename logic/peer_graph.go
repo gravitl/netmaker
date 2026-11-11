@@ -20,10 +20,29 @@ type PeerGraph struct {
 	byNetwork map[string][]models.Node
 	nodes     map[string]*models.Node
 
-	// ext clients by ingress gateway node ID, loaded on first successful use;
-	// nil until then.
-	extClientsMu sync.Mutex
-	extClients   map[string][]models.ExtClient
+	extClientsMu        sync.Mutex
+	extClients          map[string][]models.ExtClient // by ingress gateway node ID
+	extClientsByNetwork map[string][]models.ExtClient // by network
+}
+
+// loadExtClientsLocked loads the tenant's ext clients once and indexes them
+// both ways. Callers must hold extClientsMu.
+func (g *PeerGraph) loadExtClientsLocked(ctx context.Context) error {
+	if g.extClients != nil {
+		return nil
+	}
+	clients, err := GetAllExtClients(ctx)
+	if err != nil {
+		return err
+	}
+	g.extClients = make(map[string][]models.ExtClient)
+	g.extClientsByNetwork = make(map[string][]models.ExtClient)
+	for i := range clients {
+		gwID := clients[i].IngressGatewayID
+		g.extClients[gwID] = append(g.extClients[gwID], clients[i])
+		g.extClientsByNetwork[clients[i].Network] = append(g.extClientsByNetwork[clients[i].Network], clients[i])
+	}
+	return nil
 }
 
 // LoadPeerGraph - loads all hosts and nodes of the tenant in ctx.
@@ -86,27 +105,30 @@ func (g *PeerGraph) Node(nodeID string) (models.Node, error) {
 	return getNodeByID(nodeID)
 }
 
+// NetworkNodes - returns a copy of the nodes in the network.
+func (g *PeerGraph) NetworkNodes(network string) []models.Node {
+	return slices.Clone(g.byNetwork[network])
+}
+
+// NetworkExtClients - returns a copy of the ext clients in the network. The
+// tenant's ext clients are loaded once per graph instead of once per host.
+func (g *PeerGraph) NetworkExtClients(ctx context.Context, network string) ([]models.ExtClient, error) {
+	g.extClientsMu.Lock()
+	defer g.extClientsMu.Unlock()
+	if err := g.loadExtClientsLocked(ctx); err != nil {
+		return nil, err
+	}
+	return slices.Clone(g.extClientsByNetwork[network]), nil
+}
+
 // GatewayExtClients - returns a copy of the ext clients attached to the
 // gateway node. The tenant's ext clients are loaded once per graph instead of
 // once per (host, gateway peer).
 func (g *PeerGraph) GatewayExtClients(ctx context.Context, gatewayID string) ([]models.ExtClient, error) {
 	g.extClientsMu.Lock()
 	defer g.extClientsMu.Unlock()
-	if g.extClients == nil {
-		clients, err := GetAllExtClients(ctx)
-		if err != nil {
-			return nil, err
-		}
-		g.extClients = make(map[string][]models.ExtClient)
-		for i := range clients {
-			gwID := clients[i].IngressGatewayID
-			g.extClients[gwID] = append(g.extClients[gwID], clients[i])
-		}
+	if err := g.loadExtClientsLocked(ctx); err != nil {
+		return nil, err
 	}
 	return slices.Clone(g.extClients[gatewayID]), nil
-}
-
-// NetworkNodes - returns a copy of the nodes in the network.
-func (g *PeerGraph) NetworkNodes(network string) []models.Node {
-	return slices.Clone(g.byNetwork[network])
 }
