@@ -466,6 +466,9 @@ func migrateEgressDomains() {
 		return
 	}
 	gormDB := db.FromContext(db.WithContext(context.TODO()))
+	if !gormDB.Migrator().HasColumn((&schema.Egress{}).Table(), "domain") {
+		return
+	}
 	for _, eg := range egs {
 		if len(eg.Domains) > 0 {
 			continue
