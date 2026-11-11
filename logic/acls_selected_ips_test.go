@@ -2222,6 +2222,251 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 	}
 }
 
+// TestGetEgressRulesForNode_RelayedEgressEmitsFwdRule verifies that when the
+// egress-owning node is relayed by targetnode, ACL-allowed mesh sources get a
+// "#relayed-eg-fwd" allow for the egress range on the relay's forward chain.
+func TestGetEgressRulesForNode_RelayedEgressEmitsFwdRule(t *testing.T) {
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalListExtClients := listNetworkExtClients
+	originalGetNodeByID := getNodeByID
+	t.Cleanup(func() {
+		getEgressByNetwork = originalGetEgressByNetwork
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		listNetworkExtClients = originalListExtClients
+		getNodeByID = originalGetNodeByID
+	})
+
+	targetID := uuid.New()
+	egressOwnerID := uuid.New()
+	srcNodeID := uuid.New()
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.30"), Mask: net.CIDRMask(32, 32)},
+		},
+	}
+	srcNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcNodeID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.40"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags: map[models.TagID]struct{}{"marketing": {}},
+	}
+	targetNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:           targetID,
+			Network:      "netmaker",
+			RelayedNodes: []string{egressOwnerID.String()},
+		},
+	}
+
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-on-relayed",
+			Network: network,
+			Status:  true,
+			Range:   "10.90.0.0/24",
+			Nodes:   datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-to-relayed-egress",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionUni,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-relayed"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{"marketing": {srcNode}, "*": {srcNode, egressOwner}}
+	}
+	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
+		return nil, nil
+	}
+	getNodeByID = func(id string) (models.Node, error) {
+		if id == egressOwnerID.String() {
+			return egressOwner, nil
+		}
+		return models.Node{}, fmt.Errorf("not found")
+	}
+
+	rules := GetEgressRulesForNode(db.WithContext(context.Background()), targetNode)
+	fwd, ok := rules["acl-to-relayed-egress#relayed-eg-fwd"]
+	if !ok {
+		t.Fatalf("expected relayed-eg-fwd rule, got rules: %+v", rules)
+	}
+	srcSet := make(map[string]struct{}, len(fwd.IPList))
+	for _, n := range fwd.IPList {
+		srcSet[n.String()] = struct{}{}
+	}
+	if _, ok := srcSet["100.64.0.40/32"]; !ok {
+		t.Fatalf("expected relayed-eg-fwd IPList to contain src device /32, got %v", fwd.IPList)
+	}
+	dstSet := make(map[string]struct{}, len(fwd.Dst))
+	for _, n := range fwd.Dst {
+		dstSet[n.String()] = struct{}{}
+	}
+	if _, ok := dstSet["10.90.0.0/24"]; !ok {
+		t.Fatalf("expected relayed-eg-fwd Dst to contain egress range, got %v", fwd.Dst)
+	}
+}
+
+// TestAppendAutoRelayPeerAclRules_EmitsAclInForHairpinnedPeer verifies ACL-IN
+// rules with Dst = auto-relayed peer overlay on an auto-relay gateway.
+func TestAppendAutoRelayPeerAclRules_EmitsAclInForHairpinnedPeer(t *testing.T) {
+	originalListNetworkNodes := listNetworkNodes
+	t.Cleanup(func() {
+		listNetworkNodes = originalListNetworkNodes
+	})
+
+	gwID := uuid.New()
+	peerA := uuid.New()
+	peerB := uuid.New()
+	gw := models.Node{
+		CommonNode:  models.CommonNode{ID: gwID, Network: "netmaker"},
+		IsAutoRelay: true,
+	}
+	nodeA := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      peerA,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.10"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags:             map[models.TagID]struct{}{"marketing": {}},
+		AutoRelayedPeers: map[string]string{peerB.String(): gwID.String()},
+	}
+	nodeB := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      peerB,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.20"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags:             map[models.TagID]struct{}{"servers": {}},
+		AutoRelayedPeers: map[string]string{peerA.String(): gwID.String()},
+	}
+	listNetworkNodes = func(ctx context.Context, network string) ([]models.Node, error) {
+		return []models.Node{gw, nodeA, nodeB}, nil
+	}
+	acls := []models.Acl{{
+		ID:               "acl-a-to-b",
+		Enabled:          true,
+		AllowedDirection: models.TrafficDirectionUni,
+		Proto:            models.ALL,
+		Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+		Dst:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "servers"}},
+	}}
+	tagged := map[models.TagID][]models.Node{
+		"marketing": {nodeA},
+		"servers":   {nodeB},
+	}
+
+	rules := appendAutoRelayPeerAclRules(db.WithContext(context.Background()), gw, acls, tagged, []models.Node{gw, nodeA, nodeB})
+	fwd, ok := rules["acl-a-to-b#auto-relay-peer"]
+	if !ok {
+		t.Fatalf("expected #auto-relay-peer ACL-IN rule, got: %+v", rules)
+	}
+	srcSet := map[string]struct{}{}
+	for _, n := range fwd.IPList {
+		srcSet[n.String()] = struct{}{}
+	}
+	if _, ok := srcSet["100.64.0.10/32"]; !ok {
+		t.Fatalf("expected src 100.64.0.10/32, got %v", fwd.IPList)
+	}
+	dstSet := map[string]struct{}{}
+	for _, n := range fwd.Dst {
+		dstSet[n.String()] = struct{}{}
+	}
+	if _, ok := dstSet["100.64.0.20/32"]; !ok {
+		t.Fatalf("expected dst 100.64.0.20/32, got %v", fwd.Dst)
+	}
+}
+
+// TestRelayedEgressFwdAclRulesForNode_IncludesAutoRelayedEgress verifies egress
+// ranges on auto-relayed peers produce #relayed-eg-fwd rules.
+func TestRelayedEgressFwdAclRulesForNode_IncludesAutoRelayedEgress(t *testing.T) {
+	originalListNetworkNodes := listNetworkNodes
+	originalGetEgressByNetwork := getEgressByNetwork
+	originalGetTagMap := GetTagMapWithNodesByNetwork
+	originalGetDevicePoliciesByNetwork := getNetworkAccessDevicePolicies
+	t.Cleanup(func() {
+		listNetworkNodes = originalListNetworkNodes
+		getEgressByNetwork = originalGetEgressByNetwork
+		GetTagMapWithNodesByNetwork = originalGetTagMap
+		getNetworkAccessDevicePolicies = originalGetDevicePoliciesByNetwork
+	})
+
+	gwID := uuid.New()
+	egressOwnerID := uuid.New()
+	srcID := uuid.New()
+	gw := models.Node{
+		CommonNode:  models.CommonNode{ID: gwID, Network: "netmaker"},
+		IsAutoRelay: true,
+	}
+	egressOwner := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      egressOwnerID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.30"), Mask: net.CIDRMask(32, 32)},
+		},
+		AutoRelayedPeers: map[string]string{srcID.String(): gwID.String()},
+	}
+	srcNode := models.Node{
+		CommonNode: models.CommonNode{
+			ID:      srcID,
+			Network: "netmaker",
+			Address: net.IPNet{IP: net.ParseIP("100.64.0.40"), Mask: net.CIDRMask(32, 32)},
+		},
+		Tags:             map[models.TagID]struct{}{"marketing": {}},
+		AutoRelayedPeers: map[string]string{egressOwnerID.String(): gwID.String()},
+	}
+
+	listNetworkNodes = func(ctx context.Context, network string) ([]models.Node, error) {
+		return []models.Node{gw, egressOwner, srcNode}, nil
+	}
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) {
+		return []schema.Egress{{
+			ID:      "egress-on-auto-relayed",
+			Network: network,
+			Status:  true,
+			Range:   "10.90.0.0/24",
+			Nodes:   datatypes.JSONMap{egressOwnerID.String(): json.Number("100")},
+		}}, nil
+	}
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		return []models.Acl{{
+			ID:               "acl-to-auto-relayed-eg",
+			Enabled:          true,
+			AllowedDirection: models.TrafficDirectionUni,
+			Proto:            models.ALL,
+			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-auto-relayed"}},
+		}}
+	}
+	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{"marketing": {srcNode}, "*": {srcNode, egressOwner}}
+	}
+
+	rules := RelayedEgressFwdAclRulesForNode(db.WithContext(context.Background()), gw, []models.Node{gw, egressOwner, srcNode})
+	fwd, ok := rules["acl-to-auto-relayed-eg#relayed-eg-fwd"]
+	if !ok {
+		t.Fatalf("expected relayed-eg-fwd for auto-relayed egress, got: %+v", rules)
+	}
+	dstSet := map[string]struct{}{}
+	for _, n := range fwd.Dst {
+		dstSet[n.String()] = struct{}{}
+	}
+	if _, ok := dstSet["10.90.0.0/24"]; !ok {
+		t.Fatalf("expected egress range on auto-relayed peer, got %v", fwd.Dst)
+	}
+}
+
 // TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules verifies
 // that when an acl.Src mixes EgressID + NodeID + NetmakerIPAclID (e.g. a
 // "site + device" policy that lets both a mesh device and an egress-LAN IP
@@ -2663,7 +2908,7 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode, nil)
 	rule, ok := rules["site-acl"]
 	if !ok {
 		t.Fatalf("expected peer-acl rule keyed by acl.ID for Uni site-to-site policy on dst-side node, got rules: %+v", rules)
@@ -2766,7 +3011,7 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		}
 	}
 
-	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode)
+	rules := GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &targetNode, nil)
 	rule, ok := rules["site-acl-missing-src-egress"]
 	if !ok {
 		t.Fatalf("expected acl rule, got: %+v", rules)
