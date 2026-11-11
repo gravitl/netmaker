@@ -511,7 +511,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 			// the same routes: one full extclient scan and policy prepare each, all
 			// but the first collapsed again by deduplicateEgressRoutes.
 			if peer.IsIngressGateway && !addedExtpeersExtraRoutes {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, node)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(ctx, g, node)...)
 				addedExtpeersExtraRoutes = true
 			}
 			allowedToComm := PeerAllowed(ctx, node, peer, defaultDevicePolicy.Enabled)
@@ -677,7 +677,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 						Network6:  node.NetworkRange6,
 						Rules:     GetFwRulesOnIngressGateway(ctx, node),
 					}
-					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, node)
+					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(ctx, g, node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)

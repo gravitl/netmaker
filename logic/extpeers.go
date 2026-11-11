@@ -591,8 +591,8 @@ func extClientEgressAllowed(ctx context.Context, node, extNode models.Node) bool
 	return ok
 }
 
-func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, ranges6 []net.IPNet) {
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
+func getExtpeerEgressRanges(ctx context.Context, g *PeerGraph, node models.Node) (ranges, ranges6 []net.IPNet) {
+	extPeers, err := g.NetworkExtClients(ctx, node.Network)
 	if err != nil {
 		return
 	}
@@ -620,8 +620,8 @@ func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, rang
 	return
 }
 
-func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
+func getExtpeersExtraRoutes(ctx context.Context, g *PeerGraph, node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
+	extPeers, err := g.NetworkExtClients(ctx, node.Network)
 	if err != nil {
 		return
 	}
