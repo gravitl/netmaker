@@ -1642,43 +1642,13 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "sync all hosts request received"
 func syncHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	user := r.Header.Get("user")
 
-	hosts, err := (&schema.Host{}).ListAll(r.Context())
+	err := mq.PublishPeerUpdate(r.Context(), true)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if logic.IsAPIKeyAuth(r.Context()) {
-		filtered := hosts[:0]
-		for _, host := range hosts {
-			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
-				filtered = append(filtered, host)
-			}
-		}
-		hosts = filtered
+		slog.Error("failed to request hosts to sync", "user", user, "error", err)
 	}
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context, hosts []schema.Host) {
-		slog.Info("requesting all hosts to sync", "user", user)
-
-		for _, host := range hosts {
-			go func(host schema.Host) {
-				hostUpdate := models.HostUpdate{
-					Action: models.RequestPull,
-					Host:   host,
-				}
-				if err := mq.HostUpdate(&hostUpdate); err != nil {
-					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
-				} else {
-					slog.Info("host sync requested", "user", user, "host", host.ID.String())
-				}
-			}(host)
-			time.Sleep(time.Millisecond * 100)
-		}
-	}(ctx, hosts)
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
