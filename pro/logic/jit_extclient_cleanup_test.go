@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestDisconnectUserExtClientsDisablesStaticConfigs(t *testing.T) {
+func TestDisconnectUserExtClientsLeavesStaticConfigsAlone(t *testing.T) {
 	t.Chdir(t.TempDir())
 	require.NoError(t, db.InitializeDB(schema.ListModels()...))
 	t.Cleanup(db.CloseDB)
@@ -54,7 +54,7 @@ func TestDisconnectUserExtClientsDisablesStaticConfigs(t *testing.T) {
 
 	got, err := logic.GetExtClient(ctx, "static-cfg", network.Name)
 	require.NoError(t, err, "static config file should be kept")
-	assert.False(t, got.Enabled, "static config should be disabled")
+	assert.True(t, got.Enabled, "static config should stay enabled; JIT does not apply")
 
 	_, err = logic.GetExtClient(ctx, "rac-client", network.Name)
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "RAC client should be deleted")

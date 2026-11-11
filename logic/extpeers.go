@@ -703,9 +703,9 @@ func IsRACExtClient(client models.ExtClient) bool {
 }
 
 // IsStaticConfigExtClient reports whether the ext client is an admin-managed
-// static WireGuard config file (no device / RAC id). On JIT expiry, IdP sync,
-// or group/network access loss these are disabled (not deleted) so the config
-// file remains but cannot be used until re-enabled.
+// static WireGuard config file (no device / RAC id). JIT never deletes or
+// disables these. On IdP sync or group/network access loss they are disabled
+// (not deleted) so the config remains but cannot be used until re-enabled.
 func IsStaticConfigExtClient(client models.ExtClient) bool {
 	return !IsRACExtClient(client)
 }
