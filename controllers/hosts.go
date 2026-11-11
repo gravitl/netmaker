@@ -234,7 +234,15 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query().Get("q")
-	notInNetworks := r.URL.Query()["not_in_network"]
+	var notInNetworkIDs []string
+	for _, name := range r.URL.Query()["not_in_network"] {
+		network := &schema.Network{Name: name}
+		err := network.Get(r.Context())
+		if err != nil {
+			continue
+		}
+		notInNetworkIDs = append(notInNetworkIDs, network.ID)
+	}
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -251,7 +259,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
-		schema.ExcludeHostsInNetworks(r.Context(), notInNetworks...),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -271,7 +279,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
-		schema.ExcludeHostsInNetworks(r.Context(), notInNetworks...),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
