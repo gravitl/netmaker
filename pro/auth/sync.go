@@ -699,6 +699,11 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 					continue
 				}
 				if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
+					// Keep the config file but disable it so it cannot be used.
+					changed, err := logic.DisableExtClient(ctx, &extclient)
+					if err == nil && changed {
+						_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
+					}
 					continue
 				}
 				if err := logic.DeleteExtClient(ctx, extclient); err == nil {

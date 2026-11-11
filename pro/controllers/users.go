@@ -1293,19 +1293,15 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.OwnerID != user.Username || remoteGwID != extclient.IngressGatewayID {
-				continue
-			}
-			if logic.IsStaticConfigExtClient(extclient) {
-				continue
-			}
-			err = logic.DeleteExtClient(ctx, extclient)
-			if err != nil {
-				slog.Error("failed to delete extclient",
-					"id", extclient.ClientID, "owner", user.Username, "error", err)
-			} else {
-				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-					slog.Error("error setting ext peers: " + err.Error())
+			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
+				err = logic.DeleteExtClient(ctx, extclient)
+				if err != nil {
+					slog.Error("failed to delete extclient",
+						"id", extclient.ClientID, "owner", user.Username, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
 				}
 			}
 		}

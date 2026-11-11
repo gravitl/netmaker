@@ -726,7 +726,7 @@ func extClientFromClientApp(client models.ExtClient) bool {
 
 // DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
 // a JIT grant under the given network configuration. Admin-managed config files (no device/
-// remote_access_client id) are kept.
+// remote_access_client id) are disabled so they cannot be used without a grant.
 func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
@@ -734,9 +734,6 @@ func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schem
 	}
 
 	for _, client := range extClients {
-		if !extClientFromClientApp(client) {
-			continue
-		}
 		owner := &schema.User{Username: client.OwnerID}
 		ownerErr := owner.Get(ctx)
 		var ownerPtr *schema.User
@@ -744,6 +741,22 @@ func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schem
 			ownerPtr = owner
 		}
 		if !userMustSatisfyJIT(network, ownerPtr) {
+			continue
+		}
+
+		// Keep admin-managed static configs but disable them; delete RAC/app clients.
+		if !extClientFromClientApp(client) {
+			clientCopy := client
+			changed, err := logic.DisableExtClient(ctx, &clientCopy)
+			if err != nil {
+				slog.Warn("failed to disable static ext client when enabling JIT",
+					"client_id", client.ClientID, "network", network.Name, "error", err)
+			} else if changed {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
+					slog.Warn("failed to publish disabled static client peer update",
+						"client_id", client.ClientID, "error", err)
+				}
+			}
 			continue
 		}
 
@@ -847,11 +860,24 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 		if client.OwnerID != userID {
 			continue
 		}
-		// Keep admin-managed static config files; only tear down RAC/app clients.
+		clientCopy := client
+		// Keep admin-managed static configs but disable them so they cannot be
+		// used without a grant; tear down RAC/app clients.
 		if !logic.IsRACExtClient(client) {
+			changed, err := logic.DisableExtClient(ctx, &clientCopy)
+			if err != nil {
+				slog.Warn("failed to disable static ext client after JIT ended",
+					"client_id", client.ClientID, "error", err)
+				continue
+			}
+			if changed {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
+					slog.Warn("failed to publish disabled static client peer update",
+						"client_id", client.ClientID, "error", err)
+				}
+			}
 			continue
 		}
-		clientCopy := client
 		if err := logic.DeleteExtClient(ctx, client); err != nil {
 			slog.Warn("failed to delete ext client after JIT ended",
 				"client_id", client.ClientID, "error", err)

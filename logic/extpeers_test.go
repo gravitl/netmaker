@@ -182,6 +182,30 @@ func TestIsRACExtClient(t *testing.T) {
 	assert.False(t, IsStaticConfigExtClient(models.ExtClient{DeviceID: "dev-1"}))
 }
 
+func TestDisableExtClient(t *testing.T) {
+	ctx := extClientTestCtx("tenant-1")
+	network := createExtClientTestNetwork(t, ctx, "extclient-disable-net")
+
+	extclient := newTestExtClient("client-disable", network.Name)
+	extclient.DeviceID = ""
+	extclient.RemoteAccessClientID = ""
+	extclient.Enabled = true
+	require.NoError(t, SaveExtClient(ctx, extclient))
+
+	changed, err := DisableExtClient(ctx, extclient)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.False(t, extclient.Enabled)
+
+	got, err := GetExtClient(ctx, "client-disable", network.Name)
+	require.NoError(t, err)
+	assert.False(t, got.Enabled)
+
+	changed, err = DisableExtClient(ctx, &got)
+	require.NoError(t, err)
+	assert.False(t, changed, "already disabled is a no-op")
+}
+
 func TestDeleteExtClient(t *testing.T) {
 	ctx := extClientTestCtx("tenant-1")
 	network := createExtClientTestNetwork(t, ctx, "extclient-delete-net")

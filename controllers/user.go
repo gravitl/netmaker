@@ -1981,11 +1981,20 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			if extclient.OwnerID != user.Username {
 				continue
 			}
-			if logic.IsStaticConfigExtClient(extclient) {
-				continue
-			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
+				if logic.IsStaticConfigExtClient(extclient) {
+					changed, err := logic.DisableExtClient(ctx, &extclient)
+					if err != nil {
+						slog.Error("failed to disable static extclient",
+							"id", extclient.ClientID, "owner", user.Username, "error", err)
+					} else if changed {
+						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+							slog.Error("error setting ext peers: " + err.Error())
+						}
+					}
+					continue
+				}
 				err = logic.DeleteExtClient(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",

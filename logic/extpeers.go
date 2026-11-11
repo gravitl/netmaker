@@ -692,16 +692,32 @@ func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, only
 
 // IsRACExtClient reports whether the ext client was created by the remote
 // access / desktop client app (has a device or RAC id). Admin-managed static
-// WireGuard config files have neither and should not be auto-deleted on JIT
-// expiry, IdP user removal, or group/network access loss.
+// WireGuard config files have neither.
 func IsRACExtClient(client models.ExtClient) bool {
 	return client.DeviceID != "" || client.RemoteAccessClientID != ""
 }
 
 // IsStaticConfigExtClient reports whether the ext client is an admin-managed
-// static WireGuard config file (no device / RAC id).
+// static WireGuard config file (no device / RAC id). On JIT expiry, IdP sync,
+// or group/network access loss these are disabled (not deleted) so the config
+// file remains but cannot be used until re-enabled.
 func IsStaticConfigExtClient(client models.ExtClient) bool {
 	return !IsRACExtClient(client)
+}
+
+// DisableExtClient disables an ext client without deleting it. No-op if
+// already disabled. Callers should publish a deleted-client peer update when
+// changed is true so gateways drop the peer.
+func DisableExtClient(ctx context.Context, client *models.ExtClient) (changed bool, err error) {
+	if client == nil || !client.Enabled {
+		return false, nil
+	}
+	updated, err := ToggleExtClientConnectivity(ctx, client, false)
+	if err != nil {
+		return false, err
+	}
+	*client = updated
+	return true, nil
 }
 
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
