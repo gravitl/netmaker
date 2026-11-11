@@ -198,6 +198,7 @@ func (g *PeerGraph) HostPeerInfo(ctx context.Context, host *schema.Host) (models
 					Name:       peerHost.Name,
 					Network:    peer.Network,
 					ListenPort: peerHost.ListenPort,
+					UserName:   peerHost.OwnerUsername,
 				}
 			}
 		}
@@ -644,6 +645,7 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 					Name:                    peerHost.Name,
 					Network:                 peer.Network,
 					ListenPort:              peerHost.ListenPort,
+					UserName:                peerHost.OwnerUsername,
 					TcpProxyEndpoint:        tcpProxyEndpointForPeer(&peer, peerHost, host),
 					TcpProxyCertFingerprint: tcpProxyCertFingerprintForPeer(&peer, peerHost),
 				}
