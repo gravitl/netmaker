@@ -871,41 +871,51 @@ func UpdatesUserGwAccessOnRoleUpdates(ctx context.Context, currNetworkAccess,
 		if extclient.Network != netID {
 			continue
 		}
+		var (
+			shouldRevoke bool
+			ownerName    string
+		)
 		if _, ok := networkChangeMap[schema.AllRemoteAccessGwRsrcID]; ok {
 			if user, ok := userMap[extclient.OwnerID]; ok {
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClient(ctx, extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
-					}
-				}
+				shouldRevoke = true
+				ownerName = user.Username
 			}
-			continue
-		}
-		if _, ok := networkChangeMap[schema.RsrcID(extclient.IngressGatewayID)]; ok {
+		} else if _, ok := networkChangeMap[schema.RsrcID(extclient.IngressGatewayID)]; ok {
 			if user, ok := userMap[extclient.OwnerID]; ok {
 				if user.PlatformRoleID != schema.ServiceUser {
 					continue
 				}
-				err = logic.DeleteExtClient(ctx, extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
-					}
+				shouldRevoke = true
+				ownerName = user.Username
+			}
+		}
+		if !shouldRevoke {
+			continue
+		}
+		if logic.IsStaticConfigExtClient(extclient) {
+			changed, err := logic.DisableExtClient(ctx, &extclient)
+			if err != nil {
+				slog.Error("failed to disable static extclient",
+					"id", extclient.ClientID, "owner", ownerName, "error", err)
+			} else if changed {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
-
+			continue
 		}
-
+		err = logic.DeleteExtClient(ctx, extclient)
+		if err != nil {
+			slog.Error("failed to delete extclient",
+				"id", extclient.ClientID, "owner", ownerName, "error", err)
+		} else {
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+				slog.Error("error setting ext peers: " + err.Error())
+			}
+		}
 	}
 }
 
@@ -931,30 +941,43 @@ func UpdatesUserGwAccessOnGrpUpdates(ctx context.Context, groupID schema.UserGro
 	}
 
 	for _, extclient := range extclients {
-		var shouldDelete bool
+		var shouldRevoke bool
 		user, ok := userMap[extclient.OwnerID]
 		if !ok {
-			// user does not exist, delete extclient.
-			shouldDelete = true
+			// user does not exist, revoke extclient access.
+			shouldRevoke = true
 		} else {
 			_, userInGroup := user.UserGroups.Data()[groupID]
 			_, networkRemoved := networkRemovedMap[schema.NetworkID(extclient.Network)]
 			_, allNetworkAccessRemoved := networkRemovedMap[schema.AllNetworks]
 			if userInGroup && (networkRemoved || allNetworkAccessRemoved) &&
 				!UserHasNetworkGroupAccess(ctx, &user, extclient.Network) {
-				shouldDelete = true
+				shouldRevoke = true
 			}
 		}
 
-		if shouldDelete {
-			err = logic.DeleteExtClient(ctx, extclient)
+		if !shouldRevoke {
+			continue
+		}
+		if logic.IsStaticConfigExtClient(extclient) {
+			changed, err := logic.DisableExtClient(ctx, &extclient)
 			if err != nil {
-				slog.Error("failed to delete extclient",
+				slog.Error("failed to disable static extclient",
 					"id", extclient.ClientID, "owner", user.Username, "error", err)
-			} else {
+			} else if changed {
 				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
 					slog.Error("error setting ext peers: " + err.Error())
 				}
+			}
+			continue
+		}
+		err = logic.DeleteExtClient(ctx, extclient)
+		if err != nil {
+			slog.Error("failed to delete extclient",
+				"id", extclient.ClientID, "owner", user.Username, "error", err)
+		} else {
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+				slog.Error("error setting ext peers: " + err.Error())
 			}
 		}
 	}
@@ -1022,19 +1045,32 @@ func UpdateUserGwAccess(ctx context.Context, currentUser, changeUser *schema.Use
 		return
 	}
 	for _, extclient := range extclients {
-		if extclient.OwnerID == currentUser.Username {
-			if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; ok {
-				err = logic.DeleteExtClient(ctx, extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
-				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
-					}
+		if extclient.OwnerID != currentUser.Username {
+			continue
+		}
+		if _, ok := networkChangeMap[schema.NetworkID(extclient.Network)]; !ok {
+			continue
+		}
+		if logic.IsStaticConfigExtClient(extclient) {
+			changed, err := logic.DisableExtClient(ctx, &extclient)
+			if err != nil {
+				slog.Error("failed to disable static extclient",
+					"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
+			} else if changed {
+				if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+					slog.Error("error setting ext peers: " + err.Error())
 				}
 			}
-
+			continue
+		}
+		err = logic.DeleteExtClient(ctx, extclient)
+		if err != nil {
+			slog.Error("failed to delete extclient",
+				"id", extclient.ClientID, "owner", changeUser.Username, "error", err)
+		} else {
+			if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+				slog.Error("error setting ext peers: " + err.Error())
+			}
 		}
 	}
 }

@@ -173,6 +173,101 @@ func TestGetNetworkAndAllExtClients(t *testing.T) {
 	assert.Equal(t, "tenant-list-other", all[0].TenantID)
 }
 
+func TestIsRACExtClient(t *testing.T) {
+	assert.True(t, IsRACExtClient(models.ExtClient{DeviceID: "dev-1"}))
+	assert.True(t, IsRACExtClient(models.ExtClient{RemoteAccessClientID: "rac-1"}))
+	assert.True(t, IsRACExtClient(models.ExtClient{DeviceID: "dev-1", RemoteAccessClientID: "rac-1"}))
+	assert.False(t, IsRACExtClient(models.ExtClient{}))
+	assert.True(t, IsStaticConfigExtClient(models.ExtClient{}))
+	assert.False(t, IsStaticConfigExtClient(models.ExtClient{DeviceID: "dev-1"}))
+}
+
+func TestDisableExtClient(t *testing.T) {
+	ctx := extClientTestCtx("tenant-1")
+	network := createExtClientTestNetwork(t, ctx, "extclient-disable-"+uuid.NewString()[:8])
+
+	extclient := newTestExtClient("client-disable", network.Name)
+	extclient.DeviceID = ""
+	extclient.RemoteAccessClientID = ""
+	extclient.Enabled = true
+	require.NoError(t, SaveExtClient(ctx, extclient))
+
+	changed, err := DisableExtClient(ctx, extclient)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.False(t, extclient.Enabled)
+
+	got, err := GetExtClient(ctx, "client-disable", network.Name)
+	require.NoError(t, err)
+	assert.False(t, got.Enabled)
+
+	changed, err = DisableExtClient(ctx, &got)
+	require.NoError(t, err)
+	assert.False(t, changed, "already disabled is a no-op")
+}
+
+func TestDisableExtClientPreservesPostUpPostDown(t *testing.T) {
+	ctx := extClientTestCtx("tenant-1")
+	network := createExtClientTestNetwork(t, ctx, "extclient-disable-post-"+uuid.NewString()[:8])
+
+	extclient := newTestExtClient("client-disable-post", network.Name)
+	extclient.DeviceID = ""
+	extclient.RemoteAccessClientID = ""
+	extclient.Enabled = true
+	extclient.PostUp = "iptables -A FORWARD -j ACCEPT"
+	extclient.PostDown = "iptables -D FORWARD -j ACCEPT"
+	require.NoError(t, SaveExtClient(ctx, extclient))
+
+	changed, err := DisableExtClient(ctx, extclient)
+	require.NoError(t, err)
+	assert.True(t, changed)
+
+	disabled, err := GetExtClient(ctx, "client-disable-post", network.Name)
+	require.NoError(t, err)
+	assert.False(t, disabled.Enabled)
+	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", disabled.PostUp)
+	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", disabled.PostDown)
+
+	reenabled, err := ToggleExtClientConnectivity(ctx, &disabled, true)
+	require.NoError(t, err)
+	assert.True(t, reenabled.Enabled)
+	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", reenabled.PostUp)
+	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", reenabled.PostDown)
+
+	got, err := GetExtClient(ctx, "client-disable-post", network.Name)
+	require.NoError(t, err)
+	assert.True(t, got.Enabled)
+	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", got.PostUp)
+	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", got.PostDown)
+}
+
+func TestUpdateExtClientPreservesPostUpPostDownWhenOmitted(t *testing.T) {
+	old := models.ExtClient{
+		ClientID: "client-1",
+		Enabled:  true,
+		PostUp:   "iptables -A FORWARD -j ACCEPT",
+		PostDown: "iptables -D FORWARD -j ACCEPT",
+		DNS:      "1.1.1.1",
+	}
+	updated := UpdateExtClient(&old, &models.CustomExtClient{
+		ClientID:  "client-1-renamed",
+		PublicKey: "pub",
+		Enabled:   false,
+	})
+	assert.Equal(t, "client-1-renamed", updated.ClientID)
+	assert.False(t, updated.Enabled)
+	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", updated.PostUp)
+	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", updated.PostDown)
+
+	withScripts := UpdateExtClient(&old, &models.CustomExtClient{
+		ClientID: "client-1",
+		PostUp:   "echo up\r\necho up2",
+		PostDown: "echo down\r\necho down2",
+	})
+	assert.Equal(t, "echo up\necho up2", withScripts.PostUp)
+	assert.Equal(t, "echo down\necho down2", withScripts.PostDown)
+}
+
 func TestDeleteExtClient(t *testing.T) {
 	ctx := extClientTestCtx("tenant-1")
 	network := createExtClientTestNetwork(t, ctx, "extclient-delete-net")

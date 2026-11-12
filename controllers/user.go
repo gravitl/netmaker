@@ -1983,6 +1983,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
+				if logic.IsStaticConfigExtClient(extclient) {
+					changed, err := logic.DisableExtClient(ctx, &extclient)
+					if err != nil {
+						slog.Error("failed to disable static extclient",
+							"id", extclient.ClientID, "owner", user.Username, "error", err)
+					} else if changed {
+						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+							slog.Error("error setting ext peers: " + err.Error())
+						}
+					}
+					continue
+				}
 				err = logic.DeleteExtClient(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
@@ -2160,7 +2172,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 			if extclient.OwnerID != username {
 				continue
 			}
-			if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+			if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
 				// only delete wireguard configs on force
 				continue
 			}
