@@ -24,25 +24,6 @@ import (
 )
 
 var (
-	// ResetAutoRelay - function to reset autorelayed peers on this node
-	ResetAutoRelay = func(ctx context.Context, autoRelayNode *models.Node) error {
-		return nil
-	}
-	// ResetAutoRelayedPeer - removes relayed peers for node
-	ResetAutoRelayedPeer = func(ctx context.Context, failedOverNode *models.Node) error {
-		return nil
-	}
-	// GetAutoRelayPeerIps - gets autorelay peerips
-	GetAutoRelayPeerIps = func(ctx context.Context, g *PeerGraph, peer, node *models.Node) []net.IPNet {
-		return []net.IPNet{}
-	}
-	// SetAutoRelay - sets autorelay flag on the node
-	SetAutoRelay = func(node *models.Node) {
-		node.IsAutoRelay = false
-	}
-)
-
-var (
 	hostPeerInfoCache   map[string]map[string]models.HostPeerInfo
 	hostPeerInfoCacheMu sync.RWMutex
 )

@@ -61,7 +61,6 @@ func InitPro() {
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
-		proControllers.AutoRelayHandlers,
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
@@ -150,11 +149,6 @@ func InitPro() {
 		}
 		go proLogic.EventWatcher()
 	})
-
-	logic.ResetAutoRelay = proLogic.ResetAutoRelay
-	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
-	logic.SetAutoRelay = proLogic.SetAutoRelay
-	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
