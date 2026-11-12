@@ -222,6 +222,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	}
 
 	node.IsGateway = true
+	node.IsAutoRelay = "yes"
 
 	if ops.setTcpProxy && ops.tcpProxyEnabled {
 		listenPort := ops.tcpProxyListenPort
@@ -284,8 +285,6 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			logger.Log(1, "failed to send host update after gateway creation", host.ID.String(), err.Error())
 		}
 	}(*node.Host)
-
-	n.nodeExt.ConfigureAutoRelay(node)
 
 	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
 
