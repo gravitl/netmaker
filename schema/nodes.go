@@ -549,6 +549,13 @@ func (n *Node) ResetAutoAssignGateway(ctx context.Context) error {
 		Error
 }
 
+func (n *Node) SetAutoRelayedPeer(ctx context.Context, peerID, autoRelayGwID string) error {
+	return db.FromContext(ctx).Model(&Node{}).
+		Where("id = ?", n.ID).
+		UpdateColumn("auto_relayed_peers", expr.Set("auto_relayed_peers", peerID, autoRelayGwID)).
+		Error
+}
+
 func (n *Node) ResetAutoRelayedPeers(ctx context.Context) error {
 	if n.NetworkID == "" {
 		return fmt.Errorf("network_id not set")

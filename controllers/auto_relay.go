@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -17,17 +16,15 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
-// AutoRelayHandlers - handlers for AutoRelay
-func AutoRelayHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
+// autoRelayHandlers - handlers for AutoRelay
+func autoRelayHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(setAutoRelay)))).
 		Methods(http.MethodPost)
@@ -35,11 +32,11 @@ func AutoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/node/{network}/auto_relay/reset", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetAutoRelayGw)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayME)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(autoRelayME)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listAutoRelayedPeers)))).
 		Methods(http.MethodGet)
@@ -63,7 +60,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	autoRelayNodes := proLogic.DoesAutoRelayExist(r.Context(), node.Network)
+	autoRelayNodes := logic.DoesAutoRelayExist(r.Context(), node.Network)
 	if len(autoRelayNodes) == 0 {
 		logic.ReturnErrorResponse(
 			w,
@@ -219,7 +216,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateAutoRelay(node)
+	err = logic.CreateAutoRelay(node)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -299,12 +296,9 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if servercfg.CacheEnabled() {
-		proLogic.RemoveAutoRelayFromCache(node.Network)
-	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		proLogic.ResetAutoRelay(ctx, &node)
+		logic.ResetAutoRelay(ctx, &node)
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 	w.Header().Set("Content-Type", "application/json")
@@ -325,21 +319,14 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-	// confirm host exists
-	node, err := logic.GetNodeByID(nodeid)
+	_node := &schema.Node{ID: nodeid}
+	err := _node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+	node := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _node, logic.SkipViolations())
 	var autoRelayReq models.AutoRelayMeReq
 	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
 	if err != nil {
@@ -348,24 +335,26 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	_autoRelayNode := &schema.Node{ID: autoRelayReq.AutoRelayGwID}
+	err = _autoRelayNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", host.Name),
+				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", _node.Host.Name),
 				"badrequest",
 			),
 		)
 		return
 	}
+	autoRelayNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _autoRelayNode, logic.SkipViolations())
 	if !autoRelayNode.Connected {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
+				fmt.Errorf("req-from: %s, autorelay node is disconnected", _node.Host.Name),
 				"badrequest",
 			),
 		)
@@ -373,7 +362,8 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sendPeerUpdate bool
-	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+	_peerNode := &schema.Node{ID: autoRelayReq.NodeID}
+	err = _peerNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
 		logic.ReturnErrorResponse(
@@ -383,6 +373,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	peerNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _peerNode, logic.SkipViolations())
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
 	acls := logic.ListNetworkAccessAcls(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
@@ -478,7 +469,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.SetAutoRelayCtx(autoRelayNode, node, peerNode)
+	err = logic.SetAutoRelayCtx(r.Context(), autoRelayNode, node, peerNode)
 	if err != nil {
 		slog.Debug("failed to create autorelay", "id", node.ID.String(),
 			"network", node.Network, "error", err)
@@ -522,26 +513,19 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-	// confirm host exists
-	node, err := logic.GetNodeByID(nodeid)
+	_node := &schema.Node{ID: nodeid}
+	err := _node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	node := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _node, logic.SkipViolations())
 	if err = logic.ErrExitNodeBlocksAutoRelay(&node); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if err = logic.ErrExitNodeBlocksGatewayOps(&node); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -560,18 +544,23 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				_node := &schema.Node{
 					ID: node.ID.String(),
 				}
-				err = _node.Get(r.Context())
-				if err == nil {
-					_node.RelayedByNodeID = nil
-					_node.IsIGWClient = false
-					err = _node.UnassignGateway(r.Context())
-					if err == nil {
-						node = *logic.ConvertSchemaNodeToModelsNode(_node)
-					}
+				err := _node.Get(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+					return
 				}
+				_node.RelayedByNodeID = nil
+				_node.IsIGWClient = false
+				err = _node.UnassignGateway(r.Context())
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to unassign gw: %v", err), logic.Internal))
+					return
+				}
+				node = *logic.ConvertSchemaNodeToModelsNode(_node)
 			}
 		} else {
-			peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+			_peerNode := &schema.Node{ID: autoRelayReq.NodeID}
+			err := _peerNode.Get(r.Context(), dbtypes.WithAllPreloads())
 			if err != nil {
 				slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
 				logic.ReturnErrorResponse(
@@ -581,6 +570,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				)
 				return
 			}
+			peerNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _peerNode, logic.SkipViolations())
 			delete(node.AutoRelayedPeers, peerNode.ID.String())
 			delete(peerNode.AutoRelayedPeers, node.ID.String())
 			logic.UpsertNode(&node)
@@ -591,6 +581,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 			return
 		}
+		host := _node.Host
 		g, err := logic.LoadPeerGraph(r.Context())
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil)
@@ -601,24 +592,26 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 		return
 	}
-	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	_autoRelayNode := &schema.Node{ID: autoRelayReq.AutoRelayGwID}
+	err = _autoRelayNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", host.Name),
+				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", _node.Host.Name),
 				"badrequest",
 			),
 		)
 		return
 	}
+	autoRelayNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _autoRelayNode, logic.SkipViolations())
 	if !autoRelayNode.Connected {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node is disconnected", host.Name),
+				fmt.Errorf("req-from: %s, autorelay node is disconnected", _node.Host.Name),
 				"badrequest",
 			),
 		)
@@ -663,7 +656,8 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponse(w, r, "relayed successfully")
 		return
 	}
-	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+	_peerNode := &schema.Node{ID: autoRelayReq.NodeID}
+	err = _peerNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
 		logic.ReturnErrorResponse(
@@ -673,6 +667,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	peerNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _peerNode, logic.SkipViolations())
 	if err = logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -726,21 +721,14 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-	// confirm host exists
-	node, err := logic.GetNodeByID(nodeid)
+	_node := &schema.Node{ID: nodeid}
+	err := _node.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+	node := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _node, logic.SkipViolations())
 	var autoRelayReq models.AutoRelayMeReq
 	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
 	if err != nil {
@@ -748,20 +736,23 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	_autoRelayNode := &schema.Node{ID: autoRelayReq.AutoRelayGwID}
+	err = _autoRelayNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(
-				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", host.Name),
+				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", _node.Host.Name),
 				"badrequest",
 			),
 		)
 		return
 	}
+	autoRelayNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _autoRelayNode, logic.SkipViolations())
 
-	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+	_peerNode := &schema.Node{ID: autoRelayReq.NodeID}
+	err = _peerNode.Get(r.Context(), dbtypes.WithAllPreloads())
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
 		logic.ReturnErrorResponse(
@@ -771,6 +762,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	peerNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _peerNode, logic.SkipViolations())
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
 	acls := logic.ListNetworkAccessAcls(r.Context(), schema.NetworkID(node.Network))
 	logic.GetNodeEgressInfo(&node, eli, acls)
@@ -873,7 +865,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = proLogic.CheckAutoRelayCtx(autoRelayNode, node, peerNode)
+	err = logic.CheckAutoRelayCtx(autoRelayNode, node, peerNode)
 	if err != nil {
 		slog.Error("autorelay ctx cannot be set ", "error", err)
 		logic.ReturnErrorResponse(
