@@ -15,9 +15,33 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+var ErrAutoRelayAlreadySet = errors.New("auto relay ctx is already set")
+
 var autoRelayCtxMutex = &sync.RWMutex{}
 var autoRelayCacheMutex = &sync.RWMutex{}
 var autoRelayCache = make(map[schema.NetworkID][]string)
+
+// AllowSignalHost / AllowAutoRelayMe live in logic (CE) so host-update can rate-limit
+// without importing pro. Re-export for pro controllers.
+var (
+	AllowSignalHost  = logic.AllowSignalHost
+	AllowAutoRelayMe = logic.AllowAutoRelayMe
+)
+
+// AutoRelayPairAlreadySet reports whether victim↔peer already share the same auto-relay GW.
+func AutoRelayPairAlreadySet(victim, peer models.Node, gwID string) bool {
+	if gwID == "" || victim.AutoRelayedPeers == nil || peer.AutoRelayedPeers == nil {
+		return false
+	}
+	return victim.AutoRelayedPeers[peer.ID.String()] == gwID &&
+		peer.AutoRelayedPeers[victim.ID.String()] == gwID
+}
+
+// IsAutoRelayPairWriter is true for the node with the lexicographically lower ID.
+// Only that side persists the pairing so dual POSTs do not double-write.
+func IsAutoRelayPairWriter(nodeID, peerID string) bool {
+	return nodeID <= peerID
+}
 
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
@@ -70,7 +94,7 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 		victimNode.Mutex.Unlock()
 	}
 	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
-		return errors.New("auto relay ctx is already set")
+		return ErrAutoRelayAlreadySet
 	}
 	return nil
 }
@@ -107,7 +131,7 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 		victimNode.Mutex.Unlock()
 	}
 	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
-		return errors.New("auto relay ctx is already set")
+		return ErrAutoRelayAlreadySet
 	}
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Lock()
@@ -231,7 +255,9 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 	return nil
 }
 
-// GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
+// GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer.
+// Egress/ACL lists are taken from the PeerGraph network policy cache so a
+// peer-update does not re-list them for every auto-relay peer.
 func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	relaysViaPeer := false
@@ -244,9 +270,16 @@ func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *mo
 	if !relaysViaPeer {
 		return allowedips
 	}
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
-	acls := logic.ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
-	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	var eli []schema.Egress
+	var acls []models.Acl
+	var defaultPolicy models.Acl
+	if g != nil {
+		eli, acls, defaultPolicy = g.NetworkPolicy(ctx, node.Network)
+	} else {
+		eli, _ = (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+		acls = logic.ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
+		defaultPolicy, _ = logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	}
 	bypass := logic.SelectedInternetEgressBypasses(node)
 	viewerIsSpecificEgress := logic.PeerAdvertisesSpecificEgress(node)
 	inetExitRouterIDs := logic.InternetEgressRoutingNodeIDsFromList(eli)

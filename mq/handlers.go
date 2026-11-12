@@ -200,6 +200,14 @@ func SignalPeer(signal models.Signal) {
 	if err != nil {
 		return
 	}
+	fromHostID := signal.FromHostID
+	if fromHostID == "" {
+		fromHostID = node.HostID.String()
+	}
+	if !logic.AllowSignalHost(fromHostID) {
+		slog.Debug("signal peer rate limited", "from_host", fromHostID)
+		return
+	}
 	peer, err := logic.GetNodeByID(signal.ToNodeID)
 	if err != nil {
 		return

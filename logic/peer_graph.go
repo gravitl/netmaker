@@ -10,10 +10,19 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+// networkPolicyCache holds egress + ACL lists loaded once per network for a
+// PeerGraph lifetime (avoids re-listing on every GetAutoRelayPeerIps call).
+type networkPolicyCache struct {
+	eli                  []schema.Egress
+	acls                 []models.Acl
+	defaultDevicePolicy  models.Acl
+	defaultDeviceLoaded  bool
+}
+
 // PeerGraph is a tenant's hosts and nodes loaded once, used to compute peer
 // updates for many hosts without a DB query per (host, peer) pair.
-// It is read-only after construction, apart from ext clients loaded on first
-// successful use, and safe for concurrent use.
+// It is read-only after construction, apart from ext clients and per-network
+// policy caches loaded on first use, and safe for concurrent use.
 type PeerGraph struct {
 	hosts map[uuid.UUID]*schema.Host
 	// byNetwork holds the only copy of the node data; nodes points into it.
@@ -23,6 +32,9 @@ type PeerGraph struct {
 	extClientsMu        sync.Mutex
 	extClients          map[string][]models.ExtClient // by ingress gateway node ID
 	extClientsByNetwork map[string][]models.ExtClient // by network
+
+	netPolicyMu sync.Mutex
+	netPolicy   map[string]*networkPolicyCache // by network name
 }
 
 // loadExtClientsLocked loads the tenant's ext clients once and indexes them
@@ -131,4 +143,27 @@ func (g *PeerGraph) GatewayExtClients(ctx context.Context, gatewayID string) ([]
 		return nil, err
 	}
 	return slices.Clone(g.extClients[gatewayID]), nil
+}
+
+// NetworkPolicy returns egress + ACL lists for the network, loading them once
+// per PeerGraph so GetAutoRelayPeerIps does not re-list on every peer.
+func (g *PeerGraph) NetworkPolicy(ctx context.Context, network string) (eli []schema.Egress, acls []models.Acl, defaultDevicePolicy models.Acl) {
+	g.netPolicyMu.Lock()
+	defer g.netPolicyMu.Unlock()
+	if g.netPolicy == nil {
+		g.netPolicy = make(map[string]*networkPolicyCache)
+	}
+	if cached, ok := g.netPolicy[network]; ok {
+		return cached.eli, cached.acls, cached.defaultDevicePolicy
+	}
+	eli, _ = (&schema.Egress{Network: network}).ListByNetwork(ctx)
+	acls = ListNetworkAccessAcls(ctx, schema.NetworkID(network))
+	defaultDevicePolicy, _ = GetDefaultPolicy(ctx, schema.NetworkID(network), models.DevicePolicy)
+	g.netPolicy[network] = &networkPolicyCache{
+		eli:                 eli,
+		acls:                acls,
+		defaultDevicePolicy: defaultDevicePolicy,
+		defaultDeviceLoaded: true,
+	}
+	return eli, acls, defaultDevicePolicy
 }

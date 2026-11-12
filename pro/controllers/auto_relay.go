@@ -340,6 +340,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !logic.AllowAutoRelayMe(host.ID.String()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("auto_relay_me rate limited"), "badrequest"))
+		return
+	}
 	var autoRelayReq models.AutoRelayMeReq
 	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
 	if err != nil {
@@ -372,7 +376,6 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sendPeerUpdate bool
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
@@ -381,6 +384,16 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(errors.New("peer not found"), "badrequest"),
 		)
+		return
+	}
+	// Cheap path: pairing already exists — no egress/ACL reload or peer publish.
+	if proLogic.AutoRelayPairAlreadySet(node, peerNode, autoRelayReq.AutoRelayGwID) {
+		logic.ReturnSuccessResponse(w, r, "already relayed")
+		return
+	}
+	// One writer per pair: only the lower node ID persists; the peer's POST is a no-op.
+	if !proLogic.IsAutoRelayPairWriter(node.ID.String(), peerNode.ID.String()) {
+		logic.ReturnSuccessResponse(w, r, "accepted; peer is pair writer")
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(r.Context())
@@ -480,6 +493,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	}
 	err = proLogic.SetAutoRelayCtx(autoRelayNode, node, peerNode)
 	if err != nil {
+		if errors.Is(err, proLogic.ErrAutoRelayAlreadySet) {
+			logic.ReturnSuccessResponse(w, r, "already relayed")
+			return
+		}
 		slog.Debug("failed to create autorelay", "id", node.ID.String(),
 			"network", node.Network, "error", err)
 		logic.ReturnErrorResponse(
@@ -496,13 +513,10 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		"network",
 		node.Network,
 	)
-	sendPeerUpdate = true
 
-	if sendPeerUpdate {
-		// only the paired nodes' configs change; skip the full mesh recompute
-		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		mq.PublishPeerUpdateToHosts(ctx, node.HostID, peerNode.HostID)
-	}
+	// only the paired nodes' configs change; skip the full mesh recompute
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	mq.PublishPeerUpdateToHosts(ctx, node.HostID, peerNode.HostID)
 
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
@@ -543,6 +557,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !logic.AllowAutoRelayMe(host.ID.String()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("auto_relay_me rate limited"), "badrequest"))
 		return
 	}
 	var autoRelayReq models.AutoRelayMeReq
@@ -689,9 +707,8 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	if peerNode.AutoRelayedPeers == nil {
 		peerNode.AutoRelayedPeers = make(map[string]string)
 	}
-	if node.AutoRelayedPeers[peerNode.ID.String()] == autoRelayReq.AutoRelayGwID &&
-		peerNode.AutoRelayedPeers[node.ID.String()] == autoRelayReq.AutoRelayGwID {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("already using requested relay node"), "badrequest"))
+	if proLogic.AutoRelayPairAlreadySet(node, peerNode, autoRelayReq.AutoRelayGwID) {
+		logic.ReturnSuccessResponse(w, r, "already using requested relay node")
 		return
 	}
 	node.AutoRelayedPeers[peerNode.ID.String()] = autoRelayReq.AutoRelayGwID

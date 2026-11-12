@@ -710,6 +710,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}
 		sendPeerUpdate = true
 	case models.SignalHost:
+		// Rate limit is enforced inside mq.SignalPeer (covers HTTP + MQTT paths).
 		mq.SignalPeer(hostUpdate.Signal)
 	case models.DeleteHost:
 		go mq.DeleteAndCleanupHost(currentHost)
