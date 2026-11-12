@@ -60,7 +60,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdminOrAuditor(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
