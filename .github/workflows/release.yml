@@ -10,6 +10,12 @@ on:
         description: "new version number"
         required: true
 
+permissions:
+  # The release workflow pushes the release branch and tag, publishes
+  # the release and opens the pull request to master.
+  contents: write
+  pull-requests: write
+
 jobs:
 
   release:
