@@ -10,10 +10,6 @@ import (
 
 type ProNodeExtensions struct{}
 
-func (p *ProNodeExtensions) ConfigureAutoRelay(node *schema.Node) {
-	node.IsAutoRelay = "yes"
-}
-
 func (p *ProNodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, key *schema.EnrollmentKey) {
 	node.AutoAssignGateway = key.AutoAssignGateway
 }

@@ -318,6 +318,9 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 		if err != nil {
 			continue
 		}
+		if IsUserOwnedHost(host) {
+			continue
+		}
 		var entry = models.DNSEntry{}
 		if defaultDomain == "" {
 			entry.Name = fmt.Sprintf("%s.%s", host.Name, network)
