@@ -37,7 +37,8 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	}
 	return nil
 }
-func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
+
+func SetAutoRelayCtx(ctx context.Context, autoRelayNode, victimNode, peerNode models.Node) error {
 	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
 		return err
 	}
@@ -64,7 +65,8 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	if err := _peerNode.SetAutoRelayedPeer(ctx, victimNode.ID.String(), autoRelayNode.ID.String()); err != nil {
 		return err
 	}
-	if err := logic.UpsertNode(&peerNode); err != nil {
+	_victimNode := &schema.Node{ID: victimNode.ID.String()}
+	if err := _victimNode.SetAutoRelayedPeer(ctx, peerNode.ID.String(), autoRelayNode.ID.String()); err != nil {
 		return err
 	}
 	return nil

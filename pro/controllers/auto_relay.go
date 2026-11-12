@@ -478,7 +478,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.SetAutoRelayCtx(autoRelayNode, node, peerNode)
+	err = proLogic.SetAutoRelayCtx(r.Context(), autoRelayNode, node, peerNode)
 	if err != nil {
 		slog.Debug("failed to create autorelay", "id", node.ID.String(),
 			"network", node.Network, "error", err)
