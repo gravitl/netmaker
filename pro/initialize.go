@@ -85,10 +85,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		if servercfg.CacheEnabled() {
-			proLogic.InitAutoRelayCache()
-		}
-
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
