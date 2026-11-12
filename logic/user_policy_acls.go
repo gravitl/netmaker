@@ -56,7 +56,7 @@ func isUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 		peerTags = maps.Clone(peer.Tags)
 		peer.Mutex.Unlock()
 	} else {
-		peerTags = peer.Tags
+		peerTags = maps.Clone(peer.Tags)
 	}
 	if peerTags == nil {
 		peerTags = make(map[models.TagID]struct{})
@@ -293,14 +293,16 @@ func getFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 					if err != nil {
 						continue
 					}
-					if ipNet.IP.To4() != nil && userNodeI.StaticNode.Address != "" {
-						rules = append(rules, models.FwRule{
-							SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
-							DstIP:           *ipNet,
-							AllowedProtocol: policy.Proto,
-							AllowedPorts:    policy.Port,
-							Allow:           true,
-						})
+					if ipNet.IP.To4() != nil {
+						if userNodeI.StaticNode.Address != "" {
+							rules = append(rules, models.FwRule{
+								SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+								DstIP:           *ipNet,
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
+						}
 					} else if userNodeI.StaticNode.Address6 != "" {
 						rules = append(rules, models.FwRule{
 							SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
@@ -316,6 +318,15 @@ func getFwRulesForUserNodesOnGw(ctx context.Context, node models.Node, nodes []m
 						if userNodeI.StaticNode.Address != "" {
 							rules = append(rules, models.FwRule{
 								SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+								DstIP:           net.IPNet{},
+								AllowedProtocol: policy.Proto,
+								AllowedPorts:    policy.Port,
+								Allow:           true,
+							})
+						}
+						if userNodeI.StaticNode.Address6 != "" {
+							rules = append(rules, models.FwRule{
+								SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
 								DstIP:           net.IPNet{},
 								AllowedProtocol: policy.Proto,
 								AllowedPorts:    policy.Port,
@@ -598,7 +609,7 @@ func getEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 					continue
 				}
 				e := schema.Egress{ID: dstI.Value}
-				if err := e.Get(ctx); err != nil {
+				if err := e.Get(ctx); err != nil || !e.Status {
 					continue
 				}
 				nodeOwnsEgress := false
