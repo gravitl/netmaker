@@ -7,24 +7,19 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
-func SetAutoRelay(node *models.Node) {
-	node.IsAutoRelay = true
-}
-
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
-	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+	if err := ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+	if err := ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+	if err := ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		return err
 	}
 	if peerNode.AutoRelayedPeers == nil || victimNode.AutoRelayedPeers == nil {
@@ -38,14 +33,20 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	return nil
 }
 
+// SetAutoRelayCtx pairs victimNode and peerNode via autoRelayNode. Each side's
+// AutoRelayedPeers entry is written with a single targeted JSON-key update
+// (schema.Node.SetAutoRelayedPeer) rather than a full-row fetch/mutate/upsert,
+// so two concurrent calls for different pairs on the same node never race or
+// clobber each other's key (or any unrelated column) — no app-level lock
+// needed, same as CheckAutoRelayCtx.
 func SetAutoRelayCtx(ctx context.Context, autoRelayNode, victimNode, peerNode models.Node) error {
-	if err := logic.ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
+	if err := ErrExitNodeBlocksAutoRelay(&victimNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
+	if err := ErrExitNodeBlocksAutoRelay(&peerNode); err != nil {
 		return err
 	}
-	if err := logic.ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
+	if err := ErrExitClientBlocksAutoRelayRole(&autoRelayNode); err != nil {
 		return err
 	}
 	if peerNode.AutoRelayedPeers == nil {
@@ -74,7 +75,7 @@ func SetAutoRelayCtx(ctx context.Context, autoRelayNode, victimNode, peerNode mo
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
 func DoesAutoRelayExist(ctx context.Context, network string) (autoRelayNodes []models.Node) {
-	nodes, _ := logic.GetNetworkNodes(ctx, network)
+	nodes, _ := GetNetworkNodes(ctx, network)
 	for _, node := range nodes {
 		if node.IsAutoRelay {
 			autoRelayNodes = append(autoRelayNodes, node)
@@ -88,12 +89,12 @@ func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) err
 	if len(autoRelayedNode.AutoRelayedPeers) == 0 {
 		return nil
 	}
-	nodes, err := logic.GetNetworkNodes(ctx, autoRelayedNode.Network)
+	nodes, err := GetNetworkNodes(ctx, autoRelayedNode.Network)
 	if err != nil {
 		return err
 	}
 	autoRelayedNode.AutoRelayedPeers = make(map[string]string)
-	err = logic.UpsertNode(autoRelayedNode)
+	err = UpsertNode(autoRelayedNode)
 	if err != nil {
 		return err
 	}
@@ -106,7 +107,7 @@ func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) err
 			continue
 		}
 		delete(node.AutoRelayedPeers, nodeIDStr)
-		logic.UpsertNode(&node)
+		UpsertNode(&node)
 	}
 	return nil
 }
@@ -114,7 +115,7 @@ func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) err
 // ResetAutoRelay - reset autorelayed peers
 func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 	// Unset autorelayed peers
-	nodes, err := logic.GetNetworkNodes(ctx, autoRelayNode.Network)
+	nodes, err := GetNetworkNodes(ctx, autoRelayNode.Network)
 	if err != nil {
 		return err
 	}
@@ -124,11 +125,11 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 				continue
 			}
 			delete(node.AutoRelayedPeers, autoRelayedPeerID)
-			logic.UpsertNode(&node)
-			peer, err := logic.GetNodeByID(autoRelayedPeerID)
+			UpsertNode(&node)
+			peer, err := GetNodeByID(autoRelayedPeerID)
 			if err == nil {
 				delete(peer.AutoRelayedPeers, node.ID.String())
-				logic.UpsertNode(&peer)
+				UpsertNode(&peer)
 			}
 		}
 	}
@@ -136,7 +137,7 @@ func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
-func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *models.Node) []net.IPNet {
+func GetAutoRelayPeerIps(ctx context.Context, g *PeerGraph, peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	relaysViaPeer := false
 	for _, autoRelayID := range node.AutoRelayedPeers {
@@ -149,30 +150,30 @@ func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *mo
 		return allowedips
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
-	acls := logic.ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
-	defaultPolicy, _ := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
-	bypass := logic.SelectedInternetEgressBypasses(node)
-	viewerIsSpecificEgress := logic.PeerAdvertisesSpecificEgress(node)
-	inetExitRouterIDs := logic.InternetEgressRoutingNodeIDsFromList(eli)
+	acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
+	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	bypass := SelectedInternetEgressBypasses(node)
+	viewerIsSpecificEgress := PeerAdvertisesSpecificEgress(node)
+	inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
 		if peer.ID.String() != autoRelayID {
 			continue
 		}
 		autoRelayedpeer, err := g.Node(autoRelayedpeerID)
 		if err == nil {
-			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
-			unfilteredSpecific := logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)
-			logic.AddEgressInfoToPeerByAccess(ctx, node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
+			GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
+			unfilteredSpecific := PeerAdvertisesSpecificEgress(&autoRelayedpeer)
+			AddEgressInfoToPeerByAccess(ctx, node, &autoRelayedpeer, eli, acls, defaultPolicy.Enabled)
 			// Internet exit routers and bypass site-egress gateways are direct peers;
 			// duplicating their AllowedIPs on the auto-relay steals routes.
 			if _, ok := inetExitRouterIDs[autoRelayedpeer.ID.String()]; ok {
 				continue
 			}
-			if bypass && (unfilteredSpecific || logic.PeerAdvertisesSpecificEgress(&autoRelayedpeer)) {
+			if bypass && (unfilteredSpecific || PeerAdvertisesSpecificEgress(&autoRelayedpeer)) {
 				continue
 			}
 			// Reverse: specific-egress GWs keep bypass clients as direct peers.
-			if viewerIsSpecificEgress && logic.SelectedInternetEgressBypasses(&autoRelayedpeer) {
+			if viewerIsSpecificEgress && SelectedInternetEgressBypasses(&autoRelayedpeer) {
 				continue
 			}
 			if autoRelayedpeer.Address.IP != nil {
@@ -190,7 +191,7 @@ func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *mo
 				allowedips = append(allowedips, allowed)
 			}
 			if autoRelayedpeer.EgressDetails.IsEgressGateway {
-				allowedips = append(allowedips, logic.GetEgressIPs(&autoRelayedpeer)...)
+				allowedips = append(allowedips, GetEgressIPs(&autoRelayedpeer)...)
 			}
 			// Advertise clients relayed by this auto-relayed peer (including exit-node
 			// clients on a non-gateway exit). Include their egress ranges so LAN
@@ -199,12 +200,12 @@ func GetAutoRelayPeerIps(ctx context.Context, g *logic.PeerGraph, peer, node *mo
 			// filtering for specific-egress viewers/clients.
 			if autoRelayedpeer.IsRelay || len(autoRelayedpeer.RelayedNodes) > 0 ||
 				len(autoRelayedpeer.InetNodeReq.InetNodeClientIDs) > 0 {
-				allowedips = append(allowedips, logic.RelayedAllowedIPs(ctx, g, &autoRelayedpeer, node)...)
-				allowedips = append(allowedips, logic.ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node)...)
+				allowedips = append(allowedips, RelayedAllowedIPs(ctx, g, &autoRelayedpeer, node)...)
+				allowedips = append(allowedips, ExitClientOverlayIPsFromInetClients(&autoRelayedpeer, node)...)
 			}
 			// handle ingress gateway peers
 			if autoRelayedpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(ctx, g, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
+				extPeers, _, _, err := GetExtPeers(ctx, g, &autoRelayedpeer, node, make(map[string]models.PeerIdentity))
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}
@@ -225,10 +226,10 @@ func CreateAutoRelay(node models.Node) error {
 	if err != nil {
 		return err
 	}
-	if err := logic.ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+	if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
 		return err
 	}
-	if err := logic.ErrUserOwnedHostInfrastructureRole(host); err != nil {
+	if err := ErrUserOwnedHostInfrastructureRole(host); err != nil {
 		return err
 	}
 	if host.OS != models.OS_Types.Linux {
@@ -237,11 +238,11 @@ func CreateAutoRelay(node models.Node) error {
 	if node.IsRelayed {
 		return errors.New("relayed node cannot be set as autoRelay")
 	}
-	if err := logic.ErrExitClientBlocksAutoRelayRole(&node); err != nil {
+	if err := ErrExitClientBlocksAutoRelayRole(&node); err != nil {
 		return err
 	}
 	node.IsAutoRelay = true
-	err = logic.UpsertNode(&node)
+	err = UpsertNode(&node)
 	if err != nil {
 		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
 		return err

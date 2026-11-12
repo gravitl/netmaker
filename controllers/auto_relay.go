@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
@@ -17,16 +16,15 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
-// AutoRelayHandlers - handlers for AutoRelay
-func AutoRelayHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
+// autoRelayHandlers - handlers for AutoRelay
+func autoRelayHandlers(r *mux.Router) {
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(getAutoRelayGws)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(setAutoRelay)))).
 		Methods(http.MethodPost)
@@ -34,11 +32,11 @@ func AutoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/node/{network}/auto_relay/reset", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetAutoRelayGw)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayME)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(autoRelayME)))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(autoRelayMEUpdate)))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, controller.AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", middleware.Scope(scope.TenantScope, AuthorizeHost(http.HandlerFunc(checkautoRelayCtx)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listAutoRelayedPeers)))).
 		Methods(http.MethodGet)
@@ -62,7 +60,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	autoRelayNodes := proLogic.DoesAutoRelayExist(r.Context(), node.Network)
+	autoRelayNodes := logic.DoesAutoRelayExist(r.Context(), node.Network)
 	if len(autoRelayNodes) == 0 {
 		logic.ReturnErrorResponse(
 			w,
@@ -218,7 +216,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateAutoRelay(node)
+	err = logic.CreateAutoRelay(node)
 	if err != nil {
 		errType := logic.Internal
 		switch err.Error() {
@@ -300,7 +298,7 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func(ctx context.Context) {
-		proLogic.ResetAutoRelay(ctx, &node)
+		logic.ResetAutoRelay(ctx, &node)
 		mq.PublishPeerUpdate(ctx, false)
 	}(ctx)
 	w.Header().Set("Content-Type", "application/json")
@@ -471,7 +469,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.SetAutoRelayCtx(r.Context(), autoRelayNode, node, peerNode)
+	err = logic.SetAutoRelayCtx(r.Context(), autoRelayNode, node, peerNode)
 	if err != nil {
 		slog.Debug("failed to create autorelay", "id", node.ID.String(),
 			"network", node.Network, "error", err)
@@ -867,7 +865,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = proLogic.CheckAutoRelayCtx(autoRelayNode, node, peerNode)
+	err = logic.CheckAutoRelayCtx(autoRelayNode, node, peerNode)
 	if err != nil {
 		slog.Error("autorelay ctx cannot be set ", "error", err)
 		logic.ReturnErrorResponse(
