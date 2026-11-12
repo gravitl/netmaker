@@ -8,16 +8,11 @@ import (
 )
 
 type NodeExtensions interface {
-	ConfigureAutoRelay(node *schema.Node)
 	ConfigureAutoAssignGateway(node *schema.Node, key *schema.EnrollmentKey)
 	ConfigureTag(ctx context.Context, node *schema.Node, tagID models.TagID)
 }
 
 type CENodeExtensions struct{}
-
-func (c *CENodeExtensions) ConfigureAutoRelay(node *schema.Node) {
-	node.IsAutoRelay = "no"
-}
 
 func (c *CENodeExtensions) ConfigureAutoAssignGateway(node *schema.Node, _ *schema.EnrollmentKey) {
 	node.AutoAssignGateway = false

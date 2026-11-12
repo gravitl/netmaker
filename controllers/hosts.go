@@ -223,6 +223,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       q query string false "Search across fields"
 // @Param       not_in_network query []string false "Exclude hosts that have a node in this network (repeatable)"
+// @Param       exclude_owned query bool false "Exclude user-owned devices (hosts registered via the desktop/device flow)"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiHost
@@ -244,6 +245,11 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		notInNetworkIDs = append(notInNetworkIDs, network.ID)
 	}
 
+	var ownerFilters []interface{}
+	if r.URL.Query().Get("exclude_owned") == "true" {
+		ownerFilters = append(ownerFilters, "")
+	}
+
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
@@ -260,6 +266,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -280,6 +287,7 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
 		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))

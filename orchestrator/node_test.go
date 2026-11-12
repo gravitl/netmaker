@@ -140,7 +140,7 @@ func (c *CENodeOrchestratorTestSuite) TestCreateNodeWithDefaultHost() {
 		c.Require().NoError(err)
 		c.Require().True(node.IsGateway)
 		c.Require().False(node.IsInternetGateway)
-		c.Require().Equal("no", node.IsAutoRelay)
+		c.Require().Equal("yes", node.IsAutoRelay)
 		c.Require().Empty(node.RelayedClients)
 		c.Require().Empty(node.RelayedIGWClients)
 		c.Require().Equal(datatypes.NewJSONType(map[string]string{}), node.AutoRelayedPeers)
