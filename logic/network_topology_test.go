@@ -403,13 +403,19 @@ func TestNodeConnectionsUsesLoadedUserPolicy(t *testing.T) {
 func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	relay := newTestNode()
 	relay.IsRelay = true
+	relay.Connected = true
 	exitNode := newTestNode()
+	exitNode.Connected = true
 	site := newTestNode()
+	site.Connected = true
 	plain := newTestNode()
+	plain.Connected = true
 	client := newTestNode()
+	client.Connected = true
 	client.IsRelayed = true
 	client.RelayedBy = relay.ID.String()
 	exitClient := newTestNode()
+	exitClient.Connected = true
 	exitClient.IsRelayed = true
 	exitClient.RelayedBy = exitNode.ID.String()
 	exitClient.SelectedInternetEgressID = "exit"
@@ -417,6 +423,7 @@ func TestNodeConnectionsRelayedExitAndExtClient(t *testing.T) {
 	// Peer manually RelayedBy a node that is also an internet-egress router —
 	// path type must stay "relayed", not flip to "exit".
 	relayedByExit := newTestNode()
+	relayedByExit.Connected = true
 	relayedByExit.IsRelayed = true
 	relayedByExit.RelayedBy = exitNode.ID.String()
 
@@ -550,12 +557,17 @@ func TestNodeConnectionsExtClientLiveness(t *testing.T) {
 	gw := newTestNode()
 	gw.IsIngressGateway = true
 	gw.IsRelay = true
+	gw.Connected = true
 	viewer := newTestNode()
+	viewer.Connected = true
 	relayed := newTestNode()
+	relayed.Connected = true
 	relayed.IsRelayed = true
 	relayed.RelayedBy = gw.ID.String()
 	partial := newTestNode()
+	partial.Connected = true
 	down := newTestNode()
+	down.Connected = true
 
 	ext := &models.Node{IsStatic: true}
 	ext.StaticNode.ClientID = "laptop"
@@ -619,6 +631,51 @@ func TestNodeConnectionsExtClientLiveness(t *testing.T) {
 	}
 	if c := indexConns(t, fromDown.Connections)[ext.StaticNode.ClientID]; c.Connected || c.LatencyMs != 10 || c.PercentUp != 10 {
 		t.Fatalf("down first hop = %+v", c)
+	}
+}
+
+func TestNodeConnectionsSkipsMetricsWhenPeerDisconnected(t *testing.T) {
+	viewer := newTestNode()
+	viewer.Connected = true
+	peer := newTestNode()
+	peer.Connected = false
+
+	b := newTestStatusBuilder(nil, NetworkStatusOptions{}, viewer, peer)
+	stubMetrics(t, map[string]map[string]models.Metric{
+		viewer.ID.String(): {
+			peer.ID.String(): {Connected: true, Latency: 50, PercentUp: 99},
+		},
+	})
+
+	got, err := b.nodeConnections([]models.Node{*viewer, *peer}, viewer.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := indexConns(t, got.Connections)[peer.ID.String()]
+	if c.Connected || c.LatencyMs != 0 || c.PercentUp != 0 {
+		t.Fatalf("disconnected peer should skip metrics = %+v", c)
+	}
+
+	disabled := &models.Node{IsStatic: true}
+	disabled.StaticNode.ClientID = "off-cfg"
+	disabled.StaticNode.Enabled = false
+	gw := newTestNode()
+	gw.IsIngressGateway = true
+	gw.Connected = true
+	b2 := newTestStatusBuilder(nil, NetworkStatusOptions{}, gw)
+	b2.names[disabled.StaticNode.ClientID] = "off-cfg"
+	stubMetrics(t, map[string]map[string]models.Metric{
+		gw.ID.String(): {
+			disabled.StaticNode.ClientID: {Connected: true, Latency: 9, PercentUp: 80},
+		},
+	})
+	fromGW, err := b2.nodeConnections([]models.Node{*gw, *disabled}, gw.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c = indexConns(t, fromGW.Connections)[disabled.StaticNode.ClientID]
+	if c.Connected || c.LatencyMs != 0 || c.PercentUp != 0 {
+		t.Fatalf("disabled config file should skip metrics = %+v", c)
 	}
 }
 

@@ -601,8 +601,27 @@ func (b *networkStatusBuilder) connection(node, peer *models.Node) models.Networ
 	if via != "" {
 		conn.Via = b.nodeRef(via)
 	}
+	// Peers disconnected from the network keep stale metrics; force
+	// connected=false and skip metric lookups. Otherwise connected/latency
+	// come from metrics as before.
+	if !peerNetworkConnected(peer) {
+		conn.Connected = false
+		return conn
+	}
 	b.applyConnectionLiveness(&conn, node, peer, via)
 	return conn
+}
+
+// peerNetworkConnected reports whether the peer is attached to the network
+// (node.Connected, or Enabled for static ExtClients).
+func peerNetworkConnected(peer *models.Node) bool {
+	if peer == nil {
+		return false
+	}
+	if peer.IsStatic {
+		return peer.StaticNode.Enabled
+	}
+	return peer.Connected
 }
 
 // connectionPath classifies the clicked node's path to peer: direct, through a
