@@ -259,13 +259,27 @@ func TestUpdateExtClientPreservesPostUpPostDownWhenOmitted(t *testing.T) {
 	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", updated.PostUp)
 	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", updated.PostDown)
 
+	postUp := "echo up\r\necho up2"
+	postDown := "echo down\r\necho down2"
 	withScripts := UpdateExtClient(&old, &models.CustomExtClient{
 		ClientID: "client-1",
-		PostUp:   "echo up\r\necho up2",
-		PostDown: "echo down\r\necho down2",
+		PostUp:   &postUp,
+		PostDown: &postDown,
 	})
 	assert.Equal(t, "echo up\necho up2", withScripts.PostUp)
 	assert.Equal(t, "echo down\necho down2", withScripts.PostDown)
+
+	empty := ""
+	cleared := UpdateExtClient(&old, &models.CustomExtClient{
+		ClientID: "client-1",
+		PostUp:   &empty,
+		PostDown: &empty,
+	})
+	assert.Equal(t, "", cleared.PostUp)
+	assert.Equal(t, "", cleared.PostDown)
+	// Omitted pointers still leave scripts unchanged after a clear payload shape.
+	assert.Equal(t, "iptables -A FORWARD -j ACCEPT", old.PostUp)
+	assert.Equal(t, "iptables -D FORWARD -j ACCEPT", old.PostDown)
 }
 
 func TestDeleteExtClient(t *testing.T) {

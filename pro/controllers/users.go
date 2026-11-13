@@ -56,7 +56,6 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/groups/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUserGroups)))).Methods(http.MethodGet).Queries("network", "{network}")
-	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/users/add_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(addUserToNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
 	r.HandleFunc("/api/v1/users/remove_network_user", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(removeUserFromNetwork)))).Methods(http.MethodPut).Queries("network_id", "{network_id}")
 	r.HandleFunc("/api/v1/users/unassigned_network_users", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers)))).Methods(http.MethodGet).Queries("network_id", "{network_id}")
@@ -824,43 +823,6 @@ func listNetworkUserGroups(w http.ResponseWriter, r *http.Request) {
 		networkGroups = []schema.UserGroup{}
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, networkGroups, "fetched user groups for network "+network)
-}
-
-// @Summary     List users with access to a network
-// @Router      /api/v1/users/network [get]
-// @Tags        Users
-// @Security    oauth
-// @Produce     json
-// @Param       network query string true "Network ID"
-// @Success     200 {array} models.ReturnUser
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
-func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
-	network := r.URL.Query().Get("network")
-	if network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
-		return
-	}
-	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
-		return
-	}
-
-	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	var networkUsers []models.ReturnUser
-	for _, _user := range _users {
-		if logic.UserHasNetworkGroupAccess(r.Context(), &_user, network) {
-			networkUsers = append(networkUsers, logic.ToReturnUser(&_user))
-		}
-	}
-	if networkUsers == nil {
-		networkUsers = []models.ReturnUser{}
-	}
-	logic.ReturnSuccessResponseWithJson(w, r, networkUsers, "fetched users for network "+network)
 }
 
 // @Summary     List unassigned network users

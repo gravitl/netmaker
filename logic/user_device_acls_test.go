@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -346,13 +345,13 @@ func TestAppendUserDeviceForwardedEgressDsts_SelectedIPsOnForwardedPath(t *testi
 // TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule verifies the
 // full AclRule path for user devices → relayed/auto-relayed egress ranges.
 func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) {
-	original := logic.EgressesHostedOnForwardedNodes
-	t.Cleanup(func() { logic.EgressesHostedOnForwardedNodes = original })
+	original := EgressesHostedOnForwardedNodes
+	t.Cleanup(func() { EgressesHostedOnForwardedNodes = original })
 
 	gwID := uuid.New()
 	gw := models.Node{CommonNode: models.CommonNode{ID: gwID, Network: "netmaker"}}
 	device := userDeviceNode("alice", "100.64.0.9")
-	logic.EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]schema.Egress {
+	EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]schema.Egress {
 		return map[string]schema.Egress{
 			"sig": {ID: "sig", Status: true, Range: "10.90.0.0/24", VirtualRange: "10.200.0.0/24"},
 		}
