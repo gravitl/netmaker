@@ -210,9 +210,6 @@ func (g *PeerGraph) HostPeerInfo(ctx context.Context, host *schema.Host) (models
 func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
 	deviceOn := device.Enabled && aclOpenBothSides(device)
 	userOn := user.Enabled && aclOpenBothSides(user)
-	if !servercfg.IsPro {
-		userOn = true
-	}
 	for _, acl := range acls {
 		if !acl.Enabled || !aclOpenBothSides(acl) {
 			continue

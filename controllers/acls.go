@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func aclHandlers(r *mux.Router) {
@@ -46,6 +47,20 @@ func aclHandlers(r *mux.Router) {
 // @Success     200 {object} models.AclPolicyTypes
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
+	srcGroupTypes := []models.AclGroupType{
+		models.UserAclID,
+		models.NodeTagID,
+		models.NodeID,
+	}
+	// User groups remain Pro-only.
+	if servercfg.IsPro {
+		srcGroupTypes = []models.AclGroupType{
+			models.UserAclID,
+			models.UserGroupAclID,
+			models.NodeTagID,
+			models.NodeID,
+		}
+	}
 	resp := models.AclPolicyTypes{
 		RuleTypes: []models.AclPolicyType{
 			models.DevicePolicy,
@@ -55,12 +70,7 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.NetworkAccess,
 			models.ManagedAccess,
 		},
-		SrcGroupTypes: []models.AclGroupType{
-			models.UserAclID,
-			models.UserGroupAclID,
-			models.NodeTagID,
-			models.NodeID,
-		},
+		SrcGroupTypes: srcGroupTypes,
 		DstGroupTypes: []models.AclGroupType{
 			models.NodeTagID,
 			models.NodeID,
@@ -68,106 +78,95 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
-		ProtocolTypes: []models.ProtocolType{
-			{
-				Name:       models.Any,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.ALL,
-				},
-				PortRange:        "All ports",
-				AllowPortSetting: false,
-			},
-			{
-				Name:       models.Http,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "80",
-			},
-			{
-				Name:       models.Https,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "443",
-			},
-			// {
-			// 	Name: "MySQL",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
-			// 	},
-			// 	PortRange: "3306",
-			// },
-			// {
-			// 	Name: "DNS TCP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
-			// 	},
-			// 	PortRange: "53",
-			// },
-			// {
-			// 	Name: "DNS UDP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.UDP,
-			// 	},
-			// 	PortRange: "53",
-			// },
-			{
-				Name:       models.AllTCP,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "All ports",
-			},
-			{
-				Name:       models.AllUDP,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-				},
-				PortRange: "All ports",
-			},
-			{
-				Name:       models.ICMPService,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.ICMP,
-				},
-				PortRange: "",
-			},
-			{
-				Name:       models.SSH,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "22",
-			},
-			{
-				Name:       models.ManagedSSH,
-				AccessType: models.ManagedAccess,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				AllowPortSetting: false,
-			},
-			{
-				Name:       models.Custom,
-				AccessType: models.NetworkAccess,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-					models.TCP,
-				},
-				PortRange:        "All ports",
-				AllowPortSetting: true,
-			},
-		},
+		ProtocolTypes: ceOrProProtocolTypes(),
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
+}
+
+// ceOrProProtocolTypes returns Any-only protocol types on CE. Custom
+// protocol/port policies are Pro-only.
+func ceOrProProtocolTypes() []models.ProtocolType {
+	anyType := models.ProtocolType{
+		Name:       models.Any,
+		AccessType: models.NetworkAccess,
+		AllowedProtocols: []models.Protocol{
+			models.ALL,
+		},
+		PortRange:        "All ports",
+		AllowPortSetting: false,
+	}
+	if !servercfg.IsPro {
+		return []models.ProtocolType{anyType}
+	}
+	return []models.ProtocolType{
+		anyType,
+		{
+			Name:       models.Http,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "80",
+		},
+		{
+			Name:       models.Https,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "443",
+		},
+		{
+			Name:       models.AllTCP,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "All ports",
+		},
+		{
+			Name:       models.AllUDP,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.UDP,
+			},
+			PortRange: "All ports",
+		},
+		{
+			Name:       models.ICMPService,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.ICMP,
+			},
+			PortRange: "",
+		},
+		{
+			Name:       models.SSH,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "22",
+		},
+		{
+			Name:       models.ManagedSSH,
+			AccessType: models.ManagedAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			AllowPortSetting: false,
+		},
+		{
+			Name:       models.Custom,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.UDP,
+				models.TCP,
+			},
+			PortRange:        "All ports",
+			AllowPortSetting: true,
+		},
+	}
 }
 
 func aclDebug(w http.ResponseWriter, r *http.Request) {

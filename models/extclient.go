@@ -84,22 +84,24 @@ type CustomExtClient struct {
 	IncludeNetworkEgressRanges *bool               `json:"include_network_egress_ranges,omitempty"`
 	DeniedACLs                 map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 	RemoteAccessClientID       string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
-	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`
-	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
-	Tags                       ExtClientTags       `json:"tags,omitempty"`
-	DeviceID                   string              `json:"device_id"`
-	DeviceName                 string              `json:"device_name"`
-	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
-	PublicEndpoint             string              `json:"public_endpoint"`
-	OS                         string              `json:"os"`
-	OSFamily                   string              `json:"os_family" yaml:"os_family"`
-	OSVersion                  string              `json:"os_version"                      yaml:"os_version"`
-	KernelVersion              string              `json:"kernel_version" yaml:"kernel_version"`
-	ClientVersion              string              `json:"client_version"`
-	Country                    string              `json:"country"`
-	Location                   string              `json:"location"` //format: lat,long
-	UseInternetEgress          *bool               `json:"use_internet_egress,omitempty"`
-	SelectedInternetEgressID   string              `json:"selected_internet_egress_id,omitempty"`
+	// PostUp/PostDown are pointers so update payloads can distinguish omit
+	// (nil → leave unchanged) from an explicit empty string (clear the script).
+	PostUp                     *string       `json:"postup,omitempty" bson:"postup" validate:"omitempty,max=1024"`
+	PostDown                   *string       `json:"postdown,omitempty" bson:"postdown" validate:"omitempty,max=1024"`
+	Tags                       ExtClientTags `json:"tags,omitempty"`
+	DeviceID                   string        `json:"device_id"`
+	DeviceName                 string        `json:"device_name"`
+	IsAlreadyConnectedToInetGw bool          `json:"is_already_connected_to_inet_gw"`
+	PublicEndpoint             string        `json:"public_endpoint"`
+	OS                         string        `json:"os"`
+	OSFamily                   string        `json:"os_family" yaml:"os_family"`
+	OSVersion                  string        `json:"os_version"                      yaml:"os_version"`
+	KernelVersion              string        `json:"kernel_version" yaml:"kernel_version"`
+	ClientVersion              string        `json:"client_version"`
+	Country                    string        `json:"country"`
+	Location                   string        `json:"location"` //format: lat,long
+	UseInternetEgress          *bool         `json:"use_internet_egress,omitempty"`
+	SelectedInternetEgressID   string        `json:"selected_internet_egress_id,omitempty"`
 }
 
 // ExtClientTags is the tag set stored on an extclient. JSON requests send a list of tag IDs.

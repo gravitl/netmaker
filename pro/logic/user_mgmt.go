@@ -716,7 +716,7 @@ func GetUserRAGNodes(ctx context.Context, user *schema.User) (gws map[string]mod
 		if !UserHasNetworkGroupAccess(ctx, user, node.Network) {
 			continue
 		}
-		if ok, _ := IsUserAllowedToCommunicate(ctx, user.Username, node); ok {
+		if ok, _ := logic.IsUserAllowedToCommunicate(ctx, user.Username, node); ok {
 			gws[node.ID.String()] = node
 		}
 	}
@@ -1571,30 +1571,6 @@ func GetUserGrpMap(ctx context.Context) map[schema.UserGroupID]map[string]struct
 	}
 
 	return grpUsersMap
-}
-
-// userGroupsForNetwork includes members of the global admin and user groups in
-// the network's default groups, matching listPoliciesOfUser.
-func userGroupsForNetwork(ctx context.Context, netID schema.NetworkID) map[schema.UserGroupID]map[string]struct{} {
-	grp := GetUserGrpMap(ctx)
-	copyGroupMembers(grp, globalNetworksAdminGroupID, GetDefaultNetworkAdminGroupSlug(netID))
-	copyGroupMembers(grp, globalNetworksUserGroupID, GetDefaultNetworkUserGroupSlug(netID))
-	return grp
-}
-
-func copyGroupMembers(grp map[schema.UserGroupID]map[string]struct{}, from, to schema.UserGroupID) {
-	src, ok := grp[from]
-	if !ok || from == to {
-		return
-	}
-	dst := grp[to]
-	if dst == nil {
-		dst = make(map[string]struct{})
-	}
-	for userName := range src {
-		dst[userName] = struct{}{}
-	}
-	grp[to] = dst
 }
 
 // IsNetworkAdmin - checks if user is a network admin via user groups.

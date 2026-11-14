@@ -3207,6 +3207,24 @@ func getSelectedEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IP
 	return
 }
 
+// validateCENetworkAclProtoAndPorts rejects protocol/port scoping on CE.
+// Network-access policies must be all-protocols / all-ports (type Any).
+func validateCENetworkAclProtoAndPorts(acl models.Acl) error {
+	if servercfg.IsPro || !acl.IsNetworkAccess() {
+		return nil
+	}
+	if acl.ServiceType != "" && acl.ServiceType != models.Any {
+		return errors.New("custom protocol and port policies are not allowed on CE")
+	}
+	if acl.Proto != "" && acl.Proto != models.ALL {
+		return errors.New("custom protocols are not allowed on CE")
+	}
+	if len(acl.Port) > 0 {
+		return errors.New("custom ports are not allowed on CE")
+	}
+	return nil
+}
+
 func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
 	case models.NodeID:
@@ -3233,6 +3251,23 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		if err != nil {
 			return err
 		}
+	case models.UserAclID:
+		if a.RuleType == models.DevicePolicy {
+			return errors.New("device policy source mismatch")
+		}
+		if !isSrc {
+			return errors.New("user cannot be added to destination")
+		}
+		if t.Value == "*" {
+			return nil
+		}
+		userCheck := &schema.User{Username: t.Value}
+		if err := userCheck.Get(ctx); err != nil {
+			return errors.New("invalid user " + t.Value)
+		}
+	case models.UserGroupAclID:
+		// User groups remain Pro-only.
+		return errors.New("user groups are not supported")
 	default:
 		return errors.New("invalid policy")
 	}
@@ -3248,12 +3283,42 @@ var IsAclPolicyValid = func(ctx context.Context, acl models.Acl) (err error) {
 		return err
 	}
 
-	//check if src and dst are valid
-	if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
+	// Device/resource policies on CE must be bidirectional. User policies are
+	// always unidirectional (users → resources).
+	if acl.RuleType == models.DevicePolicy && acl.IsNetworkAccess() &&
+		acl.AllowedDirection == models.TrafficDirectionUni {
 		return errors.New("uni traffic flow not allowed on CE")
 	}
+	if err := validateCENetworkAclProtoAndPorts(acl); err != nil {
+		return err
+	}
 	switch acl.RuleType {
-
+	case models.UserPolicy:
+		for _, srcI := range acl.Src {
+			if srcI.Value == "*" {
+				if srcI.ID != models.UserAclID {
+					return errors.New("user policy source mismatch")
+				}
+				continue
+			}
+			if srcI.ID == models.UserGroupAclID {
+				return errors.New("user groups are not supported")
+			}
+			if err = checkIfAclTagisValid(ctx, acl, srcI, true); err != nil {
+				return err
+			}
+		}
+		for _, dstI := range acl.Dst {
+			if dstI.Value == "*" {
+				continue
+			}
+			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName) {
+				continue
+			}
+			if err = checkIfAclTagisValid(ctx, acl, dstI, false); err != nil {
+				return err
+			}
+		}
 	case models.DevicePolicy:
 		for _, srcI := range acl.Src {
 			if srcI.Value == "*" {
@@ -3473,7 +3538,9 @@ func MigrateAclPolicies(ctx context.Context) {
 			UpsertAcl(ctx, acl)
 		}
 		if !servercfg.IsPro {
-			if acl.IsNetworkAccess() && acl.AllowedDirection == models.TrafficDirectionUni {
+			// Keep user policies unidirectional; only force device policies to bi on CE.
+			if acl.RuleType == models.DevicePolicy && acl.IsNetworkAccess() &&
+				acl.AllowedDirection == models.TrafficDirectionUni {
 				acl.AllowedDirection = models.TrafficDirectionBi
 				UpsertAcl(ctx, acl)
 			}
@@ -3747,9 +3814,6 @@ func GetDefaultPolicy(ctx context.Context, netID schema.NetworkID, ruleType mode
 	if ruleType == models.DevicePolicy {
 		aclID = "all-nodes"
 	}
-	if !servercfg.IsPro && ruleType == models.UserPolicy {
-		return models.Acl{Enabled: true}, nil
-	}
 	acl, err := GetAcl(ctx, fmt.Sprintf("%s.%s", netID, aclID))
 	if err != nil {
 		return models.Acl{}, errors.New("default rule not found")
@@ -3789,9 +3853,6 @@ func ListAclsByNetwork(ctx context.Context, netID schema.NetworkID) ([]models.Ac
 	allAcls := ListAcls(ctx)
 	var netAcls []models.Acl
 	for _, acl := range allAcls {
-		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
-			continue
-		}
 		if acl.NetworkID == netID {
 			netAcls = append(netAcls, acl)
 		}
@@ -3803,9 +3864,6 @@ func ListEgressAcls(ctx context.Context, egressID string) ([]models.Acl, error) 
 	acls := ListAcls(ctx)
 	var egressAcls []models.Acl
 	for _, acl := range acls {
-		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
-			continue
-		}
 		for _, dst := range acl.Dst {
 			if dst.ID == models.EgressID && dst.Value == egressID {
 				egressAcls = append(egressAcls, acl)
@@ -3954,28 +4012,27 @@ func ListAcls(ctx context.Context) (acls []models.Acl) {
 	for _, r := range aclRecords {
 		acl := r.Value.Data()
 		if !servercfg.IsPro {
-			if acl.RuleType == models.UserPolicy {
-				continue
-			}
-			skip := false
-			for _, srcI := range acl.Src {
-				if srcI.ID == models.NodeTagID && (srcI.Value != "*" && srcI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
-					skip = true
-					break
+			// CE still hides custom-tag device policies; user policies are allowed.
+			if acl.RuleType != models.UserPolicy {
+				skip := false
+				for _, srcI := range acl.Src {
+					if srcI.ID == models.NodeTagID && (srcI.Value != "*" && srcI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
+						skip = true
+						break
+					}
 				}
-			}
-			if skip {
-				continue
-			}
-			for _, dstI := range acl.Dst {
-
-				if dstI.ID == models.NodeTagID && (dstI.Value != "*" && dstI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
-					skip = true
-					break
+				if skip {
+					continue
 				}
-			}
-			if skip {
-				continue
+				for _, dstI := range acl.Dst {
+					if dstI.ID == models.NodeTagID && (dstI.Value != "*" && dstI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
+						skip = true
+						break
+					}
+				}
+				if skip {
+					continue
+				}
 			}
 		}
 		acls = append(acls, acl)

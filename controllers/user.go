@@ -70,6 +70,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost).Queries("username", "{username}")
+	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet).Queries("network", "{network}")
 }
 
 // @Summary     Create a user API access token
@@ -1280,6 +1281,40 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched users")
 	json.NewEncoder(w).Encode(users)
+}
+
+// @Summary     List users with access to a network
+// @Router      /api/v1/users/network [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+
+	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	networkUsers := make([]models.ReturnUser, 0)
+	for i := range _users {
+		if logic.UserHasAccessToNetwork(r.Context(), &_users[i], network) {
+			networkUsers = append(networkUsers, logic.ToReturnUser(&_users[i]))
+		}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, networkUsers, "fetched users for network "+network)
 }
 
 // @Summary     List all users

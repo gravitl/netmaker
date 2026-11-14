@@ -1629,6 +1629,14 @@ func validateCustomExtClient(ctx context.Context, customExtClient *models.Custom
 			}
 		}
 	}
+	// PostUp/PostDown: nil = omit/leave unchanged on update; non-nil applies
+	// (including "" to clear). Enforce max length when the field is present.
+	if customExtClient.PostUp != nil && len(*customExtClient.PostUp) > 1024 {
+		return errors.New("postup exceeds max length of 1024")
+	}
+	if customExtClient.PostDown != nil && len(*customExtClient.PostDown) > 1024 {
+		return errors.New("postdown exceeds max length of 1024")
+	}
 	return nil
 }
 

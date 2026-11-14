@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -46,16 +45,16 @@ func TestUserAllowedToAnyExtClientOnIngress(t *testing.T) {
 	}
 
 	origList := listExtClientsForUserACL
-	origAllow := logic.IsUserAllowedToCommunicate
+	origAllow := IsUserAllowedToCommunicate
 	t.Cleanup(func() {
 		listExtClientsForUserACL = origList
-		logic.IsUserAllowedToCommunicate = origAllow
+		IsUserAllowedToCommunicate = origAllow
 	})
 
 	listExtClientsForUserACL = func(context.Context, string) ([]models.ExtClient, error) {
 		return []models.ExtClient{tagged, rac, otherIngress}, nil
 	}
-	logic.IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
 		if userName != "alice" {
 			return false, nil
 		}
@@ -115,12 +114,12 @@ func TestGetFwRulesForUserDevicesOnGw_IncludesNonRelayedDeviceToExtClient(t *tes
 	origDevices := listUserDevicesForACL
 	origEgress := listEgressForUserDeviceACL
 	origDefault := getDefaultUserPolicyForUserDeviceACL
-	origAllow := logic.IsUserAllowedToCommunicate
+	origAllow := IsUserAllowedToCommunicate
 	t.Cleanup(func() {
 		listUserDevicesForACL = origDevices
 		listEgressForUserDeviceACL = origEgress
 		getDefaultUserPolicyForUserDeviceACL = origDefault
-		logic.IsUserAllowedToCommunicate = origAllow
+		IsUserAllowedToCommunicate = origAllow
 	})
 
 	listUserDevicesForACL = func(context.Context, string) []models.Node {
@@ -132,7 +131,7 @@ func TestGetFwRulesForUserDevicesOnGw_IncludesNonRelayedDeviceToExtClient(t *tes
 	getDefaultUserPolicyForUserDeviceACL = func(context.Context, schema.NetworkID) (models.Acl, error) {
 		return models.Acl{Enabled: false}, nil
 	}
-	logic.IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
+	IsUserAllowedToCommunicate = func(_ context.Context, userName string, peer models.Node) (bool, []models.Acl) {
 		if userName != "alice" {
 			return false, nil
 		}
