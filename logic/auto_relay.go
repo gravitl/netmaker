@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/db/expr"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -112,28 +113,19 @@ func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) err
 	return nil
 }
 
-// ResetAutoRelay - reset autorelayed peers
 func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
-	// Unset autorelayed peers
-	nodes, err := GetNetworkNodes(ctx, autoRelayNode.Network)
+	autoRelayNodeID := autoRelayNode.ID.String()
+	_node := &schema.Node{ID: autoRelayNodeID}
+	err := _node.Get(ctx)
 	if err != nil {
 		return err
 	}
-	for _, node := range nodes {
-		for autoRelayedPeerID, autoRelayID := range node.AutoRelayedPeers {
-			if autoRelayID != autoRelayNode.ID.String() {
-				continue
-			}
-			delete(node.AutoRelayedPeers, autoRelayedPeerID)
-			UpsertNode(&node)
-			peer, err := GetNodeByID(autoRelayedPeerID)
-			if err == nil {
-				delete(peer.AutoRelayedPeers, node.ID.String())
-				UpsertNode(&peer)
-			}
-		}
-	}
-	return nil
+
+	return db.FromContext(ctx).Model(&schema.Node{}).
+		Where("network_id = ?", _node.NetworkID).
+		Where(expr.WhereHasValue("auto_relayed_peers", autoRelayNodeID)).
+		UpdateColumn("auto_relayed_peers", expr.RemoveByValue("auto_relayed_peers", autoRelayNodeID)).
+		Error
 }
 
 // GetAutoRelayPeerIps - adds the autorelayed peerIps by the peer
