@@ -42,7 +42,7 @@ import (
 var version = "v1.8.0"
 
 //	@title			NetMaker
-//	@version		1.7.0
+//	@version		1.8.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
