@@ -347,6 +347,10 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// host.Nodes can retain deleted IDs or omit live nodes; sync before peer calc.
+	if syncErr := logic.SyncHostNodesFromDB(r.Context(), host); syncErr != nil {
+		logger.Log(0, "pull: host.Nodes reconcile failed", hostIDStr, syncErr.Error())
+	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
 	refresh := r.URL.Query().Get("refresh") == "true"

@@ -37,16 +37,114 @@ func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error)
 	return GetNetworkNodesMemory(allnodes, network), nil
 }
 
-// GetHostNodes - fetches all nodes part of the host
+// GetHostNodes fetches all nodes that belong to the host.
+// Source of truth is the nodes table (host_id), not host.Nodes — that JSON
+// slice can retain stale IDs after leave/delete drift and omit live nodes.
 func GetHostNodes(host *schema.Host) []models.Node {
-	nodes := []models.Node{}
-	for _, nodeID := range host.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err == nil {
-			nodes = append(nodes, node)
+	if host == nil || host.ID == uuid.Nil {
+		return []models.Node{}
+	}
+	ctx := hostNodesContext(host)
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		// Fall back to the denormalized ID list if the query fails.
+		nodes := []models.Node{}
+		for _, nodeID := range host.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil {
+				nodes = append(nodes, node)
+			}
+		}
+		return nodes
+	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
+		ids = append(ids, schemaNodes[i].ID)
+	}
+	_ = ReconcileHostNodeIDs(ctx, host, ids)
+	return nodes
+}
+
+func hostNodesContext(host *schema.Host) context.Context {
+	ctx := db.WithContext(context.Background())
+	if host != nil && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	return ctx
+}
+
+func listHostSchemaNodes(ctx context.Context, hostID string) ([]schema.Node, error) {
+	return (&schema.Node{}).ListAll(
+		ctx,
+		dbtypes.WithFilter("host_id", hostID),
+		dbtypes.WithAllPreloads(),
+	)
+}
+
+// ReconcileHostNodeIDs rewrites host.Nodes to match live node IDs when they drift.
+// Peer updates and pull both walk host.Nodes, so stale/missing IDs break joins.
+func ReconcileHostNodeIDs(ctx context.Context, host *schema.Host, liveIDs []string) error {
+	if host == nil || host.ID == uuid.Nil {
+		return nil
+	}
+	if hostNodeIDSetsEqual(host.Nodes, liveIDs) {
+		return nil
+	}
+	prev := append([]string(nil), host.Nodes...)
+	host.Nodes = append([]string(nil), liveIDs...)
+	if err := host.Upsert(ctx); err != nil {
+		host.Nodes = prev
+		slog.Warn("failed to reconcile host.Nodes",
+			"host", host.ID.String(), "error", err)
+		return err
+	}
+	slog.Info("reconciled host.Nodes with live nodes",
+		"host", host.ID.String(),
+		"before", len(prev),
+		"after", len(liveIDs))
+	return nil
+}
+
+// SyncHostNodesFromDB loads nodes by host_id and updates host.Nodes if needed.
+// Call before PeerUpdateForHost so peer calc sees the same set as GetHostNodes.
+func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) error {
+	if host == nil || host.ID == uuid.Nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = hostNodesContext(host)
+	} else if scope.ID(ctx) == "" && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		return err
+	}
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		ids = append(ids, schemaNodes[i].ID)
+	}
+	return ReconcileHostNodeIDs(ctx, host, ids)
+}
+
+func hostNodeIDSetsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(a))
+	for _, id := range a {
+		seen[id] = struct{}{}
+	}
+	for _, id := range b {
+		if _, ok := seen[id]; !ok {
+			return false
 		}
 	}
-	return nodes
+	return true
 }
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
