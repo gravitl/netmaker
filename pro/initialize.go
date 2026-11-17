@@ -150,11 +150,6 @@ func InitPro() {
 		}
 		go proLogic.EventWatcher()
 	})
-	logic.ResetAutoRelay = proLogic.ResetAutoRelay
-
-	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
-	logic.SetAutoRelay = proLogic.SetAutoRelay
-	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 	logic.OnNodeOffline = proLogic.OnNodeOffline
 	logic.OnNodeOnline = proLogic.OnNodeOnline
 	proLogic.SendAlertEmail = email.SendAlertEmail

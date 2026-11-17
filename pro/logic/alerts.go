@@ -97,7 +97,6 @@ func TriggerAlert(ctx context.Context, req AlertTriggerRequest) error {
 			CreatedAt:   time.Now().UTC(),
 			UpdatedAt:   time.Now().UTC(),
 		}
-		fmt.Println("last")
 		if err := alert.Create(tenantCtx); err != nil {
 			slog.Error("failed to create alert record", "rule_id", rule.ID, "error", err)
 			continue
@@ -409,6 +408,7 @@ func TestNotificationChannel(ctx context.Context, channel *schema.NotificationCh
 
 // OnNodeOffline is called when a node misses checkin and is marked offline.
 func OnNodeOffline(ctx context.Context, node *schema.Node) {
+	fmt.Println("hell")
 	if node == nil {
 		return
 	}
