@@ -113,6 +113,31 @@ func ResetAutoRelayedPeer(ctx context.Context, autoRelayedNode *models.Node) err
 	return nil
 }
 
+// removeAutoRelayedPeerPairFromMaps clears the bidirectional auto-relayed peer entries in memory.
+func removeAutoRelayedPeerPairFromMaps(node, peer *models.Node) {
+	if node == nil || peer == nil {
+		return
+	}
+	if node.AutoRelayedPeers != nil {
+		delete(node.AutoRelayedPeers, peer.ID.String())
+	}
+	if peer.AutoRelayedPeers != nil {
+		delete(peer.AutoRelayedPeers, node.ID.String())
+	}
+}
+
+// ClearAutoRelayedPeerPair removes the mutual auto-relayed peer mapping between node and peer and persists both.
+func ClearAutoRelayedPeerPair(node, peer *models.Node) error {
+	if node == nil || peer == nil {
+		return errors.New("node and peer are required")
+	}
+	removeAutoRelayedPeerPairFromMaps(node, peer)
+	if err := UpsertNode(node); err != nil {
+		return err
+	}
+	return UpsertNode(peer)
+}
+
 func ResetAutoRelay(ctx context.Context, autoRelayNode *models.Node) error {
 	autoRelayNodeID := autoRelayNode.ID.String()
 	_node := &schema.Node{ID: autoRelayNodeID}

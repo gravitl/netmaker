@@ -40,6 +40,10 @@ func autoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listAutoRelayedPeers)))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers/reset", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(resetNodeAutoRelayedPeers)))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relayed_peers/{peerid}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(clearNodeAutoRelayedPeer)))).
+		Methods(http.MethodDelete)
 }
 
 // @Summary     Get auto relay nodes
@@ -191,6 +195,69 @@ func listAutoRelayedPeers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched auto relayed peers successfully")
+}
+
+// @Summary     Reset all auto-relayed peer connections for a node
+// @Router      /api/v1/node/{nodeid}/auto_relayed_peers/reset [post]
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func resetNodeAutoRelayedPeers(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	node, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err = logic.ResetAutoRelayedPeer(r.Context(), &node); err != nil {
+		slog.Error("failed to reset auto relayed peers", "node", nodeid, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	go mq.PublishPeerUpdate(ctx, false)
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "auto relayed peers reset successfully")
+}
+
+// @Summary     Clear one auto-relayed peer connection for a node
+// @Router      /api/v1/node/{nodeid}/auto_relayed_peers/{peerid} [delete]
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
+// @Param       peerid path string true "Peer Node ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func clearNodeAutoRelayedPeer(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	peerid := params["peerid"]
+	node, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	peerNode, err := logic.GetNodeByID(peerid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
+		return
+	}
+	if err = logic.ClearAutoRelayedPeerPair(&node, &peerNode); err != nil {
+		slog.Error("failed to clear auto relayed peer pair", "node", nodeid, "peer", peerid, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
+	mq.PublishPeerUpdateToHosts(ctx, node.HostID, peerNode.HostID)
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "auto relayed peer cleared successfully")
 }
 
 // @Summary     Create AutoRelay node
@@ -571,10 +638,10 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			peerNode := *logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), _peerNode, logic.SkipViolations())
-			delete(node.AutoRelayedPeers, peerNode.ID.String())
-			delete(peerNode.AutoRelayedPeers, node.ID.String())
-			logic.UpsertNode(&node)
-			logic.UpsertNode(&peerNode)
+			if err = logic.ClearAutoRelayedPeerPair(&node, &peerNode); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
 			// only the unpaired nodes' configs change; skip the full mesh recompute
 			ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 			mq.PublishPeerUpdateToHosts(ctx, node.HostID, peerNode.HostID)
