@@ -347,9 +347,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// host.Nodes can retain deleted IDs or omit live nodes; sync before peer calc.
-	if syncErr := logic.SyncHostNodesFromDB(r.Context(), host); syncErr != nil {
+	// Sync before peer calc (PeerUpdateForHost walks host.Nodes) and reuse the
+	// returned list for HostPull.Nodes — one host_id query, no second GetHostNodes.
+	hostNodes, syncErr := logic.SyncHostNodesFromDB(r.Context(), host)
+	if syncErr != nil {
 		logger.Log(0, "pull: host.Nodes reconcile failed", hostIDStr, syncErr.Error())
+		if hostNodes == nil {
+			hostNodes = logic.GetHostNodes(host)
+		}
 	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
@@ -385,7 +390,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	response := models.HostPull{
 		Host:                    *host,
-		Nodes:                   logic.GetHostNodes(host),
+		Nodes:                   hostNodes,
 		ServerConfig:            hPU.ServerConfig,
 		Peers:                   hPU.Peers,
 		PeerIDs:                 hPU.PeerIDs,

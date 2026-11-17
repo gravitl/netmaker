@@ -40,6 +40,8 @@ func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error)
 // GetHostNodes fetches all nodes that belong to the host.
 // Source of truth is the nodes table (host_id), not host.Nodes — that JSON
 // slice can retain stale IDs after leave/delete drift and omit live nodes.
+// Read-only: callers that need host.Nodes repaired use SyncHostNodesFromDB
+// (pull) or membership write paths (join/associate).
 func GetHostNodes(host *schema.Host) []models.Node {
 	if host == nil || host.ID == uuid.Nil {
 		return []models.Node{}
@@ -58,14 +60,11 @@ func GetHostNodes(host *schema.Host) []models.Node {
 		return nodes
 	}
 	nodes := make([]models.Node, 0, len(schemaNodes))
-	ids := make([]string, 0, len(schemaNodes))
 	for i := range schemaNodes {
 		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
 		ensureNodeMutex(n)
 		nodes = append(nodes, *n)
-		ids = append(ids, schemaNodes[i].ID)
 	}
-	_ = ReconcileHostNodeIDs(ctx, host, ids)
 	return nodes
 }
 
@@ -87,21 +86,31 @@ func listHostSchemaNodes(ctx context.Context, hostID string) ([]schema.Node, err
 
 // ReconcileHostNodeIDs rewrites host.Nodes to match live node IDs when they drift.
 // Peer updates and pull both walk host.Nodes, so stale/missing IDs break joins.
+// Uses a column-scoped UPDATE (not full-row Save) so a stale host snapshot cannot
+// clobber concurrent field updates. HA-safe locking would need a DB CAS/advisory
+// lock; this only avoids Save-wide clobber.
 func ReconcileHostNodeIDs(ctx context.Context, host *schema.Host, liveIDs []string) error {
 	if host == nil || host.ID == uuid.Nil {
 		return nil
 	}
-	if hostNodeIDSetsEqual(host.Nodes, liveIDs) {
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
+		return err
+	}
+	if hostNodeIDSetsEqual(fresh.Nodes, liveIDs) {
+		host.Nodes = append([]string(nil), fresh.Nodes...)
 		return nil
 	}
-	prev := append([]string(nil), host.Nodes...)
-	host.Nodes = append([]string(nil), liveIDs...)
-	if err := host.Upsert(ctx); err != nil {
-		host.Nodes = prev
+	prev := append([]string(nil), fresh.Nodes...)
+	nodesCol := datatypes.JSONSlice[string](append([]string(nil), liveIDs...))
+	if err := db.FromContext(ctx).Model(&schema.Host{}).
+		Where("id = ?", host.ID).
+		Update("nodes", nodesCol).Error; err != nil {
 		slog.Warn("failed to reconcile host.Nodes",
 			"host", host.ID.String(), "error", err)
 		return err
 	}
+	host.Nodes = append([]string(nil), liveIDs...)
 	slog.Info("reconciled host.Nodes with live nodes",
 		"host", host.ID.String(),
 		"before", len(prev),
@@ -109,11 +118,12 @@ func ReconcileHostNodeIDs(ctx context.Context, host *schema.Host, liveIDs []stri
 	return nil
 }
 
-// SyncHostNodesFromDB loads nodes by host_id and updates host.Nodes if needed.
-// Call before PeerUpdateForHost so peer calc sees the same set as GetHostNodes.
-func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) error {
+// SyncHostNodesFromDB loads nodes by host_id, updates host.Nodes if needed, and
+// returns the same node list for reuse (e.g. HostPull.Nodes) so callers avoid a
+// second preloaded query via GetHostNodes. Call before PeerUpdateForHost.
+func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) ([]models.Node, error) {
 	if host == nil || host.ID == uuid.Nil {
-		return nil
+		return nil, nil
 	}
 	if ctx == nil {
 		ctx = hostNodesContext(host)
@@ -122,13 +132,20 @@ func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) error {
 	}
 	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
 	ids := make([]string, 0, len(schemaNodes))
 	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
 		ids = append(ids, schemaNodes[i].ID)
 	}
-	return ReconcileHostNodeIDs(ctx, host, ids)
+	if err := ReconcileHostNodeIDs(ctx, host, ids); err != nil {
+		return nodes, err
+	}
+	return nodes, nil
 }
 
 func hostNodeIDSetsEqual(a, b []string) bool {
