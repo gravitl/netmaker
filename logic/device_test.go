@@ -427,8 +427,23 @@ func TestDeviceJoinSkipsApprovalWhenJITAppliesToUser(t *testing.T) {
 	joined := false
 	origJoin := JoinHostToNetworks
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
-	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, h *schema.Host, _ string) {
 		joined = true
+		// Mimic CreateNode: ensure post-join verify finds a host node.
+		net := &schema.Network{Name: key.Networks[0]}
+		require.NoError(t, net.Get(ctx))
+		n := &schema.Node{
+			ID:        uuid.NewString(),
+			TenantID:  scope.ID(ctx),
+			HostID:    h.ID.String(),
+			NetworkID: net.ID,
+			Address:   "10.98.0.50",
+			Connected: true,
+			Status:    schema.OnlineSt,
+		}
+		require.NoError(t, n.Create(ctx))
+		h.Nodes = append(h.Nodes, n.ID)
+		require.NoError(t, h.Upsert(ctx))
 	}
 
 	networks, err := GetDeviceNetworks(ctx, user, host)

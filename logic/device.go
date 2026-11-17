@@ -356,6 +356,11 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		if err := reconnectUserDeviceNode(ctx, host, networkID); err != nil {
 			return empty, err
 		}
+		// Orphan nodes (row exists, ID missing from host.Nodes) must be linked
+		// or the next host pull will omit the network.
+		if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+			return empty, err
+		}
 		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
@@ -392,7 +397,38 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		Networks:           []string{networkID},
 		SkipDeviceApproval: true,
 	}, host, user.Username)
+	// JoinHostToNetworks swallows CreateNode errors; only return joined when the
+	// host actually has a node on this network (and it is listed on host.Nodes).
+	if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+		return empty, fmt.Errorf("failed to join network %s: %w", networkID, err)
+	}
 	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
+}
+
+// ensureDeviceNodeLinkedToHost verifies a node exists for host+network and that
+// its ID is on host.Nodes (required for GET /api/v1/host Nodes / peer updates).
+func ensureDeviceNodeLinkedToHost(ctx context.Context, host *schema.Host, networkID string) error {
+	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
+	if err != nil {
+		return fmt.Errorf("host node missing on network: %w", err)
+	}
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
+		return err
+	}
+	if StringSliceContains(fresh.Nodes, nodeSchema.ID) {
+		host.Nodes = fresh.Nodes
+		return nil
+	}
+	modelsNode, err := GetNodeByID(nodeSchema.ID)
+	if err != nil {
+		return err
+	}
+	if err := AssociateNodeToHost(&modelsNode, fresh); err != nil {
+		return err
+	}
+	host.Nodes = fresh.Nodes
+	return nil
 }
 
 // reconnectUserDeviceNode sets Connected=true on an existing host node after a
