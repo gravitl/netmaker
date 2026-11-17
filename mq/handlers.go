@@ -187,6 +187,10 @@ func DeleteAndCleanupHost(h *schema.Host) {
 		slog.Error("failed to delete host", "id", h.ID, "error", err)
 		return
 	}
+	// delete if any pending reqs
+	if err := (&schema.PendingHost{HostID: h.ID.String()}).DeleteAllPendingHosts(ctx); err != nil {
+		slog.Error("failed to delete pending host reqs", "id", h.ID, "error", err)
+	}
 }
 
 func SignalPeer(signal models.Signal) {
