@@ -1,4 +1,4 @@
-# Netmaker v1.7.0 Release Notes 🚀
+# Netmaker v1.8.0 Release Notes 🚀
 
 ## 🚀 What’s New
 
