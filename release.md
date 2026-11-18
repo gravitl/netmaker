@@ -42,7 +42,7 @@ New option on **internet egress** so traffic to other (site) egress destinations
 
 - **Why:** Without bypass, clients using an internet exit often send site-egress traffic up to the exit node and back out again (hairpin), adding latency and load. Bypass keeps allowed site egress as **direct peers**, so traffic to those sites flows peer-to-peer instead of bending through the exit.
 - **`bypass_egress_routes`** (internet egress only) — enable to avoid that hairpin for other egress sites; disable to force site-egress traffic via the internet exit.
-- Configurable on create/update; defaults to **on** for new internet egress.
+- Configurable on create/update. Existing internet egress keeps it **off** after upgrade; enable it per exit node as needed.
 - Ignored for non-internet (site) egress types.
 
 
@@ -59,8 +59,6 @@ This release runs **`migration-v1.8.0`**, which continues the SQL schema path af
 - Lowercases **email usernames** where the username is an email address.
 - Clears legacy **`owner_username`** values on hosts (re-established by current device ownership flows).
 - Backfills **IP address pools and allocations** from existing node/extclient addresses.
-- Sets **`bypass_egress_routes=true`** on existing internet egress rows that predate the option (one-shot; later admin `false` is preserved).
-
 **Also on startup (idempotent helpers):**
 
 - Migrates legacy **internet gateways** (`IsInternetGateway`) into **internet-type egress** resources and exit-node selections.

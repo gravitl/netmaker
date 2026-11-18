@@ -37,7 +37,8 @@ func TestInternetEgressBypassesEgressRoutes(t *testing.T) {
 
 func TestResolveBypassEgressRoutesForCreate(t *testing.T) {
 	assert.False(t, ResolveBypassEgressRoutesForCreate(nil, false))
-	assert.True(t, ResolveBypassEgressRoutesForCreate(nil, true))
+	assert.False(t, ResolveBypassEgressRoutesForCreate(nil, true))
+	assert.False(t, ResolveBypassEgressRoutesForCreate(&models.EgressReq{}, true))
 
 	f := false
 	tr := true

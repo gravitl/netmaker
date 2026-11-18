@@ -71,7 +71,7 @@ func migrateInternetEgress() {
 			Range:              "*",
 			Nat:                true,
 			Mode:               schema.DirectNAT,
-			BypassEgressRoutes: true,
+			BypassEgressRoutes: false,
 			Nodes:              datatypes.JSONMap{node.ID.String(): 256},
 			Tags:               make(datatypes.JSONMap),
 			Status:             true,
@@ -101,22 +101,6 @@ func migrateInternetEgress() {
 	// failed/partial run can retry while the legacy flag is still set.
 	clearable := migrateExtClientInternetEgressSelections(ctx, nodes, routingToEgress)
 	clearLegacyIsInternetGateway(ctx, clearable)
-}
-
-// migrateBypassEgressRoutesDefault backfills bypass_egress_routes=true for internet
-// egress rows that predate the column (those rows stay false). It runs once inside
-// the v1.8.0 migration job. A later admin false is left alone.
-func migrateBypassEgressRoutesDefault(ctx context.Context) error {
-	res := db.FromContext(ctx).Table((&schema.Egress{}).Table()).
-		Where("bypass_egress_routes = ? AND egress_type = ?", false, schema.EgressTypeInternet).
-		Update("bypass_egress_routes", true)
-	if res.Error != nil {
-		return fmt.Errorf("backfill bypass_egress_routes: %w", res.Error)
-	}
-	if res.RowsAffected > 0 {
-		logger.Log(1, fmt.Sprintf("migration: set bypass_egress_routes=true on %d internet egress(es)", res.RowsAffected))
-	}
-	return nil
 }
 
 func migrateNodeInternetEgressSelections(ctx context.Context, nodes []models.Node, routingToEgress map[string]string, legacyClientsByRoutingNode map[string][]string) {
