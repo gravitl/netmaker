@@ -952,7 +952,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		g, peerErr := logic.LoadPeerGraph(r.Context())
 		if peerErr != nil {
 			slog.Error("pre-disconnect exit clear: failed to load peer graph", "error", peerErr)
-		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil); pubErr != nil {
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, false, "", nil); pubErr != nil {
 			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -1077,7 +1077,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		}
 		g, err := logic.LoadPeerGraph(ctx)
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})

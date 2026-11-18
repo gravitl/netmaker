@@ -331,14 +331,14 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
 						node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-						if err = mq.PublishSingleHostPeerUpdate(ctx, g, h, nil, &node, nil, false, nil); err != nil {
+						if err = mq.PublishSingleHostPeerUpdate(ctx, g, h, nil, &node, nil, false, false, "", nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}
 				}
 			}
 			if len(removedClients) > 0 {
-				if err := mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, removedClients[:], false, nil); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, removedClients[:], false, false, "", nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 			}

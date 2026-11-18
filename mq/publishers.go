@@ -170,7 +170,7 @@ func StartPeerUpdateWorker(ctx context.Context) {
 					logic.RefreshHostPeerInfoCache(ctx)
 					err = publishPeerUpdateImmediate(ctx, replacePeers)
 				case len(hostIDs) > 0:
-					err = publishPeerUpdateToHosts(ctx, hostIDs)
+					err = publishPeerUpdateToHosts(ctx, hostIDs, "")
 				default:
 					continue
 				}
@@ -204,8 +204,9 @@ func warmPeerCaches(ctx context.Context) {
 }
 
 // publishPeerUpdateToHosts --- loads the peer graph once and publishes a peer
-// update to only the given hosts.
-func publishPeerUpdateToHosts(ctx context.Context, hostIDs []uuid.UUID) error {
+// update to only the given hosts. clearThrottleHostID is set as
+// ClearAutoRelayThrottleHostID on each update (peer host to drop from throttle).
+func publishPeerUpdateToHosts(ctx context.Context, hostIDs []uuid.UUID, clearThrottleHostID string) error {
 	g, err := logic.LoadPeerGraph(ctx)
 	if err != nil {
 		return err
@@ -222,7 +223,7 @@ func publishPeerUpdateToHosts(ctx context.Context, hostIDs []uuid.UUID) error {
 		wg.Add(1)
 		go func(host *schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, clearThrottleHostID, nil); err != nil {
 				slog.Error("failed to publish peer update to host", "host", host.ID.String(), "error", err)
 			}
 		}(host)
@@ -260,7 +261,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 		wg.Add(1)
 		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, nil, replacePeers, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, nil, replacePeers, false, "", nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -272,6 +273,37 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 	wg.Wait()
 
 	return nil
+}
+
+// PublishPeerUpdateToHostForAutoRelay publishes immediately to one host.
+// When clearAutoRelayThrottle is true, that host wipes its entire signal throttle cache.
+func PublishPeerUpdateToHostForAutoRelay(ctx context.Context, clearAutoRelayThrottle bool, hostID uuid.UUID) error {
+	if !servercfg.IsMessageQueueBackend() || hostID == uuid.Nil {
+		return nil
+	}
+	g, err := logic.LoadPeerGraph(ctx)
+	if err != nil {
+		return err
+	}
+	host, err := g.Host(ctx, hostID)
+	if err != nil {
+		return err
+	}
+	return PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, clearAutoRelayThrottle, "", nil)
+}
+
+// PublishPeerUpdateToHostsForAutoRelay publishes immediately to the given hosts
+// with ClearAutoRelayThrottleHostID set so each peer drops that host from its
+// local throttle cache (used after reset-all / single-peer clear).
+func PublishPeerUpdateToHostsForAutoRelay(ctx context.Context, clearAutoRelayThrottleHostID uuid.UUID, hostIDs ...uuid.UUID) error {
+	if !servercfg.IsMessageQueueBackend() || len(hostIDs) == 0 {
+		return nil
+	}
+	clearID := ""
+	if clearAutoRelayThrottleHostID != uuid.Nil {
+		clearID = clearAutoRelayThrottleHostID.String()
+	}
+	return publishPeerUpdateToHosts(ctx, hostIDs, clearID)
 }
 
 // PublishDeletedNodePeerUpdate --- determines and publishes a peer update
@@ -297,7 +329,7 @@ func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, del
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, g, &host, delHosts, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, delHosts, delNode, nil, false, false, "", nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -324,7 +356,7 @@ func PublishDeletedNodesPeerUpdate(ctx context.Context, deletedHosts []schema.Ho
 	g := logic.NewPeerGraph(hosts, allNodes)
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, g, &host, deletedHosts, nil, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, deletedHosts, nil, nil, false, false, "", nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -351,7 +383,7 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, []models.ExtClient{*delClient}, false, false, "", nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -360,7 +392,7 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *schema.Host, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *schema.Host, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, clearAutoRelayThrottle bool, clearAutoRelayThrottleHostID string, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -382,14 +414,20 @@ func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *
 		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
+	peerUpdate.ClearAutoRelayThrottle = clearAutoRelayThrottle
+	peerUpdate.ClearAutoRelayThrottleHostID = clearAutoRelayThrottleHostID
 	if deletedNode == nil && len(deletedClients) == 0 && len(deletedHosts) == 0 {
-		logic.StoreHostPeerUpdate(ctx, host.ID.String(), peerUpdate)
+		// Do not cache one-shot throttle-clear flags.
+		cached := peerUpdate
+		cached.ClearAutoRelayThrottle = false
+		cached.ClearAutoRelayThrottleHostID = ""
+		logic.StoreHostPeerUpdate(ctx, host.ID.String(), cached)
 	}
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
 	}
-	slog.Debug("publishing peer update to host", "name", host.Name, "id", host.ID.String(), "owner", host.OwnerUsername, "peers", len(peerUpdate.Peers))
+	slog.Debug("publishing peer update to host", "name", host.Name, "id", host.ID.String(), "owner", host.OwnerUsername, "peers", len(peerUpdate.Peers), "clear_auto_relay_throttle", clearAutoRelayThrottle, "clear_auto_relay_throttle_host_id", clearAutoRelayThrottleHostID)
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
@@ -419,7 +457,7 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 			slog.Error("exit-client peer update: failed to get host", "host", hostID, "error", err)
 			continue
 		}
-		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil); err != nil {
 			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
 		}
 	}
@@ -464,7 +502,7 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 		}
 
 		if g != nil {
-			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil); err != nil {
 				slog.Error("reassign auto-assigned clients: failed to publish peer update", "host", host.ID, "error", err)
 			}
 		}

@@ -167,7 +167,7 @@ func joinDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
 		if g, err := logic.LoadPeerGraph(ctx); err == nil {
-			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
+			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil)
 		}
 		_ = mq.PublishPeerUpdate(ctx, false)
 	}()
@@ -207,7 +207,7 @@ func leaveDeviceNetwork(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
 		if g, err := logic.LoadPeerGraph(ctx); err == nil {
-			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, []schema.Host{*host}, node, nil, false, nil)
+			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, []schema.Host{*host}, node, nil, false, false, "", nil)
 		}
 		_ = mq.PublishDeletedNodePeerUpdate(ctx, host, node)
 	}()
@@ -345,7 +345,7 @@ func selectDeviceExitNode(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 	go func() {
 		if g, err := logic.LoadPeerGraph(ctx); err == nil {
-			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
+			_ = mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil)
 		}
 		_ = mq.PublishPeerUpdate(ctx, false)
 	}()

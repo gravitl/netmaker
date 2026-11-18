@@ -282,6 +282,9 @@ type HostPull struct {
 	ReplacePeers            bool                             `json:"replace_peers"`
 	AddressIdentityMap      map[string]PeerIdentity          `json:"address_identity_map"`
 	SshAuthorizedIdentities map[string]SSHAuthorizedIdentity `json:"ssh_authorized_identities"`
+	// ClearAutoRelayThrottle tells netclient to wipe its local auto-relay
+	// signal throttle cache (e.g. after reset_failovered pull).
+	ClearAutoRelayThrottle bool `json:"clear_auto_relay_throttle"`
 }
 
 // NodeGet - struct for a single node get response

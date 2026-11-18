@@ -360,15 +360,33 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
 	refresh := r.URL.Query().Get("refresh") == "true"
 	if resetFailovered {
+		peerHostIDs := make([]uuid.UUID, 0)
+		seenPeerHosts := map[uuid.UUID]struct{}{}
 		for _, nodeID := range host.Nodes {
 			node, err := logic.GetNodeByID(nodeID)
 			if err != nil {
 				continue
 			}
+			for peerID := range node.AutoRelayedPeers {
+				peer, peerErr := logic.GetNodeByID(peerID)
+				if peerErr != nil || peer.HostID == uuid.Nil || peer.HostID == host.ID {
+					continue
+				}
+				if _, ok := seenPeerHosts[peer.HostID]; ok {
+					continue
+				}
+				seenPeerHosts[peer.HostID] = struct{}{}
+				peerHostIDs = append(peerHostIDs, peer.HostID)
+			}
 			logic.ResetAutoRelayedPeer(r.Context(), &node)
 		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-		go mq.PublishPeerUpdate(ctx, false)
+		go func() {
+			_ = mq.PublishPeerUpdateToHostForAutoRelay(ctx, true, host.ID)
+			if len(peerHostIDs) > 0 {
+				_ = mq.PublishPeerUpdateToHostsForAutoRelay(ctx, host.ID, peerHostIDs...)
+			}
+		}()
 	}
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
@@ -410,6 +428,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		GwNodes:                 hPU.GwNodes,
 		AddressIdentityMap:      hPU.AddressIdentityMap,
 		SshAuthorizedIdentities: hPU.SshAuthorizedIdentities,
+		ClearAutoRelayThrottle:  resetFailovered,
 	}
 
 	logger.Log(1, hostIDStr, host.Name, "completed a pull")

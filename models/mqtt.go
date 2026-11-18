@@ -52,6 +52,12 @@ type HostPeerUpdate struct {
 	GwNodes                 map[schema.NetworkID][]Node      `json:"gw_nodes"`
 	AddressIdentityMap      map[string]PeerIdentity          `json:"address_identity_map"`
 	SshAuthorizedIdentities map[string]SSHAuthorizedIdentity `json:"ssh_authorized_identities"`
+	// ClearAutoRelayThrottle tells netclient to wipe its entire local auto-relay
+	// signal throttle cache (reset-all on this host).
+	ClearAutoRelayThrottle bool `json:"clear_auto_relay_throttle"`
+	// ClearAutoRelayThrottleHostID is a peer host ID to remove from the local
+	// throttle cache (single-connection reset or peers of a reset-all host).
+	ClearAutoRelayThrottleHostID string `json:"clear_auto_relay_throttle_host_id,omitempty"`
 	ServerConfig
 	OldPeerUpdateFields
 }

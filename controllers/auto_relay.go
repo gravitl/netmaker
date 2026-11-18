@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -214,13 +215,31 @@ func resetNodeAutoRelayedPeers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	peerHostIDs := make([]uuid.UUID, 0, len(node.AutoRelayedPeers))
+	seenPeerHosts := make(map[uuid.UUID]struct{}, len(node.AutoRelayedPeers))
+	for peerID := range node.AutoRelayedPeers {
+		peer, peerErr := logic.GetNodeByID(peerID)
+		if peerErr != nil || peer.HostID == uuid.Nil || peer.HostID == node.HostID {
+			continue
+		}
+		if _, ok := seenPeerHosts[peer.HostID]; ok {
+			continue
+		}
+		seenPeerHosts[peer.HostID] = struct{}{}
+		peerHostIDs = append(peerHostIDs, peer.HostID)
+	}
 	if err = logic.ResetAutoRelayedPeer(r.Context(), &node); err != nil {
 		slog.Error("failed to reset auto relayed peers", "node", nodeid, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go mq.PublishPeerUpdate(ctx, false)
+	go func() {
+		_ = mq.PublishPeerUpdateToHostForAutoRelay(ctx, true, node.HostID)
+		if len(peerHostIDs) > 0 {
+			_ = mq.PublishPeerUpdateToHostsForAutoRelay(ctx, node.HostID, peerHostIDs...)
+		}
+	}()
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "auto relayed peers reset successfully")
 }
@@ -255,7 +274,9 @@ func clearNodeAutoRelayedPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	mq.PublishPeerUpdateToHosts(ctx, node.HostID, peerNode.HostID)
+	// Each side clears the other host from its local throttle cache.
+	_ = mq.PublishPeerUpdateToHostsForAutoRelay(ctx, peerNode.HostID, node.HostID)
+	_ = mq.PublishPeerUpdateToHostsForAutoRelay(ctx, node.HostID, peerNode.HostID)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "auto relayed peer cleared successfully")
 }
@@ -651,7 +672,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		host := _node.Host
 		g, err := logic.LoadPeerGraph(r.Context())
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, false, "", nil)
 		}
 		ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
 		go mq.PublishPeerUpdate(ctx, false)

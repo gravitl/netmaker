@@ -73,7 +73,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			err = PublishDeletedNodePeerUpdate(ctx, nil, &newNode)
 			g, err := logic.LoadPeerGraph(ctx)
 			if err == nil {
-				PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
+				PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, false, "", nil)
 			}
 		} else {
 			host := &schema.Host{ID: currentNode.HostID}
@@ -129,7 +129,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		HostUpdate(&models.HostUpdate{
 			Action: models.UpdateHost,
 			Host:   *currentHost})
-		PublishSingleHostPeerUpdate(ctx, g, currentHost, nil, nil, nil, false, nil)
+		PublishSingleHostPeerUpdate(ctx, g, currentHost, nil, nil, nil, false, false, "", nil)
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
