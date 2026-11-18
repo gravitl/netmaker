@@ -460,12 +460,15 @@ func createDefaultTagsAndPolicies(ctx context.Context) {
 // migrateEgressDomains copies the legacy DB column "domain" (singular) into "domains" only.
 // Resolved IPs use domain_ans_by_domain at runtime; legacy domain_ans is not migrated.
 func migrateEgressDomains() {
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+	if !gormDB.Migrator().HasColumn(&schema.Egress{}, "domain") {
+		return
+	}
 	egs, err := (&schema.Egress{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "migration: failed to list egresses:", err.Error())
 		return
 	}
-	gormDB := db.FromContext(db.WithContext(context.TODO()))
 	for _, eg := range egs {
 		if len(eg.Domains) > 0 {
 			continue
