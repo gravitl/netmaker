@@ -117,6 +117,10 @@ func EventWatcher() {
 			continue
 		}
 
+		if e.Action != schema.AlertTriggered && e.Action != schema.AlertResolved && e.Action != schema.AlertAcknowledged {
+			go EvaluateAlertsForEvent(writeCtx, e, a)
+		}
+
 		_siemMtx.Lock()
 		if !_pushToSiem {
 			_siemMtx.Unlock()
