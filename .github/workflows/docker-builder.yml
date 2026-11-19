@@ -7,21 +7,26 @@ on:
         description: 'Docker tag to use (default: latest)'
         required: false
         default: 'latest'
+permissions:
+  contents: read
+
 jobs:
   go-builder:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v7
+      uses: actions/checkout@v7.0.1
+      with:
+        persist-credentials: false
     - name: SetUp Buildx
-      uses: docker/setup-buildx-action@v4
+      uses: docker/setup-buildx-action@v4.4.1
     - name: Login to Dockerhub
       uses: docker/login-action@v4.6.0
       with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build and push to docker hub
-      uses: docker/build-push-action@v7
+      uses: docker/build-push-action@v7.4.0
       with:
         context: .
         push: true
