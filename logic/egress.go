@@ -191,7 +191,7 @@ func InternetEgressRoutingNodeIDsFromList(eli []schema.Egress) map[string]struct
 }
 
 // ResolveBypassEgressRoutesForCreate returns the bypass flag for a new internet egress.
-// Defaults to true when the request omits the field.
+// Defaults to false when the request omits the field.
 func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) bool {
 	if !isInternet {
 		return false
@@ -199,7 +199,7 @@ func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) 
 	if req != nil && req.BypassEgressRoutes != nil {
 		return *req.BypassEgressRoutes
 	}
-	return true
+	return false
 }
 
 // ResolveBypassEgressRoutesForUpdate returns the bypass flag for an updated internet egress.

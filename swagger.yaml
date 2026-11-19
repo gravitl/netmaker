@@ -704,7 +704,7 @@ definitions:
   models.EgressReq:
     properties:
       bypass_egress_routes:
-        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match. Defaults to true when omitted on create.
+        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match. Defaults to false when omitted on create.
         type: boolean
       description:
         type: string
