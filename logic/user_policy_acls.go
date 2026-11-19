@@ -346,14 +346,14 @@ func isUserAllowedToCommunicate(ctx context.Context, userName string, peer model
 	}
 	peerTags[models.TagID(peerId)] = struct{}{}
 	peerTags[models.TagID("*")] = struct{}{}
-	acl, _ := GetDefaultPolicy(ctx, schema.NetworkID(peer.Network), models.UserPolicy)
-	if acl.Enabled {
-		return true, []models.Acl{acl}
-	}
 	user := &schema.User{Username: userName}
 	err := user.GetWithMembership(ctx)
 	if err != nil {
 		return false, []models.Acl{}
+	}
+	acl, _ := GetDefaultPolicy(ctx, schema.NetworkID(peer.Network), models.UserPolicy)
+	if acl.Enabled {
+		return true, []models.Acl{acl}
 	}
 	allowedPolicies := []models.Acl{}
 	policies := listNetworkAccessPoliciesOfUser(ctx, user, schema.NetworkID(peer.Network))
