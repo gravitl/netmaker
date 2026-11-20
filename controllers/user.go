@@ -1533,6 +1533,14 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	if logic.IsMSP(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("superadmin cannot be transferred directly on an MSP tenant; transfer organization ownership instead"),
+			logic.Forbidden,
+		))
+		return
+	}
+
 	dbctx := db.BeginTx(r.Context())
 	commit := false
 	defer func() {
