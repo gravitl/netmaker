@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	dbtypes "github.com/gravitl/netmaker/db/types"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
@@ -36,6 +39,8 @@ func orgHandlers(r *mux.Router) {
 	//r.HandleFunc("/api/v1/tenants", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(createTenant)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.GlobalScope, http.HandlerFunc(getTenant))).Methods(http.MethodGet)
 	//r.HandleFunc("/api/v1/tenants/{tenant_id}", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(deleteTenant)))).Methods(http.MethodDelete)
+
+	r.HandleFunc("/api/v1/tenants/{tenant_id}/users", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(listTenantUsers)))).Methods(http.MethodGet)
 }
 
 var errOrgNotFound = errors.New("organization not found")
@@ -809,4 +814,115 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 //	}
 //
 //	logic.ReturnSuccessResponse(w, r, "deleted tenant")
-//}
+
+// @Summary     List a tenant's users with their org and tenant roles. Only
+// @Summary     callable by org owners and org admins of the tenant's organization.
+// @Router      /api/v1/tenants/{tenant_id}/users [get]
+// @Tags        Users
+// @Security    oauth
+// @Param       tenant_id path string true "Tenant ID"
+// @Produce     json
+// @Success     200 {array} models.ReturnUser
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listTenantUsers(w http.ResponseWriter, r *http.Request) {
+	tenant := &schema.Tenant{ID: mux.Vars(r)["tenant_id"]}
+	err := tenant.Get(r.Context())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
+			return
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if tenant.OrganizationID != scope.ID(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tenant not found"), logic.NotFound))
+		return
+	}
+
+	tenantCtx := scope.WithContext(r.Context(), scope.TenantScope, tenant.ID)
+	_users, err := (&schema.User{}).ListAllWithMembership(tenantCtx)
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	roles, _ := (&schema.UserRole{}).ListPlatformRoles(tenantCtx)
+	rolesMap := make(map[schema.UserRoleID]schema.UserRole, len(roles))
+	for _, role := range roles {
+		rolesMap[role.Slug] = role
+	}
+
+	// Same fields as models.ReturnUser, minus PlatformRoleID (ambiguous here:
+	// a user has both an org role and a tenant role), plus OrgRoleID and
+	// TenantRoleID holding each role's slug.
+	type tenantUserWithRoles struct {
+		UserName                   string                                              `json:"username"`
+		ExternalIdentityProviderID string                                              `json:"external_identity_provider_id"`
+		IsMFAEnabled               bool                                                `json:"is_mfa_enabled"`
+		EmailValidated             bool                                                `json:"email_validated"`
+		DisplayName                string                                              `json:"display_name"`
+		AccountDisabled            bool                                                `json:"account_disabled"`
+		IsAdmin                    bool                                                `json:"isadmin"`
+		IsSuperAdmin               bool                                                `json:"issuperadmin"`
+		AuthType                   schema.AuthType                                     `json:"auth_type"`
+		RemoteGwIDs                map[string]struct{}                                 `json:"remote_gw_ids"`
+		UserGroups                 map[schema.UserGroupID]struct{}                     `json:"user_group_ids"`
+		NetworkRoles               map[schema.NetworkID]map[schema.UserRoleID]struct{} `json:"network_roles"`
+		LastLoginTime              time.Time                                           `json:"last_login_time"`
+		NumAccessTokens            int                                                 `json:"num_access_tokens"`
+		CreatedBy                  string                                              `json:"created_by"`
+		CreatedAt                  time.Time                                           `json:"created_at"`
+		UpdatedAt                  time.Time                                           `json:"updated_at"`
+		OrgRoleID                  schema.UserRoleID                                   `json:"org_role_id,omitempty"`
+		TenantRoleID               schema.UserRoleID                                   `json:"tenant_role_id,omitempty"`
+	}
+
+	users := make([]tenantUserWithRoles, 0, len(_users))
+	for i := range _users {
+		ru := logic.ToReturnUser(&_users[i])
+		ret := tenantUserWithRoles{
+			UserName:                   ru.UserName,
+			ExternalIdentityProviderID: ru.ExternalIdentityProviderID,
+			IsMFAEnabled:               ru.IsMFAEnabled,
+			EmailValidated:             ru.EmailValidated,
+			DisplayName:                ru.DisplayName,
+			AccountDisabled:            ru.AccountDisabled,
+			IsAdmin:                    ru.IsAdmin,
+			IsSuperAdmin:               ru.IsSuperAdmin,
+			AuthType:                   ru.AuthType,
+			RemoteGwIDs:                ru.RemoteGwIDs,
+			UserGroups:                 ru.UserGroups,
+			NetworkRoles:               ru.NetworkRoles,
+			LastLoginTime:              ru.LastLoginTime,
+			CreatedBy:                  ru.CreatedBy,
+			CreatedAt:                  ru.CreatedAt,
+			UpdatedAt:                  ru.UpdatedAt,
+		}
+		ret.NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: ret.UserName,
+		}).CountByUser(tenantCtx)
+
+		if role, ok := rolesMap[_users[i].PlatformRoleID]; ok {
+			ret.TenantRoleID = role.Slug
+		}
+
+		orgMembership := &schema.OrgMembership{OrganizationID: tenant.OrganizationID, UserID: _users[i].ID}
+		err = orgMembership.Get(r.Context())
+		if err == nil {
+			if role, ok := rolesMap[orgMembership.RoleID]; ok {
+				ret.OrgRoleID = role.Slug
+			}
+		}
+
+		users = append(users, ret)
+	}
+
+	sort.Slice(users, func(i, j int) bool { return users[i].UserName < users[j].UserName })
+
+	logger.Log(2, r.Header.Get("user"), "fetched tenant users with org and tenant roles")
+	logic.ReturnSuccessResponseWithJson(w, r, users, "fetched tenant users with role info")
+}
