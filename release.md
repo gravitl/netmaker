@@ -43,11 +43,11 @@ New option on **internet egress** so traffic to other (site) egress destinations
 
 - **Why:** Without bypass, clients using an internet exit often send site-egress traffic up to the exit node and back out again (hairpin), adding latency and load. Bypass keeps allowed site egress as **direct peers**, so traffic to those sites flows peer-to-peer instead of bending through the exit.
 - **`bypass_egress_routes`** (internet egress only) — enable to avoid that hairpin for other egress sites; disable to force site-egress traffic via the internet exit.
-- Configurable on create/update; defaults to **off** for new internet egress.
+- Configurable on create/update; defaults to **off** for new internet egress. Existing internet egress keeps it **off** after upgrade; enable it per exit node as needed.
 - Ignored for non-internet (site) egress types.
 
 ### 🏢 MSP Org-Level IdP Auto-Provisioning
-Connect an identity provider once at the ** organisation ** level and automatically provision org users.
+Connect an identity provider once at the **organisation** level and automatically provision org users.
 - Configure SSO (Google, Microsoft Entra ID, Okta, GitHub, OIDC) in organisation settings.
 - **Directory sync** for Google Workspace, Microsoft Entra ID, and Okta automatically creates, updates, and disables org users on a configurable sync interval, with optional user filters.
 

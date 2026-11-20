@@ -16,7 +16,7 @@ type EgressReq struct {
 	Nat     bool                 `json:"nat"`
 	Mode    schema.EgressNATMode `json:"mode"`
 	Status  bool                 `json:"status"`
-	// BypassEgressRoutes (internet egress only). Nil on request means default true on create
+	// BypassEgressRoutes (internet egress only). Nil on request means default false on create
 	// and leave unchanged on update. Ignored for non-internet egress.
 	BypassEgressRoutes *bool `json:"bypass_egress_routes,omitempty"`
 	// PresetID optional: reference to a catalog preset (see GET /api/v1/egress/presets). Explicit name/domain in the body override preset defaults.

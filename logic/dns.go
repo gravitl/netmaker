@@ -26,12 +26,12 @@ const (
 )
 
 var (
-	invalidDNSChars = regexp.MustCompile(`[^a-z0-9-]+`)
+	invalidDNSChars = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
 	multipleHyphens = regexp.MustCompile(`-+`)
 )
 
 func ToDNSLabel(input string) string {
-	s := strings.ToLower(strings.TrimSpace(input))
+	s := strings.TrimSpace(input)
 
 	// Replace anything that isn't explicitly DNS-safe.
 	s = invalidDNSChars.ReplaceAllString(s, "-")
