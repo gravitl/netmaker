@@ -2000,6 +2000,21 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID != schema.OrgAdmin && user.PlatformRoleID == schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().GrantOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to grant tenant access to promoted org-admin", "user", user.Username, "error", err.Error())
+		}
+		user.PlatformRoleID = schema.OrgAdmin
+	} else if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID != schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().RevokeOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to revoke tenant access from downgraded org-admin", "user", user.Username, "error", err.Error())
+		}
+	}
+
 	if deleteAccessTokens {
 		_ = (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}

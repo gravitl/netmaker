@@ -149,7 +149,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		}
 
 		if orgRole == schema.OrgAdmin {
-			if err := u.grantOrgAdminTenantAccess(ctx, orgID, user); err != nil {
+			if err := u.GrantOrgAdminTenantAccess(ctx, orgID, user); err != nil {
 				return err
 			}
 			// GrantTenantAdmin (called per tenant above) overwrites
@@ -169,7 +169,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 	return nil
 }
 
-func (u *UserOrchestrator) grantOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
+func (u *UserOrchestrator) GrantOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
 	tenants, err := (&schema.Tenant{}).List(ctx, dbtypes.WithFilter("organization_id", orgID))
 	if err != nil {
 		return err
@@ -177,6 +177,33 @@ func (u *UserOrchestrator) grantOrgAdminTenantAccess(ctx context.Context, orgID 
 
 	for i := range tenants {
 		err = GetRepository().TenantOrchestrator().GrantTenantAdmin(ctx, &tenants[i], user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u *UserOrchestrator) RevokeOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
+	tenants, err := (&schema.Tenant{}).List(ctx, dbtypes.WithFilter("organization_id", orgID))
+	if err != nil {
+		return err
+	}
+
+	for i := range tenants {
+		membership := &schema.TenantMembership{TenantID: tenants[i].ID, UserID: user.ID}
+		err = membership.Get(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return err
+		}
+		if membership.RoleID != schema.AdminRole {
+			continue
+		}
+		err = membership.Delete(ctx)
 		if err != nil {
 			return err
 		}
