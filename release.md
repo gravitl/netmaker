@@ -11,6 +11,7 @@ Completely redesigned **Netmaker Desktop Apps** for a faster, stable connection 
 - Fresh UI and connection flow for connecting to networks and exit nodes.
 - Improved status visibility for tunnel state and exit modes.
 - **Auto Exit** — when enabled on a network (`auto_select_exit_node`), desktop/user devices are automatically assigned an allowed internet exit (nearest available) when they connect; users can still switch exits when permitted.
+- **Compatibility** — The new Desktop Apps require Netmaker server **v1.8.0 or later**.
 
 ### 🔐 Managed Access with Netmaker SSH
 
@@ -28,7 +29,7 @@ Updated network map experience for clearer topology and device context.
 - Easier navigation of network relationships and host locations.
 - Better at-a-glance view of how your mesh is connected.
 
-### 🪟 Windows Egress Support
+### ⊞ Windows Egress Support
 
 Windows hosts can now act as **egress gateways**.
 
@@ -42,9 +43,20 @@ New option on **internet egress** so traffic to other (site) egress destinations
 
 - **Why:** Without bypass, clients using an internet exit often send site-egress traffic up to the exit node and back out again (hairpin), adding latency and load. Bypass keeps allowed site egress as **direct peers**, so traffic to those sites flows peer-to-peer instead of bending through the exit.
 - **`bypass_egress_routes`** (internet egress only) — enable to avoid that hairpin for other egress sites; disable to force site-egress traffic via the internet exit.
-- Configurable on create/update; defaults to **on** for new internet egress.
+- Configurable on create/update; defaults to **off** for new internet egress.
 - Ignored for non-internet (site) egress types.
 
+### 🏢 MSP Org-Level IdP Auto-Provisioning
+Connect an identity provider once at the ** organisation ** level and automatically provision org users.
+- Configure SSO (Google, Microsoft Entra ID, Okta, GitHub, OIDC) in organisation settings.
+- **Directory sync** for Google Workspace, Microsoft Entra ID, and Okta automatically creates, updates, and disables org users on a configurable sync interval, with optional user filters.
+
+### 🔑 API Keys
+Create long-lived API keys for automation and integrations, instead of using user session tokens.
+- Scoped per tenant with **read**, **modify**, or **full access** permissions.
+- Restrict a key to **all networks** or **selected networks**; optional expiry.
+- The secret is shown once at creation and stored hashed. Keys can be renamed, revoked, and have their last-used time tracked.
+- Manage keys via `/api/v1/api-keys`; send the key as a Bearer token (`nm_live_…`). Actions are audit-logged as `API Key: <name>`.
 
 ---
 
@@ -59,7 +71,6 @@ This release runs **`migration-v1.8.0`**, which continues the SQL schema path af
 - Lowercases **email usernames** where the username is an email address.
 - Clears legacy **`owner_username`** values on hosts (re-established by current device ownership flows).
 - Backfills **IP address pools and allocations** from existing node/extclient addresses.
-- Sets **`bypass_egress_routes=true`** on existing internet egress rows that predate the option (one-shot; later admin `false` is preserved).
 
 **Also on startup (idempotent helpers):**
 
@@ -144,3 +155,4 @@ For detailed upgrade steps, refer to the official upgrade documentation:
 
 - **Duplicate overlay IPs block v1.8.0 migration**  
   Networks with the same address on multiple nodes/extclients must be cleaned up before `migration-v1.8.0` can complete.
+
