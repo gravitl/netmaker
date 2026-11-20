@@ -25,17 +25,21 @@ type Violation struct {
 
 // ExtClient - struct for external clients
 type ExtClient struct {
-	ClientID               string   `json:"clientid" bson:"clientid"`
-	PrivateKey             string   `json:"privatekey" bson:"privatekey"`
-	PublicKey              string   `json:"publickey" bson:"publickey"`
-	Network                string   `json:"network" bson:"network"`
-	DNS                    string   `json:"dns" bson:"dns"`
-	Address                string   `json:"address" bson:"address"`
-	Address6               string   `json:"address6" bson:"address6"`
-	ExtraAllowedIPs        []string `json:"extraallowedips" bson:"extraallowedips"`
-	AllowedIPs             []string `json:"allowed_ips"`
-	IngressGatewayID       string   `json:"ingressgatewayid" bson:"ingressgatewayid"`
-	IngressGatewayEndpoint string   `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
+	ClientID        string   `json:"clientid" bson:"clientid"`
+	PrivateKey      string   `json:"privatekey" bson:"privatekey"`
+	PublicKey       string   `json:"publickey" bson:"publickey"`
+	Network         string   `json:"network" bson:"network"`
+	DNS             string   `json:"dns" bson:"dns"`
+	Address         string   `json:"address" bson:"address"`
+	Address6        string   `json:"address6" bson:"address6"`
+	ExtraAllowedIPs []string `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs      []string `json:"allowed_ips"`
+	// IncludeNetworkEgressRanges controls whether this client's config lists the
+	// network's egress ranges (egress CIDRs and other clients' extra allowed IPs).
+	// Nil keeps the historical behavior and includes them. False skips that scan.
+	IncludeNetworkEgressRanges *bool  `json:"include_network_egress_ranges,omitempty" bson:"include_network_egress_ranges,omitempty"`
+	IngressGatewayID           string `json:"ingressgatewayid" bson:"ingressgatewayid"`
+	IngressGatewayEndpoint     string `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	// SelectedInternetEgressID is the internet egress this config file uses for full-tunnel exit (empty = none).
 	SelectedInternetEgressID          string              `json:"selected_internet_egress_id" bson:"selected_internet_egress_id"`
 	LastModified                      int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
@@ -62,6 +66,12 @@ type ExtClient struct {
 	JITExpiresAt                      *time.Time          `json:"jit_expires_at,omitempty" bson:"jit_expires_at,omitempty"`
 	Status                            NodeStatus          `json:"status" bson:"status"`
 	Mutex                             *sync.Mutex         `json:"-"`
+}
+
+// IncludesNetworkEgressRanges reports whether this client's config should list
+// network egress ranges. An unset flag includes them.
+func (extPeer ExtClient) IncludesNetworkEgressRanges() bool {
+	return extPeer.IncludeNetworkEgressRanges == nil || *extPeer.IncludeNetworkEgressRanges
 }
 
 func (extPeer *ExtClient) AddressIPNet4() net.IPNet {

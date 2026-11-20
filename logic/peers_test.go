@@ -11,9 +11,39 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 )
+
+func TestDefaultsAllowAllTrafficRequiresBothDefaults(t *testing.T) {
+	wasPro := servercfg.IsPro
+	servercfg.IsPro = true
+	t.Cleanup(func() { servercfg.IsPro = wasPro })
+
+	open := func(rule models.AclPolicyType, enabled bool) models.Acl {
+		return models.Acl{
+			Enabled:  enabled,
+			RuleType: rule,
+			Src:      []models.AclPolicyTag{{Value: "*"}},
+			Dst:      []models.AclPolicyTag{{Value: "*"}},
+		}
+	}
+	scoped := models.Acl{
+		Enabled:  true,
+		RuleType: models.DevicePolicy,
+		Src:      []models.AclPolicyTag{{Value: "net.ext-routers"}},
+		Dst:      []models.AclPolicyTag{{Value: "net.gateways"}},
+	}
+	allNodes := open(models.DevicePolicy, true)
+	allUsers := open(models.UserPolicy, true)
+
+	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, nil))
+	assert.False(t, defaultsAllowAllTraffic(open(models.DevicePolicy, false), allUsers, nil))
+	assert.False(t, defaultsAllowAllTraffic(allNodes, open(models.UserPolicy, false), nil))
+	assert.False(t, defaultsAllowAllTraffic(scoped, models.Acl{}, []models.Acl{scoped}))
+	assert.True(t, defaultsAllowAllTraffic(models.Acl{}, models.Acl{}, []models.Acl{allNodes, allUsers, scoped}))
+}
 
 func TestDeduplicateEgressRoutesMergesRangesForSamePeerAndNetwork(t *testing.T) {
 	routes := []models.EgressNetworkRoutes{
