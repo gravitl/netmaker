@@ -202,17 +202,30 @@ func (t *TenantOrchestrator) notifyHostsOfDeletion(tenantID string, hosts []sche
 }
 
 func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
-	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-	user.PlatformRoleID = schema.SuperAdminRole
-	if t.isMSPTenant(ctx, tenant) {
-		return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
-	}
-	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithReplicatedAuth())
+	return t.setTenantRole(ctx, tenant, user, schema.SuperAdminRole)
 }
 
 func (t *TenantOrchestrator) GrantTenantAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
+	return t.setTenantRole(ctx, tenant, user, schema.AdminRole)
+}
+
+func (t *TenantOrchestrator) setTenantRole(ctx context.Context, tenant *schema.Tenant, user *schema.User, roleID schema.UserRoleID) error {
+	membership := &schema.TenantMembership{TenantID: tenant.ID, UserID: user.ID}
+	err := membership.Get(ctx)
+	if err == nil {
+		user.PlatformRoleID = roleID
+		if membership.RoleID == roleID {
+			return nil
+		}
+		membership.RoleID = roleID
+		return membership.UpdateRoleID(ctx)
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-	user.PlatformRoleID = schema.AdminRole
+	user.PlatformRoleID = roleID
 	if t.isMSPTenant(ctx, tenant) {
 		return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
 	}

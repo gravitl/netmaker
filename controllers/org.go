@@ -584,6 +584,29 @@ func transferOrgOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenants, err := (&schema.Tenant{}).List(dbctx, dbtypes.WithFilter("organization_id", scope.ID(r.Context())))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	for i := range tenants {
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantSuperAdmin(dbctx, &tenants[i], newOwner)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+
+		err = orchestrator.GetRepository().TenantOrchestrator().GrantTenantAdmin(dbctx, &tenants[i], caller)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+	}
+
+	newOwner.PlatformRoleID = schema.OrgOwner
+	caller.PlatformRoleID = schema.OrgAdmin
+
 	commit = true
 
 	logic.ReturnSuccessResponseWithJson(w, r, logic.ToReturnUser(newOwner), "transferred organization ownership")
