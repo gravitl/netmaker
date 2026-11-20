@@ -1,53 +1,93 @@
-# Netmaker v1.7.0 Release Notes 🚀
+# Netmaker v1.8.0 Release Notes 🚀
 
 ## 🚀 What’s New
 
-### 🏢 Multi-Tenancy for MSPs (Organizations & Tenants)
+### 💻 All-New Desktop Apps
 
-Run multiple customer environments from a single Netmaker server.
+Completely redesigned **Netmaker Desktop Apps** for a faster, stable connection experience.
 
-- **Organizations & tenants** — Group customers under an organization; each tenant is an isolated Netmaker environment (networks, devices, users).
-- **MSP license sync** — EE/MSP installs create and update orgs/tenants from the MSP license (including teardown when a tenant is removed from the license). CE and normal Pro accounts continues to use a single local default tenant.
-- **Scoped access** — API and `nmctl` select the target org/tenant via `X-Organization-ID` / `X-Tenant-ID` (`--org_id` / `--tenant_id`), with `nmctl organization list` and `nmctl tenant list` for discovery.
+- Now available to **CE users** as well (previously limited to Pro/EE).
+- **Peer-to-peer by default** — desktop devices join the mesh with direct peering (not gateway-only), for lower latency and better connectivity.
+- Fresh UI and connection flow for connecting to networks and exit nodes.
+- Improved status visibility for tunnel state and exit modes.
+- **Auto Exit** — when enabled on a network (`auto_select_exit_node`), desktop/user devices are automatically assigned an allowed internet exit (nearest available) when they connect; users can still switch exits when permitted.
+- **Compatibility** — The new Desktop Apps require Netmaker server **v1.8.0 or later**.
 
-### 🔌 TCP Proxy / WSS Uplink
+### 🔐 Managed Access with Netmaker SSH
 
-Gateways can publish a **TCP/WSS uplink** so clients can reach the mesh in restrictive environments when UDP is blocked.
+Secure, managed SSH access to hosts through Netmaker — without opening inbound SSH on the public internet.
 
-- Enable TCP proxy on the gateway/host (`tcp_proxy_enabled` and related listen/TLS settings).
-- Clients can opt into a TCP uplink to the gateway when the proxy is enabled.
-- Supports self-signed and externally terminated TLS modes for WSS endpoints.
+- Enable **Manage SSH** on hosts so netclient runs an embedded SSH/SCP/SFTP server.
+- Access mesh hosts over Netmaker with centralized control of who can connect.
+- Useful for admin access, file transfer, and operational workflows on enrolled devices.
 
-### 🛡️ EDR Integration (Pro)
+### 🗺️ Network Map Updates
 
-Connect endpoint detection and response platforms for **posture checks** from **Integrations**.
+Updated network map experience for clearer topology and device context.
 
-- Supported providers: **Microsoft Defender**, **CrowdStrike**, **SentinelOne**, and **Wazuh**.
-- Sync managed endpoints and evaluate EDR compliance (agent health / risk level) as part of device posture.
-- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/edr/{provider}`).
+- Improved layout and visualization of users, devices, servers, and config clients.
+- Easier navigation of network relationships and host locations.
+- Better at-a-glance view of how your mesh is connected.
 
-### 📱 MDM Integration (Pro)
+### ⊞ Windows Egress Support
 
-Connect mobile device management platforms for **device compliance posture** from **Integrations**.
+Windows hosts can now act as **egress gateways**.
 
-- Supported providers: **Microsoft Intune**, **Jamf**, **JumpCloud**, and **Iru**.
-- Match devices by Entra device ID, serial number, hardware UUID, or hostname.
-- Enforce MDM enrollment/compliance checks alongside existing posture policies.
-- Configure, test, and manage integrations via the REST API (`/api/v1/integrations/mdm/{provider}`).
+- Advertise egress ranges from Windows netclients.
+- Route traffic from the mesh to attached LAN/site networks via Windows.
+- Uses Windows NetNat where required for egress NAT.
 
+### 🔀 Bypass Egress Routes
+
+New option on **internet egress** so traffic to other (site) egress destinations does not hairpin through the internet exit.
+
+- **Why:** Without bypass, clients using an internet exit often send site-egress traffic up to the exit node and back out again (hairpin), adding latency and load. Bypass keeps allowed site egress as **direct peers**, so traffic to those sites flows peer-to-peer instead of bending through the exit.
+- **`bypass_egress_routes`** (internet egress only) — enable to avoid that hairpin for other egress sites; disable to force site-egress traffic via the internet exit.
+- Configurable on create/update; defaults to **off** for new internet egress. Existing internet egress keeps it **off** after upgrade; enable it per exit node as needed.
+- Ignored for non-internet (site) egress types.
+
+### 🏢 MSP Org-Level IdP Auto-Provisioning
+Connect an identity provider once at the **organisation** level and automatically provision org users.
+- Configure SSO (Google, Microsoft Entra ID, Okta, GitHub, OIDC) in organisation settings.
+- **Directory sync** for Google Workspace, Microsoft Entra ID, and Okta automatically creates, updates, and disables org users on a configurable sync interval, with optional user filters.
+
+### 🔑 API Keys
+Create long-lived API keys for automation and integrations, instead of using user session tokens.
+- Scoped per tenant with **read**, **modify**, or **full access** permissions.
+- Restrict a key to **all networks** or **selected networks**; optional expiry.
+- The secret is shown once at creation and stored hashed. Keys can be renamed, revoked, and have their last-used time tracked.
+- Manage keys via `/api/v1/api-keys`; send the key as a Bearer token (`nm_live_…`). Actions are audit-logged as `API Key: <name>`.
 
 ---
 
 ## 🗄️ Database Schema Migration
 
-This release completes the SQL schema path and introduces **multi-tenancy (org/tenant) bootstrap** as part of the v1.7.0 migration.
+This release runs **`migration-v1.8.0`**, which continues the SQL schema path after multi-tenancy (org/tenant) from v1.7.0. It migrates remaining key-value resources into versioned tables, backfills IP pools/allocations, and applies internet-egress defaults.
+
+**What `migration-v1.8.0` does:**
+
+- Migrates **extclients**, **ACLs**, **tags**, and **DNS entries** into `*_v1` schema tables (network resolved by name within tenant).
+- Adds **slugs** / **UUIDs** (and role **scope**) for user groups and user roles.
+- Lowercases **email usernames** where the username is an email address.
+- Clears legacy **`owner_username`** values on hosts (re-established by current device ownership flows).
+- Backfills **IP address pools and allocations** from existing node/extclient addresses.
+
+**Also on startup (idempotent helpers):**
+
+- Migrates legacy **internet gateways** (`IsInternetGateway`) into **internet-type egress** resources and exit-node selections.
+- Backfills **`network_global_access`** on default network-admin roles.
 
 **Upgrade requirement (existing deployments):**
 
-- You **must** run **Netmaker v1.6.0** successfully **before** upgrading to v1.7.0.
-- v1.7.0 will **refuse to start** if `migration-v1.6.0` has not completed on a prior v1.6.0 deployment.
-- Recommended path: deploy v1.6.0 → confirm the server starts cleanly → then upgrade to v1.7.0.
+- You **must** run **Netmaker v1.7.0** successfully **before** upgrading to v1.8.0.
+- v1.8.0 will **refuse to start** if `migration-v1.7.0` has not completed on a prior v1.7.0 deployment.
+- Recommended path: deploy v1.7.0 → confirm the server starts cleanly → then upgrade to v1.8.0.
+- **Do not** jump from v1.6.x (or earlier) straight to v1.8.0 on an existing database.
 
+**Pre-upgrade check (IP uniqueness):**
+
+- If a network has the **same overlay IP** on more than one node or extclient, **`migration-v1.8.0` will fail** until duplicates are resolved.
+- Fix duplicate addresses in the UI/API, then retry the upgrade.
 
 **Impact:**
 
@@ -56,25 +96,41 @@ This release completes the SQL schema path and introduces **multi-tenancy (org/t
 
 **👉 Action Required:**
 
-- Do not jump from v1.5.x (or earlier) straight to v1.7.0 on an existing database.
-- Ensure migrations complete and validate core functionality post-upgrade.
+- Confirm `migration-v1.7.0` completed on v1.7.0 before moving to v1.8.0.
+- Resolve any duplicate overlay IPs before upgrading.
+- Ensure migrations complete and validate networks, ACLs, tags, DNS, and exit/egress behavior post-upgrade.
 
 For detailed upgrade steps, refer to the official upgrade documentation:
 
-[Server Upgrades v1.5.1+](https://learn.netmaker.io/getting-started/server-and-client-management/upgrading-your-client-and-server#server-upgrades-v1.5.1)
+[Server Upgrades](https://learn.netmaker.io/getting-started/server-and-client-management/upgrading-your-client-and-server)
 
 ---
 
 ## 🧰 Improvements & Fixes
 
-- **Auto-relay peer reset** — Reset a specific peer-to-peer connection that is using a relay (clear/reassign auto-relay for that peer pair) without resetting the entire network’s auto-relay state.
+- **Migration reliability** — v1.8.0 blocks startup until `migration-v1.7.0` completed on existing deployments; IP pool backfill fails clearly on duplicate addresses instead of corrupting allocations.
 
-- **Migration reliability** — v1.7.0 blocks startup until v1.6.0 migration completed on existing deployments; migration failures exit cleanly instead of panicking.
+- **IP address management** — Networks gain managed IP pools/allocations; pools are synced on startup so existing networks can allocate addresses safely.
 
+- **Auto-relay performance** — Lower CPU use for auto-relay; API to list auto-relayed peers for a node; reset a specific auto-relayed peer pair without resetting the whole network.
 
-- **Host status** — Host filtering uses live check-in status (Online/Offline/Disconnected) rather than a stale DB value.
+- **User-device / desktop ACL paths** — CE supports user ACL policies with All Users and per-user sources; AllowAll is preserved when both default policies are open; FwUpdate calc skipped for user-owned devices where appropriate.
 
-- **MSP installs** — `nm-quick.sh` `-s` flag to skip nmctl/mesh/netclient on MSP server installs.
+- **Exit node + relay** — Selecting an exit node can replace an existing relay; alternate exit peers limited to user devices (servers continue to hairpin via the selected exit).
+
+- **Host / device auth** — Reject host-password JWTs for user-owned devices; AuthorizeHost accepts a user session plus `X-Host-ID`. Network-role API access tightened for network admins.
+
+- **Extclient reliability** — Bulk create API and faster creation; mark extclients offline when their ingress gateway is unreachable; keep static WireGuard configs across JIT, IdP, and access cleanup paths.
+
+- **Topology / map data** — Topology and connections enriched with location, gateway flags, and egress context.
+
+- **Device join resilience** — Device join/pull tolerates `host.Nodes` drift vs live nodes.
+
+- **Account lifecycle** — Force logout and user-device cleanup when disabling/deleting user accounts; username filter on nodes API.
+
+- **Email usernames** — Email-style usernames normalized to lowercase (invites and migration).
+
+- **Traffic keys** — AES key derivation via ECDH; stronger validation of traffic public keys.
 
 
 ---
@@ -96,3 +152,7 @@ For detailed upgrade steps, refer to the official upgrade documentation:
   - a **Split Tunnel Gateway**
 
   the gateway monitoring component may disconnect from the **Split Tunnel Gateway**.
+
+- **Duplicate overlay IPs block v1.8.0 migration**  
+  Networks with the same address on multiple nodes/extclients must be cleaned up before `migration-v1.8.0` can complete.
+

@@ -231,6 +231,7 @@ func TestValidateDNSUpdate(t *testing.T) {
 	})
 	t.Run("NameUnique", func(t *testing.T) {
 		change := models.DNSEntry{Address: "10.0.0.2", Name: "myhost", Network: "wirecat"}
+		createNetv1("wirecat")
 		_, _ = logic.CreateDNS(dnsTestCtx(), entry)
 		_, _ = logic.CreateDNS(dnsTestCtx(), change)
 		err := logic.ValidateDNSUpdate(dnsTestCtx(), change, entry)

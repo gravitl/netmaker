@@ -19,21 +19,22 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getAcls)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls/egress", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls/policy_types", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createAcl)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updateAcl)))).
-		Methods(http.MethodPut)
+		Methods(http.MethodPut).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteAcl)))).
-		Methods(http.MethodDelete)
+		Methods(http.MethodDelete).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/acls/debug", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(aclDebug)))).
 		Methods(http.MethodGet)
 }
@@ -46,17 +47,30 @@ func aclHandlers(r *mux.Router) {
 // @Success     200 {object} models.AclPolicyTypes
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
+	srcGroupTypes := []models.AclGroupType{
+		models.UserAclID,
+		models.NodeTagID,
+		models.NodeID,
+	}
+	// User groups remain Pro-only.
+	if servercfg.IsPro {
+		srcGroupTypes = []models.AclGroupType{
+			models.UserAclID,
+			models.UserGroupAclID,
+			models.NodeTagID,
+			models.NodeID,
+		}
+	}
 	resp := models.AclPolicyTypes{
 		RuleTypes: []models.AclPolicyType{
 			models.DevicePolicy,
 			models.UserPolicy,
 		},
-		SrcGroupTypes: []models.AclGroupType{
-			models.UserAclID,
-			models.UserGroupAclID,
-			models.NodeTagID,
-			models.NodeID,
+		AccessTypes: []models.AclAccessType{
+			models.NetworkAccess,
+			models.ManagedAccess,
 		},
+		SrcGroupTypes: srcGroupTypes,
 		DstGroupTypes: []models.AclGroupType{
 			models.NodeTagID,
 			models.NodeID,
@@ -64,90 +78,95 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
-		ProtocolTypes: []models.ProtocolType{
-			{
-				Name: models.Any,
-				AllowedProtocols: []models.Protocol{
-					models.ALL,
-				},
-				PortRange:        "All ports",
-				AllowPortSetting: false,
-			},
-			{
-				Name: models.Http,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "80",
-			},
-			{
-				Name: models.Https,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "443",
-			},
-			// {
-			// 	Name: "MySQL",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
-			// 	},
-			// 	PortRange: "3306",
-			// },
-			// {
-			// 	Name: "DNS TCP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.TCP,
-			// 	},
-			// 	PortRange: "53",
-			// },
-			// {
-			// 	Name: "DNS UDP",
-			// 	AllowedProtocols: []models.Protocol{
-			// 		models.UDP,
-			// 	},
-			// 	PortRange: "53",
-			// },
-			{
-				Name: models.AllTCP,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "All ports",
-			},
-			{
-				Name: models.AllUDP,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-				},
-				PortRange: "All ports",
-			},
-			{
-				Name: models.ICMPService,
-				AllowedProtocols: []models.Protocol{
-					models.ICMP,
-				},
-				PortRange: "",
-			},
-			{
-				Name: models.SSH,
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "22",
-			},
-			{
-				Name: models.Custom,
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-					models.TCP,
-				},
-				PortRange:        "All ports",
-				AllowPortSetting: true,
-			},
-		},
+		ProtocolTypes: ceOrProProtocolTypes(),
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
+}
+
+// ceOrProProtocolTypes returns Any-only protocol types on CE. Custom
+// protocol/port policies are Pro-only.
+func ceOrProProtocolTypes() []models.ProtocolType {
+	anyType := models.ProtocolType{
+		Name:       models.Any,
+		AccessType: models.NetworkAccess,
+		AllowedProtocols: []models.Protocol{
+			models.ALL,
+		},
+		PortRange:        "All ports",
+		AllowPortSetting: false,
+	}
+	if !servercfg.IsPro {
+		return []models.ProtocolType{anyType}
+	}
+	return []models.ProtocolType{
+		anyType,
+		{
+			Name:       models.Http,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "80",
+		},
+		{
+			Name:       models.Https,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "443",
+		},
+		{
+			Name:       models.AllTCP,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "All ports",
+		},
+		{
+			Name:       models.AllUDP,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.UDP,
+			},
+			PortRange: "All ports",
+		},
+		{
+			Name:       models.ICMPService,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.ICMP,
+			},
+			PortRange: "",
+		},
+		{
+			Name:       models.SSH,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			PortRange: "22",
+		},
+		{
+			Name:       models.ManagedSSH,
+			AccessType: models.ManagedAccess,
+			AllowedProtocols: []models.Protocol{
+				models.TCP,
+			},
+			AllowPortSetting: false,
+		},
+		{
+			Name:       models.Custom,
+			AccessType: models.NetworkAccess,
+			AllowedProtocols: []models.Protocol{
+				models.UDP,
+				models.TCP,
+			},
+			PortRange:        "All ports",
+			AllowPortSetting: true,
+		},
+	}
 }
 
 func aclDebug(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +204,15 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicate(r.Context(), node, peer, true)
-	isallowed := logic.IsPeerAllowed(r.Context(), node, peer, true)
+	isallowed := logic.PeerAllowed(r.Context(), node, peer, true)
+	if logic.IsUserOwnedDevice(&node) || logic.IsUserOwnedDevice(&peer) {
+		allowed = isallowed
+		if owner := logic.NodeOwnerUsername(&node); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, peer)
+		} else if owner := logic.NodeOwnerUsername(&peer); owner != "" {
+			_, ps = logic.IsUserAllowedToCommunicate(r.Context(), owner, node)
+		}
+	}
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
@@ -252,6 +279,10 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), e.Network, schema.APIKeyPermissionRead); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 	acls, err := logic.ListEgressAcls(r.Context(), eID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
@@ -282,11 +313,19 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	user := &schema.User{Username: r.Header.Get("user")}
-	err = user.Get(r.Context())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(req.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
+	}
+	createdBy := r.Header.Get("user")
+	if !logic.IsAPIKeyAuth(r.Context()) {
+		user := &schema.User{Username: createdBy}
+		err = user.Get(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		createdBy = user.Username
 	}
 	err = logic.ValidateCreateAclReq(r.Context(), req)
 	if err != nil {
@@ -300,12 +339,17 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acl.ID = uuid.New().String()
-	acl.CreatedBy = user.Username
+	acl.CreatedBy = createdBy
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
 	if acl.ServiceType == models.Any {
 		acl.Port = []string{}
 		acl.Proto = models.ALL
+	}
+	err = logic.NormalizeAndValidateAclAccessType(&acl)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(r.Context(), acl); err != nil {
@@ -322,14 +366,11 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	src := logic.EventSourceForRequest(r.Context(), r.Header.Get("user"))
 	logic.LogEvent(r.Context(), &models.Event{
-		Action: schema.Create,
-		Source: models.Subject{
-			ID:   r.Header.Get("user"),
-			Name: r.Header.Get("user"),
-			Type: schema.UserSub,
-		},
-		TriggeredBy: r.Header.Get("user"),
+		Action:      schema.Create,
+		Source:      src,
+		TriggeredBy: src.Name,
 		Target: models.Subject{
 			ID:   acl.ID,
 			Name: acl.Name,
@@ -370,6 +411,10 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(acl.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
+		return
+	}
 
 	action := schema.Update
 	if updateAcl.Enabled && !acl.Enabled {
@@ -378,6 +423,22 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		action = schema.DisableAclPolicy
 	}
 
+	if acl.IsManagedAccess() {
+		managed := acl
+		if updateAcl.Name != "" {
+			managed.Name = updateAcl.Name
+		}
+		managed.Src = updateAcl.Src
+		managed.Dst = updateAcl.Dst
+		managed.SSHUsers = updateAcl.SSHUsers
+		managed.Enabled = updateAcl.Enabled
+		// Keep the request's network id so the mismatch check below still applies.
+		managed.NetworkID = updateAcl.NetworkID
+		updateAcl.Acl = managed
+	} else {
+		// The access type of a policy cannot be changed, whatever the request carries.
+		updateAcl.Acl.AccessType = acl.AccessType
+	}
 	if err := logic.NormalizeAndValidateAclEgressIPs(&updateAcl.Acl); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -449,6 +510,10 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 	acl, err := logic.GetAcl(r.Context(), aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.EnforceAPIKeyNetworkIfPresent(r.Context(), string(acl.NetworkID), schema.APIKeyPermissionModify); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 	if acl.Default {

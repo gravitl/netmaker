@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"testing"
 
@@ -11,9 +10,46 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 )
+
+func TestDefaultsAllowAllTrafficRequiresBothDefaults(t *testing.T) {
+	wasPro := servercfg.IsPro
+	servercfg.IsPro = true
+	t.Cleanup(func() { servercfg.IsPro = wasPro })
+
+	open := func(rule models.AclPolicyType, enabled bool) models.Acl {
+		return models.Acl{
+			Enabled:  enabled,
+			RuleType: rule,
+			Src:      []models.AclPolicyTag{{Value: "*"}},
+			Dst:      []models.AclPolicyTag{{Value: "*"}},
+		}
+	}
+	scoped := models.Acl{
+		Enabled:  true,
+		RuleType: models.DevicePolicy,
+		Src:      []models.AclPolicyTag{{Value: "net.ext-routers"}},
+		Dst:      []models.AclPolicyTag{{Value: "net.gateways"}},
+	}
+	allNodes := open(models.DevicePolicy, true)
+	allUsers := open(models.UserPolicy, true)
+
+	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, nil))
+	assert.False(t, defaultsAllowAllTraffic(open(models.DevicePolicy, false), allUsers, nil))
+	assert.False(t, defaultsAllowAllTraffic(allNodes, open(models.UserPolicy, false), nil))
+	assert.False(t, defaultsAllowAllTraffic(scoped, models.Acl{}, []models.Acl{scoped}))
+	assert.True(t, defaultsAllowAllTraffic(models.Acl{}, models.Acl{}, []models.Acl{allNodes, allUsers, scoped}))
+
+	// Uni / proto-scoped policies must not defeat AllowAll when both defaults are open.
+	uni := allNodes
+	uni.AllowedDirection = models.TrafficDirectionUni
+	icmp := allUsers
+	icmp.Proto = models.ICMP
+	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, []models.Acl{allNodes, allUsers, uni, icmp}))
+}
 
 func TestDeduplicateEgressRoutesMergesRangesForSamePeerAndNetwork(t *testing.T) {
 	routes := []models.EgressNetworkRoutes{
@@ -142,7 +178,8 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	}
 
 	ctx := db.WithContext(context.TODO())
-	allowed := GetAllowedIPs(ctx, &client, &gw, nil)
+	g := NewPeerGraph(nil, []models.Node{gw, client})
+	allowed := GetAllowedIPs(ctx, g, &client, &gw, nil)
 	hasLAN := false
 	for _, ip := range allowed {
 		assert.NotEqual(t, IPv4Network, ip.String(), "non-exit client must not get default v4 route")
@@ -156,7 +193,7 @@ func TestGetAllowedIPsOmitsDefaultRoutesUnlessExitClient(t *testing.T) {
 	// Exit client via legacy InternetGwID assignment.
 	exitClient := client
 	exitClient.InternetGwID = gwID.String()
-	exitAllowed := GetAllowedIPs(ctx, &exitClient, &gw, nil)
+	exitAllowed := GetAllowedIPs(ctx, g, &exitClient, &gw, nil)
 	hasV4 := false
 	for _, ip := range exitAllowed {
 		if ip.String() == IPv4Network {
@@ -201,10 +238,8 @@ func TestAllowedIPsFromRelayedNodeIncludesNonDefaultEgress(t *testing.T) {
 }
 
 func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
-	originalGetNodeByID := getNodeByID
 	originalListEgress := listEgressByNetwork
 	t.Cleanup(func() {
-		getNodeByID = originalGetNodeByID
 		listEgressByNetwork = originalListEgress
 	})
 
@@ -237,12 +272,6 @@ func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
 		},
 	}
 
-	getNodeByID = func(id string) (models.Node, error) {
-		if id == clientID.String() {
-			return exitClient, nil
-		}
-		return models.Node{}, fmt.Errorf("not found")
-	}
 	listEgressByNetwork = func(ctx context.Context, network string) ([]schema.Egress, error) {
 		return []schema.Egress{{
 			ID:      "lan-egress",
@@ -257,7 +286,8 @@ func TestGetAllowedIPsNonGwExitAdvertisesRelayedClientRanges(t *testing.T) {
 	assert.False(t, usesPeerAsInternetExit(&observer, &exitNode), "observer is not an exit client")
 
 	ctx := db.WithContext(context.TODO())
-	allowed := GetAllowedIPs(ctx, &observer, &exitNode, nil)
+	g := NewPeerGraph(nil, []models.Node{exitClient, exitNode, observer})
+	allowed := GetAllowedIPs(ctx, g, &observer, &exitNode, nil)
 	hasOverlay := false
 	hasLAN := false
 	for _, ip := range allowed {

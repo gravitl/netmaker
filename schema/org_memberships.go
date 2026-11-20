@@ -60,6 +60,13 @@ func (o *OrgMembership) UpdateRoleID(ctx context.Context) error {
 		Error
 }
 
+func (o *OrgMembership) UpdateExternalIdentityProviderID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Update("external_identity_provider_id", o.ExternalIdentityProviderID).
+		Error
+}
+
 func (o *OrgMembership) UpdateAccountStatus(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&OrgMembership{}).
 		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).

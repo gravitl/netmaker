@@ -213,15 +213,9 @@ func CreateJITRequest(ctx context.Context, networkID, userName, reason string) (
 }
 
 // ApproveJITRequest - approves a JIT request and creates a grant
-func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, *schema.JITRequest, error) {
-	// Get the request
-	request := schema.JITRequest{ID: requestID}
-	if err := request.Get(ctx); err != nil {
-		return nil, nil, fmt.Errorf("request not found: %w", err)
-	}
-
+func ApproveJITRequest(ctx context.Context, request *schema.JITRequest, expiresAt time.Time, approvedBy string) (*schema.JITGrant, error) {
 	if request.Status != "pending" {
-		return nil, nil, errors.New("request is not pending")
+		return nil, errors.New("request is not pending")
 	}
 
 	// Update request status
@@ -242,7 +236,7 @@ func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Tim
 	request.ExpiresAt = expiresAt
 
 	if err := request.Update(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to update request: %w", err)
+		return nil, fmt.Errorf("failed to update request: %w", err)
 	}
 
 	// Delete any existing grants for this user on this network
@@ -261,23 +255,16 @@ func ApproveJITRequest(ctx context.Context, requestID string, expiresAt time.Tim
 		ExpiresAt: expiresAt,
 	}
 	if err := grant.Create(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to create grant: %w", err)
+		return nil, fmt.Errorf("failed to create grant: %w", err)
 	}
 
-	return &grant, &request, nil
+	return &grant, nil
 }
 
 // DenyJITRequest - denies a JIT request and returns the updated request
-func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, error) {
-	ctx := db.WithContext(context.Background())
-
-	request := schema.JITRequest{ID: requestID}
-	if err := request.Get(ctx); err != nil {
-		return nil, fmt.Errorf("request not found: %w", err)
-	}
-
+func DenyJITRequest(ctx context.Context, request *schema.JITRequest, deniedBy string) error {
 	if request.Status != "pending" {
-		return nil, errors.New("request is not pending")
+		return errors.New("request is not pending")
 	}
 
 	now := time.Now().UTC()
@@ -285,10 +272,7 @@ func DenyJITRequest(requestID string, deniedBy string) (*schema.JITRequest, erro
 	request.ApprovedAt = now
 	request.ApprovedBy = deniedBy
 
-	if err := request.Update(ctx); err != nil {
-		return nil, err
-	}
-	return &request, nil
+	return request.Update(ctx)
 }
 
 // CheckJITAccess - checks if a user has active JIT access for a network
@@ -737,12 +721,12 @@ func DisconnectExtClientsFromNetwork(ctx context.Context, networkID string) erro
 
 // extClientFromClientApp reports whether the ext client was created by the desktop/RAC app.
 func extClientFromClientApp(client models.ExtClient) bool {
-	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+	return logic.IsRACExtClient(client)
 }
 
 // DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
-// a JIT grant under the given network configuration. Admin-managed config files (no device/
-// remote_access_client id) are kept.
+// a JIT grant under the given network configuration. Admin-managed static config files (no
+// device / remote_access_client id) are left untouched — JIT does not apply to them.
 func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
@@ -763,7 +747,7 @@ func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schem
 			continue
 		}
 
-		if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
+		if err := logic.DeleteExtClient(ctx, client); err != nil {
 			slog.Warn("failed to delete client-app ext client when enabling JIT",
 				"client_id", client.ClientID, "network", network.Name, "error", err)
 			continue
@@ -820,7 +804,9 @@ func DeactivateUserGrantsOnNetwork(ctx context.Context, networkID, userID string
 	return nil
 }
 
-// RemoveUserJITNetworkAccess deletes a user's host nodes and ext clients from a network after JIT ends.
+// RemoveUserJITNetworkAccess removes a user's network presence after JIT ends:
+// RAC ExtClients are deleted (static config files are left alone); host-backed
+// user device nodes are disconnected.
 func RemoveUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
 	return removeUserJITNetworkAccess(ctx, networkID, userID)
 }
@@ -830,32 +816,24 @@ func DisconnectUserExtClientsFromNetwork(ctx context.Context, networkID, userID 
 	return disconnectUserExtClients(ctx, networkID, userID)
 }
 
-// DisconnectUserHostNodesFromNetwork removes full-mesh host nodes for a user on a network.
+// DisconnectUserHostNodesFromNetwork disconnects (does not delete) full-mesh
+// host nodes for a user on a network after JIT ends.
 func DisconnectUserHostNodesFromNetwork(ctx context.Context, networkID, userID string) error {
 	return disconnectUserHostNodes(ctx, networkID, userID)
 }
 
 func removeUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
 	var firstErr error
+	// ExtClients remain session-scoped: delete on JIT end.
 	if err := disconnectUserExtClients(ctx, networkID, userID); err != nil && firstErr == nil {
 		firstErr = err
 	}
+	// Host-backed user devices stay enrolled; disconnect so they can reconnect
+	// on the next grant without device re-approval.
 	if err := disconnectUserHostNodes(ctx, networkID, userID); err != nil && firstErr == nil {
 		firstErr = err
 	}
 	return firstErr
-}
-
-func lookupHostByNodeHostID(hostByID map[string]schema.Host, hostID string) (schema.Host, bool) {
-	if h, ok := hostByID[hostID]; ok {
-		return h, true
-	}
-	parsed, err := uuid.Parse(hostID)
-	if err != nil {
-		return schema.Host{}, false
-	}
-	h, ok := hostByID[parsed.String()]
-	return h, ok
 }
 
 func disconnectUserExtClients(ctx context.Context, networkID, userID string) error {
@@ -867,17 +845,22 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 	for _, client := range extClients {
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
-		if client.OwnerID == userID {
-			clientCopy := client
-			if err := logic.DeleteExtClient(ctx, client.Network, client.ClientID, false); err != nil {
-				slog.Warn("failed to delete ext client after JIT ended",
-					"client_id", client.ClientID, "error", err)
-				continue
-			}
-			if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
-				slog.Warn("failed to publish deleted client peer update",
-					"client_id", client.ClientID, "error", err)
-			}
+		if client.OwnerID != userID {
+			continue
+		}
+		// Admin-managed static configs are outside JIT — never delete or disable them.
+		if !logic.IsRACExtClient(client) {
+			continue
+		}
+		clientCopy := client
+		if err := logic.DeleteExtClient(ctx, client); err != nil {
+			slog.Warn("failed to delete ext client after JIT ended",
+				"client_id", client.ClientID, "error", err)
+			continue
+		}
+		if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
+			slog.Warn("failed to publish deleted client peer update",
+				"client_id", client.ClientID, "error", err)
 		}
 	}
 
@@ -890,69 +873,11 @@ func disconnectUserHostNodes(ctx context.Context, networkID, userID string) erro
 		return fmt.Errorf("failed to get network %s: %w", networkID, err)
 	}
 
-	var hosts []schema.Host
-	if err := db.FromContext(ctx).Where("owner_username = ?", userID).Find(&hosts).Error; err != nil {
-		return err
-	}
-	if len(hosts) == 0 {
+	disconnected := logic.DisconnectUserDeviceNodes(ctx, userID, func(n string) bool { return n == network.Name })
+	if len(disconnected) == 0 {
 		return nil
 	}
-
-	hostByID := make(map[string]schema.Host, len(hosts))
-	hostIDs := make([]string, 0, len(hosts))
-	for _, h := range hosts {
-		id := h.ID.String()
-		hostIDs = append(hostIDs, id)
-		hostByID[id] = h
-	}
-
-	var schemaNodes []schema.Node
-	if err := db.FromContext(ctx).
-		Where("network_id = ? AND host_id IN ?", network.ID, hostIDs).
-		Find(&schemaNodes).Error; err != nil {
-		return err
-	}
-	if len(schemaNodes) == 0 {
-		return nil
-	}
-
-	pullRequested := make(map[string]struct{})
-	for _, schemaNode := range schemaNodes {
-		host, ok := lookupHostByNodeHostID(hostByID, schemaNode.HostID)
-		if !ok {
-			slog.Warn("skipping JIT host node removal: host not found for node",
-				"node_id", schemaNode.ID, "host_id", schemaNode.HostID, "user_id", userID)
-			continue
-		}
-
-		nodePtr := logic.ConvertSchemaNodeToModelsNode(&schemaNode)
-		if nodePtr == nil || nodePtr.ID == uuid.Nil {
-			slog.Warn("skipping JIT host node removal: invalid node model",
-				"node_id", schemaNode.ID, "user_id", userID, "network", networkID)
-			continue
-		}
-		node := *nodePtr
-
-		if err := logic.DeleteNode(ctx, &node, true); err != nil {
-			slog.Warn("failed to remove host node for JIT revoke",
-				"node_id", node.ID.String(), "user_id", userID, "network", networkID, "error", err)
-			continue
-		}
-
-		hostCopy := host
-		detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
-		go mq.PublishMqUpdatesForDeletedNode(detachedCtx, &hostCopy, node, true)
-		if _, ok := pullRequested[host.ID.String()]; !ok {
-			if err := mq.HostUpdate(&models.HostUpdate{
-				Action: models.RequestPull,
-				Host:   hostCopy,
-			}); err != nil {
-				slog.Warn("failed to request host pull after JIT host removal",
-					"host_id", host.ID.String(), "error", err)
-			}
-			pullRequested[host.ID.String()] = struct{}{}
-		}
-	}
-
+	detachedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	go mq.PublishDisconnectedUserDeviceNodes(detachedCtx, disconnected)
 	return nil
 }

@@ -127,9 +127,9 @@ func GetAllHostsWithStatus(ctx context.Context, status schema.NodeStatus) ([]sch
 
 // GetAllHostsAPI - get's all the hosts in an API usable format
 func GetAllHostsAPI(hosts []schema.Host) []models.ApiHost {
-	apiHosts := []models.ApiHost{}
+	var apiHosts []models.ApiHost
 	for i := range hosts {
-		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i])
+		newApiHost := models.NewApiHostFromSchemaHost(&hosts[i], true)
 		apiHosts = append(apiHosts, *newApiHost)
 	}
 	return apiHosts[:]
@@ -162,6 +162,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 		h.TenantID = scope.ID(ctx)
 	}
 	h.Nodes = nil
+	h.Name = ToDNSLabel(h.Name)
 
 	if HostLimitExceeded(scope.WithContext(ctx, scope.TenantScope, h.TenantID)) {
 		return ErrHostLimitExceeded
@@ -184,6 +185,7 @@ func CreateHost(ctx context.Context, h *schema.Host) error {
 	} else {
 		h.DNS = "no"
 	}
+	h.ManageSSH = GetServerSettings(ctx).ManageSSH
 
 	checkForZombieHosts(ctx, h)
 	return h.Upsert(ctx)
@@ -211,6 +213,11 @@ func UpdateHost(ctx context.Context, newHost, currentHost *schema.Host) {
 
 	if len(newHost.Name) == 0 {
 		newHost.Name = currentHost.Name
+	} else {
+		newHost.Name = ToDNSLabel(newHost.Name)
+		if len(newHost.Name) == 0 {
+			newHost.Name = currentHost.Name
+		}
 	}
 
 	if newHost.MTU == 0 {
@@ -252,15 +259,16 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 		sendPeerUpdate = true
 		peerUpdateReasons = append(peerUpdateReasons, "public_key")
 	}
-	if !currHost.IsStaticPort {
+	if newHost.IsStaticPort || !currHost.IsStaticPort {
 		if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
 			currHost.ListenPort = newHost.ListenPort
+			currHost.IsStaticPort = newHost.IsStaticPort
 			sendPeerUpdate = true
 			peerUpdateReasons = append(peerUpdateReasons, "listen_port")
 		}
-		if newHost.WgPublicListenPort != 0 &&
-			currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+		if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
 			currHost.WgPublicListenPort = newHost.WgPublicListenPort
+			currHost.IsStaticPort = newHost.IsStaticPort
 			sendPeerUpdate = true
 			peerUpdateReasons = append(peerUpdateReasons, "wg_public_listen_port")
 		}
@@ -344,7 +352,11 @@ func UpdateHostFromClient(ctx context.Context, newHost, currHost *schema.Host) (
 			}
 		}
 	}
-	currHost.Name = newHost.Name
+	if len(newHost.Name) > 0 {
+		if sanitized := ToDNSLabel(newHost.Name); len(sanitized) > 0 {
+			currHost.Name = sanitized
+		}
+	}
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
@@ -374,6 +386,7 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 	if err != nil {
 		return
 	}
+	wasConnected := currentNode.Connected
 	if !currentNode.Connected && newNode.Connected {
 		currentNode.Status = schema.OnlineSt
 	}
@@ -389,6 +402,11 @@ func UpdateHostNode(ctx context.Context, h *schema.Host, newNode *models.Node) (
 	}
 	publishPeerUpdate = true
 	ResetAutoRelayedPeer(ctx, newNode)
+	if !wasConnected && newNode.Connected {
+		if err := EnsureAutoExitNode(ctx, h, &currentNode); err != nil {
+			slog.Warn("auto exit node assignment failed", "node", currentNode.ID.String(), "network", currentNode.Network, "error", err)
+		}
+	}
 
 	return
 }
@@ -592,7 +610,7 @@ func GetDefaultHosts(ctx context.Context) []schema.Host {
 		return defaultHostList
 	}
 	for i := range hosts {
-		if hosts[i].IsDefault {
+		if hosts[i].IsDefault && !IsUserOwnedHost(&hosts[i]) {
 			defaultHostList = append(defaultHostList, hosts[i])
 		}
 	}

@@ -21,37 +21,28 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
-// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
-var ValidTenantRoles = map[schema.UserRoleID]bool{
-	schema.SuperAdminRole: true,
-	schema.AdminRole:      true,
-	schema.PlatformUser:   true,
-	schema.ServiceUser:    true,
-	schema.Auditor:        true,
-}
-
-// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
-var ValidOrgRoles = map[schema.UserRoleID]bool{
-	schema.OrgOwner: true,
-	schema.OrgAdmin: true,
-}
-
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
 	ops := applyOptions(opts...)
+
+	_, err := mail.ParseAddress(user.Username)
+	if err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
 
 	existing := &schema.User{
 		Username: user.Username,
 	}
-	err := existing.Get(ctx)
+	err = existing.Get(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
 	userExists := err == nil
 
-	if scope.Level(ctx) == scope.TenantScope {
-		var hasMembership bool
-		if userExists {
+	var hasMembership bool
+	if userExists {
+		switch scope.Level(ctx) {
+		case scope.TenantScope:
 			membership := &schema.TenantMembership{
 				TenantID: scope.ID(ctx),
 				UserID:   existing.ID,
@@ -62,11 +53,22 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
+		case scope.OrgScope:
+			membership := &schema.OrgMembership{
+				OrganizationID: scope.ID(ctx),
+				UserID:         existing.ID,
+			}
+			err = membership.Get(ctx)
+			if err == nil {
+				hasMembership = true
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 		}
+	}
 
-		if !hasMembership && logic.UserLimitExceeded(ctx) {
-			return logic.ErrUserLimitExceeded
-		}
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership && logic.UserLimitExceeded(ctx) {
+		return logic.ErrUserLimitExceeded
 	}
 
 	var emailValidated bool
@@ -105,7 +107,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		}
 	}
 
-	if scope.Level(ctx) == scope.TenantScope {
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership {
 		tenantID := scope.ID(ctx)
 		membership := &schema.TenantMembership{
 			TenantID:                   tenantID,
@@ -126,7 +128,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		if err != nil {
 			return err
 		}
-	} else if scope.Level(ctx) == scope.OrgScope {
+	} else if scope.Level(ctx) == scope.OrgScope && !hasMembership {
 		orgID := scope.ID(ctx)
 		membership := &schema.OrgMembership{
 			OrganizationID:             orgID,
@@ -156,6 +158,10 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 }
 
 func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.User, _ ...Option) error {
+	if _, err := mail.ParseAddress(user.Username); err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
+
 	var userExists bool
 	existing := &schema.User{
 		Username: user.Username,
@@ -193,7 +199,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidTenantRoles[user.PlatformRoleID]
+			_, ok := schema.ValidTenantRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}
@@ -223,7 +229,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidOrgRoles[user.PlatformRoleID]
+			_, ok := schema.ValidOrgRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}

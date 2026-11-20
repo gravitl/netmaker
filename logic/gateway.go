@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
-	"gorm.io/gorm"
 )
 
 var (
@@ -53,10 +52,19 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	if host.OS != "linux" { // support for other OS to be added
+	if err := ErrUserOwnedHostInfrastructureRole(host); err != nil {
+		return models.Node{}, err
+	}
+	if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+		return models.Node{}, err
+	}
+	if host.OS != models.OS_Types.Linux && host.OS != models.OS_Types.Windows {
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
-	if host.FirewallInUse == schema.FIREWALL_NONE {
+	if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+		if host.OS == models.OS_Types.Windows {
+			return models.Node{}, errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
 	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
@@ -173,15 +181,15 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	clients, err := GetExtClientsByID(ctx, nodeid, node.Network)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	clients, err := GetGatewayExtClients(ctx, nodeid)
+	if err != nil {
 		return models.Node{}, removedClients, err
 	}
 
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
+	if err = DeleteGatewayExtClients(ctx, node.ID.String()); err != nil {
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
@@ -198,21 +206,16 @@ func DeleteIngressGateway(ctx context.Context, nodeid string) (models.Node, []mo
 	return node, removedClients, err
 }
 
-// DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
-func DeleteGatewayExtClients(ctx context.Context, gatewayID string, networkName string) error {
-	currentExtClients, err := GetNetworkExtClients(ctx, networkName)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil
-	}
+// DeleteGatewayExtClients - deletes the ext clients attached to the gateway
+func DeleteGatewayExtClients(ctx context.Context, gatewayID string) error {
+	extClients, err := GetGatewayExtClients(ctx, gatewayID)
 	if err != nil {
 		return err
 	}
-	for _, extClient := range currentExtClients {
-		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(ctx, networkName, extClient.ClientID, false); err != nil {
-				logger.Log(1, "failed to remove ext client", extClient.ClientID)
-				continue
-			}
+	for _, extClient := range extClients {
+		if err = DeleteExtClient(ctx, extClient); err != nil {
+			logger.Log(1, "failed to remove ext client", extClient.ClientID)
+			continue
 		}
 	}
 	return nil
@@ -236,7 +239,16 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 
 func ValidateInetGwReq(ctx context.Context, node *schema.Node, req models.InetNodeReq, update bool) error {
 	_ = update // retained for callers; same-exit clients are allowed regardless of create vs update
-	if node.Host.FirewallInUse == schema.FIREWALL_NONE {
+	if node.Host == nil {
+		return errors.New("host is required")
+	}
+	if err := ErrUserOwnedHostInfrastructureRole(node.Host); err != nil {
+		return err
+	}
+	if !isSupportedEgressFirewall(node.Host.FirewallInUse, node.Host.OS) {
+		if node.Host.OS == models.OS_Types.Windows {
+			return errors.New("windows netclient must report NetNat firewall support (upgrade netclient)")
+		}
 		return errors.New("iptables or nftables needs to be installed")
 	}
 	if node.IsIGWClient || node.SelectedInternetEgressID != "" {
@@ -390,14 +402,7 @@ func internetEgressGwIPs(inetNode *models.Node) (gw4, gw6 net.IP) {
 // exitHostHasEndpointIPv6 reports whether the exit node's host has a public IPv6 endpoint.
 // Used to decide whether internet egress should expand ::/0.
 func exitHostHasEndpointIPv6(node *models.Node) bool {
-	if node == nil {
-		return false
-	}
-	host, ok := getExitHostSafe(node.HostID)
-	if !ok {
-		return node.Address6.IP != nil
-	}
-	return len(host.EndpointIPv6) > 0
+	return node != nil && node.HostHasEndpointIPv6
 }
 
 // getExitHostSafe loads a host without panicking when the DB is uninitialized (unit tests).

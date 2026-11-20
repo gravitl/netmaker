@@ -21,29 +21,29 @@ type ApiNodeStatus struct {
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	TenantID           string            `json:"tenant_id"`
-	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address            string            `json:"address" validate:"omitempty,cidrv4"`
-	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress       string            `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs         []string          `json:"allowedips"`
-	LastModified       int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn        int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate     int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network            string            `json:"network"`
-	NetworkRange       string            `json:"networkrange"`
-	NetworkRange6      string            `json:"networkrange6"`
-	IsRelayed          bool              `json:"isrelayed"`
-	IsRelay            bool              `json:"isrelay"`
-	IsGw               bool              `json:"is_gw"`
-	IsAutoRelay        bool              `json:"is_auto_relay"`
-	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
-	AutoAssignGateway  bool              `json:"auto_assign_gw"`
-	TcpProxyEnabled    bool              `json:"tcp_proxy_enabled"`
-	TcpProxyListenPort int               `json:"tcp_proxy_listen_port"`
-	TcpProxyTLSMode    string            `json:"tcp_proxy_tls_mode"`
+	ID                     string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	TenantID               string            `json:"tenant_id"`
+	HostID                 string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                string            `json:"address" validate:"omitempty,cidrv4"`
+	Address6               string            `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress           string            `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs             []string          `json:"allowedips"`
+	LastModified           int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime     int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn            int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate         int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network                string            `json:"network"`
+	NetworkRange           string            `json:"networkrange"`
+	NetworkRange6          string            `json:"networkrange6"`
+	IsRelayed              bool              `json:"isrelayed"`
+	IsRelay                bool              `json:"isrelay"`
+	IsGw                   bool              `json:"is_gw"`
+	IsAutoRelay            bool              `json:"is_auto_relay"`
+	AutoRelayedPeers       map[string]string `json:"auto_relayed_peers"`
+	AutoAssignGateway      bool              `json:"auto_assign_gw"`
+	TcpProxyEnabled        bool              `json:"tcp_proxy_enabled"`
+	TcpProxyListenPort     int               `json:"tcp_proxy_listen_port"`
+	TcpProxyTLSMode        string            `json:"tcp_proxy_tls_mode"`
 	TcpProxyListenAddr     string            `json:"tcp_proxy_listen_addr,omitempty"`
 	TcpProxyPublicHostname string            `json:"tcp_proxy_public_hostname,omitempty"`
 	UseTcpUplink           bool              `json:"use_tcp_uplink"`
@@ -141,16 +141,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
 		convertedNode.LocalAddress = currentNode.LocalAddress
 	}
-	ip, addr, err := net.ParseCIDR(a.Address)
-	if err == nil {
-		convertedNode.Address = *addr
-		convertedNode.Address.IP = ip
-	}
-	ip6, addr6, err := net.ParseCIDR(a.Address6)
-	if err == nil {
-		convertedNode.Address6 = *addr6
-		convertedNode.Address6.IP = ip6
-	}
+	convertedNode.Address = parseNodeAddress(a.Address, currentNode.Address, convertedNode.NetworkRange)
+	convertedNode.Address6 = parseNodeAddress(a.Address6, currentNode.Address6, convertedNode.NetworkRange6)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
@@ -198,7 +190,7 @@ func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
 		apiNode.ID = nm.ID.String()
 	}
 	apiNode.IsStatic = nm.IsStatic
-	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.IsUserNode = nm.IsUserNode || (!nm.IsStatic && nm.OwnerID != "")
 	apiNode.Status = nm.Status
 	return &apiNode
 }
@@ -278,9 +270,58 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
 	apiNode.Location = nm.Location
 	apiNode.Country = nm.CountryCode
+	// User-registered hosts (desktop/device flow) surface on Active Users like
+	// legacy ExtClient RAC nodes, without changing internal mesh/ACL classification.
+	if !nm.IsStatic && nm.OwnerID != "" {
+		apiNode.IsUserNode = true
+		if apiNode.StaticNode.OwnerID == "" {
+			apiNode.StaticNode.OwnerID = nm.OwnerID
+		}
+		// Non-compliant Users UI reads violations from static_node (ExtClient shape).
+		if len(apiNode.StaticNode.PostureChecksViolations) == 0 && len(nm.PostureChecksViolations) > 0 {
+			apiNode.StaticNode.PostureChecksViolations = nm.PostureChecksViolations
+			apiNode.StaticNode.PostureCheckVolationSeverityLevel = nm.PostureCheckViolationSeverityLevel
+		}
+		if apiNode.StaticNode.LastEvaluatedAt.IsZero() && !nm.LastEvaluatedAt.IsZero() {
+			apiNode.StaticNode.LastEvaluatedAt = nm.LastEvaluatedAt
+		}
+	}
 	return &apiNode
 }
 
 func isEmptyAddr(addr string) bool {
 	return addr == "<nil>" || addr == ":0"
+}
+
+func parseNodeAddress(newAddr string, currentAddr, networkRange net.IPNet) net.IPNet {
+	if newAddr == "" {
+		return currentAddr
+	}
+
+	var ip net.IP
+	mask := currentAddr.Mask
+	if networkRange.Mask != nil {
+		mask = networkRange.Mask
+	}
+
+	if parsedIP, cidr, err := net.ParseCIDR(newAddr); err == nil {
+		ip = parsedIP
+		mask = cidr.Mask
+	} else if parsedIP := net.ParseIP(newAddr); parsedIP != nil {
+		ip = parsedIP
+	} else {
+		return currentAddr
+	}
+
+	if len(mask) == net.IPv4len {
+		if ip4 := ip.To4(); ip4 != nil {
+			ip = ip4
+		}
+	}
+
+	if networkRange.IP != nil && !networkRange.Contains(ip) {
+		return currentAddr
+	}
+
+	return net.IPNet{IP: ip, Mask: mask}
 }

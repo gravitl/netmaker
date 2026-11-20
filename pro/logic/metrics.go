@@ -251,7 +251,7 @@ func updateNodeMetrics(ctx context.Context, currentNode *models.Node, newMetrics
 
 	var attachedClients []models.ExtClient
 	if currentNode.IsIngressGateway {
-		clients, err := logic.GetExtClientsByID(ctx, currentNode.ID.String(), currentNode.Network)
+		clients, err := logic.GetGatewayExtClients(ctx, currentNode.ID.String())
 		if err == nil {
 			attachedClients = clients
 		}

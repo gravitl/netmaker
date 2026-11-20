@@ -54,18 +54,29 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 		}
 	}
 
+	// TODO: allocate the addresses in the same transaction as the node, see
+	// NetworkOrchestrator.
 	networkOrch := GetRepository().NetworkOrchestrator()
-	var reservedIPv4, reservedIPv6 string
+	releaseAddresses := func() {
+		for _, address := range []string{node.Address, node.Address6} {
+			if address == "" {
+				continue
+			}
+			if err := networkOrch.ReleaseIP(ctx, network, address, schema.IPOwnerNode, node.ID); err != nil {
+				logger.Log(0, fmt.Sprintf("failed to release address %s on network %s: %v", address, network.Name, err))
+			}
+		}
+	}
 
 	if network.AddressRange != "" {
-		ip, err := networkOrch.AllocateNodeIP(ctx, network)
+		ip, err := networkOrch.AllocateNodeIP(ctx, network, node.ID)
 		if err != nil {
 			return nil, err
 		}
-		reservedIPv4 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
-			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
+			node.Address = ip.String()
+			releaseAddresses()
 			return nil, err
 		}
 		cidr.IP = ip
@@ -73,18 +84,15 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	if network.AddressRange6 != "" {
-		ip, err := networkOrch.AllocateNodeIPv6(ctx, network)
+		ip, err := networkOrch.AllocateNodeIPv6(ctx, network, node.ID)
 		if err != nil {
-			if reservedIPv4 != "" {
-				networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-			}
+			releaseAddresses()
 			return nil, err
 		}
-		reservedIPv6 = ip.String()
 		_, cidr, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
-			networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-			networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
+			node.Address6 = ip.String()
+			releaseAddresses()
 			return nil, err
 		}
 		cidr.IP = ip
@@ -92,15 +100,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 	}
 
 	err := node.Create(ctx)
-	// Reservations are freed regardless of outcome: on success the DB is authoritative,
-	// on failure the IPs must be available for reallocation.
-	if reservedIPv4 != "" {
-		networkOrch.FreeIPv4Reservation(network.ID, reservedIPv4)
-	}
-	if reservedIPv6 != "" {
-		networkOrch.FreeIPv6Reservation(network.ID, reservedIPv6)
-	}
 	if err != nil {
+		releaseAddresses()
 		return nil, err
 	}
 
@@ -170,7 +171,8 @@ func (n *NodeOrchestrator) CreateNode(ctx context.Context, host *schema.Host, ne
 				EvaluationCycleID: node.PostureCheckLastEvaluationCycleID,
 				TenantID:          node.TenantID,
 				CheckID:           violation.CheckID,
-				NodeID:            node.ID,
+				SubjectID:         node.ID,
+				SubjectType:       schema.PostureCheckSubjectTypeDevice,
 				Name:              violation.Name,
 				Attribute:         violation.Attribute,
 				Message:           violation.Message,
@@ -220,6 +222,7 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 	}
 
 	node.IsGateway = true
+	node.IsAutoRelay = "yes"
 
 	if ops.setTcpProxy && ops.tcpProxyEnabled {
 		listenPort := ops.tcpProxyListenPort
@@ -282,8 +285,6 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 			logger.Log(1, "failed to send host update after gateway creation", host.ID.String(), err.Error())
 		}
 	}(*node.Host)
-
-	n.nodeExt.ConfigureAutoRelay(node)
 
 	node.Tags[fmt.Sprintf("%s.%s", node.Network.Name, models.GwTagName)] = struct{}{}
 
@@ -391,8 +392,12 @@ func (n *NodeOrchestrator) CreateGateway(ctx context.Context, node *schema.Node,
 func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *schema.Node, options ...Option) error {
 	ops := applyOptions(options...)
 
-	if node.Host.OS != "linux" {
-		return fmt.Errorf("gateway can only be created on linux based node")
+	if err := logic.ErrUserOwnedHostInfrastructureRole(node.Host); err != nil {
+		return err
+	}
+
+	if node.Host.OS != models.OS_Types.Linux && node.Host.OS != models.OS_Types.Windows {
+		return fmt.Errorf("gateway can only be created on linux or windows based node")
 	}
 
 	if node.AutoAssignGateway {
@@ -412,16 +417,24 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 	}
 
 	for _, relayedClientID := range ops.relayedClients {
-		err := (&schema.Node{
+		relayedClient := &schema.Node{
 			ID: relayedClientID,
-		}).Get(ctx)
+		}
+		err := relayedClient.Get(ctx)
 		if err != nil {
 			return err
+		}
+
+		if relayedClient.NetworkID != node.NetworkID {
+			return fmt.Errorf("relayed node %s does not belong to node %s's network %s", relayedClient.ID, node.ID, node.Network.Name)
 		}
 	}
 
 	if ops.isInternetGateway {
-		if node.Host.FirewallInUse == schema.FIREWALL_NONE {
+		if !logic.IsSupportedEgressFirewall(node.Host.FirewallInUse, node.Host.OS) {
+			if node.Host.OS == models.OS_Types.Windows {
+				return fmt.Errorf("windows netclient must report NetNat firewall support (upgrade netclient)")
+			}
 			return fmt.Errorf("host must have iptables or nftables installed")
 		}
 
@@ -440,6 +453,10 @@ func (n *NodeOrchestrator) ValidateCreateGateway(ctx context.Context, node *sche
 			err := igwClient.Get(ctx, dbtypes.WithPreloads("Host"))
 			if err != nil {
 				return err
+			}
+
+			if igwClient.NetworkID != node.NetworkID {
+				return fmt.Errorf("igw client node %s does not belong to node %s's network %s", igwClient.ID, node.ID, node.Network.Name)
 			}
 
 			if igwClient.Host.IsDefault {

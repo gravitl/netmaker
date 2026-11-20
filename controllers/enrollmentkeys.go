@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
 	dbtypes "github.com/gravitl/netmaker/db/types"
@@ -22,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/middleware"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -498,6 +500,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newHost.OwnerUsername = ""
+
 	hostExists := false
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
 		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "attempted to re-register with no networks")
@@ -512,6 +516,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if newHost.TrafficKeyPublic == nil && newHost.OS != models.OS_Types.IoT {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("missing traffic key"), "badrequest"))
+		return
+	}
+	if newHost.TrafficKeyPublic != nil && !isValidTrafficKey(newHost.TrafficKeyPublic) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid public key"), "badrequest"))
 		return
 	}
 
@@ -555,9 +563,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
-		if owner := r.Header.Get("user"); owner != "" {
-			newHost.OwnerUsername = owner
-		}
 		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -582,6 +587,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(currHost.HostPass), []byte(newHost.HostPass))
+		if err != nil {
+			err = fmt.Errorf("error verifying host's identity: %w", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
+			return
+		}
+
 		endpointChanged, _ := logic.UpdateHostFromClient(r.Context(), &newHost, currHost)
 		if endpointChanged {
 			logic.CheckHostPorts(r.Context(), currHost)
@@ -604,7 +617,12 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, "")
+}
+
+func isValidTrafficKey(key []byte) bool {
+	_, err := ncutils.ConvertBytesToKey(key)
+	return err == nil
 }
 
 // enrollmentKeyName returns a human-readable label for audit events.

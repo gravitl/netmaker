@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"sync"
 	"time"
@@ -36,16 +37,131 @@ func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error)
 	return GetNetworkNodesMemory(allnodes, network), nil
 }
 
-// GetHostNodes - fetches all nodes part of the host
+// GetHostNodes fetches all nodes that belong to the host.
+// Source of truth is the nodes table (host_id), not host.Nodes — that JSON
+// slice can retain stale IDs after leave/delete drift and omit live nodes.
+// Read-only: callers that need host.Nodes repaired use SyncHostNodesFromDB
+// (pull) or membership write paths (join/associate).
 func GetHostNodes(host *schema.Host) []models.Node {
-	nodes := []models.Node{}
-	for _, nodeID := range host.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err == nil {
-			nodes = append(nodes, node)
+	if host == nil || host.ID == uuid.Nil {
+		return []models.Node{}
+	}
+	ctx := hostNodesContext(host)
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		// Fall back to the denormalized ID list if the query fails.
+		nodes := []models.Node{}
+		for _, nodeID := range host.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil {
+				nodes = append(nodes, node)
+			}
 		}
+		return nodes
+	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
 	}
 	return nodes
+}
+
+func hostNodesContext(host *schema.Host) context.Context {
+	ctx := db.WithContext(context.Background())
+	if host != nil && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	return ctx
+}
+
+func listHostSchemaNodes(ctx context.Context, hostID string) ([]schema.Node, error) {
+	return (&schema.Node{}).ListAll(
+		ctx,
+		dbtypes.WithFilter("host_id", hostID),
+		dbtypes.WithAllPreloads(),
+	)
+}
+
+// ReconcileHostNodeIDs rewrites host.Nodes to match live node IDs when they drift.
+// Peer updates and pull both walk host.Nodes, so stale/missing IDs break joins.
+// Uses a column-scoped UPDATE (not full-row Save) so a stale host snapshot cannot
+// clobber concurrent field updates. HA-safe locking would need a DB CAS/advisory
+// lock; this only avoids Save-wide clobber.
+func ReconcileHostNodeIDs(ctx context.Context, host *schema.Host, liveIDs []string) error {
+	if host == nil || host.ID == uuid.Nil {
+		return nil
+	}
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
+		return err
+	}
+	if hostNodeIDSetsEqual(fresh.Nodes, liveIDs) {
+		host.Nodes = append([]string(nil), fresh.Nodes...)
+		return nil
+	}
+	prev := append([]string(nil), fresh.Nodes...)
+	nodesCol := datatypes.JSONSlice[string](append([]string(nil), liveIDs...))
+	if err := db.FromContext(ctx).Model(&schema.Host{}).
+		Where("id = ?", host.ID).
+		Update("nodes", nodesCol).Error; err != nil {
+		slog.Warn("failed to reconcile host.Nodes",
+			"host", host.ID.String(), "error", err)
+		return err
+	}
+	host.Nodes = append([]string(nil), liveIDs...)
+	slog.Info("reconciled host.Nodes with live nodes",
+		"host", host.ID.String(),
+		"before", len(prev),
+		"after", len(liveIDs))
+	return nil
+}
+
+// SyncHostNodesFromDB loads nodes by host_id, updates host.Nodes if needed, and
+// returns the same node list for reuse (e.g. HostPull.Nodes) so callers avoid a
+// second preloaded query via GetHostNodes. Call before PeerUpdateForHost.
+func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) ([]models.Node, error) {
+	if host == nil || host.ID == uuid.Nil {
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = hostNodesContext(host)
+	} else if scope.ID(ctx) == "" && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
+		ids = append(ids, schemaNodes[i].ID)
+	}
+	if err := ReconcileHostNodeIDs(ctx, host, ids); err != nil {
+		return nodes, err
+	}
+	return nodes, nil
+}
+
+func hostNodeIDSetsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(a))
+	for _, id := range a {
+		seen[id] = struct{}{}
+	}
+	for _, id := range b {
+		if _, ok := seen[id]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
@@ -176,7 +292,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 // Errors are logged but do not prevent node deletion.
 func cleanupNodeReferences(ctx context.Context, node *models.Node) {
 	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(ctx, node.ID.String(), node.Network); err != nil {
+		if err := DeleteGatewayExtClients(ctx, node.ID.String()); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
@@ -311,9 +427,15 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	_node := &schema.Node{
 		ID: node.ID.String(),
 	}
+	// fetch the node first, to release its addresses once it is deleted.
+	nodeExists := _node.Get(ctx) == nil
 	err := _node.Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
+	}
+
+	if nodeExists {
+		releaseNodeAddresses(ctx, _node)
 	}
 
 	err = _node.DeleteViolations(ctx)
@@ -326,6 +448,27 @@ func DeleteNodeByID(ctx context.Context, node *models.Node) error {
 	}
 	go DeleteNodeMetricsFromPeers(ctx, node.ID.String())
 	return nil
+}
+
+// releaseNodeAddresses releases the addresses of a deleted node, so that they
+// can be reallocated.
+func releaseNodeAddresses(ctx context.Context, node *schema.Node) {
+	for _, address := range []string{node.Address, node.Address6} {
+		prefix, err := netip.ParsePrefix(address)
+		if err != nil {
+			continue
+		}
+		allocation := &schema.IPAllocation{
+			TenantID:  node.TenantID,
+			NetworkID: node.NetworkID,
+			OwnerType: schema.IPOwnerNode,
+			OwnerID:   node.ID,
+		}
+		allocation.SetAddress(prefix.Addr())
+		if err := allocation.Release(ctx); err != nil {
+			slog.Error("failed to release node address", "node", node.ID, "address", address, "error", err)
+		}
+	}
 }
 
 // GetAllNodes - returns all nodes in the DB.
@@ -387,10 +530,10 @@ func attachPostureViolations(ctx context.Context, schemaNodes []schema.Node, mod
 	}
 	byNodeCycle := make(map[string]map[string][]models.Violation, len(ids))
 	for _, v := range all {
-		cycles := byNodeCycle[v.NodeID]
+		cycles := byNodeCycle[v.SubjectID]
 		if cycles == nil {
 			cycles = make(map[string][]models.Violation)
-			byNodeCycle[v.NodeID] = cycles
+			byNodeCycle[v.SubjectID] = cycles
 		}
 		cycles[v.EvaluationCycleID] = append(cycles[v.EvaluationCycleID], models.Violation{
 			CheckID:   v.CheckID,
@@ -464,15 +607,6 @@ func ensureNodeMutex(node *models.Node) {
 	if node.Mutex == nil {
 		node.Mutex = &sync.Mutex{}
 	}
-}
-
-// GetRecordKey - get record key
-// depricated
-func GetRecordKey(id string, network string) (string, error) {
-	if id == "" || network == "" {
-		return "", errors.New("unable to get record key")
-	}
-	return id + "###" + network, nil
 }
 
 func GetNodeByID(nodeID string) (models.Node, error) {
@@ -864,6 +998,14 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 		LastEvaluatedAt:                    _node.PostureCheckLastEvaluatedAt,
 		Location:                           _node.Host.Location,
 		CountryCode:                        _node.Host.CountryCode,
+		HostHasEndpointIPv6:                len(_node.Host.EndpointIPv6) > 0,
+		CreatedAt:                          _node.CreatedAt,
+	}
+
+	// User-registered devices: attach owner metadata for API Active Users listing.
+	// Do not set IsUserNode here — that would divert posture/ACL away from the host path.
+	if _node.Host != nil && _node.Host.OwnerUsername != "" {
+		attachUserOwnedDeviceMetadata(node, _node.Host)
 	}
 
 	if _node.IsGateway {
@@ -931,6 +1073,57 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 	}
 
 	return node
+}
+
+// attachUserOwnedDeviceMetadata copies host owner identity into node fields used by
+// ConvertToAPINode so registered desktop devices appear under Active Users alongside
+// legacy ExtClient RAC nodes. IsUserNode stays false on the models.Node so posture
+// and ACL keep using the host/device path.
+func attachUserOwnedDeviceMetadata(node *models.Node, host *schema.Host) {
+	if node == nil || host == nil || host.OwnerUsername == "" {
+		return
+	}
+	node.OwnerID = host.OwnerUsername
+	addr := ""
+	if node.Address.IP != nil {
+		addr = node.Address.IP.String()
+	}
+	addr6 := ""
+	if node.Address6.IP != nil {
+		addr6 = node.Address6.IP.String()
+	}
+	pubKey := host.PublicKey.String()
+	endpoint := host.EndpointIP.String()
+	if endpoint == "<nil>" {
+		endpoint = ""
+	}
+	if endpoint == "" {
+		endpoint = host.EndpointIPv6.String()
+		if endpoint == "<nil>" {
+			endpoint = ""
+		}
+	}
+	node.StaticNode = models.ExtClient{
+		ClientID:                 host.Name,
+		Network:                  node.Network,
+		Address:                  addr,
+		Address6:                 addr6,
+		Enabled:                  node.Connected,
+		OwnerID:                  host.OwnerUsername,
+		OS:                       host.OS,
+		OSFamily:                 host.OSFamily,
+		OSVersion:                host.OSVersion,
+		KernelVersion:            host.KernelVersion,
+		ClientVersion:            host.Version,
+		DeviceID:                 host.ID.String(),
+		DeviceName:               host.Name,
+		PublicKey:                pubKey,
+		PublicEndpoint:           endpoint,
+		Country:                  host.CountryCode,
+		Location:                 host.Location,
+		Status:                   node.Status,
+		SelectedInternetEgressID: node.SelectedInternetEgressID,
+	}
 }
 
 func ConvertModelsNodeToSchemaNode(node *models.Node) *schema.Node {

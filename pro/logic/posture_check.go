@@ -128,7 +128,7 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 			if nodeI.IsStatic && !nodeI.IsUserNode {
 				continue
 			}
-			deviceInfo := logic.GetPostureCheckDeviceInfoByNode(ctx, &nodeI)
+			deviceInfo := GetPostureCheckDeviceInfoByNode(ctx, &nodeI)
 			var postureChecksViolations []models.Violation
 			var postureCheckVolationSeverityLevel schema.Severity
 			if noChecks {
@@ -147,10 +147,34 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						oldVi = nil
 					}
 					EmitNewPostureViolationEvents(ctx, oldVi, postureChecksViolations, deviceInfo, schema.NetworkID(netI.Name))
-					extclient.PostureChecksViolations = postureChecksViolations
-					extclient.PostureCheckVolationSeverityLevel = postureCheckVolationSeverityLevel
-					extclient.LastEvaluatedAt = time.Now().UTC()
-					logic.SaveExtClient(ctx, &extclient)
+
+					_extclient := &schema.Extclient{
+						ID:                                extclient.ID,
+						TenantID:                          extclient.TenantID,
+						PostureCheckSeverity:              postureCheckVolationSeverityLevel,
+						PostureCheckLastEvaluationCycleID: uuid.NewString(),
+						PostureCheckLastEvaluatedAt:       time.Now().UTC(),
+					}
+
+					_violations := make([]schema.PostureCheckViolation, 0, len(postureChecksViolations))
+					for _, violation := range postureChecksViolations {
+						_violations = append(_violations, schema.PostureCheckViolation{
+							EvaluationCycleID: _extclient.PostureCheckLastEvaluationCycleID,
+							TenantID:          extclient.TenantID,
+							CheckID:           violation.CheckID,
+							SubjectID:         _extclient.ID,
+							SubjectType:       schema.PostureCheckSubjectTypeExtclient,
+							Name:              violation.Name,
+							Attribute:         violation.Attribute,
+							Message:           violation.Message,
+							Severity:          violation.Severity,
+							EvaluatedAt:       _extclient.PostureCheckLastEvaluatedAt,
+						})
+					}
+					if err := _extclient.UpsertViolations(ctx, _violations); err != nil {
+						slog.Error("failed to upsert posture check violations",
+							"extclient_id", _extclient.ID, "error", err)
+					}
 				}
 			} else {
 				// When no checks are configured and the node is already clean, skip
@@ -182,7 +206,8 @@ func RunPostureChecksForTenant(ctx context.Context) error {
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
 						TenantID:          nodeI.TenantID,
 						CheckID:           violation.CheckID,
-						NodeID:            _node.ID,
+						SubjectID:         _node.ID,
+						SubjectType:       schema.PostureCheckSubjectTypeDevice,
 						Name:              violation.Name,
 						Attribute:         violation.Attribute,
 						Message:           violation.Message,
@@ -245,17 +270,22 @@ func CheckPostureViolationsForHost(
 	network schema.NetworkID,
 	skipAutoUpdate bool,
 ) ([]models.Violation, schema.Severity) {
-	return CheckPostureViolations(ctx, GetPostureCheckDeviceInfoForHost(host, tags, skipAutoUpdate, true), network)
+	return CheckPostureViolations(ctx, GetPostureCheckDeviceInfoForHost(ctx, host, tags, network, skipAutoUpdate, true), network)
 }
 
 func GetPostureCheckDeviceInfoForHost(
+	ctx context.Context,
 	host *schema.Host,
 	tags map[models.TagID]struct{},
+	network schema.NetworkID,
 	skipAutoUpdate bool,
 	refreshIntegration bool,
 ) models.PostureCheckDeviceInfo {
 	if host == nil {
 		return models.PostureCheckDeviceInfo{}
+	}
+	if ctx == nil {
+		ctx = db.WithContext(context.TODO())
 	}
 	deviceInfo := models.PostureCheckDeviceInfo{
 		ClientLocation: host.CountryCode,
@@ -269,12 +299,12 @@ func GetPostureCheckDeviceInfoForHost(
 		Tags:           tags,
 		HostID:         host.ID.String(),
 	}
-	ctx := db.WithContext(context.TODO())
 	if refreshIntegration {
 		_ = mdmpkg.RefreshHostMDMState(ctx, *host)
 		_ = edrpkg.RefreshHostEDRState(ctx, *host)
 	}
 	attachIntegrationStates(ctx, host.ID.String(), &deviceInfo)
+	attachOwnerUserGroups(ctx, &deviceInfo, host.OwnerUsername, network)
 	return deviceInfo
 }
 
@@ -313,57 +343,8 @@ func GetPostureCheckViolations(ctx context.Context, checks []schema.PostureCheck
 		if c.Attribute == schema.AutoUpdate && (d.IsUser || d.SkipAutoUpdate) {
 			continue
 		}
-		// Check if tags match
-		if !d.IsUser {
-			// Check if posture check has wildcard tag - applies to all devices
-			if _, hasWildcard := c.Tags["*"]; hasWildcard {
-				// Wildcard tag matches all devices, continue to evaluate the check
-			} else if (c.Attribute == schema.MDMCompliance || c.Attribute == schema.EDRCompliance) && len(c.Tags) == 0 {
-				// Legacy MDM/EDR checks saved before wildcard default; apply to all hosts.
-			} else if len(c.Tags) > 0 {
-				// Check has specific tags - device must have at least one matching tag
-				if len(d.Tags) == 0 {
-					// Device has no tags and check doesn't have wildcard, skip
-					continue
-				}
-				exists := false
-				for tagID := range c.Tags {
-					if _, ok := d.Tags[models.TagID(tagID)]; ok {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					continue
-				}
-			} else {
-				// Check has no tags configured, skip
-				continue
-			}
-		} else if d.IsUser {
-			// Check if posture check has wildcard user group - applies to all users
-			if _, hasWildcard := c.UserGroups["*"]; hasWildcard {
-				// Wildcard user group matches all users, continue to evaluate the check
-			} else if len(c.UserGroups) > 0 {
-				// Check has specific user groups - user must have at least one matching group
-				if len(d.UserGroups) == 0 {
-					// User has no groups and check doesn't have wildcard, skip
-					continue
-				}
-				exists := false
-				for userG := range c.UserGroups {
-					if _, ok := d.UserGroups[schema.UserGroupID(userG)]; ok {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					continue
-				}
-			} else {
-				// Check has no user groups configured, skip
-				continue
-			}
+		if !postureCheckAppliesToSubject(&c, d) {
+			continue
 		}
 
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
@@ -465,6 +446,78 @@ func GetPostureCheckViolations(ctx context.Context, checks []schema.PostureCheck
 	return violations, highest
 }
 
+// postureCheckAppliesToSubject reports whether check c is in scope for subject d.
+// Host-backed subjects may match via Tags and/or UserGroups (OR). ExtClient RAC
+// subjects (IsUser) only use the UserGroups path.
+func postureCheckAppliesToSubject(c *schema.PostureCheck, d models.PostureCheckDeviceInfo) bool {
+	if c == nil {
+		return false
+	}
+	tagMatch := false
+	userMatch := false
+
+	if !d.IsUser {
+		if _, hasWildcard := c.Tags["*"]; hasWildcard {
+			// All Resources covers infrastructure hosts only. Host-backed user
+			// devices are scoped via UserGroups (All Users), matching NameserverTargetsAll.
+			if d.Username == "" {
+				tagMatch = true
+			}
+		} else if (c.Attribute == schema.MDMCompliance || c.Attribute == schema.EDRCompliance) && len(c.Tags) == 0 {
+			// Legacy MDM/EDR checks saved before wildcard default; apply to all hosts.
+			tagMatch = true
+		} else if len(c.Tags) > 0 {
+			for tagID := range c.Tags {
+				if tagID == "*" {
+					continue
+				}
+				if _, ok := d.Tags[models.TagID(tagID)]; ok {
+					tagMatch = true
+					break
+				}
+			}
+		}
+	}
+
+	if d.IsUser || d.Username != "" {
+		if _, hasWildcard := c.UserGroups["*"]; hasWildcard {
+			userMatch = true
+		} else if len(c.UserGroups) > 0 {
+			for userG := range c.UserGroups {
+				if _, ok := d.UserGroups[schema.UserGroupID(userG)]; ok {
+					userMatch = true
+					break
+				}
+			}
+		}
+	}
+
+	return tagMatch || userMatch
+}
+
+// attachOwnerUserGroups fills Username / UserGroups for a host-backed or
+// ExtClient posture subject. Does not set IsUser — host-backed devices keep
+// the host/device evaluation path (e.g. AutoUpdate).
+func attachOwnerUserGroups(ctx context.Context, d *models.PostureCheckDeviceInfo, ownerUsername string, network schema.NetworkID) {
+	if d == nil || ownerUsername == "" {
+		return
+	}
+	d.Username = ownerUsername
+	if d.UserGroups == nil {
+		d.UserGroups = make(map[schema.UserGroupID]struct{})
+	}
+	user := &schema.User{Username: ownerUsername}
+	if err := user.GetWithMembership(ctx); err != nil || len(user.UserGroups.Data()) == 0 {
+		return
+	}
+	d.UserGroups = user.UserGroups.Data()
+	if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupSlug()]; ok {
+		d.UserGroups[GetDefaultNetworkAdminGroupSlug(network)] = struct{}{}
+	} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupSlug()]; ok {
+		d.UserGroups[GetDefaultNetworkUserGroupSlug(network)] = struct{}{}
+	}
+}
+
 // GetPostureCheckDeviceInfoByNode retrieves PostureCheckDeviceInfo for a given node
 func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) models.PostureCheckDeviceInfo {
 	var deviceInfo models.PostureCheckDeviceInfo
@@ -491,6 +544,11 @@ func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) mod
 		_ = mdmpkg.RefreshHostMDMState(ctx, *h)
 		_ = edrpkg.RefreshHostEDRState(ctx, *h)
 		attachIntegrationStates(ctx, h.ID.String(), &deviceInfo)
+		owner := h.OwnerUsername
+		if owner == "" {
+			owner = logic.NodeOwnerUsername(node)
+		}
+		attachOwnerUserGroups(ctx, &deviceInfo, owner, schema.NetworkID(node.Network))
 	} else if node.IsUserNode {
 		deviceInfo = models.PostureCheckDeviceInfo{
 			ClientLocation: node.StaticNode.Country,
@@ -505,22 +563,7 @@ func GetPostureCheckDeviceInfoByNode(ctx context.Context, node *models.Node) mod
 			ClientID:       node.StaticNode.ClientID,
 			UserGroups:     make(map[schema.UserGroupID]struct{}),
 		}
-		// get user groups
-		if node.StaticNode.OwnerID != "" {
-			user := &schema.User{Username: node.StaticNode.OwnerID}
-			err := user.GetWithMembership(ctx)
-			if err == nil && len(user.UserGroups.Data()) > 0 {
-				deviceInfo.UserGroups = user.UserGroups.Data()
-				if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
-
-					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(schema.NetworkID(node.Network))] = struct{}{}
-
-				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupID()]; ok {
-
-					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(schema.NetworkID(node.Network))] = struct{}{}
-				}
-			}
-		}
+		attachOwnerUserGroups(ctx, &deviceInfo, node.StaticNode.OwnerID, schema.NetworkID(node.Network))
 	}
 
 	return deviceInfo
@@ -996,7 +1039,10 @@ func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Vi
 	sourceID := d.HostID
 	sourceName := d.HostID
 	sourceType := schema.DeviceSub
-	if d.IsUser {
+	// ExtClient RAC (IsUser) and host-backed user devices (Username set) are
+	// USER subjects; infra hosts remain DEVICE.
+	isUserSubject := d.IsUser || d.Username != ""
+	if isUserSubject {
 		sourceType = schema.UserSub
 		sourceID = d.Username
 		sourceName = d.Username
@@ -1021,9 +1067,9 @@ func EmitNewPostureViolationEvents(ctx context.Context, oldVi, newVi []models.Vi
 			"check":    v.Name,
 			"reason":   v.Message,
 			"severity": v.Severity,
-			"is_user":  d.IsUser,
+			"is_user":  isUserSubject,
 		}
-		if d.IsUser {
+		if isUserSubject {
 			payload["username"] = d.Username
 			payload["client_id"] = d.ClientID
 		}

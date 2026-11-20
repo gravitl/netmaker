@@ -18,7 +18,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -26,8 +25,39 @@ const (
 	GooglePublicNameserverName = "Google Public DNS"
 )
 
+var (
+	invalidDNSChars = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
+	multipleHyphens = regexp.MustCompile(`-+`)
+)
+
+func ToDNSLabel(input string) string {
+	s := strings.TrimSpace(input)
+
+	// Replace anything that isn't explicitly DNS-safe.
+	s = invalidDNSChars.ReplaceAllString(s, "-")
+
+	// Collapse repeated hyphens.
+	s = multipleHyphens.ReplaceAllString(s, "-")
+
+	// DNS labels cannot begin or end with '-'.
+	s = strings.Trim(s, "-")
+
+	// A DNS label is limited to 63 octets.
+	if len(s) > 63 {
+		s = s[:63]
+		s = strings.TrimRight(s, "-")
+	}
+
+	return s
+}
+
 var GetNameserversForNode = getNameserversForNode
 var GetNameserversForHost = getNameserversForHost
+
+// ErrLastEnabledFallback is returned when an update or delete would leave a
+// network with no enabled fallback nameserver. At least one is required for
+// exit-node / catch-all DNS resolution.
+var ErrLastEnabledFallback = errors.New("at least one fallback nameserver should be enabled")
 var ValidateNameserverReq = validateNameserverReq
 
 type GlobalNs struct {
@@ -76,7 +106,7 @@ func CreateFallbackNameserver(network *schema.Network) error {
 
 	for _, ns := range nameservers {
 		if ns.Default && ns.Name == GooglePublicNameserverName {
-			return nil
+			return backfillFallbackNameserverAllUsers(ctx, &ns)
 		}
 	}
 
@@ -93,7 +123,10 @@ func CreateFallbackNameserver(network *schema.Network) error {
 			"2001:4860:4860::8888",
 			"2001:4860:4860::8844",
 		},
-		Tags: map[string]interface{}{
+		Tags: map[string]any{
+			"*": "",
+		},
+		Users: map[string]any{
 			"*": "",
 		},
 		Status:    true,
@@ -101,6 +134,99 @@ func CreateFallbackNameserver(network *schema.Network) error {
 		CreatedAt: time.Now().UTC(),
 	}
 	return ns.Create(ctx)
+}
+
+// backfillFallbackNameserverAllUsers adds Users["*"] to a fallback created
+// before the user selector existed. Those rows targeted everyone through
+// Tags["*"] only, so user devices lose the nameserver after upgrade.
+// A non-empty Users map is an explicit assignment and is left unchanged.
+func backfillFallbackNameserverAllUsers(ctx context.Context, ns *schema.Nameserver) error {
+	if !fallbackNameserverNeedsAllUsers(ns) {
+		return nil
+	}
+	if ns.Users == nil {
+		ns.Users = map[string]any{}
+	}
+	ns.Users["*"] = ""
+	return ns.Update(ctx)
+}
+
+// fallbackNameserverNeedsAllUsers reports whether the default Google fallback
+// still has only the old all-resources tag and no user targets.
+func fallbackNameserverNeedsAllUsers(ns *schema.Nameserver) bool {
+	if ns == nil || !ns.Default || !ns.Fallback || ns.Name != GooglePublicNameserverName {
+		return false
+	}
+	if _, ok := ns.Tags["*"]; !ok {
+		return false
+	}
+	if _, ok := ns.Users["*"]; ok || len(ns.Users) > 0 {
+		return false
+	}
+	return true
+}
+
+// networkHasOtherEnabledFallback reports whether the network has an enabled
+// fallback nameserver other than excludeID.
+func networkHasOtherEnabledFallback(list []schema.Nameserver, excludeID string) bool {
+	for i := range list {
+		ns := &list[i]
+		if ns.ID == excludeID {
+			continue
+		}
+		if ns.Fallback && ns.Status {
+			return true
+		}
+	}
+	return false
+}
+
+// wouldLoseLastEnabledFallback reports whether current is an enabled fallback
+// that update would stop being one, with no other enabled fallback remaining.
+func wouldLoseLastEnabledFallback(current, update *schema.Nameserver, hasOther bool) bool {
+	if current == nil || update == nil {
+		return false
+	}
+	wasEnabledFallback := current.Status && current.Fallback
+	willBeFallback := update.Fallback
+	if current.Default {
+		willBeFallback = current.Fallback
+	}
+	willBeEnabledFallback := update.Status && willBeFallback
+	return wasEnabledFallback && !willBeEnabledFallback && !hasOther
+}
+
+// EnsureEnabledFallbackRemains rejects disabling or unsetting Fallback on the
+// last enabled fallback nameserver in the network. Default nameservers keep
+// their Fallback flag; only Status can change for them.
+func EnsureEnabledFallbackRemains(ctx context.Context, current, update *schema.Nameserver) error {
+	if current == nil || update == nil {
+		return nil
+	}
+	list, err := (&schema.Nameserver{NetworkID: current.NetworkID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+	if wouldLoseLastEnabledFallback(current, update, networkHasOtherEnabledFallback(list, current.ID)) {
+		return ErrLastEnabledFallback
+	}
+	return nil
+}
+
+// EnsureEnabledFallbackOnDelete rejects deleting the last enabled fallback
+// nameserver in the network.
+func EnsureEnabledFallbackOnDelete(ctx context.Context, ns *schema.Nameserver) error {
+	if ns == nil || !ns.Status || !ns.Fallback {
+		return nil
+	}
+	list, err := (&schema.Nameserver{NetworkID: ns.NetworkID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+	if !networkHasOtherEnabledFallback(list, ns.ID) {
+		return ErrLastEnabledFallback
+	}
+	return nil
 }
 
 // GetDNS - gets the DNS of a current network
@@ -192,6 +318,9 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 		if err != nil {
 			continue
 		}
+		if IsUserOwnedHost(host) {
+			continue
+		}
 		var entry = models.DNSEntry{}
 		if defaultDomain == "" {
 			entry.Name = fmt.Sprintf("%s.%s", host.Name, network)
@@ -247,35 +376,24 @@ func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
 // GetCustomDNS - gets the custom DNS of a network
 func GetCustomDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	records, err := (&schema.DNSRecord{}).List(ctx)
+	_entries, err := (&schema.DNSEntry{Network: &schema.Network{Name: network}}).ListByNetwork(ctx)
 	if err != nil {
 		return dns, err
 	}
 	defaultDomain := GetDefaultDomain(ctx)
-	for _, r := range records {
-		entry := r.Value.Data()
-		if entry.Network == network {
-			if defaultDomain != "" {
-				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
-			}
-			entry.Type = models.DNSEntryType_Custom
-			dns = append(dns, entry)
+	for i := range _entries {
+		entry := ConvertSchemaDNSEntryToModelsDNSEntry(&_entries[i])
+		if defaultDomain != "" {
+			entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
 		}
+		dns = append(dns, entry)
 	}
 	return dns, nil
 }
 
-func DeleteNetworkDNS(ctx context.Context, network string) error {
-	records, err := (&schema.DNSRecord{}).List(ctx)
-	if err != nil {
-		return err
-	}
-	for _, r := range records {
-		if r.Value.Data().Network == network {
-			_ = (&schema.DNSRecord{Key: r.Key}).Delete(ctx)
-		}
-	}
-	return nil
+// DeleteNetworkDNS - deletes the custom dns entries of the network
+func DeleteNetworkDNS(ctx context.Context, networkID string) error {
+	return (&schema.DNSEntry{NetworkID: networkID}).DeleteByNetwork(ctx)
 }
 
 // GetAllDNS - gets all dns entries
@@ -392,24 +510,73 @@ func ValidateDNSUpdate(ctx context.Context, change models.DNSEntry, entry models
 	return err
 }
 
-// DeleteDNS - deletes a DNS entry
+// DeleteDNS - deletes a DNS entry, if it exists
 func DeleteDNS(ctx context.Context, domain string, network string) error {
-	key, err := GetRecordKey(domain, network)
-	if err != nil {
+	_entry := &schema.DNSEntry{
+		Name:    domain,
+		Network: &schema.Network{Name: network},
+	}
+	if err := _entry.Get(ctx); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
 		return err
 	}
-	return (&schema.DNSRecord{Key: key}).Delete(ctx)
+	if err := (&schema.DNSEntry{ID: _entry.ID}).Delete(ctx); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return nil
 }
 
-// CreateDNS - creates a DNS entry
+// CreateDNS - creates a DNS entry, or updates it if it exists
 func CreateDNS(ctx context.Context, entry models.DNSEntry) (models.DNSEntry, error) {
 	entry.Type = models.DNSEntryType_Custom
-	k, err := GetRecordKey(entry.Name, entry.Network)
+	_entry, err := ConvertModelsDNSEntryToSchemaDNSEntry(ctx, entry)
 	if err != nil {
 		return models.DNSEntry{}, err
 	}
-	r := &schema.DNSRecord{Key: k, Value: datatypes.NewJSONType(entry)}
-	return entry, r.Upsert(ctx)
+	existing := &schema.DNSEntry{NetworkID: _entry.NetworkID, Name: _entry.Name}
+	if err := existing.Get(ctx); err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.DNSEntry{}, err
+		}
+		return entry, _entry.Create(ctx)
+	}
+	_entry.ID = existing.ID
+	return entry, _entry.Update(ctx)
+}
+
+// ConvertSchemaDNSEntryToModelsDNSEntry - converts the custom dns entry, its
+// Network must be set
+func ConvertSchemaDNSEntryToModelsDNSEntry(_entry *schema.DNSEntry) models.DNSEntry {
+	var network string
+	if _entry.Network != nil {
+		network = _entry.Network.Name
+	}
+	return models.DNSEntry{
+		Type:     models.DNSEntryType_Custom,
+		Address:  _entry.Address,
+		Address6: _entry.Address6,
+		Name:     _entry.Name,
+		Network:  network,
+	}
+}
+
+// ConvertModelsDNSEntryToSchemaDNSEntry - converts the custom dns entry,
+// resolving its network by name within the tenant in the context
+func ConvertModelsDNSEntryToSchemaDNSEntry(ctx context.Context, entry models.DNSEntry) (*schema.DNSEntry, error) {
+	network := &schema.Network{Name: entry.Network}
+	if err := network.Get(ctx); err != nil {
+		return nil, err
+	}
+	return &schema.DNSEntry{
+		TenantID:  scope.ID(ctx),
+		NetworkID: network.ID,
+		Network:   network,
+		Name:      entry.Name,
+		Address:   entry.Address,
+		Address6:  entry.Address6,
+	}, nil
 }
 
 func validateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
@@ -464,6 +631,30 @@ func validateNameserverReq(ctx context.Context, ns *schema.Nameserver) error {
 }
 
 func getNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
+	return nameserversForNode(ctx, node, NodeOwnerUsername(node))
+}
+
+func getNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
+	if h.DNS != "yes" {
+		return
+	}
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		owner := NodeOwnerUsername(&node)
+		if owner == "" {
+			owner = h.OwnerUsername
+		}
+		returnNsLi = append(returnNsLi, nameserversForNode(ctx, &node, owner)...)
+	}
+	return
+}
+
+// nameserversForNode returns the nameservers in the node's network that target
+// the node via an all selector or directly.
+func nameserversForNode(ctx context.Context, node *models.Node, owner string) (returnNsLi []models.Nameserver) {
 	filters := make(map[string]bool)
 	if node.Address.IP != nil {
 		filters[node.Address.IP.String()] = true
@@ -487,123 +678,52 @@ func getNameserversForNode(ctx context.Context, node *models.Node) (returnNsLi [
 			continue
 		}
 
-		_, all := nsI.Tags["*"]
-		if all {
-			if nsI.Fallback {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:        filteredIps,
-					IsFallback: true,
-				})
-			} else {
-				for _, domain := range nsI.Domains {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsADDomain:     domain.IsADDomain,
-					})
-				}
-			}
+		_, direct := nsI.Nodes[node.ID.String()]
+		if !direct && !NameserverTargetsAll(&nsI, owner) {
 			continue
 		}
 
-		if _, ok := nsI.Nodes[node.ID.String()]; ok {
-			if nsI.Fallback {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:        filteredIps,
-					IsFallback: true,
-				})
-			} else {
-				for _, domain := range nsI.Domains {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsADDomain:     domain.IsADDomain,
-					})
-				}
-			}
+		if nsI.Fallback {
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:        filteredIps,
+				IsFallback: true,
+			})
+			continue
 		}
-
+		for _, domain := range nsI.Domains {
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:            filteredIps,
+				MatchDomain:    domain.Domain,
+				IsSearchDomain: domain.IsSearchDomain,
+				IsADDomain:     domain.IsADDomain,
+			})
+		}
 	}
 	return
 }
 
-func getNameserversForHost(ctx context.Context, h *schema.Host) (returnNsLi []models.Nameserver) {
-	if h.DNS != "yes" {
-		return
+// NameserverTargetsAll reports whether ns targets a node through an all
+// selector. All resources ("*" tag) covers nodes only; user devices, which
+// have an owner, are covered by All users ("*" user) instead.
+func NameserverTargetsAll(ns *schema.Nameserver, owner string) bool {
+	if owner == "" {
+		_, ok := ns.Tags["*"]
+		return ok
 	}
-	for _, nodeID := range h.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
+	_, ok := ns.Users["*"]
+	return ok
+}
 
-		filters := make(map[string]bool)
-		if node.Address.IP != nil {
-			filters[node.Address.IP.String()] = true
-		}
+// RemoveUserFromNameservers drops a deleted user from every nameserver in the
+// tenant scoped by ctx.
+func RemoveUserFromNameservers(ctx context.Context, username string) error {
+	return (&schema.Nameserver{}).RemoveUser(ctx, username)
+}
 
-		if node.Address6.IP != nil {
-			filters[node.Address6.IP.String()] = true
-		}
-
-		ns := &schema.Nameserver{
-			NetworkID: node.Network,
-		}
-		nsLi, _ := ns.ListByNetwork(ctx)
-		for _, nsI := range nsLi {
-			if !nsI.Status {
-				continue
-			}
-
-			filteredIps := FilterOutIPs(nsI.Servers, filters)
-			if len(filteredIps) == 0 {
-				continue
-			}
-
-			_, all := nsI.Tags["*"]
-			if all {
-				if nsI.Fallback {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:        filteredIps,
-						IsFallback: true,
-					})
-				} else {
-					for _, domain := range nsI.Domains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:            filteredIps,
-							MatchDomain:    domain.Domain,
-							IsSearchDomain: domain.IsSearchDomain,
-							IsADDomain:     domain.IsADDomain,
-						})
-					}
-				}
-				continue
-			}
-
-			if _, ok := nsI.Nodes[node.ID.String()]; ok {
-				if nsI.Fallback {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:        filteredIps,
-						IsFallback: true,
-					})
-				} else {
-					for _, domain := range nsI.Domains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:            filteredIps,
-							MatchDomain:    domain.Domain,
-							IsSearchDomain: domain.IsSearchDomain,
-							IsADDomain:     domain.IsADDomain,
-						})
-					}
-				}
-
-			}
-
-		}
-	}
-	return
+// RemoveUserGroupFromNameservers drops a deleted user group from every
+// nameserver in the tenant scoped by ctx.
+func RemoveUserGroupFromNameservers(ctx context.Context, groupID schema.UserGroupID) error {
+	return (&schema.Nameserver{}).RemoveUserGroup(ctx, groupID.String())
 }
 
 // IsValidMatchDomain reports whether s is a valid "match domain".

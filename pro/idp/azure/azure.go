@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gravitl/netmaker/pro/idp"
 )
@@ -120,6 +121,10 @@ func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 			return nil, err
 		}
 
+		if users.Error.Code != "" {
+			return nil, errors.New(users.Error.Message)
+		}
+
 		for _, user := range users.Value {
 			retval = append(retval, idp.User{
 				ID:              user.Id,
@@ -167,6 +172,10 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 		_ = resp.Body.Close()
 		if err != nil {
 			return nil, err
+		}
+
+		if groups.Error.Code != "" {
+			return nil, errors.New(groups.Error.Message)
 		}
 
 		// Fetch members for each group separately to handle pagination
@@ -265,7 +274,7 @@ func (a *Client) getAccessToken() (string, error) {
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
-	return url.PathEscape("$filter=" + buildCondition(field, prefixes))
+	return "$filter=" + strings.ReplaceAll(url.QueryEscape(buildCondition(field, prefixes)), "+", "%20")
 }
 
 func buildCondition(field string, prefixes []string) string {
@@ -274,7 +283,7 @@ func buildCondition(field string, prefixes []string) string {
 	}
 
 	if len(prefixes) == 1 {
-		return fmt.Sprintf("startswith(%s,'%s')", field, prefixes[0])
+		return fmt.Sprintf("startswith(%s,'%s')", field, strings.ReplaceAll(prefixes[0], "'", "''"))
 	}
 
 	return buildCondition(field, prefixes[:1]) + " or " + buildCondition(field, prefixes[1:])
