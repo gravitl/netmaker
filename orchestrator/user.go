@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
@@ -130,10 +131,11 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		}
 	} else if scope.Level(ctx) == scope.OrgScope && !hasMembership {
 		orgID := scope.ID(ctx)
+		orgRole := user.PlatformRoleID
 		membership := &schema.OrgMembership{
 			OrganizationID:             orgID,
 			UserID:                     user.ID,
-			RoleID:                     user.PlatformRoleID,
+			RoleID:                     orgRole,
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
@@ -145,12 +147,38 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		if err != nil {
 			return err
 		}
+
+		if orgRole == schema.OrgAdmin {
+			if err := u.grantOrgAdminTenantAccess(ctx, orgID, user); err != nil {
+				return err
+			}
+			// GrantTenantAdmin (called per tenant above) overwrites
+			// user.PlatformRoleID with the tenant-level Admin role; restore
+			// the org-level role the caller created this user with.
+			user.PlatformRoleID = orgRole
+		}
 	}
 
 	if logic.IsMSP(ctx) && !emailValidated {
 		err = u.userExt.SendEmailValidation(ctx, user)
 		if err != nil {
 			logger.Log(0, "failed to send email validation for user", user.Username, ":", err.Error())
+		}
+	}
+
+	return nil
+}
+
+func (u *UserOrchestrator) grantOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
+	tenants, err := (&schema.Tenant{}).List(ctx, dbtypes.WithFilter("organization_id", orgID))
+	if err != nil {
+		return err
+	}
+
+	for i := range tenants {
+		err = GetRepository().TenantOrchestrator().GrantTenantAdmin(ctx, &tenants[i], user)
+		if err != nil {
+			return err
 		}
 	}
 

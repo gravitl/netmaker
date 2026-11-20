@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 )
 
 type OrgMembership struct {
@@ -46,6 +47,16 @@ func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, erro
 		Where("user_id = ?", o.UserID).
 		Find(&memberships).
 		Error
+	return memberships, err
+}
+
+func (o *OrgMembership) ListAll(ctx context.Context, options ...dbtypes.Option) ([]OrgMembership, error) {
+	var memberships []OrgMembership
+	query := db.FromContext(ctx).Model(&OrgMembership{})
+	for _, option := range options {
+		query = option(query)
+	}
+	err := query.Find(&memberships).Error
 	return memberships, err
 }
 

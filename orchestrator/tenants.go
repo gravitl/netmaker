@@ -7,6 +7,7 @@ import (
 
 	chdriver "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gravitl/netmaker/clickhouse"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -33,7 +34,13 @@ func (t *TenantOrchestrator) CreateDefaultTenant(ctx context.Context, orgID stri
 	t.initTenantRoles(ctx, tenant)
 	t.initTenantGroups(ctx, tenant)
 
-	if err := t.grantExistingOwnerAccess(ctx, tenant); err != nil {
+	err := t.grantExistingOrgOwnerAccess(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	err = t.grantExistingOrgAdminsAccess(ctx, tenant)
+	if err != nil {
 		return nil, err
 	}
 
@@ -52,7 +59,12 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 	t.initTenantRoles(ctx, tenant)
 	t.initTenantGroups(ctx, tenant)
 
-	return t.grantExistingOwnerAccess(ctx, tenant)
+	err := t.grantExistingOrgOwnerAccess(ctx, tenant)
+	if err != nil {
+		return err
+	}
+
+	return t.grantExistingOrgAdminsAccess(ctx, tenant)
 }
 
 func (t *TenantOrchestrator) initTenantRoles(ctx context.Context, tenant *schema.Tenant) {
@@ -198,6 +210,15 @@ func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenant *
 	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithReplicatedAuth())
 }
 
+func (t *TenantOrchestrator) GrantTenantAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
+	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
+	user.PlatformRoleID = schema.AdminRole
+	if t.isMSPTenant(ctx, tenant) {
+		return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
+	}
+	return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithReplicatedAuth())
+}
+
 func (t *TenantOrchestrator) seedTenantSettings(ctx context.Context, tenant *schema.Tenant) error {
 	defaultSettings := logic.GetDefaultTenantSettings()
 
@@ -219,7 +240,7 @@ func (t *TenantOrchestrator) isMSPTenant(ctx context.Context, tenant *schema.Ten
 	return defaultOrg.ID != tenant.OrganizationID
 }
 
-func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
+func (t *TenantOrchestrator) grantExistingOrgOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
 	owner := &schema.OrgMembership{OrganizationID: tenant.OrganizationID}
 	err := owner.GetOwner(ctx)
 	if err != nil {
@@ -237,4 +258,29 @@ func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenan
 	}
 
 	return t.GrantTenantSuperAdmin(ctx, tenant, user)
+}
+
+func (t *TenantOrchestrator) grantExistingOrgAdminsAccess(ctx context.Context, tenant *schema.Tenant) error {
+	admins, err := (&schema.OrgMembership{}).ListAll(ctx,
+		dbtypes.WithFilter("organization_id", tenant.OrganizationID),
+		dbtypes.WithFilter("role_id", schema.OrgAdmin),
+	)
+	if err != nil {
+		return err
+	}
+
+	for i := range admins {
+		user := &schema.User{ID: admins[i].UserID}
+		err = user.Get(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = t.GrantTenantAdmin(ctx, tenant, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
