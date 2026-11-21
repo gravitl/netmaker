@@ -30,6 +30,7 @@ var (
 	ErrInvalidSmtpPort                   = errors.New("invalid smtp port (must be between 1 and 65535)")
 	ErrInvalidCleanUpInterval            = errors.New("invalid clean up interval (must be greater than 0)")
 	ErrInvalidAuditLogsRetentionPeriod   = errors.New("invalid audit logs retention period (must not be negative)")
+	ErrInvalidMetricInterval             = errors.New("invalid metric interval (must be a whole number of minutes greater than 0)")
 )
 
 var SettingsMutex = &sync.RWMutex{}
@@ -249,6 +250,12 @@ func ValidateNewSettings(ctx context.Context, req models.ServerSettings) error {
 
 	if req.AuditLogsRetentionPeriodInDays < 0 {
 		return ErrInvalidAuditLogsRetentionPeriod
+	}
+
+	if mi := strings.TrimSpace(req.MetricInterval); mi != "" {
+		if interval, err := strconv.Atoi(mi); err != nil || interval < 1 {
+			return ErrInvalidMetricInterval
+		}
 	}
 	return nil
 }
