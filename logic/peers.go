@@ -576,13 +576,15 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 				peerEndpoint = nil
 			}
 
-			peerConfig.Endpoint = &net.UDPAddr{
-				IP:   peerEndpoint,
-				Port: GetPeerListenPort(peerHost),
-			}
-
-			if uselocal {
-				peerConfig.Endpoint.Port = peerHost.ListenPort
+			// wgctrl rejects a non-nil endpoint with an empty IP for the entire peer batch.
+			if peerEndpoint != nil {
+				peerConfig.Endpoint = &net.UDPAddr{
+					IP:   peerEndpoint,
+					Port: GetPeerListenPort(peerHost),
+				}
+				if uselocal {
+					peerConfig.Endpoint.Port = peerHost.ListenPort
+				}
 			}
 
 			if peer.Action != schema.NODE_DELETE &&

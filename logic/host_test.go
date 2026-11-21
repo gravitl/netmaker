@@ -74,11 +74,6 @@ func TestCheckPorts(t *testing.T) {
 		EndpointIP: net.ParseIP("192.168.1.1"),
 		ListenPort: 51830,
 	}
-	//not sure why this initialization is required but without it
-	// RemoveHost returns database is closed
-	db.InitializeDB(schema.ListModels()...)
-	defer db.CloseDB()
-
 	RemoveHost(db.WithContext(context.TODO()), &h, true)
 	CreateHost(db.WithContext(context.TODO()), &h)
 	t.Run("no change", func(t *testing.T) {
