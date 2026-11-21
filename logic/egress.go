@@ -1284,6 +1284,26 @@ func appendEgressRangesToReq(req *models.EgressGatewayRequest, e schema.Egress, 
 	}
 }
 
+// forwardsForTarget reports whether node relays targetNode or auto-relays it.
+func forwardsForTarget(node, targetNode *models.Node) bool {
+	if slices.Contains(node.RelayedNodes, targetNode.ID.String()) {
+		return true
+	}
+	if !node.IsAutoRelay {
+		return false
+	}
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+		defer targetNode.Mutex.Unlock()
+	}
+	for _, relayID := range targetNode.AutoRelayedPeers {
+		if relayID == node.ID.String() {
+			return true
+		}
+	}
+	return false
+}
+
 func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
@@ -1308,7 +1328,11 @@ func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.N
 			// (SelectedInternetEgressID) or a legacy InternetGwID assignment.
 			continue
 		}
-		if !isDefaultPolicyActive {
+		// The relay needs this range routed to forward it; the firewall ACL rules
+		// still decide whether the relayed traffic passes.
+		if !isDefaultPolicyActive && (!forwardsForTarget(node, targetNode) ||
+			IsEgressInternetGateway(e) || !targetNode.Connected ||
+			targetNode.PendingDelete || targetNode.Action == schema.NODE_DELETE) {
 			if !NodeHasEgressAccess(ctx, node, &e, acls) &&
 				!doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
