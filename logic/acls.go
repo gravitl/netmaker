@@ -695,6 +695,80 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 	return rules
 }
 
+// aclMatchKey is the match netclient keys an nftables rule by, not the ACL ID.
+func aclMatchKey(rule models.AclRule, src, dst net.IPNet) string {
+	return src.String() + "|" + dst.String() + "|" +
+		rule.AllowedProtocol.String() + "|" + strings.Join(rule.AllowedPorts, ",")
+}
+
+// legRouted reports whether a leg's destination is an egress range this node
+// routes. An internet egress range is 0.0.0.0/0 and would swallow every leg.
+func legRouted(dst net.IPNet, targetID string, egresses []schema.Egress) bool {
+	for _, e := range egresses {
+		if _, ok := e.Nodes[targetID]; !ok || !e.Status || IsEgressInternetGateway(e) {
+			continue
+		}
+		v4, v6 := getEgressCIDRs([]schema.Egress{e})
+		for _, n := range append(v4, v6...) {
+			if n.Contains(dst.IP) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// mergeAclInputRules adds the site-to-site legs that can match on this node's
+// input chain, leaves out legs an existing rule already allows with the same
+// match, and keeps only the sorted first ID of equal legs.
+func mergeAclInputRules(ctx context.Context, rules map[string]models.AclRule, targetnode models.Node) {
+	legs := getEgressAclRulesForTargetNode(ctx, targetnode)
+	egresses, _ := getEgressByNetwork(targetnode.Network)
+	covered := make(map[string]struct{})
+	for _, rule := range rules {
+		for _, s := range rule.IPList {
+			for _, d := range rule.Dst {
+				covered[aclMatchKey(rule, s, d)] = struct{}{}
+			}
+		}
+		for _, s := range rule.IP6List {
+			for _, d := range rule.Dst6 {
+				covered[aclMatchKey(rule, s, d)] = struct{}{}
+			}
+		}
+	}
+	uncovered := func(rule models.AclRule, srcs, dsts []net.IPNet) (keptSrcs, keptDsts []net.IPNet) {
+		for _, s := range srcs {
+			for _, d := range dsts {
+				if !legRouted(d, targetnode.ID.String(), egresses) {
+					continue
+				}
+				key := aclMatchKey(rule, s, d)
+				if _, ok := covered[key]; !ok {
+					keptSrcs, keptDsts = append(keptSrcs, s), append(keptDsts, d)
+				}
+				covered[key] = struct{}{}
+			}
+		}
+		return keptSrcs, keptDsts
+	}
+	ids := make([]string, 0, len(legs))
+	for aclID := range legs {
+		if _, ok := rules[aclID]; !ok {
+			ids = append(ids, aclID)
+		}
+	}
+	sort.Strings(ids)
+	for _, aclID := range ids {
+		rule := legs[aclID]
+		rule.IPList, rule.Dst = uncovered(rule, rule.IPList, rule.Dst)
+		rule.IP6List, rule.Dst6 = uncovered(rule, rule.IP6List, rule.Dst6)
+		if len(rule.IPList) > 0 || len(rule.IP6List) > 0 {
+			rules[aclID] = rule
+		}
+	}
+}
+
 func getEgressCIDRs(egresses []schema.Egress) (ip4 []net.IPNet, ip6 []net.IPNet) {
 	for _, e := range egresses {
 		if !e.Status {
@@ -1462,6 +1536,12 @@ func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.N
 		rules = GetUserAclRulesForNode(ctx, &targetnode, rules)
 		//}
 		rules = GetUserDeviceAclRulesForNode(ctx, g, &targetnode, networkNodes, rules)
+		// Site-to-site egress rules are also ACL rules, so netclient installs them on
+		// the input chain, where the router's own address inside its range, e.g. the
+		// LAN gateway, must accept peer traffic.
+		if targetnode.EgressDetails.IsEgressGateway {
+			mergeAclInputRules(ctx, rules, targetnode)
+		}
 	}()
 	rules = make(map[string]models.AclRule)
 	if IsNodeAllowedToCommunicateWithAllRsrcs(ctx, targetnode) {

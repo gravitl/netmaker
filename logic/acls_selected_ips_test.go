@@ -3028,3 +3028,119 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		t.Fatalf("expected exactly one IPList entry (MacBook); got %d: %v", len(got), rule.IPList)
 	}
 }
+
+// siteToSiteAclRules stubs a site-to-site policy between site-a and site-b and
+// returns the AclRules of a node owning site-a; dstOwned makes the node own site-b.
+func siteToSiteAclRules(t *testing.T, direction models.AllowedTrafficDirection, dstOwned, srcNat, extra, inet bool) map[string]models.AclRule {
+	t.Helper()
+	egressByID, egressByNetwork := getEgressByID, getEgressByNetwork
+	policies, tags, nodeByID := getNetworkAccessDevicePolicies, GetTagMapWithNetworkNodes, getNodeByIDForEgressFw
+	t.Cleanup(func() {
+		getEgressByID, getEgressByNetwork = egressByID, egressByNetwork
+		getNetworkAccessDevicePolicies, GetTagMapWithNetworkNodes, getNodeByIDForEgressFw = policies, tags, nodeByID
+	})
+
+	targetID, peerID := uuid.New(), uuid.New()
+	srcOwner, dstOwner := targetID, peerID
+	if dstOwned {
+		srcOwner, dstOwner = peerID, targetID
+	}
+	target := models.Node{CommonNode: models.CommonNode{ID: targetID, Network: "netmaker",
+		Address: net.IPNet{IP: net.ParseIP("192.0.2.1"), Mask: net.CIDRMask(32, 32)}},
+		Tags: map[models.TagID]struct{}{}, EgressDetails: models.EgressDetails{IsEgressGateway: true}}
+	peer := models.Node{CommonNode: models.CommonNode{ID: peerID,
+		Address: net.IPNet{IP: net.ParseIP("100.64.0.50"), Mask: net.CIDRMask(32, 32)}}}
+	getNetworkAccessDevicePolicies = func(ctx context.Context, netID schema.NetworkID) []models.Acl {
+		policy := func(id string) models.Acl {
+			return models.Acl{ID: id, Enabled: true, AllowedDirection: direction, Proto: models.ALL,
+				Src: []models.AclPolicyTag{{ID: models.EgressID, Value: "site-a"}},
+				Dst: []models.AclPolicyTag{{ID: models.EgressID, Value: "site-b"}}}
+		}
+		policies := []models.Acl{policy("site-acl")}
+		if extra {
+			policies = append(policies, policy("acl-two"))
+		}
+		return policies
+	}
+	srcE := schema.Egress{ID: "site-a", Status: true, Nat: srcNat, Range: "198.51.100.0/24",
+		Nodes: datatypes.JSONMap{srcOwner.String(): true}}
+	dstE := schema.Egress{ID: "site-b", Status: true, Range: "203.0.113.0/24",
+		Nodes: datatypes.JSONMap{dstOwner.String(): true}}
+	getEgressByID = func(egressID string) (schema.Egress, error) {
+		if egressID == "site-a" {
+			return srcE, nil
+		} else if egressID == "site-b" {
+			return dstE, nil
+		}
+		return schema.Egress{}, errors.New("not found")
+	}
+	egresses := []schema.Egress{srcE, dstE}
+	if inet {
+		egresses = append(egresses, schema.Egress{ID: "inet", Status: true, Nat: true, Range: "*",
+			Nodes: datatypes.JSONMap{targetID.String(): true}})
+	}
+	getEgressByNetwork = func(network string) ([]schema.Egress, error) { return egresses, nil }
+	getNodeByIDForEgressFw = func(nodeID string) (models.Node, error) {
+		if nodeID == peerID.String() {
+			return peer, nil
+		}
+		return models.Node{}, errors.New("not found")
+	}
+	GetTagMapWithNetworkNodes = func(ctx context.Context, netID schema.NetworkID, nodes []models.Node, withStatic bool) map[models.TagID][]models.Node {
+		return map[models.TagID][]models.Node{"site-a": {peer}}
+	}
+	return GetAclRulesForNode(db.WithContext(context.Background()), NewPeerGraph(nil, nil), &target, nil)
+}
+
+// TestGetAclRulesForNode_SiteToSiteRulesReachInputChain: netclient installs
+// AclRules on the input chain only, so without the rule the router's own address
+// inside its range, e.g. the LAN gateway, drops peer traffic.
+func TestGetAclRulesForNode_SiteToSiteRulesReachInputChain(t *testing.T) {
+	for _, tc := range []struct {
+		name, want, wantDst, unwanted string
+		direction                     models.AllowedTrafficDirection
+		dstOwned, inet                bool
+	}{
+		{"src side gets the reverse leg", "site-acl-reverse#xs0", "198.51.100.0/24", "site-acl#xs0", models.TrafficDirectionBi, false, false},
+		{"dst side gets the forward leg", "site-acl#xs0", "203.0.113.0/24", "site-acl-reverse#xs0", models.TrafficDirectionUni, true, false},
+		{"internet egress does not route the forward leg", "site-acl-reverse#xs0", "198.51.100.0/24", "site-acl#xs0", models.TrafficDirectionBi, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rules := siteToSiteAclRules(t, tc.direction, tc.dstOwned, false, false, tc.inet)
+			rule, ok := rules[tc.want]
+			if !ok {
+				t.Fatalf("expected %s in AclRules, got: %+v", tc.want, rules)
+			}
+			if len(rule.Dst) != 1 || rule.Dst[0].String() != tc.wantDst {
+				t.Fatalf("expected %s to accept the node's own range %s, got %v", tc.want, tc.wantDst, rule.Dst)
+			}
+			if _, ok := rules[tc.unwanted]; ok {
+				t.Fatalf("%s does not match on this node's input chain, got: %+v", tc.unwanted, rules[tc.unwanted])
+			}
+		})
+	}
+}
+
+// With a NATting source egress the source router's mesh address replaces the
+// source range, which the existing node rule already allows. Netclient keys
+// nftables rules by match, not by ACL ID, so that pair must not go out twice.
+func TestGetAclRulesForNode_SiteToSiteNatRuleNotDuplicated(t *testing.T) {
+	rules := siteToSiteAclRules(t, models.TrafficDirectionUni, true, true, false, false)
+	if _, ok := rules["site-acl#xs0"]; ok {
+		t.Fatalf("NAT-substituted pair is already allowed by site-acl, got: %+v", rules["site-acl#xs0"])
+	}
+	if _, ok := rules["site-acl"]; !ok {
+		t.Fatalf("expected the existing node rule site-acl, got: %+v", rules)
+	}
+}
+
+// Overlapping policies may allow the same pair; map order must not decide which ID keeps it.
+func TestGetAclRulesForNode_SiteToSiteOverlappingPoliciesKeepOneID(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		rules := siteToSiteAclRules(t, models.TrafficDirectionUni, true, false, true, false)
+		_, kept := rules["acl-two#xs0"]
+		if _, dup := rules["site-acl#xs0"]; !kept || dup {
+			t.Fatalf("call %d: expected only the sorted-first ID to keep the pair: %+v", i, rules)
+		}
+	}
+}
