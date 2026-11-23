@@ -257,7 +257,7 @@ func UpsertNode(newNode *models.Node) error {
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
-		network := &schema.Network{Name: newNode.Network}
+		network := &schema.Network{Name: currentNode.Network}
 		if err := network.Get(ctx); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
