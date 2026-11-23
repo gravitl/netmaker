@@ -190,20 +190,28 @@ func (u *UserOrchestrator) RevokeOrgAdminTenantAccess(ctx context.Context, orgID
 	if err != nil {
 		return err
 	}
-
+	if len(tenants) == 0 {
+		return nil
+	}
+	tenantIDs := make(map[string]struct{}, len(tenants))
 	for i := range tenants {
-		membership := &schema.TenantMembership{TenantID: tenants[i].ID, UserID: user.ID}
-		err = membership.Get(ctx)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			return err
-		}
-		if membership.RoleID != schema.AdminRole {
+		tenantIDs[tenants[i].ID] = struct{}{}
+	}
+
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	for i := range memberships {
+		if _, ok := tenantIDs[memberships[i].TenantID]; !ok {
 			continue
 		}
-		err = membership.Delete(ctx)
+		if memberships[i].RoleID != schema.AdminRole {
+			continue
+		}
+
+		err = memberships[i].Delete(ctx)
 		if err != nil {
 			return err
 		}
