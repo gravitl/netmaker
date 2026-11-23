@@ -849,6 +849,20 @@ func getTenant(w http.ResponseWriter, r *http.Request) {
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func listTenantUsers(w http.ResponseWriter, r *http.Request) {
+	caller := &schema.User{Username: r.Header.Get("user")}
+	if err := caller.GetWithMembership(r.Context()); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only org owners and org admins may list a tenant's users"), logic.Forbidden))
+			return
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if caller.PlatformRoleID != schema.OrgOwner && caller.PlatformRoleID != schema.OrgAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only org owners and org admins may list a tenant's users"), logic.Forbidden))
+		return
+	}
+
 	tenant := &schema.Tenant{ID: mux.Vars(r)["tenant_id"]}
 	err := tenant.Get(r.Context())
 	if err != nil {
