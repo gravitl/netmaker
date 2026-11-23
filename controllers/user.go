@@ -2005,6 +2005,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		err = orchestrator.GetRepository().UserOrchestrator().GrantOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
 		if err != nil {
 			slog.Error("failed to grant tenant access to promoted org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for promoted org-admin: %w", err), "internal"))
+			return
 		}
 		user.PlatformRoleID = schema.OrgAdmin
 	} else if scope.Level(r.Context()) == scope.OrgScope &&
@@ -2012,6 +2014,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		err = orchestrator.GetRepository().UserOrchestrator().RevokeOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
 		if err != nil {
 			slog.Error("failed to revoke tenant access from downgraded org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for downgraded org-admin: %w", err), "internal"))
+			return
 		}
 	}
 
