@@ -281,15 +281,21 @@ func (t *TenantOrchestrator) grantExistingOrgAdminsAccess(ctx context.Context, t
 	if err != nil {
 		return err
 	}
+	if len(admins) == 0 {
+		return nil
+	}
 
+	adminIDs := make([]any, len(admins))
 	for i := range admins {
-		user := &schema.User{ID: admins[i].UserID}
-		err = user.Get(ctx)
-		if err != nil {
-			return err
-		}
+		adminIDs[i] = admins[i].UserID
+	}
+	users, err := (&schema.User{}).ListAll(ctx, dbtypes.WithFilter("users_v1.id", adminIDs...))
+	if err != nil {
+		return err
+	}
 
-		err = t.GrantTenantAdmin(ctx, tenant, user)
+	for i := range users {
+		err = t.GrantTenantAdmin(ctx, tenant, &users[i])
 		if err != nil {
 			return err
 		}
