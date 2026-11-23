@@ -879,6 +879,21 @@ func listTenantUsers(w http.ResponseWriter, r *http.Request) {
 		rolesMap[role.Slug] = role
 	}
 
+	// Batch the per-user org-role and access-token-count lookups below into
+	// one query each, instead of one query per user.
+	orgMemberships, _ := (&schema.OrgMembership{}).ListAll(r.Context(),
+		dbtypes.WithFilter("organization_id", tenant.OrganizationID))
+	orgRoleByUserID := make(map[string]schema.UserRoleID, len(orgMemberships))
+	for _, m := range orgMemberships {
+		orgRoleByUserID[m.UserID] = m.RoleID
+	}
+
+	accessTokens, _ := (&schema.UserAccessToken{}).List(tenantCtx)
+	tokenCountByUser := make(map[string]int, len(accessTokens))
+	for _, t := range accessTokens {
+		tokenCountByUser[t.UserName]++
+	}
+
 	// Same fields as models.ReturnUser, minus PlatformRoleID (ambiguous here:
 	// a user has both an org role and a tenant role), plus OrgRoleID and
 	// TenantRoleID holding each role's slug.
@@ -925,18 +940,14 @@ func listTenantUsers(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:                  ru.CreatedAt,
 			UpdatedAt:                  ru.UpdatedAt,
 		}
-		ret.NumAccessTokens, _ = (&schema.UserAccessToken{
-			UserName: ret.UserName,
-		}).CountByUser(tenantCtx)
+		ret.NumAccessTokens = tokenCountByUser[ret.UserName]
 
 		if role, ok := rolesMap[_users[i].PlatformRoleID]; ok {
 			ret.TenantRoleID = role.Slug
 		}
 
-		orgMembership := &schema.OrgMembership{OrganizationID: tenant.OrganizationID, UserID: _users[i].ID}
-		err = orgMembership.Get(r.Context())
-		if err == nil {
-			if role, ok := rolesMap[orgMembership.RoleID]; ok {
+		if orgRoleID, ok := orgRoleByUserID[_users[i].ID]; ok {
+			if role, ok := rolesMap[orgRoleID]; ok {
 				ret.OrgRoleID = role.Slug
 			}
 		}
