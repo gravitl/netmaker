@@ -11,13 +11,14 @@ import (
 )
 
 var limitedApis = map[string]struct{}{
-	"/api/server/status":          {},
-	"/api/server/onboarding":      {},
-	"/api/emqx/hosts":             {},
-	"/api/users/adm/authenticate": {},
-	"/api/v1/auth/discover":       {},
-	"/api/v1/auth/methods":        {},
-	"/api/v1/orgs/sole/owner":     {},
+	"/api/server/status":                {},
+	"/api/server/onboarding":            {},
+	"/api/emqx/hosts":                   {},
+	"/api/users/adm/authenticate":       {},
+	"/api/v1/auth/discover":             {},
+	"/api/v1/auth/methods":              {},
+	"/api/v1/orgs/sole/owner":           {},
+	"/api/v1/server/license/validation": {},
 }
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
