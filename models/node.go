@@ -203,6 +203,8 @@ func (newNode *Node) Fill(
 ) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
+	newNode.TenantID = currentNode.TenantID
+	newNode.Network = currentNode.Network
 	// Revisit the logic for boolean values
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -223,9 +225,6 @@ func (newNode *Node) Fill(
 	}
 	if newNode.LastCheckIn.IsZero() || currentNode.LastCheckIn.After(newNode.LastCheckIn) {
 		newNode.LastCheckIn = currentNode.LastCheckIn
-	}
-	if newNode.Network == "" {
-		newNode.Network = currentNode.Network
 	}
 	if newNode.IsIngressGateway != currentNode.IsIngressGateway {
 		newNode.IsIngressGateway = currentNode.IsIngressGateway
