@@ -887,7 +887,12 @@ func listTenantUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roles, _ := (&schema.UserRole{}).ListPlatformRoles(tenantCtx)
+	roles, err := (&schema.UserRole{}).ListPlatformRoles(tenantCtx)
+	if err != nil {
+		logger.Log(0, "failed to fetch platform roles: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	rolesMap := make(map[schema.UserRoleID]schema.UserRole, len(roles))
 	for _, role := range roles {
 		rolesMap[role.Slug] = role
@@ -895,14 +900,24 @@ func listTenantUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Batch the per-user org-role and access-token-count lookups below into
 	// one query each, instead of one query per user.
-	orgMemberships, _ := (&schema.OrgMembership{}).ListAll(r.Context(),
+	orgMemberships, err := (&schema.OrgMembership{}).ListAll(r.Context(),
 		dbtypes.WithFilter("organization_id", tenant.OrganizationID))
+	if err != nil {
+		logger.Log(0, "failed to fetch org memberships: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	orgRoleByUserID := make(map[string]schema.UserRoleID, len(orgMemberships))
 	for _, m := range orgMemberships {
 		orgRoleByUserID[m.UserID] = m.RoleID
 	}
 
-	accessTokens, _ := (&schema.UserAccessToken{}).List(tenantCtx)
+	accessTokens, err := (&schema.UserAccessToken{}).List(tenantCtx)
+	if err != nil {
+		logger.Log(0, "failed to fetch access tokens: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	tokenCountByUser := make(map[string]int, len(accessTokens))
 	for _, t := range accessTokens {
 		tokenCountByUser[t.UserName]++
