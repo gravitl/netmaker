@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/orchestrator"
+	"github.com/gravitl/netmaker/pro/auth"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -197,6 +198,7 @@ func reconcileTenants(ctx context.Context, licenseTenants []LicenseTenant, orgID
 			if err := migrate.RekeyTenant(ctx, existing[0].ID, activeTenants[0].ID); err != nil {
 				return err
 			}
+			auth.RekeyIDPSyncHook(scope.TenantScope, existing[0].ID, activeTenants[0].ID)
 		}
 	default:
 		return fmt.Errorf("cannot reconcile license tenants: %d local tenants already exist", len(existing))

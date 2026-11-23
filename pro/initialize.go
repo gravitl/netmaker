@@ -61,7 +61,6 @@ func InitPro() {
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
-		proControllers.AutoRelayHandlers,
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
@@ -85,10 +84,6 @@ func InitPro() {
 
 		//AddUnauthorisedUserNodeHooks()
 
-		if servercfg.CacheEnabled() {
-			proLogic.InitAutoRelayCache()
-		}
-
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
 		if servercfg.IsMasterPod() {
@@ -99,12 +94,22 @@ func InitPro() {
 				flowLogsEnabled := false
 				for _, tenant := range tenants {
 					scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, tenant.ID)
-					auth.StartIDPSyncHookForTenant(scopedCtx)
+					auth.StartIDPSyncHook(scopedCtx)
 					proLogic.AddPostureCheckHook(scopedCtx)
 					logic.GetMetricsMonitor(scopedCtx).Start()
 
 					if logic.GetServerSettings(scopedCtx).EnableFlowLogs {
 						flowLogsEnabled = true
+					}
+				}
+
+				orgs, err := (&schema.Organization{}).ListAll(db.WithContext(context.TODO()))
+				if err != nil {
+					logger.Log(0, "error fetching organizations while starting background tasks:", err.Error())
+				} else {
+					for _, org := range orgs {
+						scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.OrgScope, org.ID)
+						auth.StartIDPSyncHook(scopedCtx)
 					}
 				}
 
@@ -144,11 +149,6 @@ func InitPro() {
 		}
 		go proLogic.EventWatcher()
 	})
-
-	logic.ResetAutoRelay = proLogic.ResetAutoRelay
-	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
-	logic.SetAutoRelay = proLogic.SetAutoRelay
-	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
@@ -193,21 +193,18 @@ func InitPro() {
 	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
-	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
 	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
-	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
-	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
-	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
+	logic.GetTagMapWithNetworkNodes = proLogic.GetTagMapWithNetworkNodes
+	logic.GetUserGrpMap = proLogic.GetUserGrpMap
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
-	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.IsMSP = license.IsMSP

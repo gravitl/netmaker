@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -29,6 +31,12 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworks)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/networks/stats", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkStatus)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/topology", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkTopology)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/{network}/nodes/{nodeid}/connections", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNodeConnections)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
@@ -57,7 +65,9 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if r.Header.Get("ismaster") != "yes" {
+	if logic.IsAPIKeyAuth(r.Context()) {
+		allnetworks = logic.FilterNetworksByAPIKey(r.Context(), allnetworks)
+	} else if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.Get(r.Context())
@@ -90,7 +100,9 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if r.Header.Get("ismaster") != "yes" {
+	if logic.IsAPIKeyAuth(r.Context()) {
+		allnetworks = logic.FilterNetworksByAPIKey(r.Context(), allnetworks)
+	} else if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.GetWithMembership(r.Context())
@@ -120,6 +132,210 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
+}
+
+// @Summary     Get the status of every node and extclient in a network
+// @Router      /api/v1/networks/{network}/status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Param       src_type query string false "Comma-separated kinds to include: node, user, extclient (default all)"
+// @Param       dst_type query string false "Comma-separated details to include: peers, egress (default all)"
+// @Produce     json
+// @Success     200 {object} models.NetworkStatus
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkStatus(w http.ResponseWriter, r *http.Request) {
+	netname := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	opts, err := parseNetworkStatusOptions(r)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	status, err := logic.GetNetworkStatus(r.Context(), netname, opts)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, status, "fetched network status")
+}
+
+// @Summary     Get the topology of a network
+// @Router      /api/v1/networks/{network}/topology [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.NetworkTopology
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkTopology(w http.ResponseWriter, r *http.Request) {
+	netname := mux.Vars(r)["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	topology, err := logic.GetNetworkTopology(r.Context(), netname)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, topology, "fetched network topology")
+}
+
+// @Summary     Get one node's ACL-allowed peer connections
+// @Description Returns peer lines for a user device, server, or extclient. Called when the UI selects a vertex.
+// @Router      /api/v1/networks/{network}/nodes/{nodeid}/connections [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       network path string true "Network name"
+// @Param       nodeid path string true "Node ID or extclient client ID"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Param       status query []string false "Filter by peer node status" Enums(online, offline, warning, error, unknown, disconnected)
+// @Param       connection_type query []string false "Filter by path type" Enums(p2p, relayed, exit)
+// @Param       device_type query []string false "Filter by peer device type" Enums(gateway, egress, config_file, relayed_client)
+// @Produce     json
+// @Success     200 {object} models.PaginatedResponse{data=models.NodeConnections}
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNodeConnections(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	netname := vars["network"]
+	if err := (&schema.Network{Name: netname}).Get(r.Context()); err != nil {
+		errType := logic.Internal
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	opts, err := parseNodeConnectionsOptions(r)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	conns, total, err := logic.GetNodeConnections(r.Context(), netname, vars["nodeid"], opts)
+	if err != nil {
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrTopologyNodeNotFound) {
+			errType = logic.NotFound
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, models.PaginatedResponse{
+		Data:       conns,
+		Page:       opts.Page,
+		PerPage:    opts.PerPage,
+		Total:      total,
+		TotalPages: logic.ConnectionsTotalPages(total, opts.PerPage),
+	}, "fetched node connections")
+}
+
+// parseNodeConnectionsOptions reads pagination and filter query params.
+// Repeated keys and comma-separated values are both accepted.
+func parseNodeConnectionsOptions(r *http.Request) (logic.NodeConnectionsOptions, error) {
+	opts := logic.NodeConnectionsOptions{}
+	query := r.URL.Query()
+
+	page, _ := strconv.Atoi(query.Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	perPage, _ := strconv.Atoi(query.Get("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+	opts.Page = page
+	opts.PerPage = perPage
+
+	for _, raw := range queryValues(query, "status") {
+		switch s := schema.NodeStatus(raw); s {
+		case schema.OnlineSt, schema.OfflineSt, schema.WarningSt, schema.ErrorSt, schema.UnKnown, schema.Disconnected:
+			opts.Status = append(opts.Status, s)
+		default:
+			return opts, fmt.Errorf("invalid status %q", raw)
+		}
+	}
+	for _, raw := range queryValues(query, "connection_type") {
+		switch t := models.NetworkConnectionType(raw); t {
+		case models.NetworkConnectionP2P, models.NetworkConnectionRelayed, models.NetworkConnectionExit:
+			opts.ConnectionType = append(opts.ConnectionType, t)
+		default:
+			return opts, fmt.Errorf("invalid connection_type %q", raw)
+		}
+	}
+	for _, raw := range queryValues(query, "device_type") {
+		switch raw {
+		case models.ConnectionDeviceGateway, models.ConnectionDeviceEgress,
+			models.ConnectionDeviceConfigFile, models.ConnectionDeviceRelayedClient:
+			opts.DeviceType = append(opts.DeviceType, raw)
+		default:
+			return opts, fmt.Errorf("invalid device_type %q", raw)
+		}
+	}
+	return opts, nil
+}
+
+// queryValues collects a query key from repeated params and comma-separated values.
+func queryValues(query url.Values, key string) []string {
+	var out []string
+	for _, v := range query[key] {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
+}
+
+// parseNetworkStatusOptions reads the comma-separated src_type and dst_type
+// query params. A missing param includes everything.
+func parseNetworkStatusOptions(r *http.Request) (logic.NetworkStatusOptions, error) {
+	opts := logic.NetworkStatusOptions{IncludePeers: true, IncludeEgress: true}
+	query := r.URL.Query()
+	if v := query.Get("src_type"); v != "" {
+		opts.Kinds = make(map[models.NetworkNodeKind]struct{})
+		for _, kind := range strings.Split(v, ",") {
+			switch k := models.NetworkNodeKind(strings.TrimSpace(kind)); k {
+			case models.NetworkNodeKindNode, models.NetworkNodeKindUser, models.NetworkNodeKindExtClient:
+				opts.Kinds[k] = struct{}{}
+			default:
+				return opts, fmt.Errorf("invalid src_type %q: must be node, user or extclient", kind)
+			}
+		}
+	}
+	if v := query.Get("dst_type"); v != "" {
+		opts.IncludePeers, opts.IncludeEgress = false, false
+		for _, dst := range strings.Split(v, ",") {
+			switch models.NetworkStatusDstType(strings.TrimSpace(dst)) {
+			case models.NetworkStatusDstPeers:
+				opts.IncludePeers = true
+			case models.NetworkStatusDstEgress:
+				opts.IncludeEgress = true
+			default:
+				return opts, fmt.Errorf("invalid dst_type %q: must be peers or egress", dst)
+			}
+		}
+	}
+	return opts, nil
 }
 
 // @Summary     Get a network
@@ -197,17 +413,20 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
 
-	username := r.Header.Get("user")
-	if username != logic.MasterUser {
-		user := &schema.User{Username: username}
-		if err := user.Get(r.Context()); err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), logic.Forbidden))
-			return
-		}
-		if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(
-				errors.New("only platform admins can delete networks"), logic.Forbidden))
-			return
+	// API keys are authorized in SecurityCheck (full_access + network scope).
+	if !logic.IsAPIKeyAuth(r.Context()) {
+		username := r.Header.Get("user")
+		if username != logic.MasterUser {
+			user := &schema.User{Username: username}
+			if err := user.Get(r.Context()); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), logic.Forbidden))
+				return
+			}
+			if user.PlatformRoleID != schema.SuperAdminRole && user.PlatformRoleID != schema.AdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(
+					errors.New("only platform admins can delete networks"), logic.Forbidden))
+				return
+			}
 		}
 	}
 
@@ -407,6 +626,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		defaultHosts := logic.GetDefaultHosts(ctx)
 		for i := range defaultHosts {
 			host := &defaultHosts[i]
+			if logic.IsUserOwnedHost(host) {
+				continue
+			}
 			newNode, err := orchestrator.GetRepository().NodeOrchestrator().CreateNode(ctx, host, &network)
 			if err != nil {
 				logger.Log(

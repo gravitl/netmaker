@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -46,8 +47,38 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 	return DisassociateAllNodesFromHost(ctx, host.ID.String())
 }
 
+// RebindDeviceHostToTenant moves a Desktop host UUID onto a new MSP tenant and
+// owner. Used when RegisterDevice finds the machine still enrolled under a
+// previous tenant that the new user cannot leave themselves.
+func RebindDeviceHostToTenant(ctx context.Context, host *schema.Host, newOwner, newTenantID string) error {
+	if host == nil || newOwner == "" || newTenantID == "" {
+		return errors.New("host, new owner, and tenant are required")
+	}
+	prevTenant := host.TenantID
+	prevOwner := host.OwnerUsername
+	if err := CleanupDeviceHostForOwnershipTransfer(ctx, host); err != nil {
+		return fmt.Errorf("failed to cleanup host for tenant rebind: %w", err)
+	}
+	host.TenantID = newTenantID
+	host.OwnerUsername = newOwner
+	if err := host.Upsert(ctx); err != nil {
+		return err
+	}
+	if prevOwner != "" && prevOwner != newOwner {
+		logDeviceOwnershipTransfer(ctx, newOwner, host, prevOwner)
+	}
+	slog.Info("rebound device host to tenant",
+		"host", host.ID.String(),
+		"from_tenant", prevTenant,
+		"to_tenant", newTenantID,
+		"from_owner", prevOwner,
+		"to_owner", newOwner,
+	)
+	return nil
+}
+
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
-// RegisterDevice does not call this; any API that exposes transfer must enforce admin authorization.
+// RegisterDevice calls this when a different user logs in on the same machine.
 func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
 	if host == nil || newOwner == "" {
 		return errors.New("host and new owner are required")
@@ -122,6 +153,32 @@ func EnsureHostOwner(host *schema.Host, username string) {
 	_ = host.Get(ctx)
 }
 
+// ResolveUserOwnedHostForAPI ensures username owns an already user-bound host.
+// Unlike VerifyDeviceHostAccess, it never claims an unowned (headless) host.
+func ResolveUserOwnedHostForAPI(ctx context.Context, username, hostIDStr string) (*schema.Host, error) {
+	if username == "" || hostIDStr == "" {
+		return nil, errors.New("user and host id are required")
+	}
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid host id: %w", err)
+	}
+	host := &schema.Host{ID: hostID}
+	if err := host.Get(db.WithContext(ctx)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("host not found")
+		}
+		return nil, err
+	}
+	if !IsUserOwnedHost(host) {
+		return nil, errors.New("host is not a user-owned device")
+	}
+	if host.OwnerUsername != username {
+		return nil, errors.New("host does not belong to user")
+	}
+	return host, nil
+}
+
 // VerifyDeviceHostAccess ensures the user may operate on the given host ID.
 func VerifyDeviceHostAccess(ctx context.Context, username, hostIDStr string) (*schema.Host, error) {
 	if username == "" || hostIDStr == "" {
@@ -166,10 +223,11 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 	result := make([]models.DeviceNetwork, 0, len(accessible))
 	for _, network := range accessible {
 		dn := models.DeviceNetwork{
-			NetworkID:    network.Name,
-			DisplayName:  network.Name,
-			Status:       models.DeviceNetworkStatusAvailable,
-			HasJITAccess: true,
+			NetworkID:          network.Name,
+			DisplayName:        network.Name,
+			Status:             models.DeviceNetworkStatusAvailable,
+			HasJITAccess:       true,
+			AutoSelectExitNode: network.AutoSelectExitNode,
 		}
 		applyDeviceNetworkApprovalPolicy(ctx, network, user, featureFlags, &dn)
 		if host != nil {
@@ -182,16 +240,13 @@ func GetDeviceNetworks(ctx context.Context, user *schema.User, host *schema.Host
 
 // deviceJoinRequiresApproval reports whether a user-owned device join should enter
 // pending-host approval instead of joining immediately.
+// Users subject to JIT are gated by temporary grants instead of pending-host enrollment.
 func deviceJoinRequiresApproval(ctx context.Context, network schema.Network, user *schema.User) bool {
 	featureFlags := GetFeatureFlags(ctx)
 	if !featureFlags.EnableDeviceApproval || network.AutoJoin {
 		return false
 	}
-	if user != nil && IsNetworkAdmin(ctx, user, network.Name) {
-		return false
-	}
-	// When JIT gates this user, admin approval happens via the JIT grant flow.
-	if network.JITEnabled && UserSubjectToNetworkJIT(ctx, network.Name, user) {
+	if UserSubjectToNetworkJIT(ctx, network.Name, user) {
 		return false
 	}
 	return true
@@ -224,6 +279,11 @@ func applyDeviceNetworkHostState(ctx context.Context, host *schema.Host, network
 	if node, err := getHostNodeOnNetwork(ctx, host, network.Name); err == nil {
 		dn.Joined = true
 		dn.Connected = node.Connected
+		violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(network.Name), true)
+		if len(violations) > 0 {
+			dn.Status = models.DeviceNetworkStatusBlocked
+			return
+		}
 		if node.Connected {
 			dn.Status = models.DeviceNetworkStatusJoined
 		} else {
@@ -285,13 +345,23 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 	if err := network.Get(ctx); err != nil {
 		return empty, fmt.Errorf("network not found: %w", err)
 	}
-	if DoesHostExistInTheNetworkAlready(host, network) {
-		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
-	}
 
 	violations, _ := CheckPostureViolationsForHost(ctx, host, nil, schema.NetworkID(networkID), true)
 	if len(violations) > 0 {
 		return empty, errors.New("access blocked: this device doesn't meet security requirements")
+	}
+
+	if DoesHostExistInTheNetworkAlready(host, network) {
+		// Node may already exist but be disconnected after JIT expiry — reconnect.
+		if err := reconnectUserDeviceNode(ctx, host, networkID); err != nil {
+			return empty, err
+		}
+		// Orphan nodes (row exists, ID missing from host.Nodes) must be linked
+		// or the next host pull will omit the network.
+		if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+			return empty, err
+		}
+		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
 	if deviceJoinRequiresApproval(ctx, *network, user) {
@@ -302,6 +372,7 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		keyB, _ := json.Marshal(models.EnrollmentKey{Networks: []string{networkID}})
 		pending := schema.PendingHost{
 			ID:            uuid.NewString(),
+			TenantID:      scope.ID(ctx),
 			HostID:        host.ID.String(),
 			Hostname:      host.Name,
 			Network:       networkID,
@@ -326,32 +397,91 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		Networks:           []string{networkID},
 		SkipDeviceApproval: true,
 	}, host, user.Username)
+	// JoinHostToNetworks swallows CreateNode errors; only return joined when the
+	// host actually has a node on this network (and it is listed on host.Nodes).
+	if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+		return empty, fmt.Errorf("failed to join network %s: %w", networkID, err)
+	}
 	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 }
 
-// LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.
-func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) error {
-	if !UserHasAccessToNetwork(ctx, user, networkID) {
-		return errors.New("user does not have access to network")
-	}
-	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
-		return errors.New("operation not permitted")
-	}
-	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
-		return pending.Delete(ctx)
-	}
+// ensureDeviceNodeLinkedToHost verifies a node exists for host+network and that
+// its ID is on host.Nodes (required for GET /api/v1/host Nodes / peer updates).
+func ensureDeviceNodeLinkedToHost(ctx context.Context, host *schema.Host, networkID string) error {
 	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
+		return fmt.Errorf("host node missing on network: %w", err)
+	}
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
 		return err
+	}
+	if StringSliceContains(fresh.Nodes, nodeSchema.ID) {
+		host.Nodes = fresh.Nodes
+		return nil
+	}
+	modelsNode, err := GetNodeByID(nodeSchema.ID)
+	if err != nil {
+		return err
+	}
+	if err := AssociateNodeToHost(&modelsNode, fresh); err != nil {
+		return err
+	}
+	host.Nodes = fresh.Nodes
+	return nil
+}
+
+// reconnectUserDeviceNode sets Connected=true on an existing host node after a
+// new JIT grant (node was left enrolled but disconnected when the prior grant ended).
+func reconnectUserDeviceNode(ctx context.Context, host *schema.Host, networkID string) error {
+	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
+	if err != nil {
+		return nil
 	}
 	node, err := GetNodeByID(nodeSchema.ID)
 	if err != nil {
 		return err
 	}
-	return DeleteNode(ctx, &node, true)
+	if node.Connected {
+		return nil
+	}
+	node.Connected = true
+	node.Status = schema.OnlineSt
+	node.SetLastCheckIn()
+	if err := UpsertNode(&node); err != nil {
+		return err
+	}
+	if err := EnsureAutoExitNode(ctx, host, &node); err != nil {
+		slog.Warn("auto exit node assignment failed on JIT reconnect",
+			"node", node.ID.String(), "network", networkID, "error", err)
+	}
+	return nil
+}
+
+// LeaveDeviceNetwork removes the host from a network or cancels a pending approval request.
+func LeaveDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host, networkID string) (*models.Node, error) {
+	if !UserHasAccessToNetwork(ctx, user, networkID) {
+		return nil, errors.New("user does not have access to network")
+	}
+	if !UserHasDeviceNetworkWriteAccess(ctx, user, networkID) {
+		return nil, errors.New("operation not permitted")
+	}
+	if pending, err := getPendingHostOnNetwork(ctx, host.ID.String(), networkID); err == nil && pending != nil {
+		return nil, pending.Delete(ctx)
+	}
+	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
+	if err != nil {
+		return nil, err
+	}
+	node, err := GetNodeByID(nodeSchema.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = DeleteNode(ctx, &node, true)
+	if err != nil {
+		return nil, err
+	}
+	return &node, nil
 }
 
 // CancelDeviceNetworkJoin removes a pending join approval request without leaving a joined network.
@@ -378,6 +508,7 @@ func SyncDevice(host *schema.Host) error {
 }
 
 // RegisterDevice registers or updates a host on behalf of an authenticated user (Desktop/netclient JWT flow).
+// ctx must carry tenant scope (middleware.Scope TenantScope) so the host is bound to X-Tenant-ID.
 func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host) (models.RegisterResponse, error) {
 	var empty models.RegisterResponse
 	if user == nil || user.Username == "" {
@@ -392,6 +523,13 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 	if newHost.TrafficKeyPublic == nil && newHost.OS != models.OS_Types.IoT {
 		return empty, errors.New("missing traffic key")
 	}
+
+	tenantID := scope.ID(ctx)
+	if tenantID == "" {
+		return empty, errors.New("tenant id is required")
+	}
+	// Prefer request-scoped tenant over any client-supplied value.
+	newHost.TenantID = tenantID
 
 	trafficKey, err := RetrievePublicTrafficKey()
 	if err != nil {
@@ -415,11 +553,27 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 		if err := existing.Get(ctx); err != nil {
 			return empty, err
 		}
-		if existing.OwnerUsername == "" {
-			EnsureHostOwner(existing, user.Username)
-		}
-		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			return empty, errors.New("host already registered to another user")
+		if existing.TenantID != "" && existing.TenantID != tenantID {
+			// Same Desktop machine moving to another MSP tenant (and often another
+			// user). Previous leave may have failed (new user cannot DELETE the
+			// old owner's host). Rebind instead of hard-failing register.
+			if err := RebindDeviceHostToTenant(ctx, existing, user.Username, tenantID); err != nil {
+				return empty, err
+			}
+		} else {
+			if existing.OwnerUsername == "" {
+				EnsureHostOwner(existing, user.Username)
+			}
+			if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
+				// Same machine, next person at the keyboard. Re-bind the host
+				// instead of leaving it owned by whoever logged in first.
+				if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+					return empty, err
+				}
+			}
+			if existing.TenantID == "" {
+				existing.TenantID = tenantID
+			}
 		}
 		endpointChanged, _ := UpdateHostFromClient(ctx, newHost, existing)
 		if endpointChanged {

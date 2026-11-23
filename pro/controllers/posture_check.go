@@ -24,13 +24,13 @@ import (
 )
 
 func PostureCheckHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(createPostureCheck)))).Methods(http.MethodPost).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck)))).Methods(http.MethodPut).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck)))).Methods(http.MethodDelete).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check/run", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(triggerPostureChecks)))).Methods(http.MethodPost).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check/attrs", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs)))).Methods(http.MethodGet).Queries("network", "{network}")
+	r.HandleFunc("/api/v1/posture_check/violations", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes)))).Methods(http.MethodGet).Queries("network", "{network}")
 }
 
 // @Summary     List Posture Checks Available Attributes
@@ -369,6 +369,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 	listViolatedusers := r.URL.Query().Get("users") == "true"
 	violatedNodes := []models.Node{}
 	if listViolatedusers {
+		// Legacy RAC ExtClients.
 		extclients, err := logic.GetNetworkExtClients(r.Context(), networkName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
@@ -381,6 +382,14 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Host-backed user devices (desktop) belong under Non-compliant Users,
+		// not Non-compliant Nodes.
+		userDevices, err := logic.ListPostureViolatedUserOwnedDevices(r.Context(), networkName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		violatedNodes = append(violatedNodes, userDevices...)
 	} else {
 		network := &schema.Network{
 			Name: networkName,
@@ -409,9 +418,16 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for _, _node := range _nodes {
-			_node.Network = network
-			node := logic.ConvertSchemaNodeToModelsNode(&_node)
+		for i := range _nodes {
+			_nodes[i].Network = network
+			node := logic.ConvertSchemaNodeToModelsNodeWithContext(r.Context(), &_nodes[i])
+			if node == nil {
+				continue
+			}
+			// User-registered hosts are listed under users=true.
+			if logic.IsUserOwnedDevice(node) {
+				continue
+			}
 			violatedNodes = append(violatedNodes, *node)
 		}
 	}

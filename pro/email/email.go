@@ -65,7 +65,8 @@ func GetClient() (e EmailSender) {
 	return client
 }
 
+var emailRegex = regexp.MustCompile(`(?i)^[a-z0-9._%+#\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`)
+
 func IsValid(email string) bool {
-	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`)
 	return emailRegex.MatchString(email)
 }

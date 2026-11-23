@@ -76,11 +76,11 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/host/{hostid}/posture_status/ui", middleware.Scope(scope.TenantScope, middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHostPostureStatus))))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/emqx/hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", middleware.Scope(scope.TenantScope, http.HandlerFunc(socketHandler)))
@@ -206,6 +206,9 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
@@ -219,6 +222,8 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       q query string false "Search across fields"
+// @Param       not_in_network query []string false "Exclude hosts that have a node in this network (repeatable)"
+// @Param       exclude_owned query bool false "Exclude user-owned devices (hosts registered via the desktop/device flow)"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiHost
@@ -230,6 +235,20 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query().Get("q")
+	var notInNetworkIDs []string
+	for _, name := range r.URL.Query()["not_in_network"] {
+		network := &schema.Network{Name: name}
+		err := network.Get(r.Context())
+		if err != nil {
+			continue
+		}
+		notInNetworkIDs = append(notInNetworkIDs, network.ID)
+	}
+
+	var ownerFilters []interface{}
+	if r.URL.Query().Get("exclude_owned") == "true" {
+		ownerFilters = append(ownerFilters, "")
+	}
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -246,6 +265,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -256,12 +277,17 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	if logic.IsAPIKeyAuth(r.Context()) {
+		apiHosts = filterAPIHostsByAPIKey(r.Context(), apiHosts)
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 
 	total, err := (&schema.Host{}).Count(
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -289,6 +315,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 // @Tags        Hosts
 // @Security    oauth
 // @Produce     json
+// @Param       refresh query bool false "Bypass peer-update cache and recompute"
+// @Param       reset_failovered query bool false "Reset auto-relay failover peers and refresh peer update"
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
@@ -319,8 +347,18 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// Sync before peer calc (PeerUpdateForHost walks host.Nodes) and reuse the
+	// returned list for HostPull.Nodes — one host_id query, no second GetHostNodes.
+	hostNodes, syncErr := logic.SyncHostNodesFromDB(r.Context(), host)
+	if syncErr != nil {
+		logger.Log(0, "pull: host.Nodes reconcile failed", hostIDStr, syncErr.Error())
+		if hostNodes == nil {
+			hostNodes = logic.GetHostNodes(host)
+		}
+	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
+	refresh := r.URL.Query().Get("refresh") == "true"
 	if resetFailovered {
 		for _, nodeID := range host.Nodes {
 			node, err := logic.GetNodeByID(nodeID)
@@ -334,14 +372,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
-	if !ok || resetFailovered {
-		allNodes, err := logic.GetAllNodes(r.Context())
+	if !ok || resetFailovered || refresh {
+		g, err := logic.LoadPeerGraph(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost(r.Context(), "", host, allNodes, nil, nil, nil)
+		hPU, err = g.PeerUpdateForHost(r.Context(), "", host, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -351,26 +389,27 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.HostPull{
-		Host:               *host,
-		Nodes:              logic.GetHostNodes(host),
-		ServerConfig:       hPU.ServerConfig,
-		Peers:              hPU.Peers,
-		PeerIDs:            hPU.PeerIDs,
-		HostNetworkInfo:    hPU.HostNetworkInfo,
-		EgressRoutes:       hPU.EgressRoutes,
-		FwUpdate:           hPU.FwUpdate,
-		ChangeDefaultGw:    hPU.ChangeDefaultGw,
-		DefaultGwIp:        hPU.DefaultGwIp,
-		DefaultGwIp6:       hPU.DefaultGwIp6,
-		IsInternetGw:       hPU.IsInternetGw,
-		NameServers:        hPU.NameServers,
-		EgressWithDomains:  hPU.EgressWithDomains,
-		EndpointDetection:  logic.IsEndpointDetectionEnabled(r.Context()),
-		DnsNameservers:     hPU.DnsNameservers,
-		ReplacePeers:       hPU.ReplacePeers,
-		AutoRelayNodes:     hPU.AutoRelayNodes,
-		GwNodes:            hPU.GwNodes,
-		AddressIdentityMap: hPU.AddressIdentityMap,
+		Host:                    *host,
+		Nodes:                   hostNodes,
+		ServerConfig:            hPU.ServerConfig,
+		Peers:                   hPU.Peers,
+		PeerIDs:                 hPU.PeerIDs,
+		HostNetworkInfo:         hPU.HostNetworkInfo,
+		EgressRoutes:            hPU.EgressRoutes,
+		FwUpdate:                hPU.FwUpdate,
+		ChangeDefaultGw:         hPU.ChangeDefaultGw,
+		DefaultGwIp:             hPU.DefaultGwIp,
+		DefaultGwIp6:            hPU.DefaultGwIp6,
+		IsInternetGw:            hPU.IsInternetGw,
+		NameServers:             hPU.NameServers,
+		EgressWithDomains:       hPU.EgressWithDomains,
+		EndpointDetection:       logic.IsEndpointDetectionEnabled(r.Context()),
+		DnsNameservers:          hPU.DnsNameservers,
+		ReplacePeers:            hPU.ReplacePeers,
+		AutoRelayNodes:          hPU.AutoRelayNodes,
+		GwNodes:                 hPU.GwNodes,
+		AddressIdentityMap:      hPU.AddressIdentityMap,
+		SshAuthorizedIdentities: hPU.SshAuthorizedIdentities,
 	}
 
 	logger.Log(1, hostIDStr, host.Name, "completed a pull")
@@ -416,6 +455,14 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+
+	if logic.IsUserOwnedHost(currHost) && newHost.IsDefault && !currHost.IsDefault {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("user-registered devices cannot be marked as default hosts"),
+			logic.Forbidden,
+		))
+		return
+	}
 
 	logic.UpdateHost(r.Context(), newHost, currHost) // update the in memory struct values
 	if newHost.DNS != "yes" {
@@ -487,7 +534,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(newHost)
+	apiHostData := models.NewApiHostFromSchemaHost(newHost, true)
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
@@ -551,6 +598,36 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
+	// node, egress and signal identifiers come from the request body, so they
+	// must be bound to the authenticated host before acting on them.
+	switch hostUpdate.Action {
+	case models.UpdateNode, models.UpdateMetrics:
+		if _, errResp := ensureHostOwnsNode(r, currentHost, hostUpdate.Node.ID.String()); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+	case models.EgressUpdate:
+		if _, errResp := ensureHostOwnsNode(r, currentHost, hostUpdate.Node.ID.String()); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
+		if err := e.Get(r.Context()); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		if r.Header.Get(hostIDHeader) != logic.MasterUser {
+			if _, ok := e.Nodes[hostUpdate.Node.ID.String()]; !ok {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not a routing node of the egress"), logic.Forbidden))
+				return
+			}
+		}
+	case models.SignalHost:
+		if _, errResp := bindSignalToHost(r, currentHost, &hostUpdate.Signal); errResp != nil {
+			logic.ReturnErrorResponse(w, r, *errResp)
+			return
+		}
+	}
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		var endpointChanged, versionChanged bool
@@ -603,36 +680,32 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
-			extclients, err := logic.GetExtClientsByID(ctx, nodeID, node.Network)
+
+			nodeWithStatus := logic.AddStatusToNodes(ctx, []models.Node{node}, true)[0]
+			if nodeWithStatus.Status != node.Status {
+				_node := &schema.Node{ID: nodeID, Status: nodeWithStatus.Status}
+				if err := _node.UpdateStatus(ctx); err != nil {
+					slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
+				}
+			}
+
+			extclients, err := logic.GetGatewayExtClients(ctx, nodeID)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
 			}
-
-			nodes := make([]models.Node, 0, len(extclients)+1)
-			nodes = append(nodes, node)
+			extNodes := make([]models.Node, 0, len(extclients))
 			for _, extclient := range extclients {
-				nodes = append(nodes, models.ConvertToStaticNode(extclient))
+				extNodes = append(extNodes, models.ConvertToStaticNode(extclient))
 			}
-
-			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
-			for _, node := range nodesWithStatus {
-				if node.IsStatic {
-					err = logic.SaveExtClient(ctx, &node.StaticNode)
-					if err != nil {
-						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
-						continue
-					}
-				} else {
-					_node := &schema.Node{
-						ID:     node.ID.String(),
-						Status: node.Status,
-					}
-					err = _node.UpdateStatus(ctx)
-					if err != nil {
-						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
-						continue
-					}
+			extNodesWithStatus := logic.AddStatusToNodes(ctx, extNodes, true)
+			for i, extNode := range extNodesWithStatus {
+				// most reports don't change the status; skip the write then
+				if extNode.StaticNode.Status == extNodes[i].StaticNode.Status {
+					continue
+				}
+				if err := logic.SaveExtClient(ctx, &extNode.StaticNode); err != nil {
+					slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", extNode.StaticNode.ClientID, "error", err)
 				}
 			}
 		}(ctx, nodeID)
@@ -681,7 +754,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 						EvaluationCycleID: _node.PostureCheckLastEvaluationCycleID,
 						TenantID:          _node.TenantID,
 						CheckID:           violation.CheckID,
-						NodeID:            _node.ID,
+						SubjectID:         _node.ID,
+						SubjectType:       schema.PostureCheckSubjectTypeDevice,
 						Name:              violation.Name,
 						Attribute:         violation.Attribute,
 						Message:           violation.Message,
@@ -709,6 +783,29 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	}(ctx)
 
 	logic.ReturnSuccessResponse(w, r, "updated host data")
+}
+
+func ensureHostOwnsNode(r *http.Request, host *schema.Host, nodeID string) (models.Node, *models.ErrorResponse) {
+	node, err := logic.GetNodeByID(nodeID)
+	if err != nil {
+		errResp := logic.FormatError(fmt.Errorf("failed to get node: %w", err), logic.BadReq)
+		return models.Node{}, &errResp
+	}
+	if r.Header.Get(hostIDHeader) != logic.MasterUser && node.HostID != host.ID {
+		errResp := logic.FormatError(errors.New(logic.Forbidden_Msg), logic.Forbidden)
+		return models.Node{}, &errResp
+	}
+	return node, nil
+}
+
+func bindSignalToHost(r *http.Request, host *schema.Host, signal *models.Signal) (models.Node, *models.ErrorResponse) {
+	fromNode, errResp := ensureHostOwnsNode(r, host, signal.FromNodeID)
+	if errResp != nil {
+		return models.Node{}, errResp
+	}
+	signal.FromHostID = host.ID.String()
+	signal.FromHostPubKey = host.PublicKey.String()
+	return fromNode, nil
 }
 
 func shouldApplyEgressDomainAnsUpdate(e schema.Egress, reportedRanges []string) bool {
@@ -814,7 +911,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	apiHostData := models.NewApiHostFromSchemaHost(currHost)
+	apiHostData := models.NewApiHostFromSchemaHost(currHost, true)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "deleted host "+currHost.Name)
 }
@@ -850,7 +947,7 @@ func getHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, apiErr))
 		return
 	}
-	apiHostData := models.NewApiHostFromSchemaHost(host)
+	apiHostData := models.NewApiHostFromSchemaHost(host, true)
 	logic.ReturnSuccessResponseWithJson(w, r, apiHostData, "fetched host "+host.Name)
 }
 
@@ -872,6 +969,14 @@ func bulkDeleteHosts(w http.ResponseWriter, r *http.Request) {
 	if len(req.IDs) == 0 {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host IDs provided"), logic.BadReq))
 		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		for _, idStr := range req.IDs {
+			if !logic.HostInAPIKeyScope(r.Context(), idStr, schema.APIKeyPermissionModify) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(logic.Forbidden_Msg), logic.Forbidden))
+				return
+			}
+		}
 	}
 	user := r.Header.Get("user")
 	logic.ReturnAcceptedResponse(w, r, fmt.Sprintf("bulk delete of %d host(s) accepted", len(req.IDs)))
@@ -1000,6 +1105,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		err = fmt.Errorf("failed to add host (%s) to network (%s): host already in network", hostID, networkID)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+
+	if logic.IsUserOwnedHost(host) {
+		err = errors.New("user-registered devices can only join networks from the user device dashboard")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Forbidden))
 		return
 	}
 
@@ -1256,6 +1367,14 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	if logic.IsUserOwnedHost(host) {
+		errorResponse.Code = http.StatusUnauthorized
+		errorResponse.Message = "user session required"
+		logger.Log(0, request.Header.Get("user"),
+			"rejecting host-password auth for user-owned device:", authRequest.ID)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
 	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
 		errorResponse.Code = http.StatusUnauthorized
@@ -1326,10 +1445,10 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// confirm host exists
-	senderHost := &schema.Host{
+	currentHost := &schema.Host{
 		ID: hostID,
 	}
-	err = senderHost.Get(r.Context())
+	err = currentHost.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1349,10 +1468,20 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
 		return
 	}
+	fromNode, errResp := bindSignalToHost(r, currentHost, &signal)
+	if errResp != nil {
+		logic.ReturnErrorResponse(w, r, *errResp)
+		return
+	}
+	toNode, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil || toNode.Network != fromNode.Network || toNode.HostID.String() != signal.ToHostID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is not reachable from the signalling node"), logic.Forbidden))
+		return
+	}
 	signal.IsPro = servercfg.IsPro
 	// bind the sender identity to the authenticated host rather than trusting the request body
-	signal.FromHostID = senderHost.ID.String()
-	signal.FromHostPubKey = senderHost.PublicKey.String()
+	signal.FromHostID = currentHost.ID.String()
+	signal.FromHostPubKey = currentHost.PublicKey.String()
 
 	toHostID, err := uuid.Parse(signal.ToHostID)
 	if err != nil {
@@ -1373,7 +1502,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// the target host must share a network with the authenticated sender
-	if !logic.HostsShareNetwork(r.Context(), senderHost.ID.String(), peerHost.ID.String()) {
+	if !logic.HostsShareNetwork(r.Context(), currentHost.ID.String(), peerHost.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -1419,6 +1548,15 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 			"error retrieving hosts ", err.Error())
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
+	}
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
+				filtered = append(filtered, host)
+			}
+		}
+		hosts = filtered
 	}
 	go func() {
 		hostUpdate := models.HostUpdate{}
@@ -1521,34 +1659,13 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "sync all hosts request received"
 func syncHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	user := r.Header.Get("user")
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context) {
-		slog.Info("requesting all hosts to sync", "user", user)
+	err := mq.PublishPeerUpdate(r.Context(), true)
+	if err != nil {
+		slog.Error("failed to request hosts to sync", "user", user, "error", err)
+	}
 
-		hosts, err := (&schema.Host{}).ListAll(ctx)
-		if err != nil {
-			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
-			return
-		}
-
-		for _, host := range hosts {
-			go func(host schema.Host) {
-				hostUpdate := models.HostUpdate{
-					Action: models.RequestPull,
-					Host:   host,
-				}
-				if err = mq.HostUpdate(&hostUpdate); err != nil {
-					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
-				} else {
-					slog.Info("host sync requested", "user", user, "host", host.ID.String())
-				}
-			}(host)
-			time.Sleep(time.Millisecond * 100)
-		}
-	}(ctx)
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{
@@ -1834,8 +1951,25 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	tenantID := scope.ID(r.Context())
+	visible := make([]schema.PendingHost, 0, len(pendingHosts))
+	for i := range pendingHosts {
+		hostID, parseErr := uuid.Parse(pendingHosts[i].HostID)
+		if parseErr != nil {
+			visible = append(visible, pendingHosts[i])
+			continue
+		}
+		host := &schema.Host{ID: hostID}
+		if err := host.Get(r.Context()); err == nil {
+			if pendingHosts[i].TenantID == "" && host.TenantID != "" && tenantID != "" && host.TenantID != tenantID {
+				continue
+			}
+			pendingHosts[i].OwnerUsername = host.OwnerUsername
+		}
+		visible = append(visible, pendingHosts[i])
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.ReturnSuccessResponseWithJson(w, r, pendingHosts, "returned pending hosts in "+netID)
+	logic.ReturnSuccessResponseWithJson(w, r, visible, "returned pending hosts in "+netID)
 }
 
 // @Summary     Approve pending host in a network
@@ -1972,6 +2106,9 @@ func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 // existing network it is not already part of, applying the standard default
 // host operations for each network.
 func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
+	if logic.IsUserOwnedHost(host) {
+		return
+	}
 	networks, err := (&schema.Network{}).ListAll(ctx)
 	if err != nil {
 		logger.Log(0, "failed to get networks for default host ops:", err.Error())
@@ -1999,4 +2136,15 @@ func addDefaultHostToNetworks(ctx context.Context, host *schema.Host) {
 			continue
 		}
 	}
+}
+
+// filterAPIHostsByAPIKey keeps hosts whose networks are entirely within the API key scope.
+func filterAPIHostsByAPIKey(ctx context.Context, hosts []models.ApiHost) []models.ApiHost {
+	filtered := make([]models.ApiHost, 0, len(hosts))
+	for _, host := range hosts {
+		if logic.HostInAPIKeyScope(ctx, host.ID, schema.APIKeyPermissionRead) {
+			filtered = append(filtered, host)
+		}
+	}
+	return filtered
 }

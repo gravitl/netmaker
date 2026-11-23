@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"sync"
 	"time"
@@ -27,30 +28,147 @@ import (
 )
 
 // idpSyncStateMtx guards idpSyncLocks and idpSyncErrs below, which track
-// per-tenant sync state since each tenant's hook runs independently and
-// concurrently.
+// per-scope sync state (keyed by scope level, then scope id) since each
+// tenant/org's hook runs independently and concurrently.
 var (
 	idpSyncStateMtx sync.Mutex
-	idpSyncLocks    = make(map[string]*sync.Mutex)
-	idpSyncErrs     = make(map[string]error)
+	idpSyncLocks    = make(map[scope.Scope]map[string]*sync.Mutex)
+	idpSyncErrs     = make(map[scope.Scope]map[string]error)
 )
 
-func idpSyncHookID(ctx context.Context) string {
-	return fmt.Sprintf("idp-sync-%s", scope.ID(ctx))
+type idpSyncSettings struct {
+	AuthProvider      string
+	ClientID          string
+	ClientSecret      string
+	AzureTenant       string
+	GoogleAdminEmail  string
+	GoogleSACredsJson string
+	OktaOrgURL        string
+	OktaAPIToken      string
+	UserFilters       []string
+	GroupFilters      []string
+	SyncEnabled       bool
+	IDPSyncInterval   string
 }
 
-func tenantSyncLock(tenantID string) *sync.Mutex {
+func loadIDPSyncSettings(ctx context.Context) (idpSyncSettings, error) {
+	if scope.Level(ctx) == scope.OrgScope {
+		settingsRecord := &schema.OrganizationSettings{ID: scope.ID(ctx)}
+		if err := settingsRecord.Get(ctx); err != nil {
+			return idpSyncSettings{}, err
+		}
+		settings := settingsRecord.Settings.Data()
+		return idpSyncSettings{
+			AuthProvider:      settings.AuthProvider,
+			ClientID:          settings.ClientID,
+			ClientSecret:      settings.ClientSecret,
+			AzureTenant:       settings.AzureTenant,
+			GoogleAdminEmail:  settings.GoogleAdminEmail,
+			GoogleSACredsJson: settings.GoogleSACredsJson,
+			OktaOrgURL:        settings.OktaOrgURL,
+			OktaAPIToken:      settings.OktaAPIToken,
+			UserFilters:       cleanFilters(settings.UserFilters),
+			SyncEnabled:       settings.SyncEnabled,
+			IDPSyncInterval:   settings.IDPSyncInterval,
+		}, nil
+	}
+
+	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
+	if err := settingsRecord.Get(ctx); err != nil {
+		return idpSyncSettings{}, err
+	}
+	settings := settingsRecord.Value.Data()
+	return idpSyncSettings{
+		AuthProvider:      settings.AuthProvider,
+		ClientID:          settings.ClientID,
+		ClientSecret:      settings.ClientSecret,
+		AzureTenant:       settings.AzureTenant,
+		GoogleAdminEmail:  settings.GoogleAdminEmail,
+		GoogleSACredsJson: settings.GoogleSACredsJson,
+		OktaOrgURL:        settings.OktaOrgURL,
+		OktaAPIToken:      settings.OktaAPIToken,
+		UserFilters:       cleanFilters(settings.UserFilters),
+		GroupFilters:      cleanFilters(settings.GroupFilters),
+		SyncEnabled:       settings.SyncEnabled,
+		IDPSyncInterval:   settings.IDPSyncInterval,
+	}, nil
+}
+
+func cleanFilters(filters []string) []string {
+	var cleaned []string
+	for _, filter := range filters {
+		filter = strings.TrimSpace(filter)
+		if filter != "" {
+			cleaned = append(cleaned, filter)
+		}
+	}
+	return cleaned
+}
+
+func normalizeUsername(username string) string {
+	if _, err := mail.ParseAddress(username); err == nil {
+		return strings.ToLower(username)
+	}
+	return username
+}
+
+func idpSyncHookID(ctx context.Context) string {
+	return idpSyncHookIDFor(scope.Level(ctx), scope.ID(ctx))
+}
+
+func idpSyncHookIDFor(level scope.Scope, id string) string {
+	return fmt.Sprintf("idp-sync-%d-%s", level, id)
+}
+
+func RekeyIDPSyncHook(level scope.Scope, oldID, newID string) {
+	if oldID == newID {
+		return
+	}
+
+	logic.StopHook(idpSyncHookIDFor(level, oldID))
+
+	newCtx := scope.WithContext(db.WithContext(context.Background()), level, newID)
+
+	if !servercfg.IsMasterPod() {
+		if servercfg.IsHA() && logic.PublishServerSync != nil {
+			logic.PublishServerSync(newCtx, logic.SyncTypeIDPReset)
+		}
+		return
+	}
+
+	StartIDPSyncHook(newCtx)
+}
+
+func syncLock(level scope.Scope, id string) *sync.Mutex {
 	idpSyncStateMtx.Lock()
 	defer idpSyncStateMtx.Unlock()
-	mtx, ok := idpSyncLocks[tenantID]
+	if idpSyncLocks[level] == nil {
+		idpSyncLocks[level] = make(map[string]*sync.Mutex)
+	}
+	mtx, ok := idpSyncLocks[level][id]
 	if !ok {
 		mtx = &sync.Mutex{}
-		idpSyncLocks[tenantID] = mtx
+		idpSyncLocks[level][id] = mtx
 	}
 	return mtx
 }
 
-func idpSyncInterval(settings schema.TenantSettings) time.Duration {
+func setSyncErr(level scope.Scope, id string, err error) {
+	idpSyncStateMtx.Lock()
+	defer idpSyncStateMtx.Unlock()
+	if idpSyncErrs[level] == nil {
+		idpSyncErrs[level] = make(map[string]error)
+	}
+	idpSyncErrs[level][id] = err
+}
+
+func getSyncErr(level scope.Scope, id string) error {
+	idpSyncStateMtx.Lock()
+	defer idpSyncStateMtx.Unlock()
+	return idpSyncErrs[level][id]
+}
+
+func idpSyncInterval(settings idpSyncSettings) time.Duration {
 	interval, err := time.ParseDuration(settings.IDPSyncInterval)
 	if err != nil || interval == 0 {
 		return 24 * time.Hour
@@ -58,8 +176,8 @@ func idpSyncInterval(settings schema.TenantSettings) time.Duration {
 	return interval
 }
 
-// ResetIDPSyncHook re-reads the settings for the tenant carried in ctx and
-// either (re)registers or stops that tenant's idp sync hook accordingly.
+// ResetIDPSyncHook re-reads the settings for the scope carried in ctx and
+// either (re)registers or stops that scope's idp sync hook accordingly.
 func ResetIDPSyncHook(ctx context.Context) {
 	if !servercfg.IsMasterPod() {
 		if servercfg.IsHA() && logic.PublishServerSync != nil {
@@ -68,25 +186,24 @@ func ResetIDPSyncHook(ctx context.Context) {
 		return
 	}
 
-	StartIDPSyncHookForTenant(ctx)
+	StartIDPSyncHook(ctx)
 }
 
-func StartIDPSyncHookForTenant(ctx context.Context) {
+func StartIDPSyncHook(ctx context.Context) {
 	hookID := idpSyncHookID(ctx)
 
 	// Embed scope/db into a fresh context so the hook goroutine carries its
-	// own tenant identity independently of any caller's request lifetime.
-	tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
+	// own tenant/org identity independently of any caller's request lifetime.
+	scopedCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 
-	settingsRecord := &schema.TenantSettingsRecord{Key: scope.ID(ctx)}
-	if err := settingsRecord.Get(tenantCtx); err != nil {
+	settings, err := loadIDPSyncSettings(scopedCtx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return
 		}
-		logger.Log(0, "failed to load settings for tenant ", scope.ID(ctx), ": ", err.Error())
+		logger.Log(0, "failed to load idp sync settings for ", scope.ID(ctx), ": ", err.Error())
 		return
 	}
-	settings := settingsRecord.Value.Data()
 
 	if !settings.SyncEnabled {
 		logic.StopHook(hookID)
@@ -96,34 +213,27 @@ func StartIDPSyncHookForTenant(ctx context.Context) {
 	logic.HookManagerCh <- models.HookDetails{
 		ID: hookID,
 		Hook: logic.WrapHook(func() error {
-			return SyncFromIDP(tenantCtx)
+			return SyncFromIDP(scopedCtx)
 		}),
 		Interval: idpSyncInterval(settings),
 	}
 }
 
 func SyncFromIDP(ctx context.Context) error {
-	tenantID := scope.ID(ctx)
-	mtx := tenantSyncLock(tenantID)
+	level, id := scope.Level(ctx), scope.ID(ctx)
+	mtx := syncLock(level, id)
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	settingsRecord := &schema.TenantSettingsRecord{
-		Key: tenantID,
-	}
 	var err error
 	defer func() {
-		idpSyncStateMtx.Lock()
-		idpSyncErrs[tenantID] = err
-		idpSyncStateMtx.Unlock()
+		setSyncErr(level, id, err)
 	}()
 
-	err = settingsRecord.Get(ctx)
+	settings, err := loadIDPSyncSettings(ctx)
 	if err != nil {
 		return err
 	}
-
-	settings := settingsRecord.Value.Data()
 
 	var idpClient idp.Client
 	var idpUsers []idp.User
@@ -154,18 +264,24 @@ func SyncFromIDP(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
-		idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
-		if err != nil {
-			return err
+		for i := range idpUsers {
+			idpUsers[i].Username = normalizeUsername(idpUsers[i].Username)
 		}
+		logger.Log(0, "idp sync: fetched", fmt.Sprint(len(idpUsers)), "users from", settings.AuthProvider, "for", scope.ID(ctx), "with filters", fmt.Sprint(settings.UserFilters))
 
-		if len(settings.GroupFilters) > 0 {
-			idpUsers = filterUsersByGroupMembership(idpUsers, idpGroups)
-		}
+		if scope.Level(ctx) != scope.OrgScope {
+			idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
+			if err != nil {
+				return err
+			}
 
-		if len(settings.UserFilters) > 0 {
-			idpGroups = filterGroupsByMembers(idpGroups, idpUsers)
+			if len(settings.GroupFilters) > 0 {
+				idpUsers = filterUsersByGroupMembership(idpUsers, idpGroups)
+			}
+
+			if len(settings.UserFilters) > 0 {
+				idpGroups = filterGroupsByMembers(idpGroups, idpUsers)
+			}
 		}
 	}
 
@@ -174,11 +290,28 @@ func SyncFromIDP(ctx context.Context) error {
 		return err
 	}
 
+	if scope.Level(ctx) == scope.OrgScope {
+		return nil
+	}
+
 	err = syncGroups(ctx, idpGroups, settings.GroupFilters)
 	return err
 }
 
 func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, removeIntegration bool) error {
+	isOrgScope := scope.Level(ctx) == scope.OrgScope
+
+	// topRole is the role that idp sync must never delete or overwrite
+	// outside of an explicit integration removal.
+	topRole := schema.SuperAdminRole
+	deleteUser := logic.DeleteTenantUser
+	newUserRole := schema.ServiceUser
+	if isOrgScope {
+		topRole = schema.OrgOwner
+		deleteUser = logic.DeleteOrgUser
+		newUserRole = schema.OrgUser
+	}
+
 	dbUsers, err := (&schema.User{}).ListAllWithMembership(ctx)
 	if err != nil {
 		return err
@@ -204,7 +337,8 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// delete the user if it has been archived.
 			user, ok := dbUsersMap[user.Username]
 			if ok {
-				_ = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
+				// Keep admin-managed static WireGuard configs; RAC clients are cleaned up.
+				_ = deleteUser(ctx, user, false, cleanupUserRefs)
 			}
 			continue
 		}
@@ -231,7 +365,7 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
 				AuthType:                   schema.OAuth,
-				PlatformRoleID:             schema.ServiceUser,
+				PlatformRoleID:             newUserRole,
 				EmailValidated:             true,
 			})
 			if createErr != nil {
@@ -251,11 +385,12 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				Username: user.Username,
 			}).Delete(ctx)
 		} else if dbUser.AuthType == schema.OAuth {
-			if dbUser.PlatformRoleID != schema.SuperAdminRole &&
+			if dbUser.PlatformRoleID != topRole &&
 				(dbUser.AccountDisabled != user.AccountDisabled ||
 					dbUser.DisplayName != user.DisplayName ||
 					dbUser.ExternalIdentityProviderID != user.ID) {
 
+				wasDisabled := dbUser.AccountDisabled
 				dbUser.AccountDisabled = user.AccountDisabled
 				dbUser.DisplayName = user.DisplayName
 				dbUser.ExternalIdentityProviderID = user.ID
@@ -265,12 +400,21 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 					return err
 				}
 
-				tm := &schema.TenantMembership{
-					TenantID:                   scope.ID(ctx),
-					UserID:                     dbUser.ID,
-					ExternalIdentityProviderID: user.ID,
+				if isOrgScope {
+					om := &schema.OrgMembership{
+						OrganizationID:             scope.ID(ctx),
+						UserID:                     dbUser.ID,
+						ExternalIdentityProviderID: user.ID,
+					}
+					err = om.UpdateExternalIdentityProviderID(ctx)
+				} else {
+					tm := &schema.TenantMembership{
+						TenantID:                   scope.ID(ctx),
+						UserID:                     dbUser.ID,
+						ExternalIdentityProviderID: user.ID,
+					}
+					err = tm.UpdateExternalIdentityProviderID(ctx)
 				}
-				err = tm.UpdateExternalIdentityProviderID(ctx)
 				if err != nil {
 					return err
 				}
@@ -278,6 +422,28 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				err = dbUser.UpdateAccountStatus(ctx)
 				if err != nil {
 					return err
+				}
+
+				// Newly disabled via IdP: drop mesh + Desktop session like dashboard disable.
+				if !wasDisabled && dbUser.AccountDisabled {
+					username := dbUser.Username
+					if isOrgScope {
+						memberships, listErr := (&schema.TenantMembership{UserID: dbUser.ID}).ListByUserID(ctx)
+						if listErr != nil {
+							logger.Log(0, "idp sync: failed to list tenants for disabled user", username, listErr.Error())
+						} else {
+							for _, membership := range memberships {
+								if membership.AuthType != schema.Inherited {
+									continue
+								}
+								tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, membership.TenantID)
+								go mq.DisconnectAndForceLogoutUserDevices(tenantCtx, username)
+							}
+						}
+					} else {
+						tenantCtx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, scope.ID(ctx))
+						go mq.DisconnectAndForceLogoutUserDevices(tenantCtx, username)
+					}
 				}
 			}
 		} else {
@@ -289,13 +455,13 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 	for _, user := range dbUsersMap {
 		if user.ExternalIdentityProviderID != "" {
 			if _, ok := idpUsersMap[user.Username]; !ok {
-				if user.PlatformRoleID == schema.SuperAdminRole && !removeIntegration {
+				if user.PlatformRoleID == topRole && !removeIntegration {
 					continue
 				}
 
 				// delete the user if it has been deleted on idp
-				// or is filtered out.
-				err = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
+				// or is filtered out. Keep admin-managed static WireGuard configs.
+				err = deleteUser(ctx, user, false, cleanupUserRefs)
 				if err != nil {
 					return err
 				}
@@ -377,18 +543,18 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 
 		for _, user := range dbUsers {
 			// use dbGroup.Name because the group name may have been changed on idp.
-			_, inNetmakerGroup := user.UserGroups.Data()[dbGroup.ID]
+			_, inNetmakerGroup := user.UserGroups.Data()[dbGroup.Slug]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data(), dbGroup.ID)
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data(), dbGroup.Slug)
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data()[dbGroup.ID] = struct{}{}
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups.Data()[dbGroup.Slug] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
@@ -411,6 +577,19 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 	if len(modifiedUsers) > 0 {
 		postureCtx := scope.WithContext(db.WithContext(context.Background()), scope.Level(ctx), scope.ID(ctx))
 		go proLogic.RunPostureChecksForTenant(postureCtx)
+		go mq.PublishPeerUpdate(postureCtx, false)
+
+		var users []*schema.User
+		for userID := range modifiedUsers {
+			if user, ok := dbUsersMap[userID]; ok {
+				users = append(users, user)
+			}
+		}
+		go func() {
+			for _, user := range users {
+				mq.PublishDeletedUserDeviceNodes(postureCtx, logic.DeleteUserDeviceNodesWithoutAccess(postureCtx, user))
+			}
+		}()
 	}
 
 	for _, group := range dbGroups {
@@ -430,13 +609,11 @@ func syncGroups(ctx context.Context, idpGroups []idp.Group, filters []string) er
 }
 
 func GetIDPSyncStatus(ctx context.Context) models.IDPSyncStatus {
-	tenantID := scope.ID(ctx)
-	mtx := tenantSyncLock(tenantID)
+	level, id := scope.Level(ctx), scope.ID(ctx)
+	mtx := syncLock(level, id)
 	if mtx.TryLock() {
 		defer mtx.Unlock()
-		idpSyncStateMtx.Lock()
-		err := idpSyncErrs[tenantID]
-		idpSyncStateMtx.Unlock()
+		err := getSyncErr(level, id)
 		if err == nil {
 			return models.IDPSyncStatus{
 				Status: "completed",
@@ -514,22 +691,36 @@ func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Gro
 }
 
 func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bool) {
-	extclients, err := logic.GetAllExtClients(ctx)
-	if err != nil {
-		return
-	}
-	for _, extclient := range extclients {
-		if extclient.OwnerID == username {
-			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
-			if err == nil {
-				_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
+	if scope.Level(ctx) != scope.OrgScope {
+		extclients, err := logic.GetAllExtClients(ctx)
+		if err == nil {
+			for _, extclient := range extclients {
+				if extclient.OwnerID != username {
+					continue
+				}
+				if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
+					// Keep the config file but disable it so it cannot be used.
+					changed, err := logic.DisableExtClient(ctx, &extclient)
+					if err == nil && changed {
+						_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
+					}
+					continue
+				}
+				if err := logic.DeleteExtClient(ctx, extclient); err == nil {
+					_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
+				}
 			}
 		}
+
+		_ = mq.PublishPeerUpdate(ctx, false)
 	}
 
 	_ = (&schema.UserInvite{
 		Email: username,
 	}).DeleteByEmail(ctx)
+	mq.PublishDeletedUserDevices(ctx, logic.DeleteUserDevices(ctx, username))
+
+	_ = logic.RemoveUserFromNameservers(ctx, username)
 
 	_ = mq.PublishPeerUpdate(ctx, false)
 }

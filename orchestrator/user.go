@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/orchestrator/extensions"
@@ -21,37 +22,28 @@ type UserOrchestrator struct {
 	userExt extensions.UserExtensions
 }
 
-// ValidTenantRoles are the platform roles that may be assigned to a user within a tenant.
-var ValidTenantRoles = map[schema.UserRoleID]bool{
-	schema.SuperAdminRole: true,
-	schema.AdminRole:      true,
-	schema.PlatformUser:   true,
-	schema.ServiceUser:    true,
-	schema.Auditor:        true,
-}
-
-// ValidOrgRoles are the platform roles that may be assigned to a user within an organization.
-var ValidOrgRoles = map[schema.UserRoleID]bool{
-	schema.OrgOwner: true,
-	schema.OrgAdmin: true,
-}
-
 func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, opts ...Option) error {
 	ops := applyOptions(opts...)
+
+	_, err := mail.ParseAddress(user.Username)
+	if err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
 
 	existing := &schema.User{
 		Username: user.Username,
 	}
-	err := existing.Get(ctx)
+	err = existing.Get(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
 	userExists := err == nil
 
-	if scope.Level(ctx) == scope.TenantScope {
-		var hasMembership bool
-		if userExists {
+	var hasMembership bool
+	if userExists {
+		switch scope.Level(ctx) {
+		case scope.TenantScope:
 			membership := &schema.TenantMembership{
 				TenantID: scope.ID(ctx),
 				UserID:   existing.ID,
@@ -62,11 +54,22 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
+		case scope.OrgScope:
+			membership := &schema.OrgMembership{
+				OrganizationID: scope.ID(ctx),
+				UserID:         existing.ID,
+			}
+			err = membership.Get(ctx)
+			if err == nil {
+				hasMembership = true
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 		}
+	}
 
-		if !hasMembership && logic.UserLimitExceeded(ctx) {
-			return logic.ErrUserLimitExceeded
-		}
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership && logic.UserLimitExceeded(ctx) {
+		return logic.ErrUserLimitExceeded
 	}
 
 	var emailValidated bool
@@ -105,7 +108,7 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		}
 	}
 
-	if scope.Level(ctx) == scope.TenantScope {
+	if scope.Level(ctx) == scope.TenantScope && !hasMembership {
 		tenantID := scope.ID(ctx)
 		membership := &schema.TenantMembership{
 			TenantID:                   tenantID,
@@ -126,12 +129,13 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		if err != nil {
 			return err
 		}
-	} else if scope.Level(ctx) == scope.OrgScope {
+	} else if scope.Level(ctx) == scope.OrgScope && !hasMembership {
 		orgID := scope.ID(ctx)
+		orgRole := user.PlatformRoleID
 		membership := &schema.OrgMembership{
 			OrganizationID:             orgID,
 			UserID:                     user.ID,
-			RoleID:                     user.PlatformRoleID,
+			RoleID:                     orgRole,
 			AuthType:                   user.AuthType,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			Password:                   user.Password,
@@ -142,6 +146,16 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 		err = membership.Create(ctx)
 		if err != nil {
 			return err
+		}
+
+		if orgRole == schema.OrgAdmin {
+			if err := u.GrantOrgAdminTenantAccess(ctx, orgID, user); err != nil {
+				return err
+			}
+			// GrantTenantAdmin (called per tenant above) overwrites
+			// user.PlatformRoleID with the tenant-level Admin role; restore
+			// the org-level role the caller created this user with.
+			user.PlatformRoleID = orgRole
 		}
 	}
 
@@ -155,7 +169,62 @@ func (u *UserOrchestrator) CreateUser(ctx context.Context, user *schema.User, op
 	return nil
 }
 
+func (u *UserOrchestrator) GrantOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
+	tenants, err := (&schema.Tenant{}).List(ctx, dbtypes.WithFilter("organization_id", orgID))
+	if err != nil {
+		return err
+	}
+
+	for i := range tenants {
+		err = GetRepository().TenantOrchestrator().GrantTenantAdmin(ctx, &tenants[i], user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u *UserOrchestrator) RevokeOrgAdminTenantAccess(ctx context.Context, orgID string, user *schema.User) error {
+	tenants, err := (&schema.Tenant{}).List(ctx, dbtypes.WithFilter("organization_id", orgID))
+	if err != nil {
+		return err
+	}
+	if len(tenants) == 0 {
+		return nil
+	}
+	tenantIDs := make(map[string]struct{}, len(tenants))
+	for i := range tenants {
+		tenantIDs[tenants[i].ID] = struct{}{}
+	}
+
+	memberships, err := (&schema.TenantMembership{UserID: user.ID}).ListByUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	for i := range memberships {
+		if _, ok := tenantIDs[memberships[i].TenantID]; !ok {
+			continue
+		}
+		if memberships[i].RoleID != schema.AdminRole {
+			continue
+		}
+
+		err = memberships[i].Delete(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.User, _ ...Option) error {
+	if _, err := mail.ParseAddress(user.Username); err == nil {
+		user.Username = strings.ToLower(user.Username)
+	}
+
 	var userExists bool
 	existing := &schema.User{
 		Username: user.Username,
@@ -193,7 +262,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidTenantRoles[user.PlatformRoleID]
+			_, ok := schema.ValidTenantRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}
@@ -223,7 +292,7 @@ func (u *UserOrchestrator) ValidateCreateUser(ctx context.Context, user *schema.
 				return err
 			}
 		} else {
-			_, ok := ValidOrgRoles[user.PlatformRoleID]
+			_, ok := schema.ValidOrgRoles[user.PlatformRoleID]
 			if !ok {
 				validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role: %s", user.PlatformRoleID))
 			}

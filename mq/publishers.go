@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -26,7 +27,36 @@ import (
 var (
 	peerUpdateSignals  sync.Map
 	peerUpdateReplaces sync.Map
+	peerUpdatePending  sync.Map
 )
+
+// pendingPeerUpdate - what a tenant's worker publishes when its debounce
+// window closes: every host, or only the hosts that were queued.
+type pendingPeerUpdate struct {
+	mu    sync.Mutex
+	full  bool
+	hosts map[uuid.UUID]struct{}
+}
+
+func pendingPeerUpdateFor(tenantID string) *pendingPeerUpdate {
+	p, _ := peerUpdatePending.LoadOrStore(tenantID, &pendingPeerUpdate{hosts: make(map[uuid.UUID]struct{})})
+	return p.(*pendingPeerUpdate)
+}
+
+// take - returns and clears the pending update.
+func (p *pendingPeerUpdate) take() (full bool, hostIDs []uuid.UUID) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	full = p.full
+	if !full {
+		for id := range p.hosts {
+			hostIDs = append(hostIDs, id)
+		}
+	}
+	p.full = false
+	p.hosts = make(map[uuid.UUID]struct{})
+	return full, hostIDs
+}
 
 const (
 	peerUpdateDebounce     = 500 * time.Millisecond
@@ -56,6 +86,34 @@ func PublishPeerUpdate(ctx context.Context, replacePeers bool) error {
 	if replacePeers {
 		peerUpdateReplaceFor(tenantID).Store(true)
 	}
+	p := pendingPeerUpdateFor(tenantID)
+	p.mu.Lock()
+	p.full = true
+	p.mu.Unlock()
+	select {
+	case peerUpdateSignalFor(tenantID) <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+// PublishPeerUpdateToHosts --- queues a peer update for only the given hosts,
+// coalesced like PublishPeerUpdate. For changes that alter only these host's
+// own peer configs (e.g. an auto relay pairing), not anyone's peer list.
+// If a full update is queued in the same window, it covers these hosts.
+func PublishPeerUpdateToHosts(ctx context.Context, hostIDs ...uuid.UUID) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+	tenantID := scope.ID(ctx)
+	p := pendingPeerUpdateFor(tenantID)
+	p.mu.Lock()
+	for _, id := range hostIDs {
+		if id != uuid.Nil {
+			p.hosts[id] = struct{}{}
+		}
+	}
+	p.mu.Unlock()
 	select {
 	case peerUpdateSignalFor(tenantID) <- struct{}{}:
 	default:
@@ -72,6 +130,7 @@ func StartPeerUpdateWorker(ctx context.Context) {
 	tenantID := scope.ID(ctx)
 	signal := peerUpdateSignalFor(tenantID)
 	replace := peerUpdateReplaceFor(tenantID)
+	pending := pendingPeerUpdateFor(tenantID)
 	go func() {
 		for {
 			select {
@@ -93,7 +152,6 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						debounce = time.After(peerUpdateDebounce)
 					}
 				}
-				replacePeers := replace.Swap(false)
 			drain:
 				for {
 					select {
@@ -102,8 +160,21 @@ func StartPeerUpdateWorker(ctx context.Context) {
 						break drain
 					}
 				}
-				logic.RefreshHostPeerInfoCache(ctx)
-				if err := publishPeerUpdateImmediate(ctx, replacePeers); err != nil {
+				// take after the drain: anything queued later comes with a
+				// signal that is still in the channel, for the next round
+				replacePeers := replace.Swap(false)
+				full, hostIDs := pending.take()
+				var err error
+				switch {
+				case full || replacePeers:
+					logic.RefreshHostPeerInfoCache(ctx)
+					err = publishPeerUpdateImmediate(ctx, replacePeers)
+				case len(hostIDs) > 0:
+					err = publishPeerUpdateToHosts(ctx, hostIDs)
+				default:
+					continue
+				}
+				if err != nil {
 					slog.Error("error publishing peer update", "tenant", tenantID, "error", err)
 				} else {
 					publishServerSync(ctx, logic.SyncTypePeerUpdate)
@@ -117,12 +188,12 @@ func StartPeerUpdateWorker(ctx context.Context) {
 // pull requests arriving before the first debounced broadcast are served
 // instantly from cache instead of triggering expensive on-demand computation.
 func warmPeerCaches(ctx context.Context) {
-	hosts, allNodes := logic.RefreshHostPeerInfoCache(ctx)
-	if hosts == nil || allNodes == nil {
+	hosts, g := logic.RefreshHostPeerInfoCache(ctx)
+	if hosts == nil || g == nil {
 		return
 	}
 	for i := range hosts {
-		peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", &hosts[i], allNodes, nil, nil, nil)
+		peerUpdate, err := g.PeerUpdateForHost(ctx, "", &hosts[i], nil, nil, nil)
 		if err != nil {
 			slog.Error("warmPeerCaches: failed to compute peer update", "host", hosts[i].ID, "error", err)
 			continue
@@ -130,6 +201,34 @@ func warmPeerCaches(ctx context.Context) {
 		logic.StoreHostPeerUpdate(ctx, hosts[i].ID.String(), peerUpdate)
 	}
 	slog.Info("peer update caches warmed", "tenant", scope.ID(ctx), "hosts", len(hosts))
+}
+
+// publishPeerUpdateToHosts --- loads the peer graph once and publishes a peer
+// update to only the given hosts.
+func publishPeerUpdateToHosts(ctx context.Context, hostIDs []uuid.UUID) error {
+	g, err := logic.LoadPeerGraph(ctx)
+	if err != nil {
+		return err
+	}
+	sem := make(chan struct{}, maxConcurrentPublishes)
+	var wg sync.WaitGroup
+	for _, hostID := range hostIDs {
+		host, err := g.Host(ctx, hostID)
+		if err != nil {
+			slog.Error("failed to get host for peer update", "host", hostID.String(), "error", err)
+			continue
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(host *schema.Host) {
+			defer func() { <-sem; wg.Done() }()
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
+				slog.Error("failed to publish peer update to host", "host", host.ID.String(), "error", err)
+			}
+		}(host)
+	}
+	wg.Wait()
+	return nil
 }
 
 // publishPeerUpdateImmediate --- determines and publishes a peer update to all the hosts in a given tenant.
@@ -151,6 +250,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, allNodes)
 
 	sem := make(chan struct{}, maxConcurrentPublishes)
 	var wg sync.WaitGroup
@@ -160,7 +260,7 @@ func publishPeerUpdateImmediate(ctx context.Context, replacePeers bool) error {
 		wg.Add(1)
 		go func(host schema.Host) {
 			defer func() { <-sem; wg.Done() }()
-			if err := PublishSingleHostPeerUpdate(ctx, &host, allNodes, nil, nil, nil, replacePeers, nil); err != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
 				if host.ID != uuid.Nil {
 					id = host.ID.String()
@@ -190,9 +290,41 @@ func PublishDeletedNodePeerUpdate(ctx context.Context, delHost *schema.Host, del
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, allNodes)
+	var delHosts []schema.Host
+	if delHost != nil {
+		delHosts = []schema.Host{*delHost}
+	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(ctx, &host, allNodes, delHost, delNode, nil, false, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, delHosts, delNode, nil, false, nil); err != nil {
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		}
+	}
+	return err
+}
+
+// PublishDeletedNodesPeerUpdate publishes a single peer update to every host
+// after a batch of node deletions, instead of a full fanout per deleted node.
+// Each of deletedHosts is sent as a removed peer unless it is still a peer
+// through another node.
+func PublishDeletedNodesPeerUpdate(ctx context.Context, deletedHosts []schema.Host) error {
+	if !servercfg.IsMessageQueueBackend() || len(deletedHosts) == 0 {
+		return nil
+	}
+	hosts, err := (&schema.Host{}).ListAll(ctx)
+	if err != nil {
+		logger.Log(1, "err getting all hosts", err.Error())
+		return err
+	}
+	allNodes, err := logic.GetAllNodes(ctx)
+	if err != nil {
+		return err
+	}
+	g := logic.NewPeerGraph(hosts, allNodes)
+	for _, host := range hosts {
+		host := host
+		if err = PublishSingleHostPeerUpdate(ctx, g, &host, deletedHosts, nil, nil, false, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -215,10 +347,11 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 	if err != nil {
 		return err
 	}
+	g := logic.NewPeerGraph(hosts, nodes)
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(ctx, &host, nodes, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(ctx, g, &host, nil, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -227,18 +360,18 @@ func PublishDeletedClientPeerUpdate(ctx context.Context, delClient *models.ExtCl
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNodes []models.Node, deletedHost *schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, g *logic.PeerGraph, host *schema.Host, deletedHosts []schema.Host, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
 	if wg != nil {
 		defer wg.Done()
 	}
-	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, allNodes, deletedHost, deletedNode, deletedClients)
+	peerUpdate, err := g.PeerUpdateForHost(ctx, "", host, deletedHosts, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
 
 	for _, nodeID := range host.Nodes {
 
-		node, err := logic.GetNodeByID(nodeID)
+		node, err := g.Node(nodeID)
 		if err == nil && node.Connected && logic.InternetExitRoutingNodeID(&node) != "" {
 			replacePeers = false
 		}
@@ -249,7 +382,7 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *schema.Host, allNode
 		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
-	if deletedNode == nil && len(deletedClients) == 0 {
+	if deletedNode == nil && len(deletedClients) == 0 && len(deletedHosts) == 0 {
 		logic.StoreHostPeerUpdate(ctx, host.ID.String(), peerUpdate)
 	}
 	data, err := json.Marshal(&peerUpdate)
@@ -267,7 +400,7 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
-	allNodes, err := logic.GetAllNodes(ctx)
+	g, err := logic.LoadPeerGraph(ctx)
 	if err != nil {
 		return err
 	}
@@ -281,12 +414,12 @@ func PublishPeerUpdatesToExitClientHosts(ctx context.Context, clientNodes []mode
 			continue
 		}
 		seenHosts[hostID] = struct{}{}
-		host := &schema.Host{ID: clientNodes[i].HostID}
-		if err := host.Get(ctx); err != nil {
+		host, err := g.Host(ctx, clientNodes[i].HostID)
+		if err != nil {
 			slog.Error("exit-client peer update: failed to get host", "host", hostID, "error", err)
 			continue
 		}
-		if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
+		if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
 			slog.Error("exit-client peer update: publish failed", "host", host.Name, "error", err)
 		}
 	}
@@ -318,9 +451,9 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 	if len(displacedNodes) == 0 {
 		return
 	}
-	allNodes, err := logic.GetAllNodes(ctx)
+	g, err := logic.LoadPeerGraph(ctx)
 	if err != nil {
-		slog.Error("reassign auto-assigned clients: failed to list nodes", "gws", gwNodeIDs, "error", err)
+		slog.Error("reassign auto-assigned clients: failed to load peer graph", "gws", gwNodeIDs, "error", err)
 	}
 	for i := range displacedNodes {
 		node := displacedNodes[i]
@@ -330,8 +463,8 @@ func ReassignAutoAssignedClients(ctx context.Context, gwNodeIDs ...string) {
 			continue
 		}
 
-		if allNodes != nil {
-			if err := PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil); err != nil {
+		if g != nil {
+			if err := PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil); err != nil {
 				slog.Error("reassign auto-assigned clients: failed to publish peer update", "host", host.ID, "error", err)
 			}
 		}
@@ -404,15 +537,22 @@ func ServerStartNotify() error {
 	return nil
 }
 
+// publishNodeDeleted tells the node itself that it has been deleted.
+func publishNodeDeleted(node models.Node) {
+	node.PendingDelete = true
+	node.Action = schema.NODE_DELETE
+	if err := NodeUpdate(&node); err != nil {
+		slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+	}
+}
+
 // PublishMqUpdatesForDeletedNode - published all the required updates for deleted host and node
 func PublishMqUpdatesForDeletedNode(ctx context.Context, delHost *schema.Host, node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
 	node.Action = schema.NODE_DELETE
 	if sendNodeUpdate {
-		if err := NodeUpdate(&node); err != nil {
-			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-		}
+		publishNodeDeleted(node)
 	}
 	if err := PublishDeletedNodePeerUpdate(ctx, delHost, &node); err != nil {
 		logger.Log(1, "error publishing peer update ", err.Error())
@@ -585,4 +725,100 @@ func PublishIntegrationDelete(id string) error {
 	}
 
 	return nil
+}
+
+// PublishForceLogoutUserDevices tells each host registered by username to clear
+// its desktop session (JWT) and disconnect. Hosts remain enrolled on the server.
+func PublishForceLogoutUserDevices(ctx context.Context, username string) {
+	hosts, err := (&schema.Host{}).ListAll(ctx, dbtypes.WithFilter("owner_username", username))
+	if err != nil {
+		slog.Error("failed to list user devices for force logout", "user", username, "error", err)
+		return
+	}
+	for i := range hosts {
+		if err := HostUpdate(&models.HostUpdate{Action: models.ForceLogout, Host: hosts[i]}); err != nil {
+			slog.Error("failed to send force logout to user device",
+				"host", hosts[i].ID.String(), "user", username, "error", err)
+		}
+	}
+}
+
+// DisconnectAndForceLogoutUserDevices marks the user's host-backed devices
+// disconnected on every network, notifies peers, then force-logs out Desktop
+// last so the client applies Connected=false before clearing the session.
+func DisconnectAndForceLogoutUserDevices(ctx context.Context, username string) {
+	disconnected := logic.DisconnectUserDeviceNodes(ctx, username, func(string) bool { return true })
+	PublishDisconnectedUserDeviceNodes(ctx, disconnected)
+	PublishForceLogoutUserDevices(ctx, username)
+}
+
+// PublishDisconnectedUserDeviceNodes notifies peers that user device nodes are
+// offline (JIT ended) and asks each device to pull its new state. Nodes remain enrolled.
+func PublishDisconnectedUserDeviceNodes(ctx context.Context, disconnected []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	for i := range disconnected {
+		d := disconnected[i]
+		if err := NodeUpdate(&d.Node); err != nil {
+			slog.Error("failed to publish node update for disconnected user device",
+				"node", d.Node.ID.String(), "error", err)
+		}
+		go logic.SetPeerMetricsDisconnected(ctx, d.Node.ID.String())
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from disconnected user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	if err := PublishPeerUpdate(ctx, false); err != nil {
+		slog.Error("failed to publish peer update for disconnected user devices", "error", err)
+	}
+}
+
+// PublishDeletedUserDeviceNodes notifies peers about deleted user device nodes
+// and asks each affected device to pull its new state.
+func PublishDeletedUserDeviceNodes(ctx context.Context, deleted []logic.UserDeviceNode) {
+	pulled := make(map[uuid.UUID]struct{})
+	var deletedHosts []schema.Host
+	for i := range deleted {
+		d := deleted[i]
+		publishNodeDeleted(d.Node)
+		if _, ok := pulled[d.Host.ID]; ok {
+			continue
+		}
+		pulled[d.Host.ID] = struct{}{}
+		deletedHosts = append(deletedHosts, d.Host)
+		if err := HostUpdate(&models.HostUpdate{Action: models.RequestPull, Host: d.Host}); err != nil {
+			slog.Error("failed to request pull from user device", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	// One peer update for all deletions instead of a full fanout per node.
+	if err := PublishDeletedNodesPeerUpdate(ctx, deletedHosts); err != nil {
+		slog.Error("failed to publish peer update for deleted user device nodes", "error", err)
+	}
+}
+
+// PublishDeletedUserDevices notifies peers about deleted user devices and
+// tells each device it has been deleted.
+func PublishDeletedUserDevices(ctx context.Context, devices []logic.UserDevice) {
+	var deletedHosts []schema.Host
+	for i := range devices {
+		d := devices[i]
+		if len(d.Nodes) > 0 {
+			deletedHosts = append(deletedHosts, d.Host)
+		}
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			if err := GetEmqxHandler().DeleteEmqxUser(d.Host.ID.String()); err != nil {
+				slog.Error("failed to remove host credentials from EMQX", "id", d.Host.ID, "error", err)
+			}
+		}
+		if err := HostUpdate(&models.HostUpdate{Action: models.DeleteHost, Host: d.Host}); err != nil {
+			slog.Error("failed to send delete host update", "host", d.Host.ID.String(), "error", err)
+		}
+	}
+	// One peer update for all deletions instead of a full fanout per node.
+	if err := PublishDeletedNodesPeerUpdate(ctx, deletedHosts); err != nil {
+		slog.Error("failed to publish peer update for deleted user devices", "error", err)
+	}
 }

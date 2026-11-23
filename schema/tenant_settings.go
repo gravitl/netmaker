@@ -35,6 +35,7 @@ type TenantSettings struct {
 	MetricsPort                 int      `json:"metrics_port"`
 	IPDetectionInterval         int      `json:"ip_detection_interval"`
 	ManageDNS                   bool     `json:"manage_dns"`
+	ManageSSH                   bool     `json:"manage_ssh"`
 	DefaultDomain               string   `json:"default_domain"`
 	Stun                        bool     `json:"stun"`
 	StunServers                 string   `json:"stun_servers"`

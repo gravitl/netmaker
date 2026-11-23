@@ -34,7 +34,10 @@ func TestIsDeviceAPIRequest(t *testing.T) {
 
 func TestRoleGrantsDeviceWrite(t *testing.T) {
 	if !roleGrantsDeviceWrite(&schema.UserRole{TenantGlobalAccess: true}) {
-		t.Fatal("full access should grant write")
+		t.Fatal("tenant global access should grant write")
+	}
+	if !roleGrantsDeviceWrite(&schema.UserRole{NetworkGlobalAccess: true}) {
+		t.Fatal("network global access should grant write")
 	}
 
 	readOnly := &schema.UserRole{

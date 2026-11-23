@@ -10,8 +10,8 @@ import (
 
 func TestRoleChangeDoesNotModifyGroups(t *testing.T) {
 	netID := schema.NetworkID("net-a")
-	netAdminGrp := GetDefaultNetworkAdminGroupID(netID)
-	userGrp := GetDefaultNetworkUserGroupID(netID)
+	netAdminGrp := GetDefaultNetworkAdminGroupSlug(netID)
+	userGrp := GetDefaultNetworkUserGroupSlug(netID)
 
 	groups := map[schema.UserGroupID]struct{}{
 		globalNetworksAdminGroupID: {},
@@ -84,7 +84,7 @@ func TestUserGroupGrantsAdminAccess_customGroup(t *testing.T) {
 	netID := schema.NetworkID("net-c")
 	adminRole := GetDefaultNetworkAdminRoleID(netID)
 	g := &schema.UserGroup{
-		ID: "custom-admin-grp",
+		Slug: "custom-admin-grp",
 		NetworkRoles: datatypes.NewJSONType(schema.NetworkRoles{
 			netID: {adminRole: {}},
 		}),

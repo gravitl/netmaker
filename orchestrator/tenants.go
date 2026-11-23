@@ -7,6 +7,7 @@ import (
 
 	chdriver "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gravitl/netmaker/clickhouse"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -33,7 +34,13 @@ func (t *TenantOrchestrator) CreateDefaultTenant(ctx context.Context, orgID stri
 	t.initTenantRoles(ctx, tenant)
 	t.initTenantGroups(ctx, tenant)
 
-	if err := t.grantExistingOwnerAccess(ctx, tenant); err != nil {
+	err := t.grantExistingOrgOwnerAccess(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	err = t.grantExistingOrgAdminsAccess(ctx, tenant)
+	if err != nil {
 		return nil, err
 	}
 
@@ -52,7 +59,12 @@ func (t *TenantOrchestrator) CreateTenant(ctx context.Context, tenant *schema.Te
 	t.initTenantRoles(ctx, tenant)
 	t.initTenantGroups(ctx, tenant)
 
-	return t.grantExistingOwnerAccess(ctx, tenant)
+	err := t.grantExistingOrgOwnerAccess(ctx, tenant)
+	if err != nil {
+		return err
+	}
+
+	return t.grantExistingOrgAdminsAccess(ctx, tenant)
 }
 
 func (t *TenantOrchestrator) initTenantRoles(ctx context.Context, tenant *schema.Tenant) {
@@ -106,9 +118,9 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		{"hosts", (&schema.Host{}).DeleteAll},
 		{"egresses", func(ctx context.Context) error { return (&schema.Egress{}).Delete(ctx) }},
 		{"nameservers", func(ctx context.Context) error { return (&schema.Nameserver{}).Delete(ctx) }},
-		{"dns_records", (&schema.DNSRecord{}).DeleteAll},
-		{"extclient_records", (&schema.ExtClientRecord{}).DeleteAll},
-		{"tag_records", (&schema.TagRecord{}).DeleteAll},
+		{"dns_entries", (&schema.DNSEntry{}).DeleteAll},
+		{"extclients", (&schema.Extclient{}).DeleteAll},
+		{"tags", (&schema.Tag{}).DeleteAll},
 		{"acl_records", (&schema.AclRecord{}).DeleteAll},
 		{"enrollment_keys", (&schema.EnrollmentKey{}).DeleteAll},
 		{"posture_checks", func(ctx context.Context) error { return (&schema.PostureCheck{}).Delete(ctx) }},
@@ -118,10 +130,13 @@ func (t *TenantOrchestrator) TeardownTenant(ctx context.Context, tenantID string
 		{"metrics", (&schema.MetricsRecord{}).DeleteAll},
 		{"integrations", (&schema.Integration{}).DeleteAll},
 		{"user_access_tokens", (&schema.UserAccessToken{}).DeleteAll},
+		{"api_keys", (&schema.APIKey{}).DeleteAll},
 		{"user_groups", (&schema.UserGroup{}).DeleteAll},
 		{"pending_users", (&schema.PendingUser{}).DeleteAll},
 		{"user_invites", (&schema.UserInvite{}).DeleteAll},
 		{"network_user_roles", func(ctx context.Context) error { return (&schema.UserRole{}).DeleteAllForNetworks(ctx, networkIDs) }},
+		{"ip_allocations", (&schema.IPAllocation{}).DeleteAll},
+		{"ip_pools", (&schema.IPPool{}).DeleteAll},
 		{"networks", (&schema.Network{}).DeleteAll},
 	}
 
@@ -187,8 +202,30 @@ func (t *TenantOrchestrator) notifyHostsOfDeletion(tenantID string, hosts []sche
 }
 
 func (t *TenantOrchestrator) GrantTenantSuperAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
+	return t.setTenantRole(ctx, tenant, user, schema.SuperAdminRole)
+}
+
+func (t *TenantOrchestrator) GrantTenantAdmin(ctx context.Context, tenant *schema.Tenant, user *schema.User) error {
+	return t.setTenantRole(ctx, tenant, user, schema.AdminRole)
+}
+
+func (t *TenantOrchestrator) setTenantRole(ctx context.Context, tenant *schema.Tenant, user *schema.User, roleID schema.UserRoleID) error {
+	membership := &schema.TenantMembership{TenantID: tenant.ID, UserID: user.ID}
+	err := membership.Get(ctx)
+	if err == nil {
+		user.PlatformRoleID = roleID
+		if membership.RoleID == roleID {
+			return nil
+		}
+		membership.RoleID = roleID
+		return membership.UpdateRoleID(ctx)
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
 	tenantCtx := scope.WithContext(ctx, scope.TenantScope, tenant.ID)
-	user.PlatformRoleID = schema.SuperAdminRole
+	user.PlatformRoleID = roleID
 	if t.isMSPTenant(ctx, tenant) {
 		return GetRepository().UserOrchestrator().CreateUser(tenantCtx, user, WithInheritedAuth())
 	}
@@ -216,7 +253,7 @@ func (t *TenantOrchestrator) isMSPTenant(ctx context.Context, tenant *schema.Ten
 	return defaultOrg.ID != tenant.OrganizationID
 }
 
-func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
+func (t *TenantOrchestrator) grantExistingOrgOwnerAccess(ctx context.Context, tenant *schema.Tenant) error {
 	owner := &schema.OrgMembership{OrganizationID: tenant.OrganizationID}
 	err := owner.GetOwner(ctx)
 	if err != nil {
@@ -234,4 +271,35 @@ func (t *TenantOrchestrator) grantExistingOwnerAccess(ctx context.Context, tenan
 	}
 
 	return t.GrantTenantSuperAdmin(ctx, tenant, user)
+}
+
+func (t *TenantOrchestrator) grantExistingOrgAdminsAccess(ctx context.Context, tenant *schema.Tenant) error {
+	admins, err := (&schema.OrgMembership{}).ListAll(ctx,
+		dbtypes.WithFilter("organization_id", tenant.OrganizationID),
+		dbtypes.WithFilter("role_id", schema.OrgAdmin),
+	)
+	if err != nil {
+		return err
+	}
+	if len(admins) == 0 {
+		return nil
+	}
+
+	adminIDs := make([]any, len(admins))
+	for i := range admins {
+		adminIDs[i] = admins[i].UserID
+	}
+	users, err := (&schema.User{}).ListAll(ctx, dbtypes.WithFilter("users_v1.id", adminIDs...))
+	if err != nil {
+		return err
+	}
+
+	for i := range users {
+		err = t.GrantTenantAdmin(ctx, tenant, &users[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

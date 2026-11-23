@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db/expr"
@@ -143,8 +146,9 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// AuthorizeHost - middleware that authenticates a host via JWT and ensures
-// the host is only operating on its own resources (matched by hostid/nodeid path params).
+// AuthorizeHost authenticates control-plane host APIs.
+// Headless hosts use a host JWT. User-owned desktop devices must use a user JWT
+// plus X-Host-ID; host-password JWTs are rejected for those devices.
 func AuthorizeHost(
 	next http.Handler,
 ) http.HandlerFunc {
@@ -155,44 +159,100 @@ func AuthorizeHost(
 		w.Header().Set("Content-Type", "application/json")
 
 		bearerToken := r.Header.Get("Authorization")
-		var tokenSplit = strings.Split(bearerToken, " ")
-		var authToken = ""
-
+		tokenSplit := strings.Split(bearerToken, " ")
 		if len(tokenSplit) < 2 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
 			return
-		} else {
-			authToken = tokenSplit[1]
 		}
+		authToken := tokenSplit[1]
 
-		hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
+		hostID, err := authorizeHostIdentity(r, authToken)
 		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
-			return
-		}
-
-		// master key bypasses ownership checks
-		if hostID != logic.MasterUser {
-			params := mux.Vars(r)
-			if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+			if errors.Is(err, errHostForbidden) {
 				logic.ReturnErrorResponse(w, r, forbiddenResponse)
 				return
 			}
-			if nodeID := params["nodeid"]; nodeID != "" {
-				node, err := logic.GetNodeByID(nodeID)
-				if err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-					return
-				}
-				if node.HostID.String() != hostID {
-					logic.ReturnErrorResponse(w, r, forbiddenResponse)
-					return
-				}
+			if errors.Is(err, errHostBadRequest) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
 			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(logic.Unauthorized_Err, logic.Unauthorized_Msg))
+			return
 		}
 		r.Header.Set(hostIDHeader, hostID)
 		next.ServeHTTP(w, r)
 	}
+}
+
+var (
+	errHostForbidden  = errors.New("forbidden")
+	errHostBadRequest = errors.New("bad request")
+)
+
+func authorizeHostIdentity(r *http.Request, authToken string) (string, error) {
+	hostID, _, _, err := logic.VerifyHostToken(r.Context(), authToken)
+	if err == nil {
+		if hostID == logic.MasterUser {
+			return hostID, nil
+		}
+		parsed, parseErr := uuid.Parse(hostID)
+		if parseErr != nil {
+			return "", logic.Unauthorized_Err
+		}
+		host := &schema.Host{ID: parsed}
+		if getErr := host.Get(r.Context()); getErr != nil {
+			return "", logic.Unauthorized_Err
+		}
+		if logic.IsUserOwnedHost(host) {
+			// Desktop/user devices must present the owning user's session JWT.
+			return "", logic.Unauthorized_Err
+		}
+		if err := enforceHostResourceAccess(r, hostID); err != nil {
+			return "", err
+		}
+		return hostID, nil
+	}
+
+	username, _, _, userErr := logic.VerifyUserToken(r.Context(), authToken)
+	if userErr != nil || username == "" || username == logic.MasterUser {
+		return "", logic.Unauthorized_Err
+	}
+	user := &schema.User{Username: username}
+	if getErr := user.Get(r.Context()); getErr != nil {
+		return "", logic.Unauthorized_Err
+	}
+	if user.AccountDisabled {
+		return "", logic.Unauthorized_Err
+	}
+	headerHostID := r.Header.Get(logic.DeviceHostIDHeader)
+	host, accessErr := logic.ResolveUserOwnedHostForAPI(r.Context(), username, headerHostID)
+	if accessErr != nil {
+		return "", logic.Unauthorized_Err
+	}
+	if scope.ID(r.Context()) != host.TenantID {
+		return "", logic.Unauthorized_Err
+	}
+	if err := enforceHostResourceAccess(r, host.ID.String()); err != nil {
+		return "", err
+	}
+	return host.ID.String(), nil
+}
+
+func enforceHostResourceAccess(r *http.Request, hostID string) error {
+	params := mux.Vars(r)
+	if paramHostID := params["hostid"]; paramHostID != "" && hostID != paramHostID {
+		return errHostForbidden
+	}
+	if nodeID := params["nodeid"]; nodeID != "" {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			return fmt.Errorf("%w: %v", errHostBadRequest, err)
+		}
+		if node.HostID.String() != hostID {
+			return errHostForbidden
+		}
+	}
+	return nil
 }
 
 // @Summary     List all nodes in the network
@@ -203,7 +263,8 @@ func AuthorizeHost(
 // @Param       network path string true "Network ID"
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       status query []string false "Filter by Status" Enums(offline, online, disconnected, warning, error)
-// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned)
+// @Param       device_type query string false "Filter by Device Type" Enums(gw, igw, gw_assigned, gw_unassigned, exit_assigned, user, server)
+// @Param       username query string false "Filter by owner username (only with device_type=user)"
 // @Param       q query string false "Search across fields"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
@@ -218,6 +279,13 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deviceType := r.URL.Query().Get("device_type")
+	username := r.URL.Query().Get("username")
+	if username != "" && deviceType != "user" {
+		err := fmt.Errorf("username filter is only supported with device_type=user")
+		logger.Log(0, r.Header.Get("user"), err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
 
 	var statusFilters []interface{}
 	for _, filter := range r.URL.Query()["status"] {
@@ -255,11 +323,24 @@ func listNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 	var filters, options []dbtypes.Option
 	filters = append(filters, dbtypes.WithFilter("network_id", network.ID))
-	if len(osFilters) > 0 || q != "" {
-		filters = append(filters, func(db *gorm.DB) *gorm.DB {
-			return db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
-		})
-	}
+	// Join hosts so OS search and user/server filters can use owner_username.
+	// "user" is a host registered by a user; "server" is every other host.
+	// No device_type (or gw/igw/...) includes both.
+	filters = append(filters, func(db *gorm.DB) *gorm.DB {
+		q := db.Joins("JOIN hosts_v1 ON hosts_v1.id = nodes_v1.host_id")
+		switch deviceType {
+		case "user":
+			q = q.Where("hosts_v1.owner_username <> '' AND hosts_v1.owner_username IS NOT NULL")
+			if username != "" {
+				q = q.Where("hosts_v1.owner_username = ?", username)
+			}
+			return q
+		case "server":
+			return q.Where("hosts_v1.owner_username = '' OR hosts_v1.owner_username IS NULL")
+		default:
+			return q
+		}
+	})
 	if len(osFilters) > 0 {
 		filters = append(filters, dbtypes.WithFilter("hosts_v1.os", osFilters...))
 	}
@@ -388,14 +469,14 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") == "no" {
+	if !logic.IsAPIKeyAuth(r.Context()) && r.Header.Get("ismaster") == "no" {
+		username := r.Header.Get("user")
 		user := &schema.User{Username: username}
 		err = user.Get(r.Context())
 		if err != nil {
 			return
 		}
-		userPlatformRole := &schema.UserRole{ID: user.PlatformRoleID}
+		userPlatformRole := &schema.UserRole{Slug: user.PlatformRoleID}
 		err = userPlatformRole.GetPlatformRole(r.Context())
 		if err != nil {
 			return
@@ -406,6 +487,15 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(r.Context(), nodes)
+	if logic.IsAPIKeyAuth(r.Context()) {
+		filtered := nodes[:0]
+		for _, node := range nodes {
+			if logic.APIKeyHasNetworkAccess(r.Context(), node.Network, schema.APIKeyPermissionRead) {
+				filtered = append(filtered, node)
+			}
+		}
+		nodes = filtered
+	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	for i := range apiNodes {
@@ -479,7 +569,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	allNodes, err := logic.GetAllNodes(r.Context())
+	g, err := logic.LoadPeerGraph(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -493,7 +583,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(r.Context(), node.Network, host, allNodes, nil, nil, nil)
+	hostPeerUpdate, err := g.PeerUpdateForHost(r.Context(), node.Network, host, nil, nil, nil)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Log(
 			0,
@@ -562,7 +652,11 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
 				gateway.NodeID, gateway.NetID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		errType := logic.Internal
+		if errors.Is(err, logic.ErrUserDeviceInfrastructureRole) {
+			errType = logic.BadReq
+		}
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -674,19 +768,51 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newData.Address {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv4Unique(r.Context(), network, newData.Address) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address)
+	// claim the node's new addresses; they are released again if the update
+	// does not go through, otherwise the replaced addresses are released.
+	networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+	var claimedAddrs, replacedAddrs []string
+	updated := false
+	defer func() {
+		if updated {
+			return
+		}
+		for _, address := range claimedAddrs {
+			if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
+				slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+			}
+		}
+	}()
+	for _, change := range []struct {
+		current   net.IPNet
+		requested string
+	}{
+		{currentNode.Address, newData.Address},
+		{currentNode.Address6, newData.Address6},
+	} {
+		if change.current.IP == nil || change.requested == "" {
+			continue
+		}
+		addr, err := networkOrch.ParseAddr(change.requested)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				fmt.Errorf("invalid address %q: must be a plain IP or CIDR address within the network's range", change.requested),
+				"badrequest"))
+			return
+		}
+		if currentAddr, ok := netip.AddrFromSlice(change.current.IP); ok && addr == currentAddr.Unmap() {
+			continue
+		}
+		err = networkOrch.ClaimIP(r.Context(), network, change.requested, schema.IPOwnerNode, currentNode.ID.String())
+		if err != nil {
+			if errors.Is(err, orchestrator.ErrIPAlreadyAllocated) {
+				err = errors.New("ip specified is already allocated: " + change.requested)
+			}
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newData.Address6 {
-		if !orchestrator.GetRepository().NetworkOrchestrator().IsIPv6Unique(r.Context(), network, newData.Address6) {
-			err = errors.New("ip specified is already allocated:  " + newData.Address6)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
+		claimedAddrs = append(claimedAddrs, change.requested)
+		replacedAddrs = append(replacedAddrs, change.current.IP.String())
 	}
 
 	if !servercfg.IsPro {
@@ -699,6 +825,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
+		return
+	}
+	if err := logic.ErrUserDeviceGainingInfrastructureRole(r.Context(), &currentNode, newNode); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if currentNode.IsAutoRelay && (!newNode.IsAutoRelay || !newNode.Connected) {
@@ -741,10 +871,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// inet_node_req / relaynodes that include exit clients (RelayedIGWClients),
 	// which must not be treated as a new IGW or manual relay assignment.
 	connectionToggle := currentNode.Connected != newNode.Connected
+	resetAutoRelayedPeers := false
 	if !connectionToggle {
 		enablingInetGw := !currentNode.IsInternetGateway && newNode.IsInternetGateway
 		updatingInetGwClients := newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0
 		if enablingInetGw || updatingInetGwClients {
+			resetAutoRelayedPeers = true
 			err = logic.ValidateInetGwReq(
 				r.Context(),
 				logic.ConvertModelsNodeToSchemaNode(newNode),
@@ -817,10 +949,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	// Push peer update while still connected so the client drops exit/default routes
 	// before the disconnect NodeUpdate is applied.
 	if preDisconnectExitClear {
-		allNodes, peerErr := logic.GetAllNodes(r.Context())
+		g, peerErr := logic.LoadPeerGraph(r.Context())
 		if peerErr != nil {
-			slog.Error("pre-disconnect exit clear: failed to list nodes", "error", peerErr)
-		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), host, allNodes, nil, nil, nil, false, nil); pubErr != nil {
+			slog.Error("pre-disconnect exit clear: failed to load peer graph", "error", peerErr)
+		} else if pubErr := mq.PublishSingleHostPeerUpdate(r.Context(), g, host, nil, nil, nil, false, nil); pubErr != nil {
 			slog.Error("pre-disconnect exit clear: peer update failed", "host", host.Name, "error", pubErr)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -833,6 +965,21 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to update node info [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	updated = true
+	if resetAutoRelayedPeers && len(newNode.AutoRelayedPeers) > 0 {
+		// the node is becoming an internet gateway, so it can no longer be auto relayed.
+		if err := logic.ResetAutoRelayedPeer(r.Context(), newNode); err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to reset auto relayed peers for node [ %s ]: %v", nodeid, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+	for _, address := range replacedAddrs {
+		if err := networkOrch.ReleaseIP(r.Context(), network, address, schema.IPOwnerNode, currentNode.ID.String()); err != nil {
+			slog.Error("failed to release node address", "network", network.Name, "address", address, "error", err)
+		}
 	}
 	if relayUpdate {
 		logic.UpdateRelayed(r.Context(), &currentNode, newNode)
@@ -928,9 +1075,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error sending sync pull to host on ip change", "host", host.ID, "error", err)
 			}
 		}
-		allNodes, err := logic.GetAllNodes(ctx)
+		g, err := logic.LoadPeerGraph(ctx)
 		if err == nil {
-			mq.PublishSingleHostPeerUpdate(ctx, host, allNodes, nil, nil, nil, false, nil)
+			mq.PublishSingleHostPeerUpdate(ctx, g, host, nil, nil, nil, false, nil)
 		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
@@ -953,6 +1100,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// exit-client peer updates first before the global mesh update.
 		if connToggle {
 			exitClients := logic.ListExitClientsForRoutingNode(ctx, newNode.Network, newNode.ID.String())
+			// Disconnect: detach clients from this routing node before publish so
+			// peer calc does not mark the whole mesh Remove (still RelayedBy dead exit).
+			if !newNode.Connected && len(exitClients) > 0 {
+				exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
+			}
 			if len(exitClients) > 0 {
 				_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)
 				return
@@ -1180,6 +1332,17 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				}
 				go logic.SetPeerMetricsDisconnected(ctx, nodeID)
 			}
+
+			var target any
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				target = node
+				err = mq.NodeUpdate(&node)
+				if err != nil {
+					slog.Error("failed to publish node update", "id", nodeID, "error", err)
+				}
+			}
+
 			logic.LogEvent(r.Context(), &models.Event{
 				Action: eventAction,
 				Source: models.Subject{
@@ -1192,18 +1355,11 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 					ID:   nodeID,
 					Name: nodeID,
 					Type: schema.NodeSub,
+					Info: target,
 				},
 				NetworkID: schema.NetworkID(network),
 				Origin:    schema.Dashboard,
 			})
-
-			node, err := logic.GetNodeByID(nodeID)
-			if err == nil {
-				err = mq.NodeUpdate(&node)
-				if err != nil {
-					slog.Error("failed to publish node update", "id", nodeID, "error", err)
-				}
-			}
 		}
 
 		// Reassign auto-assigned clients only after every disconnected gw has been
@@ -1234,6 +1390,9 @@ func bulkUpdateNodeStatus(w http.ResponseWriter, r *http.Request) {
 				seenClient[c.ID.String()] = struct{}{}
 				exitClients = append(exitClients, c)
 			}
+		}
+		if !req.Connected && len(exitClients) > 0 {
+			exitClients = logic.FailOpenExitClientsKeepSelection(ctx, exitClients)
 		}
 		if len(exitClients) > 0 {
 			_ = mq.PublishPeerUpdatesForExitClientsFirst(ctx, exitClients)

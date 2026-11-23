@@ -10,7 +10,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -56,9 +58,15 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 		e.Mode = schema.DirectNAT
 		e.VirtualRange = ""
 	}
-	err := (&schema.Network{Name: e.Network}).Get(ctx)
+	network := &schema.Network{Name: e.Network}
+	err := network.Get(ctx)
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
+	}
+	if e.Range != "" {
+		if err := logic.ValidateEgressCIDR(network, e.Range); err != nil {
+			return err
+		}
 	}
 
 	if !servercfg.IsPro && len(e.Nodes) > 1 {
@@ -67,27 +75,73 @@ func ValidateEgressReq(ctx context.Context, e *schema.Egress) error {
 
 	if len(e.Nodes) > 0 {
 		for k := range e.Nodes {
-			node, err := logic.GetNodeByID(k)
+			_node := &schema.Node{ID: k}
+			err := _node.Get(ctx, dbtypes.WithAllPreloads())
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
+			}
+			if _node.Host == nil {
+				return fmt.Errorf("host not found for routing node %s", _node.ID)
+			}
+			node := *logic.ConvertSchemaNodeToModelsNode(_node)
+			if err := logic.ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
+				return err
+			}
+			if node.Network != e.Network {
+				return fmt.Errorf("node %s doesn't belong to egress network %s", node.ID, e.Network)
 			}
 			if logic.IsEgressInternetGateway(*e) {
 				if err := logic.ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
 				}
+			} else {
+				if err := logic.ValidateEgressHostFirewall(_node.Host); err != nil {
+					return err
+				}
+			}
+			if err := logic.ValidateHostEgressNATMode(*e, _node.Host); err != nil {
+				return err
 			}
 		}
 	}
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
-			_, err := GetTag(ctx, models.TagID(tagID))
+			tag, err := GetTag(ctx, models.TagID(tagID))
 			if err != nil {
 				return errors.New("invalid tag " + tagID)
+			}
+			if tag.Network.String() != e.Network {
+				return fmt.Errorf("tag %s doesn't belong to egress network %s", tagID, e.Network)
 			}
 		}
 		if logic.IsEgressInternetGateway(*e) {
 			return errors.New("internet egress must use explicit routing nodes, not tags")
+		}
+		// Tag-based egress clears e.Nodes above; resolve tag members and
+		// validate them the same way as explicit routing nodes (we already
+		// rejected internet-gateway egress with tags above, so every member
+		// here is a direct/virtual NAT routing node, not an internet exit).
+		for tagID := range e.Tags {
+			for _, tagged := range GetNodesWithTag(ctx, models.TagID(tagID)) {
+				if err := logic.ErrUserOwnedNodeInfrastructureRole(&tagged); err != nil {
+					return err
+				}
+				// static (ext client) members have no host.
+				if tagged.HostID == uuid.Nil {
+					continue
+				}
+				host := &schema.Host{ID: tagged.HostID}
+				if err := host.Get(db.WithContext(ctx)); err != nil {
+					return errors.New("invalid routing node " + err.Error())
+				}
+				if err := logic.ValidateEgressHostFirewall(host); err != nil {
+					return err
+				}
+				if err := logic.ValidateHostEgressNATMode(*e, host); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

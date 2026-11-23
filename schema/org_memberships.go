@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 )
 
 type OrgMembership struct {
@@ -49,6 +50,16 @@ func (o *OrgMembership) ListByUserID(ctx context.Context) ([]OrgMembership, erro
 	return memberships, err
 }
 
+func (o *OrgMembership) ListAll(ctx context.Context, options ...dbtypes.Option) ([]OrgMembership, error) {
+	var memberships []OrgMembership
+	query := db.FromContext(ctx).Model(&OrgMembership{})
+	for _, option := range options {
+		query = option(query)
+	}
+	err := query.Find(&memberships).Error
+	return memberships, err
+}
+
 func (o *OrgMembership) Upsert(ctx context.Context) error {
 	return db.FromContext(ctx).Save(o).Error
 }
@@ -57,6 +68,13 @@ func (o *OrgMembership) UpdateRoleID(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&OrgMembership{}).
 		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
 		Update("role_id", o.RoleID).
+		Error
+}
+
+func (o *OrgMembership) UpdateExternalIdentityProviderID(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&OrgMembership{}).
+		Where("organization_id = ? AND user_id = ?", o.OrganizationID, o.UserID).
+		Update("external_identity_provider_id", o.ExternalIdentityProviderID).
 		Error
 }
 

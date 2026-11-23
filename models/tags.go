@@ -1,9 +1,23 @@
 package models
 
-import "github.com/gravitl/netmaker/schema"
+import (
+	"time"
+
+	"github.com/gravitl/netmaker/schema"
+)
 
 type TagID = schema.TagID
-type Tag = schema.Tag
+
+// Tag - tag of the nodes and ext clients of a network
+type Tag struct {
+	// ID is <network name>.<tag name>, which the tag is referred to by.
+	ID        TagID            `json:"id"`
+	TagName   string           `json:"tag_name"`
+	Network   schema.NetworkID `json:"network"`
+	ColorCode string           `json:"color_code"`
+	CreatedBy string           `json:"created_by"`
+	CreatedAt time.Time        `json:"created_at"`
+}
 
 const (
 	OldRemoteAccessTagName = schema.OldRemoteAccessTagName

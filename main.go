@@ -39,10 +39,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.7.0"
+var version = "v1.8.0"
 
 //	@title			NetMaker
-//	@version		1.7.0
+//	@version		1.8.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -66,18 +66,33 @@ func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
 	setGarbageCollection()
-	defer db.CloseDB()
-
-	// TODO: although this doesn't cause any problem, it's not the best way to do this.
-	defer ch.Close()
 
 	ctx, stop := signal.NotifyContext(db.WithContext(context.Background()), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
+
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
 	startHooks(ctx, &waitGroup)
+
 	<-ctx.Done()
+	logger.Log(0, "Shutdown signal received, waiting for background processes to finish...")
+
 	waitGroup.Wait()
+
+	// Explicitly close database connections in order
+	logger.Log(0, "Closing database connections...")
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log(0, fmt.Sprintf("Recovered from panic during clickhouse shutdown: %v", r))
+			}
+		}()
+		ch.Close()
+	}()
+
+	db.CloseDB()
+	logger.Log(0, "Shutdown complete.")
 }
 
 func setupConfig(absoluteConfigPath string) {
@@ -111,6 +126,10 @@ func initialize() { // Client Mode Prereq Check
 
 	// Log master/worker mode for K8s HA setup
 	if servercfg.IsHA() {
+		// replicas share state through the database, which requires postgres.
+		if servercfg.GetDB() != "postgres" {
+			logger.FatalLog("HA mode requires postgres as the database, found: " + servercfg.GetDB())
+		}
 		if servercfg.IsMasterPod() {
 			logger.Log(0, "HA mode: running as MASTER pod - will run migrations and singleton operations")
 		} else {
@@ -129,7 +148,12 @@ func initialize() { // Client Mode Prereq Check
 	// Only run migrations on master pod to avoid conflicts in HA setup
 	if servercfg.IsMasterPod() {
 		err = migrate.ToSQLSchema()
-		if err != nil {
+		if errors.Is(err, migrate.ErrMigrationV170Required) {
+			logger.FatalLog(
+				"Only v1.7.0 can upgrade directly to v1.8.0.\n" +
+					"Upgrade your Netmaker server first to v1.7.0 before upgrading to v1.8.0",
+			)
+		} else if err != nil {
 			logger.FatalLog("schema migration failed: ", err.Error())
 		}
 
@@ -242,6 +266,9 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 
+		networkOrch := orchestrator.GetRepository().NetworkOrchestrator()
+		networkOrch.SyncIPAllocations(db.WithContext(ctx))
+		networkOrch.StartIPAllocationHook()
 	}
 	logic.AddSSOStateCleanupHook()
 }
