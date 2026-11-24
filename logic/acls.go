@@ -2001,6 +2001,223 @@ func GetEgressDefaultAllowAllFwRule(node models.Node) (models.AclRule, bool) {
 	return rule, true
 }
 
+type egressIPPair struct {
+	src, dst net.IPNet
+	anyDst   bool
+}
+
+func aclRuleScopeKey(r models.AclRule) string {
+	ports := append([]string(nil), r.AllowedPorts...)
+	sort.Strings(ports)
+	return fmt.Sprintf("%s|%s|%d", r.AllowedProtocol, strings.Join(ports, ","), r.Direction)
+}
+
+func collectNewEgressPairs(srcs, dsts []net.IPNet, prefix string, seen map[string]struct{}) []egressIPPair {
+	if len(srcs) == 0 {
+		return nil
+	}
+	anyDst := len(dsts) == 0
+	dstUse := dsts
+	if anyDst {
+		dstUse = []net.IPNet{{}}
+	}
+	kept := make([]egressIPPair, 0, len(srcs)*len(dstUse))
+	for _, src := range srcs {
+		for _, dst := range dstUse {
+			dstKey := "*"
+			if !anyDst {
+				dstKey = dst.String()
+			}
+			key := prefix + src.String() + ">" + dstKey
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			kept = append(kept, egressIPPair{src: src, dst: dst, anyDst: anyDst})
+		}
+	}
+	return kept
+}
+
+// rectangularEgressPairs reports whether pairs are a full src × dst product.
+// An empty pair list is a rectangle with no addresses. A hole (one source
+// missing a destination another source still has) is not.
+func rectangularEgressPairs(pairs []egressIPPair) (srcs, dsts []net.IPNet, ok bool) {
+	if len(pairs) == 0 {
+		return nil, nil, true
+	}
+	srcSet := make(map[string]net.IPNet)
+	dstSet := make(map[string]net.IPNet)
+	perSrc := make(map[string]int)
+	anyDst := pairs[0].anyDst
+	for _, p := range pairs {
+		if p.anyDst != anyDst {
+			return nil, nil, false
+		}
+		srcSet[p.src.String()] = p.src
+		if anyDst {
+			dstSet["*"] = net.IPNet{}
+		} else {
+			dstSet[p.dst.String()] = p.dst
+		}
+		perSrc[p.src.String()]++
+	}
+	nDst := len(dstSet)
+	if len(pairs) != len(srcSet)*nDst {
+		return nil, nil, false
+	}
+	for _, n := range perSrc {
+		if n != nDst {
+			return nil, nil, false
+		}
+	}
+	srcs = make([]net.IPNet, 0, len(srcSet))
+	for _, n := range srcSet {
+		srcs = append(srcs, n)
+	}
+	sortIPNets(srcs)
+	if anyDst {
+		return srcs, nil, true
+	}
+	dsts = make([]net.IPNet, 0, len(dstSet))
+	for _, n := range dstSet {
+		dsts = append(dsts, n)
+	}
+	sortIPNets(dsts)
+	return srcs, dsts, true
+}
+
+func egressPairsBySrc(pairs []egressIPPair) []egressIPPairGroup {
+	order := make([]string, 0)
+	groups := make(map[string]*egressIPPairGroup)
+	for _, p := range pairs {
+		k := p.src.String()
+		g, ok := groups[k]
+		if !ok {
+			g = &egressIPPairGroup{src: p.src, anyDst: p.anyDst}
+			groups[k] = g
+			order = append(order, k)
+		}
+		if !p.anyDst {
+			g.dsts = append(g.dsts, p.dst)
+		}
+	}
+	out := make([]egressIPPairGroup, 0, len(order))
+	for _, k := range order {
+		g := groups[k]
+		sortIPNets(g.dsts)
+		out = append(out, *g)
+	}
+	return out
+}
+
+type egressIPPairGroup struct {
+	src    net.IPNet
+	dsts   []net.IPNet
+	anyDst bool
+}
+
+// dedupeEgressAclRules drops (src, dst, proto, ports, direction) tuples that
+// an earlier rule already covers. The client expands each rule as IPList × Dst,
+// so overlapping policies otherwise install the same iptables ACCEPT twice.
+// A reversed tuple is a different pair and is kept.
+func dedupeEgressAclRules(in map[string]models.AclRule) map[string]models.AclRule {
+	if len(in) < 2 {
+		return in
+	}
+	ids := make([]string, 0, len(in))
+	for id := range in {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	seen := make(map[string]struct{})
+	out := make(map[string]models.AclRule, len(in))
+	for _, id := range ids {
+		rule := in[id]
+		scope := aclRuleScopeKey(rule)
+		v4 := collectNewEgressPairs(rule.IPList, rule.Dst, scope+"|4|", seen)
+		v6 := collectNewEgressPairs(rule.IP6List, rule.Dst6, scope+"|6|", seen)
+		if len(v4) == 0 && len(v6) == 0 {
+			continue
+		}
+		v4Src, v4Dst, v4OK := rectangularEgressPairs(v4)
+		v6Src, v6Dst, v6OK := rectangularEgressPairs(v6)
+		if v4OK && v6OK {
+			rule.IPList, rule.Dst = v4Src, v4Dst
+			rule.IP6List, rule.Dst6 = v6Src, v6Dst
+			out[rule.ID] = rule
+			continue
+		}
+		for _, extra := range splitNonRectangularEgressRule(rule, v4, v4OK, v6, v6OK) {
+			out[extra.ID] = extra
+		}
+	}
+	return out
+}
+
+func splitNonRectangularEgressRule(rule models.AclRule, v4 []egressIPPair, v4OK bool, v6 []egressIPPair, v6OK bool) []models.AclRule {
+	var rules []models.AclRule
+	base := rule
+	base.IPList, base.Dst, base.IP6List, base.Dst6 = nil, nil, nil, nil
+	usedBase := false
+	take := func(src4, dst4, src6, dst6 []net.IPNet) {
+		r := base
+		r.IPList, r.Dst, r.IP6List, r.Dst6 = src4, dst4, src6, dst6
+		if !usedBase {
+			usedBase = true
+			rules = append(rules, r)
+			return
+		}
+		r.ID = fmt.Sprintf("%s#dedup%d", rule.ID, len(rules))
+		rules = append(rules, r)
+	}
+	if v4OK && v6OK {
+		return nil
+	}
+	if v4OK {
+		v4Src, v4Dst, _ := rectangularEgressPairs(v4)
+		if len(v6) == 0 {
+			take(v4Src, v4Dst, nil, nil)
+			return rules
+		}
+		for i, g := range egressPairsBySrc(v6) {
+			var dst6 []net.IPNet
+			if !g.anyDst {
+				dst6 = g.dsts
+			}
+			if i == 0 {
+				take(v4Src, v4Dst, []net.IPNet{g.src}, dst6)
+				continue
+			}
+			take(nil, nil, []net.IPNet{g.src}, dst6)
+		}
+		return rules
+	}
+	v6Src, v6Dst, _ := rectangularEgressPairs(v6)
+	groups := egressPairsBySrc(v4)
+	for i, g := range groups {
+		var dst4 []net.IPNet
+		if !g.anyDst {
+			dst4 = g.dsts
+		}
+		if i == 0 && v6OK {
+			take([]net.IPNet{g.src}, dst4, v6Src, v6Dst)
+			continue
+		}
+		take([]net.IPNet{g.src}, dst4, nil, nil)
+	}
+	if !v6OK && len(v6) > 0 {
+		for _, g := range egressPairsBySrc(v6) {
+			var dst6 []net.IPNet
+			if !g.anyDst {
+				dst6 = g.dsts
+			}
+			take(nil, nil, []net.IPNet{g.src}, dst6)
+		}
+	}
+	return rules
+}
+
 func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
@@ -2008,6 +2225,11 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	defer func() {
 		rules = GetEgressUserRulesForNode(ctx, &targetnode, rules)
 		rules = GetUserDeviceEgressRulesForNode(ctx, &targetnode, networkNodes, rules)
+		// Policies overlap (All Nodes plus a narrower device policy). The client
+		// installs IPList × Dst as separate iptables rules, so drop a pair that
+		// an earlier rule already covers. Reverse pairs stay: their src and dst
+		// are swapped.
+		rules = dedupeEgressAclRules(rules)
 	}()
 
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))

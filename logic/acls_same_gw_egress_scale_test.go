@@ -583,3 +583,90 @@ func TestGetEgressRulesForNode_200SameGateway_AllNodesOn_RuleCountAssessment(t *
 		t.Fatalf("expected 0 #xs from All Nodes when all %d SITE ranges live on this gateway, got %d", scaleEgressCount, xs)
 	}
 }
+
+func TestDedupeEgressAclRules_DropsOverlappingPairsKeepsReverse(t *testing.T) {
+	_, lan, _ := net.ParseCIDR("10.104.0.0/20")
+	_, a, _ := net.ParseCIDR("100.121.42.1/32")
+	_, b, _ := net.ParseCIDR("100.121.42.6/32")
+	rules := map[string]models.AclRule{
+		"all-nodes": {
+			ID:              "all-nodes",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*a, *b},
+			Dst:             []net.IPNet{*lan},
+		},
+		"narrow": {
+			ID:              "narrow",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*a},
+			Dst:             []net.IPNet{*lan},
+		},
+		"all-nodes-reverse": {
+			ID:              "all-nodes-reverse",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*lan},
+			Dst:             []net.IPNet{*a, *b},
+		},
+		"narrow-reverse": {
+			ID:              "narrow-reverse",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*lan},
+			Dst:             []net.IPNet{*a},
+		},
+		"anywhere": {
+			ID:              "anywhere",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*lan},
+		},
+		"anywhere-dup": {
+			ID:              "anywhere-dup",
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{*lan},
+		},
+	}
+
+	out := dedupeEgressAclRules(rules)
+	got := map[string]int{}
+	for _, r := range out {
+		dsts := r.Dst
+		if len(dsts) == 0 {
+			dsts = []net.IPNet{{}}
+		}
+		for _, src := range r.IPList {
+			for _, dst := range dsts {
+				dk := "*"
+				if len(r.Dst) > 0 {
+					dk = dst.String()
+				}
+				got[src.String()+">"+dk]++
+			}
+		}
+	}
+	want := map[string]int{
+		"100.121.42.1/32>10.104.0.0/20": 1,
+		"100.121.42.6/32>10.104.0.0/20": 1,
+		"10.104.0.0/20>100.121.42.1/32": 1,
+		"10.104.0.0/20>100.121.42.6/32": 1,
+		"10.104.0.0/20>*":               1,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("pairs = %v, want %v", got, want)
+	}
+	for k, n := range want {
+		if got[k] != n {
+			t.Fatalf("pair %s count=%d, want %d (all %v)", k, got[k], n, got)
+		}
+	}
+}
