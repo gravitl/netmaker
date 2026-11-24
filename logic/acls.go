@@ -682,17 +682,20 @@ func meshNetsForRouterIDs(routers map[string]struct{}, excludeNodeID string) (ip
 	return meshNetsForEgressRouters([]schema.Egress{fake}, excludeNodeID)
 }
 
-// egressSideCIDRs returns the CIDRs of e that this policy allows.
+// egressCIDRs is a parsed v4/v6 range list cached once per egress.
+type egressCIDRs struct {
+	v4, v6 []net.IPNet
+}
+
+// egressSideCIDRs returns the CIDRs of a pre-parsed egress range that this policy allows.
 // Selected IPs replace the egress range, and only those that fall inside it.
-func egressSideCIDRs(e schema.Egress, selected4, selected6 []net.IPNet) (v4, v6 []net.IPNet) {
-	var range4, range6 []net.IPNet
-	AppendEgressPolicyRange(e, e.Range, &range4, &range6)
+func egressSideCIDRs(ranges egressCIDRs, selected4, selected6 []net.IPNet) (v4, v6 []net.IPNet) {
 	if len(selected4) == 0 && len(selected6) == 0 {
-		return range4, range6
+		return ranges.v4, ranges.v6
 	}
 	for _, s := range selected4 {
 		sel := s
-		for _, r := range range4 {
+		for _, r := range ranges.v4 {
 			rng := r
 			if cidrContainsCIDR(&rng, &sel) {
 				v4 = append(v4, sel)
@@ -702,7 +705,7 @@ func egressSideCIDRs(e schema.Egress, selected4, selected6 []net.IPNet) (v4, v6 
 	}
 	for _, s := range selected6 {
 		sel := s
-		for _, r := range range6 {
+		for _, r := range ranges.v6 {
 			rng := r
 			if cidrContainsCIDR(&rng, &sel) {
 				v6 = append(v6, sel)
@@ -731,6 +734,10 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 	targetID := targetnode.ID.String()
 	networkNodes, _ := listNetworkNodes(ctx, targetnode.Network)
 	routerCache := make(map[string]map[string]struct{})
+	// meshCache and rangeCache are filled on the first routersOf call for an
+	// egress so the n² pair loop does not repeat GetNodeByID or CIDR parses.
+	meshCache := make(map[string]egressCIDRs)
+	rangeCache := make(map[string]egressCIDRs)
 	routersOf := func(e schema.Egress) map[string]struct{} {
 		if e.ID != "" {
 			if s, ok := routerCache[e.ID]; ok {
@@ -740,8 +747,32 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 		s := egressRouterIDs(e, networkNodes, targetnode)
 		if e.ID != "" {
 			routerCache[e.ID] = s
+			var v4, v6 []net.IPNet
+			AppendEgressPolicyRange(e, e.Range, &v4, &v6)
+			rangeCache[e.ID] = egressCIDRs{v4: v4, v6: v6}
+			m4, m6 := meshNetsForRouterIDs(s, targetID)
+			meshCache[e.ID] = egressCIDRs{v4: m4, v6: m6}
 		}
 		return s
+	}
+	rangesOf := func(e schema.Egress) egressCIDRs {
+		if e.ID != "" {
+			if c, ok := rangeCache[e.ID]; ok {
+				return c
+			}
+		}
+		var v4, v6 []net.IPNet
+		AppendEgressPolicyRange(e, e.Range, &v4, &v6)
+		return egressCIDRs{v4: v4, v6: v6}
+	}
+	meshOf := func(e schema.Egress, routers map[string]struct{}) egressCIDRs {
+		if e.ID != "" {
+			if c, ok := meshCache[e.ID]; ok {
+				return c
+			}
+		}
+		m4, m6 := meshNetsForRouterIDs(routers, targetID)
+		return egressCIDRs{v4: m4, v6: m6}
 	}
 	for _, acl := range policies {
 		srcEgresses := getEgressesFromPolicyTags(acl.Src, targetnode.Network)
@@ -775,15 +806,15 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 				if !egressPairLeavesNode(srcE, dstE, srcRouters, dstRouters, targetID) {
 					continue
 				}
-				src4, src6 := egressSideCIDRs(srcE, selSrc4, selSrc6)
-				dst4, dst6 := egressSideCIDRs(dstE, selDst4, selDst6)
+				src4, src6 := egressSideCIDRs(rangesOf(srcE), selSrc4, selSrc6)
+				dst4, dst6 := egressSideCIDRs(rangesOf(dstE), selDst4, selDst6)
 
 				// On the dst router, a NATed src egress arrives as the src
 				// router's mesh address rather than the LAN range.
 				fwdSrc4, fwdSrc6 := src4, src6
 				if !srcHere && dstHere && srcE.Nat {
-					if m4, m6 := meshNetsForRouterIDs(srcRouters, targetID); len(m4) > 0 || len(m6) > 0 {
-						fwdSrc4, fwdSrc6 = m4, m6
+					if mesh := meshOf(srcE, srcRouters); len(mesh.v4) > 0 || len(mesh.v6) > 0 {
+						fwdSrc4, fwdSrc6 = mesh.v4, mesh.v6
 					}
 				}
 				fwd4 = appendUniqueIPNetPairs(fwd4, crossSiteEgressIPNetPairs(fwdSrc4, dst4), seenFwd4)
@@ -794,8 +825,8 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 				}
 				revSrc4, revSrc6 := dst4, dst6
 				if srcHere && !dstHere && dstE.Nat {
-					if m4, m6 := meshNetsForRouterIDs(dstRouters, targetID); len(m4) > 0 || len(m6) > 0 {
-						revSrc4, revSrc6 = m4, m6
+					if mesh := meshOf(dstE, dstRouters); len(mesh.v4) > 0 || len(mesh.v6) > 0 {
+						revSrc4, revSrc6 = mesh.v4, mesh.v6
 					}
 				}
 				// Reverse destinations stay the original LAN / selected IPs.
