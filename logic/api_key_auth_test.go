@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -140,6 +141,33 @@ func TestAPIKeyTenantIsolation(t *testing.T) {
 	auth, err := AuthenticateAPIKey(ctx, secret)
 	require.NoError(t, err)
 	assert.Equal(t, key.TenantID, auth.TenantID)
+}
+
+// TestAuthenticateAPIKeyWithoutTenantScope covers MSP-style calls where
+// X-Tenant-ID is omitted and scope is unbound until SecurityCheck rebinds
+// from the key's TenantID.
+func TestAuthenticateAPIKeyWithoutTenantScope(t *testing.T) {
+	ctx := scopedTestContext(t)
+	key, secret, err := CreateAPIKey(ctx, &models.CreateAPIKeyRequest{
+		Name:       "unscoped-auth",
+		Permission: schema.APIKeyPermissionRead,
+		NetworkScope: models.APIKeyNetworkScope{
+			Type: schema.APIKeyNetworkScopeAll,
+		},
+	}, "admin")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = RevokeAPIKey(ctx, key.ID)
+	})
+
+	// DB context present, but no tenant scope — mirrors MSP requests that omit X-Tenant-ID.
+	unscoped := db.WithContext(context.TODO())
+	auth, err := AuthenticateAPIKey(unscoped, secret)
+	require.NoError(t, err)
+	assert.Equal(t, key.TenantID, auth.TenantID)
+
+	bound := scope.WithContext(unscoped, scope.TenantScope, auth.TenantID)
+	assert.Equal(t, key.TenantID, scope.ID(bound))
 }
 
 func TestAPIKeyNetworkScopeAndPermissions(t *testing.T) {

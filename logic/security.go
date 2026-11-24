@@ -37,7 +37,13 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 				return
 			}
-			ctx := WithAPIKeyContext(r.Context(), auth)
+			// Bind request scope to the key's tenant. On MSP (multi-tenant) installs
+			// callers may omit X-Tenant-ID; the key itself is the source of truth.
+			ctx := r.Context()
+			if auth.TenantID != "" {
+				ctx = scope.WithContext(ctx, scope.TenantScope, auth.TenantID)
+			}
+			ctx = WithAPIKeyContext(ctx, auth)
 			r = r.WithContext(ctx)
 			if err := AuthorizeAPIKeyRequest(ctx, r); err != nil {
 				w.Header().Set("ACCESS_PERM", err.Error())
