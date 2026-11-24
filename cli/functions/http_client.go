@@ -181,6 +181,14 @@ func request[T any](method, route string, payload any) *T {
 		}
 		// refresh JWT token
 		if res.StatusCode == http.StatusUnauthorized && attempt < maxRetries && ctx.MasterKey == "" {
+			res.Body.Close()
+			if req.GetBody != nil {
+				newBody, bodyErr := req.GetBody()
+				if bodyErr != nil {
+					log.Fatalf("Client could not rewind request body: %s", bodyErr)
+				}
+				req.Body = newBody
+			}
 			req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 			continue
 		}
