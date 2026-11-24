@@ -331,6 +331,20 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	logic.SetDNSOnWgConfig(&gwNode, &client)
 	client.AllowedIPs = logic.GetExtclientAllowedIPs(r.Context(), client)
 
+	caller := r.Header.Get("user")
+	if r.Header.Get("ismaster") != "yes" && client.OwnerID != caller {
+		callerUser := &schema.User{Username: caller}
+		err = callerUser.GetWithMembership(r.Context())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if !logic.IsNetworkAdmin(r.Context(), callerUser, network) {
+			client.PrivateKey = ""
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
 }
