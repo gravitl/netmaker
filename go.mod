@@ -51,7 +51,7 @@ require (
 	golang.org/x/time v0.15.0
 	google.golang.org/api v0.278.0
 	google.golang.org/grpc v1.84.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
