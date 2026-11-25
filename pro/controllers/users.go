@@ -1285,6 +1285,13 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 
+// @Summary     List networks accessible via remote access client
+// @Router      /api/v1/rac/networks [get]
+// @Tags        RAC
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} schema.Network
+// @Failure     400 {object} models.ErrorResponse
 func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1318,6 +1325,14 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, networks, "fetched user accessible networks")
 }
 
+// @Summary     List remote access gateways on a network for the current user
+// @Router      /api/v1/rac/network/{network}/access_points [get]
+// @Tags        RAC
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {array} models.UserRAGs
+// @Failure     400 {object} models.ErrorResponse
 func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1365,6 +1380,17 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	logic.ReturnSuccessResponseWithJson(w, r, userGws, "fetched user accessible gateways in network "+network)
 }
 
+// @Summary     Get or create WireGuard config for a remote access gateway
+// @Router      /api/v1/rac/access_point/{access_point_id}/config [get]
+// @Tags        RAC
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       access_point_id path string true "Remote access gateway node ID"
+// @Param       body body models.UserRemoteGwsReq true "Remote access client identity"
+// @Success     200 {object} models.ExtClient
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")

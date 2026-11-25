@@ -51,6 +51,15 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nodes/{network}/status", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus)))).Methods(http.MethodGet)
 }
 
+// @Summary     Authenticate a node and return a JWT
+// @Router      /api/nodes/adm/{network}/authenticate [post]
+// @Tags        Nodes
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       body body models.AuthParams true "Node auth credentials"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -513,7 +522,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
-// @Success     200 {object} map[string]models.NodeStatus
+// @Success     200 {object} map[string]models.ApiNodeStatus
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)

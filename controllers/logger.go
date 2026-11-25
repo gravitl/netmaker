@@ -14,6 +14,12 @@ func loggerHandlers(r *mux.Router) {
 	r.HandleFunc("/api/logs", logic.SecurityCheck(true, http.HandlerFunc(getLogs))).Methods(http.MethodGet)
 }
 
+// @Summary     Fetch today's server log file contents
+// @Router      /api/logs [get]
+// @Tags        Logs
+// @Security    oauth
+// @Produce     plain
+// @Success     200 {string} string "Log file contents"
 func getLogs(w http.ResponseWriter, r *http.Request) {
 	var currentTime = time.Now().Format(logger.TimeFormatDay)
 	var currentFilePath = fmt.Sprintf("data/netmaker.log.%s", currentTime)

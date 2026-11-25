@@ -78,8 +78,11 @@ func IsOAuthConfigured(ctx context.Context) bool {
 	return ok
 }
 
-// HandleAuthCallback handles oauth callback.
-// Note: not included in API reference as part of the OAuth process itself.
+// @Summary     OAuth callback handler
+// @Router      /api/oauth/callback [get]
+// @Tags        Authentication
+// @Produce     html
+// @Success     200 {string} string "OAuth callback completed"
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state, _ := getStateAndCode(r)
 
@@ -138,16 +141,11 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// swagger:route GET /api/oauth/login nodes HandleAuthLogin
-//
-// Handles OAuth login.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//			Responses:
-//			200:  okResponse
+// @Summary     Start OAuth login redirect
+// @Router      /api/oauth/login [get]
+// @Tags        Authentication
+// @Param       x-application-name query string false "Calling application name"
+// @Success     302 {string} string "Redirect to identity provider"
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	provider, ok := Registry().FromContext(r.Context())
 	if !ok {
@@ -165,7 +163,10 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	provider.HandleLogin(w, r)
 }
 
-// HandleHeadlessSSO handles the OAuth login flow for headless interfaces such as Netmaker CLI via websocket.
+// @Summary     Headless OAuth login via websocket (CLI)
+// @Router      /api/oauth/headless [get]
+// @Tags        Authentication
+// @Success     101 {string} string "Websocket upgrade for headless SSO"
 func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

@@ -37,6 +37,8 @@ func gwHandlers(r *mux.Router) {
 
 // @Summary     Create a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [post]
+// @Router      /api/nodes/{network}/{nodeid}/createingress [post]
+// @Router      /api/nodes/{network}/{nodeid}/createrelay [post]
 // @Tags        Gateways
 // @Security    oauth
 // @Accept      json
@@ -154,6 +156,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [delete]
+// @Router      /api/nodes/{network}/{nodeid}/deleteingress [delete]
+// @Router      /api/nodes/{network}/{nodeid}/deleterelay [delete]
 // @Tags        Gateways
 // @Security    oauth
 // @Produce     json
