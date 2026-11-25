@@ -500,6 +500,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	newHost.OwnerUsername = ""
+
 	hostExists := false
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
 		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "attempted to re-register with no networks")
@@ -561,9 +563,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var host *schema.Host
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
-		if owner := r.Header.Get("user"); owner != "" {
-			newHost.OwnerUsername = owner
-		}
 		_ = logic.CheckHostPorts(r.Context(), &newHost)
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -618,7 +617,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
-	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, r.Header.Get("user"))
+	go logic.JoinHostToNetworks(ctx, logic.ModelsEnrollmentKeyFromSchema(key), host, "")
 }
 
 func isValidTrafficKey(key []byte) bool {

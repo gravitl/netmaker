@@ -1533,6 +1533,14 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	if logic.IsMSP(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("superadmin cannot be transferred directly on an MSP tenant; transfer organization ownership instead"),
+			logic.Forbidden,
+		))
+		return
+	}
+
 	dbctx := db.BeginTx(r.Context())
 	commit := false
 	defer func() {
@@ -1798,13 +1806,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	if user.PlatformRoleID != userchange.PlatformRoleID && userchange.PlatformRoleID == schema.OrgOwner {
-		err = errors.New("org-owner role cannot be assigned via this method, use the transfer ownership API instead")
+	if userchange.PlatformRoleID != "" && userchange.PlatformRoleID != user.PlatformRoleID &&
+		(userchange.PlatformRoleID == schema.OrgOwner || user.PlatformRoleID == schema.OrgOwner) {
+		err = errors.New("org ownership cannot be changed via this method, use the transfer ownership API instead")
 		slog.Error(
 			"failed to update user",
 			"caller",
 			caller.Username,
-			"attempted to assign org-owner role to user",
+			"attempted to change org-owner role on user",
 			username,
 			"error",
 			err,
@@ -1990,6 +1999,25 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			"failed to update user info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+
+	if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID != schema.OrgAdmin && user.PlatformRoleID == schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().GrantOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to grant tenant access to promoted org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for promoted org-admin: %w", err), "internal"))
+			return
+		}
+		user.PlatformRoleID = schema.OrgAdmin
+	} else if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID != schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().RevokeOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to revoke tenant access from downgraded org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for downgraded org-admin: %w", err), "internal"))
+			return
+		}
 	}
 
 	if deleteAccessTokens {
