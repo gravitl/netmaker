@@ -334,7 +334,7 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 		if node.Address6.IP != nil {
 			entry.Address6 = node.Address6.IP.String()
 		}
-		entry.Type = models.DNSEntryType_Node
+		entry.Type = schema.DNSEntryType_Node
 		dns = append(dns, entry)
 	}
 
@@ -530,7 +530,7 @@ func DeleteDNS(ctx context.Context, domain string, network string) error {
 
 // CreateDNS - creates a DNS entry, or updates it if it exists
 func CreateDNS(ctx context.Context, entry models.DNSEntry) (models.DNSEntry, error) {
-	entry.Type = models.DNSEntryType_Custom
+	entry.Type = schema.DNSEntryType_Custom
 	_entry, err := ConvertModelsDNSEntryToSchemaDNSEntry(ctx, entry)
 	if err != nil {
 		return models.DNSEntry{}, err
@@ -554,7 +554,7 @@ func ConvertSchemaDNSEntryToModelsDNSEntry(_entry *schema.DNSEntry) models.DNSEn
 		network = _entry.Network.Name
 	}
 	return models.DNSEntry{
-		Type:     models.DNSEntryType_Custom,
+		Type:     schema.DNSEntryType_Custom,
 		Address:  _entry.Address,
 		Address6: _entry.Address6,
 		Name:     _entry.Name,

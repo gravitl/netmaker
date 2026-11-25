@@ -33,7 +33,7 @@ var listEgressForUserDeviceACL = func(ctx context.Context, network string) ([]sc
 
 // getDefaultUserPolicyForUserDeviceACL loads the default user policy; tests may override.
 var getDefaultUserPolicyForUserDeviceACL = func(ctx context.Context, netID schema.NetworkID) (models.Acl, error) {
-	return GetDefaultPolicy(ctx, netID, models.UserPolicy)
+	return GetDefaultPolicy(ctx, netID, schema.UserPolicy)
 }
 
 // userDeviceSrcIPsForPolicy returns the overlay addresses of the devices whose
@@ -43,12 +43,12 @@ func userDeviceSrcIPsForPolicy(policy models.Acl, devices []models.Node,
 	owners := make(map[string]struct{})
 	for _, srcAcl := range policy.Src {
 		switch srcAcl.ID {
-		case models.UserAclID:
+		case schema.UserAclID:
 			if srcAcl.Value == "*" {
 				return allUserDeviceSrcIPs(devices)
 			}
 			owners[srcAcl.Value] = struct{}{}
-		case models.UserGroupAclID:
+		case schema.UserGroupAclID:
 			if usersMap, ok := userGrpMap[schema.UserGroupID(srcAcl.Value)]; ok {
 				for userName := range usersMap {
 					owners[userName] = struct{}{}
@@ -230,7 +230,7 @@ func getUserDeviceEgressRulesForNode(ctx context.Context, targetnode *models.Nod
 	egs, _ := listEgressForUserDeviceACL(ctx, targetnode.Network)
 	netID := schema.NetworkID(targetnode.Network)
 	policies := ListNetworkAccessUserPolicies(ctx, netID)
-	if defaultPolicy, err := GetDefaultPolicy(ctx, netID, models.UserPolicy); err == nil && defaultPolicy.Enabled {
+	if defaultPolicy, err := GetDefaultPolicy(ctx, netID, schema.UserPolicy); err == nil && defaultPolicy.Enabled {
 		policies = []models.Acl{defaultPolicy}
 	}
 	userGrpMap := userGroupsForNetwork(ctx, netID)
@@ -478,14 +478,14 @@ func getFwRulesForUserDevicesOnGw(ctx context.Context, node models.Node, nodes [
 			if src4.IP != nil {
 				rules = append(rules, models.FwRule{
 					SrcIP:           src4,
-					AllowedProtocol: models.ALL,
+					AllowedProtocol: schema.ALL,
 					Allow:           true,
 				})
 			}
 			if src6.IP != nil {
 				rules = append(rules, models.FwRule{
 					SrcIP:           src6,
-					AllowedProtocol: models.ALL,
+					AllowedProtocol: schema.ALL,
 					Allow:           true,
 				})
 			}

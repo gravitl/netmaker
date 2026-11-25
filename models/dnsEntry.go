@@ -42,12 +42,8 @@ type DNSUpdate struct {
 	NewAddress string
 }
 
+// DNSEntryType enum constants live only in schema (avoids duplicate swagger enums).
 type DNSEntryType = schema.DNSEntryType
-
-const (
-	DNSEntryType_Node   = schema.DNSEntryType_Node
-	DNSEntryType_Custom = schema.DNSEntryType_Custom
-)
 
 // DNSEntry - a DNS entry represented as struct
 type DNSEntry struct {

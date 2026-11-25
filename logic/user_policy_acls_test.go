@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"github.com/gravitl/netmaker/schema"
 	"context"
 	"testing"
 
@@ -21,9 +22,9 @@ func TestDefaultsAllowAllTrafficUsesRealUserPolicyOnCE(t *testing.T) {
 			Dst:      []models.AclPolicyTag{{Value: "*"}},
 		}
 	}
-	allNodes := open(models.DevicePolicy, true)
-	allUsersOff := open(models.UserPolicy, false)
-	allUsersOn := open(models.UserPolicy, true)
+	allNodes := open(schema.DevicePolicy, true)
+	allUsersOff := open(schema.UserPolicy, false)
+	allUsersOn := open(schema.UserPolicy, true)
 
 	if defaultsAllowAllTraffic(allNodes, allUsersOff, nil) {
 		t.Fatal("CE must not force user default on when All Users is disabled")
@@ -40,23 +41,23 @@ func TestIsAclPolicyValidUserPolicyOnCE(t *testing.T) {
 
 	acl := models.Acl{
 		NetworkID:        "net",
-		RuleType:         models.UserPolicy,
-		AccessType:       models.NetworkAccess,
-		AllowedDirection: models.TrafficDirectionBi,
-		Proto:            models.ALL,
+		RuleType:         schema.UserPolicy,
+		AccessType:       schema.NetworkAccess,
+		AllowedDirection: schema.TrafficDirectionBi,
+		Proto:            schema.ALL,
 		ServiceType:      models.Any,
 		Src: []models.AclPolicyTag{
-			{ID: models.UserAclID, Value: "*"},
+			{ID: schema.UserAclID, Value: "*"},
 		},
 		Dst: []models.AclPolicyTag{
-			{ID: models.NodeTagID, Value: "*"},
+			{ID: schema.NodeTagID, Value: "*"},
 		},
 	}
 	if err := IsAclPolicyValid(context.Background(), acl); err != nil {
 		t.Fatalf("All Users policy should validate on CE: %v", err)
 	}
 
-	acl.Src = []models.AclPolicyTag{{ID: models.UserGroupAclID, Value: "ops"}}
+	acl.Src = []models.AclPolicyTag{{ID: schema.UserGroupAclID, Value: "ops"}}
 	if err := IsAclPolicyValid(context.Background(), acl); err == nil {
 		t.Fatal("user group sources must be rejected on CE")
 	}
@@ -78,8 +79,8 @@ func TestIsUserAllowedToCommunicateDefaultAndPerUser(t *testing.T) {
 	defaultOn := models.Acl{
 		ID:      "net.all-users",
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
-		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+		Src:     []models.AclPolicyTag{{ID: schema.UserAclID, Value: "*"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "*"}},
 	}
 	ok, policies := isUserAllowedToCommunicateWithPolicies("alice", *peer, defaultOn, nil)
 	if !ok || len(policies) != 1 {
@@ -91,9 +92,9 @@ func TestIsUserAllowedToCommunicateDefaultAndPerUser(t *testing.T) {
 		ID:        "net.alice-peer",
 		Enabled:   true,
 		NetworkID: "net",
-		RuleType:  models.UserPolicy,
-		Src:       []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:       []models.AclPolicyTag{{ID: models.NodeID, Value: peer.ID.String()}},
+		RuleType:  schema.UserPolicy,
+		Src:       []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:       []models.AclPolicyTag{{ID: schema.NodeID, Value: peer.ID.String()}},
 	}
 	ok, policies = isUserAllowedToCommunicateWithPolicies("alice", *peer, models.Acl{Enabled: false}, []models.Acl{perUser})
 	if !ok || len(policies) != 1 {
@@ -114,7 +115,7 @@ func isUserAllowedToCommunicateWithPolicies(userName string, peer models.Node, d
 	peerID := peer.ID.String()
 	var allowed []models.Acl
 	for _, policy := range policies {
-		if !policy.Enabled || policy.RuleType != models.UserPolicy {
+		if !policy.Enabled || policy.RuleType != schema.UserPolicy {
 			continue
 		}
 		srcMap := ConvAclTagToValueMap(policy.Src)
@@ -141,31 +142,31 @@ func TestValidateCENetworkAclProtoAndPorts(t *testing.T) {
 	t.Cleanup(func() { servercfg.IsPro = wasPro })
 
 	ok := models.Acl{
-		AccessType:  models.NetworkAccess,
+		AccessType:  schema.NetworkAccess,
 		ServiceType: models.Any,
-		Proto:       models.ALL,
+		Proto:       schema.ALL,
 	}
 	if err := validateCENetworkAclProtoAndPorts(ok); err != nil {
 		t.Fatalf("Any/ALL should be allowed on CE: %v", err)
 	}
 
 	if err := validateCENetworkAclProtoAndPorts(models.Acl{
-		AccessType:  models.NetworkAccess,
+		AccessType:  schema.NetworkAccess,
 		ServiceType: models.Custom,
-		Proto:       models.TCP,
+		Proto:       schema.TCP,
 		Port:        []string{"443"},
 	}); err == nil {
 		t.Fatal("custom protocol/port must be rejected on CE")
 	}
 	if err := validateCENetworkAclProtoAndPorts(models.Acl{
-		AccessType: models.NetworkAccess,
-		Proto:      models.TCP,
+		AccessType: schema.NetworkAccess,
+		Proto:      schema.TCP,
 	}); err == nil {
 		t.Fatal("non-ALL protocol must be rejected on CE")
 	}
 	if err := validateCENetworkAclProtoAndPorts(models.Acl{
-		AccessType: models.NetworkAccess,
-		Proto:      models.ALL,
+		AccessType: schema.NetworkAccess,
+		Proto:      schema.ALL,
 		Port:       []string{"22"},
 	}); err == nil {
 		t.Fatal("custom ports must be rejected on CE")
@@ -173,9 +174,9 @@ func TestValidateCENetworkAclProtoAndPorts(t *testing.T) {
 
 	servercfg.IsPro = true
 	if err := validateCENetworkAclProtoAndPorts(models.Acl{
-		AccessType:  models.NetworkAccess,
+		AccessType:  schema.NetworkAccess,
 		ServiceType: models.Custom,
-		Proto:       models.TCP,
+		Proto:       schema.TCP,
 		Port:        []string{"443"},
 	}); err != nil {
 		t.Fatalf("Pro should allow custom proto/port: %v", err)
@@ -183,14 +184,14 @@ func TestValidateCENetworkAclProtoAndPorts(t *testing.T) {
 }
 
 func TestCheckIfAclTagisValidUserAclID(t *testing.T) {
-	acl := models.Acl{RuleType: models.UserPolicy, NetworkID: "net"}
-	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: models.UserAclID, Value: "*"}, true); err != nil {
+	acl := models.Acl{RuleType: schema.UserPolicy, NetworkID: "net"}
+	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: schema.UserAclID, Value: "*"}, true); err != nil {
 		t.Fatalf("user:* should be valid: %v", err)
 	}
-	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: models.UserGroupAclID, Value: "g"}, true); err == nil {
+	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: schema.UserGroupAclID, Value: "g"}, true); err == nil {
 		t.Fatal("user groups should be invalid on CE tag check")
 	}
-	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: models.UserAclID, Value: "alice"}, false); err == nil {
+	if err := checkIfAclTagisValid(context.Background(), acl, models.AclPolicyTag{ID: schema.UserAclID, Value: "alice"}, false); err == nil {
 		t.Fatal("user cannot be a destination")
 	}
 }

@@ -38,7 +38,7 @@ var serverSettingsCache sync.Map
 
 var defaultUserSettings = models.UserSettings{
 	TextSize:      "16",
-	Theme:         models.Dark,
+	Theme:         schema.Dark,
 	ReducedMotion: false,
 }
 
@@ -202,7 +202,7 @@ func UpsertUserSettings(username string, userSettings models.UserSettings) error
 		userSettings.TextSize = "16"
 	}
 	if userSettings.Theme == "" {
-		userSettings.Theme = models.Dark
+		userSettings.Theme = schema.Dark
 	}
 	u := schema.User{
 		Username:      username,

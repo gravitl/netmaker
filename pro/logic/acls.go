@@ -48,7 +48,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				Allow:           true,
 			})
 		}
-		if policy.AllowedDirection == models.TrafficDirectionBi {
+		if policy.AllowedDirection == schema.TrafficDirectionBi {
 			if node.Address.IP != nil {
 				rules = append(rules, models.FwRule{
 					SrcIP: net.IPNet{
@@ -142,7 +142,7 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 		// add egress range rules
 		for _, dstI := range policy.Dst {
-			if dstI.ID == models.EgressID {
+			if dstI.ID == schema.EgressID {
 
 				e := schema.Egress{ID: dstI.Value}
 				err := e.Get(db.WithContext(context.TODO()))
@@ -298,8 +298,8 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
 	switch t.ID {
-	case models.NodeTagID:
-		if a.RuleType == models.UserPolicy && isSrc {
+	case schema.NodeTagID:
+		if a.RuleType == schema.UserPolicy && isSrc {
 			return errors.New("user policy source mismatch")
 		}
 		// check if tag is valid
@@ -307,8 +307,8 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		if err != nil {
 			return errors.New("invalid tag " + t.Value)
 		}
-	case models.NodeID:
-		if a.RuleType == models.UserPolicy && isSrc {
+	case schema.NodeID:
+		if a.RuleType == schema.UserPolicy && isSrc {
 			return errors.New("user policy source mismatch")
 		}
 		_, nodeErr := logic.GetNodeByID(t.Value)
@@ -318,7 +318,7 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 				return errors.New("invalid node " + t.Value)
 			}
 		}
-	case models.EgressID, models.EgressRange:
+	case schema.EgressID, schema.EgressRange:
 		e := schema.Egress{
 			ID: t.Value,
 		}
@@ -326,14 +326,14 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-	case models.NetmakerIPAclID:
+	case schema.NetmakerIPAclID:
 		_, err := logic.NormalizeIPOrCIDR(t.Value)
 		if err != nil {
 			return err
 		}
 
-	case models.UserAclID:
-		if a.RuleType == models.DevicePolicy {
+	case schema.UserAclID:
+		if a.RuleType == schema.DevicePolicy {
 			return errors.New("device policy source mismatch")
 		}
 		if !isSrc {
@@ -344,8 +344,8 @@ func checkIfAclTagisValid(ctx context.Context, a models.Acl, t models.AclPolicyT
 		if err != nil {
 			return errors.New("invalid user " + t.Value)
 		}
-	case models.UserGroupAclID:
-		if a.RuleType == models.DevicePolicy {
+	case schema.UserGroupAclID:
+		if a.RuleType == schema.DevicePolicy {
 			return errors.New("device policy source mismatch")
 		}
 		if !isSrc {
@@ -376,12 +376,12 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 		return err
 	}
 	//check if src and dst are valid
-	if acl.AllowedDirection != models.TrafficDirectionBi &&
-		acl.AllowedDirection != models.TrafficDirectionUni {
+	if acl.AllowedDirection != schema.TrafficDirectionBi &&
+		acl.AllowedDirection != schema.TrafficDirectionUni {
 		return errors.New("invalid traffic direction")
 	}
 	switch acl.RuleType {
-	case models.UserPolicy:
+	case schema.UserPolicy:
 		// src list should only contain users
 		for _, srcI := range acl.Src {
 
@@ -404,7 +404,7 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 				return
 			}
 		}
-	case models.DevicePolicy:
+	case schema.DevicePolicy:
 		for _, srcI := range acl.Src {
 			if srcI.Value == "*" {
 				continue
@@ -433,7 +433,7 @@ func IsAclPolicyValid(ctx context.Context, acl models.Acl) (err error) {
 
 func getSelectedUserEgressIPNets(dstTags []models.AclPolicyTag) (dst4, dst6 []net.IPNet) {
 	for _, dst := range dstTags {
-		if dst.ID != models.NetmakerIPAclID {
+		if dst.ID != schema.NetmakerIPAclID {
 			continue
 		}
 		normalized, err := logic.NormalizeIPOrCIDR(dst.Value)
@@ -506,7 +506,7 @@ func IsPeerAllowed(ctx context.Context, node, peer models.Node, checkDefaultPoli
 	peerTags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
-		defaultPolicy, err := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultPolicy, err := logic.GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 		if err == nil {
 			if defaultPolicy.Enabled {
 				return true
@@ -533,7 +533,7 @@ func IsPeerAllowed(ctx context.Context, node, peer models.Node, checkDefaultPoli
 		srcMap = logic.ConvAclTagToValueMap(policy.Src)
 		dstMap = logic.ConvAclTagToValueMap(policy.Dst)
 		for _, dst := range policy.Dst {
-			if dst.ID == models.EgressID {
+			if dst.ID == schema.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(ctx)
 				if err == nil && e.Status {
@@ -557,7 +557,7 @@ func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schem
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
-			if srcTagI.ID == models.NodeTagID {
+			if srcTagI.ID == schema.NodeTagID {
 				if OldID.String() == srcTagI.Value {
 					acl.Src[i].Value = newID.String()
 					update = true
@@ -565,7 +565,7 @@ func UpdateDeviceTag(ctx context.Context, OldID, newID models.TagID, netID schem
 			}
 		}
 		for i, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.NodeTagID {
+			if dstTagI.ID == schema.NodeTagID {
 				if OldID.String() == dstTagI.Value {
 					acl.Dst[i].Value = newID.String()
 					update = true
@@ -582,14 +582,14 @@ func CheckIfTagAsActivePolicy(ctx context.Context, tagID models.TagID, netID sch
 	acls := logic.ListNetworkAccessDevicePolicies(ctx, netID)
 	for _, acl := range acls {
 		for _, srcTagI := range acl.Src {
-			if srcTagI.ID == models.NodeTagID {
+			if srcTagI.ID == schema.NodeTagID {
 				if tagID.String() == srcTagI.Value {
 					return true
 				}
 			}
 		}
 		for _, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.NodeTagID {
+			if dstTagI.ID == schema.NodeTagID {
 				if tagID.String() == dstTagI.Value {
 					return true
 				}
@@ -605,7 +605,7 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 	update := false
 	for _, acl := range acls {
 		for i := len(acl.Src) - 1; i >= 0; i-- {
-			if acl.Src[i].ID == models.NodeTagID {
+			if acl.Src[i].ID == schema.NodeTagID {
 				if tagID.String() == acl.Src[i].Value {
 					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
 					update = true
@@ -613,7 +613,7 @@ func RemoveDeviceTagFromAclPolicies(ctx context.Context, tagID models.TagID, net
 			}
 		}
 		for i := len(acl.Dst) - 1; i >= 0; i-- {
-			if acl.Dst[i].ID == models.NodeTagID {
+			if acl.Dst[i].ID == schema.NodeTagID {
 				if tagID.String() == acl.Dst[i].Value {
 					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
 					update = true
@@ -645,16 +645,16 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl)
 		if !acl.Enabled {
 			continue
 		}
-		if acl.AllowedDirection == models.TrafficDirectionBi && acl.Proto == models.ALL && acl.ServiceType == models.Any {
+		if acl.AllowedDirection == schema.TrafficDirectionBi && acl.Proto == schema.ALL && acl.ServiceType == models.Any {
 			continue
 		}
-		if acl.Proto != models.ALL || acl.ServiceType != models.Any {
+		if acl.Proto != schema.ALL || acl.ServiceType != models.Any {
 			return true
 		}
 		srcTags := logic.ConvAclTagToValueMap(acl.Src)
 		dstTags := logic.ConvAclTagToValueMap(acl.Dst)
 		for nodeTag := range targetNodeTags {
-			if acl.RuleType == models.DevicePolicy {
+			if acl.RuleType == schema.DevicePolicy {
 				if _, ok := srcTags[nodeTag.String()]; ok {
 					return true
 				}

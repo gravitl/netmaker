@@ -196,22 +196,12 @@ definitions:
     enum:
     - network
     - managed
-    - network
-    - managed
     type: string
     x-enum-varnames:
     - NetworkAccess
     - ManagedAccess
   models.AclGroupType:
     enum:
-    - user
-    - user-group
-    - tag
-    - device
-    - egress-range
-    - egress-id
-    - ip
-    - ipset
     - user
     - user-group
     - tag
@@ -232,8 +222,6 @@ definitions:
     - NetmakerSubNetRangeAClID
   models.AclPolicyType:
     enum:
-    - user-policy
-    - device-policy
     - user-policy
     - device-policy
     type: string
@@ -296,8 +284,6 @@ definitions:
     type: object
   models.AllowedTrafficDirection:
     enum:
-    - 0
-    - 1
     - 0
     - 1
     type: integer
@@ -817,8 +803,6 @@ definitions:
     type: object
   models.DNSEntryType:
     enum:
-    - node
-    - custom
     - node
     - custom
     type: string
@@ -2205,10 +2189,6 @@ definitions:
     - udp
     - tcp
     - icmp
-    - all
-    - udp
-    - tcp
-    - icmp
     type: string
     x-enum-varnames:
     - ALL
@@ -2540,9 +2520,6 @@ definitions:
     - dark
     - light
     - system
-    - dark
-    - light
-    - system
     type: string
     x-enum-varnames:
     - Dark
@@ -2787,22 +2764,12 @@ definitions:
     enum:
     - network
     - managed
-    - network
-    - managed
     type: string
     x-enum-varnames:
     - NetworkAccess
     - ManagedAccess
   schema.AclGroupType:
     enum:
-    - user
-    - user-group
-    - tag
-    - device
-    - egress-range
-    - egress-id
-    - ip
-    - ipset
     - user
     - user-group
     - tag
@@ -2832,8 +2799,6 @@ definitions:
     type: object
   schema.AclPolicyType:
     enum:
-    - user-policy
-    - device-policy
     - user-policy
     - device-policy
     type: string
@@ -3711,10 +3676,6 @@ definitions:
     type: object
   schema.Protocol:
     enum:
-    - all
-    - udp
-    - tcp
-    - icmp
     - all
     - udp
     - tcp
@@ -7480,7 +7441,7 @@ paths:
         in: query
         name: to
         type: string
-      - collectionFormat: csv
+      - collectionFormat: multi
         description: Source type filter
         in: query
         items:
@@ -7491,7 +7452,7 @@ paths:
         in: query
         name: src_entity_id
         type: string
-      - collectionFormat: csv
+      - collectionFormat: multi
         description: Destination type filter
         in: query
         items:
@@ -7502,7 +7463,7 @@ paths:
         in: query
         name: dst_entity_id
         type: string
-      - collectionFormat: csv
+      - collectionFormat: multi
         description: Protocol filter
         in: query
         items:

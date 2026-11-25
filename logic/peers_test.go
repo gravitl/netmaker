@@ -30,24 +30,24 @@ func TestDefaultsAllowAllTrafficRequiresBothDefaults(t *testing.T) {
 	}
 	scoped := models.Acl{
 		Enabled:  true,
-		RuleType: models.DevicePolicy,
+		RuleType: schema.DevicePolicy,
 		Src:      []models.AclPolicyTag{{Value: "net.ext-routers"}},
 		Dst:      []models.AclPolicyTag{{Value: "net.gateways"}},
 	}
-	allNodes := open(models.DevicePolicy, true)
-	allUsers := open(models.UserPolicy, true)
+	allNodes := open(schema.DevicePolicy, true)
+	allUsers := open(schema.UserPolicy, true)
 
 	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, nil))
-	assert.False(t, defaultsAllowAllTraffic(open(models.DevicePolicy, false), allUsers, nil))
-	assert.False(t, defaultsAllowAllTraffic(allNodes, open(models.UserPolicy, false), nil))
+	assert.False(t, defaultsAllowAllTraffic(open(schema.DevicePolicy, false), allUsers, nil))
+	assert.False(t, defaultsAllowAllTraffic(allNodes, open(schema.UserPolicy, false), nil))
 	assert.False(t, defaultsAllowAllTraffic(scoped, models.Acl{}, []models.Acl{scoped}))
 	assert.True(t, defaultsAllowAllTraffic(models.Acl{}, models.Acl{}, []models.Acl{allNodes, allUsers, scoped}))
 
 	// Uni / proto-scoped policies must not defeat AllowAll when both defaults are open.
 	uni := allNodes
-	uni.AllowedDirection = models.TrafficDirectionUni
+	uni.AllowedDirection = schema.TrafficDirectionUni
 	icmp := allUsers
-	icmp.Proto = models.ICMP
+	icmp.Proto = schema.ICMP
 	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, []models.Acl{allNodes, allUsers, uni, icmp}))
 }
 

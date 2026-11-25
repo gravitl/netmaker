@@ -120,9 +120,9 @@ func TestUpdateExtClient_Rename(t *testing.T) {
 	policy := models.Acl{
 		ID:        uuid.NewString(),
 		NetworkID: schema.NetworkID(env.network.Name),
-		RuleType:  models.DevicePolicy,
-		Src:       []models.AclPolicyTag{{ID: models.NodeID, Value: extclient.ClientID}},
-		Dst:       []models.AclPolicyTag{{ID: models.NodeID, Value: "ec-other-client"}},
+		RuleType:  schema.DevicePolicy,
+		Src:       []models.AclPolicyTag{{ID: schema.NodeID, Value: extclient.ClientID}},
+		Dst:       []models.AclPolicyTag{{ID: schema.NodeID, Value: "ec-other-client"}},
 	}
 	require.NoError(t, logic.UpsertAcl(env.ctx, policy))
 

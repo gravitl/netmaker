@@ -406,19 +406,19 @@ func createMigrationInternetEgressACL(ctx context.Context, node models.Node, e s
 	}
 	src := make([]models.AclPolicyTag, 0, len(clientNodeIDs))
 	for _, id := range clientNodeIDs {
-		src = append(src, models.AclPolicyTag{ID: models.NodeID, Value: id})
+		src = append(src, models.AclPolicyTag{ID: schema.NodeID, Value: id})
 	}
 	acl := models.Acl{
 		ID:               aclID,
 		Name:             fmt.Sprintf("Internet egress %s (migrated)", e.Name),
 		NetworkID:        schema.NetworkID(node.Network),
-		RuleType:         models.DevicePolicy,
+		RuleType:         schema.DevicePolicy,
 		Default:          false,
 		Enabled:          true,
 		Src:              src,
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: e.ID}},
-		Proto:            models.ALL,
-		AllowedDirection: models.TrafficDirectionBi,
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: e.ID}},
+		Proto:            schema.ALL,
+		AllowedDirection: schema.TrafficDirectionBi,
 	}
 	if err := logic.InsertAcl(aclCtx, acl); err != nil {
 		logger.Log(0, "migration: failed to create internet egress ACL:", e.ID, err.Error())

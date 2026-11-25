@@ -64,7 +64,7 @@ func skipPeerUpdateAclCalc(h *schema.Host) bool {
 // userDeviceEgressDefaultActive reports whether the network's default user
 // policy grants all egress to user devices. Device default must not.
 var userDeviceEgressDefaultActive = func(ctx context.Context, network string) bool {
-	userDefault, err := GetDefaultPolicy(ctx, schema.NetworkID(network), models.UserPolicy)
+	userDefault, err := GetDefaultPolicy(ctx, schema.NetworkID(network), schema.UserPolicy)
 	return err == nil && userDefault.Enabled
 }
 
