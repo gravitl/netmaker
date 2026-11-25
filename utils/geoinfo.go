@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sams96/rgeo"
 )
 
 type GeoInfo struct {
@@ -21,10 +24,64 @@ type GeoInfo struct {
 func GetGeoInfo(ip ...net.IP) (*GeoInfo, error) {
 	geoInfo, err := getGeoInfoFromIPAPI(ip...)
 	if err == nil && geoInfo.HasUsableGeo() {
+		geoInfo.fillCountryCodeFromLocation()
 		return geoInfo, nil
 	}
 
-	return getGeoInfoFromIpInfo(ip...)
+	geoInfo, err = getGeoInfoFromIpInfo(ip...)
+	if err == nil {
+		geoInfo.fillCountryCodeFromLocation()
+	}
+	return geoInfo, err
+}
+
+var (
+	countryReverseGeocoder     *rgeo.Rgeo
+	countryReverseGeocoderOnce sync.Once
+)
+
+// fillCountryCodeFromLocation resolves CountryCode from Location via offline
+// reverse geocoding when the geo source returned coordinates but no code
+// (e.g. ipapi.is's free tier, which only returns a full country name).
+func (g *GeoInfo) fillCountryCodeFromLocation() {
+	if g == nil || g.CountryCode != "" {
+		return
+	}
+	lat, lon, ok := parseLatLon(g.Location)
+	if !ok {
+		return
+	}
+
+	countryReverseGeocoderOnce.Do(func() {
+		r, err := rgeo.New(rgeo.Countries110)
+		if err != nil {
+			return
+		}
+		countryReverseGeocoder = r
+	})
+	if countryReverseGeocoder == nil {
+		return
+	}
+
+	loc, err := countryReverseGeocoder.ReverseGeocode([]float64{lon, lat})
+	if err != nil {
+		return
+	}
+	g.CountryCode = loc.CountryCode2
+}
+
+// parseLatLon parses a "lat,lon" formatted Location string.
+func parseLatLon(location string) (lat, lon float64, ok bool) {
+	parts := strings.SplitN(strings.TrimSpace(location), ",", 2)
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	lat, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	lon, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return lat, lon, true
 }
 
 // HasUsableGeo reports whether payload contains meaningful geo data.

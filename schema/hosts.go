@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/scope"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -239,6 +240,23 @@ func (h *Host) ListAll(ctx context.Context, options ...dbtypes.Option) ([]Host, 
 
 	err := query.Find(&hosts).Error
 	return hosts, err
+}
+
+// ExcludeHostsInNetworks returns a filter that excludes hosts that have at
+// least one non-pending-delete node in any of the given networks. An empty
+// networkIDs is a no-op, so callers can pass it unconditionally.
+func ExcludeHostsInNetworks(ctx context.Context, networkIDs ...string) dbtypes.Option {
+	return func(query *gorm.DB) *gorm.DB {
+		if len(networkIDs) == 0 {
+			return query
+		}
+		sub := db.FromContext(ctx).Session(&gorm.Session{NewDB: true}).
+			Model(&Node{}).
+			Select("host_id").
+			Where("network_id IN ?", networkIDs).
+			Where("pending_delete = ?", false)
+		return query.Where(fmt.Sprintf("%s.id NOT IN (?)", hostsTable), sub)
+	}
 }
 
 // ListOwnerUsernames returns the distinct usernames that have registered at

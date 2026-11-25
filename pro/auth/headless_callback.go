@@ -97,6 +97,8 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
+		logger.Log(0, "failed to fetch oauth secret:", fetchErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), models.UserAuthParams{
@@ -104,11 +106,12 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		Password: newPass,
 	}, logic.NetclientApp)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", userClaims.getUserName())
+		logger.Log(1, "could not parse jwt for user", user.Username, jwtErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 
-	logger.Log(1, "headless SSO login by user:", userClaims.getUserName())
+	logger.Log(1, "headless SSO login by user:", user.Username)
 
 	// Send OK to user in the browser
 	var response bytes.Buffer
@@ -117,7 +120,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		Verb: "authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
-		response := returnErrTemplate(userClaims.getUserName(), "Could not render SSO callback template", state, reqKeyIf)
+		response := returnErrTemplate(user.Username, "Could not render SSO callback template", state, reqKeyIf)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(response)
 	} else {

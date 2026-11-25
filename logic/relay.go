@@ -259,7 +259,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
-func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet {
+func RelayedAllowedIPs(ctx context.Context, g *PeerGraph, peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
 	if peer == nil || node == nil {
 		return allowedIPs
@@ -285,7 +285,7 @@ func RelayedAllowedIPs(ctx context.Context, peer, node *models.Node) []net.IPNet
 			return
 		}
 		seen[relayedNodeID] = struct{}{}
-		relayedNode, err := getNodeByID(relayedNodeID)
+		relayedNode, err := g.Node(relayedNodeID)
 		if err != nil {
 			return
 		}
@@ -377,8 +377,9 @@ func allowedIPsFromRelayedNode(relayedNode *models.Node) []net.IPNet {
 // peerRidesRetainedInternetExit reports whether peer is relayed (or auto-relayed)
 // by a different internet-exit routing node that the viewer keeps as a direct peer.
 // Those overlays must hang on that RelayedBy exit, not on the viewer's selected exit.
+// Only user devices retain alternate exits; server exit clients hairpin via theirs.
 func peerRidesRetainedInternetExit(ctx context.Context, viewer, peer *models.Node, relayID string, inetExitRouterIDs map[string]struct{}, defaultPolicyEnabled bool) bool {
-	if viewer == nil || peer == nil || !nodeIsInternetExitClient(viewer) || len(inetExitRouterIDs) == 0 {
+	if viewer == nil || peer == nil || !IsUserOwnedDevice(viewer) || !nodeIsInternetExitClient(viewer) || len(inetExitRouterIDs) == 0 {
 		return false
 	}
 	otherExitID := ""
@@ -414,7 +415,7 @@ func peerRidesRetainedInternetExit(ctx context.Context, viewer, peer *models.Nod
 }
 
 // GetAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
-func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
+func GetAllowedIpsForRelayed(ctx context.Context, g *PeerGraph, relayed, relay *models.Node) (allowedIPs []net.IPNet) {
 	routingID := InternetExitRoutingNodeID(relayed)
 	if relayed.RelayedBy != relay.ID.String() && routingID != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
@@ -446,10 +447,12 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 		GetNodeEgressInfo(&peer, eli, acls)
 		unfilteredSpecific := PeerAdvertisesSpecificEgress(&peer)
 		AddEgressInfoToPeerByAccess(ctx, relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		// Exit clients keep internet exit routers as direct peers — do not also
-		// advertise those overlays under RelayedBy. Non-exit relayed nodes do not
-		// retain exits as separate peers, so exit overlays must ride this relay.
-		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok && nodeIsInternetExitClient(relayed) {
+		// User-device exit clients keep internet exit routers as direct peers —
+		// do not also advertise those overlays under RelayedBy. Server exit
+		// clients and non-exit relayed nodes do not retain exits as separate
+		// peers, so exit overlays must ride this relay.
+		if _, ok := inetExitRouterIDs[peer.ID.String()]; ok &&
+			IsUserOwnedDevice(relayed) && nodeIsInternetExitClient(relayed) {
 			continue
 		}
 		// Peers relayed by another retained internet exit ride that exit peer —
@@ -477,7 +480,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, relayed, relay *models.Node) (
 			canBypassForceDirectPeer(&peer, relayed, siteAutoRelayedByClient(&peer, relayed)) {
 			continue
 		}
-		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, relayed, &peer, nil)...)
+		allowedIPs = append(allowedIPs, GetAllowedIPs(ctx, g, relayed, &peer, nil)...)
 	}
 	return
 }

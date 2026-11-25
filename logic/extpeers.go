@@ -315,9 +315,14 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
-	// replace any \r\n with \n in postup and postdown from HTTP request
-	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
-	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	// PostUp/PostDown are *string: nil leaves the stored script unchanged;
+	// non-nil (including "") applies the value after normalizing newlines.
+	if update.PostUp != nil {
+		new.PostUp = strings.Replace(*update.PostUp, "\r\n", "\n", -1)
+	}
+	if update.PostDown != nil {
+		new.PostDown = strings.Replace(*update.PostDown, "\r\n", "\n", -1)
+	}
 	// Tags are usually managed via the tags API. Extclient edit payloads often
 	// omit tags (nil); overwriting would drop the client from all tags. Only
 	// apply when the caller explicitly sends a tags map (including {} to clear).
@@ -388,43 +393,44 @@ func listExtClients(ctx context.Context, options ...dbtypes.Option) ([]models.Ex
 }
 
 // ToggleExtClientConnectivity - enables or disables an ext client
+//
+// Flips Enabled in place and saves. Does not go through UpdateExtClient with a
+// sparse CustomExtClient (nil PostUp/PostDown would leave scripts unchanged
+// now, but toggling still bypasses the full update path).
 func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, enable bool) (models.ExtClient, error) {
-	update := models.CustomExtClient{
-		Enabled:              enable,
-		ClientID:             client.ClientID,
-		PublicKey:            client.PublicKey,
-		DNS:                  client.DNS,
-		ExtraAllowedIPs:      client.ExtraAllowedIPs,
-		DeniedACLs:           client.DeniedACLs,
-		RemoteAccessClientID: client.RemoteAccessClientID,
+	if client == nil {
+		return models.ExtClient{}, errors.New("nil ext client")
 	}
-
-	// update in DB (same ClientID — upsert, no delete/recreate)
-	newClient := UpdateExtClient(client, &update)
-	if err := SaveExtClient(ctx, &newClient); err != nil {
-		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
-		return newClient, err
+	if client.Enabled == enable {
+		return *client, nil
 	}
-
-	return newClient, nil
+	updated := *client
+	updated.Enabled = enable
+	if err := SaveExtClient(ctx, &updated); err != nil {
+		slog.Error("failed to save updated ext client during update", "id", updated.ClientID, "network", updated.Network, "error", err)
+		return updated, err
+	}
+	return updated, nil
 }
 
-func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(ctx context.Context, g *PeerGraph, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+	var peers []wgtypes.PeerConfig
+	var idsAndAddr []models.IDandAddr
+	var egressRoutes []models.EgressNetworkRoutes
+	// only this gateway's ext clients matter; most gateways have none, and
+	// this runs for every gateway peer of every host in a peer update
+	extPeers, err := g.GatewayExtClients(ctx, node.ID.String())
+	if err != nil {
+		return peers, idsAndAddr, egressRoutes, err
+	}
+	if len(extPeers) == 0 {
+		return peers, idsAndAddr, egressRoutes, nil
+	}
 	var skipFlowLogs bool
 	if !GetFeatureFlags(ctx).EnableFlowLogs || !GetServerSettings(ctx).EnableFlowLogs {
 		skipFlowLogs = true
 	}
-	var peers []wgtypes.PeerConfig
-	var idsAndAddr []models.IDandAddr
-	var egressRoutes []models.EgressNetworkRoutes
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
-	if err != nil {
-		return peers, idsAndAddr, egressRoutes, err
-	}
-	host := &schema.Host{
-		ID: node.HostID,
-	}
-	err = host.Get(ctx)
+	host, err := g.Host(ctx, node.HostID)
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
@@ -589,8 +595,8 @@ func extClientEgressAllowed(ctx context.Context, node, extNode models.Node) bool
 	return ok
 }
 
-func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, ranges6 []net.IPNet) {
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
+func getExtpeerEgressRanges(ctx context.Context, g *PeerGraph, node models.Node) (ranges, ranges6 []net.IPNet) {
+	extPeers, err := g.NetworkExtClients(ctx, node.Network)
 	if err != nil {
 		return
 	}
@@ -618,8 +624,8 @@ func getExtpeerEgressRanges(ctx context.Context, node models.Node) (ranges, rang
 	return
 }
 
-func getExtpeersExtraRoutes(ctx context.Context, node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
-	extPeers, err := GetNetworkExtClients(ctx, node.Network)
+func getExtpeersExtraRoutes(ctx context.Context, g *PeerGraph, node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
+	extPeers, err := g.NetworkExtClients(ctx, node.Network)
 	if err != nil {
 		return
 	}
@@ -686,6 +692,36 @@ func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, only
 	}
 
 	return
+}
+
+// IsRACExtClient reports whether the ext client was created by the remote
+// access / desktop client app (has a device or RAC id). Admin-managed static
+// WireGuard config files have neither.
+func IsRACExtClient(client models.ExtClient) bool {
+	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+}
+
+// IsStaticConfigExtClient reports whether the ext client is an admin-managed
+// static WireGuard config file (no device / RAC id). JIT never deletes or
+// disables these. On IdP sync or group/network access loss they are disabled
+// (not deleted) so the config remains but cannot be used until re-enabled.
+func IsStaticConfigExtClient(client models.ExtClient) bool {
+	return !IsRACExtClient(client)
+}
+
+// DisableExtClient disables an ext client without deleting it. No-op if
+// already disabled. Callers should publish a deleted-client peer update when
+// changed is true so gateways drop the peer.
+func DisableExtClient(ctx context.Context, client *models.ExtClient) (changed bool, err error) {
+	if client == nil || !client.Enabled {
+		return false, nil
+	}
+	updated, err := ToggleExtClientConnectivity(ctx, client, false)
+	if err != nil {
+		return false, err
+	}
+	*client = updated
+	return true, nil
 }
 
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.

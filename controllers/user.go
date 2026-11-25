@@ -60,7 +60,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/disable", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings))))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/settings", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings))))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdmin(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
+	r.HandleFunc("/api/v1/users", middleware.InferScope(logic.SecurityCheck(false, logic.ContinueIfUserMatchOrAdminOrAuditor(http.HandlerFunc(getUserV1))))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(getUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v2/users", middleware.InferScope(logic.SecurityCheck(true, http.HandlerFunc(listUsers)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/bulk", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(bulkDeleteUsers)))).Methods(http.MethodDelete)
@@ -70,6 +70,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens)))).Methods(http.MethodGet).Queries("username", "{username}")
 	r.HandleFunc("/api/v1/users/access_token", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens)))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/logout", middleware.Scope(scope.TenantScope, logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout))))).Methods(http.MethodPost).Queries("username", "{username}")
+	r.HandleFunc("/api/v1/users/network", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(listNetworkUsers)))).Methods(http.MethodGet).Queries("network", "{network}")
 }
 
 // @Summary     Create a user API access token
@@ -1282,6 +1283,40 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
+// @Summary     List users with access to a network
+// @Router      /api/v1/users/network [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNetworkUsers(w http.ResponseWriter, r *http.Request) {
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	if err := (&schema.Network{Name: network}).Get(r.Context()); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("network %s not found", network), logic.BadReq))
+		return
+	}
+
+	_users, err := (&schema.User{}).ListAllWithMembership(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	networkUsers := make([]models.ReturnUser, 0)
+	for i := range _users {
+		if logic.UserHasAccessToNetwork(r.Context(), &_users[i], network) {
+			networkUsers = append(networkUsers, logic.ToReturnUser(&_users[i]))
+		}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, networkUsers, "fetched users for network "+network)
+}
+
 // @Summary     List all users
 // @Router      /api/v2/users [get]
 // @Tags        Users
@@ -1498,6 +1533,14 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	if logic.IsMSP(r.Context()) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("superadmin cannot be transferred directly on an MSP tenant; transfer organization ownership instead"),
+			logic.Forbidden,
+		))
+		return
+	}
+
 	dbctx := db.BeginTx(r.Context())
 	commit := false
 	defer func() {
@@ -1763,13 +1806,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	if user.PlatformRoleID != userchange.PlatformRoleID && userchange.PlatformRoleID == schema.OrgOwner {
-		err = errors.New("org-owner role cannot be assigned via this method, use the transfer ownership API instead")
+	if userchange.PlatformRoleID != "" && userchange.PlatformRoleID != user.PlatformRoleID &&
+		(userchange.PlatformRoleID == schema.OrgOwner || user.PlatformRoleID == schema.OrgOwner) {
+		err = errors.New("org ownership cannot be changed via this method, use the transfer ownership API instead")
 		slog.Error(
 			"failed to update user",
 			"caller",
 			caller.Username,
-			"attempted to assign org-owner role to user",
+			"attempted to change org-owner role on user",
 			username,
 			"error",
 			err,
@@ -1957,6 +2001,25 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID != schema.OrgAdmin && user.PlatformRoleID == schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().GrantOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to grant tenant access to promoted org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for promoted org-admin: %w", err), "internal"))
+			return
+		}
+		user.PlatformRoleID = schema.OrgAdmin
+	} else if scope.Level(r.Context()) == scope.OrgScope &&
+		oldUser.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID != schema.OrgAdmin {
+		err = orchestrator.GetRepository().UserOrchestrator().RevokeOrgAdminTenantAccess(r.Context(), scope.ID(r.Context()), user)
+		if err != nil {
+			slog.Error("failed to revoke tenant access from downgraded org-admin", "user", user.Username, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to sync tenant access for downgraded org-admin: %w", err), "internal"))
+			return
+		}
+	}
+
 	if deleteAccessTokens {
 		_ = (&schema.UserAccessToken{UserName: user.Username}).DeleteAllUserTokens(r.Context())
 	}
@@ -1983,6 +2046,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !logic.UserHasNetworkGroupAccess(ctx, user, extclient.Network) {
+				if logic.IsStaticConfigExtClient(extclient) {
+					changed, err := logic.DisableExtClient(ctx, &extclient)
+					if err != nil {
+						slog.Error("failed to disable static extclient",
+							"id", extclient.ClientID, "owner", user.Username, "error", err)
+					} else if changed {
+						if err := mq.PublishDeletedClientPeerUpdate(ctx, &extclient); err != nil {
+							slog.Error("error setting ext peers: " + err.Error())
+						}
+					}
+					continue
+				}
 				err = logic.DeleteExtClient(r.Context(), extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
@@ -2160,7 +2235,7 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 			if extclient.OwnerID != username {
 				continue
 			}
-			if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" && !forceDeleteConfigs {
+			if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
 				// only delete wireguard configs on force
 				continue
 			}

@@ -61,7 +61,6 @@ func InitPro() {
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
-		proControllers.AutoRelayHandlers,
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
@@ -84,10 +83,6 @@ func InitPro() {
 		license.AddLicenseHooks()
 
 		//AddUnauthorisedUserNodeHooks()
-
-		if servercfg.CacheEnabled() {
-			proLogic.InitAutoRelayCache()
-		}
 
 		// Only run singleton operations on master pod in HA setup
 		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
@@ -155,11 +150,6 @@ func InitPro() {
 		go proLogic.EventWatcher()
 	})
 
-	logic.ResetAutoRelay = proLogic.ResetAutoRelay
-	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
-	logic.SetAutoRelay = proLogic.SetAutoRelay
-	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
-
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
@@ -203,25 +193,18 @@ func InitPro() {
 	logic.SyncFromIDP = auth.SyncFromIDP
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
-	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
 	logic.EnsureDefaultUserGroupNetworkPolicies = proLogic.EnsureDefaultUserGroupNetworkPolicies
 	logic.GetGroupNetworksMap = proLogic.GetGroupNetworksMap
-	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
-	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
 	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
-	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
+	logic.GetTagMapWithNetworkNodes = proLogic.GetTagMapWithNetworkNodes
 	logic.GetUserGrpMap = proLogic.GetUserGrpMap
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.CleanupGwsMigration = proLogic.CleanupGwsMigration
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
-	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
-	logic.GetUserDeviceAclRulesForNode = proLogic.GetUserDeviceAclRulesForNode
-	logic.GetUserDeviceEgressRulesForNode = proLogic.GetUserDeviceEgressRulesForNode
-	logic.GetFwRulesForUserDevicesOnGw = proLogic.GetFwRulesForUserDevicesOnGw
 	logic.GetFeatureFlags = license.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.IsMSP = license.IsMSP

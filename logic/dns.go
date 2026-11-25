@@ -26,12 +26,12 @@ const (
 )
 
 var (
-	invalidDNSChars = regexp.MustCompile(`[^a-z0-9-]+`)
+	invalidDNSChars = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
 	multipleHyphens = regexp.MustCompile(`-+`)
 )
 
 func ToDNSLabel(input string) string {
-	s := strings.ToLower(strings.TrimSpace(input))
+	s := strings.TrimSpace(input)
 
 	// Replace anything that isn't explicitly DNS-safe.
 	s = invalidDNSChars.ReplaceAllString(s, "-")
@@ -53,6 +53,11 @@ func ToDNSLabel(input string) string {
 
 var GetNameserversForNode = getNameserversForNode
 var GetNameserversForHost = getNameserversForHost
+
+// ErrLastEnabledFallback is returned when an update or delete would leave a
+// network with no enabled fallback nameserver. At least one is required for
+// exit-node / catch-all DNS resolution.
+var ErrLastEnabledFallback = errors.New("at least one fallback nameserver should be enabled")
 var ValidateNameserverReq = validateNameserverReq
 
 type GlobalNs struct {
@@ -161,6 +166,69 @@ func fallbackNameserverNeedsAllUsers(ns *schema.Nameserver) bool {
 	return true
 }
 
+// networkHasOtherEnabledFallback reports whether the network has an enabled
+// fallback nameserver other than excludeID.
+func networkHasOtherEnabledFallback(list []schema.Nameserver, excludeID string) bool {
+	for i := range list {
+		ns := &list[i]
+		if ns.ID == excludeID {
+			continue
+		}
+		if ns.Fallback && ns.Status {
+			return true
+		}
+	}
+	return false
+}
+
+// wouldLoseLastEnabledFallback reports whether current is an enabled fallback
+// that update would stop being one, with no other enabled fallback remaining.
+func wouldLoseLastEnabledFallback(current, update *schema.Nameserver, hasOther bool) bool {
+	if current == nil || update == nil {
+		return false
+	}
+	wasEnabledFallback := current.Status && current.Fallback
+	willBeFallback := update.Fallback
+	if current.Default {
+		willBeFallback = current.Fallback
+	}
+	willBeEnabledFallback := update.Status && willBeFallback
+	return wasEnabledFallback && !willBeEnabledFallback && !hasOther
+}
+
+// EnsureEnabledFallbackRemains rejects disabling or unsetting Fallback on the
+// last enabled fallback nameserver in the network. Default nameservers keep
+// their Fallback flag; only Status can change for them.
+func EnsureEnabledFallbackRemains(ctx context.Context, current, update *schema.Nameserver) error {
+	if current == nil || update == nil {
+		return nil
+	}
+	list, err := (&schema.Nameserver{NetworkID: current.NetworkID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+	if wouldLoseLastEnabledFallback(current, update, networkHasOtherEnabledFallback(list, current.ID)) {
+		return ErrLastEnabledFallback
+	}
+	return nil
+}
+
+// EnsureEnabledFallbackOnDelete rejects deleting the last enabled fallback
+// nameserver in the network.
+func EnsureEnabledFallbackOnDelete(ctx context.Context, ns *schema.Nameserver) error {
+	if ns == nil || !ns.Status || !ns.Fallback {
+		return nil
+	}
+	list, err := (&schema.Nameserver{NetworkID: ns.NetworkID}).ListByNetwork(ctx)
+	if err != nil {
+		return err
+	}
+	if !networkHasOtherEnabledFallback(list, ns.ID) {
+		return ErrLastEnabledFallback
+	}
+	return nil
+}
+
 // GetDNS - gets the DNS of a current network
 func GetDNS(ctx context.Context, network string) ([]models.DNSEntry, error) {
 
@@ -248,6 +316,9 @@ func GetNodeDNS(ctx context.Context, network string) ([]models.DNSEntry, error) 
 		}
 		err = host.Get(ctx)
 		if err != nil {
+			continue
+		}
+		if IsUserOwnedHost(host) {
 			continue
 		}
 		var entry = models.DNSEntry{}

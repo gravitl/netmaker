@@ -47,6 +47,7 @@ var HttpHandlers = []interface{}{
 	egressHandlers,
 	internetGatewayHandlers,
 	orgHandlers,
+	autoRelayHandlers,
 }
 
 func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {

@@ -14,6 +14,9 @@ import (
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
 const LastCheckInThreshold = time.Minute * 10
 
+// CreationThreshold - if node is unreachable before reaching this threshold after creation, treat node as online.
+const CreationThreshold = time.Minute * 2
+
 // NodeCheckin - struct for node checkins with server
 type NodeCheckin struct {
 	Version   string
@@ -96,6 +99,8 @@ type Node struct {
 	LastEvaluatedAt                    time.Time          `json:"last_evaluated_at"`
 	Location                           string             `json:"location"` // Format: "lat,lon"
 	CountryCode                        string             `json:"country_code"`
+	HostHasEndpointIPv6                bool               `json:"-"`
+	CreatedAt                          time.Time          `json:"-"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
@@ -198,6 +203,8 @@ func (newNode *Node) Fill(
 ) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
+	newNode.TenantID = currentNode.TenantID
+	newNode.Network = currentNode.Network
 	// Revisit the logic for boolean values
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// TODO ---- !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -218,9 +225,6 @@ func (newNode *Node) Fill(
 	}
 	if newNode.LastCheckIn.IsZero() || currentNode.LastCheckIn.After(newNode.LastCheckIn) {
 		newNode.LastCheckIn = currentNode.LastCheckIn
-	}
-	if newNode.Network == "" {
-		newNode.Network = currentNode.Network
 	}
 	if newNode.IsIngressGateway != currentNode.IsIngressGateway {
 		newNode.IsIngressGateway = currentNode.IsIngressGateway
@@ -302,11 +306,13 @@ type NodeWithHost struct {
 	RelayedIGWClients                 datatypes.JSONMap                     `json:"relayed_igw_clients"`
 	RelayedByNodeID                   *string                               `json:"relayed_by_node_id"`
 	IsIGWClient                       bool                                  `json:"is_igw_client"`
+	UseTcpUplink                      bool                                  `json:"use_tcp_uplink"`
 	SelectedInternetEgressID          string                                `json:"selected_internet_egress_id"`
 	AutoRelayedPeers                  datatypes.JSONType[map[string]string] `json:"auto_relayed_peers"`
 	Tags                              datatypes.JSONMap                     `json:"tags"`
 	PostureCheckSeverity              schema.Severity                       `json:"posture_check_severity"`
 	PostureCheckLastEvaluationCycleID string                                `json:"posture_check_last_evaluation_cycle_id"`
+	PostureCheckLastEvaluatedAt       time.Time                             `json:"posture_check_last_evaluated_at"`
 	Metadata                          string                                `json:"metadata"`
 	LastCheckIn                       time.Time                             `json:"last_check_in"`
 	ExpirationDateTime                time.Time                             `json:"expiration_date_time"`
@@ -334,11 +340,13 @@ func (n *NodeWithHost) Fill(_node *schema.Node) {
 	n.RelayedIGWClients = _node.RelayedIGWClients
 	n.RelayedByNodeID = _node.RelayedByNodeID
 	n.IsIGWClient = _node.IsIGWClient
+	n.UseTcpUplink = _node.UseTcpUplink
 	n.SelectedInternetEgressID = _node.SelectedInternetEgressID
 	n.AutoRelayedPeers = _node.AutoRelayedPeers
 	n.Tags = _node.Tags
 	n.PostureCheckSeverity = _node.PostureCheckSeverity
 	n.PostureCheckLastEvaluationCycleID = _node.PostureCheckLastEvaluationCycleID
+	n.PostureCheckLastEvaluatedAt = _node.PostureCheckLastEvaluatedAt
 	n.Metadata = _node.Metadata
 	n.LastCheckIn = _node.LastCheckIn
 	n.ExpirationDateTime = _node.ExpirationDateTime

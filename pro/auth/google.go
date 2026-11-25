@@ -187,15 +187,18 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 
 	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
+		logger.Log(0, "failed to fetch oauth secret:", fetchErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 	authRequest := models.UserAuthParams{
-		UserName: content.Email,
+		UserName: user.Username,
 		Password: newPass,
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 
@@ -216,8 +219,8 @@ func (p *GoogleProvider) HandleCallback(w http.ResponseWriter, r *http.Request) 
 		Origin: schema.Dashboard,
 	})
 
-	logger.Log(1, "completed google OAuth signin for", content.Email)
-	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, content.Email), http.StatusPermanentRedirect)
+	logger.Log(1, "completed google OAuth signin for", user.Username)
+	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, user.Username), http.StatusPermanentRedirect)
 }
 
 func (p *GoogleProvider) GetUserInfo(state string, code string) (*OAuthUser, error) {
@@ -248,5 +251,6 @@ func (p *GoogleProvider) GetUserInfo(state string, code string) (*OAuthUser, err
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
 	userInfo.AccessToken = string(data)
+	userInfo.Email = normalizeUsername(userInfo.Email)
 	return userInfo, nil
 }

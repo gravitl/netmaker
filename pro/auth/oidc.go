@@ -196,15 +196,18 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	newPass, fetchErr := logic.FetchOAuthSecret(r.Context())
 	if fetchErr != nil {
+		logger.Log(0, "failed to fetch oauth secret:", fetchErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 	authRequest := models.UserAuthParams{
-		UserName: content.Email,
+		UserName: user.Username,
 		Password: newPass,
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(r.Context(), authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
+		handleSomethingWentWrong(w)
 		return
 	}
 
@@ -224,8 +227,8 @@ func (p *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	logger.Log(1, "completed OIDC OAuth signin for", content.Email)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
+	logger.Log(1, "completed OIDC OAuth signin for", user.Username)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)
 }
 
 func (p *OIDCProvider) GetUserInfo(state string, code string) (u *OAuthUser, e error) {
@@ -265,5 +268,6 @@ func (p *OIDCProvider) GetUserInfo(state string, code string) (u *OAuthUser, e e
 		e = fmt.Errorf("error when claiming OIDCUser: %w", err)
 	}
 	u.ID = StringOrInt(idToken.Subject)
+	u.Email = normalizeUsername(u.Email)
 	return
 }

@@ -76,11 +76,11 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/host/{hostid}/posture_status/ui", middleware.Scope(scope.TenantScope, middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getHostPostureStatus))))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts)))).
-		Methods(http.MethodGet)
+		Methods(http.MethodGet).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost)))).
-		Methods(http.MethodPost)
+		Methods(http.MethodPost).Queries("network", "{network}")
 	r.HandleFunc("/api/emqx/hosts", middleware.Scope(scope.TenantScope, logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts)))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", middleware.Scope(scope.TenantScope, http.HandlerFunc(socketHandler)))
@@ -222,6 +222,8 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       os query []string false "Filter by OS" Enums(windows, linux, darwin)
 // @Param       q query string false "Search across fields"
+// @Param       not_in_network query []string false "Exclude hosts that have a node in this network (repeatable)"
+// @Param       exclude_owned query bool false "Exclude user-owned devices (hosts registered via the desktop/device flow)"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
 // @Success     200 {array} models.ApiHost
@@ -233,6 +235,20 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query().Get("q")
+	var notInNetworkIDs []string
+	for _, name := range r.URL.Query()["not_in_network"] {
+		network := &schema.Network{Name: name}
+		err := network.Get(r.Context())
+		if err != nil {
+			continue
+		}
+		notInNetworkIDs = append(notInNetworkIDs, network.ID)
+	}
+
+	var ownerFilters []interface{}
+	if r.URL.Query().Get("exclude_owned") == "true" {
+		ownerFilters = append(ownerFilters, "")
+	}
 
 	var page, pageSize int
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
@@ -249,6 +265,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 		dbtypes.InAscOrder("name"),
 		dbtypes.WithPagination(page, pageSize),
 	)
@@ -268,6 +286,8 @@ func listHosts(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		dbtypes.WithFilter("os", osFilters...),
 		dbtypes.WithSearchQuery(q, "id", "name", "public_key", expr.ByteaField("endpoint_ip"), expr.ByteaField("endpoint_ipv6")),
+		schema.ExcludeHostsInNetworks(r.Context(), notInNetworkIDs...),
+		dbtypes.WithFilter("owner_username", ownerFilters...),
 	)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
@@ -327,6 +347,15 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// Sync before peer calc (PeerUpdateForHost walks host.Nodes) and reuse the
+	// returned list for HostPull.Nodes — one host_id query, no second GetHostNodes.
+	hostNodes, syncErr := logic.SyncHostNodesFromDB(r.Context(), host)
+	if syncErr != nil {
+		logger.Log(0, "pull: host.Nodes reconcile failed", hostIDStr, syncErr.Error())
+		if hostNodes == nil {
+			hostNodes = logic.GetHostNodes(host)
+		}
+	}
 
 	resetFailovered := r.URL.Query().Get("reset_failovered") == "true"
 	refresh := r.URL.Query().Get("refresh") == "true"
@@ -344,13 +373,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	hPU, ok := logic.GetCachedHostPeerUpdate(r.Context(), hostID.String())
 	if !ok || resetFailovered || refresh {
-		allNodes, err := logic.GetAllNodes(r.Context())
+		g, err := logic.LoadPeerGraph(r.Context())
 		if err != nil {
 			logger.Log(0, "failed to get nodes: ", hostID.String())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		hPU, err = logic.GetPeerUpdateForHost(r.Context(), "", host, allNodes, nil, nil, nil)
+		hPU, err = g.PeerUpdateForHost(r.Context(), "", host, nil, nil, nil)
 		if err != nil {
 			logger.Log(0, "could not pull peers for host", hostID.String(), err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -361,7 +390,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	response := models.HostPull{
 		Host:                    *host,
-		Nodes:                   logic.GetHostNodes(host),
+		Nodes:                   hostNodes,
 		ServerConfig:            hPU.ServerConfig,
 		Peers:                   hPU.Peers,
 		PeerIDs:                 hPU.PeerIDs,
@@ -651,36 +680,32 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to recalculate status on update metrics: error fetching node by id", "id", nodeID, "error", err)
 				return
 			}
+
+			nodeWithStatus := logic.AddStatusToNodes(ctx, []models.Node{node}, true)[0]
+			if nodeWithStatus.Status != node.Status {
+				_node := &schema.Node{ID: nodeID, Status: nodeWithStatus.Status}
+				if err := _node.UpdateStatus(ctx); err != nil {
+					slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
+				}
+			}
+
 			extclients, err := logic.GetGatewayExtClients(ctx, nodeID)
 			if err != nil {
 				slog.Error("failed to recalculate status on update metrics: error fetching extclients for node", "id", nodeID, "error", err)
 				return
 			}
-
-			nodes := make([]models.Node, 0, len(extclients)+1)
-			nodes = append(nodes, node)
+			extNodes := make([]models.Node, 0, len(extclients))
 			for _, extclient := range extclients {
-				nodes = append(nodes, models.ConvertToStaticNode(extclient))
+				extNodes = append(extNodes, models.ConvertToStaticNode(extclient))
 			}
-
-			nodesWithStatus := logic.AddStatusToNodes(ctx, nodes, true)
-			for _, node := range nodesWithStatus {
-				if node.IsStatic {
-					err = logic.SaveExtClient(ctx, &node.StaticNode)
-					if err != nil {
-						slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", node.StaticNode.ClientID, "error", err)
-						continue
-					}
-				} else {
-					_node := &schema.Node{
-						ID:     node.ID.String(),
-						Status: node.Status,
-					}
-					err = _node.UpdateStatus(ctx)
-					if err != nil {
-						slog.Error("failed to update node status on update metrics: error upserting node", "id", nodeID, "error", err)
-						continue
-					}
+			extNodesWithStatus := logic.AddStatusToNodes(ctx, extNodes, true)
+			for i, extNode := range extNodesWithStatus {
+				// most reports don't change the status; skip the write then
+				if extNode.StaticNode.Status == extNodes[i].StaticNode.Status {
+					continue
+				}
+				if err := logic.SaveExtClient(ctx, &extNode.StaticNode); err != nil {
+					slog.Error("failed to update extclient status on update metrics: error saving extclient", "id", extNode.StaticNode.ClientID, "error", err)
 				}
 			}
 		}(ctx, nodeID)
@@ -1342,6 +1367,14 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	if logic.IsUserOwnedHost(host) {
+		errorResponse.Code = http.StatusUnauthorized
+		errorResponse.Message = "user session required"
+		logger.Log(0, request.Header.Get("user"),
+			"rejecting host-password auth for user-owned device:", authRequest.ID)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
 	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
 		errorResponse.Code = http.StatusUnauthorized
@@ -1626,43 +1659,13 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "sync all hosts request received"
 func syncHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	user := r.Header.Get("user")
 
-	hosts, err := (&schema.Host{}).ListAll(r.Context())
+	err := mq.PublishPeerUpdate(r.Context(), true)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
-		return
-	}
-	if logic.IsAPIKeyAuth(r.Context()) {
-		filtered := hosts[:0]
-		for _, host := range hosts {
-			if logic.HostInAPIKeyScope(r.Context(), host.ID.String(), schema.APIKeyPermissionModify) {
-				filtered = append(filtered, host)
-			}
-		}
-		hosts = filtered
+		slog.Error("failed to request hosts to sync", "user", user, "error", err)
 	}
 
-	ctx := scope.WithContext(db.WithContext(context.Background()), scope.Level(r.Context()), scope.ID(r.Context()))
-	go func(ctx context.Context, hosts []schema.Host) {
-		slog.Info("requesting all hosts to sync", "user", user)
-
-		for _, host := range hosts {
-			go func(host schema.Host) {
-				hostUpdate := models.HostUpdate{
-					Action: models.RequestPull,
-					Host:   host,
-				}
-				if err := mq.HostUpdate(&hostUpdate); err != nil {
-					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
-				} else {
-					slog.Info("host sync requested", "user", user, "host", host.ID.String())
-				}
-			}(host)
-			time.Sleep(time.Millisecond * 100)
-		}
-	}(ctx, hosts)
 	logic.LogEvent(r.Context(), &models.Event{
 		Action: schema.SyncAll,
 		Source: models.Subject{

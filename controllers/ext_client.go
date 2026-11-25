@@ -223,7 +223,13 @@ func listNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		extclients = append(extclients, *logic.ConvertSchemaExtclientToModelsExtClientWithContext(r.Context(), &_extclients[i], logic.SkipViolations()))
 	}
 	logic.AttachExtClientViolations(r.Context(), extclients)
+
 	for i := range extclients {
+		staticNode := logic.AddStatusToNodes(r.Context(), []models.Node{models.ConvertToStaticNode(extclients[i])}, true)[0]
+		extclients[i].Status = staticNode.StaticNode.Status
+		if err := logic.SaveExtClient(r.Context(), &extclients[i]); err != nil {
+			slog.Error("failed to persist extclient status", "id", extclients[i].ClientID, "error", err)
+		}
 		extclients[i].PrivateKey = ""
 	}
 
@@ -1559,7 +1565,11 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 			deleted++
 		}
 		if deleted > 0 {
-			allNodes, _ := logic.GetAllNodes(ctx)
+			g, err := logic.LoadPeerGraph(ctx)
+			if err != nil {
+				slog.Error("bulk extclient delete: failed to load peer graph", "error", err)
+				gwDeletedClients = nil
+			}
 			for gwNodeID, clients := range gwDeletedClients {
 				gwNode, err := logic.GetNodeByID(gwNodeID)
 				if err != nil {
@@ -1571,7 +1581,7 @@ func bulkDeleteExtClients(w http.ResponseWriter, r *http.Request) {
 					slog.Error("bulk extclient delete: gw host not found", "host_id", gwNode.HostID, "error", err)
 					continue
 				}
-				go mq.PublishSingleHostPeerUpdate(ctx, gwHost, allNodes, nil, nil, clients, false, nil)
+				go mq.PublishSingleHostPeerUpdate(ctx, g, gwHost, nil, nil, clients, false, nil)
 
 			}
 			go mq.PublishPeerUpdate(ctx, false)
@@ -1618,6 +1628,14 @@ func validateCustomExtClient(ctx context.Context, customExtClient *models.Custom
 				return errInvalidExtClientDNS
 			}
 		}
+	}
+	// PostUp/PostDown: nil = omit/leave unchanged on update; non-nil applies
+	// (including "" to clear). Enforce max length when the field is present.
+	if customExtClient.PostUp != nil && len(*customExtClient.PostUp) > 1024 {
+		return errors.New("postup exceeds max length of 1024")
+	}
+	if customExtClient.PostDown != nil && len(*customExtClient.PostDown) > 1024 {
+		return errors.New("postdown exceeds max length of 1024")
 	}
 	return nil
 }

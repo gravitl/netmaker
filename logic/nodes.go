@@ -37,16 +37,131 @@ func GetNetworkNodes(ctx context.Context, network string) ([]models.Node, error)
 	return GetNetworkNodesMemory(allnodes, network), nil
 }
 
-// GetHostNodes - fetches all nodes part of the host
+// GetHostNodes fetches all nodes that belong to the host.
+// Source of truth is the nodes table (host_id), not host.Nodes — that JSON
+// slice can retain stale IDs after leave/delete drift and omit live nodes.
+// Read-only: callers that need host.Nodes repaired use SyncHostNodesFromDB
+// (pull) or membership write paths (join/associate).
 func GetHostNodes(host *schema.Host) []models.Node {
-	nodes := []models.Node{}
-	for _, nodeID := range host.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err == nil {
-			nodes = append(nodes, node)
+	if host == nil || host.ID == uuid.Nil {
+		return []models.Node{}
+	}
+	ctx := hostNodesContext(host)
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		// Fall back to the denormalized ID list if the query fails.
+		nodes := []models.Node{}
+		for _, nodeID := range host.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil {
+				nodes = append(nodes, node)
+			}
 		}
+		return nodes
+	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
 	}
 	return nodes
+}
+
+func hostNodesContext(host *schema.Host) context.Context {
+	ctx := db.WithContext(context.Background())
+	if host != nil && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	return ctx
+}
+
+func listHostSchemaNodes(ctx context.Context, hostID string) ([]schema.Node, error) {
+	return (&schema.Node{}).ListAll(
+		ctx,
+		dbtypes.WithFilter("host_id", hostID),
+		dbtypes.WithAllPreloads(),
+	)
+}
+
+// ReconcileHostNodeIDs rewrites host.Nodes to match live node IDs when they drift.
+// Peer updates and pull both walk host.Nodes, so stale/missing IDs break joins.
+// Uses a column-scoped UPDATE (not full-row Save) so a stale host snapshot cannot
+// clobber concurrent field updates. HA-safe locking would need a DB CAS/advisory
+// lock; this only avoids Save-wide clobber.
+func ReconcileHostNodeIDs(ctx context.Context, host *schema.Host, liveIDs []string) error {
+	if host == nil || host.ID == uuid.Nil {
+		return nil
+	}
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
+		return err
+	}
+	if hostNodeIDSetsEqual(fresh.Nodes, liveIDs) {
+		host.Nodes = append([]string(nil), fresh.Nodes...)
+		return nil
+	}
+	prev := append([]string(nil), fresh.Nodes...)
+	nodesCol := datatypes.JSONSlice[string](append([]string(nil), liveIDs...))
+	if err := db.FromContext(ctx).Model(&schema.Host{}).
+		Where("id = ?", host.ID).
+		Update("nodes", nodesCol).Error; err != nil {
+		slog.Warn("failed to reconcile host.Nodes",
+			"host", host.ID.String(), "error", err)
+		return err
+	}
+	host.Nodes = append([]string(nil), liveIDs...)
+	slog.Info("reconciled host.Nodes with live nodes",
+		"host", host.ID.String(),
+		"before", len(prev),
+		"after", len(liveIDs))
+	return nil
+}
+
+// SyncHostNodesFromDB loads nodes by host_id, updates host.Nodes if needed, and
+// returns the same node list for reuse (e.g. HostPull.Nodes) so callers avoid a
+// second preloaded query via GetHostNodes. Call before PeerUpdateForHost.
+func SyncHostNodesFromDB(ctx context.Context, host *schema.Host) ([]models.Node, error) {
+	if host == nil || host.ID == uuid.Nil {
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = hostNodesContext(host)
+	} else if scope.ID(ctx) == "" && host.TenantID != "" {
+		ctx = scope.WithContext(ctx, scope.TenantScope, host.TenantID)
+	}
+	schemaNodes, err := listHostSchemaNodes(ctx, host.ID.String())
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]models.Node, 0, len(schemaNodes))
+	ids := make([]string, 0, len(schemaNodes))
+	for i := range schemaNodes {
+		n := ConvertSchemaNodeToModelsNode(&schemaNodes[i])
+		ensureNodeMutex(n)
+		nodes = append(nodes, *n)
+		ids = append(ids, schemaNodes[i].ID)
+	}
+	if err := ReconcileHostNodeIDs(ctx, host, ids); err != nil {
+		return nodes, err
+	}
+	return nodes, nil
+}
+
+func hostNodeIDSetsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(a))
+	for _, id := range a {
+		seen[id] = struct{}{}
+	}
+	for _, id := range b {
+		if _, ok := seen[id]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
@@ -142,7 +257,7 @@ func UpsertNode(newNode *models.Node) error {
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		ctx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, currentNode.TenantID)
-		network := &schema.Network{Name: newNode.Network}
+		network := &schema.Network{Name: currentNode.Network}
 		if err := network.Get(ctx); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
@@ -883,6 +998,8 @@ func ConvertSchemaNodeToModelsNodeWithContext(ctx context.Context, _node *schema
 		LastEvaluatedAt:                    _node.PostureCheckLastEvaluatedAt,
 		Location:                           _node.Host.Location,
 		CountryCode:                        _node.Host.CountryCode,
+		HostHasEndpointIPv6:                len(_node.Host.EndpointIPv6) > 0,
+		CreatedAt:                          _node.CreatedAt,
 	}
 
 	// User-registered devices: attach owner metadata for API Active Users listing.

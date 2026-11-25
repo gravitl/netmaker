@@ -206,7 +206,7 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 	}
 }
 
-func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
+func ContinueIfUserMatchOrAdminOrAuditor(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusForbidden, Message: Forbidden_Msg,
@@ -232,7 +232,7 @@ func ContinueIfUserMatchOrAdmin(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		case scope.TenantScope:
-			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole {
+			if user.PlatformRoleID == schema.SuperAdminRole || user.PlatformRoleID == schema.AdminRole || user.PlatformRoleID == schema.Auditor {
 				next.ServeHTTP(w, r)
 				return
 			}

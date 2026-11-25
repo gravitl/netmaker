@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/scope"
@@ -11,13 +12,37 @@ import (
 )
 
 var limitedApis = map[string]struct{}{
-	"/api/server/status":          {},
-	"/api/server/onboarding":      {},
-	"/api/emqx/hosts":             {},
-	"/api/users/adm/authenticate": {},
-	"/api/v1/auth/discover":       {},
-	"/api/v1/auth/methods":        {},
-	"/api/v1/orgs/sole/owner":     {},
+	"/api/server/status":                {},
+	"/api/server/onboarding":            {},
+	"/api/emqx/hosts":                   {},
+	"/api/users/adm/authenticate":       {},
+	"/api/v1/auth/discover":             {},
+	"/api/v1/auth/methods":              {},
+	"/api/v1/orgs/sole/owner":           {},
+	"/api/v1/server/license/validation": {},
+}
+
+var limitedApiRouteTemplates = map[string]struct{}{
+	"/api/v1/tenants/{tenant_id}": {},
+}
+
+func isLimitedApi(request *http.Request) bool {
+	if _, ok := limitedApis[request.URL.Path]; ok {
+		return true
+	}
+
+	route := mux.CurrentRoute(request)
+	if route == nil {
+		return false
+	}
+
+	template, err := route.GetPathTemplate()
+	if err != nil {
+		return false
+	}
+
+	_, ok := limitedApiRouteTemplates[template]
+	return ok
 }
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
@@ -40,7 +65,7 @@ func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if err := servercfg.ErrLicenseValidation(ctx); err != nil {
-			if _, ok := limitedApis[request.URL.Path]; !ok {
+			if !isLimitedApi(request) {
 				logic.ReturnErrorResponse(writer, request, logic.FormatError(err, "forbidden"))
 				return
 			}

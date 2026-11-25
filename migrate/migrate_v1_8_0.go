@@ -56,16 +56,14 @@ func migrateV1_8_0(ctx context.Context) error {
 		return err
 	}
 
-	// runs after the extclients are migrated, since the addresses of the
-	// extclients are allocated to their ids.
-	err = migrateIPAllocations(ctx)
+	err = resetHostOwnerUsernames(ctx)
 	if err != nil {
 		return err
 	}
 
-	// One shot with this job. bypass_egress_routes=false is a valid admin value
-	// after the backfill, so it must not run again on later startups.
-	return migrateBypassEgressRoutesDefault(ctx)
+	// runs after the extclients are migrated, since the addresses of the
+	// extclients are allocated to their ids.
+	return migrateIPAllocations(ctx)
 }
 
 // networkIDs resolves network names to network ids within tenants, caching
@@ -454,6 +452,13 @@ func migrateUserEmailUsernamesToLowercase(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// resetHostOwnerUsernames clears the owner_username on hosts.
+func resetHostOwnerUsernames(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&schema.Host{}).
+		Where("owner_username <> ''").
+		Update("owner_username", "").Error
 }
 
 // migrateIPAllocations backfills the address pools and allocations of the

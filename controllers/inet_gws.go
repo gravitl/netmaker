@@ -64,6 +64,12 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID, clientNode.UseTcpUplink)
 	}
+	if len(node.AutoRelayedPeers) > 0 {
+		if err := logic.ResetAutoRelayedPeer(r.Context(), &node); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
 	node.IsInternetGateway = true
 	if node.IsGw && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"
@@ -121,6 +127,12 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		_ = logic.SetNodeSelectedInternetEgress(&clientNode, e.ID, clientNode.UseTcpUplink)
+	}
+	if len(node.AutoRelayedPeers) > 0 {
+		if err := logic.ResetAutoRelayedPeer(r.Context(), &node); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 	node.IsInternetGateway = true
 	err = logic.UpsertNode(&node)

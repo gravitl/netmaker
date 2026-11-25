@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	dbtypes "github.com/gravitl/netmaker/db/types"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/scope"
@@ -74,10 +75,15 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 
 	if len(e.Nodes) > 0 {
 		for k := range e.Nodes {
-			node, err := GetNodeByID(k)
+			_node := &schema.Node{ID: k}
+			err := _node.Get(ctx, dbtypes.WithAllPreloads())
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
+			if _node.Host == nil {
+				return fmt.Errorf("host not found for routing node %s", _node.ID)
+			}
+			node := *ConvertSchemaNodeToModelsNode(_node)
 			if err := ErrUserOwnedNodeInfrastructureRole(&node); err != nil {
 				return err
 			}
@@ -88,10 +94,14 @@ func validateEgressReq(ctx context.Context, e *schema.Egress) error {
 				if err := ValidateInternetEgressRoutingNode(&node); err != nil {
 					return err
 				}
+			} else {
+				if err := ValidateEgressHostFirewall(_node.Host); err != nil {
+					return err
+				}
 			}
-		}
-		if err := ValidateWindowsEgressNATMode(*e); err != nil {
-			return err
+			if err := ValidateHostEgressNATMode(*e, _node.Host); err != nil {
+				return err
+			}
 		}
 	}
 	if IsEgressInternetGateway(*e) && len(e.Tags) > 0 {
@@ -181,7 +191,7 @@ func InternetEgressRoutingNodeIDsFromList(eli []schema.Egress) map[string]struct
 }
 
 // ResolveBypassEgressRoutesForCreate returns the bypass flag for a new internet egress.
-// Defaults to true when the request omits the field.
+// Defaults to false when the request omits the field.
 func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) bool {
 	if !isInternet {
 		return false
@@ -189,7 +199,7 @@ func ResolveBypassEgressRoutesForCreate(req *models.EgressReq, isInternet bool) 
 	if req != nil && req.BypassEgressRoutes != nil {
 		return *req.BypassEgressRoutes
 	}
-	return true
+	return false
 }
 
 // ResolveBypassEgressRoutesForUpdate returns the bypass flag for an updated internet egress.
@@ -321,6 +331,22 @@ func ValidateInternetEgressRoutingNode(node *models.Node) error {
 	return nil
 }
 
+// ValidateEgressHostFirewall rejects Linux hosts without iptables/nftables and Windows
+// hosts without NetNat, since they cannot install egress forwarding/NAT rules.
+func ValidateEgressHostFirewall(host *schema.Host) error {
+	switch host.OS {
+	case models.OS_Types.Linux:
+		if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+			return fmt.Errorf("host %s cannot be an egress routing node: iptables or nftables needs to be installed", host.Name)
+		}
+	case models.OS_Types.Windows:
+		if !isSupportedEgressFirewall(host.FirewallInUse, host.OS) {
+			return fmt.Errorf("host %s cannot be an egress routing node: windows netclient must report NetNat firewall support (upgrade netclient)", host.Name)
+		}
+	}
+	return nil
+}
+
 // isSupportedEgressFirewall reports whether the host's reported firewall can do egress NAT.
 func isSupportedEgressFirewall(firewallInUse, osName string) bool {
 	switch firewallInUse {
@@ -338,23 +364,10 @@ func IsSupportedEgressFirewall(firewallInUse, osName string) bool {
 	return isSupportedEgressFirewall(firewallInUse, osName)
 }
 
-// ValidateWindowsEgressNATMode rejects virtual NAT when any routing node is Windows.
-func ValidateWindowsEgressNATMode(e schema.Egress) error {
-	if e.Mode != schema.VirtualNAT {
-		return nil
-	}
-	for nodeID := range e.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
-		host := &schema.Host{ID: node.HostID}
-		if err := host.Get(db.WithContext(context.TODO())); err != nil {
-			continue
-		}
-		if host.OS == models.OS_Types.Windows {
-			return errors.New("virtual NAT is not supported on Windows routing nodes; use direct NAT")
-		}
+// ValidateHostEgressNATMode rejects virtual NAT when the routing node's host is Windows.
+func ValidateHostEgressNATMode(e schema.Egress, host *schema.Host) error {
+	if e.Mode == schema.VirtualNAT && host.OS == models.OS_Types.Windows {
+		return errors.New("virtual NAT is not supported on Windows routing nodes; use direct NAT")
 	}
 	return nil
 }
@@ -1081,7 +1094,7 @@ func EgressDomainsEqual(a, b []string) bool {
 }
 
 func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
-	if !e.Status {
+	if user == nil || e == nil || !e.Status {
 		return false
 	}
 	for _, acl := range acls {
@@ -1092,12 +1105,13 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 		_, all := dstTags["*"]
 
 		if _, ok := dstTags[e.ID]; ok || all {
-			// get all src tags
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.Username {
-					return true
+				if srcAcl.ID == models.UserAclID {
+					// All Users (user:*) and per-user sources.
+					if srcAcl.Value == "*" || srcAcl.Value == user.Username {
+						return true
+					}
 				} else if srcAcl.ID == models.UserGroupAclID {
-					// fetch all users in the group
 					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}

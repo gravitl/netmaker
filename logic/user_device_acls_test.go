@@ -57,6 +57,20 @@ func TestUserDeviceSrcIPsForPolicy_MatchesUserAndGroupSources(t *testing.T) {
 	}
 }
 
+func TestUserDeviceSrcIPsForPolicy_AllUsersWildcard(t *testing.T) {
+	devices := []models.Node{
+		userDeviceNode("alice", "100.64.0.9"),
+		userDeviceNode("bob", "100.64.0.10"),
+	}
+	policy := models.Acl{
+		Src: []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
+	}
+	src4, _ := userDeviceSrcIPsForPolicy(policy, devices, nil)
+	if len(src4) != 2 {
+		t.Fatalf("user:* must cover every user device, got %v", src4)
+	}
+}
+
 // TestUserDeviceEgressRule_IPRestrictedPolicyYieldsSelectedIPOnly is the regression
 // for the reported bug: a user policy granting the "sig" egress but restricted to
 // 10.104.0.1/32 must produce exactly that destination with the device /32 as the
@@ -280,5 +294,98 @@ func TestAddUserDeviceAclRule_DropsRuleWithoutDestination(t *testing.T) {
 	addUserDeviceAclRule(rules, policy, nil, nil, src4, nil)
 	if len(rules) != 0 {
 		t.Fatalf("expected no rule when there is no source, got %+v", rules)
+	}
+}
+
+// TestAppendUserDeviceForwardedEgressDsts_PrefersVirtualRange is the user-device
+// twin of #relayed-eg-fwd: on the relay/gateway, packets use VirtualRange.
+func TestAppendUserDeviceForwardedEgressDsts_PrefersVirtualRange(t *testing.T) {
+	forwarded := map[string]schema.Egress{
+		"sig": {
+			ID:           "sig",
+			Status:       true,
+			Range:        "10.104.0.0/20",
+			VirtualRange: "10.200.0.0/20",
+		},
+	}
+	policy := models.Acl{
+		Enabled: true,
+		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+	}
+	var dst4, dst6 []net.IPNet
+	appendUserDeviceForwardedEgressDsts(policy, forwarded, &dst4, &dst6)
+	if len(dst4) != 1 || dst4[0].String() != "10.200.0.0/20" {
+		t.Fatalf("expected VirtualRange on forwarded path, got %v", dst4)
+	}
+	if len(dst6) != 0 {
+		t.Fatalf("expected no v6, got %v", dst6)
+	}
+}
+
+// TestAppendUserDeviceForwardedEgressDsts_SelectedIPsOnForwardedPath ensures
+// IP-restricted user policies still narrow destinations when hairpinning.
+func TestAppendUserDeviceForwardedEgressDsts_SelectedIPsOnForwardedPath(t *testing.T) {
+	forwarded := map[string]schema.Egress{
+		"sig": {ID: "sig", Status: true, Range: "10.104.0.0/20", VirtualRange: "10.200.0.0/20"},
+	}
+	policy := models.Acl{
+		Enabled: true,
+		Dst: []models.AclPolicyTag{
+			{ID: models.EgressID, Value: "sig"},
+			{ID: models.NetmakerIPAclID, Value: "10.104.0.1/32"},
+		},
+	}
+	var dst4, dst6 []net.IPNet
+	appendUserDeviceForwardedEgressDsts(policy, forwarded, &dst4, &dst6)
+	if len(dst4) != 1 || dst4[0].String() != "10.104.0.1/32" {
+		t.Fatalf("expected selected IP only, got %v", dst4)
+	}
+}
+
+// TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule verifies the
+// full AclRule path for user devices → relayed/auto-relayed egress ranges.
+func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) {
+	original := EgressesHostedOnForwardedNodes
+	t.Cleanup(func() { EgressesHostedOnForwardedNodes = original })
+
+	gwID := uuid.New()
+	gw := models.Node{CommonNode: models.CommonNode{ID: gwID, Network: "netmaker"}}
+	device := userDeviceNode("alice", "100.64.0.9")
+	EgressesHostedOnForwardedNodes = func(ctx context.Context, node models.Node, networkNodes []models.Node) map[string]schema.Egress {
+		return map[string]schema.Egress{
+			"sig": {ID: "sig", Status: true, Range: "10.90.0.0/24", VirtualRange: "10.200.0.0/24"},
+		}
+	}
+	policy := models.Acl{
+		ID:               "alice-to-sig",
+		Enabled:          true,
+		RuleType:         models.UserPolicy,
+		AllowedDirection: models.TrafficDirectionUni,
+		Proto:            models.ALL,
+		Src:              []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
+		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+	}
+	rules := appendUserDeviceForwardedEgressRules(context.Background(), &gw,
+		[]models.Node{device}, []models.Acl{policy}, nil, nil, make(map[string]models.AclRule))
+	rule, ok := rules["alice-to-sig"+userDeviceRuleSuffix]
+	if !ok {
+		t.Fatalf("expected user-device forwarded egress rule, got %+v", rules)
+	}
+	if len(rule.IPList) != 1 || rule.IPList[0].String() != "100.64.0.9/32" {
+		t.Fatalf("expected device /32 source, got %v", rule.IPList)
+	}
+	if len(rule.Dst) != 1 || rule.Dst[0].String() != "10.200.0.0/24" {
+		t.Fatalf("expected VirtualRange dest, got %v", rule.Dst)
+	}
+}
+
+// TestAppendUserDeviceAutoRelayPeerAclRules_SkipsWithoutAutoRelay verifies the
+// helper is a no-op when the target is not an auto-relay gateway.
+func TestAppendUserDeviceAutoRelayPeerAclRules_SkipsWithoutAutoRelay(t *testing.T) {
+	gw := models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
+	device := userDeviceNode("alice", "100.64.0.9")
+	rules := appendUserDeviceAutoRelayPeerAclRules(context.Background(), &gw, []models.Node{device}, nil, make(map[string]models.AclRule))
+	if len(rules) != 0 {
+		t.Fatalf("expected no rules when IsAutoRelay is false, got %+v", rules)
 	}
 }

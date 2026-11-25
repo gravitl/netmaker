@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -201,8 +203,14 @@ func getNetworkTopology(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       network path string true "Network name"
 // @Param       nodeid path string true "Node ID or extclient client ID"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Param       status query []string false "Filter by peer node status" Enums(online, offline, warning, error, unknown, disconnected)
+// @Param       connection_type query []string false "Filter by path type" Enums(p2p, relayed, exit)
+// @Param       device_type query []string false "Filter by peer device type" Enums(gateway, egress, config_file, relayed_client)
 // @Produce     json
-// @Success     200 {object} models.NodeConnections
+// @Success     200 {object} models.PaginatedResponse{data=models.NodeConnections}
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNodeConnections(w http.ResponseWriter, r *http.Request) {
@@ -216,7 +224,12 @@ func getNodeConnections(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	conns, err := logic.GetNodeConnections(r.Context(), netname, vars["nodeid"])
+	opts, err := parseNodeConnectionsOptions(r)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	conns, total, err := logic.GetNodeConnections(r.Context(), netname, vars["nodeid"], opts)
 	if err != nil {
 		errType := logic.Internal
 		if errors.Is(err, logic.ErrTopologyNodeNotFound) {
@@ -225,7 +238,72 @@ func getNodeConnections(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, conns, "fetched node connections")
+	logic.ReturnSuccessResponseWithJson(w, r, models.PaginatedResponse{
+		Data:       conns,
+		Page:       opts.Page,
+		PerPage:    opts.PerPage,
+		Total:      total,
+		TotalPages: logic.ConnectionsTotalPages(total, opts.PerPage),
+	}, "fetched node connections")
+}
+
+// parseNodeConnectionsOptions reads pagination and filter query params.
+// Repeated keys and comma-separated values are both accepted.
+func parseNodeConnectionsOptions(r *http.Request) (logic.NodeConnectionsOptions, error) {
+	opts := logic.NodeConnectionsOptions{}
+	query := r.URL.Query()
+
+	page, _ := strconv.Atoi(query.Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	perPage, _ := strconv.Atoi(query.Get("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+	opts.Page = page
+	opts.PerPage = perPage
+
+	for _, raw := range queryValues(query, "status") {
+		switch s := schema.NodeStatus(raw); s {
+		case schema.OnlineSt, schema.OfflineSt, schema.WarningSt, schema.ErrorSt, schema.UnKnown, schema.Disconnected:
+			opts.Status = append(opts.Status, s)
+		default:
+			return opts, fmt.Errorf("invalid status %q", raw)
+		}
+	}
+	for _, raw := range queryValues(query, "connection_type") {
+		switch t := models.NetworkConnectionType(raw); t {
+		case models.NetworkConnectionP2P, models.NetworkConnectionRelayed, models.NetworkConnectionExit:
+			opts.ConnectionType = append(opts.ConnectionType, t)
+		default:
+			return opts, fmt.Errorf("invalid connection_type %q", raw)
+		}
+	}
+	for _, raw := range queryValues(query, "device_type") {
+		switch raw {
+		case models.ConnectionDeviceGateway, models.ConnectionDeviceEgress,
+			models.ConnectionDeviceConfigFile, models.ConnectionDeviceRelayedClient:
+			opts.DeviceType = append(opts.DeviceType, raw)
+		default:
+			return opts, fmt.Errorf("invalid device_type %q", raw)
+		}
+	}
+	return opts, nil
+}
+
+// queryValues collects a query key from repeated params and comma-separated values.
+func queryValues(query url.Values, key string) []string {
+	var out []string
+	for _, v := range query[key] {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
 }
 
 // parseNetworkStatusOptions reads the comma-separated src_type and dst_type

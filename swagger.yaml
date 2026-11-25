@@ -704,7 +704,7 @@ definitions:
   models.EgressReq:
     properties:
       bypass_egress_routes:
-        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match. Defaults to true when omitted on create.
+        description: Internet egress only. When true, specific Netmaker Egress routes bypass this exit via longest-prefix match. Defaults to false when omitted on create.
         type: boolean
       description:
         type: string
@@ -3122,7 +3122,7 @@ info:
   contact: {}
   description: NetMaker API Docs
   title: NetMaker
-  version: 1.7.0
+  version: 1.8.0
 paths:
   /api/dns:
     get:

@@ -47,6 +47,36 @@ func DefaultCleanupDeviceHostForOwnershipTransfer(ctx context.Context, host *sch
 	return DisassociateAllNodesFromHost(ctx, host.ID.String())
 }
 
+// RebindDeviceHostToTenant moves a Desktop host UUID onto a new MSP tenant and
+// owner. Used when RegisterDevice finds the machine still enrolled under a
+// previous tenant that the new user cannot leave themselves.
+func RebindDeviceHostToTenant(ctx context.Context, host *schema.Host, newOwner, newTenantID string) error {
+	if host == nil || newOwner == "" || newTenantID == "" {
+		return errors.New("host, new owner, and tenant are required")
+	}
+	prevTenant := host.TenantID
+	prevOwner := host.OwnerUsername
+	if err := CleanupDeviceHostForOwnershipTransfer(ctx, host); err != nil {
+		return fmt.Errorf("failed to cleanup host for tenant rebind: %w", err)
+	}
+	host.TenantID = newTenantID
+	host.OwnerUsername = newOwner
+	if err := host.Upsert(ctx); err != nil {
+		return err
+	}
+	if prevOwner != "" && prevOwner != newOwner {
+		logDeviceOwnershipTransfer(ctx, newOwner, host, prevOwner)
+	}
+	slog.Info("rebound device host to tenant",
+		"host", host.ID.String(),
+		"from_tenant", prevTenant,
+		"to_tenant", newTenantID,
+		"from_owner", prevOwner,
+		"to_owner", newOwner,
+	)
+	return nil
+}
+
 // TransferDeviceHostOwnership re-binds a shared desktop host to a new user, cleaning up the prior owner's network state.
 // RegisterDevice calls this when a different user logs in on the same machine.
 func TransferDeviceHostOwnership(ctx context.Context, host *schema.Host, newOwner string) error {
@@ -121,6 +151,32 @@ func EnsureHostOwner(host *schema.Host, username string) {
 	}
 	// Ownership was already claimed (or host missing); refresh in-memory state.
 	_ = host.Get(ctx)
+}
+
+// ResolveUserOwnedHostForAPI ensures username owns an already user-bound host.
+// Unlike VerifyDeviceHostAccess, it never claims an unowned (headless) host.
+func ResolveUserOwnedHostForAPI(ctx context.Context, username, hostIDStr string) (*schema.Host, error) {
+	if username == "" || hostIDStr == "" {
+		return nil, errors.New("user and host id are required")
+	}
+	hostID, err := uuid.Parse(hostIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid host id: %w", err)
+	}
+	host := &schema.Host{ID: hostID}
+	if err := host.Get(db.WithContext(ctx)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("host not found")
+		}
+		return nil, err
+	}
+	if !IsUserOwnedHost(host) {
+		return nil, errors.New("host is not a user-owned device")
+	}
+	if host.OwnerUsername != username {
+		return nil, errors.New("host does not belong to user")
+	}
+	return host, nil
 }
 
 // VerifyDeviceHostAccess ensures the user may operate on the given host ID.
@@ -300,6 +356,11 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		if err := reconnectUserDeviceNode(ctx, host, networkID); err != nil {
 			return empty, err
 		}
+		// Orphan nodes (row exists, ID missing from host.Nodes) must be linked
+		// or the next host pull will omit the network.
+		if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+			return empty, err
+		}
 		return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
 	}
 
@@ -336,7 +397,38 @@ func JoinDeviceNetwork(ctx context.Context, user *schema.User, host *schema.Host
 		Networks:           []string{networkID},
 		SkipDeviceApproval: true,
 	}, host, user.Username)
+	// JoinHostToNetworks swallows CreateNode errors; only return joined when the
+	// host actually has a node on this network (and it is listed on host.Nodes).
+	if err := ensureDeviceNodeLinkedToHost(ctx, host, networkID); err != nil {
+		return empty, fmt.Errorf("failed to join network %s: %w", networkID, err)
+	}
 	return models.DeviceJoinResult{Status: models.DeviceJoinStatusJoined}, nil
+}
+
+// ensureDeviceNodeLinkedToHost verifies a node exists for host+network and that
+// its ID is on host.Nodes (required for GET /api/v1/host Nodes / peer updates).
+func ensureDeviceNodeLinkedToHost(ctx context.Context, host *schema.Host, networkID string) error {
+	nodeSchema, err := getHostNodeOnNetwork(ctx, host, networkID)
+	if err != nil {
+		return fmt.Errorf("host node missing on network: %w", err)
+	}
+	fresh := &schema.Host{ID: host.ID}
+	if err := fresh.Get(ctx); err != nil {
+		return err
+	}
+	if StringSliceContains(fresh.Nodes, nodeSchema.ID) {
+		host.Nodes = fresh.Nodes
+		return nil
+	}
+	modelsNode, err := GetNodeByID(nodeSchema.ID)
+	if err != nil {
+		return err
+	}
+	if err := AssociateNodeToHost(&modelsNode, fresh); err != nil {
+		return err
+	}
+	host.Nodes = fresh.Nodes
+	return nil
 }
 
 // reconnectUserDeviceNode sets Connected=true on an existing host node after a
@@ -462,20 +554,26 @@ func RegisterDevice(ctx context.Context, user *schema.User, newHost *schema.Host
 			return empty, err
 		}
 		if existing.TenantID != "" && existing.TenantID != tenantID {
-			return empty, errors.New("host already registered to another tenant")
-		}
-		if existing.OwnerUsername == "" {
-			EnsureHostOwner(existing, user.Username)
-		}
-		if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
-			// Same machine, next person at the keyboard. Re-bind the host
-			// instead of leaving it owned by whoever logged in first.
-			if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+			// Same Desktop machine moving to another MSP tenant (and often another
+			// user). Previous leave may have failed (new user cannot DELETE the
+			// old owner's host). Rebind instead of hard-failing register.
+			if err := RebindDeviceHostToTenant(ctx, existing, user.Username, tenantID); err != nil {
 				return empty, err
 			}
-		}
-		if existing.TenantID == "" {
-			existing.TenantID = tenantID
+		} else {
+			if existing.OwnerUsername == "" {
+				EnsureHostOwner(existing, user.Username)
+			}
+			if existing.OwnerUsername != "" && existing.OwnerUsername != user.Username {
+				// Same machine, next person at the keyboard. Re-bind the host
+				// instead of leaving it owned by whoever logged in first.
+				if err := TransferDeviceHostOwnership(ctx, existing, user.Username); err != nil {
+					return empty, err
+				}
+			}
+			if existing.TenantID == "" {
+				existing.TenantID = tenantID
+			}
 		}
 		endpointChanged, _ := UpdateHostFromClient(ctx, newHost, existing)
 		if endpointChanged {

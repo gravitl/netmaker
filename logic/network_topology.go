@@ -12,6 +12,17 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+// NodeConnectionsOptions filters and paginates GetNodeConnections results.
+// Empty filter slices include everything. Page defaults to 1 and PerPage to 10
+// (clamped to 1..100) when unset or out of range.
+type NodeConnectionsOptions struct {
+	Page           int
+	PerPage        int
+	Status         []schema.NodeStatus
+	ConnectionType []models.NetworkConnectionType
+	DeviceType     []string // gateway | egress | config_file | relayed_client
+}
+
 // userPeerKey identifies one owner-to-peer user-policy decision.
 type userPeerKey struct {
 	owner  string
@@ -41,13 +52,29 @@ func GetNetworkTopology(ctx context.Context, network string) (*models.NetworkTop
 
 // GetNodeConnections returns the ACL-allowed peer lines for one user device,
 // server, or extclient. nodeID is a node ID or an extclient client ID.
-func GetNodeConnections(ctx context.Context, network, nodeID string) (*models.NodeConnections, error) {
+// When the selected node is an ingress gateway, its own config-file ExtClients
+// are always included in addition to ACL peers. Results are filtered and
+// paginated per opts; the returned int is the filtered total before pagination.
+func GetNodeConnections(ctx context.Context, network, nodeID string, opts NodeConnectionsOptions) (*models.NodeConnections, int, error) {
 	b, nodes, err := loadNetworkStatusBuilder(ctx, network, NetworkStatusOptions{})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	b.indexStaticClients(nodes)
-	return b.nodeConnections(nodes, nodeID)
+	nodes = AddStatusToNodes(ctx, nodes, true)
+	conns, err := b.nodeConnections(nodes, nodeID)
+	if err != nil {
+		return nil, 0, err
+	}
+	var self *models.Node
+	for i := range nodes {
+		if graphNodeID(&nodes[i]) == nodeID {
+			self = &nodes[i]
+			break
+		}
+	}
+	total := filterAndPaginateConnections(conns, self, b.nodesByID, opts)
+	return conns, total, nil
 }
 
 func graphNodeID(node *models.Node) string {
@@ -103,11 +130,14 @@ func sortTopologyNodes(nodes []models.NetworkTopologyNode) {
 
 func (b *networkStatusBuilder) topologyNode(node *models.Node) models.NetworkTopologyNode {
 	id := graphNodeID(node)
+	loc, country := b.nodeLocation(node)
 	vert := models.NetworkTopologyNode{
-		ID:     id,
-		Kind:   networkNodeKind(node),
-		Name:   b.names[id],
-		Status: node.Status,
+		ID:       id,
+		Kind:     networkNodeKind(node),
+		Name:     b.names[id],
+		Location: loc,
+		Country:  country,
+		Status:   node.Status,
 	}
 	if vert.Kind == models.NetworkNodeKindUser {
 		vert.OwnerID = NodeOwnerUsername(node)
@@ -131,7 +161,7 @@ func (b *networkStatusBuilder) topologyNode(node *models.Node) models.NetworkTop
 	_, exitRouter := b.nodeExit(node)
 	vert.InternetGatewayNodeID = exitRouter
 	if vert.Kind == models.NetworkNodeKindNode {
-		vert.Roles = serverGatewayRole(node)
+		vert.IsGw = connectionIsGw(node)
 		vert.Egresses = b.topologyEgresses(node)
 	}
 	return vert
@@ -143,6 +173,37 @@ func serverGatewayRole(node *models.Node) []string {
 		return []string{models.NetworkServerRoleGateway}
 	}
 	return nil
+}
+
+// nodeLocation returns lat,lon and country for a node or static extclient.
+func (b *networkStatusBuilder) nodeLocation(node *models.Node) (location, country string) {
+	if node == nil {
+		return "", ""
+	}
+	if node.IsStatic {
+		return node.StaticNode.Location, node.StaticNode.Country
+	}
+	if host := b.hostOf(node); host != nil {
+		return host.Location, host.CountryCode
+	}
+	return node.Location, node.CountryCode
+}
+
+// connectionIsGw reports whether a server node is a mesh/ingress/relay gateway.
+func connectionIsGw(node *models.Node) bool {
+	if node == nil || node.IsStatic || networkNodeKind(node) != models.NetworkNodeKindNode {
+		return false
+	}
+	return len(serverGatewayRole(node)) > 0
+}
+
+// connectionEgresses returns routed egresses for a server node. User devices
+// and extclients get none.
+func (b *networkStatusBuilder) connectionEgresses(node *models.Node) []models.NetworkTopologyEgress {
+	if node == nil || node.IsStatic || networkNodeKind(node) != models.NetworkNodeKindNode {
+		return nil
+	}
+	return b.topologyEgresses(node)
 }
 
 // topologyEgresses lists active egresses this server routes. An internet egress
@@ -183,18 +244,67 @@ func (b *networkStatusBuilder) nodeConnections(nodes []models.Node, nodeID strin
 		return nil, ErrTopologyNodeNotFound
 	}
 	conns := make([]models.NetworkConnection, 0)
+	seen := map[string]struct{}{}
 	for i := range nodes {
 		peer := &nodes[i]
-		if graphNodeID(peer) == nodeID || graphNodeID(peer) == "" {
+		peerID := graphNodeID(peer)
+		if peerID == nodeID || peerID == "" {
 			continue
 		}
 		if !b.connectionAllowed(self, peer) {
 			continue
 		}
 		conns = append(conns, b.connection(self, peer))
+		seen[peerID] = struct{}{}
 	}
+	conns = append(conns, b.gatewayConfigFileConnections(self, nodes, seen)...)
 	sort.Slice(conns, func(i, j int) bool { return conns[i].PeerID < conns[j].PeerID })
-	return &models.NodeConnections{NodeID: nodeID, Connections: conns}, nil
+	loc, country := b.nodeLocation(self)
+	kind := networkNodeKind(self)
+	out := &models.NodeConnections{
+		NodeID:      nodeID,
+		Name:        b.names[nodeID],
+		Kind:        kind,
+		Location:    loc,
+		Country:     country,
+		IsGw:        connectionIsGw(self),
+		Egresses:    b.connectionEgresses(self),
+		Connections: conns,
+	}
+	if kind == models.NetworkNodeKindUser {
+		out.Username = NodeOwnerUsername(self)
+	}
+	return out, nil
+}
+
+// gatewayConfigFileConnections returns config-file ExtClients on this ingress
+// gateway that were not already included (e.g. blocked by ACL).
+func (b *networkStatusBuilder) gatewayConfigFileConnections(self *models.Node, nodes []models.Node, seen map[string]struct{}) []models.NetworkConnection {
+	if self == nil || self.IsStatic || !self.IsIngressGateway {
+		return nil
+	}
+	selfID := self.ID.String()
+	var extra []models.NetworkConnection
+	for i := range nodes {
+		peer := &nodes[i]
+		if !isConfigFileExtClient(peer) || peer.StaticNode.IngressGatewayID != selfID {
+			continue
+		}
+		peerID := graphNodeID(peer)
+		if peerID == "" {
+			continue
+		}
+		if _, ok := seen[peerID]; ok {
+			continue
+		}
+		extra = append(extra, b.connection(self, peer))
+		seen[peerID] = struct{}{}
+	}
+	return extra
+}
+
+func isConfigFileExtClient(node *models.Node) bool {
+	return node != nil && node.IsStatic && !node.IsUserNode && node.StaticNode.RemoteAccessClientID == ""
 }
 
 // connectionAllowed reports whether the clicked node keeps a line to peer.
@@ -471,22 +581,51 @@ func (b *networkStatusBuilder) hostOf(node *models.Node) *schema.Host {
 
 func (b *networkStatusBuilder) connection(node, peer *models.Node) models.NetworkConnection {
 	peerID := graphNodeID(peer)
+	loc, country := b.nodeLocation(peer)
+	kind := networkNodeKind(peer)
 	conn := models.NetworkConnection{
-		PeerID: peerID,
-		Name:   b.names[peerID],
-		Kind:   networkNodeKind(peer),
+		PeerID:   peerID,
+		Name:     b.names[peerID],
+		Kind:     kind,
+		Status:   peer.Status,
+		IsGw:     connectionIsGw(peer),
+		Egresses: b.connectionEgresses(peer),
+		Location: loc,
+		Country:  country,
+	}
+	if kind == models.NetworkNodeKindUser {
+		conn.Username = NodeOwnerUsername(peer)
 	}
 	var via string
 	conn.Type, via = b.connectionPath(node, peer)
 	if via != "" {
 		conn.Via = b.nodeRef(via)
 	}
+	// Peers disconnected from the network keep stale metrics; force
+	// connected=false and skip metric lookups. Otherwise connected/latency
+	// come from metrics as before.
+	if !peerNetworkConnected(peer) {
+		conn.Connected = false
+		return conn
+	}
 	b.applyConnectionLiveness(&conn, node, peer, via)
 	return conn
 }
 
+// peerNetworkConnected reports whether the peer is attached to the network
+// (node.Connected, or Enabled for static ExtClients).
+func peerNetworkConnected(peer *models.Node) bool {
+	if peer == nil {
+		return false
+	}
+	if peer.IsStatic {
+		return peer.StaticNode.Enabled
+	}
+	return peer.Connected
+}
+
 // connectionPath classifies the clicked node's path to peer: direct, through a
-// relay, or through an internet-egress routing node.
+// relay, or through the viewer's selected internet exit.
 func (b *networkStatusBuilder) connectionPath(node, peer *models.Node) (models.NetworkConnectionType, string) {
 	if node.IsStatic {
 		return b.extClientConnectionPath(node, peer)
@@ -494,23 +633,33 @@ func (b *networkStatusBuilder) connectionPath(node, peer *models.Node) (models.N
 	if peer.IsStatic {
 		return b.pathToExtClient(node, peer)
 	}
-	return b.classifyRelay(b.relayBetween(node, peer))
+	return b.meshConnectionPath(node, peer)
 }
 
-func (b *networkStatusBuilder) relayBetween(node, peer *models.Node) string {
-	exit, _ := b.nodeExit(node)
-	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
-	return peerRelayNodeID(node, peer, b.peerIgnoreRelayedBy(node, peer, bypass))
-}
-
-func (b *networkStatusBuilder) classifyRelay(relayID string) (models.NetworkConnectionType, string) {
-	if relayID == "" {
+// meshConnectionPath classifies a real-node path. "exit" is only for traffic
+// hairpinning through the viewer's selected internet-egress router. A peer (or
+// the viewer) that is RelayedBy / auto-relayed through a node that also happens
+// to route internet egress is still "relayed" — being an exit router alone does
+// not make every path through it an exit path.
+func (b *networkStatusBuilder) meshConnectionPath(node, peer *models.Node) (models.NetworkConnectionType, string) {
+	if peer == nil {
 		return models.NetworkConnectionP2P, ""
 	}
-	if _, ok := b.inetRouters[relayID]; ok {
-		return models.NetworkConnectionExit, relayID
+	exit, _ := b.nodeExit(node)
+	bypass := exit != nil && InternetEgressBypassesEgressRoutes(*exit)
+	ignore := b.peerIgnoreRelayedBy(node, peer, bypass)
+	peerID := peer.ID.String()
+
+	if relayID, ok := node.AutoRelayedPeers[peerID]; ok && relayID != "" {
+		return models.NetworkConnectionRelayed, relayID
 	}
-	return models.NetworkConnectionRelayed, relayID
+	if peer.IsRelayed && peer.RelayedBy != "" && peer.RelayedBy != node.ID.String() && peer.RelayedBy != ignore {
+		return models.NetworkConnectionRelayed, peer.RelayedBy
+	}
+	if node.IsRelayed && node.RelayedBy != "" && node.RelayedBy != peerID && node.RelayedBy != ignore {
+		return models.NetworkConnectionRelayed, node.RelayedBy
+	}
+	return models.NetworkConnectionP2P, ""
 }
 
 // extClientConnectionPath is the extclient's view: its gateway is direct, and
@@ -633,4 +782,130 @@ func (b *networkStatusBuilder) endpointMetric(from *models.Node, targetID string
 	}
 	metric, ok := b.connectivity(graphNodeID(from))[targetID]
 	return metric, ok
+}
+
+// filterAndPaginateConnections applies status / connection_type / device_type
+// filters (AND across families, OR within a family), then paginates
+// conns.Connections in place. Returns the filtered total before slicing.
+func filterAndPaginateConnections(conns *models.NodeConnections, self *models.Node, peersByID map[string]*models.Node, opts NodeConnectionsOptions) int {
+	if conns == nil {
+		return 0
+	}
+	page, perPage := normalizeConnectionsPagination(opts.Page, opts.PerPage)
+	filtered := make([]models.NetworkConnection, 0, len(conns.Connections))
+	selfIsGw := connectionIsGw(self)
+	for i := range conns.Connections {
+		c := &conns.Connections[i]
+		if !connectionMatchesStatus(c, opts.Status) {
+			continue
+		}
+		if !connectionMatchesType(c, opts.ConnectionType) {
+			continue
+		}
+		if !connectionMatchesDeviceType(c, self, peersByID, selfIsGw, opts.DeviceType) {
+			continue
+		}
+		filtered = append(filtered, *c)
+	}
+	total := len(filtered)
+	conns.Connections = paginateConnections(filtered, page, perPage)
+	return total
+}
+
+func normalizeConnectionsPagination(page, perPage int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 10
+	}
+	return page, perPage
+}
+
+func paginateConnections(conns []models.NetworkConnection, page, perPage int) []models.NetworkConnection {
+	if conns == nil {
+		return []models.NetworkConnection{}
+	}
+	start := (page - 1) * perPage
+	if start >= len(conns) {
+		return []models.NetworkConnection{}
+	}
+	end := start + perPage
+	if end > len(conns) {
+		end = len(conns)
+	}
+	return conns[start:end]
+}
+
+func connectionMatchesStatus(c *models.NetworkConnection, statuses []schema.NodeStatus) bool {
+	if len(statuses) == 0 {
+		return true
+	}
+	for _, s := range statuses {
+		if c.Status == s {
+			return true
+		}
+	}
+	return false
+}
+
+func connectionMatchesType(c *models.NetworkConnection, types []models.NetworkConnectionType) bool {
+	if len(types) == 0 {
+		return true
+	}
+	for _, t := range types {
+		if c.Type == t {
+			return true
+		}
+	}
+	return false
+}
+
+func connectionMatchesDeviceType(c *models.NetworkConnection, self *models.Node, peersByID map[string]*models.Node, selfIsGw bool, deviceTypes []string) bool {
+	if len(deviceTypes) == 0 {
+		return true
+	}
+	for _, dt := range deviceTypes {
+		switch dt {
+		case models.ConnectionDeviceGateway:
+			if c.IsGw {
+				return true
+			}
+		case models.ConnectionDeviceEgress:
+			if len(c.Egresses) > 0 {
+				return true
+			}
+		case models.ConnectionDeviceConfigFile:
+			if selfIsGw && c.Kind == models.NetworkNodeKindExtClient {
+				return true
+			}
+		case models.ConnectionDeviceRelayedClient:
+			if selfIsGw && isRelayedClientOf(self, peersByID[c.PeerID]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isRelayedClientOf reports whether peer is relayed by self (mesh RelayedBy or
+// a config-file/RAC ExtClient on self's ingress).
+func isRelayedClientOf(self, peer *models.Node) bool {
+	if self == nil || peer == nil || self.IsStatic {
+		return false
+	}
+	selfID := self.ID.String()
+	if peer.IsStatic {
+		return peer.StaticNode.IngressGatewayID == selfID
+	}
+	return peer.IsRelayed && peer.RelayedBy == selfID
+}
+
+// ConnectionsTotalPages returns total pages for a filtered connection list.
+func ConnectionsTotalPages(total, perPage int) int {
+	_, perPage = normalizeConnectionsPagination(1, perPage)
+	if total <= 0 {
+		return 1
+	}
+	return (total + perPage - 1) / perPage
 }

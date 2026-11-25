@@ -120,6 +120,32 @@ func TestVerifyDeviceHostAccess(t *testing.T) {
 	})
 }
 
+
+func TestResolveUserOwnedHostForAPI(t *testing.T) {
+	ctx := scopedTestContext(t)
+	owner := "api-owner-" + uuid.NewString()[:8]
+	other := "api-other-" + uuid.NewString()[:8]
+
+	owned := &schema.Host{ID: uuid.New(), Name: "owned-api-host", OwnerUsername: owner}
+	require.NoError(t, owned.Create(ctx))
+	t.Cleanup(func() { _ = owned.Delete(ctx) })
+
+	got, err := ResolveUserOwnedHostForAPI(ctx, owner, owned.ID.String())
+	require.NoError(t, err)
+	assert.Equal(t, owned.ID, got.ID)
+
+	_, err = ResolveUserOwnedHostForAPI(ctx, other, owned.ID.String())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not belong")
+
+	unowned := &schema.Host{ID: uuid.New(), Name: "unowned-api-host"}
+	require.NoError(t, unowned.Create(ctx))
+	t.Cleanup(func() { _ = unowned.Delete(ctx) })
+	_, err = ResolveUserOwnedHostForAPI(ctx, owner, unowned.ID.String())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a user-owned")
+}
+
 func TestRegisterDevice(t *testing.T) {
 	ctx := scopedTestContext(t)
 	owner := "reg-user-" + uuid.NewString()[:8]
@@ -401,8 +427,23 @@ func TestDeviceJoinSkipsApprovalWhenJITAppliesToUser(t *testing.T) {
 	joined := false
 	origJoin := JoinHostToNetworks
 	t.Cleanup(func() { JoinHostToNetworks = origJoin })
-	JoinHostToNetworks = func(context.Context, models.EnrollmentKey, *schema.Host, string) {
+	JoinHostToNetworks = func(ctx context.Context, key models.EnrollmentKey, h *schema.Host, _ string) {
 		joined = true
+		// Mimic CreateNode: ensure post-join verify finds a host node.
+		net := &schema.Network{Name: key.Networks[0]}
+		require.NoError(t, net.Get(ctx))
+		n := &schema.Node{
+			ID:        uuid.NewString(),
+			TenantID:  scope.ID(ctx),
+			HostID:    h.ID.String(),
+			NetworkID: net.ID,
+			Address:   "10.98.0.50",
+			Connected: true,
+			Status:    schema.OnlineSt,
+		}
+		require.NoError(t, n.Create(ctx))
+		h.Nodes = append(h.Nodes, n.ID)
+		require.NoError(t, h.Upsert(ctx))
 	}
 
 	networks, err := GetDeviceNetworks(ctx, user, host)
@@ -599,7 +640,7 @@ func TestRegisterDevice_requiresTenantScope(t *testing.T) {
 	assert.Contains(t, err.Error(), "tenant id is required")
 }
 
-func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
+func TestRegisterDevice_rebindsCrossTenantHost(t *testing.T) {
 	ctx := scopedTestContext(t)
 	tenantID := scope.ID(ctx)
 	require.NotEmpty(t, tenantID)
@@ -624,7 +665,13 @@ func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
 	assert.Equal(t, tenantID, resp.RequestedHost.TenantID)
 	t.Cleanup(func() { _ = (&schema.Host{ID: hostID}).Delete(ctx) })
 
-	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, "other-tenant-"+uuid.NewString())
+	otherTenant := "other-tenant-" + uuid.NewString()
+	otherCtx := scope.WithContext(db.WithContext(context.TODO()), scope.TenantScope, otherTenant)
+	otherOwner := "reg-xt2-" + uuid.NewString()[:8]
+	otherUser := &schema.User{Username: otherOwner, PlatformRoleID: schema.AdminRole}
+	require.NoError(t, otherUser.Create(otherCtx))
+	t.Cleanup(func() { _ = otherUser.Delete(otherCtx) })
+
 	dup := &schema.Host{
 		ID:               hostID,
 		Name:             "cross-tenant-host",
@@ -633,9 +680,15 @@ func TestRegisterDevice_rejectsCrossTenantHost(t *testing.T) {
 		TrafficKeyPublic: []byte{1, 2, 3},
 		HostPass:         "test-host-pass",
 	}
-	_, err = RegisterDevice(otherCtx, user, dup)
-	require.Error(t, err)
-	assert.Equal(t, "host already registered to another tenant", err.Error())
+	resp2, err := RegisterDevice(otherCtx, otherUser, dup)
+	require.NoError(t, err)
+	assert.Equal(t, otherTenant, resp2.RequestedHost.TenantID)
+	assert.Equal(t, otherOwner, resp2.RequestedHost.OwnerUsername)
+
+	reloaded := &schema.Host{ID: hostID}
+	require.NoError(t, reloaded.Get(otherCtx))
+	assert.Equal(t, otherTenant, reloaded.TenantID)
+	assert.Equal(t, otherOwner, reloaded.OwnerUsername)
 }
 
 func TestJoinDeviceNetworkBlocksReconnectOnPostureViolation(t *testing.T) {

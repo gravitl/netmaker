@@ -721,12 +721,12 @@ func DisconnectExtClientsFromNetwork(ctx context.Context, networkID string) erro
 
 // extClientFromClientApp reports whether the ext client was created by the desktop/RAC app.
 func extClientFromClientApp(client models.ExtClient) bool {
-	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+	return logic.IsRACExtClient(client)
 }
 
 // DisconnectExtClientsFromNetworkForScope removes client-app ext clients for users who require
-// a JIT grant under the given network configuration. Admin-managed config files (no device/
-// remote_access_client id) are kept.
+// a JIT grant under the given network configuration. Admin-managed static config files (no
+// device / remote_access_client id) are left untouched — JIT does not apply to them.
 func DisconnectExtClientsFromNetworkForScope(ctx context.Context, network *schema.Network) error {
 	extClients, err := logic.GetNetworkExtClients(ctx, network.Name)
 	if err != nil {
@@ -805,7 +805,8 @@ func DeactivateUserGrantsOnNetwork(ctx context.Context, networkID, userID string
 }
 
 // RemoveUserJITNetworkAccess removes a user's network presence after JIT ends:
-// ExtClients are deleted; host-backed user device nodes are disconnected.
+// RAC ExtClients are deleted (static config files are left alone); host-backed
+// user device nodes are disconnected.
 func RemoveUserJITNetworkAccess(ctx context.Context, networkID, userID string) error {
 	return removeUserJITNetworkAccess(ctx, networkID, userID)
 }
@@ -844,17 +845,22 @@ func disconnectUserExtClients(ctx context.Context, networkID, userID string) err
 	for _, client := range extClients {
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
-		if client.OwnerID == userID {
-			clientCopy := client
-			if err := logic.DeleteExtClient(ctx, client); err != nil {
-				slog.Warn("failed to delete ext client after JIT ended",
-					"client_id", client.ClientID, "error", err)
-				continue
-			}
-			if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
-				slog.Warn("failed to publish deleted client peer update",
-					"client_id", client.ClientID, "error", err)
-			}
+		if client.OwnerID != userID {
+			continue
+		}
+		// Admin-managed static configs are outside JIT — never delete or disable them.
+		if !logic.IsRACExtClient(client) {
+			continue
+		}
+		clientCopy := client
+		if err := logic.DeleteExtClient(ctx, client); err != nil {
+			slog.Warn("failed to delete ext client after JIT ended",
+				"client_id", client.ClientID, "error", err)
+			continue
+		}
+		if err := mq.PublishDeletedClientPeerUpdate(ctx, &clientCopy); err != nil {
+			slog.Warn("failed to publish deleted client peer update",
+				"client_id", client.ClientID, "error", err)
 		}
 	}
 
