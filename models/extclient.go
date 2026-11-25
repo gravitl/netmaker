@@ -12,11 +12,9 @@ type CustomExtClient struct {
 	ExtraAllowedIPs            []string            `json:"extraallowedips,omitempty"`
 	Enabled                    bool                `json:"enabled,omitempty"`
 	DeniedACLs                 map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
-	RemoteAccessClientID string `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
-	// PostUp/PostDown are pointers so update payloads can distinguish omit
-	// (nil → leave unchanged) from an explicit empty string (clear the script).
-	PostUp                     *string             `json:"postup,omitempty" bson:"postup" validate:"omitempty,max=1024"`
-	PostDown                   *string             `json:"postdown,omitempty" bson:"postdown" validate:"omitempty,max=1024"`
+	RemoteAccessClientID       string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
+	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`
+	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
 	Tags                       map[TagID]struct{}  `json:"tags"`
 	DeviceID                   string              `json:"device_id"`
 	DeviceName                 string              `json:"device_name"`
