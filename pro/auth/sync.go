@@ -204,7 +204,8 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 			// delete the user if it has been archived.
 			user, ok := dbUsersMap[user.Username]
 			if ok {
-				_ = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
+				// Keep admin-managed static WireGuard configs; RAC clients are cleaned up.
+				_ = logic.DeleteTenantUser(ctx, user, false, cleanupUserRefs)
 			}
 			continue
 		}
@@ -294,8 +295,8 @@ func syncUsers(ctx context.Context, idpUsers []idp.User, filters []string, remov
 				}
 
 				// delete the user if it has been deleted on idp
-				// or is filtered out.
-				err = logic.DeleteTenantUser(ctx, user, true, cleanupUserRefs)
+				// or is filtered out. Keep admin-managed static WireGuard configs.
+				err = logic.DeleteTenantUser(ctx, user, false, cleanupUserRefs)
 				if err != nil {
 					return err
 				}
@@ -519,11 +520,20 @@ func cleanupUserRefs(ctx context.Context, username string, forceDeleteConfigs bo
 		return
 	}
 	for _, extclient := range extclients {
-		if extclient.OwnerID == username {
-			err = logic.DeleteExtClientAndCleanup(ctx, extclient)
-			if err == nil {
+		if extclient.OwnerID != username {
+			continue
+		}
+		if logic.IsStaticConfigExtClient(extclient) && !forceDeleteConfigs {
+			// Keep the config file but disable it so it cannot be used.
+			changed, err := logic.DisableExtClient(ctx, &extclient)
+			if err == nil && changed {
 				_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 			}
+			continue
+		}
+		err = logic.DeleteExtClientAndCleanup(ctx, extclient)
+		if err == nil {
+			_ = mq.PublishDeletedClientPeerUpdate(ctx, &extclient)
 		}
 	}
 
