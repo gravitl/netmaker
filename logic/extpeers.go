@@ -338,9 +338,14 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
-	// replace any \r\n with \n in postup and postdown from HTTP request
-	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
-	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	// PostUp/PostDown are *string: nil leaves the stored script unchanged;
+	// non-nil (including "") applies the value after normalizing newlines.
+	if update.PostUp != nil {
+		new.PostUp = strings.Replace(*update.PostUp, "\r\n", "\n", -1)
+	}
+	if update.PostDown != nil {
+		new.PostDown = strings.Replace(*update.PostDown, "\r\n", "\n", -1)
+	}
 	// Tags are usually managed via the tags API. Extclient edit payloads often
 	// omit tags (nil); overwriting would drop the client from all tags. Only
 	// apply when the caller explicitly sends a tags map (including {} to clear).
@@ -429,26 +434,25 @@ func GetAllExtClientsWithStatus(ctx context.Context, status schema.NodeStatus) (
 	return validExtClients, nil
 }
 
-// ToggleExtClientConnectivity - enables or disables an ext client
+// ToggleExtClientConnectivity - enables or disables an ext client.
+//
+// Flips Enabled in place and saves. Does not go through UpdateExtClient with a
+// sparse CustomExtClient (nil PostUp/PostDown would leave scripts unchanged
+// now, but toggling still bypasses the full update path).
 func ToggleExtClientConnectivity(ctx context.Context, client *models.ExtClient, enable bool) (models.ExtClient, error) {
-	update := models.CustomExtClient{
-		Enabled:              enable,
-		ClientID:             client.ClientID,
-		PublicKey:            client.PublicKey,
-		DNS:                  client.DNS,
-		ExtraAllowedIPs:      client.ExtraAllowedIPs,
-		DeniedACLs:           client.DeniedACLs,
-		RemoteAccessClientID: client.RemoteAccessClientID,
+	if client == nil {
+		return models.ExtClient{}, errors.New("nil ext client")
 	}
-
-	// update in DB (same ClientID — upsert, no delete/recreate)
-	newClient := UpdateExtClient(client, &update)
-	if err := SaveExtClient(ctx, &newClient); err != nil {
-		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
-		return newClient, err
+	if client.Enabled == enable {
+		return *client, nil
 	}
-
-	return newClient, nil
+	updated := *client
+	updated.Enabled = enable
+	if err := SaveExtClient(ctx, &updated); err != nil {
+		slog.Error("failed to save updated ext client during update", "id", updated.ClientID, "network", updated.Network, "error", err)
+		return updated, err
+	}
+	return updated, nil
 }
 
 func GetExtPeers(ctx context.Context, node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
@@ -694,6 +698,38 @@ func GetStaticNodesByNetwork(ctx context.Context, network schema.NetworkID, only
 	}
 
 	return
+}
+
+// IsRACExtClient reports whether the ext client was created by the remote
+// access / desktop client app (has a device or RAC id). Admin-managed static
+// WireGuard config files have neither and should not be auto-deleted on JIT
+// expiry. On IdP sync or group/network access loss they are disabled (not
+// deleted) so the config remains but cannot be used until re-enabled.
+func IsRACExtClient(client models.ExtClient) bool {
+	return client.DeviceID != "" || client.RemoteAccessClientID != ""
+}
+
+// IsStaticConfigExtClient reports whether the ext client is an admin-managed
+// static WireGuard config file (no device / RAC id). JIT never deletes or
+// disables these. On IdP sync or group/network access loss they are disabled
+// (not deleted) so the config remains but cannot be used until re-enabled.
+func IsStaticConfigExtClient(client models.ExtClient) bool {
+	return !IsRACExtClient(client)
+}
+
+// DisableExtClient disables an ext client without deleting it. No-op if
+// already disabled. Callers should publish a deleted-client peer update when
+// changed is true so gateways drop the peer.
+func DisableExtClient(ctx context.Context, client *models.ExtClient) (changed bool, err error) {
+	if client == nil || !client.Enabled {
+		return false, nil
+	}
+	updated, err := ToggleExtClientConnectivity(ctx, client, false)
+	if err != nil {
+		return false, err
+	}
+	*client = updated
+	return true, nil
 }
 
 // CleanupOtherExtclients cleans up other clients owned by the same use for the same device and network.
