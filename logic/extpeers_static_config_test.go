@@ -23,7 +23,7 @@ func TestUpdateExtClientPreservesPostUpPostDown(t *testing.T) {
 		PostDown: "iptables -D FORWARD -i wg0 -j ACCEPT",
 		Enabled:  true,
 	}
-	// Sparse update (e.g. toggle/rename) with empty PostUp/PostDown must not wipe scripts.
+	// Sparse update (e.g. toggle/rename) with nil PostUp/PostDown must not wipe scripts.
 	updated := UpdateExtClient(&old, &models.CustomExtClient{
 		ClientID: "cfg-1",
 		Enabled:  false,
@@ -32,12 +32,23 @@ func TestUpdateExtClientPreservesPostUpPostDown(t *testing.T) {
 	assert.Equal(t, old.PostDown, updated.PostDown)
 	assert.False(t, updated.Enabled)
 
+	postUp := "echo up\r\necho up2"
+	postDown := "echo down\r\necho down2"
 	updated = UpdateExtClient(&old, &models.CustomExtClient{
 		ClientID: "cfg-1",
 		Enabled:  true,
-		PostUp:   "echo up",
-		PostDown: "echo down",
+		PostUp:   &postUp,
+		PostDown: &postDown,
 	})
-	assert.Equal(t, "echo up", updated.PostUp)
-	assert.Equal(t, "echo down", updated.PostDown)
+	assert.Equal(t, "echo up\necho up2", updated.PostUp)
+	assert.Equal(t, "echo down\necho down2", updated.PostDown)
+
+	empty := ""
+	cleared := UpdateExtClient(&old, &models.CustomExtClient{
+		ClientID: "cfg-1",
+		PostUp:   &empty,
+		PostDown: &empty,
+	})
+	assert.Equal(t, "", cleared.PostUp)
+	assert.Equal(t, "", cleared.PostDown)
 }
