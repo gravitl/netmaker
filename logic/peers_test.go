@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 
@@ -10,8 +11,11 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/scope"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gorm.io/datatypes"
 )
 
@@ -49,6 +53,74 @@ func TestDefaultsAllowAllTrafficRequiresBothDefaults(t *testing.T) {
 	icmp := allUsers
 	icmp.Proto = models.ICMP
 	assert.True(t, defaultsAllowAllTraffic(allNodes, allUsers, []models.Acl{allNodes, allUsers, uni, icmp}))
+}
+
+func TestPeerUpdateForHostRelayedClientPeerHasNilEndpoint(t *testing.T) {
+	ctx := scopedTestContext(t)
+	networkName := "relay-endpoint-" + uuid.NewString()[:8]
+	require.NoError(t, CreateNetwork(ctx, &schema.Network{
+		ID: networkName, Name: networkName, TenantID: scope.ID(ctx), AddressRange: "198.51.100.0/24",
+	}))
+	t.Cleanup(func() { _ = (&schema.Network{ID: networkName}).Delete(ctx) })
+
+	relayID, clientID, directID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	nodes := []*schema.Node{
+		{ID: relayID, Address: "198.51.100.1/32", IsGateway: true, IsAutoRelay: "no",
+			RelayedClients: datatypes.JSONMap{clientID: json.Number("1")}},
+		{ID: clientID, Address: "198.51.100.2/32", RelayedByNodeID: &relayID},
+		{ID: directID, Address: "198.51.100.3/32"},
+	}
+	hosts := make([]*schema.Host, 0, len(nodes))
+	hostVals := make([]schema.Host, 0, len(nodes))
+	allNodes := make([]models.Node, 0, len(nodes))
+	for i, node := range nodes {
+		key, err := wgtypes.GeneratePrivateKey()
+		require.NoError(t, err)
+		host := &schema.Host{
+			ID: uuid.New(), PublicKey: schema.WgKey{Key: key.PublicKey()},
+			EndpointIP: net.ParseIP(fmt.Sprintf("203.0.113.%d", i+1)), ListenPort: 51821,
+			Nodes: datatypes.JSONSlice[string]{node.ID},
+		}
+		require.NoError(t, host.Create(ctx))
+		t.Cleanup(func() { _ = host.Delete(ctx) })
+		node.TenantID = scope.ID(ctx)
+		node.HostID = host.ID.String()
+		node.NetworkID = networkName
+		node.Connected = true
+		require.NoError(t, node.Create(ctx))
+		t.Cleanup(func() { _ = node.Delete(ctx) })
+		peer, err := GetNodeByID(node.ID)
+		require.NoError(t, err)
+		allNodes = append(allNodes, peer)
+		hosts = append(hosts, host)
+		hostVals = append(hostVals, *host)
+	}
+
+	originalIsPeerAllowed := IsPeerAllowed
+	IsPeerAllowed = func(context.Context, models.Node, models.Node, bool) bool { return true }
+	t.Cleanup(func() { IsPeerAllowed = originalIsPeerAllowed })
+
+	update, err := NewPeerGraph(hostVals, allNodes).PeerUpdateForHost(ctx, networkName, hosts[0], nil, nil, nil)
+	require.NoError(t, err)
+	var clientPeer, directPeer *wgtypes.PeerConfig
+	for i := range update.Peers {
+		peer := &update.Peers[i]
+		switch peer.PublicKey {
+		case hosts[1].PublicKey.Key:
+			clientPeer = peer
+		case hosts[2].PublicKey.Key:
+			directPeer = peer
+		}
+	}
+	require.NotNil(t, clientPeer, "relayed client peer missing from relay update")
+	assert.False(t, clientPeer.Remove)
+	assert.NotEmpty(t, clientPeer.AllowedIPs)
+	assert.Nil(t, clientPeer.Endpoint)
+	require.NotNil(t, directPeer, "direct peer missing from relay update")
+	assert.False(t, directPeer.Remove)
+	require.NotNil(t, directPeer.Endpoint)
+	assert.True(t, hosts[2].EndpointIP.Equal(directPeer.Endpoint.IP))
+	assert.Equal(t, GetPeerListenPort(hosts[2]), directPeer.Endpoint.Port)
 }
 
 func TestDeduplicateEgressRoutesMergesRangesForSamePeerAndNetwork(t *testing.T) {
