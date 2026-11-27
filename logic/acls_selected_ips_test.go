@@ -1023,6 +1023,52 @@ func TestAddEgressInfoToPeerByAccess_DeniesUniReverseRouting(t *testing.T) {
 	}
 }
 
+func TestAddEgressInfoToPeerByAccess_RelayCarriesRelayedEgressWithoutPolicy(t *testing.T) {
+	nodeID, targetID := uuid.New(), uuid.New()
+	for _, tt := range []struct {
+		name    string
+		prepare func(node, target *models.Node, egress *schema.Egress)
+		want    bool
+	}{
+		{name: "node owned egress is carried", want: true},
+		{name: "tag owned egress is carried", want: true, prepare: func(_, target *models.Node, egress *schema.Egress) {
+			target.Tags[models.TagID("lan-access")] = struct{}{}
+			egress.Nodes = datatypes.JSONMap{}
+			egress.Tags = datatypes.JSONMap{"lan-access": json.Number("100")}
+		}},
+		{name: "auto relayed egress is carried", want: true, prepare: func(node, target *models.Node, _ *schema.Egress) {
+			node.RelayedNodes = nil
+			node.IsAutoRelay = true
+			target.AutoRelayedPeers = map[string]string{uuid.NewString(): nodeID.String()}
+		}},
+		{name: "internet egress stays on exit selection", prepare: func(node, target *models.Node, egress *schema.Egress) {
+			egress.Range = "*"
+			egress.Nodes[target.ID.String()] = json.Number("100")
+			node.InternetGwID = target.ID.String()
+		}},
+		{name: "disconnected relayed node", prepare: func(_, target *models.Node, _ *schema.Egress) { target.Connected = false }},
+		{name: "pending delete relayed node", prepare: func(_, target *models.Node, _ *schema.Egress) { target.PendingDelete = true }},
+		{name: "delete action relayed node", prepare: func(_, target *models.Node, _ *schema.Egress) { target.Action = schema.NODE_DELETE }},
+		{name: "node does not relay the target", prepare: func(node, _ *models.Node, _ *schema.Egress) { node.RelayedNodes = nil }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			node := models.Node{CommonNode: models.CommonNode{ID: nodeID, Network: "netmaker", RelayedNodes: []string{targetID.String()}}, Tags: map[models.TagID]struct{}{}}
+			target := models.Node{CommonNode: models.CommonNode{ID: targetID, Network: "netmaker", Connected: true}, Tags: map[models.TagID]struct{}{}}
+			egress := schema.Egress{ID: "relayed-egress", Status: true, Network: "netmaker", Range: "198.51.100.0/24", Nodes: datatypes.JSONMap{targetID.String(): json.Number("100")}}
+			if tt.prepare != nil {
+				tt.prepare(&node, &target, &egress)
+			}
+			AddEgressInfoToPeerByAccess(context.TODO(), &node, &target, []schema.Egress{egress}, nil, false)
+			if target.EgressDetails.IsEgressGateway != tt.want {
+				t.Fatalf("expected egress %v, got %+v", tt.want, target.EgressDetails)
+			}
+			if tt.want && (len(target.EgressDetails.EgressGatewayRanges) != 1 || target.EgressDetails.EgressGatewayRanges[0] != "198.51.100.0/24") {
+				t.Fatalf("expected relayed range assigned, got %v", target.EgressDetails.EgressGatewayRanges)
+			}
+		})
+	}
+}
+
 func TestIsEgressToEgressPolicyForTarget_NoRoutingMatch(t *testing.T) {
 	originalGetEgressByID := getEgressByID
 	originalGetEgressByNetwork := getEgressByNetwork
