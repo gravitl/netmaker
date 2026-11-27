@@ -609,9 +609,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, host.TenantID)
 	server := logic.GetServerInfo(ctx)
 	server.TrafficKey = trafficKey
+	responseHost := *host
+	responseHost.HostPass = "" // do not return stored bcrypt hash to the client
 	response := models.RegisterResponse{
 		ServerConf:    server,
-		RequestedHost: *host,
+		RequestedHost: responseHost,
 	}
 
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
