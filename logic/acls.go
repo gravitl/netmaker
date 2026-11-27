@@ -437,6 +437,41 @@ func getEgressesFromPolicyTags(tags []models.AclPolicyTag, network string) []sch
 	return egresses
 }
 
+// srcEgressSiteNets returns the site addresses admitted from the non-NAT
+// egresses a policy src names, narrowed to its selected ip entries.
+func srcEgressSiteNets(src []models.AclPolicyTag) (ip4, ip6 []net.IPNet) {
+	egresses := make([]schema.Egress, 0, len(src))
+	for _, tag := range src {
+		if (tag.ID != models.EgressID && tag.ID != models.EgressRange) || tag.Value == "*" {
+			continue
+		}
+		e, err := getEgressByID(tag.Value)
+		if err != nil || !e.Status {
+			continue
+		}
+		egresses = append(egresses, e)
+	}
+	// A NAT egress rewrites the source before the packet reaches the peer, so
+	// its range never matches there; only the non-NAT ones get a rule.
+	egresses = slices.DeleteFunc(egresses, func(e schema.Egress) bool { return e.Nat })
+	if len(egresses) == 0 {
+		return
+	}
+	if ip4, ip6 = getSelectedEgressIPNets(src); len(ip4) > 0 || len(ip6) > 0 {
+		return
+	}
+	ip4, ip6 = getEgressCIDRs(egresses)
+	// A default route as source matches every packet, including user devices
+	// that their own user policies decide about.
+	return withoutDefaultRouteIPNets(ip4), withoutDefaultRouteIPNets(ip6)
+}
+
+// withoutDefaultRouteIPNets returns nets without the default routes, which
+// match every packet on their own.
+func withoutDefaultRouteIPNets(nets []net.IPNet) []net.IPNet {
+	return slices.DeleteFunc(nets, isDefaultRouteIPNet)
+}
+
 func targetNodeRoutesAnyEgress(targetnode models.Node, egresses []schema.Egress) bool {
 	targetID := targetnode.ID.String()
 	for _, e := range egresses {
@@ -1512,6 +1547,39 @@ func GetAclRulesForNode(ctx context.Context, g *PeerGraph, targetnodeI *models.N
 		aclRule.Dst = UniqueIPNetList(aclRule.Dst)
 		aclRule.Dst6 = UniqueIPNetList(aclRule.Dst6)
 		rules[aclRule.ID] = aclRule
+		// The rule above allows everything, so a targeting policy needs its own
+		// rule for the site addresses, scoped to its proto and ports.
+		var nodeTags map[models.TagID]struct{}
+		if targetnode.Mutex != nil {
+			targetnode.Mutex.Lock()
+			nodeTags = maps.Clone(targetnode.Tags)
+			targetnode.Mutex.Unlock()
+		} else {
+			nodeTags = maps.Clone(targetnode.Tags)
+		}
+		if nodeTags == nil {
+			nodeTags = make(map[models.TagID]struct{})
+		}
+		nodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
+		nodeTags["*"] = struct{}{}
+		for _, acl := range getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network)) {
+			if !acl.Enabled || !aclTagsMatchNode(acl.Dst, nodeTags) {
+				continue
+			}
+			ip4, ip6 := srcEgressSiteNets(acl.Src)
+			rule := models.AclRule{ID: acl.ID + srcEgressInputSuffix, AllowedProtocol: acl.Proto, AllowedPorts: acl.Port, Allowed: true}
+			// Only the families the node has: a missing one would leave a nil
+			// destination behind, which the peer reads as any address.
+			if targetnode.Address.IP != nil {
+				rule.IPList, rule.Dst = UniqueIPNetList(ip4), []net.IPNet{targetnode.AddressIPNet4()}
+			}
+			if targetnode.Address6.IP != nil {
+				rule.IP6List, rule.Dst6 = UniqueIPNetList(ip6), []net.IPNet{targetnode.AddressIPNet6()}
+			}
+			if len(rule.IPList) > 0 || len(rule.IP6List) > 0 {
+				rules[rule.ID] = rule
+			}
+		}
 		return
 	}
 	var taggedNodes map[models.TagID][]models.Node
@@ -2354,6 +2422,7 @@ func getDeviceEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (r
 	return
 }
 
+const srcEgressInputSuffix = "#src-egress-in"
 const relayedEgressFwdSuffix = "#relayed-eg-fwd"
 const autoRelayPeerAclSuffix = "#auto-relay-peer"
 
