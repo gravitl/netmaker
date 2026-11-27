@@ -48,7 +48,7 @@ require (
 	github.com/pquerna/otp v1.5.0
 	github.com/sams96/rgeo v1.3.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 	google.golang.org/api v0.278.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
