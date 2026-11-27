@@ -56,8 +56,8 @@ func TestDeviceMaySelectExitNode_UserDeviceIgnoresAllResources(t *testing.T) {
 	exit := &schema.Egress{ID: "sig-exit", Status: true, Type: schema.EgressTypeInternet, Range: "*"}
 	allowed := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.UserAclID, Value: "abhi"}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "sig-exit"}},
+		Src:     []models.AclPolicyTag{{ID: schema.UserAclID, Value: "abhi"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig-exit"}},
 	}}
 	otherExit := &schema.Egress{ID: "other-exit", Status: true, Type: schema.EgressTypeInternet, Range: "*"}
 

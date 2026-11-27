@@ -273,7 +273,7 @@ func RelayedAllowedIPs(ctx context.Context, g *PeerGraph, peer, node *models.Nod
 	if bypass {
 		// Only needed for access-filtering when BypassEgressRoutes is on; skip the
 		// DB lookup otherwise so unit tests without a store still work.
-		defaultPolicy, _ = GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultPolicy, _ = GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 	}
 	excludeID := node.ID.String()
 	seen := map[string]struct{}{}
@@ -428,7 +428,7 @@ func GetAllowedIpsForRelayed(ctx context.Context, g *PeerGraph, relayed, relay *
 	}
 	acls := ListNetworkAccessAcls(ctx, schema.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(ctx)
-	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), models.DevicePolicy)
+	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(relay.Network), schema.DevicePolicy)
 	bypass := SelectedInternetEgressBypasses(relayed)
 	inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)
 	for _, peer := range peers {

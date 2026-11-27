@@ -332,11 +332,11 @@ func TestNodeConnectionsUsesLoadedUserPolicy(t *testing.T) {
 	b.users["alice"] = &schema.User{Username: "alice"}
 	b.userPolicies = []models.Acl{{
 		Enabled:  true,
-		RuleType: models.UserPolicy,
-		Src:      []schema.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
+		RuleType: schema.UserPolicy,
+		Src:      []schema.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
 		Dst: []schema.AclPolicyTag{
-			{ID: models.NodeID, Value: allowed.ID.String()},
-			{ID: models.EgressID, Value: "lan"},
+			{ID: schema.NodeID, Value: allowed.ID.String()},
+			{ID: schema.EgressID, Value: "lan"},
 		},
 	}}
 

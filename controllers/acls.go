@@ -48,35 +48,35 @@ func aclHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 	srcGroupTypes := []models.AclGroupType{
-		models.UserAclID,
-		models.NodeTagID,
-		models.NodeID,
+		schema.UserAclID,
+		schema.NodeTagID,
+		schema.NodeID,
 	}
 	// User groups remain Pro-only.
 	if servercfg.IsPro {
 		srcGroupTypes = []models.AclGroupType{
-			models.UserAclID,
-			models.UserGroupAclID,
-			models.NodeTagID,
-			models.NodeID,
+			schema.UserAclID,
+			schema.UserGroupAclID,
+			schema.NodeTagID,
+			schema.NodeID,
 		}
 	}
 	resp := models.AclPolicyTypes{
 		RuleTypes: []models.AclPolicyType{
-			models.DevicePolicy,
-			models.UserPolicy,
+			schema.DevicePolicy,
+			schema.UserPolicy,
 		},
 		AccessTypes: []models.AclAccessType{
-			models.NetworkAccess,
-			models.ManagedAccess,
+			schema.NetworkAccess,
+			schema.ManagedAccess,
 		},
 		SrcGroupTypes: srcGroupTypes,
 		DstGroupTypes: []models.AclGroupType{
-			models.NodeTagID,
-			models.NodeID,
-			models.EgressID,
-			models.NetmakerIPAclID,
-			// models.NetmakerSubNetRangeAClID,
+			schema.NodeTagID,
+			schema.NodeID,
+			schema.EgressID,
+			schema.NetmakerIPAclID,
+			// schema.NetmakerSubNetRangeAClID,
 		},
 		ProtocolTypes: ceOrProProtocolTypes(),
 	}
@@ -88,9 +88,9 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 func ceOrProProtocolTypes() []models.ProtocolType {
 	anyType := models.ProtocolType{
 		Name:       models.Any,
-		AccessType: models.NetworkAccess,
+		AccessType: schema.NetworkAccess,
 		AllowedProtocols: []models.Protocol{
-			models.ALL,
+			schema.ALL,
 		},
 		PortRange:        "All ports",
 		AllowPortSetting: false,
@@ -102,66 +102,66 @@ func ceOrProProtocolTypes() []models.ProtocolType {
 		anyType,
 		{
 			Name:       models.Http,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.TCP,
+				schema.TCP,
 			},
 			PortRange: "80",
 		},
 		{
 			Name:       models.Https,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.TCP,
+				schema.TCP,
 			},
 			PortRange: "443",
 		},
 		{
 			Name:       models.AllTCP,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.TCP,
+				schema.TCP,
 			},
 			PortRange: "All ports",
 		},
 		{
 			Name:       models.AllUDP,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.UDP,
+				schema.UDP,
 			},
 			PortRange: "All ports",
 		},
 		{
 			Name:       models.ICMPService,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.ICMP,
+				schema.ICMP,
 			},
 			PortRange: "",
 		},
 		{
 			Name:       models.SSH,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.TCP,
+				schema.TCP,
 			},
 			PortRange: "22",
 		},
 		{
 			Name:       models.ManagedSSH,
-			AccessType: models.ManagedAccess,
+			AccessType: schema.ManagedAccess,
 			AllowedProtocols: []models.Protocol{
-				models.TCP,
+				schema.TCP,
 			},
 			AllowPortSetting: false,
 		},
 		{
 			Name:       models.Custom,
-			AccessType: models.NetworkAccess,
+			AccessType: schema.NetworkAccess,
 			AllowedProtocols: []models.Protocol{
-				models.UDP,
-				models.TCP,
+				schema.UDP,
+				schema.TCP,
 			},
 			PortRange:        "All ports",
 			AllowPortSetting: true,
@@ -344,7 +344,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.Default = false
 	if acl.ServiceType == models.Any {
 		acl.Port = []string{}
-		acl.Proto = models.ALL
+		acl.Proto = schema.ALL
 	}
 	err = logic.NormalizeAndValidateAclAccessType(&acl)
 	if err != nil {

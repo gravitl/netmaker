@@ -146,7 +146,7 @@ func (g *PeerGraph) HostPeerInfo(ctx context.Context, host *schema.Host) (models
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 
 		currentPeers := g.NetworkNodes(node.Network)
 		for _, peer := range currentPeers {
@@ -215,9 +215,9 @@ func defaultsAllowAllTraffic(device, user models.Acl, acls []models.Acl) bool {
 			continue
 		}
 		switch acl.RuleType {
-		case models.DevicePolicy:
+		case schema.DevicePolicy:
 			deviceOn = true
-		case models.UserPolicy:
+		case schema.UserPolicy:
 			userOn = true
 		}
 	}
@@ -332,8 +332,8 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
-		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 		GetNodeEgressInfo(&node, eli, acls)
 		ResolveInternetExitRoutingNode(&node)
 		SuppressInternetExitIfNoACLAccess(ctx, &node, eli, acls, defaultDevicePolicy.Enabled)
@@ -355,8 +355,8 @@ func (g *PeerGraph) PeerUpdateForHost(ctx context.Context, network string, host 
 			if defaultsAllowAllTraffic(defaultDevicePolicy, defaultUserPolicy, acls) {
 				aclRule := models.AclRule{
 					ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
-					AllowedProtocol: models.ALL,
-					Direction:       models.TrafficDirectionBi,
+					AllowedProtocol: schema.ALL,
+					Direction:       schema.TrafficDirectionBi,
 					Allowed:         true,
 					IPList:          []net.IPNet{node.NetworkRange},
 					IP6List:         []net.IPNet{node.NetworkRange6},

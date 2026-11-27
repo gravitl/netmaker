@@ -30,13 +30,7 @@ var cpuProfileLog *os.File
 
 func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", middleware.Scope(scope.TenantScope, securityCheckServer(true, http.HandlerFunc(addNetwork)))).Methods(http.MethodPost)
-	r.HandleFunc(
-		"/api/server/health",
-		func(resp http.ResponseWriter, req *http.Request) {
-			resp.WriteHeader(http.StatusOK)
-			resp.Write([]byte("Server is up and running!!"))
-		},
-	).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/health", health).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/getconfig", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getConfig)))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", middleware.Scope(scope.TenantScope, allowUsers(http.HandlerFunc(getSettings)))).
@@ -68,17 +62,38 @@ func cpuProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+// @Summary     Write a memory profile snapshot
+// @Router      /api/server/mem_profile [post]
+// @Tags        Server
+// @Security    oauth
+// @Success     200 {string} string "Memory profile written"
 func memProfile(w http.ResponseWriter, r *http.Request) {
 	os.Remove("/root/data/mem.prof")
 	logic.StartMemProfiling()
 }
 
+// @Summary     Get current server usage limits
+// @Router      /api/server/usage [get]
+// @Tags        Server
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
 func getUsage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
 		Response: logic.GetCurrentServerUsage(r.Context()),
 	})
+}
+
+// @Summary     Health check
+// @Router      /api/server/health [get]
+// @Tags        Server
+// @Produce     plain
+// @Success     200 {string} string "Server is up and running!!"
+func health(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(http.StatusOK)
+	resp.Write([]byte("Server is up and running!!"))
 }
 
 // @Summary     Get the server status

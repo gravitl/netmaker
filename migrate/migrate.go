@@ -299,7 +299,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range adminAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
+						if src.ID == schema.UserGroupAclID && src.Value == group.Slug.String() {
 							createSeparateACL = true
 							enableSeparateACL = adminAcl.Enabled
 						} else {
@@ -315,7 +315,7 @@ func updateNewAcls(ctx context.Context) {
 				if err == nil {
 					var newAclSrc []models.AclPolicyTag
 					for _, src := range userAcl.Src {
-						if src.ID == models.UserGroupAclID && src.Value == group.Slug.String() {
+						if src.ID == schema.UserGroupAclID && src.Value == group.Slug.String() {
 							if !createSeparateACL {
 								// if group src not found in adminACL, then create.
 								createSeparateACL = true
@@ -343,20 +343,20 @@ func updateNewAcls(ctx context.Context) {
 					Default:     true,
 					ServiceType: models.Any,
 					NetworkID:   schema.NetworkID(network.Name),
-					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
+					Proto:       schema.ALL,
+					RuleType:    schema.UserPolicy,
 					Src: []models.AclPolicyTag{
 						{
-							ID:    models.UserGroupAclID,
+							ID:    schema.UserGroupAclID,
 							Value: group.Slug.String(),
 						},
 					},
 					Dst: []models.AclPolicyTag{
 						{
-							ID:    models.NodeTagID,
+							ID:    schema.NodeTagID,
 							Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
 						}},
-					AllowedDirection: models.TrafficDirectionUni,
+					AllowedDirection: schema.TrafficDirectionUni,
 					Enabled:          true,
 					CreatedBy:        "auto",
 					CreatedAt:        time.Now().UTC(),
@@ -596,7 +596,7 @@ func cleanupDeletedUserGroupRefs(ctx context.Context) {
 	for _, acl := range logic.ListAcls(ctx) {
 		var newSrc []models.AclPolicyTag
 		for _, src := range acl.Src {
-			if src.ID == models.UserGroupAclID {
+			if src.ID == schema.UserGroupAclID {
 				if group, ok := existingGroups[schema.UserGroupID(src.Value)]; ok {
 					var hasAccess bool
 					if _, ok := group.NetworkRoles.Data()[schema.AllNetworks]; ok {
@@ -611,7 +611,7 @@ func cleanupDeletedUserGroupRefs(ctx context.Context) {
 						newSrc = append(newSrc, src)
 					}
 				}
-			} else if src.ID == models.UserAclID && src.Value != "*" {
+			} else if src.ID == schema.UserAclID && src.Value != "*" {
 				if _, ok := existingUsers[src.Value]; ok {
 					newSrc = append(newSrc, src)
 				}

@@ -15,6 +15,13 @@ func ServerHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/server/license/validation", middleware.Scope(scope.OrgScope, logic.SecurityCheck(true, http.HandlerFunc(triggerLicenseValidation)))).Methods(http.MethodPost)
 }
 
+// @Summary     Trigger server license validation
+// @Router      /api/v1/server/license/validation [post]
+// @Tags        Server
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func triggerLicenseValidation(w http.ResponseWriter, r *http.Request) {
 	err := license.ValidateLicense(r.Context(), false)
 	if err != nil {

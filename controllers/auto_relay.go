@@ -69,7 +69,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	defaultPolicy, err := logic.GetDefaultPolicy(r.Context(), schema.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := logic.GetDefaultPolicy(r.Context(), schema.NetworkID(node.Network), schema.DevicePolicy)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

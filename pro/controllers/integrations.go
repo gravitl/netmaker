@@ -469,10 +469,23 @@ func listMDMDeviceState(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, out, "fetched mdm device states")
 }
 
+// @Summary     List built-in EDR provider types
+// @Router      /api/v1/integrations/edr/providers [get]
+// @Tags        Integrations
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} edrpkg.ProviderType
 func listEDRProviders(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, edrpkg.ListProviderTypes(), "fetched edr provider types")
 }
 
+// @Summary     Trigger an out-of-cycle EDR sync
+// @Router      /api/v1/integrations/edr/sync [post]
+// @Tags        Integrations
+// @Security    oauth
+// @Produce     json
+// @Success     202 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
 	if !logic.GetFeatureFlags(r.Context()).EnableEDRIntegration {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr integration is not enabled on your plan"), logic.BadReq))
@@ -498,6 +511,16 @@ func triggerEDRSync(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, map[string]any{"queued": true}, "edr sync queued")
 }
 
+// @Summary     List synced EDR device states
+// @Router      /api/v1/integrations/edr/device_state [get]
+// @Tags        Integrations
+// @Security    oauth
+// @Produce     json
+// @Param       host_id   query string false "Filter by host UUID"
+// @Param       provider  query string false "Filter by provider name"
+// @Success     200 {array} schema.DeviceEDRState
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
 func listEDRDeviceState(w http.ResponseWriter, r *http.Request) {
 	if !logic.GetFeatureFlags(r.Context()).EnableEDRIntegration {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("edr integration is not enabled on your plan"), logic.BadReq))

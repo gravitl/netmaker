@@ -34,8 +34,8 @@ func TestUserDeviceSrcIPsForPolicy_MatchesUserAndGroupSources(t *testing.T) {
 	}
 	policy := models.Acl{
 		Src: []models.AclPolicyTag{
-			{ID: models.UserAclID, Value: "alice"},
-			{ID: models.UserGroupAclID, Value: "netmaker-users"},
+			{ID: schema.UserAclID, Value: "alice"},
+			{ID: schema.UserGroupAclID, Value: "netmaker-users"},
 		},
 	}
 
@@ -63,7 +63,7 @@ func TestUserDeviceSrcIPsForPolicy_AllUsersWildcard(t *testing.T) {
 		userDeviceNode("bob", "100.64.0.10"),
 	}
 	policy := models.Acl{
-		Src: []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
+		Src: []models.AclPolicyTag{{ID: schema.UserAclID, Value: "*"}},
 	}
 	src4, _ := userDeviceSrcIPsForPolicy(policy, devices, nil)
 	if len(src4) != 2 {
@@ -91,13 +91,13 @@ func TestUserDeviceEgressRule_IPRestrictedPolicyYieldsSelectedIPOnly(t *testing.
 	policy := models.Acl{
 		ID:               "alice-to-sig",
 		Enabled:          true,
-		RuleType:         models.UserPolicy,
-		AllowedDirection: models.TrafficDirectionUni,
-		Proto:            models.ALL,
-		Src:              []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
+		RuleType:         schema.UserPolicy,
+		AllowedDirection: schema.TrafficDirectionUni,
+		Proto:            schema.ALL,
+		Src:              []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "sig"},
-			{ID: models.NetmakerIPAclID, Value: "10.104.0.1/32"},
+			{ID: schema.EgressID, Value: "sig"},
+			{ID: schema.NetmakerIPAclID, Value: "10.104.0.1/32"},
 		},
 	}
 
@@ -135,9 +135,9 @@ func TestUserDeviceEgressRule_WithoutSelectedIPsUsesEgressRange(t *testing.T) {
 	policy := models.Acl{
 		ID:       "alice-to-sig",
 		Enabled:  true,
-		RuleType: models.UserPolicy,
-		Src:      []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:      []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+		RuleType: schema.UserPolicy,
+		Src:      []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:      []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 	}
 
 	var dst4, dst6 []net.IPNet
@@ -170,9 +170,9 @@ func TestUserDeviceEgressRule_TagAttachedRoutingNode(t *testing.T) {
 	policy := models.Acl{
 		ID:       "alice-to-sig",
 		Enabled:  true,
-		RuleType: models.UserPolicy,
-		Src:      []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:      []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+		RuleType: schema.UserPolicy,
+		Src:      []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:      []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 	}
 
 	var dst4, dst6 []net.IPNet
@@ -224,9 +224,9 @@ func TestUserDeviceEgressRule_InternetOnlyOnExitRouter(t *testing.T) {
 	policy := models.Acl{
 		ID:       "alice-to-exit",
 		Enabled:  true,
-		RuleType: models.UserPolicy,
-		Src:      []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:      []models.AclPolicyTag{{ID: models.EgressID, Value: "exit2"}},
+		RuleType: schema.UserPolicy,
+		Src:      []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:      []models.AclPolicyTag{{ID: schema.EgressID, Value: "exit2"}},
 	}
 
 	var dst4, dst6 []net.IPNet
@@ -267,9 +267,9 @@ func TestUserDeviceEgressRule_UnrelatedEgressIsNotADestination(t *testing.T) {
 	policy := models.Acl{
 		ID:       "alice-to-sig",
 		Enabled:  true,
-		RuleType: models.UserPolicy,
-		Src:      []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:      []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+		RuleType: schema.UserPolicy,
+		Src:      []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:      []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 	}
 
 	var dst4, dst6 []net.IPNet
@@ -310,7 +310,7 @@ func TestAppendUserDeviceForwardedEgressDsts_PrefersVirtualRange(t *testing.T) {
 	}
 	policy := models.Acl{
 		Enabled: true,
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 	}
 	var dst4, dst6 []net.IPNet
 	appendUserDeviceForwardedEgressDsts(policy, forwarded, &dst4, &dst6)
@@ -331,8 +331,8 @@ func TestAppendUserDeviceForwardedEgressDsts_SelectedIPsOnForwardedPath(t *testi
 	policy := models.Acl{
 		Enabled: true,
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "sig"},
-			{ID: models.NetmakerIPAclID, Value: "10.104.0.1/32"},
+			{ID: schema.EgressID, Value: "sig"},
+			{ID: schema.NetmakerIPAclID, Value: "10.104.0.1/32"},
 		},
 	}
 	var dst4, dst6 []net.IPNet
@@ -359,11 +359,11 @@ func TestAppendUserDeviceForwardedEgressRules_EmitsUserDeviceRule(t *testing.T) 
 	policy := models.Acl{
 		ID:               "alice-to-sig",
 		Enabled:          true,
-		RuleType:         models.UserPolicy,
-		AllowedDirection: models.TrafficDirectionUni,
-		Proto:            models.ALL,
-		Src:              []models.AclPolicyTag{{ID: models.UserAclID, Value: "alice"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+		RuleType:         schema.UserPolicy,
+		AllowedDirection: schema.TrafficDirectionUni,
+		Proto:            schema.ALL,
+		Src:              []models.AclPolicyTag{{ID: schema.UserAclID, Value: "alice"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 	}
 	rules := appendUserDeviceForwardedEgressRules(context.Background(), &gw,
 		[]models.Node{device}, []models.Acl{policy}, nil, nil, make(map[string]models.AclRule))

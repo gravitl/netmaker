@@ -139,7 +139,7 @@ func TestGetFwRulesForUserDevicesOnGw_IncludesNonRelayedDeviceToExtClient(t *tes
 			return true, []models.Acl{{
 				ID:      "user-to-ext",
 				Enabled: true,
-				Proto:   models.ALL,
+				Proto:   schema.ALL,
 			}}
 		}
 		return false, nil

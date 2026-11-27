@@ -6,6 +6,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+// Enum constants for these aliases live only in schema (avoids duplicate swagger enums).
 type AllowedTrafficDirection = schema.AllowedTrafficDirection
 type Protocol = schema.Protocol
 type AclPolicyType = schema.AclPolicyType
@@ -15,29 +16,6 @@ type AclGroupType = schema.AclGroupType
 type Acl = schema.Acl
 
 const (
-	TrafficDirectionUni = schema.TrafficDirectionUni
-	TrafficDirectionBi  = schema.TrafficDirectionBi
-
-	ALL  = schema.ALL
-	UDP  = schema.UDP
-	TCP  = schema.TCP
-	ICMP = schema.ICMP
-
-	UserPolicy   = schema.UserPolicy
-	DevicePolicy = schema.DevicePolicy
-
-	NetworkAccess = schema.NetworkAccess
-	ManagedAccess = schema.ManagedAccess
-
-	UserAclID                = schema.UserAclID
-	UserGroupAclID           = schema.UserGroupAclID
-	NodeTagID                = schema.NodeTagID
-	NodeID                   = schema.NodeID
-	EgressRange              = schema.EgressRange
-	EgressID                 = schema.EgressID
-	NetmakerIPAclID          = schema.NetmakerIPAclID
-	NetmakerSubNetRangeAClID = schema.NetmakerSubNetRangeAClID
-
 	Http        = "HTTP"
 	Https       = "HTTPS"
 	AllTCP      = "All TCP"

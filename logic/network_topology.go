@@ -441,12 +441,12 @@ func (b *networkStatusBuilder) buildOwnerAccess(owner string) userPolicyAccess {
 	}
 	groups := userPolicyGroupIDs(user, b.network)
 	for _, policy := range b.userPolicies {
-		if !policy.Enabled || policy.RuleType != models.UserPolicy || !policyAppliesToUser(policy, owner, groups) {
+		if !policy.Enabled || policy.RuleType != schema.UserPolicy || !policyAppliesToUser(policy, owner, groups) {
 			continue
 		}
 		dst := ConvAclTagToValueMap(policy.Dst)
 		for _, tag := range policy.Dst {
-			if tag.ID != models.EgressID {
+			if tag.ID != schema.EgressID {
 				continue
 			}
 			egress, ok := b.egressByID(tag.Value)

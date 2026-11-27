@@ -1106,12 +1106,12 @@ func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []mode
 
 		if _, ok := dstTags[e.ID]; ok || all {
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID {
+				if srcAcl.ID == schema.UserAclID {
 					// All Users (user:*) and per-user sources.
 					if srcAcl.Value == "*" || srcAcl.Value == user.Username {
 						return true
 					}
-				} else if srcAcl.ID == models.UserGroupAclID {
+				} else if srcAcl.ID == schema.UserGroupAclID {
 					if _, ok := user.UserGroups.Data()[schema.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}
@@ -1135,8 +1135,8 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 		}
 		srcVal := ConvAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
-			if (dstI.ID == models.EgressID && dstI.Value == e.ID) || (dstI.ID == models.NodeTagID && dstI.Value == "*") {
-				if dstI.ID == models.EgressID {
+			if (dstI.ID == schema.EgressID && dstI.Value == e.ID) || (dstI.ID == schema.NodeTagID && dstI.Value == "*") {
+				if dstI.ID == schema.EgressID {
 					if _, err := getEgressByID(dstI.Value); err != nil {
 						continue
 					}
@@ -1184,7 +1184,7 @@ func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e 
 		nodeRoutesDst := targetNodeRoutesAnyEgress(*node, dstEgresses)
 		targetRoutesSrc := targetNodeRoutesAnyEgress(*targetNode, srcEgresses)
 		targetRoutesDst := targetNodeRoutesAnyEgress(*targetNode, dstEgresses)
-		if acl.AllowedDirection == models.TrafficDirectionUni {
+		if acl.AllowedDirection == schema.TrafficDirectionUni {
 			if nodeRoutesSrc && targetRoutesDst && egressListContainsID(dstEgresses, e.ID) {
 				return true
 			}
@@ -1361,7 +1361,7 @@ func AddEgressInfoToPeerByAccess(ctx context.Context, node, targetNode *models.N
 func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, network schema.NetworkID) (domains []string) {
 	acls := ListNetworkAccessUserPolicies(ctx, network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(ctx)
-	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, models.UserPolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, network, schema.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	seen := make(map[string]struct{})
 	for _, e := range eli {
@@ -1394,7 +1394,7 @@ func GetEgressDomainsByAccessForUser(ctx context.Context, user *schema.User, net
 func GetEgressDomainNSForNode(ctx context.Context, node *models.Node) (returnNsLi []models.Nameserver) {
 	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(node.Network))
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
-	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != node.Network {

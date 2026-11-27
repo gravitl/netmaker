@@ -2,13 +2,8 @@ package models
 
 import "github.com/gravitl/netmaker/schema"
 
+// Theme enum constants live only in schema (avoids duplicate swagger enums).
 type Theme = schema.Theme
-
-const (
-	Dark   = schema.Dark
-	Light  = schema.Light
-	System = schema.System
-)
 
 type ServerSettings = schema.TenantSettings
 

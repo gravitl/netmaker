@@ -32,8 +32,8 @@ func TestNormalizeAndValidateAclEgressIPs(t *testing.T) {
 
 	acl := models.Acl{
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "eg-1"},
-			{ID: models.NetmakerIPAclID, Value: "10.10.0.10"},
+			{ID: schema.EgressID, Value: "eg-1"},
+			{ID: schema.NetmakerIPAclID, Value: "10.10.0.10"},
 		},
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
@@ -56,8 +56,8 @@ func TestNormalizeAndValidateAclEgressIPsRejectsOutsideRange(t *testing.T) {
 
 	acl := models.Acl{
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "eg-1"},
-			{ID: models.NetmakerIPAclID, Value: "10.20.0.10"},
+			{ID: schema.EgressID, Value: "eg-1"},
+			{ID: schema.NetmakerIPAclID, Value: "10.20.0.10"},
 		},
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&acl); err == nil {
@@ -68,7 +68,7 @@ func TestNormalizeAndValidateAclEgressIPsRejectsOutsideRange(t *testing.T) {
 func TestNormalizeAndValidateAclEgressIPsRequiresEgressReference(t *testing.T) {
 	acl := models.Acl{
 		Dst: []models.AclPolicyTag{
-			{ID: models.NetmakerIPAclID, Value: "10.10.0.10"},
+			{ID: schema.NetmakerIPAclID, Value: "10.10.0.10"},
 		},
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&acl); err == nil {
@@ -93,7 +93,7 @@ func TestNormalizeAndValidateAclEgressIPsAllowsInternetEgress(t *testing.T) {
 
 	acl := models.Acl{
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+			{ID: schema.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
 		},
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&acl); err != nil {
@@ -102,8 +102,8 @@ func TestNormalizeAndValidateAclEgressIPsAllowsInternetEgress(t *testing.T) {
 
 	aclWithIP := models.Acl{
 		Dst: []models.AclPolicyTag{
-			{ID: models.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
-			{ID: models.NetmakerIPAclID, Value: "8.8.8.8"},
+			{ID: schema.EgressID, Value: "78df999e-6a35-4afb-b0eb-3a70bfc49ea9"},
+			{ID: schema.NetmakerIPAclID, Value: "8.8.8.8"},
 		},
 	}
 	if err := NormalizeAndValidateAclEgressIPs(&aclWithIP); err != nil {
@@ -207,8 +207,8 @@ func TestAddEgressInfoToPeerByAccess_DoesNotAutoFullTunnelFromInternetACL(t *tes
 	}
 	acls := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+		Src:     []models.AclPolicyTag{{ID: schema.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "inet-eg"}},
 	}}
 
 	// ACL grants access to the internet egress, but the client did not select it.
@@ -260,13 +260,13 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 
 	allowACL := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "inet-eg"}},
+		Src:     []models.AclPolicyTag{{ID: schema.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "inet-eg"}},
 	}}
 	denyACLs := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
-		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: exitID.String()}}, // gateway node only, not egress
+		Src:     []models.AclPolicyTag{{ID: schema.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: exitID.String()}}, // gateway node only, not egress
 	}}
 
 	// Assigned exit + ACL grants egress access → keep exit.
@@ -305,8 +305,8 @@ func TestSuppressInternetExitIfNoACLAccess(t *testing.T) {
 	// Policy includes node with dst all-resources ("*") → keep assigned exit.
 	allResourcesACL := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.NodeID, Value: clientID.String()}},
-		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+		Src:     []models.AclPolicyTag{{ID: schema.NodeID, Value: clientID.String()}},
+		Dst:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "*"}},
 	}}
 	client.SelectedInternetEgressID = "inet-eg"
 	client.InternetGwID = exitID.String()
@@ -341,21 +341,21 @@ func TestGetEgressToEgressPoliciesForNode(t *testing.T) {
 			{
 				ID:               "match-src",
 				Enabled:          true,
-				AllowedDirection: models.TrafficDirectionUni,
-				Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-				Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+				AllowedDirection: schema.TrafficDirectionUni,
+				Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+				Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 			},
 			{
 				ID:      "non-egress",
 				Enabled: true,
-				Src:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "tag1"}},
-				Dst:     []models.AclPolicyTag{{ID: models.NetmakerIPAclID, Value: "10.0.0.1/32"}},
+				Src:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "tag1"}},
+				Dst:     []models.AclPolicyTag{{ID: schema.NetmakerIPAclID, Value: "10.0.0.1/32"}},
 			},
 			{
 				ID:      "disabled",
 				Enabled: false,
-				Src:     []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-				Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+				Src:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+				Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 			},
 		}
 	}
@@ -412,9 +412,9 @@ func TestIsEgressToEgressPolicyForTarget_MatchesDstRoutingNode(t *testing.T) {
 	}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionBi,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionBi,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -465,9 +465,9 @@ func TestIsEgressToEgressPolicyForTarget_UniDirection_MatchesSrcRoutingNode(t *t
 	}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -523,9 +523,9 @@ func TestIsEgressToEgressPolicyForTarget_UniDirection_MatchesDstOnlyRoutingNode(
 	}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -580,14 +580,14 @@ func TestGetEgressAclRulesForTargetNode_EmitsRulesWithSiteToSiteKey(t *testing.T
 			{
 				ID:               "acl-1",
 				Enabled:          true,
-				AllowedDirection: models.TrafficDirectionBi,
-				Proto:            models.ALL,
+				AllowedDirection: schema.TrafficDirectionBi,
+				Proto:            schema.ALL,
 				Src: []models.AclPolicyTag{
-					{ID: models.EgressID, Value: "src-egress"},
-					{ID: models.NetmakerIPAclID, Value: "10.10.0.10/32"},
+					{ID: schema.EgressID, Value: "src-egress"},
+					{ID: schema.NetmakerIPAclID, Value: "10.10.0.10/32"},
 				},
 				Dst: []models.AclPolicyTag{
-					{ID: models.EgressID, Value: "dst-egress"},
+					{ID: schema.EgressID, Value: "dst-egress"},
 				},
 			},
 		}
@@ -656,10 +656,10 @@ func TestGetEgressAclRulesForTargetNode_UniEmitsForwardOnDstSideNode(t *testing.
 			{
 				ID:               "acl-uni",
 				Enabled:          true,
-				AllowedDirection: models.TrafficDirectionUni,
-				Proto:            models.ALL,
-				Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-				Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+				AllowedDirection: schema.TrafficDirectionUni,
+				Proto:            schema.ALL,
+				Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+				Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 			},
 		}
 	}
@@ -727,10 +727,10 @@ func TestGetEgressAclRulesForTargetNode_UniSkipsUninvolvedNodes(t *testing.T) {
 			{
 				ID:               "acl-uni",
 				Enabled:          true,
-				AllowedDirection: models.TrafficDirectionUni,
-				Proto:            models.ALL,
-				Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-				Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+				AllowedDirection: schema.TrafficDirectionUni,
+				Proto:            schema.ALL,
+				Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+				Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 			},
 		}
 	}
@@ -783,9 +783,9 @@ func TestIsEgressRoutingPolicyAllowedForNodes_UniForwardAllowed(t *testing.T) {
 	peer := models.Node{CommonNode: models.CommonNode{ID: peerID, Network: "netmaker"}}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -826,9 +826,9 @@ func TestIsEgressRoutingPolicyAllowedForNodes_UniReverseAlsoAllowedForPeering(t 
 	peer := models.Node{CommonNode: models.CommonNode{ID: peerID, Network: "netmaker"}}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -861,9 +861,9 @@ func TestIsEgressRoutingPolicyAllowedForNodes_BiReverseAllowed(t *testing.T) {
 	peer := models.Node{CommonNode: models.CommonNode{ID: peerID, Network: "netmaker"}}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionBi,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionBi,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		switch egressID {
@@ -887,9 +887,9 @@ func TestIsEgressRoutingPolicyAllowedForNodes_NonEgressDenied(t *testing.T) {
 	peer := models.Node{CommonNode: models.CommonNode{ID: uuid.New(), Network: "netmaker"}}
 	policy := models.Acl{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionBi,
-		Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "tag-a"}},
-		Dst:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "tag-b"}},
+		AllowedDirection: schema.TrafficDirectionBi,
+		Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "tag-a"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "tag-b"}},
 	}
 	if IsEgressRoutingPolicyAllowedForNodes(policy, node, peer) {
 		t.Fatal("expected non-egress policy to be ignored by egress-routing helper")
@@ -947,9 +947,9 @@ func TestAddEgressInfoToPeerByAccess_AllowsViaEgressRoutingPolicy(t *testing.T) 
 
 	acls := []models.Acl{{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}}
 	AddEgressInfoToPeerByAccess(context.TODO(), &node, &target, []schema.Egress{dstEgress}, acls, false)
 
@@ -1012,9 +1012,9 @@ func TestAddEgressInfoToPeerByAccess_DeniesUniReverseRouting(t *testing.T) {
 
 	acls := []models.Acl{{
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Src:              []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Src:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}}
 	AddEgressInfoToPeerByAccess(context.TODO(), &node, &target, []schema.Egress{srcEgress}, acls, false)
 
@@ -1039,8 +1039,8 @@ func TestIsEgressToEgressPolicyForTarget_NoRoutingMatch(t *testing.T) {
 	}
 	policy := models.Acl{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.EgressID, Value: "src-egress"}},
-		Dst:     []models.AclPolicyTag{{ID: models.EgressID, Value: "dst-egress"}},
+		Src:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "src-egress"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.EgressID, Value: "dst-egress"}},
 	}
 	getEgressByID = func(egressID string) (schema.Egress, error) {
 		return schema.Egress{
@@ -1087,14 +1087,14 @@ func TestGetEgressAclRulesForTargetNode_NatUsesMeshSrcOnDstRoutingNode(t *testin
 			{
 				ID:               "acl-nat",
 				Enabled:          true,
-				AllowedDirection: models.TrafficDirectionBi,
-				Proto:            models.ALL,
+				AllowedDirection: schema.TrafficDirectionBi,
+				Proto:            schema.ALL,
 				Src: []models.AclPolicyTag{
-					{ID: models.EgressID, Value: "src-egress"},
-					{ID: models.NetmakerIPAclID, Value: "10.10.0.10/32"},
+					{ID: schema.EgressID, Value: "src-egress"},
+					{ID: schema.NetmakerIPAclID, Value: "10.10.0.10/32"},
 				},
 				Dst: []models.AclPolicyTag{
-					{ID: models.EgressID, Value: "dst-egress"},
+					{ID: schema.EgressID, Value: "dst-egress"},
 				},
 			},
 		}
@@ -1189,13 +1189,13 @@ func TestGetEgressRulesForNode_BiPolicyEmitsExplicitReverseRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-bi-dev-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "snowy-waterfall"}},
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "snowy-waterfall"}},
 			Dst: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "egress-1"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.1/32"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+				{ID: schema.EgressID, Value: "egress-1"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.1/32"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.16/32"},
 			},
 		}}
 	}
@@ -1296,10 +1296,10 @@ func TestGetEgressRulesForNode_UniPolicyDoesNotEmitReverseRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-uni-dev-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "snowy-waterfall"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-1"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "snowy-waterfall"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-1"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -1378,10 +1378,10 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsExtclientFwdRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -1473,10 +1473,10 @@ func TestGetEgressRulesForNode_RemoteEgressBiEmitsReverse(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-ext-bi",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -1555,10 +1555,10 @@ func TestGetExtClientEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
@@ -1627,10 +1627,10 @@ func TestGetExtClientEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-ext-bi",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
@@ -1698,10 +1698,10 @@ func TestGetExtClientEgressFwRulesOnIngressGw_IgnoresExtclientsOnOtherGw(t *test
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	listNetworkExtClients = func(ctx context.Context, network string) ([]models.ExtClient, error) {
@@ -1769,10 +1769,10 @@ func TestGetEgressRulesForNode_RemoteEgressIgnoresOtherGwAttachedExtclients(t *t
 		return []models.Acl{{
 			ID:               "acl-ext-to-remote-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -1849,10 +1849,10 @@ func TestGetDeviceEgressFwRulesOnIngressGw_RemoteEgressEmitsFwRule(t *testing.T)
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	getNodeByID = func(id string) (models.Node, error) {
@@ -1930,10 +1930,10 @@ func TestGetDeviceEgressFwRulesOnIngressGw_BiEmitsReverse(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-dev-bi",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	getNodeByID = func(id string) (models.Node, error) {
@@ -1997,10 +1997,10 @@ func TestGetDeviceEgressFwRulesOnIngressGw_IgnoresUnrelayedNodes(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	getNodeByID = func(id string) (models.Node, error) {
@@ -2077,10 +2077,10 @@ func TestGetEgressRulesForNode_RemoteEgressEmitsDeviceFwdRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-dev-to-remote-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -2182,10 +2182,10 @@ func TestGetEgressRulesForNode_RemoteEgressDeviceBiEmitsReverse(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-dev-bi",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-remote"}},
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-remote"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -2278,10 +2278,10 @@ func TestGetEgressRulesForNode_RelayedEgressEmitsFwdRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "acl-to-relayed-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-relayed"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-on-relayed"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -2357,10 +2357,10 @@ func TestAppendAutoRelayPeerAclRules_EmitsAclInForHairpinnedPeer(t *testing.T) {
 	acls := []models.Acl{{
 		ID:               "acl-a-to-b",
 		Enabled:          true,
-		AllowedDirection: models.TrafficDirectionUni,
-		Proto:            models.ALL,
-		Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-		Dst:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "servers"}},
+		AllowedDirection: schema.TrafficDirectionUni,
+		Proto:            schema.ALL,
+		Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+		Dst:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "servers"}},
 	}}
 	tagged := map[models.TagID][]models.Node{
 		"marketing": {nodeA},
@@ -2443,10 +2443,10 @@ func TestRelayedEgressFwdAclRulesForNode_IncludesAutoRelayedEgress(t *testing.T)
 		return []models.Acl{{
 			ID:               "acl-to-auto-relayed-eg",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "marketing"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "egress-on-auto-relayed"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "marketing"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "egress-on-auto-relayed"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
@@ -2561,16 +2561,16 @@ func TestGetEgressRulesForNode_MixedSrcEmitsBothDeviceAndSiteToSiteRules(t *test
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionBi,
-			Proto:            models.ALL,
+			AllowedDirection: schema.TrafficDirectionBi,
+			Proto:            schema.ALL,
 			Src: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "src-egress"},
-				{ID: models.NodeID, Value: macbookID.String()},
-				{ID: models.NetmakerIPAclID, Value: "10.110.0.112/32"},
+				{ID: schema.EgressID, Value: "src-egress"},
+				{ID: schema.NodeID, Value: macbookID.String()},
+				{ID: schema.NetmakerIPAclID, Value: "10.110.0.112/32"},
 			},
 			Dst: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "dst-egress"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
+				{ID: schema.EgressID, Value: "dst-egress"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.16/32"},
 			},
 		}}
 	}
@@ -2722,17 +2722,17 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
 			Src: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "blr-eg"},
-				{ID: models.NodeID, Value: macbookID.String()},
-				{ID: models.NetmakerIPAclID, Value: "10.110.0.112/32"},
+				{ID: schema.EgressID, Value: "blr-eg"},
+				{ID: schema.NodeID, Value: macbookID.String()},
+				{ID: schema.NetmakerIPAclID, Value: "10.110.0.112/32"},
 			},
 			Dst: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "vr"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.4/32"},
+				{ID: schema.EgressID, Value: "vr"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.16/32"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.4/32"},
 			},
 		}}
 	}
@@ -2765,7 +2765,7 @@ func TestGetEgressRulesForNode_UniMixedSrcMultiDstIPsOnDstSideNode(t *testing.T)
 			t.Fatalf("%s: expected single Dst, got %v", k, r.Dst)
 		}
 		foundDsts[r.Dst[0].String()] = struct{}{}
-		if r.Direction != models.TrafficDirectionUni {
+		if r.Direction != schema.TrafficDirectionUni {
 			t.Fatalf("%s: expected Uni direction, got %v", k, r.Direction)
 		}
 	}
@@ -2885,17 +2885,17 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 		return []models.Acl{{
 			ID:               "site-acl",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
 			Src: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "blr-eg"},
-				{ID: models.NodeID, Value: macbookID.String()},
-				{ID: models.NetmakerIPAclID, Value: "10.110.0.112/32"},
+				{ID: schema.EgressID, Value: "blr-eg"},
+				{ID: schema.NodeID, Value: macbookID.String()},
+				{ID: schema.NetmakerIPAclID, Value: "10.110.0.112/32"},
 			},
 			Dst: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "vr"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.16/32"},
-				{ID: models.NetmakerIPAclID, Value: "10.104.0.4/32"},
+				{ID: schema.EgressID, Value: "vr"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.16/32"},
+				{ID: schema.NetmakerIPAclID, Value: "10.104.0.4/32"},
 			},
 		}}
 	}
@@ -2932,7 +2932,7 @@ func TestGetAclRulesForNode_UniSrcEgressMeshIPInDstSideRule(t *testing.T) {
 			t.Fatalf("expected dst-side rule Dst to contain %s, got %v", want, rule.Dst)
 		}
 	}
-	if rule.Direction != models.TrafficDirectionUni {
+	if rule.Direction != schema.TrafficDirectionUni {
 		t.Fatalf("expected Uni direction on dst-side rule, got %v", rule.Direction)
 	}
 }
@@ -2994,14 +2994,14 @@ func TestGetAclRulesForNode_UniSrcEgressNoEgressDoesNotInflateSrcTags(t *testing
 		return []models.Acl{{
 			ID:               "site-acl-missing-src-egress",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
 			Src: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "missing-eg"},
-				{ID: models.NodeID, Value: macbookID.String()},
+				{ID: schema.EgressID, Value: "missing-eg"},
+				{ID: schema.NodeID, Value: macbookID.String()},
 			},
 			Dst: []models.AclPolicyTag{
-				{ID: models.EgressID, Value: "vr"},
+				{ID: schema.EgressID, Value: "vr"},
 			},
 		}}
 	}

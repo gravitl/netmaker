@@ -143,7 +143,7 @@ func GetAutoRelayPeerIps(ctx context.Context, g *PeerGraph, peer, node *models.N
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
 	acls := ListNetworkAccessAcls(ctx, schema.NetworkID(node.Network))
-	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(node.Network), schema.DevicePolicy)
 	bypass := SelectedInternetEgressBypasses(node)
 	viewerIsSpecificEgress := PeerAdvertisesSpecificEgress(node)
 	inetExitRouterIDs := InternetEgressRoutingNodeIDsFromList(eli)

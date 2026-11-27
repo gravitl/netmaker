@@ -191,8 +191,8 @@ func ListDeviceExitNodes(ctx context.Context, user *schema.User, host *schema.Ho
 	}
 	acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
 	userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
-	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
-	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), schema.DevicePolicy)
+	defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), schema.UserPolicy)
 
 	out := make([]models.DeviceExitNode, 0)
 	for _, e := range eli {
@@ -258,8 +258,8 @@ func SelectDeviceExitNode(ctx context.Context, user *schema.User, host *schema.H
 		}
 		acls := ListNetworkAccessDevicePolicies(ctx, schema.NetworkID(networkID))
 		userAcls := ListNetworkAccessUserPolicies(ctx, schema.NetworkID(networkID))
-		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.DevicePolicy)
-		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), schema.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(ctx, schema.NetworkID(networkID), schema.UserPolicy)
 		if !deviceMaySelectExitNode(user, host, node, e, acls, userAcls,
 			defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled) {
 			return nil, errors.New("user does not have access to this exit node")

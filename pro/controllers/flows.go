@@ -77,11 +77,11 @@ type FlowRow struct {
 // @Param       network_id query string false "Filter by network ID"
 // @Param       from query string false "Start time in RFC3339 format"
 // @Param       to query string false "End time in RFC3339 format"
-// @Param       src_type []query string false "Source type filter"
+// @Param       src_type query []string false "Source type filter" collectionFormat(multi)
 // @Param       src_entity_id query string false "Source entity ID filter"
-// @Param       dst_type []query string false "Destination type filter"
+// @Param       dst_type query []string false "Destination type filter" collectionFormat(multi)
 // @Param       dst_entity_id query string false "Destination entity ID filter"
-// @Param       protocol []query string false "Protocol filter"
+// @Param       protocol query []string false "Protocol filter" collectionFormat(multi)
 // @Param       node_id query string false "Node ID filter"
 // @Param       username query string false "Username filter"
 // @Param       page query int false "Page number"

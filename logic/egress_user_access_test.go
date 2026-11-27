@@ -13,8 +13,8 @@ func TestDoesUserHaveAccessToEgress_AllUsersWildcard(t *testing.T) {
 	e := &schema.Egress{ID: "eg-1", Status: true}
 	acls := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
-		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+		Src:     []models.AclPolicyTag{{ID: schema.UserAclID, Value: "*"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "*"}},
 	}}
 	if !DoesUserHaveAccessToEgress(user, e, acls) {
 		t.Fatal("All Users (user:*) → All Resources must grant egress access")
@@ -26,10 +26,10 @@ func TestDoesUserHaveAccessToEgress_SpecificUserAndGroup(t *testing.T) {
 	acls := []models.Acl{{
 		Enabled: true,
 		Src: []models.AclPolicyTag{
-			{ID: models.UserAclID, Value: "alice"},
-			{ID: models.UserGroupAclID, Value: "ops"},
+			{ID: schema.UserAclID, Value: "alice"},
+			{ID: schema.UserGroupAclID, Value: "ops"},
 		},
-		Dst: []models.AclPolicyTag{{ID: models.EgressID, Value: "eg-1"}},
+		Dst: []models.AclPolicyTag{{ID: schema.EgressID, Value: "eg-1"}},
 	}}
 	if !DoesUserHaveAccessToEgress(&schema.User{Username: "alice"}, e, acls) {
 		t.Fatal("named user source must match")
@@ -51,8 +51,8 @@ func TestDoesUserHaveAccessToEgress_DisabledOrInactive(t *testing.T) {
 	e := &schema.Egress{ID: "eg-1", Status: false}
 	acls := []models.Acl{{
 		Enabled: true,
-		Src:     []models.AclPolicyTag{{ID: models.UserAclID, Value: "*"}},
-		Dst:     []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
+		Src:     []models.AclPolicyTag{{ID: schema.UserAclID, Value: "*"}},
+		Dst:     []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "*"}},
 	}}
 	if DoesUserHaveAccessToEgress(user, e, acls) {
 		t.Fatal("inactive egress must be denied")

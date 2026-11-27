@@ -367,14 +367,14 @@ func TestRenameExtClientInAclPolicies(t *testing.T) {
 	policy := models.Acl{
 		ID:        uuid.NewString(),
 		NetworkID: schema.NetworkID(network.Name),
-		RuleType:  models.DevicePolicy,
+		RuleType:  schema.DevicePolicy,
 		Src: []models.AclPolicyTag{
-			{ID: models.NodeID, Value: "client-old"},
-			{ID: models.EgressID, Value: "client-old"},
+			{ID: schema.NodeID, Value: "client-old"},
+			{ID: schema.EgressID, Value: "client-old"},
 		},
 		Dst: []models.AclPolicyTag{
-			{ID: models.NodeID, Value: "client-other"},
-			{ID: models.NodeID, Value: "client-old"},
+			{ID: schema.NodeID, Value: "client-other"},
+			{ID: schema.NodeID, Value: "client-old"},
 		},
 	}
 	require.NoError(t, UpsertAcl(ctx, policy))
@@ -382,9 +382,9 @@ func TestRenameExtClientInAclPolicies(t *testing.T) {
 	otherNetworkPolicy := models.Acl{
 		ID:        uuid.NewString(),
 		NetworkID: schema.NetworkID(other.Name),
-		RuleType:  models.DevicePolicy,
-		Src:       []models.AclPolicyTag{{ID: models.NodeID, Value: "client-old"}},
-		Dst:       []models.AclPolicyTag{{ID: models.NodeID, Value: "client-other"}},
+		RuleType:  schema.DevicePolicy,
+		Src:       []models.AclPolicyTag{{ID: schema.NodeID, Value: "client-old"}},
+		Dst:       []models.AclPolicyTag{{ID: schema.NodeID, Value: "client-other"}},
 	}
 	require.NoError(t, UpsertAcl(ctx, otherNetworkPolicy))
 
@@ -393,12 +393,12 @@ func TestRenameExtClientInAclPolicies(t *testing.T) {
 	got, err := GetAcl(ctx, policy.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []models.AclPolicyTag{
-		{ID: models.NodeID, Value: "client-new"},
-		{ID: models.EgressID, Value: "client-old"},
+		{ID: schema.NodeID, Value: "client-new"},
+		{ID: schema.EgressID, Value: "client-old"},
 	}, got.Src, "only node references are renamed")
 	assert.Equal(t, []models.AclPolicyTag{
-		{ID: models.NodeID, Value: "client-other"},
-		{ID: models.NodeID, Value: "client-new"},
+		{ID: schema.NodeID, Value: "client-other"},
+		{ID: schema.NodeID, Value: "client-new"},
 	}, got.Dst)
 
 	got, err = GetAcl(ctx, otherNetworkPolicy.ID)

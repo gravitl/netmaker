@@ -1139,20 +1139,20 @@ func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema
 				Default:     true,
 				ServiceType: models.Any,
 				NetworkID:   schema.NetworkID(network.Name),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
+				Proto:       schema.ALL,
+				RuleType:    schema.UserPolicy,
 				Src: []models.AclPolicyTag{
 					{
-						ID:    models.UserGroupAclID,
+						ID:    schema.UserGroupAclID,
 						Value: groupID,
 					},
 				},
 				Dst: []models.AclPolicyTag{
 					{
-						ID:    models.NodeTagID,
+						ID:    schema.NodeTagID,
 						Value: fmt.Sprintf("%s.%s", schema.NetworkID(network.Name), models.GwTagName),
 					}},
-				AllowedDirection: models.TrafficDirectionUni,
+				AllowedDirection: schema.TrafficDirectionUni,
 				Enabled:          true,
 				CreatedBy:        "auto",
 				CreatedAt:        time.Now().UTC(),
@@ -1191,7 +1191,7 @@ func EnsureDefaultUserGroupNetworkPolicies(ctx context.Context, old, new *schema
 			var newAclSrc []models.AclPolicyTag
 			var groupSrcExists bool
 			for _, src := range acl.Src {
-				if src.ID == models.UserGroupAclID && src.Value == groupID {
+				if src.ID == schema.UserGroupAclID && src.Value == groupID {
 					groupSrcExists = true
 				} else {
 					newAclSrc = append(newAclSrc, src)
@@ -1255,21 +1255,21 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 			Name:        "All Users",
 			MetaData:    "This policy gives access to everything in the network for an user",
 			NetworkID:   netID,
-			Proto:       models.ALL,
+			Proto:       schema.ALL,
 			ServiceType: models.Any,
 			Port:        []string{},
-			RuleType:    models.UserPolicy,
+			RuleType:    schema.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
-					ID:    models.UserAclID,
+					ID:    schema.UserAclID,
 					Value: "*",
 				},
 			},
 			Dst: []models.AclPolicyTag{{
-				ID:    models.NodeTagID,
+				ID:    schema.NodeTagID,
 				Value: "*",
 			}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1287,24 +1287,24 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
+			Proto:       schema.ALL,
+			RuleType:    schema.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: globalNetworksAdminGroupID.String(),
 				},
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: networkAdminGroupID.String(),
 				},
 			},
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.NodeTagID,
+					ID:    schema.NodeTagID,
 					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 				}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1322,24 +1322,24 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
+			Proto:       schema.ALL,
+			RuleType:    schema.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: globalNetworksUserGroupID.String(),
 				},
 				{
-					ID:    models.UserGroupAclID,
+					ID:    schema.UserGroupAclID,
 					Value: networkUserGroupID.String(),
 				},
 			},
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.NodeTagID,
+					ID:    schema.NodeTagID,
 					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 				}},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: schema.TrafficDirectionUni,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
@@ -1385,20 +1385,20 @@ func CreateDefaultUserPolicies(ctx context.Context, netID schema.NetworkID) {
 					Default:     true,
 					ServiceType: models.Any,
 					NetworkID:   netID,
-					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
+					Proto:       schema.ALL,
+					RuleType:    schema.UserPolicy,
 					Src: []models.AclPolicyTag{
 						{
-							ID:    models.UserGroupAclID,
+							ID:    schema.UserGroupAclID,
 							Value: group.Slug.String(),
 						},
 					},
 					Dst: []models.AclPolicyTag{
 						{
-							ID:    models.NodeTagID,
+							ID:    schema.NodeTagID,
 							Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 						}},
-					AllowedDirection: models.TrafficDirectionUni,
+					AllowedDirection: schema.TrafficDirectionUni,
 					Enabled:          true,
 					CreatedBy:        "auto",
 					CreatedAt:        time.Now().UTC(),

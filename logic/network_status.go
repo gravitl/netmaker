@@ -97,7 +97,7 @@ func loadNetworkStatusBuilder(ctx context.Context, network string, opts NetworkS
 		relayConnectivity:  make(map[string]map[string]models.Metric),
 	}
 	b.acls, _ = ListAclsByNetwork(ctx, schema.NetworkID(network))
-	if p, err := GetDefaultPolicy(ctx, schema.NetworkID(network), models.DevicePolicy); err == nil {
+	if p, err := GetDefaultPolicy(ctx, schema.NetworkID(network), schema.DevicePolicy); err == nil {
 		b.deviceDefault = p.Enabled
 	}
 	b.userDefault = userDeviceEgressDefaultActive(ctx, network)

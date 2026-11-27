@@ -136,10 +136,10 @@ func TestGetEgressRulesForNode_AllResourcesSrcExcludesUserDevice(t *testing.T) {
 		return []models.Acl{{
 			ID:               "all-rsrcs-to-sig",
 			Enabled:          true,
-			AllowedDirection: models.TrafficDirectionUni,
-			Proto:            models.ALL,
-			Src:              []models.AclPolicyTag{{ID: models.NodeTagID, Value: "*"}},
-			Dst:              []models.AclPolicyTag{{ID: models.EgressID, Value: "sig"}},
+			AllowedDirection: schema.TrafficDirectionUni,
+			Proto:            schema.ALL,
+			Src:              []models.AclPolicyTag{{ID: schema.NodeTagID, Value: "*"}},
+			Dst:              []models.AclPolicyTag{{ID: schema.EgressID, Value: "sig"}},
 		}}
 	}
 	GetTagMapWithNodesByNetwork = func(ctx context.Context, netID schema.NetworkID, withStatic bool) map[models.TagID][]models.Node {
