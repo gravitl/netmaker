@@ -3959,6 +3959,10 @@ func UpdateAcl(ctx context.Context, newAcl, acl models.Acl) error {
 		acl.Port = newAcl.Port
 		acl.Proto = newAcl.Proto
 		acl.ServiceType = newAcl.ServiceType
+		// An empty meta_data keeps the stored description.
+		if newAcl.MetaData != "" {
+			acl.MetaData = newAcl.MetaData
+		}
 	}
 	if newAcl.ServiceType == models.Any {
 		acl.Port = []string{}
