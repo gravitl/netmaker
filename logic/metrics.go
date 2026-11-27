@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,8 +39,10 @@ func (m *MetricsMonitor) Start() {
 	ctx, m.cancel = context.WithCancel(scope.WithContext(db.WithContext(context.Background()), scope.TenantScope, m.tenantID))
 
 	go func(ctx context.Context) {
-		metricsInterval, _ := strconv.Atoi(GetServerSettings(ctx).MetricInterval)
-		if metricsInterval == 0 {
+		metricsInterval, _ := strconv.Atoi(strings.TrimSpace(GetServerSettings(ctx).MetricInterval))
+		if metricsInterval <= 0 {
+			// a negative interval would make time.After fire immediately and
+			// spin this loop against the database.
 			return
 		}
 
