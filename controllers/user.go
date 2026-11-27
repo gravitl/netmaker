@@ -1826,9 +1826,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		selfUpdate = true
 	}
 
-	if !ismaster && !selfUpdate {
-		switch scope.Level(r.Context()) {
-		case scope.OrgScope:
+	if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
+		slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+		return
+	}
+
+	switch scope.Level(r.Context()) {
+	case scope.OrgScope:
+		if !ismaster && !selfUpdate {
 			if caller.PlatformRoleID == schema.OrgAdmin && user.PlatformRoleID == schema.OrgOwner {
 				slog.Error("non-org-owner user", "caller", caller.Username, "attempted to update org-owner user", username)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update org-owner user"), "forbidden"))
@@ -1858,7 +1864,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
-		case scope.TenantScope:
+		}
+
+		if !ismaster && selfUpdate && servercfg.IsPro && caller.PlatformRoleID != schema.OrgOwner {
+			// users cannot update their own groups; org-owner is exempt
+			if len(user.UserGroups.Data()) != len(userchange.UserGroups.Data()) || !reflect.DeepEqual(user.UserGroups.Data(), userchange.UserGroups.Data()) {
+				err = errors.New("user cannot self update their groups")
+				slog.Error("failed to update user", "caller", caller.Username, "attempted to update user", username, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		}
+	case scope.TenantScope:
+		if !ismaster && !selfUpdate {
 			if caller.PlatformRoleID == schema.AdminRole && user.PlatformRoleID == schema.SuperAdminRole {
 				slog.Error("non-superadmin user", "caller", caller.Username, "attempted to update superadmin user", username)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
@@ -1888,18 +1906,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 				return
 			}
-		default:
-			break
 		}
-	}
 
-	if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
-		slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-		return
-	}
-
-	if scope.Level(r.Context()) == scope.TenantScope {
 		if !ismaster && selfUpdate {
 			if logic.IsMFAEnforced(r.Context()) && user.IsMFAEnabled && !userchange.IsMFAEnabled {
 				err = errors.New("mfa is enforced, user cannot unset their own mfa")
@@ -1930,14 +1938,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		if user.AuthType == schema.Inherited && userchange.Password != "" {
 			err = fmt.Errorf("cannot update password for user with inherited auth")
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
-			return
-		}
-	}
-
-	if scope.Level(r.Context()) == scope.OrgScope {
-		if !ismaster && selfUpdate && user.PlatformRoleID != userchange.PlatformRoleID {
-			slog.Error("user cannot change his own role", "caller", caller.Username, "attempted to update user role", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
 			return
 		}
 	}
