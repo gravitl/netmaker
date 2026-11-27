@@ -438,12 +438,11 @@ func getEgressesFromPolicyTags(tags []models.AclPolicyTag, network string) []sch
 }
 
 func targetNodeRoutesAnyEgress(targetnode models.Node, egresses []schema.Egress) bool {
-	targetID := targetnode.ID.String()
-	for _, e := range egresses {
-		if !e.Status || len(e.Nodes) == 0 {
+	for i := range egresses {
+		if !egresses[i].Status {
 			continue
 		}
-		if _, ok := e.Nodes[targetID]; ok {
+		if nodeRoutesEgress(&targetnode, &egresses[i]) {
 			return true
 		}
 	}
@@ -608,88 +607,241 @@ func appendEgressSiteToSiteRules(
 	}
 }
 
+// egressRouterIDs is every node that routes e: explicit e.Nodes plus nodes
+// whose tags match e.Tags. target is included when it matches, even if it is
+// absent from networkNodes.
+func egressRouterIDs(e schema.Egress, networkNodes []models.Node, target models.Node) map[string]struct{} {
+	routers := make(map[string]struct{})
+	if !e.Status {
+		return routers
+	}
+	for id := range e.Nodes {
+		if id != "" {
+			routers[id] = struct{}{}
+		}
+	}
+	if len(e.Tags) == 0 {
+		if nodeRoutesEgress(&target, &e) {
+			if id := target.ID.String(); id != "" {
+				routers[id] = struct{}{}
+			}
+		}
+		return routers
+	}
+	for i := range networkNodes {
+		if !nodeRoutesEgress(&networkNodes[i], &e) {
+			continue
+		}
+		if id := networkNodes[i].ID.String(); id != "" {
+			routers[id] = struct{}{}
+		}
+	}
+	if nodeRoutesEgress(&target, &e) {
+		if id := target.ID.String(); id != "" {
+			routers[id] = struct{}{}
+		}
+	}
+	return routers
+}
+
+// egressPairLeavesNode is true when targetID forwards this src→dst pair off-box.
+// Pairs whose ranges both resolve only to targetID never leave the host.
+// Routers come from e.Nodes and from e.Tags.
+func egressPairLeavesNode(src, dst schema.Egress, srcRouters, dstRouters map[string]struct{}, targetID string) bool {
+	if !src.Status || !dst.Status {
+		return false
+	}
+	if src.ID != "" && src.ID == dst.ID {
+		return false
+	}
+	_, srcHere := srcRouters[targetID]
+	_, dstHere := dstRouters[targetID]
+	if !srcHere && !dstHere {
+		return false
+	}
+	if len(srcRouters) == 1 && len(dstRouters) == 1 && srcHere && dstHere {
+		return false
+	}
+	return true
+}
+
+func meshNetsForRouterIDs(routers map[string]struct{}, excludeNodeID string) (ip4 []net.IPNet, ip6 []net.IPNet) {
+	if len(routers) == 0 {
+		return
+	}
+	fake := schema.Egress{Nodes: datatypes.JSONMap{}}
+	for id := range routers {
+		if id == "" || id == excludeNodeID {
+			continue
+		}
+		fake.Nodes[id] = true
+	}
+	if len(fake.Nodes) == 0 {
+		return
+	}
+	return meshNetsForEgressRouters([]schema.Egress{fake}, excludeNodeID)
+}
+
+// egressCIDRs is a parsed v4/v6 range list cached once per egress.
+type egressCIDRs struct {
+	v4, v6 []net.IPNet
+}
+
+// egressSideCIDRs returns the CIDRs of a pre-parsed egress range that this policy allows.
+// Selected IPs replace the egress range, and only those that fall inside it.
+func egressSideCIDRs(ranges egressCIDRs, selected4, selected6 []net.IPNet) (v4, v6 []net.IPNet) {
+	if len(selected4) == 0 && len(selected6) == 0 {
+		return ranges.v4, ranges.v6
+	}
+	for _, s := range selected4 {
+		sel := s
+		for _, r := range ranges.v4 {
+			rng := r
+			if cidrContainsCIDR(&rng, &sel) {
+				v4 = append(v4, sel)
+				break
+			}
+		}
+	}
+	for _, s := range selected6 {
+		sel := s
+		for _, r := range ranges.v6 {
+			rng := r
+			if cidrContainsCIDR(&rng, &sel) {
+				v6 = append(v6, sel)
+				break
+			}
+		}
+	}
+	return v4, v6
+}
+
+func appendUniqueIPNetPairs(dst []struct{ Src, Dst net.IPNet }, src []struct{ Src, Dst net.IPNet }, seen map[string]struct{}) []struct{ Src, Dst net.IPNet } {
+	for _, p := range src {
+		k := p.Src.String() + ">" + p.Dst.String()
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		dst = append(dst, p)
+	}
+	return dst
+}
+
 func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node) map[string]models.AclRule {
 	rules := make(map[string]models.AclRule)
 	policies := getEgressToEgressPoliciesForNode(ctx, targetnode)
 	targetID := targetnode.ID.String()
+	networkNodes, _ := listNetworkNodes(ctx, targetnode.Network)
+	routerCache := make(map[string]map[string]struct{})
+	// meshCache and rangeCache are filled on the first routersOf call for an
+	// egress so the n² pair loop does not repeat GetNodeByID or CIDR parses.
+	meshCache := make(map[string]egressCIDRs)
+	rangeCache := make(map[string]egressCIDRs)
+	routersOf := func(e schema.Egress) map[string]struct{} {
+		if e.ID != "" {
+			if s, ok := routerCache[e.ID]; ok {
+				return s
+			}
+		}
+		s := egressRouterIDs(e, networkNodes, targetnode)
+		if e.ID != "" {
+			routerCache[e.ID] = s
+			var v4, v6 []net.IPNet
+			AppendEgressPolicyRange(e, e.Range, &v4, &v6)
+			rangeCache[e.ID] = egressCIDRs{v4: v4, v6: v6}
+			m4, m6 := meshNetsForRouterIDs(s, targetID)
+			meshCache[e.ID] = egressCIDRs{v4: m4, v6: m6}
+		}
+		return s
+	}
+	rangesOf := func(e schema.Egress) egressCIDRs {
+		if e.ID != "" {
+			if c, ok := rangeCache[e.ID]; ok {
+				return c
+			}
+		}
+		var v4, v6 []net.IPNet
+		AppendEgressPolicyRange(e, e.Range, &v4, &v6)
+		return egressCIDRs{v4: v4, v6: v6}
+	}
+	meshOf := func(e schema.Egress, routers map[string]struct{}) egressCIDRs {
+		if e.ID != "" {
+			if c, ok := meshCache[e.ID]; ok {
+				return c
+			}
+		}
+		m4, m6 := meshNetsForRouterIDs(routers, targetID)
+		return egressCIDRs{v4: m4, v6: m6}
+	}
 	for _, acl := range policies {
 		srcEgresses := getEgressesFromPolicyTags(acl.Src, targetnode.Network)
 		dstEgresses := getEgressesFromPolicyTags(acl.Dst, targetnode.Network)
 		if len(srcEgresses) == 0 || len(dstEgresses) == 0 {
 			continue
 		}
-		srcRouted := targetNodeRoutesAnyEgress(targetnode, srcEgresses)
-		dstRouted := targetNodeRoutesAnyEgress(targetnode, dstEgresses)
 		// A node only needs a rule for this policy when it actually sits on the
 		// packet path. For both Uni (src -> dst) and Bi traffic, that means
 		// either it routes the src-egress (LAN behind it is the source) or it
 		// routes the dst-egress (LAN behind it is the destination). The Bi-only
 		// reverse leg is appended after the forward leg below.
-		if !srcRouted && !dstRouted {
+		if !targetNodeRoutesAnyEgress(targetnode, srcEgresses) && !targetNodeRoutesAnyEgress(targetnode, dstEgresses) {
 			continue
 		}
-		origSrcIP4, origSrcIP6 := getSelectedEgressIPNets(acl.Src)
-		if len(origSrcIP4) == 0 && len(origSrcIP6) == 0 {
-			origSrcIP4, origSrcIP6 = getEgressCIDRs(srcEgresses)
-		}
-		dstIP4, dstIP6 := getSelectedEgressIPNets(acl.Dst)
-		if len(dstIP4) == 0 && len(dstIP6) == 0 {
-			dstIP4, dstIP6 = getEgressCIDRs(dstEgresses)
-		}
-		srcNat := egressListHasNAT(srcEgresses)
-		dstNat := egressListHasNAT(dstEgresses)
+		selSrc4, selSrc6 := getSelectedEgressIPNets(acl.Src)
+		selDst4, selDst6 := getSelectedEgressIPNets(acl.Dst)
 
-		fwdSrcIP4 := append([]net.IPNet(nil), origSrcIP4...)
-		fwdSrcIP6 := append([]net.IPNet(nil), origSrcIP6...)
-		if dstRouted && !srcRouted && srcNat {
-			m4, m6 := meshNetsForEgressRouters(srcEgresses, targetID)
-			if len(m4) > 0 || len(m6) > 0 {
-				fwdSrcIP4, fwdSrcIP6 = m4, m6
-			}
-		}
+		seenFwd4 := make(map[string]struct{})
+		seenFwd6 := make(map[string]struct{})
+		seenRev4 := make(map[string]struct{})
+		seenRev6 := make(map[string]struct{})
+		var fwd4, fwd6, rev4, rev6 []struct{ Src, Dst net.IPNet }
 
-		fwdSrcIP4 = UniqueIPNetList(fwdSrcIP4)
-		fwdSrcIP6 = UniqueIPNetList(fwdSrcIP6)
-		dstIP4 = UniqueIPNetList(dstIP4)
-		dstIP6 = UniqueIPNetList(dstIP6)
-
-		if len(fwdSrcIP4) == 0 && len(fwdSrcIP6) == 0 {
-			continue
-		}
-		if len(dstIP4) == 0 && len(dstIP6) == 0 {
-			continue
-		}
-
-		v4pairs := crossSiteEgressIPNetPairs(fwdSrcIP4, dstIP4)
-		v6pairs := crossSiteEgressIPNetPairs(fwdSrcIP6, dstIP6)
-		if len(v4pairs) == 0 && len(v6pairs) == 0 {
-			continue
-		}
-
-		appendEgressSiteToSiteRules(rules, acl, acl.AllowedDirection, v4pairs, v6pairs, false)
-
-		if acl.AllowedDirection == models.TrafficDirectionBi {
-			revSrcIP4 := append([]net.IPNet(nil), dstIP4...)
-			revSrcIP6 := append([]net.IPNet(nil), dstIP6...)
-			if srcRouted && !dstRouted && dstNat {
-				m4, m6 := meshNetsForEgressRouters(dstEgresses, targetID)
-				if len(m4) > 0 || len(m6) > 0 {
-					revSrcIP4, revSrcIP6 = m4, m6
+		for _, srcE := range srcEgresses {
+			srcRouters := routersOf(srcE)
+			_, srcHere := srcRouters[targetID]
+			for _, dstE := range dstEgresses {
+				dstRouters := routersOf(dstE)
+				_, dstHere := dstRouters[targetID]
+				if !egressPairLeavesNode(srcE, dstE, srcRouters, dstRouters, targetID) {
+					continue
 				}
-			}
-			revDst4 := append([]net.IPNet(nil), origSrcIP4...)
-			revDst6 := append([]net.IPNet(nil), origSrcIP6...)
-			revSrcIP4 = UniqueIPNetList(revSrcIP4)
-			revSrcIP6 = UniqueIPNetList(revSrcIP6)
-			revDst4 = UniqueIPNetList(revDst4)
-			revDst6 = UniqueIPNetList(revDst6)
+				src4, src6 := egressSideCIDRs(rangesOf(srcE), selSrc4, selSrc6)
+				dst4, dst6 := egressSideCIDRs(rangesOf(dstE), selDst4, selDst6)
 
-			revV4 := crossSiteEgressIPNetPairs(revSrcIP4, revDst4)
-			revV6 := crossSiteEgressIPNetPairs(revSrcIP6, revDst6)
-			if len(revV4) == 0 && len(revV6) == 0 {
-				continue
+				// On the dst router, a NATed src egress arrives as the src
+				// router's mesh address rather than the LAN range.
+				fwdSrc4, fwdSrc6 := src4, src6
+				if !srcHere && dstHere && srcE.Nat {
+					if mesh := meshOf(srcE, srcRouters); len(mesh.v4) > 0 || len(mesh.v6) > 0 {
+						fwdSrc4, fwdSrc6 = mesh.v4, mesh.v6
+					}
+				}
+				fwd4 = appendUniqueIPNetPairs(fwd4, crossSiteEgressIPNetPairs(fwdSrc4, dst4), seenFwd4)
+				fwd6 = appendUniqueIPNetPairs(fwd6, crossSiteEgressIPNetPairs(fwdSrc6, dst6), seenFwd6)
+
+				if acl.AllowedDirection != models.TrafficDirectionBi {
+					continue
+				}
+				revSrc4, revSrc6 := dst4, dst6
+				if srcHere && !dstHere && dstE.Nat {
+					if mesh := meshOf(dstE, dstRouters); len(mesh.v4) > 0 || len(mesh.v6) > 0 {
+						revSrc4, revSrc6 = mesh.v4, mesh.v6
+					}
+				}
+				// Reverse destinations stay the original LAN / selected IPs.
+				// The forward NAT substitution must not leak into this leg.
+				rev4 = appendUniqueIPNetPairs(rev4, crossSiteEgressIPNetPairs(revSrc4, src4), seenRev4)
+				rev6 = appendUniqueIPNetPairs(rev6, crossSiteEgressIPNetPairs(revSrc6, src6), seenRev6)
 			}
-			appendEgressSiteToSiteRules(rules, acl, models.TrafficDirectionUni, revV4, revV6, true)
+		}
+
+		if len(fwd4) == 0 && len(fwd6) == 0 && len(rev4) == 0 && len(rev6) == 0 {
+			continue
+		}
+		appendEgressSiteToSiteRules(rules, acl, acl.AllowedDirection, fwd4, fwd6, false)
+		if acl.AllowedDirection == models.TrafficDirectionBi {
+			appendEgressSiteToSiteRules(rules, acl, models.TrafficDirectionUni, rev4, rev6, true)
 		}
 	}
 	return rules
@@ -731,15 +883,6 @@ func appendParsedCIDRToFamilies(cidrStr string, v4, v6 *[]net.IPNet) {
 	} else {
 		*v6 = append(*v6, *cidr)
 	}
-}
-
-func egressListHasNAT(egresses []schema.Egress) bool {
-	for _, e := range egresses {
-		if e.Nat {
-			return true
-		}
-	}
-	return false
 }
 
 func meshNetsForEgressRouters(egresses []schema.Egress, excludeNodeID string) (ip4 []net.IPNet, ip6 []net.IPNet) {
@@ -1858,6 +2001,223 @@ func GetEgressDefaultAllowAllFwRule(node models.Node) (models.AclRule, bool) {
 	return rule, true
 }
 
+type egressIPPair struct {
+	src, dst net.IPNet
+	anyDst   bool
+}
+
+func aclRuleScopeKey(r models.AclRule) string {
+	ports := append([]string(nil), r.AllowedPorts...)
+	sort.Strings(ports)
+	return fmt.Sprintf("%s|%s|%d", r.AllowedProtocol, strings.Join(ports, ","), r.Direction)
+}
+
+func collectNewEgressPairs(srcs, dsts []net.IPNet, prefix string, seen map[string]struct{}) []egressIPPair {
+	if len(srcs) == 0 {
+		return nil
+	}
+	anyDst := len(dsts) == 0
+	dstUse := dsts
+	if anyDst {
+		dstUse = []net.IPNet{{}}
+	}
+	kept := make([]egressIPPair, 0, len(srcs)*len(dstUse))
+	for _, src := range srcs {
+		for _, dst := range dstUse {
+			dstKey := "*"
+			if !anyDst {
+				dstKey = dst.String()
+			}
+			key := prefix + src.String() + ">" + dstKey
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			kept = append(kept, egressIPPair{src: src, dst: dst, anyDst: anyDst})
+		}
+	}
+	return kept
+}
+
+// rectangularEgressPairs reports whether pairs are a full src × dst product.
+// An empty pair list is a rectangle with no addresses. A hole (one source
+// missing a destination another source still has) is not.
+func rectangularEgressPairs(pairs []egressIPPair) (srcs, dsts []net.IPNet, ok bool) {
+	if len(pairs) == 0 {
+		return nil, nil, true
+	}
+	srcSet := make(map[string]net.IPNet)
+	dstSet := make(map[string]net.IPNet)
+	perSrc := make(map[string]int)
+	anyDst := pairs[0].anyDst
+	for _, p := range pairs {
+		if p.anyDst != anyDst {
+			return nil, nil, false
+		}
+		srcSet[p.src.String()] = p.src
+		if anyDst {
+			dstSet["*"] = net.IPNet{}
+		} else {
+			dstSet[p.dst.String()] = p.dst
+		}
+		perSrc[p.src.String()]++
+	}
+	nDst := len(dstSet)
+	if len(pairs) != len(srcSet)*nDst {
+		return nil, nil, false
+	}
+	for _, n := range perSrc {
+		if n != nDst {
+			return nil, nil, false
+		}
+	}
+	srcs = make([]net.IPNet, 0, len(srcSet))
+	for _, n := range srcSet {
+		srcs = append(srcs, n)
+	}
+	sortIPNets(srcs)
+	if anyDst {
+		return srcs, nil, true
+	}
+	dsts = make([]net.IPNet, 0, len(dstSet))
+	for _, n := range dstSet {
+		dsts = append(dsts, n)
+	}
+	sortIPNets(dsts)
+	return srcs, dsts, true
+}
+
+func egressPairsBySrc(pairs []egressIPPair) []egressIPPairGroup {
+	order := make([]string, 0)
+	groups := make(map[string]*egressIPPairGroup)
+	for _, p := range pairs {
+		k := p.src.String()
+		g, ok := groups[k]
+		if !ok {
+			g = &egressIPPairGroup{src: p.src, anyDst: p.anyDst}
+			groups[k] = g
+			order = append(order, k)
+		}
+		if !p.anyDst {
+			g.dsts = append(g.dsts, p.dst)
+		}
+	}
+	out := make([]egressIPPairGroup, 0, len(order))
+	for _, k := range order {
+		g := groups[k]
+		sortIPNets(g.dsts)
+		out = append(out, *g)
+	}
+	return out
+}
+
+type egressIPPairGroup struct {
+	src    net.IPNet
+	dsts   []net.IPNet
+	anyDst bool
+}
+
+// dedupeEgressAclRules drops (src, dst, proto, ports, direction) tuples that
+// an earlier rule already covers. The client expands each rule as IPList × Dst,
+// so overlapping policies otherwise install the same iptables ACCEPT twice.
+// A reversed tuple is a different pair and is kept.
+func dedupeEgressAclRules(in map[string]models.AclRule) map[string]models.AclRule {
+	if len(in) < 2 {
+		return in
+	}
+	ids := make([]string, 0, len(in))
+	for id := range in {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	seen := make(map[string]struct{})
+	out := make(map[string]models.AclRule, len(in))
+	for _, id := range ids {
+		rule := in[id]
+		scope := aclRuleScopeKey(rule)
+		v4 := collectNewEgressPairs(rule.IPList, rule.Dst, scope+"|4|", seen)
+		v6 := collectNewEgressPairs(rule.IP6List, rule.Dst6, scope+"|6|", seen)
+		if len(v4) == 0 && len(v6) == 0 {
+			continue
+		}
+		v4Src, v4Dst, v4OK := rectangularEgressPairs(v4)
+		v6Src, v6Dst, v6OK := rectangularEgressPairs(v6)
+		if v4OK && v6OK {
+			rule.IPList, rule.Dst = v4Src, v4Dst
+			rule.IP6List, rule.Dst6 = v6Src, v6Dst
+			out[rule.ID] = rule
+			continue
+		}
+		for _, extra := range splitNonRectangularEgressRule(rule, v4, v4OK, v6, v6OK) {
+			out[extra.ID] = extra
+		}
+	}
+	return out
+}
+
+func splitNonRectangularEgressRule(rule models.AclRule, v4 []egressIPPair, v4OK bool, v6 []egressIPPair, v6OK bool) []models.AclRule {
+	var rules []models.AclRule
+	base := rule
+	base.IPList, base.Dst, base.IP6List, base.Dst6 = nil, nil, nil, nil
+	usedBase := false
+	take := func(src4, dst4, src6, dst6 []net.IPNet) {
+		r := base
+		r.IPList, r.Dst, r.IP6List, r.Dst6 = src4, dst4, src6, dst6
+		if !usedBase {
+			usedBase = true
+			rules = append(rules, r)
+			return
+		}
+		r.ID = fmt.Sprintf("%s#dedup%d", rule.ID, len(rules))
+		rules = append(rules, r)
+	}
+	if v4OK && v6OK {
+		return nil
+	}
+	if v4OK {
+		v4Src, v4Dst, _ := rectangularEgressPairs(v4)
+		if len(v6) == 0 {
+			take(v4Src, v4Dst, nil, nil)
+			return rules
+		}
+		for i, g := range egressPairsBySrc(v6) {
+			var dst6 []net.IPNet
+			if !g.anyDst {
+				dst6 = g.dsts
+			}
+			if i == 0 {
+				take(v4Src, v4Dst, []net.IPNet{g.src}, dst6)
+				continue
+			}
+			take(nil, nil, []net.IPNet{g.src}, dst6)
+		}
+		return rules
+	}
+	v6Src, v6Dst, _ := rectangularEgressPairs(v6)
+	groups := egressPairsBySrc(v4)
+	for i, g := range groups {
+		var dst4 []net.IPNet
+		if !g.anyDst {
+			dst4 = g.dsts
+		}
+		if i == 0 && v6OK {
+			take([]net.IPNet{g.src}, dst4, v6Src, v6Dst)
+			continue
+		}
+		take([]net.IPNet{g.src}, dst4, nil, nil)
+	}
+	if !v6OK && len(v6) > 0 {
+		for _, g := range egressPairsBySrc(v6) {
+			var dst6 []net.IPNet
+			if !g.anyDst {
+				dst6 = g.dsts
+			}
+			take(nil, nil, []net.IPNet{g.src}, dst6)
+		}
+	}
+	return rules
+}
+
 func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
 	taggedNodes := GetTagMapWithNodesByNetwork(ctx, schema.NetworkID(targetnode.Network), true)
@@ -1865,6 +2225,11 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 	defer func() {
 		rules = GetEgressUserRulesForNode(ctx, &targetnode, rules)
 		rules = GetUserDeviceEgressRulesForNode(ctx, &targetnode, networkNodes, rules)
+		// Policies overlap (All Nodes plus a narrower device policy). The client
+		// installs IPList × Dst as separate iptables rules, so drop a pair that
+		// an earlier rule already covers. Reverse pairs stay: their src and dst
+		// are swapped.
+		rules = dedupeEgressAclRules(rules)
 	}()
 
 	acls := getNetworkAccessDevicePolicies(ctx, schema.NetworkID(targetnode.Network))
@@ -1885,7 +2250,7 @@ func GetEgressRulesForNode(ctx context.Context, targetnode models.Node) (rules m
 		if !egI.Status {
 			continue
 		}
-		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+		if nodeRoutesEgress(&targetnode, &egI) {
 			egressIDMap[egI.ID] = egI
 		} else {
 			remoteEgresses[egI.ID] = egI
@@ -2162,7 +2527,7 @@ func appendDeviceRemoteEgressFwdRules(
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		_, srcAll := srcTags["*"]
-		dst4, dst6 := computeEgressDstsForAcl(targetnode.ID.String(), acl, remoteEgresses)
+		dst4, dst6 := computeEgressDstsForAcl(&targetnode, acl, remoteEgresses)
 		if len(dst4) == 0 && len(dst6) == 0 {
 			continue
 		}
@@ -2268,7 +2633,7 @@ func getExtClientEgressFwRulesOnIngressGw(ctx context.Context, node models.Node)
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		_, srcAll := srcTags["*"]
-		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, egByID)
+		dst4, dst6 := computeEgressDstsForAcl(&node, acl, egByID)
 		if len(dst4) == 0 && len(dst6) == 0 {
 			continue
 		}
@@ -2333,7 +2698,7 @@ func getDeviceEgressFwRulesOnIngressGw(ctx context.Context, node models.Node) (r
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		_, srcAll := srcTags["*"]
-		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, egByID)
+		dst4, dst6 := computeEgressDstsForAcl(&node, acl, egByID)
 		if len(dst4) == 0 && len(dst6) == 0 {
 			continue
 		}
@@ -2382,7 +2747,7 @@ func appendRelayedEgressFwdRules(
 		if !acl.Enabled {
 			continue
 		}
-		dst4, dst6 := computeEgressDstsForAcl(targetnode.ID.String(), acl, relayedEgresses)
+		dst4, dst6 := computeEgressDstsForAcl(&targetnode, acl, relayedEgresses)
 		if len(dst4) == 0 && len(dst6) == 0 {
 			continue
 		}
@@ -2516,7 +2881,7 @@ func getRelayedEgressFwRulesOnGw(ctx context.Context, node models.Node, relayedE
 		if !acl.Enabled {
 			continue
 		}
-		dst4, dst6 := computeEgressDstsForAcl(node.ID.String(), acl, relayedEgresses)
+		dst4, dst6 := computeEgressDstsForAcl(&node, acl, relayedEgresses)
 		if len(dst4) == 0 && len(dst6) == 0 {
 			continue
 		}
@@ -2772,13 +3137,14 @@ var NodesAutoRelayedViaGateway = func(ctx context.Context, gw models.Node, netwo
 }
 
 // computeEgressDstsForAcl returns the IPv4 and IPv6 destination CIDRs an acl
-// grants access to across egByID, viewed from `nodeID`'s perspective: the
+// grants access to across egByID, viewed from node's perspective: the
 // destination address a source on this node sees depends on whether the node
-// owns the egress (use Range) or not (prefer VirtualRange when set). Selected
+// owns the egress (use Range) or not (prefer VirtualRange when set). Ownership
+// is e.Nodes or a matching e.Tags entry. Selected
 // egress IPs (NetmakerIPAclID entries in acl.Dst) take precedence over the
 // egress range, and domain answers take precedence over Range when configured.
 func computeEgressDstsForAcl(
-	nodeID string,
+	node *models.Node,
 	acl models.Acl,
 	egByID map[string]schema.Egress,
 ) (dst4, dst6 []net.IPNet) {
@@ -2808,10 +3174,7 @@ func computeEgressDstsForAcl(
 			}
 			continue
 		}
-		nodeOwnsEgress := false
-		if _, ok := egI.Nodes[nodeID]; ok {
-			nodeOwnsEgress = true
-		}
+		nodeOwnsEgress := nodeRoutesEgress(node, &egI)
 		egressRange := egI.Range
 		if !nodeOwnsEgress && egI.VirtualRange != "" {
 			egressRange = egI.VirtualRange

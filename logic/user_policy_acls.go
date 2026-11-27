@@ -496,7 +496,7 @@ func getEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 		if !egI.Status {
 			continue
 		}
-		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+		if nodeRoutesEgress(targetnode, &egI) {
 			if egI.Range != "" {
 				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
 			} else if HasEgressDomainAns(egI) {
@@ -624,10 +624,7 @@ func getEgressUserRulesForNode(ctx context.Context, targetnode *models.Node,
 						if err != nil {
 							continue
 						}
-						nodeOwnsEgress := false
-						if _, ok := e.Nodes[targetnode.ID.String()]; ok {
-							nodeOwnsEgress = true
-						}
+						nodeOwnsEgress := nodeRoutesEgress(targetnode, &e)
 						// Use virtual range if target node doesn't own the egress, otherwise use regular range
 						egressRange := e.Range
 						if !nodeOwnsEgress && e.VirtualRange != "" {
@@ -712,7 +709,7 @@ func appendUserExtClientRemoteEgressFwdRules(
 		if !egI.Status {
 			continue
 		}
-		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+		if nodeRoutesEgress(targetnode, &egI) {
 			continue
 		}
 		remoteEgresses[egI.ID] = egI

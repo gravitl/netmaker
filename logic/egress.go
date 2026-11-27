@@ -1168,7 +1168,7 @@ func doesNodeHaveAccessToEgressByRoutingPolicy(node, targetNode *models.Node, e 
 	if node == nil || targetNode == nil || e == nil {
 		return false
 	}
-	if _, ok := e.Nodes[targetNode.ID.String()]; !ok {
+	if !nodeRoutesEgress(targetNode, e) {
 		return false
 	}
 	for _, acl := range acls {
