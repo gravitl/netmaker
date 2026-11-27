@@ -630,11 +630,11 @@ func getEgressAclRulesForTargetNode(ctx context.Context, targetnode models.Node)
 		}
 		origSrcIP4, origSrcIP6 := getSelectedEgressIPNets(acl.Src)
 		if len(origSrcIP4) == 0 && len(origSrcIP6) == 0 {
-			origSrcIP4, origSrcIP6 = getEgressCIDRs(srcEgresses)
+			origSrcIP4, origSrcIP6 = getEgressCIDRsForNode(srcEgresses, targetID)
 		}
 		dstIP4, dstIP6 := getSelectedEgressIPNets(acl.Dst)
 		if len(dstIP4) == 0 && len(dstIP6) == 0 {
-			dstIP4, dstIP6 = getEgressCIDRs(dstEgresses)
+			dstIP4, dstIP6 = getEgressCIDRsForNode(dstEgresses, targetID)
 		}
 		srcNat := egressListHasNAT(srcEgresses)
 		dstNat := egressListHasNAT(dstEgresses)
@@ -701,6 +701,23 @@ func getEgressCIDRs(egresses []schema.Egress) (ip4 []net.IPNet, ip6 []net.IPNet)
 			continue
 		}
 		AppendEgressPolicyRange(e, e.Range, &ip4, &ip6)
+	}
+	return
+}
+
+// getEgressCIDRsForNode returns the egress ranges as addressed from targetID:
+// the node that routes an egress sees its real Range (NETMAP translates on that
+// node), every other node a virtual NAT egress by its VirtualRange.
+func getEgressCIDRsForNode(egresses []schema.Egress, targetID string) (ip4 []net.IPNet, ip6 []net.IPNet) {
+	for _, e := range egresses {
+		if !e.Status {
+			continue
+		}
+		egressRange := e.Range
+		if _, nodeOwnsEgress := e.Nodes[targetID]; !nodeOwnsEgress && e.VirtualRange != "" {
+			egressRange = e.VirtualRange
+		}
+		AppendEgressPolicyRange(e, egressRange, &ip4, &ip6)
 	}
 	return
 }
