@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"sync/atomic"
 
 	"github.com/gravitl/netmaker/db"
@@ -24,6 +25,26 @@ func ResetDefaultTenantID(oldID, newID string) {
 	defaultTenantID.CompareAndSwap(oldID, newID)
 }
 
+// requestUsesAPIKey reports whether Authorization is a Netmaker API key secret.
+// On MSP (multi-tenant) installs these requests may omit X-Tenant-ID; SecurityCheck
+// rebinds tenant scope from the authenticated key.
+func requestUsesAPIKey(r *http.Request) bool {
+	parts := strings.Split(r.Header.Get("Authorization"), " ")
+	if len(parts) < 2 {
+		return false
+	}
+	return logic.IsAPIKeySecret(parts[1])
+}
+
+// resolveTenantID looks up a tenant by id or slug and returns the canonical ID.
+func resolveTenantID(r *http.Request, idOrSlug string) (string, error) {
+	t := &schema.Tenant{ID: idOrSlug, Slug: idOrSlug}
+	if err := t.Get(db.WithContext(r.Context())); err != nil {
+		return "", err
+	}
+	return t.ID, nil
+}
+
 // Scope reads the scope header for the given level, validates the tenant/org,
 // and stores the level and id in the request context.
 func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
@@ -38,6 +59,11 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 			}
 
 			if id == "" {
+				if requestUsesAPIKey(r) {
+					// Defer tenant binding to SecurityCheck / AuthenticateAPIKey.
+					next.ServeHTTP(w, r)
+					return
+				}
 				if defaultTenantID.Load() == nil {
 					t, err := logic.SoleTenant(r.Context())
 					if err != nil {
@@ -49,11 +75,12 @@ func Scope(level scope.Scope, next http.Handler) http.HandlerFunc {
 
 				id = defaultTenantID.Load().(string)
 			} else {
-				t := &schema.Tenant{ID: id}
-				if err := t.Get(db.WithContext(r.Context())); err != nil {
+				canonicalID, err := resolveTenantID(r, id)
+				if err != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
 					return
 				}
+				id = canonicalID
 			}
 
 		case scope.OrgScope:
@@ -105,12 +132,18 @@ func InferScope(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r.WithContext(scope.WithContext(r.Context(), scope.OrgScope, orgID)))
 			return
 		} else if tenantID != "" {
-			t := &schema.Tenant{ID: tenantID}
-			if err := t.Get(db.WithContext(r.Context())); err != nil {
+			canonicalID, err := resolveTenantID(r, tenantID)
+			if err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errTenantNotFound, logic.BadReq))
 				return
 			}
+			tenantID = canonicalID
 		} else {
+			if requestUsesAPIKey(r) {
+				// Defer tenant binding to SecurityCheck / AuthenticateAPIKey.
+				next.ServeHTTP(w, r)
+				return
+			}
 			if defaultTenantID.Load() == nil {
 				t, err := logic.SoleTenant(r.Context())
 				if err != nil {
