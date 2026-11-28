@@ -5,10 +5,13 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func(ctx context.Context, wg *sync.WaitGroup)
+var OnNodeOffline = func(ctx context.Context, node *schema.Node) {}
+var OnNodeOnline = func(ctx context.Context, node *schema.Node) {}
 var GetFeatureFlags = func(ctx context.Context) models.FeatureFlags {
 	return models.FeatureFlags{}
 }

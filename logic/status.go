@@ -91,13 +91,24 @@ func MarkStaleNodesOffline(ctx context.Context) {
 		case <-ticker.C:
 			dbCtx := db.WithContext(ctx)
 			threshold := time.Now().UTC().Add(-models.LastCheckInThreshold)
-			n, err := (&schema.Node{}).MarkStaleOffline(dbCtx, threshold)
+			staleNodes, err := (&schema.Node{}).FindStaleNodes(db.WithContext(ctx), threshold)
 			if err != nil {
-				slog.Error("mark stale nodes offline failed", "error", err)
+				slog.Error("find stale nodes failed", "error", err)
 				continue
 			}
-			if n > 0 {
-				slog.Info("marked stale nodes offline", "count", n, "threshold", threshold)
+			if len(staleNodes) > 0 {
+				n, err := (&schema.Node{}).MarkStaleOffline(db.WithContext(ctx), threshold)
+				if err != nil {
+					slog.Error("mark stale nodes offline failed", "error", err)
+					continue
+				}
+				if n > 0 {
+					slog.Info("marked stale nodes offline", "count", n, "threshold", threshold)
+					for i := range staleNodes {
+						staleNodes[i].Status = schema.OfflineSt
+						OnNodeOffline(ctx, &staleNodes[i])
+					}
+				}
 			}
 			clients, cErr := (&schema.Extclient{}).MarkOfflineForOfflineGateways(dbCtx)
 			if cErr != nil {
